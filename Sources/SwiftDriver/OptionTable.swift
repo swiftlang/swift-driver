@@ -65,7 +65,7 @@ extension String {
 
 extension OptionTable {
   /// Print help information to the terminal.
-  func printHelp(usage: String, title: String, includeHidden: Bool) {
+  public func printHelp(usage: String, title: String, includeHidden: Bool) {
     print("""
       OVERVIEW: \(title)
 
@@ -113,7 +113,7 @@ extension OptionTable {
 }
 
 extension OptionTable {
-  init(driverKind: DriverKind) {
+  public init(driverKind: DriverKind) {
     switch driverKind {
     case .autolinkExtract:
       self = OptionTable.autolinkExtractOptions
