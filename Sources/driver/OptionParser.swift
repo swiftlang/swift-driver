@@ -21,7 +21,7 @@ public struct OptionParser {
 
     /// Whether this option is an alias, and therefore need not be
     /// printed.
-    let isAlias: Bool = false
+    let isAlias: Bool
 
     /// Whether this option is hidden.
     let isHidden: Bool
@@ -32,16 +32,15 @@ public struct OptionParser {
     /// The help text, if there is one
     let helpText: String?    
   }
-   
-  
-  private var options: [StoredOption]
+
+  private var options: [StoredOption] = []
   
   mutating func addOption(
     spelling: String, generator: Generator, isHidden: Bool = false,
     metaVar: String? = nil, helpText: String? = nil
   ) {
     options.append(
-      StoredOption(spelling: spelling, generator: Generator, isAlias: false,
+      StoredOption(spelling: spelling, generator: generator, isAlias: false,
         isHidden: isHidden, metaVar: metaVar, helpText: helpText))
   }
 
@@ -49,12 +48,23 @@ public struct OptionParser {
     spelling: String, generator: Generator, isHidden: Bool = false
   ) {
     options.append(
-      StoredOption(spelling: spelling, generator: Generator, isAlias: true,
-        isHidden: isHidden))
+      StoredOption(spelling: spelling, generator: generator, isAlias: true,
+        isHidden: isHidden, metaVar: nil, helpText: nil))
+  }
+}
+
+extension String {
+  fileprivate func canonicalizedForArgName() -> String {
+    var result = self
+    while result.first != nil && result.first! == "-" {
+      result = String(result.dropFirst())
+    }
+    return result.lowercased()
   }
 }
 
 extension OptionParser {
+
   /// Print help information to the terminal.
   func printHelp(includeHidden: Bool) {
     print("""
@@ -64,33 +74,43 @@ extension OptionParser {
 
       OPTIONS:
       """)
-    
-    for option in options.sorted( { x, y in x.spelling < y.spelling } ) {
-      if option.isAlias { continue }
-      is option.isHidden && !includeHidden { continue }
 
-      let maxDisplayNameLength = 23
+    let sortedOptions = options.sorted { x, y in
+      x.spelling.canonicalizedForArgName() < y.spelling.canonicalizedForArgName()
+    }
+    for option in sortedOptions {
+      if option.isAlias { continue }
+      if option.isHidden && !includeHidden { continue }
+      if option.helpText == nil { continue }
+      
+      let maxDisplayNameLength = 22
 
       // Figure out the display name, with metavariable if given
       var displayName = option.spelling
       switch option.generator {
+        case .input:
+          continue
+        
         case .flag:
           break
 
-        case .joined, case .commaJoined:
-          displayName += option.metaVar ?? ""
+        case .joined, .commaJoined:
+          displayName += option.metaVar ?? "<value>"
 
-        case .separate, case .remaining, case .joinedOrSeparate:
-          displayName += " " + option.metaVar ?? ""
+        case .separate, .remaining, .joinedOrSeparate:
+          displayName += " " + (option.metaVar ?? "<value>")
       }
       if displayName.count <= maxDisplayNameLength {
-        print("  ", displayName, String(repeating: " ", count: maxDisplayNameLength - displayName.count, " ", option.helpText ?? ""))
+        let rightPadding = String(
+          repeating: " ",
+          count: maxDisplayNameLength - displayName.count)
+        
+        print("  \(displayName)\(rightPadding) \(option.helpText!)")
       } else {
-        print("  ", displayName)
-        if let helpText = option.helpText {
-          print("  ", String(repeating: " ", count: maxDisplayNameLength + 1),
-            helpText)
-        }
+        print("  \(displayName)")
+        let leftPadding = String(
+          repeating: " ", count: maxDisplayNameLength)
+        print("  \(leftPadding) \(option.helpText!)")
       }
     }
   }

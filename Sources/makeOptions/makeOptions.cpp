@@ -77,7 +77,7 @@ static const RawOption rawOptions[] = {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
   { OptionID::Opt_##ID, PREFIX, NAME, #ID, OptionKind::KIND, \
-    OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT },
+    OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR },
 #include "swift/Option/Options.inc"
 #undef OPTION
 };
@@ -88,13 +88,11 @@ struct Group {
   const char *description;
 };
 
-struct Option {
-  const char * const *prefixes;
-  std::string id;
-  std::string spelling;  
-};
+static std::vector<Group> groups;
+static std::map<OptionID, unsigned> groupIndexByID;
+static std::map<OptionID, unsigned> optionIndexByID;
 
-static std::set<std::string> swiftKeywords = { "internal" };
+static std::set<std::string> swiftKeywords = { "internal", "static" };
 
 static std::string escapeKeyword(const std::string &name) {
   if (swiftKeywords.count(name) > 0)
@@ -109,7 +107,17 @@ static std::string stringOrNil(const char *text) {
 
   return "\"" + std::string(text) + "\"";
 }
+
+static std::string stringOrNilLeftTrimmed(const char *text) {
+  if (!text)
+    return "nil";
+
+  while (*text == ' ' && *text)
+    ++text;
   
+  return "\"" + std::string(text) + "\"";
+}
+
 void forEachOption(std::function<void(const RawOption &)> fn) {
   for (const auto &rawOption : rawOptions) {
     if (rawOption.isGroup())
@@ -133,7 +141,8 @@ void forEachSpelling(const char * const *prefixes, const std::string &spelling,
 }
 
 enum class OptionTableKind {
-  Driver,
+  Interactive,
+  Batch,
   Frontend,
   ModuleWrap,
   AutolinkExtract,
@@ -142,8 +151,11 @@ enum class OptionTableKind {
 
 static const char *optionTableKindName(OptionTableKind kind) {
   switch (kind) {
-  case OptionTableKind::Driver:
-    return "driver";
+  case OptionTableKind::Interactive:
+    return "interactive";
+
+  case OptionTableKind::Batch:
+    return "batch";
 
   case OptionTableKind::Frontend:
     return "frontend";
@@ -163,9 +175,12 @@ static bool optionTableIncludes(OptionTableKind kind, const RawOption &option) {
   assert(!option.isGroup());
   
   switch (kind) {
-  case OptionTableKind::Driver:
-    return !(option.flags & NoDriverOption);
+  case OptionTableKind::Interactive:
+    return !(option.flags & (NoDriverOption | NoInteractiveOption));
 
+  case OptionTableKind::Batch:
+    return !(option.flags & (NoDriverOption | NoBatchOption));
+    
   case OptionTableKind::Frontend:
     return option.flags & FrontendOption;
 
@@ -181,8 +196,14 @@ static bool optionTableIncludes(OptionTableKind kind, const RawOption &option) {
 }
 
 std::string makeGenerator(const RawOption &option) {
+  std::string idName = option.idName;
+  if (option.isAlias()) {
+    idName = rawOptions[optionIndexByID[option.alias]].idName;
+  } else {
+    idName = option.idName;
+  }
+  
   auto makeWithArg = [&](const std::string &caseName) {
-    const std::string &idName = option.idName;
     return "Generator." + caseName + " { Option." + idName + "($0) }";
   };
   
@@ -195,7 +216,7 @@ std::string makeGenerator(const RawOption &option) {
     return "Generator.input";
 
   case OptionKind::Flag:
-    return makeWithArg("flag");
+    return "Generator.flag { Option." + idName + " }";
 
   case OptionKind::Joined:
     return makeWithArg("joined");
@@ -240,7 +261,7 @@ void printOptionTable(std::ostream &out, OptionTableKind kind) {
               << "generator: " << makeGenerator(option) << ", "
               << "isHidden: " << (option.isHidden() ? "true" : "false") << ", "
               << "metaVar: " << stringOrNil(option.metaVar) << ", "
-              << "helpText: " << stringOrNil(option.helpText)
+              << "helpText: " << stringOrNilLeftTrimmed(option.helpText)
               << ")\n";
         });
     });
@@ -251,9 +272,8 @@ void printOptionTable(std::ostream &out, OptionTableKind kind) {
 }
 
 int main() {
-  // Form the groups
-  std::vector<Group> groups;
-  std::map<OptionID, unsigned> groupIndexByID;
+  // Form the groups & record the ID mappings.
+  unsigned rawOptionIdx = 0;
   for (const auto &rawOption : rawOptions) {
     if (rawOption.isGroup()) {
       std::string idName = rawOption.idName;
@@ -264,8 +284,11 @@ int main() {
       
       groupIndexByID[rawOption.id] = groups.size();
       groups.push_back({idName, rawOption.spelling, rawOption.helpText});
+      ++rawOptionIdx;
       continue;
     }
+
+    optionIndexByID[rawOption.id] = rawOptionIdx++;
   }
 
   // Render the Option type, describing a parsed option.
@@ -303,8 +326,8 @@ int main() {
     });
   out << "}\n";
 
-  // Render the Option.Group type.
-  out << "public enum Option.Group {\n";
+  // Render the OptionGroup type.
+  out << "public enum OptionGroup {\n";
   for (const auto &group : groups) {
     out << "  case " << escapeKeyword(group.id) << "\n";
   }
@@ -312,7 +335,7 @@ int main() {
 
   // Retrieve the display name of the group.
   out << "\n";
-  out << "extension Option.Group {\n";
+  out << "extension OptionGroup {\n";
   out << "  public var name: String {\n";
   out << "    switch self {\n";
   for (const auto &group : groups) {
@@ -325,7 +348,7 @@ int main() {
 
   // Retrieve the help text for the group.
   out << "\n";
-  out << "extension Option.Group {\n";
+  out << "extension OptionGroup {\n";
   out << "  public var helpText: String? {\n";
   out << "    switch self {\n";
   for (const auto &group : groups) {
@@ -337,7 +360,8 @@ int main() {
   out << "}\n";
 
   // Print the various option tables.
-  printOptionTable(out, OptionTableKind::Driver);
+  printOptionTable(out, OptionTableKind::Interactive);
+  printOptionTable(out, OptionTableKind::Batch);
   printOptionTable(out, OptionTableKind::Frontend);
   printOptionTable(out, OptionTableKind::ModuleWrap);
   printOptionTable(out, OptionTableKind::AutolinkExtract);
