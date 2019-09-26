@@ -24,7 +24,13 @@ enum class OptionID {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,  \
                PARAM, HELPTEXT, METAVAR, VALUES)                       \
   Opt_##ID,
+
+#if __has_include("swift/Option/Options.inc")
 #include "swift/Option/Options.inc"
+#else
+#warning "Unable to include 'swift/Option/Options.inc', `makeOptions` will not be usable"
+#endif
+
 #undef OPTION
 };
 
@@ -70,7 +76,9 @@ struct RawOption {
 };
 
 #define PREFIX(NAME, VALUE) static const char *const NAME[] = VALUE;
+#if __has_include("swift/Option/Options.inc")
 #include "swift/Option/Options.inc"
+#endif
 #undef PREFIX
 
 static const RawOption rawOptions[] = {
@@ -78,7 +86,9 @@ static const RawOption rawOptions[] = {
                HELPTEXT, METAVAR, VALUES)                                      \
   { OptionID::Opt_##ID, PREFIX, NAME, #ID, OptionKind::KIND, \
     OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR },
+#if __has_include("swift/Option/Options.inc")
 #include "swift/Option/Options.inc"
+#endif
 #undef OPTION
 };
 
@@ -271,7 +281,13 @@ void printOptionTable(std::ostream &out, OptionTableKind kind) {
   out << "}\n";
 }
 
-int main() {
+int makeOptions_main() {
+  // Check if options were available.
+  if (sizeof(rawOptions) == 0) {
+    std::cerr << "error: swift/Options/Options.inc unavailable at compile time\n";
+    return 1;
+  }
+    
   // Form the groups & record the ID mappings.
   unsigned rawOptionIdx = 0;
   for (const auto &rawOption : rawOptions) {
