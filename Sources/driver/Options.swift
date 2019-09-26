@@ -421,9 +421,9 @@ extension OptionGroup {
   }
 }
 
-extension OptionParser {
-  public static var interactiveOptions: OptionParser {
-    var parser = OptionParser()
+extension OptionTable {
+  public static var interactiveOptions: OptionTable {
+    var parser = OptionTable()
       parser.addAlias(spelling: "-###", generator: Generator.flag { Option.driver_print_jobs }, isHidden: false)
       parser.addOption(spelling: "-assert-config", generator: Generator.separate { Option.AssertConfig($0) }, isHidden: false, metaVar: nil, helpText: "Specify the assert_configuration replacement. Possible values are Debug, Release, Unchecked, DisableReplacement.")
       parser.addOption(spelling: "-assume-single-threaded", generator: Generator.flag { Option.AssumeSingleThreaded }, isHidden: true, metaVar: nil, helpText: "Assume that code will be executed in a single-threaded environment")
@@ -565,9 +565,9 @@ extension OptionParser {
   }
 }
 
-extension OptionParser {
-  public static var batchOptions: OptionParser {
-    var parser = OptionParser()
+extension OptionTable {
+  public static var batchOptions: OptionTable {
+    var parser = OptionTable()
       parser.addAlias(spelling: "-###", generator: Generator.flag { Option.driver_print_jobs }, isHidden: false)
       parser.addOption(spelling: "-api-diff-data-dir", generator: Generator.separate { Option.api_diff_data_dir($0) }, isHidden: false, metaVar: "<path>", helpText: "Load platform and version specific API migration data files from <path>. Ignored if -api-diff-data-file is specified.")
       parser.addOption(spelling: "-api-diff-data-file", generator: Generator.separate { Option.api_diff_data_file($0) }, isHidden: false, metaVar: "<path>", helpText: "API migration data is from <path>")
@@ -787,9 +787,9 @@ extension OptionParser {
   }
 }
 
-extension OptionParser {
-  public static var frontendOptions: OptionParser {
-    var parser = OptionParser()
+extension OptionTable {
+  public static var frontendOptions: OptionTable {
+    var parser = OptionTable()
       parser.addOption(spelling: "-api-diff-data-dir", generator: Generator.separate { Option.api_diff_data_dir($0) }, isHidden: false, metaVar: "<path>", helpText: "Load platform and version specific API migration data files from <path>. Ignored if -api-diff-data-file is specified.")
       parser.addOption(spelling: "-api-diff-data-file", generator: Generator.separate { Option.api_diff_data_file($0) }, isHidden: false, metaVar: "<path>", helpText: "API migration data is from <path>")
       parser.addOption(spelling: "-application-extension", generator: Generator.flag { Option.enable_app_extension }, isHidden: false, metaVar: nil, helpText: "Restrict code to those available for App Extensions")
@@ -1124,9 +1124,9 @@ extension OptionParser {
   }
 }
 
-extension OptionParser {
-  public static var moduleWrapOptions: OptionParser {
-    var parser = OptionParser()
+extension OptionTable {
+  public static var moduleWrapOptions: OptionTable {
+    var parser = OptionTable()
       parser.addOption(spelling: "-help", generator: Generator.flag { Option.help }, isHidden: false, metaVar: nil, helpText: "Display available options")
       parser.addAlias(spelling: "--help", generator: Generator.flag { Option.help }, isHidden: false)
       parser.addOption(spelling: "-o", generator: Generator.joinedOrSeparate { Option.o($0) }, isHidden: false, metaVar: "<file>", helpText: "Write output to <file>")
@@ -1135,9 +1135,9 @@ extension OptionParser {
   }
 }
 
-extension OptionParser {
-  public static var autolinkExtractOptions: OptionParser {
-    var parser = OptionParser()
+extension OptionTable {
+  public static var autolinkExtractOptions: OptionTable {
+    var parser = OptionTable()
       parser.addOption(spelling: "-help", generator: Generator.flag { Option.help }, isHidden: false, metaVar: nil, helpText: "Display available options")
       parser.addAlias(spelling: "--help", generator: Generator.flag { Option.help }, isHidden: false)
       parser.addOption(spelling: "-o", generator: Generator.joinedOrSeparate { Option.o($0) }, isHidden: false, metaVar: "<file>", helpText: "Write output to <file>")
@@ -1145,9 +1145,9 @@ extension OptionParser {
   }
 }
 
-extension OptionParser {
-  public static var indentOptions: OptionParser {
-    var parser = OptionParser()
+extension OptionTable {
+  public static var indentOptions: OptionTable {
+    var parser = OptionTable()
       parser.addOption(spelling: "-help", generator: Generator.flag { Option.help }, isHidden: false, metaVar: nil, helpText: "Display available options")
       parser.addAlias(spelling: "--help", generator: Generator.flag { Option.help }, isHidden: false)
       parser.addOption(spelling: "-in-place", generator: Generator.flag { Option.in_place }, isHidden: false, metaVar: nil, helpText: "Overwrite input file with formatted file.")

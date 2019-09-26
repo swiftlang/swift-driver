@@ -1,2 +1,3 @@
-let options = OptionParser.interactiveOptions
-options.printHelp(includeHidden: true)
+let driverKind = DriverKind.interactive
+let options = OptionTable(driverKind: driverKind)
+options.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: false)

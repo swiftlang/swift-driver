@@ -1,4 +1,4 @@
-public struct OptionParser {
+public struct OptionTable {
   /// Generates an option given an appropriate set of arguments.
   enum Generator {
     case input
@@ -34,7 +34,7 @@ public struct OptionParser {
   }
 
   private var options: [StoredOption] = []
-  
+
   mutating func addOption(
     spelling: String, generator: Generator, isHidden: Bool = false,
     metaVar: String? = nil, helpText: String? = nil
@@ -63,27 +63,23 @@ extension String {
   }
 }
 
-extension OptionParser {
-
+extension OptionTable {
   /// Print help information to the terminal.
-  func printHelp(includeHidden: Bool) {
+  func printHelp(usage: String, title: String, includeHidden: Bool) {
     print("""
-      OVERVIEW: Swift compiler
+      OVERVIEW: \(title)
 
-      USAGE: swift
+      USAGE: \(usage)
 
       OPTIONS:
       """)
 
-    let sortedOptions = options.sorted { x, y in
-      x.spelling.canonicalizedForArgName() < y.spelling.canonicalizedForArgName()
-    }
-    for option in sortedOptions {
+    for option in options {
       if option.isAlias { continue }
       if option.isHidden && !includeHidden { continue }
       if option.helpText == nil { continue }
       
-      let maxDisplayNameLength = 22
+      let maxDisplayNameLength = 23
 
       // Figure out the display name, with metavariable if given
       var displayName = option.spelling
@@ -112,6 +108,30 @@ extension OptionParser {
           repeating: " ", count: maxDisplayNameLength)
         print("  \(leftPadding) \(option.helpText!)")
       }
+    }
+  }
+}
+
+extension OptionTable {
+  init(driverKind: DriverKind) {
+    switch driverKind {
+    case .autolinkExtract:
+      self = OptionTable.autolinkExtractOptions
+
+    case .batch:
+      self = OptionTable.batchOptions
+
+    case .frontend:
+      self = OptionTable.frontendOptions
+
+    case .indent:
+      self = OptionTable.indentOptions
+
+    case .interactive:
+      self = OptionTable.indentOptions
+
+    case .moduleWrap:
+      self = OptionTable.moduleWrapOptions
     }
   }
 }

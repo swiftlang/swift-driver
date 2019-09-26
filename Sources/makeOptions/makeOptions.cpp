@@ -237,10 +237,10 @@ std::string makeGenerator(const RawOption &option) {
 
 void printOptionTable(std::ostream &out, OptionTableKind kind) {
   out << "\n";
-  out << "extension OptionParser {\n";
+  out << "extension OptionTable {\n";
   out << "  public static var " << optionTableKindName(kind) << "Options"
-      << ": OptionParser {\n";
-  out << "    var parser = OptionParser()\n";
+      << ": OptionTable {\n";
+  out << "    var parser = OptionTable()\n";
 
   forEachOption([&](const RawOption &option) {
       if (!optionTableIncludes(kind, option))
