@@ -3,7 +3,7 @@ import TSCLibc
 
 do {
   let driver = try Driver(args: CommandLine.arguments)
-  driver.run()
+  try driver.run()
 } catch {
   print("error: \(error)")
   exit(EXIT_FAILURE)
