@@ -1,6 +1,6 @@
 public struct OptionTable {
   /// Generates an option given an appropriate set of arguments.
-  enum Generator {
+  public enum Generator {
     case input
     case flag(() -> Option)
     case joined((String) -> Option)
@@ -8,9 +8,18 @@ public struct OptionTable {
     case remaining(([String]) -> Option)
     case commaJoined(([String]) -> Option)
     case joinedOrSeparate((String) -> Option)
+
+    var isInput: Bool {
+      switch self {
+      case .input:
+        return true
+      default:
+        return false
+      }
+    }
   }
 
-  private struct StoredOption {
+  struct StoredOption {
     /// The spelling of the option, including its prefix, e.g.,
     /// "-help"
     let spelling: String
@@ -33,20 +42,34 @@ public struct OptionTable {
     let helpText: String?    
   }
 
-  private var options: [StoredOption] = []
+  var inputOption: StoredOption? = nil
+  var options: [StoredOption] = []
 
-  mutating func addOption(
+  public init() { }
+}
+
+extension OptionTable {
+  public mutating func addOption(
     spelling: String, generator: Generator, isHidden: Bool = false,
     metaVar: String? = nil, helpText: String? = nil
   ) {
-    options.append(
-      StoredOption(spelling: spelling, generator: generator, isAlias: false,
-        isHidden: isHidden, metaVar: metaVar, helpText: helpText))
+    let option = StoredOption(spelling: spelling, generator: generator,
+                              isAlias: false, isHidden: isHidden,
+                              metaVar: metaVar, helpText: helpText)
+
+    // Allow at most one input option, which won't be entered in the table.
+    if generator.isInput {
+      assert(inputOption == nil)
+      inputOption = option
+    } else {
+      options.append(option)
+    }
   }
 
-  mutating func addAlias(
+  public mutating func addAlias(
     spelling: String, generator: Generator, isHidden: Bool = false
   ) {
+    assert(!generator.isInput)
     options.append(
       StoredOption(spelling: spelling, generator: generator, isAlias: true,
         isHidden: isHidden, metaVar: nil, helpText: nil))
@@ -128,7 +151,7 @@ extension OptionTable {
       self = OptionTable.indentOptions
 
     case .interactive:
-      self = OptionTable.indentOptions
+      self = OptionTable.interactiveOptions
 
     case .moduleWrap:
       self = OptionTable.moduleWrapOptions

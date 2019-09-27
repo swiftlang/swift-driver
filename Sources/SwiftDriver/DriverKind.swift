@@ -24,7 +24,7 @@ extension DriverKind {
       return "swift-indent"
 
     case .interactive:
-      return "swiftc"
+      return "swift"
 
     case .moduleWrap:
       return "swift-modulewrap"
