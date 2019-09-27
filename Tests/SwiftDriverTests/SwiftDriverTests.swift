@@ -74,9 +74,12 @@ final class SwiftDriverTests: XCTestCase {
 
   func testDriverKindParsing() throws {
     XCTAssertEqual(try Driver.determineDriverKind(args: ["swift"]), .interactive)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["/path/to/swift"]), .interactive)
     XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc"]), .batch)
+    XCTAssertEqual(try Driver.determineDriverKind(args: [".build/debug/swiftc"]), .batch)
     XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "-frontend"]), .frontend)
     XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "-modulewrap"]), .moduleWrap)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["/path/to/swiftc", "-modulewrap"]), .moduleWrap)
 
     XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift"]), .interactive)
     XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift-autolink-extract"]), .autolinkExtract)

@@ -1,14 +1,16 @@
 // swift-tools-version:5.1
-
 import PackageDescription
 
 let package = Package(
     name: "swift-driver",
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+    ],
     targets: [
         /// The driver library.
         .target(
             name: "SwiftDriver",
-            dependencies: []),
+            dependencies: ["SwiftToolsSupport-auto"]),
         .testTarget(
             name: "SwiftDriverTests",
             dependencies: ["SwiftDriver"]),

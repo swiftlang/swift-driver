@@ -1,8 +1,5 @@
-#if os(macOS)
-import Darwin.C
-#else
-import Glibc
-#endif
+import TSCLibc
+import TSCBasic
 
 /// The Swift driver.
 public final class Driver {
@@ -27,10 +24,13 @@ public final class Driver {
   }
 
   /// Determine the driver kind based on the command-line arguments.
-  static func determineDriverKind(args: [String]) throws -> DriverKind {
-    // We always expect to have the first argument. By default, the driver name
-    // is used to determine the kind.
-    var driverName = args.first!
+  static func determineDriverKind(
+    args: [String],
+    cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+  ) throws -> DriverKind {
+    // Get the basename of the driver executable.
+    let execPath = try cwd.map{ AbsolutePath(args[0], relativeTo: $0) } ?? AbsolutePath(validating: args[0])
+    var driverName = execPath.basename
 
     // Determine driver kind based on the first argument.
     if args.count > 1 {
