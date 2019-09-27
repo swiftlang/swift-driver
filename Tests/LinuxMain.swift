@@ -1,7 +1,8 @@
 import XCTest
 
-import driverTests
+import libdriverTests
 
 var tests = [XCTestCaseEntry]()
-tests += driverTests.allTests()
+tests += libdriverTests.__allTests()
+
 XCTMain(tests)
