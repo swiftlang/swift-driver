@@ -6,6 +6,7 @@ extension SwiftDriverTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__SwiftDriverTests = [
+        ("testDriverKindParsing", testDriverKindParsing),
         ("testParseErrors", testParseErrors),
         ("testParsing", testParsing),
     ]

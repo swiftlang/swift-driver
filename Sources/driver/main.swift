@@ -1,5 +1,10 @@
 import SwiftDriver
+import TSCLibc
 
-let driverKind = DriverKind.interactive
-let options = OptionTable(driverKind: driverKind)
-options.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: false)
+do {
+  let driver = try Driver(args: CommandLine.arguments)
+  driver.run()
+} catch {
+  print("error: \(error)")
+  exit(EXIT_FAILURE)
+}

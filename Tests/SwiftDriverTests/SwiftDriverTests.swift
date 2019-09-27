@@ -1,4 +1,4 @@
-import SwiftDriver
+@testable import SwiftDriver
 import XCTest
 
 final class SwiftDriverTests: XCTestCase {
@@ -67,8 +67,27 @@ final class SwiftDriverTests: XCTestCase {
                       generator: .remaining(Option._DASH_DASH))
 
     // FIXME: Check for the exact form of the error
-    XCTAssertThrowsError(try options.parse(["-unrecognized"]));
-    XCTAssertThrowsError(try options.parse(["-I"]));
-    XCTAssertThrowsError(try options.parse(["-module-name"]));
+    XCTAssertThrowsError(try options.parse(["-unrecognized"]))
+    XCTAssertThrowsError(try options.parse(["-I"]))
+    XCTAssertThrowsError(try options.parse(["-module-name"]))
+  }
+
+  func testDriverKindParsing() throws {
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swift"]), .interactive)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["/path/to/swift"]), .interactive)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc"]), .batch)
+    XCTAssertEqual(try Driver.determineDriverKind(args: [".build/debug/swiftc"]), .batch)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "-frontend"]), .frontend)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "-modulewrap"]), .moduleWrap)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["/path/to/swiftc", "-modulewrap"]), .moduleWrap)
+
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift"]), .interactive)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift-autolink-extract"]), .autolinkExtract)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift-indent"]), .indent)
+    XCTAssertEqual(try Driver.determineDriverKind(args: ["swift", "--driver-mode=swift-autolink-extract"]), .autolinkExtract)
+
+    XCTAssertThrowsError(try Driver.determineDriverKind(args: ["driver"]))
+    XCTAssertThrowsError(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=blah"]))
+    XCTAssertThrowsError(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode="]))
   }
 }
