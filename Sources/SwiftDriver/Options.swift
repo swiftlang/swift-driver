@@ -1,5 +1,5 @@
 
-public enum Option {
+public enum Option: Equatable, Hashable {
   case INPUT(String)
   case api_diff_data_dir(String)
   case api_diff_data_file(String)

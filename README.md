@@ -27,7 +27,7 @@ $ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include
 
 The driver currently does very little. Next steps:
 
-* [ ] Implement parsing of command line arguments (e.g., the `[String]` produced by `CommandLine.arguments`) into an array of `Option` values, capturing arguments and diagnosing unrecognized options, missing arguments, and other user errors.
+* [x] Implement parsing of command line arguments (e.g., the `[String]` produced by `CommandLine.arguments`) into an array of `Option` values, capturing arguments and diagnosing unrecognized options, missing arguments, and other user errors.
 * [ ] Infer the driver mode/kind from the name of the binary (e.g., `swift` -> `DriverKind.interactive`, `swiftc` -> `DriverKind.batch`, etc.) so we get the right options table. Recognize `--driver-mode` to change the mode from the command line.
 * [ ] Start building abstractions for inputs, outputs, and jobs.
 * [ ] Write a little script to help automate the compilation of that horrible C++ program `makeOptions.cpp` (passing in the Swift build directory so it can find the generated `Options.inc`) so we can automatically update `Options.swift`. Is there any way to do this via `Package.swift` to make it automatic?

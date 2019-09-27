@@ -310,7 +310,7 @@ int makeOptions_main() {
   // Render the Option type, describing a parsed option.
   auto &out = std::cout;
   out << "\n";
-  out << "public enum Option {\n";
+  out << "public enum Option: Equatable, Hashable {\n";
   forEachOption([&](const RawOption &option) {
       // Skip aliases; we'll handle them separately.
       if (option.isAlias())
