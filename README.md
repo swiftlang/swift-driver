@@ -33,3 +33,5 @@ The driver currently does very little. Next steps:
 * [ ] Write a little script to help automate the compilation of that horrible C++ program `makeOptions.cpp` (passing in the Swift build directory so it can find the generated `Options.inc`) so we can automatically update `Options.swift`. Is there any way to do this via `Package.swift` to make it automatic?
 * [ ] Reflect option "group" information from `Options.inc` in the generated `Option`, since we'll need group-based queries.
 * [ ] Figure out a principled way to walk an array of `Option` values and turn it into command lines for various jobs so that we don't "forget" to process a particular kind of option.
+* [ ] Make `Option` conform to `CustomStringConvertible`, where its `description` is the canonically-rendered argument.
+* [ ] Think about whether there is a mostly-declarative way to map `Option`s down to command-line arguments for the various tools (`swift-frontend`, `ld`, etc.), which can (1) preserve the order that the existing driver produces, and (2) avoids repeating a huge series of `AddLastArg`/`AddAllArgs` calls as in the existing driver.
