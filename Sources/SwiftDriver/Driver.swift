@@ -1,11 +1,11 @@
 import TSCBasic
+import TSCUtility
 
 /// The Swift driver.
 public struct Driver {
 
   enum Error: Swift.Error {
     case invalidDriverName(String)
-    case driverKindUnimplemented(DriverKind)
   }
 
   /// The kind of driver.
@@ -76,14 +76,16 @@ public struct Driver {
 
   /// Run the driver.
   public func run() throws {
+    let argsWithoutExecutable = Array(args.dropFirst())
+
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
-      // FIXME: Invoke the corresponding tool.
-      throw Error.driverKindUnimplemented(driverKind)
+      let swiftCompiler = try getSwiftCompilerPath()
+      return try exec(path: swiftCompiler.pathString, args: ["swift"] + argsWithoutExecutable)
     }
 
     let optionTable = OptionTable(driverKind: driverKind)
-    let options = try optionTable.parse(Array(args.dropFirst()))
+    let options = try optionTable.parse(argsWithoutExecutable)
 
     if options.contains(.help) {
       optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: options.contains(.help_hidden))
@@ -100,6 +102,14 @@ public struct Driver {
     case .immediate:
       break
     }
+  }
+
+  /// Returns the path to the Swift binary.
+  func getSwiftCompilerPath() throws -> AbsolutePath {
+    // FIXME: This is very preliminary. Need to figure out how to get the actual Swift executable path.
+    let path = try Process.checkNonZeroExit(
+      arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
+    return AbsolutePath(path)
   }
 }
 
