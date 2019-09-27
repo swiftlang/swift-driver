@@ -1,8 +1,7 @@
-import TSCLibc
 import TSCBasic
 
 /// The Swift driver.
-public final class Driver {
+public struct Driver {
 
   enum Error: Swift.Error {
     case invalidDriverName(String)
@@ -12,15 +11,10 @@ public final class Driver {
   let driverKind: DriverKind
 
   /// Create the driver with the given arguments.
-  public init(args: [String]) {
+  public init(args: [String]) throws {
     // FIXME: Determine if we should run as subcommand.
 
-    do {
-      driverKind = try Self.determineDriverKind(args: args)
-    } catch {
-      print("error: \(error)")
-      exit(EXIT_FAILURE)
-    }
+    driverKind = try Self.determineDriverKind(args: args)
   }
 
   /// Determine the driver kind based on the command-line arguments.

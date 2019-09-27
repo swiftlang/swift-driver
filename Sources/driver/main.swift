@@ -1,4 +1,10 @@
 import SwiftDriver
+import TSCLibc
 
-let driver = Driver(args: CommandLine.arguments)
-driver.run()
+do {
+  let driver = try Driver(args: CommandLine.arguments)
+  driver.run()
+} catch {
+  print("error: \(error)")
+  exit(EXIT_FAILURE)
+}
