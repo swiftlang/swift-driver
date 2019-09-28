@@ -1,5 +1,6 @@
-@testable import SwiftDriver
 import XCTest
+
+import SwiftDriver
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {

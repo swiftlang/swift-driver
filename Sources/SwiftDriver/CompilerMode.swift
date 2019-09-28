@@ -1,5 +1,5 @@
 /// The mode of the compiler.
-enum CompilerMode {
+public enum CompilerMode {
   /// A standard compilation, using multiple frontend invocations and -primary-file.
   case standardCompile
 

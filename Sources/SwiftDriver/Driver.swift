@@ -23,7 +23,7 @@ public struct Driver {
   }
 
   /// Determine the driver kind based on the command-line arguments.
-  static func determineDriverKind(
+  public static func determineDriverKind(
     args: [String],
     cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
   ) throws -> DriverKind {
@@ -58,7 +58,7 @@ public struct Driver {
   }
 
   /// Compute the compiler mode based on the options.
-  func computeCompilerMode(options: [Option]) -> CompilerMode {
+  public func computeCompilerMode(options: [Option]) -> CompilerMode {
     if driverKind == .interactive {
       return options.contains(where: { $0.isInput }) ? .immediate : .repl
     }
