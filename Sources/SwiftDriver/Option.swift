@@ -1,0 +1,133 @@
+/// Attributes that describe where and how the option is used.
+public struct OptionAttributes: OptionSet, Hashable {
+  public let rawValue: UInt
+  
+  public init(rawValue: UInt) {
+    self.rawValue = rawValue
+  }
+
+  static let helpHidden                    = OptionAttributes(rawValue: 0x1)
+  static let frontend                      = OptionAttributes(rawValue: 0x2)
+  static let noDriver                      = OptionAttributes(rawValue: 0x4)
+  static let noInteractive                 = OptionAttributes(rawValue: 0x8)
+  static let noBatch                       = OptionAttributes(rawValue: 0x10)
+  static let doesNotAffectIncrementalBuild = OptionAttributes(rawValue: 0x20)
+  static let autolinkExtract               = OptionAttributes(rawValue: 0x40)
+  static let moduleWrap                    = OptionAttributes(rawValue: 0x80)
+  static let indent                        = OptionAttributes(rawValue: 0x100)
+  static let argumentIsPath                = OptionAttributes(rawValue: 0x200)
+  static let moduleInterface               = OptionAttributes(rawValue: 0x400)
+}
+
+/// Describes a command-line option.
+@propertyWrapper
+public struct Option {
+  /// The kind of option we have, which determines how it will be parsed.
+  public enum Kind: Hashable {
+    /// An option that enables/disables some specific behavior.
+    case flag
+    /// An option whose argument directly follows the spelling.
+    case joined
+    /// An option whose argument is in the following command-line argument.
+    case separate
+    /// An option whose argument either directly follows the spelling (like
+    /// \c .joined) when non-empty, or otherwise is the following command-line
+    /// argument (like \c .separate).
+    case joinedOrSeparate
+    /// An option with multiple arguments, which are collected from all
+    /// falling command-line arguments.
+    case remaining
+    /// An option with multiple arguments, which are collected by splitting
+    /// the text directly following the spelling at each comma.
+    case commaJoined
+  }
+
+  /// The spelling of the option, including any leading dashes.
+  public let spelling: String
+
+  ///. The kind of option, which determines how it is parsed.
+  public let kind: Kind
+
+  /// The option that this aliases, if any, as a closure that produces the
+  /// valid.
+  private let aliasFunction: (() -> Option)?
+
+  /// The attributes that describe where and how the attribute is used.
+  public let attributes: OptionAttributes
+
+  /// For options that have an argument, the name of the metavariable to
+  /// use in documentation.
+  public let metaVar: String?
+
+  /// Help text to display with this option.
+  public let helpText: String?
+
+  public init(_ spelling: String, _ kind: Kind,
+              alias: Option? = nil,
+              attributes: OptionAttributes = [], metaVar: String? = nil,
+              helpText: String? = nil) {
+    self.spelling = spelling
+    self.kind = kind
+    self.aliasFunction = alias.map { aliasOption in { aliasOption }}
+    self.attributes = attributes
+    self.metaVar = metaVar
+    self.helpText = helpText
+  }
+
+  public var wrappedValue: Option { self }
+}
+
+extension Option: Equatable {
+  public static func ==(lhs: Option, rhs: Option) -> Bool {
+    return lhs.spelling == rhs.spelling
+  }
+}
+
+extension Option: Hashable {
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(spelling)
+  }
+}
+
+extension Option {
+  /// Whether this option is an alias.
+  public var isAlias: Bool { aliasFunction != nil }
+
+  /// Retrieves the alias option, if there is one.
+  public var alias: Option? {
+    aliasFunction.map { function in function() }
+  }
+
+  /// Whether this option's help is hidden under normal circumstances.
+  public var isHelpHidden: Bool { attributes.contains(.helpHidden) }
+
+  /// Whether this option can affect an incremental build.
+  public var affectsIncrementalBuild: Bool {
+    !attributes.contains(.doesNotAffectIncrementalBuild)
+  }
+}
+
+extension Option {
+  /// Whether this option is accepted by the
+  public func isAcceptedBy(_ driverKind: DriverKind) -> Bool {
+    switch driverKind {
+    case .autolinkExtract:
+      return attributes.contains(.autolinkExtract)
+
+    case .batch:
+      return !attributes.contains(.noBatch)
+
+    case .frontend:
+      return attributes.contains(.frontend)
+
+    case .indent:
+      return attributes.contains(.indent)
+
+    case .interactive:
+      return !attributes.contains(.noInteractive)
+
+    case .moduleWrap:
+      return attributes.contains(.moduleWrap)
+    }
+  }
+}

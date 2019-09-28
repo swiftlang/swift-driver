@@ -136,6 +136,9 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
     if (rawOption.kind == OptionKind::Unknown)
       continue;
 
+    if (rawOption.kind == OptionKind::Input)
+      continue;
+
     fn(rawOption);
   }
 }
@@ -307,51 +310,136 @@ int makeOptions_main() {
     optionIndexByID[rawOption.id] = rawOptionIdx++;
   }
 
-  // Render the Option type, describing a parsed option.
+  // Add static properties to Option for each of the options.
   auto &out = std::cout;
   out << "\n";
-  out << "public enum Option: Equatable, Hashable {\n";
+  out << "extension Option {\n";
   forEachOption([&](const RawOption &option) {
-      // Skip aliases; we'll handle them separately.
-      if (option.isAlias())
-        return;
+    // Look through each spelling of the option.
+    forEachSpelling(option.prefixes, option.spelling,
+                    [&](const std::string &spelling,
+                        bool isAlternateSpelling) {
+      out << "  @Option(\"" << spelling << "\"";
 
-      out << "  case " << escapeKeyword(option.idName);
-
+      out << ", ";
       switch (option.kind) {
-      case OptionKind::Group:
-        assert(false);
-
-      case OptionKind::Flag:
+      case OptionKind::CommaJoined:
+        out << ".commaJoined";
         break;
 
-      case OptionKind::Unknown:
-      case OptionKind::Input:
+      case OptionKind::Flag:
+        out << ".flag";
+        break;
+
       case OptionKind::Joined:
-      case OptionKind::Separate:
+        out << ".joined";
+        break;
+
       case OptionKind::JoinedOrSeparate:
-        out << "(String)";
+        out << ".joinedOrSeparate";
         break;
 
       case OptionKind::RemainingArgs:
-      case OptionKind::CommaJoined:
-        out << "([String])";
+        out << ".remaining";
         break;
+
+      case OptionKind::Separate:
+        out << ".separate";
+        break;
+
+      case OptionKind::Group:
+      case OptionKind::Input:
+      case OptionKind::Unknown:
+        assert(false && "Should have been filtered out");
       }
-      out << "\n";
+
+      if (option.isAlias()) {
+        const auto &aliased = rawOptions[optionIndexByID[option.alias]];
+        out << ", alias: Option." << aliased.idName;
+      } else if (isAlternateSpelling) {
+        out << ", alias: Option." << option.idName;
+      }
+
+      if (option.flags != 0) {
+        bool anyEmitted = false;
+        auto emitFlag = [&](SwiftFlags flag, const char *name) {
+          if ((option.flags & flag) == 0) { return; }
+
+          if (anyEmitted) {
+            out << ", ";
+          } else {
+            anyEmitted = true;
+          }
+
+          out << name;
+        };
+
+        out << ", attributes: [";
+        emitFlag(HelpHidden, ".helpHidden");
+        emitFlag(FrontendOption, ".frontend");
+        emitFlag(NoDriverOption, ".noDriver");
+        emitFlag(NoInteractiveOption, ".noInteractive");
+        emitFlag(NoBatchOption, ".noBatch");
+        emitFlag(DoesNotAffectIncrementalBuild, ".doesNotAffectIncrementalBuild");
+        emitFlag(AutolinkExtractOption, ".autolinkExtract");
+        emitFlag(ModuleWrapOption, ".moduleWrap");
+        emitFlag(SwiftIndentOption, ".indent");
+        emitFlag(ArgumentIsPath, ".argumentIsPath");
+        emitFlag(ModuleInterfaceOption, ".moduleInterface");
+        out << "]";
+      }
+
+      if (option.metaVar) {
+        out << ", metaVar: " << stringOrNil(option.metaVar);
+      }
+      if (option.helpText) {
+        out << ", helpText: " << stringOrNilLeftTrimmed(option.helpText);
+      }
+      out << ") static var ";
+
+      // Add a '_' suffix if this is an alternate spelling.
+      if (isAlternateSpelling)
+        out << option.idName << "_";
+      else
+        out << escapeKeyword(option.idName);
+
+      // All options have Option type.
+      out << ": Option\n";
     });
+  });
   out << "}\n";
 
-  // Render the OptionGroup type.
-  out << "public enum OptionGroup {\n";
+  // Produce an "allOptions" property containing all of the known options.
+  out << "\nextension Option {\n";
+  out << "  public static var allOptions: [Option] {\n"
+      << "    return [\n";
+  forEachOption([&](const RawOption &option) {
+      // Look through each spelling of the option.
+      forEachSpelling(option.prefixes, option.spelling,
+                      [&](const std::string &spelling,
+                          bool isAlternateSpelling) {
+        out << "      Option._" << option.idName;
+        if (isAlternateSpelling)
+          out << "_";
+        out << ",\n";
+      });
+    });
+  out << "    ]\n";
+  out << "  }\n";
+  out << "}\n";
+
+  // Render the Option.Group type.
+  out << "\nextension Option {\n";
+  out << "  public enum Group {\n";
   for (const auto &group : groups) {
-    out << "  case " << escapeKeyword(group.id) << "\n";
+    out << "    case " << escapeKeyword(group.id) << "\n";
   }
+  out << "  }\n";
   out << "}\n";
 
   // Retrieve the display name of the group.
   out << "\n";
-  out << "extension OptionGroup {\n";
+  out << "extension Option.Group {\n";
   out << "  public var name: String {\n";
   out << "    switch self {\n";
   for (const auto &group : groups) {
@@ -364,7 +452,7 @@ int makeOptions_main() {
 
   // Retrieve the help text for the group.
   out << "\n";
-  out << "extension OptionGroup {\n";
+  out << "extension Option.Group {\n";
   out << "  public var helpText: String? {\n";
   out << "    switch self {\n";
   for (const auto &group : groups) {
@@ -375,12 +463,6 @@ int makeOptions_main() {
   out << "  }\n";
   out << "}\n";
 
-  // Print the various option tables.
-  printOptionTable(out, OptionTableKind::Interactive);
-  printOptionTable(out, OptionTableKind::Batch);
-  printOptionTable(out, OptionTableKind::Frontend);
-  printOptionTable(out, OptionTableKind::ModuleWrap);
-  printOptionTable(out, OptionTableKind::AutolinkExtract);
-  printOptionTable(out, OptionTableKind::Indent);
+
   return 0;
 }

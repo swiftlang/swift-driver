@@ -4,13 +4,8 @@ public enum OptionParseError : Error {
 }
 
 extension OptionTable {
-  private func matchOption(_ argument: String) -> StoredOption? {
-    // If this is not a flag, record it as an input.
-    if argument.first! != "-" {
-      return inputOption
-    }
-
-    var bestOption: StoredOption? = nil
+  private func matchOption(_ argument: String) -> Option? {
+    var bestOption: Option? = nil
 
     // FIXME: Use a binary search or trie or similar.
     for option in options {
@@ -20,10 +15,12 @@ extension OptionTable {
       // If this is the first option we've seen, or if it's a longer
       // match than the best option so far, then we have a new best
       // option.
-      if (bestOption == nil ||
-          bestOption!.spelling.count < option.spelling.count) {
-        bestOption = option
+      if let bestOption = bestOption,
+        bestOption.spelling.count >= option.spelling.count {
+        continue;
       }
+
+      bestOption = option
     }
 
     return bestOption
@@ -32,8 +29,8 @@ extension OptionTable {
   /// Parse the given command-line arguments into a set of options.
   ///
   /// Throws an error if the command line contains any errors.
-  public func parse(_ arguments: [String]) throws -> [Option] {
-    var options: [Option] = []
+  public func parse(_ arguments: [String]) throws -> ParsedOptions {
+    var parsedOptions = ParsedOptions()
     var index = arguments.startIndex
     while index < arguments.endIndex {
       // Capture the next argument.
@@ -45,40 +42,46 @@ extension OptionTable {
         continue
       }
 
-      // Match to a stored option.
-      guard let storedOption = matchOption(argument) else {
+      // If this is not a flag, record it as an input.
+      if argument.first! != "-" {
+        parsedOptions.addInput(argument)
+        continue
+      }
+
+      // Match to an option, identified by key.
+      guard let option = matchOption(argument) else {
         throw OptionParseError.unknownOption(
           index: index - 1, argument: argument)
       }
 
-      // Translate the argument into an option.
-      switch storedOption.generator {
-      case .commaJoined(let generator):
+      // Translate the argument
+      switch option.kind {
+      case .commaJoined:
         // Comma-separated list of arguments follows the option spelling.
-        let rest = argument.dropFirst(storedOption.spelling.count)
-        let args = rest.split(separator: ",").map { String($0) }
-        options.append(generator(args))
+        let rest = argument.dropFirst(option.spelling.count)
+        parsedOptions.addOption(
+          option,
+          argument: .multiple(rest.split(separator: ",").map { String($0) }))
 
-      case .flag(let generator):
-        if argument != storedOption.spelling {
+      case .flag:
+        // Make sure there was no extra text.
+        if argument != option.spelling {
           throw OptionParseError.unknownOption(
             index: index - 1, argument: argument)
         }
-        options.append(generator())
+        parsedOptions.addOption(option, argument: .none)
 
-      case .input:
-        options.append(Option.INPUT(argument))
-
-      case .joined(let generator):
+      case .joined:
         // Argument text follows the option spelling.
-        let arg = argument.dropFirst(storedOption.spelling.count)
-        options.append(generator(String(arg)))
+        parsedOptions.addOption(
+          option,
+          argument: .single(String(argument.dropFirst(option.spelling.count))))
 
-      case .joinedOrSeparate(let generator):
+      case .joinedOrSeparate:
         // Argument text follows the option spelling.
-        let arg = argument.dropFirst(storedOption.spelling.count)
+        let arg = argument.dropFirst(option.spelling.count)
         if !arg.isEmpty {
-          options.append(generator(String(arg)))
+          parsedOptions.addOption(option, argument: .single(String(arg)))
           break
         }
 
@@ -87,25 +90,26 @@ extension OptionTable {
             index: index - 1, argument: argument)
         }
 
-        options.append(generator(arguments[index]))
+        parsedOptions.addOption(option, argument: .single(arguments[index]))
         index += 1
 
-      case .remaining(let generator):
-        let args = arguments[index...].map { String($0) }
-        options.append(generator(args))
+      case .remaining:
+        parsedOptions.addOption(
+          option,
+          argument: .multiple(arguments[index...].map { String($0) }))
         index = arguments.endIndex
 
-      case .separate(let generator):
+      case .separate:
         if index == arguments.endIndex {
           throw OptionParseError.missingArgument(
             index: index - 1, argument: argument)
         }
 
-        options.append(generator(arguments[index]))
+        parsedOptions.addOption(option, argument: .single(arguments[index]))
         index += 1
       }
     }
 
-    return options
+    return parsedOptions
   }
 }

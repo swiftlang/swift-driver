@@ -4,68 +4,19 @@ import SwiftDriver
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {
-      // Form a simple options table
-      var options = OptionTable()
-      options.addOption(spelling: "", generator: .input)
-      options.addOption(
-        spelling: "-color-diagnostics", generator: .flag({.color_diagnostics}))
-      options.addOption(spelling: "-I",
-                        generator: .joinedOrSeparate {
-                          path in Option.I(path)
-        })
-      options.addAlias(spelling: "-I=", generator: .joined {
-        path in Option.I(path)
-        })
-      options.addAlias(spelling: "-module-name",
-                       generator: .separate {
-                        name in Option.module_name(name)
-      })
-      options.addOption(spelling: "-sanitize=",
-                        generator: .commaJoined {
-                          args in Option.sanitize_EQ(args)
-      })
-      options.addOption(spelling: "--",
-                        generator: .remaining(Option._DASH_DASH))
-
+      // Form an options table
+      let options = OptionTable()
       // Parse each kind of option
       let results = try options.parse([
         "input1", "-color-diagnostics", "-Ifoo", "-I", "bar",
         "-I=wibble", "input2", "-module-name", "main",
         "-sanitize=a,b,c", "--", "-foo", "-bar"])
-      XCTAssertEqual(results,
-                     [Option.INPUT("input1"),
-                      Option.color_diagnostics,
-                      Option.I("foo"),
-                      Option.I("bar"),
-                      Option.I("wibble"),
-                      Option.INPUT("input2"),
-                      Option.module_name("main"),
-                      Option.sanitize_EQ(["a", "b", "c"]),
-                      Option._DASH_DASH(["-foo", "-bar"])])
+      XCTAssertEqual(results.description,
+                     "input1 -color-diagnostics -I foo -I bar -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
     }
 
   func testParseErrors() {
-    var options = OptionTable()
-    options.addOption(spelling: "", generator: .input)
-    options.addOption(
-      spelling: "-color-diagnostics", generator: .flag({.color_diagnostics}))
-    options.addOption(spelling: "-I",
-                      generator: .joinedOrSeparate {
-                        path in Option.I(path)
-      })
-    options.addAlias(spelling: "-I=", generator: .joined {
-      path in Option.I(path)
-      })
-    options.addAlias(spelling: "-module-name",
-                     generator: .separate {
-                      name in Option.module_name(name)
-    })
-    options.addOption(spelling: "-sanitize=",
-                      generator: .commaJoined {
-                        args in Option.sanitize_EQ(args)
-    })
-    options.addOption(spelling: "--",
-                      generator: .remaining(Option._DASH_DASH))
+    let options = OptionTable()
 
     // FIXME: Check for the exact form of the error
     XCTAssertThrowsError(try options.parse(["-unrecognized"]))
@@ -94,15 +45,19 @@ final class SwiftDriverTests: XCTestCase {
 
   func testCompilerMode() throws {
     do {
-      let driver = try Driver(args: ["swift"])
-      XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift")]), .immediate)
-      XCTAssertEqual(driver.computeCompilerMode(options: []), .repl)
+      let driver1 = try Driver(args: ["swift", "main.swift"])
+      XCTAssertEqual(driver1.computeCompilerMode(), .immediate)
+
+      let driver2 = try Driver(args: ["swift"])
+      XCTAssertEqual(driver2.computeCompilerMode(), .repl)
     }
 
     do {
-      let driver = try Driver(args: ["swiftc"])
-      XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift"), .whole_module_optimization]), .singleCompile)
-      XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift"), .g]), .standardCompile)
+      let driver1 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
+      XCTAssertEqual(driver1.computeCompilerMode(), .singleCompile)
+
+      let driver2 = try Driver(args: ["swiftc", "main.swift", "-g"])
+      XCTAssertEqual(driver2.computeCompilerMode(), .standardCompile)
     }
   }
 }
