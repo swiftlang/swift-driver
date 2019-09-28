@@ -90,4 +90,18 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertThrowsError(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=blah"]))
     XCTAssertThrowsError(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode="]))
   }
+
+  func testCompilerMode() throws {
+    do {
+      let driver = try Driver(args: ["swift"])
+      XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift")]), .immediate)
+      XCTAssertEqual(driver.computeCompilerMode(options: []), .REPL)
+    }
+
+    do {
+      let driver = try Driver(args: ["swiftc"])
+      XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift"), .whole_module_optimization]), .singleCompile)
+      XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift"), .g]), .standardCompile)
+    }
+  }
 }

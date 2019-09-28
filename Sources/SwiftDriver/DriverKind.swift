@@ -6,6 +6,11 @@ public enum DriverKind {
   case frontend
   case autolinkExtract
   case indent
+
+  /// Returns true if driver kind is Swift compiler.
+  var isSwiftCompiler: Bool {
+    return self == .interactive || self == .batch
+  }
 }
 
 extension DriverKind {

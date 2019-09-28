@@ -1,4 +1,5 @@
 import TSCBasic
+import TSCUtility
 
 /// The Swift driver.
 public struct Driver {
@@ -10,11 +11,15 @@ public struct Driver {
   /// The kind of driver.
   let driverKind: DriverKind
 
+  /// The arguments with which the driver was invoked.
+  let args: [String]
+
   /// Create the driver with the given arguments.
   public init(args: [String]) throws {
     // FIXME: Determine if we should run as subcommand.
 
-    driverKind = try Self.determineDriverKind(args: args)
+    self.driverKind = try Self.determineDriverKind(args: args)
+    self.args = args
   }
 
   /// Determine the driver kind based on the command-line arguments.
@@ -52,9 +57,68 @@ public struct Driver {
     }
   }
 
+  /// Compute the compiler mode based on the options.
+  func computeCompilerMode(options: [Option]) -> CompilerMode {
+    if driverKind == .interactive {
+      return options.contains(where: { $0.isInput }) ? .immediate : .REPL
+    }
+
+    let requiresSingleCompile = options.contains(.whole_module_optimization) || options.contains(.index_file)
+
+    // FIXME: Handle -enable-batch-mode and -disable-batch-mode flags.
+
+    if requiresSingleCompile {
+      return .singleCompile
+    }
+
+    return .standardCompile
+  }
+
   /// Run the driver.
-  public func run() {
-    let options = OptionTable(driverKind: driverKind)
-    options.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: false)
+  public func run() throws {
+    let argsWithoutExecutable = Array(args.dropFirst())
+
+    // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
+    guard driverKind.isSwiftCompiler else {
+      let swiftCompiler = try getSwiftCompilerPath()
+      return try exec(path: swiftCompiler.pathString, args: ["swift"] + argsWithoutExecutable)
+    }
+
+    let optionTable = OptionTable(driverKind: driverKind)
+    let options = try optionTable.parse(argsWithoutExecutable)
+
+    if options.contains(.help) {
+      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: options.contains(.help_hidden))
+      return
+    }
+
+    switch computeCompilerMode(options: options) {
+    case .standardCompile:
+      break
+    case .singleCompile:
+      break
+    case .REPL:
+      break
+    case .immediate:
+      break
+    }
+  }
+
+  /// Returns the path to the Swift binary.
+  func getSwiftCompilerPath() throws -> AbsolutePath {
+    // FIXME: This is very preliminary. Need to figure out how to get the actual Swift executable path.
+    let path = try Process.checkNonZeroExit(
+      arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
+    return AbsolutePath(path)
+  }
+}
+
+extension Option {
+  /// Returns true if the option is an input.
+  var isInput: Bool {
+    if case .INPUT = self {
+      return true
+    }
+    return false
   }
 }
