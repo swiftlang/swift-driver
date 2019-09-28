@@ -95,7 +95,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       let driver = try Driver(args: ["swift"])
       XCTAssertEqual(driver.computeCompilerMode(options: [.INPUT("main.swift")]), .immediate)
-      XCTAssertEqual(driver.computeCompilerMode(options: []), .REPL)
+      XCTAssertEqual(driver.computeCompilerMode(options: []), .repl)
     }
 
     do {

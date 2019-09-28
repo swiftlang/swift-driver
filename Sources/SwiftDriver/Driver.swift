@@ -60,7 +60,7 @@ public struct Driver {
   /// Compute the compiler mode based on the options.
   func computeCompilerMode(options: [Option]) -> CompilerMode {
     if driverKind == .interactive {
-      return options.contains(where: { $0.isInput }) ? .immediate : .REPL
+      return options.contains(where: { $0.isInput }) ? .immediate : .repl
     }
 
     let requiresSingleCompile = options.contains(.whole_module_optimization) || options.contains(.index_file)
@@ -97,7 +97,7 @@ public struct Driver {
       break
     case .singleCompile:
       break
-    case .REPL:
+    case .repl:
       break
     case .immediate:
       break
