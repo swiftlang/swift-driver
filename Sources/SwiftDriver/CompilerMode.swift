@@ -7,7 +7,7 @@ enum CompilerMode {
   case singleCompile
 
   /// Invoke the REPL.
-  case REPL
+  case repl
 
   /// Compile and execute the inputs immediately.
   case immediate
