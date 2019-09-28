@@ -1,20 +1,32 @@
 import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
-struct Job {
-  /// Path to the executable to invoke.
-  var executable: AbsolutePath
+public struct Job: Codable {
+  /// The tool to invoke.
+  public var tool: String
 
   /// The command-line arguments of the job.
-  var commandLine: [String]
+  public var commandLine: [String]
 
   /// The list of inputs for this job.
   // FIXME: Figure out the exact type that is required here.
-  var inputs: [String]
+  public var inputs: [String]
 
   /// The outputs produced by the job.
   // FIXME: Figure out the exact type that is required here.
-  var outputs: [String]
+  public var outputs: [String]
+
+  public init(
+    tool: String,
+    commandLine: [String],
+    inputs: [String],
+    outputs: [String]
+  ) {
+    self.tool = tool
+    self.commandLine = commandLine
+    self.inputs = inputs
+    self.outputs = outputs
+  }
 }
 
 /// The type of action.
