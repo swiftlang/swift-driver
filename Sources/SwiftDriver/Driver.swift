@@ -11,15 +11,18 @@ public struct Driver {
   /// The kind of driver.
   let driverKind: DriverKind
 
-  /// The arguments with which the driver was invoked.
-  let args: [String]
+  /// The option table we're using.
+  let optionTable: OptionTable
+  /// The set of parsed options.
+  let parsedOptions: ParsedOptions
 
   /// Create the driver with the given arguments.
   public init(args: [String]) throws {
     // FIXME: Determine if we should run as subcommand.
 
     self.driverKind = try Self.determineDriverKind(args: args)
-    self.args = args
+    self.optionTable = OptionTable()
+    self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
   }
 
   /// Determine the driver kind based on the command-line arguments.
@@ -58,12 +61,12 @@ public struct Driver {
   }
 
   /// Compute the compiler mode based on the options.
-  public func computeCompilerMode(options: [Option]) -> CompilerMode {
+  public func computeCompilerMode() -> CompilerMode {
     if driverKind == .interactive {
-      return options.contains(where: { $0.isInput }) ? .immediate : .repl
+      return parsedOptions.hasAnyInput ? .immediate : .repl
     }
 
-    let requiresSingleCompile = options.contains(.whole_module_optimization) || options.contains(.index_file)
+    let requiresSingleCompile = parsedOptions.contains(.whole_module_optimization) || parsedOptions.contains(.index_file)
 
     // FIXME: Handle -enable-batch-mode and -disable-batch-mode flags.
 
@@ -76,23 +79,18 @@ public struct Driver {
 
   /// Run the driver.
   public func run() throws {
-    let argsWithoutExecutable = Array(args.dropFirst())
-
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
       let swiftCompiler = try getSwiftCompilerPath()
-      return try exec(path: swiftCompiler.pathString, args: ["swift"] + argsWithoutExecutable)
+      return try exec(path: swiftCompiler.pathString, args: ["swift"] + parsedOptions.commandLine)
     }
 
-    let optionTable = OptionTable(driverKind: driverKind)
-    let options = try optionTable.parse(argsWithoutExecutable)
-
-    if options.contains(.help) {
-      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: options.contains(.help_hidden))
+    if parsedOptions.contains(.help) || parsedOptions.contains(.help_hidden) {
+      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: parsedOptions.contains(.help_hidden))
       return
     }
 
-    switch computeCompilerMode(options: options) {
+    switch computeCompilerMode() {
     case .standardCompile:
       break
     case .singleCompile:
@@ -110,15 +108,5 @@ public struct Driver {
     let path = try Process.checkNonZeroExit(
       arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
     return AbsolutePath(path)
-  }
-}
-
-extension Option {
-  /// Returns true if the option is an input.
-  var isInput: Bool {
-    if case .INPUT = self {
-      return true
-    }
-    return false
   }
 }
