@@ -94,7 +94,7 @@ extension ParsedOptions {
   }
 
   mutating func addInput(_ input: String) {
-    parsedOptions.append(.init(option: nil, argument: .single(input)));
+    parsedOptions.append(.init(option: nil, argument: .single(input)))
     consumed.append(false)
   }
 }
