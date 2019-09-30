@@ -1,4 +1,5 @@
 import TSCBasic
+import Dispatch
 
 /// Resolver for a job's argument template.
 public struct ArgsResolver {
@@ -68,6 +69,17 @@ public struct ArgsResolver {
   }
 }
 
+public protocol JobExecutorDelegate {
+  /// Called when a job starts executing.
+  func jobStarted(job: Job)
+
+  /// Called when job had any output.
+  func jobHadOutput(job: Job, output: String)
+
+  /// Called when a job finished.
+  func jobFinished(job: Job, success: Bool)
+}
+
 public final class JobExecutor {
 
   /// The context required during job execution.
@@ -79,20 +91,32 @@ public final class JobExecutor {
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
 
-    init(argsResolver: ArgsResolver, producerMap: [Job.VirtualPath: Job]) {
+    /// The job executor delegate.
+    let executorDelegate: JobExecutorDelegate?
+
+    /// Queue for executor delegate.
+    let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
+
+    init(argsResolver: ArgsResolver, producerMap: [Job.VirtualPath: Job], executorDelegate: JobExecutorDelegate?) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
+      self.executorDelegate = executorDelegate
     }
   }
 
   /// The list of jobs that we may need to run.
   let jobs: [Job]
 
+  /// The argument resolver.
   let argsResolver: ArgsResolver
 
-  public init(jobs: [Job], resolver: ArgsResolver) {
+  /// The job executor delegate.
+  let executorDelegate: JobExecutorDelegate?
+
+  public init(jobs: [Job], resolver: ArgsResolver, executorDelegate: JobExecutorDelegate? = nil) {
     self.jobs = jobs
     self.argsResolver = resolver
+    self.executorDelegate = executorDelegate
   }
 
   /// Build the given output.
@@ -117,7 +141,7 @@ public final class JobExecutor {
       }
     }
 
-    return Context(argsResolver: argsResolver, producerMap: producerMap)
+    return Context(argsResolver: argsResolver, producerMap: producerMap, executorDelegate: executorDelegate)
   }
 }
 
@@ -217,13 +241,32 @@ class ExecuteJobRule: LLBuildRule {
 
       let process = Process(arguments: [tool] + commandLine)
       try process.launch()
-      let result = try process.waitUntilExit()
 
-      _ = try result.utf8Output() + result.utf8stderrOutput()
-      value = .jobExecution(success: result.exitStatus == .terminated(code: 0))
+      // Inform the delegate.
+      context.delegateQueue.async {
+        context.executorDelegate?.jobStarted(job: job)
+      }
+
+      let result = try process.waitUntilExit()
+      let success = result.exitStatus == .terminated(code: 0)
+
+      let output = try result.utf8Output() + result.utf8stderrOutput()
+
+      // FIXME: We should stream this.
+      context.delegateQueue.async {
+        context.executorDelegate?.jobHadOutput(job: job, output: output)
+      }
+
+      value = .jobExecution(success: success)
     } catch {
       value = .jobExecution(success: false)
     }
+
+    // Inform the delegate about job finishing.
+    context.delegateQueue.async {
+      context.executorDelegate?.jobFinished(job: job, success: value.success)
+    }
+
     engine.taskIsComplete(value)
   }
 }
