@@ -92,7 +92,7 @@ public struct Driver {
   }
 
   /// Compute the compiler mode based on the options.
-  public func computeCompilerMode() -> CompilerMode {
+  public mutating func computeCompilerMode() -> CompilerMode {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option! {
@@ -124,7 +124,7 @@ public struct Driver {
   }
 
   /// Run the driver.
-  public func run() throws {
+  public mutating func run() throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
       let swiftCompiler = try getSwiftCompilerPath()

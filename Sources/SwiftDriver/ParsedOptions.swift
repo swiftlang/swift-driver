@@ -78,16 +78,24 @@ extension ParsedOption: CustomStringConvertible {
 public struct ParsedOptions {
   public typealias Argument = ParsedOption.Argument
 
+  /// The parsed options, which match up an option with its argument(s).
   private var parsedOptions: [ParsedOption] = []
+
+  /// Indication of which of the parsed options have been "consumed" by the
+  /// driver. Any unconsumed options could have been omitted from the command
+  /// line.
+  private var consumed: [Bool] = []
 }
 
 extension ParsedOptions {
   mutating func addOption(_ option: Option, argument: Argument) {
     parsedOptions.append(.init(option: option, argument: argument))
+    consumed.append(false)
   }
 
   mutating func addInput(_ input: String) {
     parsedOptions.append(.init(option: nil, argument: .single(input)));
+    consumed.append(false)
   }
 }
 
@@ -134,17 +142,43 @@ extension ParsedOptions {
 
 /// Access to the various options that have been parsed.
 extension ParsedOptions {
+  /// Return all options that match the given predicate.
+  ///
+  /// Any options that match the \c isIncluded predicate will be marked "consumed".
+  public mutating func filter(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> [ParsedOption] {
+    var result: [ParsedOption] = []
+    for index in parsedOptions.indices {
+      if try isIncluded(parsedOptions[index]) {
+        consumed[index] = true
+        result.append(parsedOptions[index])
+      }
+    }
+
+    return result
+  }
+
+  /// Return the last parsed options that matches the given predicate.
+  ///
+  /// Any options that match the \c isIncluded predicate will be marked "consumed".
+  public mutating func last(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> ParsedOption? {
+    return try filter(where: isIncluded).last
+  }
+
   /// Does this contain a particular option.
-  public func contains(_ option: Option) -> Bool {
-    return parsedOptions.contains { $0.option == option }
+  public mutating func contains(_ option: Option) -> Bool {
+    return last { parsed in parsed.option == option } != nil
   }
 
   /// Does this contain any inputs?
+  ///
+  /// This operation does not consume any inputs.
   public var hasAnyInput: Bool {
     return parsedOptions.contains { $0.isInput }
   }
 
   /// Walk through all of the parsed options, modifying each one.
+  ///
+  /// This operation does not consume any options.
   public mutating func forEachModifying(body: (inout ParsedOption) throws -> Void) rethrows {
     for index in parsedOptions.indices {
       try body(&parsedOptions[index])
@@ -153,25 +187,27 @@ extension ParsedOptions {
 
   /// Find all of the inputs.
   public var allInputs: [String] {
-    parsedOptions.filter { $0.option == nil }.map { $0.argument.asSingle }
+    mutating get {
+      filter { $0.option == nil }.map { $0.argument.asSingle }
+    }
   }
 
   /// Determine whether the parsed options contain an argument with one of
   /// the given options
-  public func hasArgument(_ options: Option...) -> Bool {
-    return parsedOptions.contains { parsed in
+  public mutating func hasArgument(_ options: Option...) -> Bool {
+    return last { parsed in
       guard let option = parsed.option else { return false }
       return options.contains(option)
-    }
+    } != nil
   }
 
   /// Get the last argument matching the given option.
-  public func getLastArgument(_ option: Option) -> Argument? {
-    return parsedOptions.last { parsed in parsed.option == option }?.argument
+  public mutating func getLastArgument(_ option: Option) -> Argument? {
+    return last { parsed in parsed.option == option }?.argument
   }
 
   /// Get the last parsed option within the given option group.
-  public func getLast(in group: Option.Group) -> ParsedOption? {
-    return parsedOptions.last { parsed in parsed.option?.group == group }
+  public mutating func getLast(in group: Option.Group) -> ParsedOption? {
+    return last { parsed in parsed.option?.group == group }
   }
 }
