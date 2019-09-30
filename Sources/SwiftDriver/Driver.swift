@@ -91,37 +91,8 @@ public struct Driver {
     }
   }
 
-  /// Compute the compiler mode based on the options.
-  public mutating func computeCompilerMode() -> CompilerMode {
-    // Some output flags affect the compiler mode.
-    if let outputOption = parsedOptions.getLast(in: .modes) {
-      switch outputOption.option! {
-      case .emit_pch, .emit_imported_modules, .index_file:
-        return .singleCompile
-
-      case .repl, .deprecated_integrated_repl, .lldb_repl:
-        return .repl
-
-      default:
-        // Output flag doesn't determine the compiler mode.
-        break
-      }
-    }
-
-    if driverKind == .interactive {
-      return parsedOptions.hasAnyInput ? .immediate : .repl
-    }
-
-    let requiresSingleCompile = parsedOptions.contains(.whole_module_optimization)
-
-    // FIXME: Handle -enable-batch-mode and -disable-batch-mode flags.
-
-    if requiresSingleCompile {
-      return .singleCompile
-    }
-
-    return .standardCompile
-  }
+  /// The mode in which the compiler will execute.
+  public lazy var compilerMode: CompilerMode = computeCompilerMode()
 
   /// Run the driver.
   public mutating func run() throws {
@@ -154,6 +125,40 @@ public struct Driver {
     let path = try Process.checkNonZeroExit(
       arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
     return AbsolutePath(path)
+  }
+}
+
+extension Driver {
+  /// Compute the compiler mode based on the options.
+  private mutating func computeCompilerMode() -> CompilerMode {
+    // Some output flags affect the compiler mode.
+    if let outputOption = parsedOptions.getLast(in: .modes) {
+      switch outputOption.option! {
+      case .emit_pch, .emit_imported_modules, .index_file:
+        return .singleCompile
+
+      case .repl, .deprecated_integrated_repl, .lldb_repl:
+        return .repl
+
+      default:
+        // Output flag doesn't determine the compiler mode.
+        break
+      }
+    }
+
+    if driverKind == .interactive {
+      return parsedOptions.hasAnyInput ? .immediate : .repl
+    }
+
+    let requiresSingleCompile = parsedOptions.contains(.whole_module_optimization)
+
+    // FIXME: Handle -enable-batch-mode and -disable-batch-mode flags.
+
+    if requiresSingleCompile {
+      return .singleCompile
+    }
+
+    return .standardCompile
   }
 }
 
