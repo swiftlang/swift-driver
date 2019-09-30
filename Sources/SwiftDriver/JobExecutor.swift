@@ -220,7 +220,7 @@ class ExecuteJobRule: LLBuildRule {
       let buildValue = try DriverBuildValue(value)
       allInputsSucceeded = allInputsSucceeded && buildValue.success
     } catch {
-      allInputsSucceeded = true
+      allInputsSucceeded = false
     }
   }
 
