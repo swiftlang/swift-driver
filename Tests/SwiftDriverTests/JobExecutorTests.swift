@@ -9,6 +9,23 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
   }
 }
 
+class JobCollectingDelegate: JobExecutorDelegate {
+  var started: [Job] = []
+  var finished: [Job] = []
+
+  func jobStarted(job: Job) {
+    started.append(job)
+  }
+
+  func jobHadOutput(job: Job, output: String) {
+
+  }
+
+  func jobFinished(job: Job, success: Bool) {
+    finished.append(job)
+  }
+}
+
 final class JobExecutorTests: XCTestCase {
   func testDarwinBasic() throws {
 #if os(macOS)
@@ -94,11 +111,13 @@ final class JobExecutorTests: XCTestCase {
         outputs: [.path("main")]
       )
 
-      let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver)
+      let delegate = JobCollectingDelegate()
+      let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
       try executor.build(.path("main"))
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
+      XCTAssertEqual(delegate.started.count, 3)
     }
 #endif
   }
