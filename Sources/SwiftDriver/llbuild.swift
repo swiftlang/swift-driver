@@ -40,7 +40,7 @@ public final class LLBuildEngine {
         }
     }
 
-    private final class Delegate: BuildEngineDelegate {
+    fileprivate final class Delegate: BuildEngineDelegate {
         let delegate: LLBuildEngineDelegate
         var errors: [String] = []
 
@@ -103,6 +103,10 @@ public class LLTaskBuildEngine {
 
     init(_ engine: TaskBuildEngine) {
         self.engine = engine
+    }
+
+    var delegate: LLBuildEngineDelegate {
+      return (engine.engine.delegate as! LLBuildEngine.Delegate).delegate
     }
 
     public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) {

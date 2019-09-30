@@ -36,4 +36,16 @@ public final class DarwinToolchain {
       arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
     return AbsolutePath(path)
   }
+
+  var compatibility50: Result<AbsolutePath, Error> {
+    resourcesDirectory.map{ $0.appending(component: "libswiftCompatibility50.a") }
+  }
+
+  var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
+    resourcesDirectory.map{ $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
+  }
+
+  var clangRT: Result<AbsolutePath, Error> {
+    resourcesDirectory.map{ $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
+  }
 }

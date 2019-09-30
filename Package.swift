@@ -13,7 +13,7 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
-    .package(url: "https://github.com/apple/swift-llbuild.git", "0.2.0"..<"0.3.0"),
+    .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
   ],
   targets: [
     /// The driver library.

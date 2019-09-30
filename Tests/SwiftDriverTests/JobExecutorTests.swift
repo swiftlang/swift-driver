@@ -3,6 +3,12 @@ import TSCBasic
 
 import SwiftDriver
 
+extension Job.ArgTemplate: ExpressibleByStringLiteral {
+  public init(stringLiteral value: String) {
+    self = .flag(value)
+  }
+}
+
 final class JobExecutorTests: XCTestCase {
   func testDarwinBasic() throws {
 #if os(macOS)
@@ -22,92 +28,78 @@ final class JobExecutorTests: XCTestCase {
       let mainObject = path.appending(component: "main.o")
       let exec = path.appending(component: "main")
 
+      var resolver = ArgsResolver(toolchain: toolchain)
+      resolver.pathMapping = [
+        .path("foo.swift"): foo,
+        .path("main.swift"): main,
+        .path("foo.o"): fooObject,
+        .path("main.o"): mainObject,
+        .path("main"): exec,
+      ]
+
       let compileFoo = Job(
-        tool: "swift",
+        tool: .frontend,
         commandLine: [
           "-frontend",
           "-c",
           "-primary-file",
-          foo.pathString,
-          main.pathString,
+          .path(.path("foo.swift")),
+          .path(.path("main.swift")),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
-          try toolchain.sdk.path(),
+          .resource(.sdk),
           "-module-name", "main",
-          "-o", fooObject.pathString
+          "-o", .path(.path("foo.o")),
         ],
-        inputs: [foo.pathString, main.pathString],
-        outputs: [fooObject.pathString]
+        inputs: [.path("foo.swift"), .path("main.swift")],
+        outputs: [.path("foo.o")]
       )
 
       let compileMain = Job(
-        tool: "swift",
+        tool: .frontend,
         commandLine: [
           "-frontend",
           "-c",
-          foo.pathString,
+          .path(.path("foo.swift")),
           "-primary-file",
-          main.pathString,
+          .path(.path("main.swift")),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
-          try toolchain.sdk.path(),
+          .resource(.sdk),
           "-module-name", "main",
-          "-o", mainObject.pathString
+          "-o", .path(.path("main.o")),
         ],
-        inputs: [foo.pathString, main.pathString],
-        outputs: [mainObject.pathString]
+        inputs: [.path("foo.swift"), .path("main.swift")],
+        outputs: [.path("main.o")]
       )
 
       let link = Job(
-        tool: "ld",
+        tool: .ld,
         commandLine: [
-          fooObject.pathString,
-          mainObject.pathString,
-          try toolchain.clangRT.path(),
-          "-syslibroot", try toolchain.sdk.path(),
+          .path(.path("foo.o")),
+          .path(.path("main.o")),
+          .resource(.clangRT),
+          "-syslibroot", .resource(.sdk),
           "-lobjc", "-lSystem", "-arch", "x86_64",
-          "-force_load", try toolchain.compatibility50.path(),
-          "-force_load", try toolchain.compatibilityDynamicReplacements.path(),
-          "-L", try toolchain.resourcesDirectory.path(),
-          "-L", try toolchain.sdkStdlib(sdk: toolchain.sdk.get()).pathString,
+          "-force_load", .resource(.compatibility50),
+          "-force_load", .resource(.compatibilityDynamicReplacements),
+          "-L", .resource(.resourcesDir),
+          "-L", .resource(.sdkStdlib),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
-          exec.pathString,
+          .path(.path("main")),
         ],
-        inputs: [
-          fooObject.pathString,
-          mainObject.pathString,
-        ],
-        outputs: [exec.pathString]
+        inputs: [.path("foo.o"), .path("main.o")],
+        outputs: [.path("main")]
       )
 
-      let executor = JobExecutor(jobs: [compileFoo, compileMain, link])
-      try executor.build(exec.pathString)
+      let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver)
+      try executor.build(.path("main"))
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
     }
 #endif
-  }
-}
-
-extension DarwinToolchain {
-  var compatibility50: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(component: "libswiftCompatibility50.a") }
-  }
-
-  var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
-  }
-
-  var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
-  }
-}
-
-extension Result where Success == AbsolutePath {
-  func path() throws -> String {
-    return try get().pathString
   }
 }
