@@ -43,7 +43,7 @@ extension OptionTable {
       }
 
       // If this is not a flag, record it as an input.
-      if argument.first! != "-" {
+      if argument == "-" || argument.first! != "-" {
         parsedOptions.addInput(argument)
         continue
       }
