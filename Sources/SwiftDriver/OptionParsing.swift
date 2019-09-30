@@ -17,7 +17,7 @@ extension OptionTable {
       // option.
       if let bestOption = bestOption,
         bestOption.spelling.count >= option.spelling.count {
-        continue;
+        continue
       }
 
       bestOption = option

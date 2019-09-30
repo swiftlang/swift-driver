@@ -45,18 +45,18 @@ final class SwiftDriverTests: XCTestCase {
 
   func testCompilerMode() throws {
     do {
-      let driver1 = try Driver(args: ["swift", "main.swift"])
+      var driver1 = try Driver(args: ["swift", "main.swift"])
       XCTAssertEqual(driver1.computeCompilerMode(), .immediate)
 
-      let driver2 = try Driver(args: ["swift"])
+      var driver2 = try Driver(args: ["swift"])
       XCTAssertEqual(driver2.computeCompilerMode(), .repl)
     }
 
     do {
-      let driver1 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
+      var driver1 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
       XCTAssertEqual(driver1.computeCompilerMode(), .singleCompile)
 
-      let driver2 = try Driver(args: ["swiftc", "main.swift", "-g"])
+      var driver2 = try Driver(args: ["swiftc", "main.swift", "-g"])
       XCTAssertEqual(driver2.computeCompilerMode(), .standardCompile)
     }
   }

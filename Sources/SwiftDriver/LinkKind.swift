@@ -8,4 +8,4 @@ public enum LinkOutputType {
 
   /// A static library (e.g., .a or .lib)
   case staticLibrary
-};
+}
