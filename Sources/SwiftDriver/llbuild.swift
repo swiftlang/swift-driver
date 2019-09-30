@@ -84,7 +84,7 @@ public final class LLBuildEngine {
             throw Error.failed(errors: delegate.errors)
         }
 
-        return T.BuildValue(value)
+        return try T.BuildValue(value)
     }
 
     public func attachDB(path: String, schemaVersion: Int = 2) throws {
@@ -215,7 +215,7 @@ public extension LLBuildKey {
 }
 
 public extension LLBuildValue {
-    init(_ value: Value) {
+    init(_ value: Value) throws {
         do {
             self = try fromBytes(value.data)
         } catch {

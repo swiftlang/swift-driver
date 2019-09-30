@@ -131,8 +131,6 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
 
   func lookupRule(rule: String, key: Key) -> Rule {
     switch rule {
-    case FileInfoRule.ruleName:
-      return FileInfoRule(key)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key)
     default:
@@ -141,22 +139,37 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
   }
 }
 
+/// The build value for driver build tasks.
+struct DriverBuildValue: LLBuildValue {
+  enum Kind: String, Codable {
+    case jobExecution
+  }
+
+  /// If the build value was a success.
+  var success: Bool
+
+  /// The kind of build value.
+  var kind: Kind
+
+  static func jobExecution(success: Bool) -> DriverBuildValue {
+    return .init(success: success, kind: .jobExecution)
+  }
+}
+
 class ExecuteJobRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
-    typealias BuildValue = RuleValue
+    typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteJobRule
 
     let job: Job
   }
 
-  struct RuleValue: LLBuildValue {
-    let output: String
-    let success: Bool
-  }
-
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
 
   private let key: RuleKey
+
+  /// True if any of the inputs had any error.
+  private var allInputsSucceeded: Bool = true
 
   init(_ key: Key) {
     self.key = RuleKey(key)
@@ -178,12 +191,26 @@ class ExecuteJobRule: LLBuildRule {
     return false
   }
 
+  override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
+    do {
+      let buildValue = try DriverBuildValue(value)
+      allInputsSucceeded = allInputsSucceeded && buildValue.success
+    } catch {
+      allInputsSucceeded = true
+    }
+  }
+
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+    // Return early any of the input failed.
+    guard allInputsSucceeded else {
+      return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
+    }
+
     let context = engine.jobExecutorContext
     let resolver = context.argsResolver
     let job = key.job
 
-    let value: RuleValue
+    let value: DriverBuildValue
     do {
       let tool = resolver.resolve(job.tool)
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
@@ -192,59 +219,15 @@ class ExecuteJobRule: LLBuildRule {
       try process.launch()
       let result = try process.waitUntilExit()
 
-      let output = try result.utf8Output() + result.utf8stderrOutput()
-      value = RuleValue(output: output, success: result.exitStatus == .terminated(code: 0))
+      _ = try result.utf8Output() + result.utf8stderrOutput()
+      value = .jobExecution(success: result.exitStatus == .terminated(code: 0))
     } catch {
-      value = RuleValue(output: "\(error)", success: false)
+      value = .jobExecution(success: false)
     }
     engine.taskIsComplete(value)
   }
 }
 
-/// A rule to get file info of a file on disk.
-// FIXME: This is lifted from SwiftPM.
-final class FileInfoRule: LLBuildRule {
-
-  struct RuleKey: LLBuildKey {
-    typealias BuildValue = RuleValue
-    typealias BuildRule = FileInfoRule
-
-    let path: AbsolutePath
-  }
-
-  typealias RuleValue = CodableResult<TSCBasic.FileInfo, StringError>
-
-  override class var ruleName: String { "\(FileInfoRule.self)" }
-
-  private let key: RuleKey
-
-  init(_ key: Key) {
-    self.key = RuleKey(key)
-    super.init()
-  }
-
-  override func isResultValid(_ priorValue: Value) -> Bool {
-    let priorValue = RuleValue(priorValue)
-
-    // Always rebuild if we had a failure.
-    if case .failure = priorValue.result {
-      return false
-    }
-    return getFileInfo(key.path).result == priorValue.result
-  }
-
-  override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-    engine.taskIsComplete(getFileInfo(key.path))
-  }
-
-  private func getFileInfo(_ path: AbsolutePath) -> RuleValue {
-    return RuleValue {
-      try localFileSystem.getFileInfo(key.path)
-    }
-  }
-}
-
-extension CodableResult: LLBuildValue { }
 extension Job: LLBuildValue { }
 
 extension LLTaskBuildEngine {
