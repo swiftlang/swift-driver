@@ -132,14 +132,32 @@ extension ParsedOptions {
   }
 }
 
-/// Checking for specific options
+/// Access to the various options that have been parsed.
 extension ParsedOptions {
-  /// Does this contain
+  /// Does this contain a particular option.
   public func contains(_ option: Option) -> Bool {
     return parsedOptions.contains { $0.option == option }
   }
 
+  /// Does this contain any inputs?
   public var hasAnyInput: Bool {
     return parsedOptions.contains { $0.isInput }
+  }
+
+  /// Walk through all of the parsed options, modifying each one.
+  public mutating func forEachModifying(body: (inout ParsedOption) throws -> Void) rethrows {
+    for index in parsedOptions.indices {
+      try body(&parsedOptions[index])
+    }
+  }
+
+  /// Find all of the inputs.
+  public var allInputs: [String] {
+    parsedOptions.filter { $0.option == nil }.map { $0.argument.asSingle }
+  }
+
+  /// Get the last argument matching the given option.
+  public func getLastArgument(_ option: Option) -> Argument? {
+    return parsedOptions.last { parsed in parsed.option == option }?.argument
   }
 }
