@@ -169,6 +169,12 @@ extension ParsedOptions {
     return last { parsed in parsed.option == option } != nil
   }
 
+  /// Determine whether the parsed options contains an option in the given
+  /// group.
+  public mutating func contains(in group: Option.Group) -> Bool {
+    return getLast(in: group) != nil
+  }
+
   /// Does this contain any inputs?
   ///
   /// This operation does not consume any inputs.

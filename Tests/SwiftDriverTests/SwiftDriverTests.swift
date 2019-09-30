@@ -46,18 +46,18 @@ final class SwiftDriverTests: XCTestCase {
   func testCompilerMode() throws {
     do {
       var driver1 = try Driver(args: ["swift", "main.swift"])
-      XCTAssertEqual(driver1.computeCompilerMode(), .immediate)
+      XCTAssertEqual(driver1.compilerMode, .immediate)
 
       var driver2 = try Driver(args: ["swift"])
-      XCTAssertEqual(driver2.computeCompilerMode(), .repl)
+      XCTAssertEqual(driver2.compilerMode, .repl)
     }
 
     do {
       var driver1 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
-      XCTAssertEqual(driver1.computeCompilerMode(), .singleCompile)
+      XCTAssertEqual(driver1.compilerMode, .singleCompile)
 
       var driver2 = try Driver(args: ["swiftc", "main.swift", "-g"])
-      XCTAssertEqual(driver2.computeCompilerMode(), .standardCompile)
+      XCTAssertEqual(driver2.compilerMode, .standardCompile)
     }
   }
 
@@ -90,5 +90,23 @@ final class SwiftDriverTests: XCTestCase {
     let driver3 = try Driver(args: ["swiftc", "-static", "foo.swift", "-emit-library"])
     XCTAssertEqual(driver3.compilerOutputType, .object)
     XCTAssertEqual(driver3.linkerOutputType, .staticLibrary)
+  }
+
+  func testDebugSettings() throws {
+    let driver1 = try Driver(args: ["swiftc", "foo.swift", "-emit-module"])
+    XCTAssertNil(driver1.debugInfoLevel)
+    XCTAssertEqual(driver1.debugInfoFormat, .dwarf)
+
+    let driver2 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g"])
+    XCTAssertEqual(driver2.debugInfoLevel, .astTypes)
+    XCTAssertEqual(driver2.debugInfoFormat, .dwarf)
+
+    let driver3 = try Driver(args: ["swiftc", "-g", "foo.swift", "-gline-tables-only"])
+    XCTAssertEqual(driver3.debugInfoLevel, .lineTables)
+    XCTAssertEqual(driver3.debugInfoFormat, .dwarf)
+
+    let driver4 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview"])
+    XCTAssertEqual(driver4.debugInfoLevel, .astTypes)
+    XCTAssertEqual(driver4.debugInfoFormat, .codeView)
   }
 }
