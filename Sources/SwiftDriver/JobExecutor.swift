@@ -127,8 +127,7 @@ public final class JobExecutor {
     let engine = LLBuildEngine(delegate: delegate)
 
     let job = context.producerMap[output]!
-    let result = try engine.build(key: ExecuteJobRule.RuleKey(job: job))
-    print(result)
+    _ = try engine.build(key: ExecuteJobRule.RuleKey(job: job))
   }
 
   /// Create the context required during the execution.
