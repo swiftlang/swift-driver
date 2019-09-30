@@ -160,4 +160,9 @@ extension ParsedOptions {
   public func getLastArgument(_ option: Option) -> Argument? {
     return parsedOptions.last { parsed in parsed.option == option }?.argument
   }
+
+  /// Get the last argument within the given option group.
+  public func getLastArgument(in group: Option.Group) -> Argument? {
+    return parsedOptions.last { parsed in parsed.option?.group == group }?.argument
+  }
 }

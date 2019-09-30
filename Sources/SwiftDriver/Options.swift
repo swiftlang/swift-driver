@@ -8,24 +8,24 @@ extension Option {
   @Option("-assume-single-threaded", .flag, attributes: [.helpHidden, .frontend], helpText: "Assume that code will be executed in a single-threaded environment") static var AssumeSingleThreaded: Option
   @Option("-autolink-force-load", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Force ld to link against this module even if no symbols are used") static var autolink_force_load: Option
   @Option("-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add dependent library") static var autolink_library: Option
-  @Option("-build-module-from-parseable-interface", .flag, alias: Option.compile_module_from_interface, attributes: [.helpHidden, .frontend, .noDriver]) static var build_module_from_parseable_interface: Option
+  @Option("-build-module-from-parseable-interface", .flag, alias: Option.compile_module_from_interface, attributes: [.helpHidden, .frontend, .noDriver], group: .modes) static var build_module_from_parseable_interface: Option
   @Option("-bypass-batch-mode-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Bypass checks for batch-mode errors.") static var bypass_batch_mode_checks: Option
   @Option("-check-onone-completeness", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print errors if the compile OnoneSupport module is missing symbols") static var check_onone_completeness: Option
   @Option("-code-complete-call-pattern-heuristics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use heuristics to guess whether we want call pattern completions") static var code_complete_call_pattern_heuristics: Option
   @Option("-code-complete-inits-in-postfix-expr", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Include initializers when completing a postfix expression") static var code_complete_inits_in_postfix_expr: Option
   @Option("-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Print diagnostics in color") static var color_diagnostics: Option
-  @Option("-compile-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and produce a module") static var compile_module_from_interface: Option
+  @Option("-compile-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and produce a module", group: .modes) static var compile_module_from_interface: Option
   @Option("-continue-building-after-errors", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Continue building, even after errors are encountered") static var continue_building_after_errors: Option
   @Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)") static var crosscheck_unqualified_lookup: Option
-  @Option("-c", .flag, alias: Option.emit_object, attributes: [.frontend, .noInteractive]) static var c: Option
-  @Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing") static var debug_assert_after_parse: Option
-  @Option("-debug-assert-immediately", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure immediately") static var debug_assert_immediately: Option
+  @Option("-c", .flag, alias: Option.emit_object, attributes: [.frontend, .noInteractive], group: .modes) static var c: Option
+  @Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing", group: .debug_crash) static var debug_assert_after_parse: Option
+  @Option("-debug-assert-immediately", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure immediately", group: .debug_crash) static var debug_assert_immediately: Option
   @Option("-debug-constraints-attempt", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Debug the constraint solver at a given attempt") static var debug_constraints_attempt: Option
   @Option("-debug-constraints-on-line=", .joined, alias: Option.debug_constraints_on_line, attributes: [.helpHidden, .frontend, .noDriver]) static var debug_constraints_on_line_EQ: Option
   @Option("-debug-constraints-on-line", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<line>", helpText: "Debug the constraint solver for expressions on <line>") static var debug_constraints_on_line: Option
   @Option("-debug-constraints", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Debug the constraint-based type checker") static var debug_constraints: Option
-  @Option("-debug-crash-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force a crash after parsing") static var debug_crash_after_parse: Option
-  @Option("-debug-crash-immediately", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force a crash immediately") static var debug_crash_immediately: Option
+  @Option("-debug-crash-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force a crash after parsing", group: .debug_crash) static var debug_crash_after_parse: Option
+  @Option("-debug-crash-immediately", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force a crash immediately", group: .debug_crash) static var debug_crash_immediately: Option
   @Option("-debug-cycles", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print out debug dumps when cycles are detected in evaluation") static var debug_cycles: Option
   @Option("-debug-diagnostic-names", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Include diagnostic names when printing") static var debug_diagnostic_names: Option
   @Option("-debug-forbid-typecheck-prefix", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Triggers llvm fatal_error if typechecker tries to typecheck a decl with the provided prefix name") static var debug_forbid_typecheck_prefix: Option
@@ -38,7 +38,7 @@ extension Option {
   @Option("-debug-time-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the time it takes to type-check each function body") static var debug_time_function_bodies: Option
   @Option("-debugger-support", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Process swift code as if running in the debugger") static var debugger_support: Option
   @Option("-debugger-testing-transform", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Instrument the code with calls to an intrinsic that record the expected values of local variables so they can be compared against the results from the debugger.") static var debugger_testing_transform: Option
-  @Option("-deprecated-integrated-repl", .flag, attributes: [.frontend, .noBatch]) static var deprecated_integrated_repl: Option
+  @Option("-deprecated-integrated-repl", .flag, attributes: [.frontend, .noBatch], group: .modes) static var deprecated_integrated_repl: Option
   @Option("-diagnostics-editor-mode", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnostics will be used in editor") static var diagnostics_editor_mode: Option
   @Option("-disable-access-control", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't respect access control restrictions") static var disable_access_control: Option
   @Option("-disable-arc-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL ARC optimization passes.") static var disable_arc_opts: Option
@@ -83,49 +83,49 @@ extension Option {
   @Option("-disable-tsan-inout-instrumentation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable treatment of inout parameters as Thread Sanitizer accesses") static var disable_tsan_inout_instrumentation: Option
   @Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction") static var disable_typo_correction: Option
   @Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diable verification of access markers used to enforce exclusivity.") static var disable_verify_exclusivity: Option
-  @Option("-driver-always-rebuild-dependents", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Always rebuild dependents of files that have been modified") static var driver_always_rebuild_dependents: Option
-  @Option("-driver-batch-count", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number of batch-mode partitions, rather than partitioning dynamically") static var driver_batch_count: Option
-  @Option("-driver-batch-seed", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given seed value to randomize batch-mode partitions") static var driver_batch_seed: Option
-  @Option("-driver-batch-size-limit", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number as the upper limit on dynamic batch-mode partition size") static var driver_batch_size_limit: Option
-  @Option("-driver-emit-experimental-dependency-dot-file-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Emit dot files every time driver imports an experimental swiftdeps file.") static var driver_emit_experimental_dependency_dot_file_after_every_import: Option
+  @Option("-driver-always-rebuild-dependents", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Always rebuild dependents of files that have been modified", group: .internal_debug) static var driver_always_rebuild_dependents: Option
+  @Option("-driver-batch-count", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number of batch-mode partitions, rather than partitioning dynamically", group: .internal_debug) static var driver_batch_count: Option
+  @Option("-driver-batch-seed", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given seed value to randomize batch-mode partitions", group: .internal_debug) static var driver_batch_seed: Option
+  @Option("-driver-batch-size-limit", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number as the upper limit on dynamic batch-mode partition size", group: .internal_debug) static var driver_batch_size_limit: Option
+  @Option("-driver-emit-experimental-dependency-dot-file-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Emit dot files every time driver imports an experimental swiftdeps file.", group: .internal_debug) static var driver_emit_experimental_dependency_dot_file_after_every_import: Option
   @Option("-driver-filelist-threshold=", .joined, alias: Option.driver_filelist_threshold) static var driver_filelist_threshold_EQ: Option
-  @Option("-driver-filelist-threshold", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Pass input or output file names as filelists if there are more than <n>") static var driver_filelist_threshold: Option
-  @Option("-driver-force-response-files", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Force the use of response files for testing") static var driver_force_response_files: Option
+  @Option("-driver-filelist-threshold", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Pass input or output file names as filelists if there are more than <n>", group: .internal_debug) static var driver_filelist_threshold: Option
+  @Option("-driver-force-response-files", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Force the use of response files for testing", group: .internal_debug) static var driver_force_response_files: Option
   @Option("--driver-mode=", .joined, attributes: [.helpHidden], helpText: "Set the driver mode to either 'swift' or 'swiftc'") static var driver_mode: Option
-  @Option("-driver-print-actions", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump list of actions to perform") static var driver_print_actions: Option
-  @Option("-driver-print-bindings", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump list of job inputs and outputs") static var driver_print_bindings: Option
-  @Option("-driver-print-derived-output-file-map", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump the contents of the derived output file map") static var driver_print_derived_output_file_map: Option
-  @Option("-driver-print-jobs", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump list of jobs to execute") static var driver_print_jobs: Option
-  @Option("-driver-print-output-file-map", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump the contents of the output file map") static var driver_print_output_file_map: Option
-  @Option("-driver-show-incremental", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "With -v, dump information about why files are being rebuilt") static var driver_show_incremental: Option
-  @Option("-driver-show-job-lifecycle", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Show every step in the lifecycle of driver jobs") static var driver_show_job_lifecycle: Option
-  @Option("-driver-skip-execution", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Skip execution of subtasks when performing compilation") static var driver_skip_execution: Option
+  @Option("-driver-print-actions", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump list of actions to perform", group: .internal_debug) static var driver_print_actions: Option
+  @Option("-driver-print-bindings", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump list of job inputs and outputs", group: .internal_debug) static var driver_print_bindings: Option
+  @Option("-driver-print-derived-output-file-map", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump the contents of the derived output file map", group: .internal_debug) static var driver_print_derived_output_file_map: Option
+  @Option("-driver-print-jobs", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump list of jobs to execute", group: .internal_debug) static var driver_print_jobs: Option
+  @Option("-driver-print-output-file-map", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Dump the contents of the output file map", group: .internal_debug) static var driver_print_output_file_map: Option
+  @Option("-driver-show-incremental", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "With -v, dump information about why files are being rebuilt", group: .internal_debug) static var driver_show_incremental: Option
+  @Option("-driver-show-job-lifecycle", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Show every step in the lifecycle of driver jobs", group: .internal_debug) static var driver_show_job_lifecycle: Option
+  @Option("-driver-skip-execution", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Skip execution of subtasks when performing compilation", group: .internal_debug) static var driver_skip_execution: Option
   @Option("-driver-time-compilation", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Prints the total time it took to execute all compilation tasks") static var driver_time_compilation: Option
-  @Option("-driver-use-filelists", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Pass input files as filelists whenever possible") static var driver_use_filelists: Option
-  @Option("-driver-use-frontend-path", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given executable to perform compilations. Arguments can be passed as a ';' separated list") static var driver_use_frontend_path: Option
-  @Option("-driver-verify-experimental-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import") static var driver_verify_experimental_dependency_graph_after_every_import: Option
+  @Option("-driver-use-filelists", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Pass input files as filelists whenever possible", group: .internal_debug) static var driver_use_filelists: Option
+  @Option("-driver-use-frontend-path", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given executable to perform compilations. Arguments can be passed as a ';' separated list", group: .internal_debug) static var driver_use_frontend_path: Option
+  @Option("-driver-verify-experimental-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import", group: .internal_debug) static var driver_verify_experimental_dependency_graph_after_every_import: Option
   @Option("-dump-api-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The path to output swift interface files for the compiled source files") static var dump_api_path: Option
-  @Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)") static var dump_ast: Option
+  @Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)", group: .modes) static var dump_ast: Option
   @Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr") static var dump_clang_diagnostics: Option
-  @Option("-dump-interface-hash", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and dump interface token hash(es)") static var dump_interface_hash: Option
+  @Option("-dump-interface-hash", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and dump interface token hash(es)", group: .modes) static var dump_interface_hash: Option
   @Option("-dump-migration-states-dir", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Dump the input text, output text, and states for migration to <path>") static var dump_migration_states_dir: Option
-  @Option("-dump-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s) and dump AST(s)") static var dump_parse: Option
-  @Option("-dump-scope-maps", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<expanded-or-list-of-line:column>", helpText: "Parse and type-check input file(s) and dump the scope map(s)") static var dump_scope_maps: Option
-  @Option("-dump-type-info", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Output YAML dump of fixed-size types from all imported modules") static var dump_type_info: Option
-  @Option("-dump-type-refinement-contexts", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Type-check input file(s) and dump type refinement contexts(s)") static var dump_type_refinement_contexts: Option
+  @Option("-dump-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s) and dump AST(s)", group: .modes) static var dump_parse: Option
+  @Option("-dump-scope-maps", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<expanded-or-list-of-line:column>", helpText: "Parse and type-check input file(s) and dump the scope map(s)", group: .modes) static var dump_scope_maps: Option
+  @Option("-dump-type-info", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Output YAML dump of fixed-size types from all imported modules", group: .modes) static var dump_type_info: Option
+  @Option("-dump-type-refinement-contexts", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Type-check input file(s) and dump type refinement contexts(s)", group: .modes) static var dump_type_refinement_contexts: Option
   @Option("-dump-usr", .flag, attributes: [.frontend, .noInteractive], helpText: "Dump USR for each declaration reference") static var dump_usr: Option
   @Option("-D", .joinedOrSeparate, attributes: [.frontend], helpText: "Marks a conditional compilation flag as true") static var D: Option
   @Option("-embed-bitcode-marker", .flag, attributes: [.frontend, .noInteractive], helpText: "Embed placeholder LLVM IR data as a marker") static var embed_bitcode_marker: Option
   @Option("-embed-bitcode", .flag, attributes: [.frontend, .noInteractive], helpText: "Embed LLVM IR bitcode as data") static var embed_bitcode: Option
-  @Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit assembly file(s) (-S)") static var emit_assembly: Option
-  @Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM BC file(s)") static var emit_bc: Option
+  @Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit assembly file(s) (-S)", group: .modes) static var emit_assembly: Option
+  @Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM BC file(s)", group: .modes) static var emit_bc: Option
   @Option("-emit-dependencies-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output basic Make-compatible dependencies file to <path>") static var emit_dependencies_path: Option
   @Option("-emit-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit basic Make-compatible dependencies files") static var emit_dependencies: Option
-  @Option("-emit-executable", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a linked executable") static var emit_executable: Option
+  @Option("-emit-executable", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a linked executable", group: .modes) static var emit_executable: Option
   @Option("-emit-fixits-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output compiler fixits as source edits to <path>") static var emit_fixits_path: Option
-  @Option("-emit-imported-modules", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a list of the imported modules") static var emit_imported_modules: Option
-  @Option("-emit-ir", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM IR file(s)") static var emit_ir: Option
-  @Option("-emit-library", .flag, attributes: [.noInteractive], helpText: "Emit a linked library") static var emit_library: Option
+  @Option("-emit-imported-modules", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a list of the imported modules", group: .modes) static var emit_imported_modules: Option
+  @Option("-emit-ir", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM IR file(s)", group: .modes) static var emit_ir: Option
+  @Option("-emit-library", .flag, attributes: [.noInteractive], helpText: "Emit a linked library", group: .modes) static var emit_library: Option
   @Option("-emit-loaded-module-trace-path=", .joined, alias: Option.emit_loaded_module_trace_path, attributes: [.frontend, .noInteractive, .argumentIsPath]) static var emit_loaded_module_trace_path_EQ: Option
   @Option("-emit-loaded-module-trace-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Emit the loaded module trace JSON to <path>") static var emit_loaded_module_trace_path: Option
   @Option("-emit-loaded-module-trace", .flag, attributes: [.frontend, .noInteractive], helpText: "Emit a JSON file containing information about what modules were loaded") static var emit_loaded_module_trace: Option
@@ -139,20 +139,20 @@ extension Option {
   @Option("-emit-module", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit an importable module") static var emit_module: Option
   @Option("-emit-objc-header-path", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Emit an Objective-C header file to <path>") static var emit_objc_header_path: Option
   @Option("-emit-objc-header", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit an Objective-C header file") static var emit_objc_header: Option
-  @Option("-emit-object", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit object file(s) (-c)") static var emit_object: Option
+  @Option("-emit-object", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit object file(s) (-c)", group: .modes) static var emit_object: Option
   @Option("-emit-parseable-module-interface-path", .separate, alias: Option.emit_module_interface_path, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath]) static var emit_parseable_module_interface_path: Option
   @Option("-emit-parseable-module-interface", .flag, alias: Option.emit_module_interface, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild]) static var emit_parseable_module_interface: Option
-  @Option("-emit-pch", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit PCH for imported Objective-C header file") static var emit_pch: Option
+  @Option("-emit-pch", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit PCH for imported Objective-C header file", group: .modes) static var emit_pch: Option
   @Option("-emit-reference-dependencies-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output Swift-style dependencies file to <path>") static var emit_reference_dependencies_path: Option
   @Option("-emit-reference-dependencies", .flag, attributes: [.frontend, .noDriver], helpText: "Emit a Swift-style dependencies file") static var emit_reference_dependencies: Option
   @Option("-emit-remap-file-path", .separate, attributes: [.frontend, .noDriver, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<path>", helpText: "Emit the replacement map describing Swift Migrator changes to <path>") static var emit_remap_file_path: Option
-  @Option("-emit-sibgen", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit serialized AST + raw SIL file(s)") static var emit_sibgen: Option
-  @Option("-emit-sib", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit serialized AST + canonical SIL file(s)") static var emit_sib: Option
-  @Option("-emit-silgen", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit raw SIL file(s)") static var emit_silgen: Option
-  @Option("-emit-sil", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit canonical SIL file(s)") static var emit_sil: Option
+  @Option("-emit-sibgen", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit serialized AST + raw SIL file(s)", group: .modes) static var emit_sibgen: Option
+  @Option("-emit-sib", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit serialized AST + canonical SIL file(s)", group: .modes) static var emit_sib: Option
+  @Option("-emit-silgen", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit raw SIL file(s)", group: .modes) static var emit_silgen: Option
+  @Option("-emit-sil", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit canonical SIL file(s)", group: .modes) static var emit_sil: Option
   @Option("-emit-sorted-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When printing SIL, print out all sil entities sorted by name to ease diffing") static var emit_sorted_sil: Option
   @Option("-emit-stack-promotion-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit runtime checks for correct stack promotion of objects.") static var stack_promotion_checks: Option
-  @Option("-emit-syntax", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and emit the Syntax tree(s) as JSON") static var emit_syntax: Option
+  @Option("-emit-syntax", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and emit the Syntax tree(s) as JSON", group: .modes) static var emit_syntax: Option
   @Option("-emit-tbd-path=", .joined, alias: Option.emit_tbd_path, attributes: [.frontend, .noInteractive, .argumentIsPath]) static var emit_tbd_path_EQ: Option
   @Option("-emit-tbd-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Emit the TBD file to <path>") static var emit_tbd_path: Option
   @Option("-emit-tbd", .flag, attributes: [.frontend, .noInteractive], helpText: "Emit a TBD file") static var emit_tbd: Option
@@ -191,22 +191,22 @@ extension Option {
   @Option("-enable-throw-without-try", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow throwing function calls without 'try'") static var enable_throw_without_try: Option
   @Option("-enable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable verification of access markers used to enforce exclusivity.") static var enable_verify_exclusivity: Option
   @Option("-enforce-exclusivity=", .joined, attributes: [.frontend, .moduleInterface], metaVar: "<enforcement>", helpText: "Enforce law of exclusivity") static var enforce_exclusivity_EQ: Option
-  @Option("-experimental-dependency-include-intrafile", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Include within-file dependencies.") static var experimental_dependency_include_intrafile: Option
+  @Option("-experimental-dependency-include-intrafile", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Include within-file dependencies.", group: .internal_debug) static var experimental_dependency_include_intrafile: Option
   @Option("-external-pass-pipeline-filename", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<pass_pipeline_file>", helpText: "Use the pass pipeline defined by <pass_pipeline_file>") static var external_pass_pipeline_filename: Option
   @Option("-F=", .joined, alias: Option.F, attributes: [.frontend, .argumentIsPath]) static var F_EQ: Option
   @Option("-filelist", .separate, attributes: [.frontend, .noDriver], helpText: "Specify source inputs in a file rather than on the command line") static var filelist: Option
   @Option("-fixit-all", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Apply all fixits from diagnostics without any filtering") static var fixit_all: Option
   @Option("-force-public-linkage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force public linkage for private symbols. Used by LLDB.") static var force_public_linkage: Option
   @Option("-force-single-frontend-invocation", .flag, alias: Option.whole_module_optimization, attributes: [.helpHidden, .frontend, .noInteractive]) static var force_single_frontend_invocation: Option
-  @Option("-framework", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a framework which should be linked against") static var framework: Option
+  @Option("-framework", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a framework which should be linked against", group: .linker_option) static var framework: Option
   @Option("-Fsystem", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to system framework search path") static var Fsystem: Option
   @Option("-F", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to framework search path") static var F: Option
-  @Option("-gdwarf-types", .flag, attributes: [.frontend], helpText: "Emit full DWARF type info.") static var gdwarf_types: Option
-  @Option("-gline-tables-only", .flag, attributes: [.frontend], helpText: "Emit minimal debug info for backtraces only") static var gline_tables_only: Option
-  @Option("-gnone", .flag, attributes: [.frontend], helpText: "Don't emit debug info") static var gnone: Option
+  @Option("-gdwarf-types", .flag, attributes: [.frontend], helpText: "Emit full DWARF type info.", group: .g) static var gdwarf_types: Option
+  @Option("-gline-tables-only", .flag, attributes: [.frontend], helpText: "Emit minimal debug info for backtraces only", group: .g) static var gline_tables_only: Option
+  @Option("-gnone", .flag, attributes: [.frontend], helpText: "Don't emit debug info", group: .g) static var gnone: Option
   @Option("-group-info-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The path to collect the group information of the compiled module") static var group_info_path: Option
   @Option("-gsil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Write the SIL into a file and generate debug-info to debug on SIL  level.") static var debug_on_sil: Option
-  @Option("-g", .flag, attributes: [.frontend], helpText: "Emit debug info. This is the preferred setting for debugging with LLDB.") static var g: Option
+  @Option("-g", .flag, attributes: [.frontend], helpText: "Emit debug info. This is the preferred setting for debugging with LLDB.", group: .g) static var g: Option
   @Option("-help-hidden", .flag, attributes: [.helpHidden, .frontend], helpText: "Display available options, including hidden options") static var help_hidden: Option
   @Option("--help-hidden", .flag, alias: Option.help_hidden, attributes: [.helpHidden, .frontend], helpText: "Display available options, including hidden options") static var help_hidden_: Option
   @Option("-help", .flag, attributes: [.frontend, .autolinkExtract, .moduleWrap, .indent], helpText: "Display available options") static var help: Option
@@ -217,28 +217,28 @@ extension Option {
   @Option("-import-module", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Implicitly import the specified module") static var import_module: Option
   @Option("-import-objc-header", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Implicitly imports an Objective-C header file") static var import_objc_header: Option
   @Option("-import-underlying-module", .flag, attributes: [.frontend, .noInteractive], helpText: "Implicitly imports the Objective-C half of a module") static var import_underlying_module: Option
-  @Option("-in-place", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Overwrite input file with formatted file.") static var in_place: Option
+  @Option("-in-place", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Overwrite input file with formatted file.", group: .code_formatting) static var in_place: Option
   @Option("-incremental", .flag, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Perform an incremental build if possible") static var incremental: Option
-  @Option("-indent-switch-case", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Indent cases in switch statements.") static var indent_switch_case: Option
-  @Option("-indent-width", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n>", helpText: "Number of characters to indent.") static var indent_width: Option
+  @Option("-indent-switch-case", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Indent cases in switch statements.", group: .code_formatting) static var indent_switch_case: Option
+  @Option("-indent-width", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n>", helpText: "Number of characters to indent.", group: .code_formatting) static var indent_width: Option
   @Option("-index-file-path", .separate, attributes: [.noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Produce index data for file <path>") static var index_file_path: Option
-  @Option("-index-file", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Produce index data for a source file") static var index_file: Option
+  @Option("-index-file", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Produce index data for a source file", group: .modes) static var index_file: Option
   @Option("-index-ignore-system-modules", .flag, attributes: [.noInteractive], helpText: "Avoid indexing system modules") static var index_ignore_system_modules: Option
   @Option("-index-store-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Store indexing data to <path>") static var index_store_path: Option
   @Option("-index-system-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit index data for imported serialized swift system modules") static var index_system_modules: Option
-  @Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode") static var interpret: Option
+  @Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes) static var interpret: Option
   @Option("-I", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to the import search path") static var I: Option
-  @Option("-i", .flag) static var i: Option
+  @Option("-i", .flag, group: .modes) static var i: Option
   @Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel") static var j: Option
   @Option("-L=", .joined, alias: Option.L, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath]) static var L_EQ: Option
   @Option("-lazy-astscopes", .flag, attributes: [.frontend, .noDriver], helpText: "Build ASTScopes lazily") static var lazy_astscopes: Option
   @Option("-libc", .separate, helpText: "libc runtime library to use") static var libc: Option
-  @Option("-line-range", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n:n>", helpText: "<start line>:<end line>. Formats a range of lines (1-based). Can only be used with one input file.") static var line_range: Option
+  @Option("-line-range", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n:n>", helpText: "<start line>:<end line>. Formats a range of lines (1-based). Can only be used with one input file.", group: .code_formatting) static var line_range: Option
   @Option("-link-objc-runtime", .flag, attributes: [.doesNotAffectIncrementalBuild]) static var link_objc_runtime: Option
-  @Option("-lldb-repl", .flag, attributes: [.helpHidden, .noBatch], helpText: "LLDB-enhanced REPL mode") static var lldb_repl: Option
-  @Option("-L", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Add directory to library link search path") static var L: Option
-  @Option("-l", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against") static var l: Option
-  @Option("-merge-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Merge the input modules without otherwise processing them") static var merge_modules: Option
+  @Option("-lldb-repl", .flag, attributes: [.helpHidden, .noBatch], helpText: "LLDB-enhanced REPL mode", group: .modes) static var lldb_repl: Option
+  @Option("-L", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Add directory to library link search path", group: .linker_option) static var L: Option
+  @Option("-l", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linker_option) static var l: Option
+  @Option("-merge-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Merge the input modules without otherwise processing them", group: .modes) static var merge_modules: Option
   @Option("-migrate-keep-objc-visibility", .flag, attributes: [.frontend, .noInteractive], helpText: "When migrating, add '@objc' to declarations that would've been implicitly visible in Swift 3") static var migrate_keep_objc_visibility: Option
   @Option("-migrator-update-sdk", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.") static var migrator_update_sdk: Option
   @Option("-migrator-update-swift", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.") static var migrator_update_swift: Option
@@ -258,22 +258,22 @@ extension Option {
   @Option("-no-toolchain-stdlib-rpath", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Do not add an rpath entry for the toolchain's standard library (default)") static var no_toolchain_stdlib_rpath: Option
   @Option("-nostdimport", .flag, attributes: [.frontend], helpText: "Don't search the standard library import path for modules") static var nostdimport: Option
   @Option("-num-threads", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Enable multi-threading and specify number of threads") static var num_threads: Option
-  @Option("-Onone", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile without any optimization") static var Onone: Option
-  @Option("-Oplayground", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Compile with optimizations appropriate for a playground") static var Oplayground: Option
-  @Option("-Osize", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations and target small code size") static var Osize: Option
-  @Option("-Ounchecked", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations and remove runtime safety checks") static var Ounchecked: Option
+  @Option("-Onone", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile without any optimization", group: .O) static var Onone: Option
+  @Option("-Oplayground", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Compile with optimizations appropriate for a playground", group: .O) static var Oplayground: Option
+  @Option("-Osize", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations and target small code size", group: .O) static var Osize: Option
+  @Option("-Ounchecked", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations and remove runtime safety checks", group: .O) static var Ounchecked: Option
   @Option("-output-file-map=", .joined, alias: Option.output_file_map, attributes: [.noInteractive, .argumentIsPath]) static var output_file_map_EQ: Option
   @Option("-output-file-map", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "A file which specifies the location of outputs") static var output_file_map: Option
   @Option("-output-filelist", .separate, attributes: [.frontend, .noDriver], helpText: "Specify outputs in a file rather than on the command line") static var output_filelist: Option
   @Option("-output-request-graphviz", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit GraphViz output visualizing the request graph") static var output_request_graphviz: Option
-  @Option("-O", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations") static var O: Option
+  @Option("-O", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations", group: .O) static var O: Option
   @Option("-o", .joinedOrSeparate, attributes: [.frontend, .noInteractive, .autolinkExtract, .moduleWrap, .indent, .argumentIsPath], metaVar: "<file>", helpText: "Write output to <file>") static var o: Option
   @Option("-package-description-version", .separate, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<vers>", helpText: "The version number to be applied on the input for the PackageDescription availability kind") static var package_description_version: Option
   @Option("-parse-as-library", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file(s) as libraries, not scripts") static var parse_as_library: Option
   @Option("-parse-sil", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file as SIL code, not Swift source") static var parse_sil: Option
   @Option("-parse-stdlib", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Parse the input file(s) as the Swift standard library") static var parse_stdlib: Option
   @Option("-parseable-output", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit textual output in a parseable format") static var parseable_output: Option
-  @Option("-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s)") static var parse: Option
+  @Option("-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s)", group: .modes) static var parse: Option
   @Option("-pc-macro", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Apply the 'program counter simulation' macro") static var pc_macro: Option
   @Option("-pch-disable-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating the persistent PCH") static var pch_disable_validation: Option
   @Option("-pch-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to persist automatically created precompiled bridging headers") static var pch_output_dir: Option
@@ -283,7 +283,7 @@ extension Option {
   @Option("-prebuilt-module-cache-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Directory of prebuilt modules for loading module interfaces") static var prebuilt_module_cache_path: Option
   @Option("-primary-filelist", .separate, attributes: [.frontend, .noDriver], helpText: "Specify primary inputs in a file rather than on the command line") static var primary_filelist: Option
   @Option("-primary-file", .separate, attributes: [.frontend, .noDriver], helpText: "Produce output for this file, not the whole module") static var primary_file: Option
-  @Option("-print-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and pretty print AST(s)") static var print_ast: Option
+  @Option("-print-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and pretty print AST(s)", group: .modes) static var print_ast: Option
   @Option("-print-clang-stats", .flag, attributes: [.frontend, .noDriver], helpText: "Print Clang importer statistics") static var print_clang_stats: Option
   @Option("-print-inst-counts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Before IRGen, count all the various SIL instructions. Must be used in conjunction with -print-stats.") static var print_inst_counts: Option
   @Option("-print-llvm-inline-tree", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print the LLVM inline tree.") static var print_llvm_inline_tree: Option
@@ -295,11 +295,11 @@ extension Option {
   @Option("-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply a profdata file to enable profile-guided optimization") static var profile_use: Option
   @Option("-read-legacy-type-info-path=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Read legacy type layout from the given path instead of default path") static var read_legacy_type_info_path_EQ: Option
   @Option("-remove-runtime-asserts", .flag, attributes: [.frontend], helpText: "Remove runtime safety checks.") static var RemoveRuntimeAsserts: Option
-  @Option("-repl", .flag, attributes: [.helpHidden, .frontend, .noBatch], helpText: "REPL mode (the default if there is no input file)") static var repl: Option
+  @Option("-repl", .flag, attributes: [.helpHidden, .frontend, .noBatch], helpText: "REPL mode (the default if there is no input file)", group: .modes) static var repl: Option
   @Option("-report-errors-to-debugger", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, will be removed in future versions.") static var report_errors_to_debugger: Option
   @Option("-require-explicit-availability-target", .separate, attributes: [.frontend, .noInteractive], metaVar: "<target>", helpText: "Suggest fix-its adding @available(<target>, *) to public declarations without availability") static var require_explicit_availability_target: Option
   @Option("-require-explicit-availability", .flag, attributes: [.frontend, .noInteractive], helpText: "Require explicit availability on public declarations") static var require_explicit_availability: Option
-  @Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)") static var resolve_imports: Option
+  @Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes) static var resolve_imports: Option
   @Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files") static var resource_dir: Option
   @Option("-Rmodule-interface-rebuild", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emits a remark if an imported module needs to be re-compiled from its module interface") static var Rmodule_interface_rebuild: Option
   @Option("-Rpass-missed=", .joined, attributes: [.frontend], helpText: "Report missed transformations by optimization passes whose name matches the given POSIX regular expression") static var Rpass_missed_EQ: Option
@@ -340,8 +340,8 @@ extension Option {
   @Option("-suppress-warnings", .flag, attributes: [.frontend], helpText: "Suppress all warnings") static var suppress_warnings: Option
   @Option("-swift-version", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Interpret input according to a specific Swift language version number") static var swift_version: Option
   @Option("-switch-checking-invocation-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver]) static var switch_checking_invocation_threshold_EQ: Option
-  @Option("-S", .flag, alias: Option.emit_assembly, attributes: [.frontend, .noInteractive]) static var S: Option
-  @Option("-tab-width", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n>", helpText: "Width of tab character.") static var tab_width: Option
+  @Option("-S", .flag, alias: Option.emit_assembly, attributes: [.frontend, .noInteractive], group: .modes) static var S: Option
+  @Option("-tab-width", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n>", helpText: "Width of tab character.", group: .code_formatting) static var tab_width: Option
   @Option("-target-cpu", .separate, attributes: [.frontend, .moduleInterface], helpText: "Generate code for a particular CPU variant") static var target_cpu: Option
   @Option("--target=", .joined, alias: Option.target, attributes: [.frontend]) static var target_legacy_spelling: Option
   @Option("-target", .separate, attributes: [.frontend, .moduleWrap, .moduleInterface], metaVar: "<triple>", helpText: "Generate code for the given target <triple>, such as x86_64-apple-macos10.9") static var target: Option
@@ -357,13 +357,13 @@ extension Option {
   @Option("-track-system-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Track system dependencies while emitting Make-style dependencies") static var track_system_dependencies: Option
   @Option("-triple", .separate, alias: Option.target, attributes: [.frontend, .noDriver]) static var triple: Option
   @Option("-type-info-dump-filter=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "One of 'all', 'resilient' or 'fragile'") static var type_info_dump_filter_EQ: Option
-  @Option("-typecheck", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s)") static var typecheck: Option
+  @Option("-typecheck", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s)", group: .modes) static var typecheck: Option
   @Option("-typo-correction-limit", .separate, attributes: [.helpHidden, .frontend], metaVar: "<n>", helpText: "Limit the number of times the compiler will attempt typo correction to <n>") static var typo_correction_limit: Option
   @Option("-update-code", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Update Swift code") static var update_code: Option
   @Option("-use-jit", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Register Objective-C classes as if the JIT were in use") static var use_jit: Option
   @Option("-use-ld=", .joined, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies the linker to be used") static var use_ld: Option
   @Option("-use-malloc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allocate internal data structures using malloc (for memory debugging)") static var use_malloc: Option
-  @Option("-use-tabs", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Use tabs for indentation.") static var use_tabs: Option
+  @Option("-use-tabs", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Use tabs for indentation.", group: .code_formatting) static var use_tabs: Option
   @Option("-validate-tbd-against-ir=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<level>", helpText: "Compare the symbols in the IR against the TBD file that would be generated.") static var validate_tbd_against_ir_EQ: Option
   @Option("-value-recursion-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the maximum depth for direct recursion in value types") static var value_recursion_threshold: Option
   @Option("-verify-apply-fixes", .flag, attributes: [.frontend, .noDriver], helpText: "Like -verify, but updates the original source file") static var verify_apply_fixes: Option

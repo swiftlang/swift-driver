@@ -62,16 +62,21 @@ public struct Option {
   /// Help text to display with this option.
   public let helpText: String?
 
+  /// The group in which this option occurs.
+  public let group: Group?
+
   public init(_ spelling: String, _ kind: Kind,
               alias: Option? = nil,
               attributes: OptionAttributes = [], metaVar: String? = nil,
-              helpText: String? = nil) {
+              helpText: String? = nil,
+              group: Group? = nil) {
     self.spelling = spelling
     self.kind = kind
     self.aliasFunction = alias.map { aliasOption in { aliasOption }}
     self.attributes = attributes
     self.metaVar = metaVar
     self.helpText = helpText
+    self.group = group
   }
 
   public var wrappedValue: Option { self }

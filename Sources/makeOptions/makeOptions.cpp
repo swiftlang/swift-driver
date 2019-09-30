@@ -395,6 +395,9 @@ int makeOptions_main() {
       if (option.helpText) {
         out << ", helpText: " << stringOrNilLeftTrimmed(option.helpText);
       }
+      if (option.group != OptionID::Opt_INVALID) {
+        out << ", group: ." << groups[groupIndexByID[option.group]].id;
+      }
       out << ") static var ";
 
       // Add a '_' suffix if this is an alternate spelling.
