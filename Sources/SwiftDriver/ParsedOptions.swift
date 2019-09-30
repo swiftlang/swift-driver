@@ -156,8 +156,22 @@ extension ParsedOptions {
     parsedOptions.filter { $0.option == nil }.map { $0.argument.asSingle }
   }
 
+  /// Determine whether the parsed options contain an argument with one of
+  /// the given options
+  public func hasArgument(_ options: Option...) -> Bool {
+    return parsedOptions.contains { parsed in
+      guard let option = parsed.option else { return false }
+      return options.contains(option)
+    }
+  }
+
   /// Get the last argument matching the given option.
   public func getLastArgument(_ option: Option) -> Argument? {
     return parsedOptions.last { parsed in parsed.option == option }?.argument
+  }
+
+  /// Get the last parsed option within the given option group.
+  public func getLast(in group: Option.Group) -> ParsedOption? {
+    return parsedOptions.last { parsed in parsed.option?.group == group }
   }
 }

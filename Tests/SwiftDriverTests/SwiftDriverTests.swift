@@ -77,4 +77,18 @@ final class SwiftDriverTests: XCTestCase {
     let driver4 = try Driver(args: ["swift", "-", "-working-directory" , "-wobble"])
     XCTAssertEqual(driver4.inputFiles, [ InputFile(file: .standardInput, type: .swift )])
   }
+
+  func testPrimaryOutputKinds() throws {
+    let driver1 = try Driver(args: ["swiftc", "foo.swift", "-emit-module"])
+    XCTAssertEqual(driver1.compilerOutputType, .swiftModule)
+    XCTAssertEqual(driver1.linkerOutputType, nil)
+
+    let driver2 = try Driver(args: ["swiftc", "foo.swift", "-emit-library"])
+    XCTAssertEqual(driver2.compilerOutputType, .object)
+    XCTAssertEqual(driver2.linkerOutputType, .dynamicLibrary)
+
+    let driver3 = try Driver(args: ["swiftc", "-static", "foo.swift", "-emit-library"])
+    XCTAssertEqual(driver3.compilerOutputType, .object)
+    XCTAssertEqual(driver3.linkerOutputType, .staticLibrary)
+  }
 }
