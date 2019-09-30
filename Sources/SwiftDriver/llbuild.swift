@@ -40,7 +40,7 @@ public final class LLBuildEngine {
         }
     }
 
-    private final class Delegate: BuildEngineDelegate {
+    fileprivate final class Delegate: BuildEngineDelegate {
         let delegate: LLBuildEngineDelegate
         var errors: [String] = []
 
@@ -84,7 +84,7 @@ public final class LLBuildEngine {
             throw Error.failed(errors: delegate.errors)
         }
 
-        return T.BuildValue(value)
+        return try T.BuildValue(value)
     }
 
     public func attachDB(path: String, schemaVersion: Int = 2) throws {
@@ -103,6 +103,10 @@ public class LLTaskBuildEngine {
 
     init(_ engine: TaskBuildEngine) {
         self.engine = engine
+    }
+
+    var delegate: LLBuildEngineDelegate {
+      return (engine.engine.delegate as! LLBuildEngine.Delegate).delegate
     }
 
     public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) {
@@ -211,7 +215,7 @@ public extension LLBuildKey {
 }
 
 public extension LLBuildValue {
-    init(_ value: Value) {
+    init(_ value: Value) throws {
         do {
             self = try fromBytes(value.data)
         } catch {
