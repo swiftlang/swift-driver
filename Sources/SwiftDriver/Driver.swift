@@ -277,8 +277,6 @@ extension Driver {
         if parsedOptions.contains(.static) {
           diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
         }
-        // FIXME: Check for -static, which is not allowed per
-        // diag::error_static_emit_executable_disallowed
         linkerOutputType = .executable
         compilerOutputType = .object
 
