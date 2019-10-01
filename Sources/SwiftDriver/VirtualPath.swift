@@ -1,21 +1,22 @@
+import TSCBasic
+
 /// A virtual path.
 public struct VirtualPath: Codable, Hashable {
-  /// The name of the file must be unique. This will be used to map to the actual path.
-  var name: String
+  /// A description of the file or directory, which must be unique.
+  ///
+  /// This will be used to map to the actual path.
+  let file: File
 
   /// True if this path represents a temporary file that is cleaned up after job execution.
-  var isTemporary: Bool
+  ///
+  /// Temporary files are always relative.
+  let isTemporary: Bool
 
-  init(name: String, isTemporary: Bool) {
-    self.name = name
-    self.isTemporary = isTemporary
-  }
-
-  public static func path(_ name: String) -> VirtualPath {
-    return VirtualPath(name: name, isTemporary: false)
+  public static func path(_ file: File) -> VirtualPath {
+    return VirtualPath(file: file, isTemporary: false)
   }
 
   public static func temporaryFile(_ name: String) -> VirtualPath {
-    return VirtualPath(name: name, isTemporary: true)
+    return VirtualPath(file: .relative(try! RelativePath(validating: name)), isTemporary: true)
   }
 }

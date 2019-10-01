@@ -45,9 +45,9 @@ final class JobExecutorTests: XCTestCase {
 
       var resolver = try ArgsResolver(toolchain: toolchain)
       resolver.pathMapping = [
-        .path("foo.swift"): foo,
-        .path("main.swift"): main,
-        .path("main"): exec,
+        .path(.relative(RelativePath("foo.swift"))): foo,
+        .path(.relative(RelativePath("main.swift"))): main,
+        .path(.relative(RelativePath("main"))): exec,
       ]
 
       let compileFoo = Job(
@@ -56,8 +56,8 @@ final class JobExecutorTests: XCTestCase {
           "-frontend",
           "-c",
           "-primary-file",
-          .path(.path("foo.swift")),
-          .path(.path("main.swift")),
+          .path(.path(.relative(RelativePath("foo.swift")))),
+          .path(.path(.relative(RelativePath("main.swift")))),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
@@ -65,7 +65,8 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporaryFile("foo.o")),
         ],
-        inputs: [.path("foo.swift"), .path("main.swift")],
+        inputs: [.path(.relative(RelativePath("foo.swift"))),
+                 .path(.relative(RelativePath("main.swift")))],
         outputs: [.temporaryFile("foo.o")]
       )
 
@@ -74,9 +75,9 @@ final class JobExecutorTests: XCTestCase {
         commandLine: [
           "-frontend",
           "-c",
-          .path(.path("foo.swift")),
+          .path(.path(.relative(RelativePath("foo.swift")))),
           "-primary-file",
-          .path(.path("main.swift")),
+          .path(.path(.relative(RelativePath("main.swift")))),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
@@ -84,7 +85,7 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporaryFile("main.o")),
         ],
-        inputs: [.path("foo.swift"), .path("main.swift")],
+        inputs: [.path(.relative(RelativePath("foo.swift"))), .path(.relative(RelativePath("main.swift")))],
         outputs: [.temporaryFile("main.o")]
       )
 
@@ -101,15 +102,15 @@ final class JobExecutorTests: XCTestCase {
           "-L", .resource(.resourcesDir),
           "-L", .resource(.sdkStdlib),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
-          .path(.path("main")),
+          .path(.path(.relative(RelativePath("main")))),
         ],
         inputs: [.temporaryFile("foo.o"), .temporaryFile("main.o")],
-        outputs: [.path("main")]
+        outputs: [.path(.relative(RelativePath("main")))]
       )
 
       let delegate = JobCollectingDelegate()
       let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
-      try executor.build(.path("main"))
+      try executor.build(.path(.relative(RelativePath("main"))))
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")

@@ -33,7 +33,7 @@ public struct ArgsResolver {
     case .path(let path):
       // Return the path from the temporary directory if this is a temporary file.
       if path.isTemporary {
-        let actualPath = temporaryDirectory.appending(component: path.name)
+        let actualPath = temporaryDirectory.appending(component: path.file.name)
         return actualPath.pathString
       }
 
@@ -43,7 +43,7 @@ public struct ArgsResolver {
       }
 
       // Otherwise, return the path.
-      return path.name
+      return path.file.name
 
     case .resource(let resource):
       return try resolve(resource).pathString

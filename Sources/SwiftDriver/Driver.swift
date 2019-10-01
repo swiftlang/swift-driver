@@ -237,16 +237,8 @@ extension Driver {
   ///
   /// FIXME: Left on Driver in case we want to lazily translate things.
   func translateInputFile(_ file: File) -> VirtualPath {
-    switch file {
-    case .absolute(let path):
-      return .path(path.pathString)
-    case .relative(let path):
-      return .path(path.pathString)
-    case .standardInput:
-      return .path("-") // FIXME: Hack because we cannot represent standard input/output in VirtualPath
-    case .standardOutput:
-      fatalError("Standard output cannot be an input file")
-    }
+    assert(file != .standardOutput, "Standard output cannot be an input file")
+    return .path(file)
   }
 
   /// Apply the given working directory to all paths in the parsed options.
