@@ -67,26 +67,6 @@ enum ActionType {
   case verifyDebugInfo
 }
 
-/// Represents the type of work that needs to be done during compilation.
-protocol Action {
-  var type: ActionType { get }
-}
-
-/// The compile action.
-struct CompileAction: Action {
-  var type: ActionType { .compile }
-}
-
-/// The merge module action.
-struct MergeModuleAction: Action {
-  var type: ActionType { .mergeModule }
-}
-
-/// The link action.
-struct DynamicLinkAction: Action {
-  var type: ActionType { .dynamicLink }
-}
-
 // MARK: - Job.ArgTemplate + Codable
 
 extension Job.ArgTemplate: Codable {
