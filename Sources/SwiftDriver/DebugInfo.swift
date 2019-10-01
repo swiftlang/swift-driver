@@ -13,4 +13,14 @@ public enum DebugInfoLevel {
 
   /// Line tables with AST type references and DWARF types
   case dwarfTypes
+
+  public var requiresModule: Bool {
+    switch self {
+    case .lineTables:
+      return false
+
+    case .astTypes, .dwarfTypes:
+      return true
+    }
+  }
 }
