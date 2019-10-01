@@ -156,8 +156,8 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporaryFile("foo.o"))
+    XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporary("foo.o"))
     XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporaryFile("bar.o"))
+    XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporary("bar.o"))
   }
 }

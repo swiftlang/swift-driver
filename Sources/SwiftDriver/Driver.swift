@@ -233,14 +233,6 @@ extension Driver {
 
 /// Input and output file handling.
 extension Driver {
-  /// Translate the given input file into a virtual path.
-  ///
-  /// FIXME: Left on Driver in case we want to lazily translate things.
-  func translateInputFile(_ file: File) -> VirtualPath {
-    assert(file != .standardOutput, "Standard output cannot be an input file")
-    return .path(file)
-  }
-
   /// Apply the given working directory to all paths in the parsed options.
   private static func applyWorkingDirectory(_ workingDirectory: AbsolutePath,
                                             to parsedOptions: inout ParsedOptions) throws {
@@ -283,7 +275,7 @@ extension Driver {
       }
 
       // Resolve the input file.
-      let file: File
+      let file: VirtualPath
       let fileExtension: String
       if let absolute = try? AbsolutePath(validating: input) {
         file = .absolute(absolute)

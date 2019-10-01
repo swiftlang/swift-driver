@@ -3,7 +3,7 @@ import TSCBasic
 /// Mapping
 struct OutputFileMap {
   /// The known mapping from input file to specific output files.
-  var entries: [File : [FileType : VirtualPath]] = [:]
+  var entries: [VirtualPath : [FileType : VirtualPath]] = [:]
 
   init() { }
 
@@ -11,7 +11,7 @@ struct OutputFileMap {
   /// file type.
   ///
   /// If no such output file
-  mutating func getOutput(inputFile: File, outputType: FileType) -> VirtualPath {
+  mutating func getOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath {
     // If we already have an output file, retrieve it.
     if let output = entries[inputFile]?[outputType] {
       return output
@@ -28,10 +28,12 @@ struct OutputFileMap {
       baseName = ""
     case .standardOutput:
       fatalError("Standard output cannot be an input file")
+    case .temporary(let name):
+      baseName = name
     }
 
     // Form the virtual path and record it in the map.
-    let output = VirtualPath.temporaryFile(baseName.appendingFileTypeExtension(outputType))
+    let output = VirtualPath.temporary(baseName.appendingFileTypeExtension(outputType))
     entries[inputFile, default: [:]][outputType] = output
     return output
   }

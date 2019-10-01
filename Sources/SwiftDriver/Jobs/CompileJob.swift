@@ -16,7 +16,7 @@ extension Driver {
   /// Add the compiler inputs for a frontend compilation job, and return the corresponding primary set of outputs.
   mutating func addCompileInputs(primaryInputs: [InputFile], inputs: inout [VirtualPath], commandLine: inout [Job.ArgTemplate]) -> [VirtualPath] {
     // Collect the set of input files that are part of the Swift compilation.
-    let swiftInputFiles: [File] = inputFiles.compactMap { inputFile in
+    let swiftInputFiles: [VirtualPath] = inputFiles.compactMap { inputFile in
       if inputFile.type.isPartOfSwiftCompilation {
         return inputFile.file
       }
@@ -28,20 +28,19 @@ extension Driver {
     // we can check more quickly.
     let usesPrimaryFileInputs = compilerMode.usesPrimaryFileInputs
     assert(!usesPrimaryFileInputs || !primaryInputs.isEmpty)
-    let primaryInputFiles: Set<File> = usesPrimaryFileInputs ? Set(primaryInputs.map { $0.file }) : Set()
+    let primaryInputFiles: Set<VirtualPath> = usesPrimaryFileInputs ? Set(primaryInputs.map { $0.file }) : Set()
 
     // Add each of the input files.
     // FIXME: Use/create input file lists and primary input file lists.
     var primaryOutputs: [VirtualPath] = []
     for input in swiftInputFiles {
-      let virtualInput = translateInputFile(input)
-      inputs.append(virtualInput)
+      inputs.append(input)
 
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
         commandLine.appendFlag("-primary-file")
       }
-      commandLine.append(.path(virtualInput))
+      commandLine.append(.path(input))
 
       // If there is a primary output, add it.
       if isPrimary, let compilerOutputType = compilerOutputType {
