@@ -90,7 +90,7 @@ public struct Driver {
     (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
-    (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions)
+    (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
   }
 
   /// Determine the driver kind based on the command-line arguments.
@@ -352,7 +352,7 @@ extension Driver {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions) -> (DebugInfoLevel?, DebugInfoFormat) {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat) {
     // Determine the debug level.
     let level: DebugInfoLevel?
     if let levelOption = parsedOptions.getLast(in: .g) {
@@ -382,13 +382,12 @@ extension Driver {
       if let parsedFormat = DebugInfoFormat(rawValue: formatArg.asSingle) {
         format = parsedFormat
       } else {
-        // FIXME: Diagnose incorrect argument value.
+        diagnosticsEngine.emit(.error_invalid_arg_value(arg: .debug_info_format, value: formatArg.asSingle))
         format = .dwarf
       }
 
       if !parsedOptions.contains(in: .g) {
-        // FIXME: Diagnose missing "-g" required when specifying debug info
-        // format.
+        diagnosticsEngine.emit(.error_option_missing_required_argument(option: .debug_info_format, requiredArg: .g))
       }
     } else {
       // Default to DWARF.
@@ -396,15 +395,10 @@ extension Driver {
     }
 
     if format == .codeView && (level == .lineTables || level == .dwarfTypes) {
-      // FIXME: error cannot use these arguments together
+      let levelOption = parsedOptions.getLast(in: .g)!.option!
+      diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
     }
 
     return (level, format)
-  }
-}
-
-extension TSCBasic.Diagnostic.Message {
-  static var error_static_emit_executable_disallowed: TSCBasic.Diagnostic.Message {
-    .error("-static may not be used with -emit-executable")
   }
 }

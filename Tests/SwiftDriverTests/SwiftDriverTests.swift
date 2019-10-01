@@ -108,5 +108,14 @@ final class SwiftDriverTests: XCTestCase {
     let driver4 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview"])
     XCTAssertEqual(driver4.debugInfoLevel, .astTypes)
     XCTAssertEqual(driver4.debugInfoFormat, .codeView)
+
+    let driver5 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-debug-info-format=dwarf"])
+    XCTAssertEqual(driver5.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["option '-debug-info-format=' is missing a required argument (-g)"])
+
+    let driver6 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=notdwarf"])
+    XCTAssertEqual(driver6.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["invalid value 'notdwarf' in '-debug-info-format='"])
+
+    let driver7 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-gdwarf-types", "-debug-info-format=codeview"])
+    XCTAssertEqual(driver7.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["argument 'codeview' is not allowed with '-gdwarf-types'"])
   }
 }
