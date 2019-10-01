@@ -5,10 +5,6 @@ import Dispatch
 
 /// Resolver for a job's argument template.
 public struct ArgsResolver {
-  enum Error: Swift.Error {
-    case unknownVirtualPath(String)
-  }
-
   /// The toolchain in use.
   public let toolchain: DarwinToolchain
 
@@ -41,10 +37,13 @@ public struct ArgsResolver {
         return actualPath.pathString
       }
 
-      guard let actualPath = pathMapping[path] else {
-        throw Error.unknownVirtualPath(path.name)
+      // If there was a path mapping, use it.
+      if let actualPath = pathMapping[path] {
+        return actualPath.pathString
       }
-      return actualPath.pathString
+
+      // Otherwise, return the path.
+      return path.name
 
     case .resource(let resource):
       return try resolve(resource).pathString
