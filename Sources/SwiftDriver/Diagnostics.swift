@@ -18,4 +18,36 @@ extension Diagnostic.Message {
   public static func error_argument_not_allowed_with(arg: String, other: String) -> Diagnostic.Message {
     .error("argument '\(arg)' is not allowed with '\(other)'")
   }
+
+  public static var error_mode_cannot_emit_module: Diagnostic.Message {
+    .error("this mode does not support emitting modules")
+  }
+
+  public static func error_bad_module_name(
+    moduleName: String,
+    explicitModuleName: Bool
+  ) -> Diagnostic.Message {
+    let suffix: String
+    if explicitModuleName {
+      suffix = ""
+    } else {
+      suffix = "; use -module-name flag to specify an alternate name"
+    }
+
+    return .error("module name \"\(moduleName)\" is not a valid identifier\(suffix)")
+  }
+
+  public static func error_stdlib_module_name(
+    moduleName: String,
+    explicitModuleName: Bool
+  ) -> Diagnostic.Message {
+    let suffix: String
+    if explicitModuleName {
+      suffix = ""
+    } else {
+      suffix = "; use -module-name flag to specify an alternate name"
+    }
+
+    return .error("module name \"\(moduleName)\" is reserved for the standard library\(suffix)")
+  }
 }
