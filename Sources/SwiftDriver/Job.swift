@@ -36,7 +36,7 @@ public struct Job: Codable {
       return VirtualPath(name: name, isTemporary: false)
     }
 
-    public static func temporaryFile(name: String) -> VirtualPath {
+    public static func temporaryFile(_ name: String) -> VirtualPath {
       return VirtualPath(name: name, isTemporary: true)
     }
   }

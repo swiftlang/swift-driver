@@ -1,4 +1,6 @@
 import TSCBasic
+
+import Foundation
 import Dispatch
 
 /// Resolver for a job's argument template.
@@ -13,9 +15,17 @@ public struct ArgsResolver {
   /// The map of virtual path to the actual path.
   public var pathMapping: [Job.VirtualPath: AbsolutePath]
 
-  public init(toolchain: DarwinToolchain) {
+  /// Path to the directory that will contain the temporary files.
+  private let temporaryDirectory: AbsolutePath
+
+  public init(toolchain: DarwinToolchain) throws {
     self.toolchain = toolchain
     self.pathMapping = [:]
+    self.temporaryDirectory = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
+      // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
+      try localFileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
+      return path
+    }
   }
 
   /// Resolve the given argument.
@@ -25,7 +35,11 @@ public struct ArgsResolver {
       return flag
 
     case .path(let path):
-      assert(!path.isTemporary, "Temporary path support is not yet implemented")
+      // Return the path from the temporary directory if this is a temporary file.
+      if path.isTemporary {
+        let actualPath = temporaryDirectory.appending(component: path.name)
+        return actualPath.pathString
+      }
 
       guard let actualPath = pathMapping[path] else {
         throw Error.unknownVirtualPath(path.name)
@@ -35,6 +49,11 @@ public struct ArgsResolver {
     case .resource(let resource):
       return try resolve(resource).pathString
     }
+  }
+
+  /// Remove the temporary directory from disk.
+  public func removeTemporaryDirectory() throws {
+    _ = try FileManager.default.removeItem(atPath: temporaryDirectory.pathString)
   }
 
   /// Resolve the given resourse.
