@@ -1,14 +1,15 @@
 import TSCBasic
 
 /// Describes a file to which jobs may refer.
-public enum File: Equatable {
+public enum File: Hashable {
   case relative(RelativePath)
   case absolute(AbsolutePath)
   case standardInput
+  case standardOutput
 }
 
 /// An input to the compilation job.
-public struct InputFile: Equatable {
+public struct InputFile: Hashable {
   /// The file this input refers to.
   public let file: File
 

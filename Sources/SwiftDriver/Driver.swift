@@ -35,6 +35,9 @@ public struct Driver {
   /// The set of input files
   public let inputFiles: [InputFile]
 
+  /// The mapping from input files to output files for each kind.
+  internal var outputFileMap: OutputFileMap
+
   /// The mode in which the compiler will execute.
   public let compilerMode: CompilerMode
 
@@ -101,6 +104,11 @@ public struct Driver {
 
     // Classify and collect all of the input files.
     self.inputFiles = try Self.collectInputFiles(&self.parsedOptions)
+
+    // Initialize an empty output file map, which will be populated when we start creating jobs.
+    //
+    // FIXME: If one of the -output-file-map options was given, parse that file into outputFileMap.
+    self.outputFileMap = OutputFileMap()
 
     // Determine the compilation mode.
     self.compilerMode = Self.computeCompilerMode(&parsedOptions, driverKind: driverKind)
@@ -225,6 +233,22 @@ extension Driver {
 
 /// Input and output file handling.
 extension Driver {
+  /// Translate the given input file into a virtual path.
+  ///
+  /// FIXME: Left on Driver in case we want to lazily translate things.
+  func translateInputFile(_ file: File) -> VirtualPath {
+    switch file {
+    case .absolute(let path):
+      return .path(path.pathString)
+    case .relative(let path):
+      return .path(path.pathString)
+    case .standardInput:
+      return .path("-") // FIXME: Hack because we cannot represent standard input/output in VirtualPath
+    case .standardOutput:
+      fatalError("Standard output cannot be an input file")
+    }
+  }
+
   /// Apply the given working directory to all paths in the parsed options.
   private static func applyWorkingDirectory(_ workingDirectory: AbsolutePath,
                                             to parsedOptions: inout ParsedOptions) throws {
@@ -446,15 +470,8 @@ extension Driver {
     }
 
     if let relative = try? RelativePath(validating: path) {
-      // FIXME: RelativePath doesn't provide basenameWithoutExt
-      let basename = relative.basename
-      if let ext = relative.extension {
-        hasExtension = true
-        return String(basename.dropLast(ext.count + 1))
-      }
-      hasExtension = false
-
-      return basename
+      hasExtension = relative.extension != nil
+      return relative.basenameWithoutExt
     }
 
     hasExtension = false
