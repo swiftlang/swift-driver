@@ -8,6 +8,9 @@ public struct Driver {
     case invalidInput(String)
   }
 
+  /// Diagnostic engine for emitting warnings, errors, etc.
+  public let diagnosticEngine: DiagnosticsEngine
+
   /// The kind of driver.
   public let driverKind: DriverKind
 
@@ -38,10 +41,33 @@ public struct Driver {
   /// The mode in which the compiler will execute.
   public lazy var compilerMode: CompilerMode = computeCompilerMode()
 
+  /// Handler for emitting diagnostics to stderr.
+  public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
+    let stream = stderrStream
+    if !(diagnostic.location is UnknownLocation) {
+        stream <<< diagnostic.location.description <<< ": "
+    }
+
+    switch diagnostic.message.behavior {
+    case .error:
+      stream <<< "error: "
+    case .warning:
+      stream <<< "warning: "
+    case .note:
+      stream <<< "note: "
+    case .ignored:
+        break
+    }
+
+    stream <<< diagnostic.localizedDescription <<< "\n"
+    stream.flush()
+  }
+
   /// Create the driver with the given arguments.
-  public init(args: [String]) throws {
+  public init(args: [String], diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler) throws {
     // FIXME: Determine if we should run as subcommand.
 
+    self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
     self.driverKind = try Self.determineDriverKind(args: args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
@@ -61,7 +87,7 @@ public struct Driver {
     self.inputFiles = try Self.collectInputFiles(&self.parsedOptions)
 
     // Figure out the primary outputs from the driver.
-    (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind)
+    (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
     (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions)
@@ -238,7 +264,8 @@ extension Driver {
   /// Determine the primary compiler and linker output kinds.
   private static func determinePrimaryOutputs(
     _ parsedOptions: inout ParsedOptions,
-    driverKind: DriverKind
+    driverKind: DriverKind,
+    diagnosticsEngine: DiagnosticsEngine
   ) -> (FileType?, LinkOutputType?) {
     // By default, the driver does not link its output. However, this will be updated below.
     var compilerOutputType: FileType? = (driverKind == .interactive ? nil : .object)
@@ -247,6 +274,9 @@ extension Driver {
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option! {
       case .emit_executable:
+        if parsedOptions.contains(.static) {
+          diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
+        }
         // FIXME: Check for -static, which is not allowed per
         // diag::error_static_emit_executable_disallowed
         linkerOutputType = .executable
@@ -372,5 +402,11 @@ extension Driver {
     }
 
     return (level, format)
+  }
+}
+
+extension TSCBasic.Diagnostic.Message {
+  static var error_static_emit_executable_disallowed: TSCBasic.Diagnostic.Message {
+    .error("-static may not be used with -emit-executable")
   }
 }
