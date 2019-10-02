@@ -11,5 +11,6 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(Triple("blah-apple").arch, .unknown)
 
     XCTAssertEqual(Triple("x86_64-apple-macosx").vendor, .apple)
+    XCTAssertEqual(Triple("x86_64-apple-macosx").os, .macosx)
   }
 }

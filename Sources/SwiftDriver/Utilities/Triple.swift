@@ -176,6 +176,41 @@ public struct Triple {
   }
 
   public enum OS {
+    case ananas
+    case cloudABI
+    case darwin
+    case dragonFly
+    case freeBSD
+    case fuchsia
+    case ios
+    case kfreebsd
+    case linux
+    case lv2
+    case macosx
+    case netbsd
+    case openbsd
+    case solaris
+    case win32
+    case haiku
+    case minix
+    case rtems
+    case nacl
+    case cnk
+    case aix
+    case cuda
+    case nvcl
+    case amdhsa
+    case ps4
+    case elfiamcu
+    case tvos
+    case watchos
+    case mesa3d
+    case contiki
+    case amdpal
+    case hermitcore
+    case hurd
+    case wasi
+    case emscripten
     case unknown
   }
 
@@ -195,8 +230,8 @@ public struct Triple {
     self.arch = parseArch(components)
     self.subArch = parseSubArch(components)
     self.vendor = parseVendor(components)
-    self.os = .unknown
-    self.environment = .unknown
+    self.os = parseOS(components)
+    self.environment = parseEnvironment(components)
     self.objectFormatType = .unknown
   }
 }
@@ -353,7 +388,7 @@ private func parseSubArch(_ components: [Substring]) -> Triple.SubArch {
 private func parseVendor(_ components: [Substring]) -> Triple.Vendor {
   guard components.count > 1 else { return .unknown }
   let vendorName = components[1]
-  
+
   switch vendorName {
   case "apple":
     return .apple
@@ -394,13 +429,91 @@ private func parseVendor(_ components: [Substring]) -> Triple.Vendor {
 
 // MARK: - Parse OS
 
-private func parseOS(_ components: [Substring]) -> Triple.SubArch {
-  return .unknown
+private func parseOS(_ components: [Substring]) -> Triple.OS {
+  guard components.count > 2 else { return .unknown }
+  let os = components[2]
+
+  switch os {
+  case _ where os.starts(with: "ananas"):
+      return .ananas
+  case _ where os.starts(with: "cloudabi"):
+      return .cloudABI
+  case _ where os.starts(with: "darwin"):
+      return .darwin
+  case _ where os.starts(with: "dragonfly"):
+      return .dragonFly
+  case _ where os.starts(with: "freebsd"):
+      return .freeBSD
+  case _ where os.starts(with: "fuchsia"):
+      return .fuchsia
+  case _ where os.starts(with: "ios"):
+      return .ios
+  case _ where os.starts(with: "kfreebsd"):
+      return .kfreebsd
+  case _ where os.starts(with: "linux"):
+      return .linux
+  case _ where os.starts(with: "lv2"):
+      return .lv2
+  case _ where os.starts(with: "macos"):
+      return .macosx
+  case _ where os.starts(with: "netbsd"):
+      return .netbsd
+  case _ where os.starts(with: "openbsd"):
+      return .openbsd
+  case _ where os.starts(with: "solaris"):
+      return .solaris
+  case _ where os.starts(with: "win32"):
+      return .win32
+  case _ where os.starts(with: "windows"):
+      return .win32
+  case _ where os.starts(with: "haiku"):
+      return .haiku
+  case _ where os.starts(with: "minix"):
+      return .minix
+  case _ where os.starts(with: "rtems"):
+      return .rtems
+  case _ where os.starts(with: "nacl"):
+      return .nacl
+  case _ where os.starts(with: "cnk"):
+      return .cnk
+  case _ where os.starts(with: "aix"):
+      return .aix
+  case _ where os.starts(with: "cuda"):
+      return .cuda
+  case _ where os.starts(with: "nvcl"):
+      return .nvcl
+  case _ where os.starts(with: "amdhsa"):
+      return .amdhsa
+  case _ where os.starts(with: "ps4"):
+      return .ps4
+  case _ where os.starts(with: "elfiamcu"):
+      return .elfiamcu
+  case _ where os.starts(with: "tvos"):
+      return .tvos
+  case _ where os.starts(with: "watchos"):
+      return .watchos
+  case _ where os.starts(with: "mesa3d"):
+      return .mesa3d
+  case _ where os.starts(with: "contiki"):
+      return .contiki
+  case _ where os.starts(with: "amdpal"):
+      return .amdpal
+  case _ where os.starts(with: "hermit"):
+      return .hermitcore
+  case _ where os.starts(with: "hurd"):
+      return .hurd
+  case _ where os.starts(with: "wasi"):
+      return .wasi
+  case _ where os.starts(with: "emscripten"):
+      return .emscripten
+  default:
+      return .unknown
+  }
 }
 
 // MARK: - Parse Environment
 
-private func parseEnvironment(_ components: [Substring]) -> Triple.SubArch {
+private func parseEnvironment(_ components: [Substring]) -> Triple.Environment {
   return .unknown
 }
 
