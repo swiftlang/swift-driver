@@ -5,17 +5,13 @@ import Dispatch
 
 /// Resolver for a job's argument template.
 public struct ArgsResolver {
-  /// The toolchain in use.
-  public let toolchain: DarwinToolchain
-
   /// The map of virtual path to the actual path.
   public var pathMapping: [VirtualPath: AbsolutePath]
 
   /// Path to the directory that will contain the temporary files.
   private let temporaryDirectory: AbsolutePath
 
-  public init(toolchain: DarwinToolchain) throws {
-    self.toolchain = toolchain
+  public init() throws {
     self.pathMapping = [:]
     self.temporaryDirectory = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
       // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
@@ -44,46 +40,12 @@ public struct ArgsResolver {
 
       // Otherwise, return the path.
       return path.name
-
-    case .resource(let resource):
-      return try resolve(resource).pathString
     }
   }
 
   /// Remove the temporary directory from disk.
   public func removeTemporaryDirectory() throws {
     _ = try FileManager.default.removeItem(atPath: temporaryDirectory.pathString)
-  }
-
-  /// Resolve the given resourse.
-  public func resolve(_ resource: Job.ToolchainResource) throws -> AbsolutePath {
-    // FIXME: There's probably a better way to model this so we don't end up with a giant switch case.
-    // Maybe we can allow expressing paths relative to the resources directory or something.
-
-    switch resource {
-    case .sdk:
-      return try toolchain.sdk.get()
-    case .clangRT:
-      return try toolchain.clangRT.get()
-    case .compatibility50:
-      return try toolchain.compatibility50.get()
-    case .compatibilityDynamicReplacements:
-      return try toolchain.compatibilityDynamicReplacements.get()
-    case .resourcesDir:
-      return try toolchain.resourcesDirectory.get()
-    case .sdkStdlib:
-      return try toolchain.sdkStdlib(sdk: toolchain.sdk.get())
-    }
-  }
-
-  /// Resolve the given tool.
-  public func resolve(_ tool: Job.Tool) -> String {
-    switch tool {
-    case .frontend:
-      return "swift"
-    case .ld:
-      return "ld"
-    }
   }
 }
 
@@ -253,7 +215,7 @@ class ExecuteJobRule: LLBuildRule {
 
     let value: DriverBuildValue
     do {
-      let tool = resolver.resolve(job.tool)
+      let tool = try resolver.resolve(.path(job.tool))
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
 
       let process = Process(arguments: [tool] + commandLine)

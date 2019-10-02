@@ -26,19 +26,23 @@ extension Driver {
   }
 
   /// Link the given inputs.
-  mutating func linkJob(inputs: [InputFile]) -> Job {
+  mutating func linkJob(inputs: [InputFile]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = []
 
     // Set up for linking.
+    let linkerTool: Tool
     switch linkerOutputType! {
     case .executable:
+      linkerTool = .dynamicLinker
       break
 
     case .dynamicLibrary:
       commandLine.appendFlag("-shared")
+      linkerTool = .dynamicLinker
 
     case .staticLibrary:
       // FIXME: handle this, somehow
+      linkerTool = .staticLinker
       break
     }
 
@@ -51,6 +55,6 @@ extension Driver {
     commandLine.appendFlag("-o")
     commandLine.append(.path(outputFile))
 
-    return Job(tool: .ld, commandLine: commandLine, inputs: inputFiles, outputs: [outputFile])
+    return Job(tool: .absolute(try toolchain.getToolPath(linkerTool)), commandLine: commandLine, inputs: inputFiles, outputs: [outputFile])
   }
 }

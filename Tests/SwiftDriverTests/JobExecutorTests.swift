@@ -43,7 +43,7 @@ final class JobExecutorTests: XCTestCase {
 
       let exec = path.appending(component: "main")
 
-      var resolver = try ArgsResolver(toolchain: toolchain)
+      var resolver = try ArgsResolver()
       resolver.pathMapping = [
         .relative(RelativePath("foo.swift")): foo,
         .relative(RelativePath("main.swift")): main,
@@ -51,7 +51,7 @@ final class JobExecutorTests: XCTestCase {
       ]
 
       let compileFoo = Job(
-        tool: .frontend,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
           "-frontend",
           "-c",
@@ -61,7 +61,7 @@ final class JobExecutorTests: XCTestCase {
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
-          .resource(.sdk),
+          .path(.absolute(try toolchain.sdk.get())),
           "-module-name", "main",
           "-o", .path(.temporary("foo.o")),
         ],
@@ -71,7 +71,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let compileMain = Job(
-        tool: .frontend,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
           "-frontend",
           "-c",
@@ -81,7 +81,7 @@ final class JobExecutorTests: XCTestCase {
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
-          .resource(.sdk),
+          .path(.absolute(try toolchain.sdk.get())),
           "-module-name", "main",
           "-o", .path(.temporary("main.o")),
         ],
@@ -90,17 +90,17 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let link = Job(
-        tool: .ld,
+        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
         commandLine: [
           .path(.temporary("foo.o")),
           .path(.temporary("main.o")),
-          .resource(.clangRT),
-          "-syslibroot", .resource(.sdk),
+          .path(.absolute(try toolchain.clangRT.get())),
+          "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
           "-lobjc", "-lSystem", "-arch", "x86_64",
-          "-force_load", .resource(.compatibility50),
-          "-force_load", .resource(.compatibilityDynamicReplacements),
-          "-L", .resource(.resourcesDir),
-          "-L", .resource(.sdkStdlib),
+          "-force_load", .path(.absolute(try toolchain.compatibility50.get())),
+          "-force_load", .path(.absolute(try toolchain.compatibilityDynamicReplacements.get())),
+          "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
+          "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
           .path(.relative(RelativePath("main"))),
         ],

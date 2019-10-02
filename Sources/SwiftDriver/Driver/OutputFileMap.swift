@@ -1,6 +1,6 @@
 import TSCBasic
 
-/// Mapping
+/// Mapping of input file paths to specific output files.
 struct OutputFileMap {
   /// The known mapping from input file to specific output files.
   var entries: [VirtualPath : [FileType : VirtualPath]] = [:]
@@ -9,9 +9,7 @@ struct OutputFileMap {
 
   /// For the given input file, retrieve or create an output file for the given
   /// file type.
-  ///
-  /// If no such output file
-  mutating func getOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath {
+  func getOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath {
     // If we already have an output file, retrieve it.
     if let output = entries[inputFile]?[outputType] {
       return output
@@ -32,10 +30,8 @@ struct OutputFileMap {
       baseName = name
     }
 
-    // Form the virtual path and record it in the map.
-    let output = VirtualPath.temporary(baseName.appendingFileTypeExtension(outputType))
-    entries[inputFile, default: [:]][outputType] = output
-    return output
+    // Form the virtual path.
+    return .temporary(baseName.appendingFileTypeExtension(outputType))
   }
 }
 

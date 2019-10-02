@@ -20,6 +20,9 @@ public struct Driver {
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
 
+  /// The toolchain to use for resolution.
+  public let toolchain: Toolchain
+
   /// The kind of driver.
   public let driverKind: DriverKind
 
@@ -29,6 +32,12 @@ public struct Driver {
   /// The set of parsed options.
   var parsedOptions: ParsedOptions
 
+  /// The Swift compiler executable.
+  public let swiftCompiler: VirtualPath
+
+  /// Extra command-line arguments to pass to the Swift compiler.
+  public let swiftCompilerPrefixArgs: [String]
+
   /// The working directory for the driver, if there is one.
   public let workingDirectory: AbsolutePath?
 
@@ -36,7 +45,7 @@ public struct Driver {
   public let inputFiles: [InputFile]
 
   /// The mapping from input files to output files for each kind.
-  internal var outputFileMap: OutputFileMap
+  internal let outputFileMap: OutputFileMap
 
   /// The mode in which the compiler will execute.
   public let compilerMode: CompilerMode
@@ -83,13 +92,31 @@ public struct Driver {
   }
 
   /// Create the driver with the given arguments.
-  public init(args: [String], diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler) throws {
+  public init(
+    args: [String],
+    diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
+  ) throws {
     // FIXME: Determine if we should run as subcommand.
-
+    self.toolchain = hostToolchain
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
     self.driverKind = try Self.determineDriverKind(args: args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
+
+    // Find the Swift compiler executable.
+    if let frontendPath = self.parsedOptions.getLastArgument(.driver_use_frontend_path) {
+      let frontendCommandLine = frontendPath.asSingle.split(separator: ";").map { String($0) }
+      if frontendCommandLine.isEmpty {
+        self.diagnosticEngine.emit(.error_no_swift_frontend)
+        self.swiftCompiler = .absolute(try self.toolchain.getToolPath(.swiftCompiler))
+      } else {
+        self.swiftCompiler = try VirtualPath(path: frontendCommandLine.first!)
+      }
+      self.swiftCompilerPrefixArgs = Array(frontendCommandLine.dropFirst())
+    } else {
+      self.swiftCompiler = .absolute(try self.toolchain.getToolPath(.swiftCompiler))
+      self.swiftCompilerPrefixArgs = []
+    }
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.working_directory).map { workingDirectoryArg in
@@ -174,7 +201,7 @@ public struct Driver {
     }
 
     // Plan the build.
-    let jobs = planBuild()
+    let jobs = try planBuild()
     if jobs.isEmpty { return }
 
     // If we're only supposed to print the jobs, do so now.
@@ -197,6 +224,12 @@ public struct Driver {
     let path = try Process.checkNonZeroExit(
       arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
     return AbsolutePath(path)
+  }
+}
+
+extension Diagnostic.Message {
+  static var error_no_swift_frontend: Diagnostic.Message {
+    .error("-driver-use-frontend-path requires a Swift compiler executable argument")
   }
 }
 

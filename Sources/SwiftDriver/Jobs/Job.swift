@@ -2,36 +2,16 @@ import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable {
-
-  /// A tool that can be invoked during job execution.
-  public enum Tool: String, Codable, Equatable {
-    case frontend
-    case ld
-  }
-
-  /// A resource inside the toolchain.
-  public enum ToolchainResource: String, Codable, Equatable {
-    case sdk
-    case clangRT
-    case compatibility50
-    case compatibilityDynamicReplacements
-    case resourcesDir
-    case sdkStdlib
-  }
-
   public enum ArgTemplate: Equatable {
     /// Represents a command-line flag that is substitued as-is.
     case flag(String)
 
     /// Represents a virtual path on disk.
     case path(VirtualPath)
-
-    /// Represents a resource provided by the toolchain.
-    case resource(ToolchainResource)
   }
 
   /// The tool to invoke.
-  public var tool: Tool
+  public var tool: VirtualPath
 
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
@@ -45,7 +25,7 @@ public struct Job: Codable, Equatable {
   public var outputs: [VirtualPath]
 
   public init(
-    tool: Tool,
+    tool: VirtualPath,
     commandLine: [ArgTemplate],
     inputs: [VirtualPath],
     outputs: [VirtualPath]
@@ -59,14 +39,7 @@ public struct Job: Codable, Equatable {
 
 extension Job: CustomStringConvertible {
   public var description: String {
-    var result: String
-    switch tool {
-    case .frontend:
-      result = "swift"
-
-    case .ld:
-      result = "ld"
-    }
+    var result: String = tool.name
 
     for arg in commandLine {
       result += " "
@@ -77,8 +50,6 @@ extension Job: CustomStringConvertible {
       case .path(let path):
         // FIXME: Escaping
         result += path.name
-      case .resource(_):
-        fatalError("unused")
       }
     }
 
@@ -100,7 +71,7 @@ enum ActionType {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path, resource
+    case flag, path
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -111,9 +82,6 @@ extension Job.ArgTemplate: Codable {
       try unkeyedContainer.encode(a1)
     case let .path(a1):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .path)
-      try unkeyedContainer.encode(a1)
-    case let .resource(a1):
-      var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .resource)
       try unkeyedContainer.encode(a1)
     }
   }
@@ -132,10 +100,6 @@ extension Job.ArgTemplate: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(VirtualPath.self)
       self = .path(a1)
-    case .resource:
-      var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-      let a1 = try unkeyedValues.decode(Job.ToolchainResource.self)
-      self = .resource(a1)
     }
   }
 }
