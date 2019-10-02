@@ -27,7 +27,7 @@ extension Driver {
       switch input.type {
       case .swift, .sil, .sib:
         var jobOutputs: [InputFile] = []
-        let job = compileJob(primaryInputs: [input], outputType: compilerOutputType, allOutputs: &jobOutputs)
+        let job = try compileJob(primaryInputs: [input], outputType: compilerOutputType, allOutputs: &jobOutputs)
         jobs.append(job)
         addJobOutputs(jobOutputs)
 

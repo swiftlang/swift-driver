@@ -54,7 +54,7 @@ extension Driver {
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
   mutating func compileJob(primaryInputs: [InputFile], outputType: FileType?,
-                           allOutputs: inout [InputFile]) -> Job {
+                           allOutputs: inout [InputFile]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [VirtualPath] = []
     var outputs: [VirtualPath] = []
@@ -65,6 +65,15 @@ extension Driver {
 
     if let stderrStream = stderrStream.stream as? LocalFileOutputByteStream, TerminalController.isTTY(stderrStream) {
       commandLine.appendFlag(.color_diagnostics)
+    }
+
+    // Forward migrator flags.
+    try commandLine.appendLast(.api_diff_data_file, from: &parsedOptions)
+    try commandLine.appendLast(.api_diff_data_dir, from: &parsedOptions)
+    try commandLine.appendLast(.dump_usr, from: &parsedOptions)
+
+    if parsedOptions.hasArgument(.parse_stdlib) {
+      commandLine.appendFlag(.disable_objc_attr_requires_foundation_module)
     }
 
     // Add primary outputs.
@@ -96,7 +105,61 @@ extension Array where Element == Job.ArgTemplate {
     assert(option.kind == .flag)
     append(.flag(option.spelling))
   }
+
+  /// Append a parsed option to the array of argument templates, expanding
+  /// until multiple arguments if required.
+  mutating func append(_ parsedOption: ParsedOption) throws {
+    let option = parsedOption.option
+    let argument = parsedOption.argument
+
+    /// Append a single argument from the given option.
+    func appendSingleArg(_ arg: String) throws {
+      if option.attributes.contains(.argumentIsPath) {
+        append(.path(try VirtualPath(path: argument.asSingle)))
+      } else {
+        appendFlag(argument.asSingle)
+      }
+    }
+
+    switch option.kind {
+    case .input:
+      try appendSingleArg(argument.asSingle)
+
+    case .flag:
+      appendFlag(option)
+
+    case .separate, .joinedOrSeparate:
+      appendFlag(option.spelling)
+      try appendSingleArg(argument.asSingle)
+
+    case .commaJoined:
+      assert(!option.attributes.contains(.argumentIsPath))
+      appendFlag(option.spelling + argument.asMultiple.joined(separator: ","))
+
+    case .remaining:
+      appendFlag(option.spelling)
+      for arg in argument.asMultiple {
+        try appendSingleArg(arg)
+      }
+
+    case .joined:
+      if option.attributes.contains(.argumentIsPath) {
+        fatalError("Not currently implementable")
+      } else {
+        appendFlag(option.spelling + argument.asSingle)
+      }
+    }
+  }
+
+  mutating func appendLast(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
+    guard let parsedOption = parsedOptions.last(where: { options.contains($0.option) }) else {
+      return
+    }
+
+    try append(parsedOption)
+  }
 }
+
 
 extension FileType {
   /// Determine the frontend compile option that corresponds to the given output type.

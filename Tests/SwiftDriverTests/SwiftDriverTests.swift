@@ -162,5 +162,10 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[2].tool.name.contains("ld"))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
     XCTAssertEqual(plannedJobs[2].outputs.first!, VirtualPath.relative(RelativePath("Test")))
+
+    // Forwarding of arguments.
+    var driver2 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt"])
+    let plannedJobs2 = try driver2.planBuild()
+    XCTAssert(plannedJobs2[0].commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: "/tmp/diff.txt")))))
   }
 }
