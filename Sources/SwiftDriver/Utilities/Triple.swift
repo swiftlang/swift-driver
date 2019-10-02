@@ -393,7 +393,7 @@ private func parseArch(_ components: [Substring]) -> Triple.Arch {
     arch = .spir
   case "spir64":
     arch = .spir64
-  case _ where archName.starts(with: "kalimba"):
+  case _ where archName.hasPrefix("kalimba"):
     arch = .kalimba
   case "lanai":
     arch = .lanai
@@ -414,11 +414,11 @@ private func parseArch(_ components: [Substring]) -> Triple.Arch {
   // Some architectures require special parsing logic just to compute the
   // ArchType result.
   if arch == .unknown {
-    if archName.starts(with: "arm") || archName.starts(with: "thumb") || archName.starts(with: "aarch64") {
+    if archName.hasPrefix("arm") || archName.hasPrefix("thumb") || archName.hasPrefix("aarch64") {
       arch = parseARMArch(archName)
     }
 
-    if archName.starts(with: "bpf") {
+    if archName.hasPrefix("bpf") {
       arch = parseBPFArch(archName)
     }
   }
@@ -500,77 +500,77 @@ private func parseOS(_ components: [Substring]) -> Triple.OS {
   let os = components[2]
 
   switch os {
-  case _ where os.starts(with: "ananas"):
+  case _ where os.hasPrefix("ananas"):
     return .ananas
-  case _ where os.starts(with: "cloudabi"):
+  case _ where os.hasPrefix("cloudabi"):
     return .cloudABI
-  case _ where os.starts(with: "darwin"):
+  case _ where os.hasPrefix("darwin"):
     return .darwin
-  case _ where os.starts(with: "dragonfly"):
+  case _ where os.hasPrefix("dragonfly"):
     return .dragonFly
-  case _ where os.starts(with: "freebsd"):
+  case _ where os.hasPrefix("freebsd"):
     return .freeBSD
-  case _ where os.starts(with: "fuchsia"):
+  case _ where os.hasPrefix("fuchsia"):
     return .fuchsia
-  case _ where os.starts(with: "ios"):
+  case _ where os.hasPrefix("ios"):
     return .ios
-  case _ where os.starts(with: "kfreebsd"):
+  case _ where os.hasPrefix("kfreebsd"):
     return .kfreebsd
-  case _ where os.starts(with: "linux"):
+  case _ where os.hasPrefix("linux"):
     return .linux
-  case _ where os.starts(with: "lv2"):
+  case _ where os.hasPrefix("lv2"):
     return .lv2
-  case _ where os.starts(with: "macos"):
+  case _ where os.hasPrefix("macos"):
     return .macosx
-  case _ where os.starts(with: "netbsd"):
+  case _ where os.hasPrefix("netbsd"):
     return .netbsd
-  case _ where os.starts(with: "openbsd"):
+  case _ where os.hasPrefix("openbsd"):
     return .openbsd
-  case _ where os.starts(with: "solaris"):
+  case _ where os.hasPrefix("solaris"):
     return .solaris
-  case _ where os.starts(with: "win32"):
+  case _ where os.hasPrefix("win32"):
     return .win32
-  case _ where os.starts(with: "windows"):
+  case _ where os.hasPrefix("windows"):
     return .win32
-  case _ where os.starts(with: "haiku"):
+  case _ where os.hasPrefix("haiku"):
     return .haiku
-  case _ where os.starts(with: "minix"):
+  case _ where os.hasPrefix("minix"):
     return .minix
-  case _ where os.starts(with: "rtems"):
+  case _ where os.hasPrefix("rtems"):
     return .rtems
-  case _ where os.starts(with: "nacl"):
+  case _ where os.hasPrefix("nacl"):
     return .nacl
-  case _ where os.starts(with: "cnk"):
+  case _ where os.hasPrefix("cnk"):
     return .cnk
-  case _ where os.starts(with: "aix"):
+  case _ where os.hasPrefix("aix"):
     return .aix
-  case _ where os.starts(with: "cuda"):
+  case _ where os.hasPrefix("cuda"):
     return .cuda
-  case _ where os.starts(with: "nvcl"):
+  case _ where os.hasPrefix("nvcl"):
     return .nvcl
-  case _ where os.starts(with: "amdhsa"):
+  case _ where os.hasPrefix("amdhsa"):
     return .amdhsa
-  case _ where os.starts(with: "ps4"):
+  case _ where os.hasPrefix("ps4"):
     return .ps4
-  case _ where os.starts(with: "elfiamcu"):
+  case _ where os.hasPrefix("elfiamcu"):
     return .elfiamcu
-  case _ where os.starts(with: "tvos"):
+  case _ where os.hasPrefix("tvos"):
     return .tvos
-  case _ where os.starts(with: "watchos"):
+  case _ where os.hasPrefix("watchos"):
     return .watchos
-  case _ where os.starts(with: "mesa3d"):
+  case _ where os.hasPrefix("mesa3d"):
     return .mesa3d
-  case _ where os.starts(with: "contiki"):
+  case _ where os.hasPrefix("contiki"):
     return .contiki
-  case _ where os.starts(with: "amdpal"):
+  case _ where os.hasPrefix("amdpal"):
     return .amdpal
-  case _ where os.starts(with: "hermit"):
+  case _ where os.hasPrefix("hermit"):
     return .hermitcore
-  case _ where os.starts(with: "hurd"):
+  case _ where os.hasPrefix("hurd"):
     return .hurd
-  case _ where os.starts(with: "wasi"):
+  case _ where os.hasPrefix("wasi"):
     return .wasi
-  case _ where os.starts(with: "emscripten"):
+  case _ where os.hasPrefix("emscripten"):
     return .emscripten
   default:
     return .unknown
@@ -583,47 +583,47 @@ private func parseEnvironment(_ components: [Substring]) -> Triple.Environment {
   if components.count > 3 {
     let env = components[3]
     switch env {
-    case _ where env.starts(with: "eabihf"):
+    case _ where env.hasPrefix("eabihf"):
       return .eabihf
-    case _ where env.starts(with: "eabi"):
+    case _ where env.hasPrefix("eabi"):
       return .eabi
-    case _ where env.starts(with: "elfv1"):
+    case _ where env.hasPrefix("elfv1"):
       return .elfv1
-    case _ where env.starts(with: "elfv2"):
+    case _ where env.hasPrefix("elfv2"):
       return .elfv2
-    case _ where env.starts(with: "gnuabin32"):
+    case _ where env.hasPrefix("gnuabin32"):
       return .gnuabin32
-    case _ where env.starts(with: "gnuabi64"):
+    case _ where env.hasPrefix("gnuabi64"):
       return .gnuabi64
-    case _ where env.starts(with: "gnueabihf"):
+    case _ where env.hasPrefix("gnueabihf"):
       return .gnueabihf
-    case _ where env.starts(with: "gnueabi"):
+    case _ where env.hasPrefix("gnueabi"):
       return .gnueabi
-    case _ where env.starts(with: "gnux32"):
+    case _ where env.hasPrefix("gnux32"):
       return .gnux32
-    case _ where env.starts(with: "code16"):
+    case _ where env.hasPrefix("code16"):
       return .code16
-    case _ where env.starts(with: "gnu"):
+    case _ where env.hasPrefix("gnu"):
       return .gnu
-    case _ where env.starts(with: "android"):
+    case _ where env.hasPrefix("android"):
       return .android
-    case _ where env.starts(with: "musleabihf"):
+    case _ where env.hasPrefix("musleabihf"):
       return .musleabihf
-    case _ where env.starts(with: "musleabi"):
+    case _ where env.hasPrefix("musleabi"):
       return .musleabi
-    case _ where env.starts(with: "musl"):
+    case _ where env.hasPrefix("musl"):
       return .musl
-    case _ where env.starts(with: "msvc"):
+    case _ where env.hasPrefix("msvc"):
       return .msvc
-    case _ where env.starts(with: "itanium"):
+    case _ where env.hasPrefix("itanium"):
       return .itanium
-    case _ where env.starts(with: "cygnus"):
+    case _ where env.hasPrefix("cygnus"):
       return .cygnus
-    case _ where env.starts(with: "coreclr"):
+    case _ where env.hasPrefix("coreclr"):
       return .coreclr
-    case _ where env.starts(with: "simulator"):
+    case _ where env.hasPrefix("simulator"):
       return .simulator
-    case _ where env.starts(with: "macabi"):
+    case _ where env.hasPrefix("macabi"):
       return .macabi
     default:
       return .unknown
