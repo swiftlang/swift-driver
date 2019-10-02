@@ -156,6 +156,22 @@ public struct Triple {
   }
 
   public enum Vendor {
+    case apple
+    case pc
+    case scei
+    case bgp
+    case bgq
+    case freescale
+    case ibm
+    case imaginationTechnologies
+    case mipsTechnologies
+    case nvidia
+    case csr
+    case myriad
+    case amd
+    case mesa
+    case suse
+    case openEmbedded
     case unknown
   }
 
@@ -177,19 +193,20 @@ public struct Triple {
     let components = string.split(separator: "-", maxSplits: 3)
 
     self.arch = parseArch(components)
-    self.subArch = .unknown
-    self.vendor = .unknown
+    self.subArch = parseSubArch(components)
+    self.vendor = parseVendor(components)
     self.os = .unknown
     self.environment = .unknown
     self.objectFormatType = .unknown
   }
 }
 
+// MARK: - Parse Arch
+
 private func parseArch(_ components: [Substring]) -> Triple.Arch {
   guard let archName = components.first else { return .unknown }
 
   var arch: Triple.Arch
-
   switch archName {
   // FIXME: Do we need to support these?
   case "i386", "i486", "i586", "i686":
@@ -323,4 +340,72 @@ private func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
 
 private func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
   fatalError("todo")
+}
+
+// MARK: - Parse SubArch
+
+private func parseSubArch(_ components: [Substring]) -> Triple.SubArch {
+  return .unknown
+}
+
+// MARK: - Parse Vendor
+
+private func parseVendor(_ components: [Substring]) -> Triple.Vendor {
+  guard components.count > 1 else { return .unknown }
+  let vendorName = components[1]
+  
+  switch vendorName {
+  case "apple":
+    return .apple
+  case "pc":
+    return .pc
+  case "scei":
+    return .scei
+  case "bgp":
+    return .bgp
+  case "bgq":
+    return .bgq
+  case "fsl":
+    return .freescale
+  case "ibm":
+    return .ibm
+  case "img":
+    return .imaginationTechnologies
+  case "mti":
+    return .mipsTechnologies
+  case "nvidia":
+    return .nvidia
+  case "csr":
+    return .csr
+  case "myriad":
+    return .myriad
+  case "amd":
+    return .amd
+  case "mesa":
+    return .mesa
+  case "suse":
+    return .suse
+  case "oe":
+    return .openEmbedded
+  default:
+    return .unknown
+  }
+}
+
+// MARK: - Parse OS
+
+private func parseOS(_ components: [Substring]) -> Triple.SubArch {
+  return .unknown
+}
+
+// MARK: - Parse Environment
+
+private func parseEnvironment(_ components: [Substring]) -> Triple.SubArch {
+  return .unknown
+}
+
+// MARK: - Parse Object Format Type
+
+private func parseObjectFormatType(_ components: [Substring]) -> Triple.SubArch {
+  return .unknown
 }
