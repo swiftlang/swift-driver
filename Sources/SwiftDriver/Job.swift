@@ -57,6 +57,35 @@ public struct Job: Codable, Equatable {
   }
 }
 
+extension Job: CustomStringConvertible {
+  public var description: String {
+    var result: String
+    switch tool {
+    case .frontend:
+      result = "swift"
+
+    case .ld:
+      result = "ld"
+    }
+
+    for arg in commandLine {
+      result += " "
+      switch arg {
+      case .flag(let string):
+        // FIXME: Escaping
+        result += string
+      case .path(let path):
+        // FIXME: Escaping
+        result += path.name
+      case .resource(_):
+        fatalError("unused")
+      }
+    }
+
+    return result
+  }
+}
+
 /// The type of action.
 enum ActionType {
   case compile
