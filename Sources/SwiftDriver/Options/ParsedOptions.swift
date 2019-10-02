@@ -28,24 +28,19 @@ public struct ParsedOption {
     }
   }
 
-  /// The option that was parsed, which may be nil to indicate that this is
-  /// an input (that isn't associated with an option).
-  public let option: Option?
+  /// The option that was parsed.
+  public let option: Option
 
   /// The argument bound to this option.
   public let argument: Argument
-
-  /// Whether this is an input.
-  public var isInput: Bool { option == nil }
 }
 
 extension ParsedOption: CustomStringConvertible {
   public var description: String {
-    guard let option = option else {
-      return argument.asSingle
-    }
-
     switch option.kind {
+    case .input:
+      return argument.asSingle
+
     case .commaJoined:
       // FIXME: Escape spaces.
       return option.spelling + argument.asMultiple.joined(separator: ",")
@@ -94,8 +89,7 @@ extension ParsedOptions {
   }
 
   mutating func addInput(_ input: String) {
-    parsedOptions.append(.init(option: nil, argument: .single(input)))
-    consumed.append(false)
+    addOption(.input, argument: .single(input))
   }
 }
 
@@ -112,27 +106,25 @@ extension ParsedOptions {
   public var commandLine: [String] {
     var result: [String] = []
     for parsed in parsedOptions {
-      guard let option = parsed.option else {
+      switch parsed.option.kind {
+      case .input:
         result.append(parsed.argument.asSingle)
-        continue
-      }
 
-      switch option.kind {
       case .commaJoined:
-        result.append(option.spelling + parsed.argument.asMultiple.joined(separator: ","))
+        result.append(parsed.option.spelling + parsed.argument.asMultiple.joined(separator: ","))
 
       case .flag:
-        result.append(option.spelling)
+        result.append(parsed.option.spelling)
 
       case .joined:
-        result.append(option.spelling + parsed.argument.asSingle)
+        result.append(parsed.option.spelling + parsed.argument.asSingle)
 
       case .joinedOrSeparate, .separate:
-        result.append(option.spelling)
+        result.append(parsed.option.spelling)
         result.append(parsed.argument.asSingle)
 
       case .remaining:
-        result.append(option.spelling)
+        result.append(parsed.option.spelling)
         result.append(contentsOf: parsed.argument.asMultiple)
       }
     }
@@ -167,7 +159,7 @@ extension ParsedOptions {
   /// Does this contain a particular option.
   public mutating func contains(_ option: Option) -> Bool {
     assert(option.alias == nil, "Don't check for aliased options")
-    return last { parsed in parsed.option?.canonical == option } != nil
+    return last { parsed in parsed.option.canonical == option } != nil
   }
 
   /// Determine whether the parsed options contains an option in the given
@@ -180,7 +172,7 @@ extension ParsedOptions {
   ///
   /// This operation does not consume any inputs.
   public var hasAnyInput: Bool {
-    return parsedOptions.contains { $0.isInput }
+    return parsedOptions.contains { $0.option == .input }
   }
 
   /// Walk through all of the parsed options, modifying each one.
@@ -195,7 +187,7 @@ extension ParsedOptions {
   /// Find all of the inputs.
   public var allInputs: [String] {
     mutating get {
-      filter { $0.option == nil }.map { $0.argument.asSingle }
+      filter { $0.option == .input }.map { $0.argument.asSingle }
     }
   }
 
@@ -203,19 +195,18 @@ extension ParsedOptions {
   /// the given options
   public mutating func hasArgument(_ options: Option...) -> Bool {
     return last { parsed in
-      guard let option = parsed.option else { return false }
-      return options.contains(option)
+      return options.contains(parsed.option)
     } != nil
   }
 
   /// Get the last argument matching the given option.
   public mutating func getLastArgument(_ option: Option) -> Argument? {
     assert(option.alias == nil, "Don't check for aliased options")
-    return last { parsed in parsed.option?.canonical == option }?.argument
+    return last { parsed in parsed.option.canonical == option }?.argument
   }
 
   /// Get the last parsed option within the given option group.
   public mutating func getLast(in group: Option.Group) -> ParsedOption? {
-    return last { parsed in parsed.option?.group == group }
+    return last { parsed in parsed.option.group == group }
   }
 }

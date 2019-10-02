@@ -24,6 +24,9 @@ public struct OptionAttributes: OptionSet, Hashable {
 public struct Option {
   /// The kind of option we have, which determines how it will be parsed.
   public enum Kind: Hashable {
+    /// An input file, which doesn't have a spelling but contains a single
+    /// argument.
+    case input
     /// An option that enables/disables some specific behavior.
     case flag
     /// An option whose argument directly follows the spelling.
@@ -116,6 +119,10 @@ extension Option {
     guard let alias = alias else { return self }
     return alias.canonical
   }
+}
+
+extension Option {
+  public static let input: Option = Option("<INPUT>", .input, attributes: [.argumentIsPath])
 }
 
 extension Option {
