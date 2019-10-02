@@ -52,7 +52,8 @@ extension Driver {
   }
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
-  mutating func compileJob(primaryInputs: [InputFile], outputType: FileType?) -> Job {
+  mutating func compileJob(primaryInputs: [InputFile], outputType: FileType?,
+                           allOutputs: inout [InputFile]) -> Job {
     var commandLine: [Job.ArgTemplate] = []
     var inputs: [VirtualPath] = []
     var outputs: [VirtualPath] = []
@@ -66,6 +67,8 @@ extension Driver {
       outputs.append(primaryOutput)
       commandLine.appendFlag("-o")
       commandLine.append(.path(primaryOutput))
+
+      allOutputs.append(InputFile(file:primaryOutput, type: compilerOutputType!))
     }
 
     return Job(tool: .frontend, commandLine: commandLine, inputs: inputs, outputs: outputs)
