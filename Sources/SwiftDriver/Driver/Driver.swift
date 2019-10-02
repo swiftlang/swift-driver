@@ -93,12 +93,11 @@ public struct Driver {
 
   /// Create the driver with the given arguments.
   public init(
-    toolchain: Toolchain = hostToolchain,
     args: [String],
     diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
   ) throws {
     // FIXME: Determine if we should run as subcommand.
-    self.toolchain = toolchain
+    self.toolchain = hostToolchain
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
     self.driverKind = try Self.determineDriverKind(args: args)
     self.optionTable = OptionTable()

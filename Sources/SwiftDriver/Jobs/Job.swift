@@ -2,25 +2,12 @@ import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable {
-  /// A resource inside the toolchain.
-  public enum ToolchainResource: String, Codable, Equatable {
-    case sdk
-    case clangRT
-    case compatibility50
-    case compatibilityDynamicReplacements
-    case resourcesDir
-    case sdkStdlib
-  }
-
   public enum ArgTemplate: Equatable {
     /// Represents a command-line flag that is substitued as-is.
     case flag(String)
 
     /// Represents a virtual path on disk.
     case path(VirtualPath)
-
-    /// Represents a resource provided by the toolchain.
-    case resource(ToolchainResource)
   }
 
   /// The tool to invoke.
@@ -63,8 +50,6 @@ extension Job: CustomStringConvertible {
       case .path(let path):
         // FIXME: Escaping
         result += path.name
-      case .resource(_):
-        fatalError("unused")
       }
     }
 
@@ -86,7 +71,7 @@ enum ActionType {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path, resource
+    case flag, path
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -97,9 +82,6 @@ extension Job.ArgTemplate: Codable {
       try unkeyedContainer.encode(a1)
     case let .path(a1):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .path)
-      try unkeyedContainer.encode(a1)
-    case let .resource(a1):
-      var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .resource)
       try unkeyedContainer.encode(a1)
     }
   }
@@ -118,10 +100,6 @@ extension Job.ArgTemplate: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(VirtualPath.self)
       self = .path(a1)
-    case .resource:
-      var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-      let a1 = try unkeyedValues.decode(Job.ToolchainResource.self)
-      self = .resource(a1)
     }
   }
 }
