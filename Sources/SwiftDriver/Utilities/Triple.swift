@@ -45,110 +45,110 @@ public struct Triple {
   public let objectFormatType: ObjectFormat
 
   public enum Arch {
-      case unknown
+    case unknown
 
-      /// ARM (little endian): arm, armv.*, xscale
-      case arm
-      // ARM (big endian): armeb
-      case armeb
-      /// AArch64 (little endian): aarch64
-      case aarch64
-      /// AArch64 (big endian): aarch64_be
-      case aarch64_be
-      // AArch64 (little endian) ILP32: aarch64_32
-      case aarch64_32
-      /// ARC: Synopsys ARC
-      case arc
-      /// AVR: Atmel AVR microcontroller
-      case avr
-      /// eBPF or extended BPF or 64-bit BPF (little endian)
-      case bpfel
-      /// eBPF or extended BPF or 64-bit BPF (big endian)
-      case bpfeb
-      /// Hexagon: hexagon
-      case hexagon
-      /// MIPS: mips, mipsallegrex, mipsr6
-      case mips
-      /// MIPSEL: mipsel, mipsallegrexe, mipsr6el
-      case mipsel
-      // MIPS64: mips64, mips64r6, mipsn32, mipsn32r6
-      case mips64
-      // MIPS64EL: mips64el, mips64r6el, mipsn32el, mipsn32r6el
-      case mips64el
-      // MSP430: msp430
-      case msp430
-      // NIOSII: nios2
-      case nios2
-      // PPC: powerpc
-      case ppc
-      // PPC64: powerpc64, ppu
-      case ppc64
-      // PPC64LE: powerpc64le
-      case ppc64le
-      // R600: AMD GPUs HD2XXX - HD6XXX
-      case r600
-      // AMDGCN: AMD GCN GPUs
-      case amdgcn
-      // RISC-V (32-bit): riscv32
-      case riscv32
-      // RISC-V (64-bit): riscv64
-      case riscv64
-      // Sparc: sparc
-      case sparc
-      // Sparcv9: Sparcv9
-      case sparcv9
-      // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
-      case sparcel
-      // SystemZ: s390x
-      case systemz
-      // TCE (http://tce.cs.tut.fi/): tce
-      case tce
-      // TCE little endian (http://tce.cs.tut.fi/): tcele
-      case tcele
-      // Thumb (little endian): thumb, thumbv.*
-      case thumb
-      // Thumb (big endian): thumbeb
-      case thumbeb
-      // X86: i[3-9]86
-      case x86
-      // X86-64: amd64, x86_64
-      case x86_64
-      // XCore: xcore
-      case xcore
-      // NVPTX: 32-bit
-      case nvptx
-      // NVPTX: 64-bit
-      case nvptx64
-      // le32: generic little-endian 32-bit CPU (PNaCl)
-      case le32
-      // le64: generic little-endian 64-bit CPU (PNaCl)
-      case le64
-      // AMDIL
-      case amdil
-      // AMDIL with 64-bit pointers
-      case amdil64
-      // AMD HSAIL
-      case hsail
-      // AMD HSAIL with 64-bit pointers
-      case hsail64
-      // SPIR: standard portable IR for OpenCL 32-bit version
-      case spir
-      // SPIR: standard portable IR for OpenCL 64-bit version
-      case spir64
-      // Kalimba: generic kalimba
-      case kalimba
-      // SHAVE: Movidius vector VLIW processors
-      case shave
-      // Lanai: Lanai 32-bit
-      case lanai
-      // WebAssembly with 32-bit pointers
-      case wasm32
-      // WebAssembly with 64-bit pointers
-      case wasm64
-      // 32-bit RenderScript
-      case renderscript32
-      // 64-bit RenderScript
-      case renderscript64
+    /// ARM (little endian): arm, armv.*, xscale
+    case arm
+    // ARM (big endian): armeb
+    case armeb
+    /// AArch64 (little endian): aarch64
+    case aarch64
+    /// AArch64 (big endian): aarch64_be
+    case aarch64_be
+    // AArch64 (little endian) ILP32: aarch64_32
+    case aarch64_32
+    /// ARC: Synopsys ARC
+    case arc
+    /// AVR: Atmel AVR microcontroller
+    case avr
+    /// eBPF or extended BPF or 64-bit BPF (little endian)
+    case bpfel
+    /// eBPF or extended BPF or 64-bit BPF (big endian)
+    case bpfeb
+    /// Hexagon: hexagon
+    case hexagon
+    /// MIPS: mips, mipsallegrex, mipsr6
+    case mips
+    /// MIPSEL: mipsel, mipsallegrexe, mipsr6el
+    case mipsel
+    // MIPS64: mips64, mips64r6, mipsn32, mipsn32r6
+    case mips64
+    // MIPS64EL: mips64el, mips64r6el, mipsn32el, mipsn32r6el
+    case mips64el
+    // MSP430: msp430
+    case msp430
+    // NIOSII: nios2
+    case nios2
+    // PPC: powerpc
+    case ppc
+    // PPC64: powerpc64, ppu
+    case ppc64
+    // PPC64LE: powerpc64le
+    case ppc64le
+    // R600: AMD GPUs HD2XXX - HD6XXX
+    case r600
+    // AMDGCN: AMD GCN GPUs
+    case amdgcn
+    // RISC-V (32-bit): riscv32
+    case riscv32
+    // RISC-V (64-bit): riscv64
+    case riscv64
+    // Sparc: sparc
+    case sparc
+    // Sparcv9: Sparcv9
+    case sparcv9
+    // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
+    case sparcel
+    // SystemZ: s390x
+    case systemz
+    // TCE (http://tce.cs.tut.fi/): tce
+    case tce
+    // TCE little endian (http://tce.cs.tut.fi/): tcele
+    case tcele
+    // Thumb (little endian): thumb, thumbv.*
+    case thumb
+    // Thumb (big endian): thumbeb
+    case thumbeb
+    // X86: i[3-9]86
+    case x86
+    // X86-64: amd64, x86_64
+    case x86_64
+    // XCore: xcore
+    case xcore
+    // NVPTX: 32-bit
+    case nvptx
+    // NVPTX: 64-bit
+    case nvptx64
+    // le32: generic little-endian 32-bit CPU (PNaCl)
+    case le32
+    // le64: generic little-endian 64-bit CPU (PNaCl)
+    case le64
+    // AMDIL
+    case amdil
+    // AMDIL with 64-bit pointers
+    case amdil64
+    // AMD HSAIL
+    case hsail
+    // AMD HSAIL with 64-bit pointers
+    case hsail64
+    // SPIR: standard portable IR for OpenCL 32-bit version
+    case spir
+    // SPIR: standard portable IR for OpenCL 64-bit version
+    case spir64
+    // Kalimba: generic kalimba
+    case kalimba
+    // SHAVE: Movidius vector VLIW processors
+    case shave
+    // Lanai: Lanai 32-bit
+    case lanai
+    // WebAssembly with 32-bit pointers
+    case wasm32
+    // WebAssembly with 64-bit pointers
+    case wasm64
+    // 32-bit RenderScript
+    case renderscript32
+    // 64-bit RenderScript
+    case renderscript64
   }
 
   public enum SubArch {
@@ -215,6 +215,27 @@ public struct Triple {
   }
 
   public enum Environment {
+    case eabihf
+    case eabi
+    case elfv1
+    case elfv2
+    case gnuabin32
+    case gnuabi64
+    case gnueabihf
+    case gnueabi
+    case gnux32
+    case code16
+    case gnu
+    case android
+    case musleabihf
+    case musleabi
+    case musl
+    case msvc
+    case itanium
+    case cygnus
+    case coreclr
+    case simulator
+    case macabi
     case unknown
   }
 
@@ -435,86 +456,134 @@ private func parseOS(_ components: [Substring]) -> Triple.OS {
 
   switch os {
   case _ where os.starts(with: "ananas"):
-      return .ananas
+    return .ananas
   case _ where os.starts(with: "cloudabi"):
-      return .cloudABI
+    return .cloudABI
   case _ where os.starts(with: "darwin"):
-      return .darwin
+    return .darwin
   case _ where os.starts(with: "dragonfly"):
-      return .dragonFly
+    return .dragonFly
   case _ where os.starts(with: "freebsd"):
-      return .freeBSD
+    return .freeBSD
   case _ where os.starts(with: "fuchsia"):
-      return .fuchsia
+    return .fuchsia
   case _ where os.starts(with: "ios"):
-      return .ios
+    return .ios
   case _ where os.starts(with: "kfreebsd"):
-      return .kfreebsd
+    return .kfreebsd
   case _ where os.starts(with: "linux"):
-      return .linux
+    return .linux
   case _ where os.starts(with: "lv2"):
-      return .lv2
+    return .lv2
   case _ where os.starts(with: "macos"):
-      return .macosx
+    return .macosx
   case _ where os.starts(with: "netbsd"):
-      return .netbsd
+    return .netbsd
   case _ where os.starts(with: "openbsd"):
-      return .openbsd
+    return .openbsd
   case _ where os.starts(with: "solaris"):
-      return .solaris
+    return .solaris
   case _ where os.starts(with: "win32"):
-      return .win32
+    return .win32
   case _ where os.starts(with: "windows"):
-      return .win32
+    return .win32
   case _ where os.starts(with: "haiku"):
-      return .haiku
+    return .haiku
   case _ where os.starts(with: "minix"):
-      return .minix
+    return .minix
   case _ where os.starts(with: "rtems"):
-      return .rtems
+    return .rtems
   case _ where os.starts(with: "nacl"):
-      return .nacl
+    return .nacl
   case _ where os.starts(with: "cnk"):
-      return .cnk
+    return .cnk
   case _ where os.starts(with: "aix"):
-      return .aix
+    return .aix
   case _ where os.starts(with: "cuda"):
-      return .cuda
+    return .cuda
   case _ where os.starts(with: "nvcl"):
-      return .nvcl
+    return .nvcl
   case _ where os.starts(with: "amdhsa"):
-      return .amdhsa
+    return .amdhsa
   case _ where os.starts(with: "ps4"):
-      return .ps4
+    return .ps4
   case _ where os.starts(with: "elfiamcu"):
-      return .elfiamcu
+    return .elfiamcu
   case _ where os.starts(with: "tvos"):
-      return .tvos
+    return .tvos
   case _ where os.starts(with: "watchos"):
-      return .watchos
+    return .watchos
   case _ where os.starts(with: "mesa3d"):
-      return .mesa3d
+    return .mesa3d
   case _ where os.starts(with: "contiki"):
-      return .contiki
+    return .contiki
   case _ where os.starts(with: "amdpal"):
-      return .amdpal
+    return .amdpal
   case _ where os.starts(with: "hermit"):
-      return .hermitcore
+    return .hermitcore
   case _ where os.starts(with: "hurd"):
-      return .hurd
+    return .hurd
   case _ where os.starts(with: "wasi"):
-      return .wasi
+    return .wasi
   case _ where os.starts(with: "emscripten"):
-      return .emscripten
+    return .emscripten
   default:
-      return .unknown
+    return .unknown
   }
 }
 
 // MARK: - Parse Environment
 
 private func parseEnvironment(_ components: [Substring]) -> Triple.Environment {
-  return .unknown
+  guard components.count > 3 else { return .unknown }
+  let env = components[3]
+
+  switch env {
+  case _ where env.starts(with: "eabihf"):
+    return .eabihf
+  case _ where env.starts(with: "eabi"):
+    return .eabi
+  case _ where env.starts(with: "elfv1"):
+    return .elfv1
+  case _ where env.starts(with: "elfv2"):
+    return .elfv2
+  case _ where env.starts(with: "gnuabin32"):
+    return .gnuabin32
+  case _ where env.starts(with: "gnuabi64"):
+    return .gnuabi64
+  case _ where env.starts(with: "gnueabihf"):
+    return .gnueabihf
+  case _ where env.starts(with: "gnueabi"):
+    return .gnueabi
+  case _ where env.starts(with: "gnux32"):
+    return .gnux32
+  case _ where env.starts(with: "code16"):
+    return .code16
+  case _ where env.starts(with: "gnu"):
+    return .gnu
+  case _ where env.starts(with: "android"):
+    return .android
+  case _ where env.starts(with: "musleabihf"):
+    return .musleabihf
+  case _ where env.starts(with: "musleabi"):
+    return .musleabi
+  case _ where env.starts(with: "musl"):
+    return .musl
+  case _ where env.starts(with: "msvc"):
+    return .msvc
+  case _ where env.starts(with: "itanium"):
+    return .itanium
+  case _ where env.starts(with: "cygnus"):
+    return .cygnus
+  case _ where env.starts(with: "coreclr"):
+    return .coreclr
+  case _ where env.starts(with: "simulator"):
+    return .simulator
+  case _ where env.starts(with: "macabi"):
+    return .macabi
+  default:
+    return .unknown
+  }
 }
 
 // MARK: - Parse Object Format Type
