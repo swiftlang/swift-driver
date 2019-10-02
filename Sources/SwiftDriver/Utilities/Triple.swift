@@ -1,167 +1,326 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
-
-/// Triple - Helper class for working with Destination.target values
+/// Triple - Helper for working with autoconf configuration names. For
+/// historical reasons, we also call these 'triples' (they used to contain
+/// exactly three fields).
 ///
-/// Used for parsing values such as x86_64-apple-macosx10.10 into
-/// set of enums. For os/arch/abi based conditions in build plan.
+/// Configuration names are strings in the canonical form:
+///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM
+/// or
+///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM-ENVIRONMENT
 ///
-/// @see Destination.target
-/// @see https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
+/// This type is used for clients which want to support arbitrary
+/// configuration names, but also want to implement certain special
+/// behavior for particular configurations. This class isolates the mapping
+/// from the components of the configuration name to well known IDs.
 ///
-public struct Triple: Encodable {
-    public let tripleString: String
+/// At its core the Triple class is designed to be a wrapper for a triple
+/// string; the constructor does not change or normalize the triple string.
+/// Clients that need to handle the non-canonical triples that users often
+/// specify should use the normalize method.
+///
+/// See autoconf/config.guess for a glimpse into what configuration names
+/// look like in practice.
+///
+/// This is a port of https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
+public struct Triple {
 
-    public let arch: Arch
-    public let vendor: Vendor
-    public let os: OS
-    public let abi: ABI
+  /// The original triple string.
+  public let triple: String
 
-    public enum Error: Swift.Error {
-        case badFormat
-        case unknownArch
-        case unknownOS
-    }
+  /// The parsed arch.
+  public let arch: Arch
 
-    public enum Arch: String, Encodable {
-        case x86_64
-        case i686
-        case powerpc64le
-        case s390x
-        case aarch64
-        case armv7
-        case arm
-    }
+  /// The parsed subarchitecture.
+  public let subArch: SubArch
 
-    public enum Vendor: String, Encodable {
-        case unknown
-        case apple
-    }
+  /// The parsed vendor.
+  public let vendor: Vendor
 
-    public enum OS: String, Encodable {
-        case darwin
-        case macOS = "macosx"
-        case linux
-        case windows
+  /// The parsed OS.
+  public let os: OS
 
-        fileprivate static let allKnown:[OS] = [
-            .darwin,
-            .macOS,
-            .linux,
-            .windows
-        ]
-    }
+  /// The parsed Environment type.
+  public let environment: Environment
 
-    public enum ABI: String, Encodable {
-        case unknown
-        case android = "androideabi"
-    }
+  /// The object format type.
+  public let objectFormatType: ObjectFormat
 
-    public init(_ string: String) throws {
-        let components = string.split(separator: "-").map(String.init)
+  public enum Arch {
+      case unknown
 
-        guard components.count == 3 || components.count == 4 else {
-            throw Error.badFormat
-        }
+      /// ARM (little endian): arm, armv.*, xscale
+      case arm
+      // ARM (big endian): armeb
+      case armeb
+      /// AArch64 (little endian): aarch64
+      case aarch64
+      /// AArch64 (big endian): aarch64_be
+      case aarch64_be
+      // AArch64 (little endian) ILP32: aarch64_32
+      case aarch64_32
+      /// ARC: Synopsys ARC
+      case arc
+      /// AVR: Atmel AVR microcontroller
+      case avr
+      /// eBPF or extended BPF or 64-bit BPF (little endian)
+      case bpfel
+      /// eBPF or extended BPF or 64-bit BPF (big endian)
+      case bpfeb
+      /// Hexagon: hexagon
+      case hexagon
+      /// MIPS: mips, mipsallegrex, mipsr6
+      case mips
+      /// MIPSEL: mipsel, mipsallegrexe, mipsr6el
+      case mipsel
+      // MIPS64: mips64, mips64r6, mipsn32, mipsn32r6
+      case mips64
+      // MIPS64EL: mips64el, mips64r6el, mipsn32el, mipsn32r6el
+      case mips64el
+      // MSP430: msp430
+      case msp430
+      // NIOSII: nios2
+      case nios2
+      // PPC: powerpc
+      case ppc
+      // PPC64: powerpc64, ppu
+      case ppc64
+      // PPC64LE: powerpc64le
+      case ppc64le
+      // R600: AMD GPUs HD2XXX - HD6XXX
+      case r600
+      // AMDGCN: AMD GCN GPUs
+      case amdgcn
+      // RISC-V (32-bit): riscv32
+      case riscv32
+      // RISC-V (64-bit): riscv64
+      case riscv64
+      // Sparc: sparc
+      case sparc
+      // Sparcv9: Sparcv9
+      case sparcv9
+      // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
+      case sparcel
+      // SystemZ: s390x
+      case systemz
+      // TCE (http://tce.cs.tut.fi/): tce
+      case tce
+      // TCE little endian (http://tce.cs.tut.fi/): tcele
+      case tcele
+      // Thumb (little endian): thumb, thumbv.*
+      case thumb
+      // Thumb (big endian): thumbeb
+      case thumbeb
+      // X86: i[3-9]86
+      case x86
+      // X86-64: amd64, x86_64
+      case x86_64
+      // XCore: xcore
+      case xcore
+      // NVPTX: 32-bit
+      case nvptx
+      // NVPTX: 64-bit
+      case nvptx64
+      // le32: generic little-endian 32-bit CPU (PNaCl)
+      case le32
+      // le64: generic little-endian 64-bit CPU (PNaCl)
+      case le64
+      // AMDIL
+      case amdil
+      // AMDIL with 64-bit pointers
+      case amdil64
+      // AMD HSAIL
+      case hsail
+      // AMD HSAIL with 64-bit pointers
+      case hsail64
+      // SPIR: standard portable IR for OpenCL 32-bit version
+      case spir
+      // SPIR: standard portable IR for OpenCL 64-bit version
+      case spir64
+      // Kalimba: generic kalimba
+      case kalimba
+      // SHAVE: Movidius vector VLIW processors
+      case shave
+      // Lanai: Lanai 32-bit
+      case lanai
+      // WebAssembly with 32-bit pointers
+      case wasm32
+      // WebAssembly with 64-bit pointers
+      case wasm64
+      // 32-bit RenderScript
+      case renderscript32
+      // 64-bit RenderScript
+      case renderscript64
+  }
 
-        guard let arch = Arch(rawValue: components[0]) else {
-            throw Error.unknownArch
-        }
+  public enum SubArch {
+    case unknown
+  }
 
-        let vendor = Vendor(rawValue: components[1]) ?? .unknown
+  public enum Vendor {
+    case unknown
+  }
 
-        guard let os = Triple.parseOS(components[2]) else {
-            throw Error.unknownOS
-        }
+  public enum OS {
+    case unknown
+  }
 
-        let abiString = components.count > 3 ? components[3] : nil
-        let abi = abiString.flatMap(ABI.init)
+  public enum Environment {
+    case unknown
+  }
 
-        self.tripleString = string
-        self.arch = arch
-        self.vendor = vendor
-        self.os = os
-        self.abi = abi ?? .unknown
-    }
+  public enum ObjectFormat {
+    case unknown
+  }
 
-    fileprivate static func parseOS(_ string: String) -> OS? {
-        for candidate in OS.allKnown {
-            if string.hasPrefix(candidate.rawValue) {
-                return candidate
-            }
-        }
+  public init(_ string: String) {
+    self.triple = string
 
-        return nil
-    }
+    let components = string.split(separator: "-", maxSplits: 3)
 
-    public func isDarwin() -> Bool {
-        return vendor == .apple || os == .macOS || os == .darwin
-    }
-
-    public func isLinux() -> Bool {
-        return os == .linux
-    }
-
-    public func isWindows() -> Bool {
-        return os == .windows
-    }
-
-    /// Returns the triple string for the given platform version.
-    ///
-    /// This is currently meant for Apple platforms only.
-    public func tripleString(forPlatformVersion version: String) -> String {
-        precondition(isDarwin())
-        return self.tripleString + version
-    }
-
-    public static let macOS = try! Triple("x86_64-apple-macosx")
-    public static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
-    public static let i686Linux = try! Triple("i686-unknown-linux")
-    public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")
-    public static let s390xLinux = try! Triple("s390x-unknown-linux")
-    public static let arm64Linux = try! Triple("aarch64-unknown-linux")
-    public static let armLinux = try! Triple("armv7-unknown-linux-gnueabihf")
-    public static let android = try! Triple("armv7-unknown-linux-androideabi")
-    public static let windows = try! Triple("x86_64-unknown-windows-msvc")
-
-  #if os(macOS)
-    public static let hostTriple: Triple = .macOS
-  #elseif os(Windows)
-    public static let hostTriple: Triple = .windows
-  #elseif os(Linux)
-    #if arch(x86_64)
-      public static let hostTriple: Triple = .x86_64Linux
-    #elseif arch(i386)
-      public static let hostTriple: Triple = .i686Linux
-    #elseif arch(powerpc64le)
-      public static let hostTriple: Triple = .ppc64leLinux
-    #elseif arch(s390x)
-      public static let hostTriple: Triple = .s390xLinux
-    #elseif arch(arm64)
-      public static let hostTriple: Triple = .arm64Linux
-    #elseif arch(arm)
-      public static let hostTriple: Triple = .armLinux
-    #endif
-  #endif
+    self.arch = parseArch(components)
+    self.subArch = .unknown
+    self.vendor = .unknown
+    self.os = .unknown
+    self.environment = .unknown
+    self.objectFormatType = .unknown
+  }
 }
 
-extension Triple {
-    /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
-    public var dynamicLibraryExtension: String {
-        switch os {
-        case .darwin, .macOS:
-            return ".dylib"
-        case .linux:
-            return ".so"
-        case .windows:
-            return ".dll"
-        }
+private func parseArch(_ components: [Substring]) -> Triple.Arch {
+  guard let archName = components.first else { return .unknown }
+
+  var arch: Triple.Arch
+
+  switch archName {
+  // FIXME: Do we need to support these?
+  case "i386", "i486", "i586", "i686":
+    arch = .x86
+  case "i786", "i886", "i986":
+    arch = .x86
+  case "amd64", "x86_64", "x86_64h":
+    arch = .x86_64
+  case "powerpc", "ppc", "ppc32":
+    arch = .ppc
+  case "powerpc64", "ppu", "ppc64":
+    arch = .ppc64
+  case "powerpc64le", "ppc64le":
+    arch = .ppc64le
+  case "xscale":
+    arch = .arm
+  case "xscaleeb":
+    arch = .armeb
+  case "aarch64":
+    arch = .aarch64
+  case "aarch64_be":
+    arch = .aarch64_be
+  case "aarch64_32":
+    arch = .aarch64_32
+  case "arc":
+    arch = .arc
+  case "arm64":
+    arch = .aarch64
+  case "arm64_32":
+    arch = .aarch64_32
+  case "arm":
+    arch = .arm
+  case "armeb":
+    arch = .armeb
+  case "thumb":
+    arch = .thumb
+  case "thumbeb":
+    arch = .thumbeb
+  case "avr":
+    arch = .avr
+  case "msp430":
+    arch = .msp430
+  case "mips", "mipseb", "mipsallegrex", "mipsisa32r6", "mipsr6":
+    arch = .mips
+  case "mipsel", "mipsallegrexel", "mipsisa32r6el", "mipsr6el":
+    arch = .mipsel
+  case "mips64", "mips64eb", "mipsn32", "mipsisa64r6", "mips64r6", "mipsn32r6":
+    arch = .mips64
+  case "mips64el", "mipsn32el", "mipsisa64r6el", "mips64r6el", "mipsn32r6el":
+    arch = .mips64el
+  case "r600":
+    arch = .r600
+  case "amdgcn":
+    arch = .amdgcn
+  case "riscv32":
+    arch = .riscv32
+  case "riscv64":
+    arch = .riscv64
+  case "hexagon":
+    arch = .hexagon
+  case "s390x", "systemz":
+    arch = .systemz
+  case "sparc":
+    arch = .sparc
+  case "sparcel":
+    arch = .sparcel
+  case "sparcv9", "sparc64":
+    arch = .sparcv9
+  case "tce":
+    arch = .tce
+  case "tcele":
+    arch = .tcele
+  case "xcore":
+    arch = .xcore
+  case "nvptx":
+    arch = .nvptx
+  case "nvptx64":
+    arch = .nvptx64
+  case "le32":
+    arch = .le32
+  case "le64":
+    arch = .le64
+  case "amdil":
+    arch = .amdil
+  case "amdil64":
+    arch = .amdil64
+  case "hsail":
+    arch = .hsail
+  case "hsail64":
+    arch = .hsail64
+  case "spir":
+    arch = .spir
+  case "spir64":
+    arch = .spir64
+  case _ where archName.starts(with: "kalimba"):
+    arch = .kalimba
+  case "lanai":
+    arch = .lanai
+  case "shave":
+    arch = .shave
+  case "wasm32":
+    arch = .wasm32
+  case "wasm64":
+    arch = .wasm64
+  case "renderscript32":
+    arch = .renderscript32
+  case "renderscript64":
+    arch = .renderscript64
+  default:
+    arch = .unknown
+  }
+
+  // Some architectures require special parsing logic just to compute the
+  // ArchType result.
+  if arch == .unknown {
+    if archName.starts(with: "arm") || archName.starts(with: "thumb") || archName.starts(with: "aarch64") {
+      arch = parseARMArch(archName)
     }
+
+    if archName.starts(with: "bpf") {
+      arch = parseBPFArch(archName)
+    }
+  }
+
+  return arch
+}
+
+private func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
+  fatalError("todo")
+}
+
+private func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
+  fatalError("todo")
 }
