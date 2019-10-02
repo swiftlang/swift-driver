@@ -5,15 +5,11 @@ import Dispatch
 
 /// Resolver for a job's argument template.
 public struct ArgsResolver {
-  enum Error: Swift.Error {
-    case unknownVirtualPath(String)
-  }
-
   /// The toolchain in use.
   public let toolchain: DarwinToolchain
 
   /// The map of virtual path to the actual path.
-  public var pathMapping: [Job.VirtualPath: AbsolutePath]
+  public var pathMapping: [VirtualPath: AbsolutePath]
 
   /// Path to the directory that will contain the temporary files.
   private let temporaryDirectory: AbsolutePath
@@ -41,10 +37,13 @@ public struct ArgsResolver {
         return actualPath.pathString
       }
 
-      guard let actualPath = pathMapping[path] else {
-        throw Error.unknownVirtualPath(path.name)
+      // If there was a path mapping, use it.
+      if let actualPath = pathMapping[path] {
+        return actualPath.pathString
       }
-      return actualPath.pathString
+
+      // Otherwise, return the path.
+      return path.name
 
     case .resource(let resource):
       return try resolve(resource).pathString
@@ -105,7 +104,7 @@ public final class JobExecutor {
   struct Context {
 
     /// This contains mapping from an output to the job that produces that output.
-    let producerMap: [Job.VirtualPath: Job]
+    let producerMap: [VirtualPath: Job]
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
@@ -116,7 +115,7 @@ public final class JobExecutor {
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
 
-    init(argsResolver: ArgsResolver, producerMap: [Job.VirtualPath: Job], executorDelegate: JobExecutorDelegate?) {
+    init(argsResolver: ArgsResolver, producerMap: [VirtualPath: Job], executorDelegate: JobExecutorDelegate?) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
       self.executorDelegate = executorDelegate
@@ -139,7 +138,7 @@ public final class JobExecutor {
   }
 
   /// Build the given output.
-  public func build(_ output: Job.VirtualPath) throws {
+  public func build(_ output: VirtualPath) throws {
     let context = createContext(jobs)
 
     let delegate = JobExecutorBuildDelegate(context)
@@ -151,7 +150,7 @@ public final class JobExecutor {
 
   /// Create the context required during the execution.
   func createContext(_ jobs: [Job]) -> Context {
-    var producerMap: [Job.VirtualPath: Job] = [:]
+    var producerMap: [VirtualPath: Job] = [:]
     for job in jobs {
       for output in job.outputs {
         assert(!producerMap.keys.contains(output), "multiple producers for output \(output): \(job) \(producerMap[output]!)")

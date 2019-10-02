@@ -45,9 +45,9 @@ final class JobExecutorTests: XCTestCase {
 
       var resolver = try ArgsResolver(toolchain: toolchain)
       resolver.pathMapping = [
-        .path("foo.swift"): foo,
-        .path("main.swift"): main,
-        .path("main"): exec,
+        .relative(RelativePath("foo.swift")): foo,
+        .relative(RelativePath("main.swift")): main,
+        .relative(RelativePath("main")): exec,
       ]
 
       let compileFoo = Job(
@@ -56,17 +56,18 @@ final class JobExecutorTests: XCTestCase {
           "-frontend",
           "-c",
           "-primary-file",
-          .path(.path("foo.swift")),
-          .path(.path("main.swift")),
+          .path(.relative(RelativePath("foo.swift"))),
+          .path(.relative(RelativePath("main.swift"))),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
           .resource(.sdk),
           "-module-name", "main",
-          "-o", .path(.temporaryFile("foo.o")),
+          "-o", .path(.temporary("foo.o")),
         ],
-        inputs: [.path("foo.swift"), .path("main.swift")],
-        outputs: [.temporaryFile("foo.o")]
+        inputs: [.relative(RelativePath("foo.swift")),
+                 .relative(RelativePath("main.swift"))],
+        outputs: [.temporary("foo.o")]
       )
 
       let compileMain = Job(
@@ -74,25 +75,25 @@ final class JobExecutorTests: XCTestCase {
         commandLine: [
           "-frontend",
           "-c",
-          .path(.path("foo.swift")),
+          .path(.relative(RelativePath("foo.swift"))),
           "-primary-file",
-          .path(.path("main.swift")),
+          .path(.relative(RelativePath("main.swift"))),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
           .resource(.sdk),
           "-module-name", "main",
-          "-o", .path(.temporaryFile("main.o")),
+          "-o", .path(.temporary("main.o")),
         ],
-        inputs: [.path("foo.swift"), .path("main.swift")],
-        outputs: [.temporaryFile("main.o")]
+        inputs: [.relative(RelativePath("foo.swift")), .relative(RelativePath("main.swift"))],
+        outputs: [.temporary("main.o")]
       )
 
       let link = Job(
         tool: .ld,
         commandLine: [
-          .path(.temporaryFile("foo.o")),
-          .path(.temporaryFile("main.o")),
+          .path(.temporary("foo.o")),
+          .path(.temporary("main.o")),
           .resource(.clangRT),
           "-syslibroot", .resource(.sdk),
           "-lobjc", "-lSystem", "-arch", "x86_64",
@@ -101,21 +102,21 @@ final class JobExecutorTests: XCTestCase {
           "-L", .resource(.resourcesDir),
           "-L", .resource(.sdkStdlib),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
-          .path(.path("main")),
+          .path(.relative(RelativePath("main"))),
         ],
-        inputs: [.temporaryFile("foo.o"), .temporaryFile("main.o")],
-        outputs: [.path("main")]
+        inputs: [.temporary("foo.o"), .temporary("main.o")],
+        outputs: [.relative(RelativePath("main"))]
       )
 
       let delegate = JobCollectingDelegate()
       let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
-      try executor.build(.path("main"))
+      try executor.build(.relative(RelativePath("main")))
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
       XCTAssertEqual(delegate.started.count, 3)
 
-      let fooObject = try resolver.resolve(.path(.temporaryFile("foo.o")))
+      let fooObject = try resolver.resolve(.path(.temporary("foo.o")))
       XCTAssertTrue(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be present in the temporary directory")
       try resolver.removeTemporaryDirectory()
       XCTAssertFalse(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be removed from the temporary directory")

@@ -2,7 +2,7 @@
 ///
 /// The raw values for these enumerations describe the default extension for]
 /// the file type.
-public enum FileType: String, CaseIterable {
+public enum FileType: String, Hashable, CaseIterable {
   /// Swift source file.
   case swift
 
@@ -134,6 +134,22 @@ extension FileType: CustomStringConvertible {
 
     case .optimizationRecord:
       return "opt-record"
+    }
+  }
+}
+
+extension FileType {
+  /// Whether a file of this type is an input to a Swift compilation, such as
+  /// a Swift or SIL source file.
+  public var isPartOfSwiftCompilation: Bool {
+    switch self {
+    case .swift, .raw_sil, .sil, .raw_sib, .sib:
+      return true
+    case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
+         .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
+         .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
+         .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface:
+      return false
     }
   }
 }

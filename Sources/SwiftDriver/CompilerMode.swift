@@ -12,3 +12,16 @@ public enum CompilerMode {
   /// Compile and execute the inputs immediately.
   case immediate
 }
+
+extension CompilerMode {
+  /// Whether this compilation mode uses -primary-file to specify its inputs.
+  public var usesPrimaryFileInputs: Bool {
+    switch self {
+    case .immediate, .repl, .singleCompile:
+      return false
+
+    case .standardCompile:
+      return true
+    }
+  }
+}

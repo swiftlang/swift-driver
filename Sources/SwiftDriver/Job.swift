@@ -1,16 +1,16 @@
 import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
-public struct Job: Codable {
+public struct Job: Codable, Equatable {
 
   /// A tool that can be invoked during job execution.
-  public enum Tool: String, Codable {
+  public enum Tool: String, Codable, Equatable {
     case frontend
     case ld
   }
 
   /// A resource inside the toolchain.
-  public enum ToolchainResource: String, Codable {
+  public enum ToolchainResource: String, Codable, Equatable {
     case sdk
     case clangRT
     case compatibility50
@@ -19,29 +19,7 @@ public struct Job: Codable {
     case sdkStdlib
   }
 
-  /// A virtual path.
-  public struct VirtualPath: Codable, Hashable {
-    /// The name of the file must be unique. This will be used to map to the actual path.
-    var name: String
-
-    /// True if this path represents a temporary file that is cleaned up after job execution.
-    var isTemporary: Bool
-
-    init(name: String, isTemporary: Bool) {
-      self.name = name
-      self.isTemporary = isTemporary
-    }
-
-    public static func path(_ name: String) -> VirtualPath {
-      return VirtualPath(name: name, isTemporary: false)
-    }
-
-    public static func temporaryFile(_ name: String) -> VirtualPath {
-      return VirtualPath(name: name, isTemporary: true)
-    }
-  }
-
-  public enum ArgTemplate {
+  public enum ArgTemplate: Equatable {
     /// Represents a command-line flag that is substitued as-is.
     case flag(String)
 
@@ -89,26 +67,6 @@ enum ActionType {
   case verifyDebugInfo
 }
 
-/// Represents the type of work that needs to be done during compilation.
-protocol Action {
-  var type: ActionType { get }
-}
-
-/// The compile action.
-struct CompileAction: Action {
-  var type: ActionType { .compile }
-}
-
-/// The merge module action.
-struct MergeModuleAction: Action {
-  var type: ActionType { .mergeModule }
-}
-
-/// The link action.
-struct DynamicLinkAction: Action {
-  var type: ActionType { .dynamicLink }
-}
-
 // MARK: - Job.ArgTemplate + Codable
 
 extension Job.ArgTemplate: Codable {
@@ -143,7 +101,7 @@ extension Job.ArgTemplate: Codable {
       self = .flag(a1)
     case .path:
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-      let a1 = try unkeyedValues.decode(Job.VirtualPath.self)
+      let a1 = try unkeyedValues.decode(VirtualPath.self)
       self = .path(a1)
     case .resource:
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
