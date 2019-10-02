@@ -42,7 +42,7 @@ public struct Triple {
   public let environment: Environment
 
   /// The object format type.
-  public let objectFormatType: ObjectFormat
+  public let objectFormat: ObjectFormat
 
   public enum Arch {
     case unknown
@@ -156,6 +156,8 @@ public struct Triple {
   }
 
   public enum Vendor {
+    case unknown
+
     case apple
     case pc
     case scei
@@ -172,10 +174,11 @@ public struct Triple {
     case mesa
     case suse
     case openEmbedded
-    case unknown
   }
 
   public enum OS {
+    case unknown
+
     case ananas
     case cloudABI
     case darwin
@@ -211,10 +214,11 @@ public struct Triple {
     case hurd
     case wasi
     case emscripten
-    case unknown
   }
 
   public enum Environment {
+    case unknown
+
     case eabihf
     case eabi
     case elfv1
@@ -236,11 +240,16 @@ public struct Triple {
     case coreclr
     case simulator
     case macabi
-    case unknown
   }
 
   public enum ObjectFormat {
     case unknown
+
+    case coff
+    case elf
+    case macho
+    case wasm
+    case xcoff
   }
 
   public init(_ string: String) {
@@ -253,7 +262,7 @@ public struct Triple {
     self.vendor = parseVendor(components)
     self.os = parseOS(components)
     self.environment = parseEnvironment(components)
-    self.objectFormatType = .unknown
+    self.objectFormat = parseObjectFormat(components)
   }
 }
 
@@ -586,8 +595,25 @@ private func parseEnvironment(_ components: [Substring]) -> Triple.Environment {
   }
 }
 
-// MARK: - Parse Object Format Type
+// MARK: - Parse Object Format
 
-private func parseObjectFormatType(_ components: [Substring]) -> Triple.SubArch {
-  return .unknown
+private func parseObjectFormat(_ components: [Substring]) -> Triple.ObjectFormat {
+  guard components.count > 3 else { return .unknown }
+  let env = components[3]
+
+  switch env {
+  // "xcoff" must come before "coff" because of the order-dependendent pattern matching.
+  case _ where env.hasSuffix("xcoff"):
+    return .xcoff
+  case _ where env.hasSuffix("coff"):
+    return .coff
+  case _ where env.hasSuffix("elf"):
+    return .elf
+  case _ where env.hasSuffix("macho"):
+    return .macho
+  case _ where env.hasSuffix("wasm"):
+    return .wasm
+  default:
+    return .unknown
+  }
 }
