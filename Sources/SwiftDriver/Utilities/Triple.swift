@@ -403,11 +403,20 @@ private func parseArch(_ components: [Substring]) -> Triple.Arch {
 }
 
 private func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
-  fatalError("todo")
+  fatalError("Unimplemented")
 }
 
 private func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
-  fatalError("todo")
+  switch archName {
+  case "bpf":
+    fatalError("Unimplemented - need to determine host endianness")
+  case "bpf_be", "bpfeb":
+    return .bpfeb
+  case "bpf_le", "bpfel":
+    return .bpfel
+  default:
+    return .unknown
+  }
 }
 
 // MARK: - Parse SubArch
