@@ -63,6 +63,12 @@ extension Driver {
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs, inputs: &inputs, commandLine: &commandLine)
 
+    if let sdkPath = sdkPath {
+      commandLine.appendFlag("-sdk")
+      // FIXME: Can this ever fail?
+      commandLine.append(.path(try! .init(path: sdkPath)))
+    }
+
     if let stderrStream = stderrStream.stream as? LocalFileOutputByteStream, TerminalController.isTTY(stderrStream) {
       commandLine.appendFlag(.color_diagnostics)
     }
@@ -91,7 +97,7 @@ extension Array where Element == Job.ArgTemplate {
     append(.flag(string))
   }
 
-  ///. Append a flag option's spelling to the command line arguments.
+  /// Append a flag option's spelling to the command line arguments.
   mutating func appendFlag(_ option: Option) {
     assert(option.kind == .flag)
     append(.flag(option.spelling))
