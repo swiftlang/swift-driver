@@ -77,8 +77,6 @@ public struct Triple {
     case mips64el
     // MSP430: msp430
     case msp430
-    // NIOSII: nios2
-    case nios2
     // PPC: powerpc
     case ppc
     // PPC64: powerpc64, ppu
@@ -262,7 +260,12 @@ public struct Triple {
     self.vendor = parseVendor(components)
     self.os = parseOS(components)
     self.environment = parseEnvironment(components)
-    self.objectFormat = parseObjectFormat(components)
+
+    var objectFormat = parseObjectFormat(components)
+    if objectFormat == .unknown {
+      objectFormat = defaultObjectFormat(arch: arch, os: os)
+    }
+    self.objectFormat = objectFormat
   }
 }
 
@@ -631,5 +634,119 @@ private func parseObjectFormat(_ components: [Substring]) -> Triple.ObjectFormat
     return .wasm
   default:
     return .unknown
+  }
+}
+
+private func defaultObjectFormat(arch: Triple.Arch, os: Triple.OS) -> Triple.ObjectFormat {
+  switch arch {
+    case .unknown: fallthrough
+    case .aarch64: fallthrough
+    case .aarch64_32: fallthrough
+    case .arm: fallthrough
+    case .thumb: fallthrough
+    case .x86: fallthrough
+    case .x86_64:
+      if os.isDarwin {
+        return .macho
+      } else if os.isWindows {
+        return .coff
+      }
+      return .elf
+
+    case .aarch64_be: fallthrough
+    case .arc: fallthrough
+    case .amdgcn: fallthrough
+    case .amdil: fallthrough
+    case .amdil64: fallthrough
+    case .armeb: fallthrough
+    case .avr: fallthrough
+    case .bpfeb: fallthrough
+    case .bpfel: fallthrough
+    case .hexagon: fallthrough
+    case .lanai: fallthrough
+    case .hsail: fallthrough
+    case .hsail64: fallthrough
+    case .kalimba: fallthrough
+    case .le32: fallthrough
+    case .le64: fallthrough
+    case .mips: fallthrough
+    case .mips64: fallthrough
+    case .mips64el: fallthrough
+    case .mipsel: fallthrough
+    case .msp430: fallthrough
+    case .nvptx: fallthrough
+    case .nvptx64: fallthrough
+    case .ppc64le: fallthrough
+    case .r600: fallthrough
+    case .renderscript32: fallthrough
+    case .renderscript64: fallthrough
+    case .riscv32: fallthrough
+    case .riscv64: fallthrough
+    case .shave: fallthrough
+    case .sparc: fallthrough
+    case .sparcel: fallthrough
+    case .sparcv9: fallthrough
+    case .spir: fallthrough
+    case .spir64: fallthrough
+    case .systemz: fallthrough
+    case .tce: fallthrough
+    case .tcele: fallthrough
+    case .thumbeb: fallthrough
+    case .xcore:
+      return .elf
+
+    case .ppc: fallthrough
+    case .ppc64:
+      if os.isDarwin {
+        return .macho
+      } else if os == .aix {
+        return .xcoff
+      }
+      return .elf
+
+    case .wasm32: fallthrough
+    case .wasm64:
+      return .wasm
+  }
+}
+
+extension Triple.OS {
+
+  public var isWindows: Bool {
+    self == .win32
+  }
+
+  public var isAIX: Bool {
+    self == .aix
+  }
+
+  /// isMacOSX - Is this a Mac OS X triple. For legacy reasons, we support both
+  /// "darwin" and "osx" as OS X triples.
+  public var isMacOSX: Bool {
+    self == .darwin || self == .macosx
+  }
+
+  /// Is this an iOS triple.
+  /// Note: This identifies tvOS as a variant of iOS. If that ever
+  /// changes, i.e., if the two operating systems diverge or their version
+  /// numbers get out of sync, that will need to be changed.
+  /// watchOS has completely different version numbers so it is not included.
+  public var isiOS: Bool {
+    self == .ios || isTvOS
+  }
+
+  /// Is this an Apple tvOS triple.
+  public var isTvOS: Bool {
+    self == .tvos
+  }
+
+  /// Is this an Apple watchOS triple.
+  public var isWatchOS: Bool {
+    self == .watchos
+  }
+
+  /// isOSDarwin - Is this a "Darwin" OS (OS X, iOS, or watchOS).
+  public var isDarwin: Bool {
+    isMacOSX || isiOS || isWatchOS
   }
 }
