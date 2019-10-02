@@ -153,13 +153,13 @@ final class SwiftDriverTests: XCTestCase {
 
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
-    let plannedJobs = driver1.planBuild()
+    let plannedJobs = try driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(plannedJobs[0].outputs.count, 1)
     XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporary("foo.o"))
     XCTAssertEqual(plannedJobs[1].outputs.count, 1)
     XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporary("bar.o"))
-    XCTAssertEqual(plannedJobs[2].tool, .ld)
+    XCTAssertTrue(plannedJobs[2].tool.name.contains("ld"))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
     XCTAssertEqual(plannedJobs[2].outputs.first!, VirtualPath.relative(RelativePath("Test")))
   }

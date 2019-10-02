@@ -3,7 +3,7 @@ import TSCLibc
 
 do {
   let toolchain = DarwinToolchain()
-  var driver = try Driver(args: CommandLine.arguments)
+  var driver = try Driver(toolchain: toolchain, args: CommandLine.arguments)
   let resolver = try ArgsResolver(toolchain: toolchain)
   try driver.run(resolver: resolver)
 

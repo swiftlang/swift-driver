@@ -2,7 +2,7 @@
 extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
-  private mutating func planStandardCompile() -> [Job] {
+  private mutating func planStandardCompile() throws -> [Job] {
     var jobs = [Job]()
 
     // Keep track of the various outputs we care about from the jobs we build.
@@ -59,7 +59,7 @@ extension Driver {
 
     // If we should link, do so.
     if linkerOutputType != nil && !linkerInputs.isEmpty {
-      jobs.append(linkJob(inputs: linkerInputs))
+      jobs.append(try linkJob(inputs: linkerInputs))
     }
 
     // FIXME: Lots of follow-up actions for merging modules, etc.
@@ -68,14 +68,14 @@ extension Driver {
   }
 
   /// Plan a build by producing a set of jobs to complete the build.
-  public mutating func planBuild() -> [Job] {
+  public mutating func planBuild() throws -> [Job] {
     // Plan the build.
     switch compilerMode {
     case .immediate, .repl, .singleCompile:
       fatalError("Not yet supported")
 
     case .standardCompile:
-      return planStandardCompile()
+      return try planStandardCompile()
     }
   }
 }

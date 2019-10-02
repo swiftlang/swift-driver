@@ -75,16 +75,6 @@ public struct ArgsResolver {
       return try toolchain.sdkStdlib(sdk: toolchain.sdk.get())
     }
   }
-
-  /// Resolve the given tool.
-  public func resolve(_ tool: Job.Tool) -> String {
-    switch tool {
-    case .frontend:
-      return "swift"
-    case .ld:
-      return "ld"
-    }
-  }
 }
 
 public protocol JobExecutorDelegate {
@@ -253,7 +243,7 @@ class ExecuteJobRule: LLBuildRule {
 
     let value: DriverBuildValue
     do {
-      let tool = resolver.resolve(job.tool)
+      let tool = try resolver.resolve(.path(job.tool))
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
 
       let process = Process(arguments: [tool] + commandLine)

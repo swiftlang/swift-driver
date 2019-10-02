@@ -1,51 +1,20 @@
 import TSCBasic
 
-// We'll need to figure out how to model `Toolchain` to handle different platforms.
-//
-// Note: This class is not thread-safe.
-public final class DarwinToolchain {
+public enum Tool {
+  case swiftCompiler
+  case staticLinker
+  case dynamicLinker
+}
 
-  /// Swift compiler path.
-  public lazy var swiftCompiler: Result<AbsolutePath, Swift.Error> = Result {
-    try xcrunFind(exec: "swift")
-  }
+/// Describes a toolchain, which includes information about compilers, linkers
+/// and other tools required to build Swift code.
+public protocol Toolchain {
+  /// Retrieve the absolute path to a particular tool.
+  func getToolPath(_ tool: Tool) throws -> AbsolutePath
+}
 
-  /// SDK path.
-  public lazy var sdk: Result<AbsolutePath, Swift.Error> = Result {
-    let result = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"]).spm_chomp()
-    return AbsolutePath(result)
-  }
-
-  /// Path to the StdLib inside the SDK.
-  public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
-    sdk.appending(RelativePath("usr/lib/swift"))
-  }
-
-  public var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
-    // FIXME: This will need to take -resource-dir and target triple into account.
-    return swiftCompiler.map{ $0.appending(RelativePath("../../lib/swift/macosx")) }
-  }
-
-  public init() {
-  }
-
-  /// Utility function to lookup an executable using xcrun.
-  private func xcrunFind(exec: String) throws -> AbsolutePath {
-    let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
-    return AbsolutePath(path)
-  }
-
-  var compatibility50: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(component: "libswiftCompatibility50.a") }
-  }
-
-  var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
-  }
-
-  var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
-  }
+/// The host's toolchain, to use as a default.
+public var hostToolchain: Toolchain {
+  // FIXME: Support Linux, Windows, Android, etc. toolchains as well!
+  return DarwinToolchain()
 }

@@ -18,6 +18,16 @@ public enum VirtualPath: Hashable {
   /// A temporary file with the given name.
   case temporary(String)
 
+  /// Form a virtual path which may be either absolute or relative.
+  public init(path: String) throws {
+    if let absolute = try? AbsolutePath(validating: path) {
+      self = .absolute(absolute)
+    } else {
+      let relative = try RelativePath(validating: path)
+      self = .relative(relative)
+    }
+  }
+
   /// The name of the path for presentation purposes.
   ///
   /// FIXME: Maybe this should be debugDescription or description

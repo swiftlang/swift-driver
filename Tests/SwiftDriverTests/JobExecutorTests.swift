@@ -51,7 +51,7 @@ final class JobExecutorTests: XCTestCase {
       ]
 
       let compileFoo = Job(
-        tool: .frontend,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
           "-frontend",
           "-c",
@@ -71,7 +71,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let compileMain = Job(
-        tool: .frontend,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
           "-frontend",
           "-c",
@@ -90,7 +90,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let link = Job(
-        tool: .ld,
+        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
         commandLine: [
           .path(.temporary("foo.o")),
           .path(.temporary("main.o")),

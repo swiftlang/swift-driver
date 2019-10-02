@@ -2,13 +2,6 @@ import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable {
-
-  /// A tool that can be invoked during job execution.
-  public enum Tool: String, Codable, Equatable {
-    case frontend
-    case ld
-  }
-
   /// A resource inside the toolchain.
   public enum ToolchainResource: String, Codable, Equatable {
     case sdk
@@ -31,7 +24,7 @@ public struct Job: Codable, Equatable {
   }
 
   /// The tool to invoke.
-  public var tool: Tool
+  public var tool: VirtualPath
 
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
@@ -45,7 +38,7 @@ public struct Job: Codable, Equatable {
   public var outputs: [VirtualPath]
 
   public init(
-    tool: Tool,
+    tool: VirtualPath,
     commandLine: [ArgTemplate],
     inputs: [VirtualPath],
     outputs: [VirtualPath]
@@ -59,14 +52,7 @@ public struct Job: Codable, Equatable {
 
 extension Job: CustomStringConvertible {
   public var description: String {
-    var result: String
-    switch tool {
-    case .frontend:
-      result = "swift"
-
-    case .ld:
-      result = "ld"
-    }
+    var result: String = tool.name
 
     for arg in commandLine {
       result += " "
