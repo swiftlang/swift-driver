@@ -544,55 +544,71 @@ private func parseOS(_ components: [Substring]) -> Triple.OS {
 // MARK: - Parse Environment
 
 private func parseEnvironment(_ components: [Substring]) -> Triple.Environment {
-  guard components.count > 3 else { return .unknown }
-  let env = components[3]
-
-  switch env {
-  case _ where env.starts(with: "eabihf"):
-    return .eabihf
-  case _ where env.starts(with: "eabi"):
-    return .eabi
-  case _ where env.starts(with: "elfv1"):
-    return .elfv1
-  case _ where env.starts(with: "elfv2"):
-    return .elfv2
-  case _ where env.starts(with: "gnuabin32"):
-    return .gnuabin32
-  case _ where env.starts(with: "gnuabi64"):
-    return .gnuabi64
-  case _ where env.starts(with: "gnueabihf"):
-    return .gnueabihf
-  case _ where env.starts(with: "gnueabi"):
-    return .gnueabi
-  case _ where env.starts(with: "gnux32"):
-    return .gnux32
-  case _ where env.starts(with: "code16"):
-    return .code16
-  case _ where env.starts(with: "gnu"):
-    return .gnu
-  case _ where env.starts(with: "android"):
-    return .android
-  case _ where env.starts(with: "musleabihf"):
-    return .musleabihf
-  case _ where env.starts(with: "musleabi"):
-    return .musleabi
-  case _ where env.starts(with: "musl"):
-    return .musl
-  case _ where env.starts(with: "msvc"):
-    return .msvc
-  case _ where env.starts(with: "itanium"):
-    return .itanium
-  case _ where env.starts(with: "cygnus"):
-    return .cygnus
-  case _ where env.starts(with: "coreclr"):
-    return .coreclr
-  case _ where env.starts(with: "simulator"):
-    return .simulator
-  case _ where env.starts(with: "macabi"):
-    return .macabi
-  default:
-    return .unknown
+  if components.count > 3 {
+    let env = components[3]
+    switch env {
+    case _ where env.starts(with: "eabihf"):
+      return .eabihf
+    case _ where env.starts(with: "eabi"):
+      return .eabi
+    case _ where env.starts(with: "elfv1"):
+      return .elfv1
+    case _ where env.starts(with: "elfv2"):
+      return .elfv2
+    case _ where env.starts(with: "gnuabin32"):
+      return .gnuabin32
+    case _ where env.starts(with: "gnuabi64"):
+      return .gnuabi64
+    case _ where env.starts(with: "gnueabihf"):
+      return .gnueabihf
+    case _ where env.starts(with: "gnueabi"):
+      return .gnueabi
+    case _ where env.starts(with: "gnux32"):
+      return .gnux32
+    case _ where env.starts(with: "code16"):
+      return .code16
+    case _ where env.starts(with: "gnu"):
+      return .gnu
+    case _ where env.starts(with: "android"):
+      return .android
+    case _ where env.starts(with: "musleabihf"):
+      return .musleabihf
+    case _ where env.starts(with: "musleabi"):
+      return .musleabi
+    case _ where env.starts(with: "musl"):
+      return .musl
+    case _ where env.starts(with: "msvc"):
+      return .msvc
+    case _ where env.starts(with: "itanium"):
+      return .itanium
+    case _ where env.starts(with: "cygnus"):
+      return .cygnus
+    case _ where env.starts(with: "coreclr"):
+      return .coreclr
+    case _ where env.starts(with: "simulator"):
+      return .simulator
+    case _ where env.starts(with: "macabi"):
+      return .macabi
+    default:
+      return .unknown
+    }
+  } else if let firstComponent = components.first {
+    switch firstComponent {
+    case _ where firstComponent.hasPrefix("mipsn32"):
+      return .gnuabin32
+    case _ where firstComponent.hasPrefix("mips64"):
+      return .gnuabi64
+    case _ where firstComponent.hasPrefix("mipsisa64"):
+      return .gnuabi64
+    case _ where firstComponent.hasPrefix("mipsisa32"):
+      return .gnu
+    case "mips", "mipsel", "mipsr6", "mipsr6el":
+      return .gnu
+    default:
+      return .unknown
+    }
   }
+  return .unknown
 }
 
 // MARK: - Parse Object Format
