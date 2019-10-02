@@ -44,6 +44,26 @@ public struct Triple {
   /// The object format type.
   public let objectFormat: ObjectFormat
 
+  /// Represents a version that may be present in the target triple.
+  public struct Version: Equatable {
+    public var major: Int
+    public var minor: Int
+    public var micro: Int
+
+    public init<S: StringProtocol>(parse string: S) {
+      let components = string.split(separator: ".", maxSplits: 3).map{ Int($0) ?? 0 }
+      self.major = components.count > 0 ? components[0] : 0
+      self.minor = components.count > 1 ? components[1] : 0
+      self.micro = components.count > 2 ? components[2] : 0
+    }
+
+    public init(_ major: Int, _ minor: Int, _ micro: Int) {
+      self.major = major
+      self.minor = minor
+      self.micro = micro
+    }
+  }
+
   public enum Arch {
     case unknown
 
@@ -782,7 +802,7 @@ extension Triple {
   /// For example, "fooos1.2.3" would return (1, 2, 3).
   ///
   /// If an entry is not defined, it will be returned as 0.
-  public func osVersion() -> (major: Int, minor: Int, micro: Int) {
+  public func osVersion() -> Version {
     var osName: Substring = self.osName()[...]
 
     // Assume that the OS portion of the triple starts with the canonical name.
@@ -792,15 +812,106 @@ extension Triple {
       osName = osName.dropFirst(5)
     }
 
-    return version(from: osName)
+    return Version(parse: osName)
+  }
+}
+
+// MARK: - Darwin Versions
+
+extension Triple {
+  /// Parse the version number as with getOSVersion and then
+  /// translate generic "darwin" versions to the corresponding OS X versions.
+  /// This may also be called with IOS triples but the OS X version number is
+  /// just set to a constant 10.4.0 in that case.
+  ///
+  /// Returns true if successful.
+  public func getMacOSXVersion() -> (Bool, Version) {
+    var version = osVersion()
+
+    switch os {
+    case .darwin:
+      // Default to darwin8, i.e., MacOSX 10.4.
+      if version.major == 0 {
+        version.major = 8
+      }
+
+      // Darwin version numbers are skewed from OS X versions.
+      if version.major < 4 {
+        return (false, version)
+      }
+
+      version.micro = 0
+      version.minor = version.major - 4
+      version.major = 10
+
+    case .macosx:
+      // Default to 10.4.
+      if version.major == 0 {
+        version.major = 10
+        version.minor = 4
+      }
+
+      if version.major != 10 {
+        return (false, version)
+      }
+
+    case .ios, .tvos, .watchos:
+       // Ignore the version from the triple.  This is only handled because the
+       // the clang driver combines OS X and IOS support into a common Darwin
+       // toolchain that wants to know the OS X version number even when targeting
+       // IOS.
+      version = Version(10, 4, 0)
+
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+    return (true, version)
   }
 
-  /// Parses versions with upto three components.
-  private func version<S: StringProtocol>(from name: S) -> (major: Int, minor: Int, micro: Int) {
-    let components = name.split(separator: ".", maxSplits: 3).map{ Int($0) ?? 0 }
-    let major = components.count > 0 ? components[0] : 0
-    let minor = components.count > 1 ? components[1] : 0
-    let micro = components.count > 2 ? components[2] : 0
-    return (major, minor, micro)
+  /// Parse the version number as with getOSVersion.  This should
+  /// only be called with IOS or generic triples.
+  public func iOSVersion() -> Version {
+    switch os {
+    case .darwin, .macosx:
+      // Ignore the version from the triple.  This is only handled because the
+      // the clang driver combines OS X and iOS support into a common Darwin
+      // toolchain that wants to know the iOS version number even when targeting
+      // OS X.
+      return Version(5, 0, 0)
+    case .ios, .tvos:
+      var version = self.osVersion()
+      // Default to 5.0 (or 7.0 for arm64).
+      if version.major == 0 {
+        version.major = arch == .aarch64 ? 7 : 5
+      }
+      return version
+    case .watchos:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  /// Parse the version number as with getOSVersion. This should only be
+  /// called with WatchOS or generic triples.
+  public func watchOSVersion() -> Version {
+    switch os {
+    case .darwin, .macosx:
+      // Ignore the version from the triple.  This is only handled because the
+      // the clang driver combines OS X and iOS support into a common Darwin
+      // toolchain that wants to know the iOS version number even when targeting
+      // OS X.
+      return Version(2, 0, 0)
+    case .watchos:
+      var version = self.osVersion()
+      if version.major == 0 {
+        version.major = 2
+      }
+      return version
+    case .ios:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
   }
 }
