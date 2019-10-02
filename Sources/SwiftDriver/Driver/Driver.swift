@@ -212,6 +212,9 @@ public struct Driver {
       return
     }
 
+    // Create and use the tool execution delegate if one is not provided explicitly.
+    let executorDelegate = executorDelegate ?? createToolExecutionDelegate()
+
     // Start up an executor and perform the build.
     let mainOutput = jobs.last!.outputs.first!
     let jobExecutor = JobExecutor(jobs: jobs, resolver: resolver, executorDelegate: executorDelegate)
@@ -224,6 +227,10 @@ public struct Driver {
     let path = try Process.checkNonZeroExit(
       arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
     return AbsolutePath(path)
+  }
+
+  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
+    return ToolExecutionDelegate(isVerbose: parsedOptions.contains(.v))
   }
 }
 

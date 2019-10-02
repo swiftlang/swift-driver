@@ -1,5 +1,6 @@
 import SwiftDriver
 import TSCLibc
+import enum TSCUtility.Diagnostics
 
 do {
   var driver = try Driver(args: CommandLine.arguments)
@@ -9,6 +10,8 @@ do {
   if driver.diagnosticEngine.hasErrors {
     exit(EXIT_FAILURE)
   }
+} catch Diagnostics.fatalError {
+  exit(EXIT_FAILURE)
 } catch {
   print("error: \(error)")
   exit(EXIT_FAILURE)
