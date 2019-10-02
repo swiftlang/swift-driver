@@ -20,10 +20,12 @@ public struct OptionAttributes: OptionSet, Hashable {
 }
 
 /// Describes a command-line option.
-@propertyWrapper
 public struct Option {
   /// The kind of option we have, which determines how it will be parsed.
   public enum Kind: Hashable {
+    /// An input file, which doesn't have a spelling but contains a single
+    /// argument.
+    case input
     /// An option that enables/disables some specific behavior.
     case flag
     /// An option whose argument directly follows the spelling.
@@ -78,8 +80,6 @@ public struct Option {
     self.helpText = helpText
     self.group = group
   }
-
-  public var wrappedValue: Option { self }
 }
 
 extension Option: Equatable {

@@ -136,9 +136,6 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
     if (rawOption.kind == OptionKind::Unknown)
       continue;
 
-    if (rawOption.kind == OptionKind::Input)
-      continue;
-
     fn(rawOption);
   }
 }
@@ -146,142 +143,16 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
 void forEachSpelling(const char * const *prefixes, const std::string &spelling,
                      std::function<void(const std::string &spelling,
                                         bool isAlternateSpelling)> fn) {
+  if (!prefixes || !*prefixes) {
+    fn(spelling, /*isAlternateSpelling=*/false);
+    return;
+  }
+
   bool isAlternateSpelling = false;
   while (*prefixes) {
     fn(*prefixes++ + spelling, isAlternateSpelling);
     isAlternateSpelling = true;
   }
-}
-
-enum class OptionTableKind {
-  Interactive,
-  Batch,
-  Frontend,
-  ModuleWrap,
-  AutolinkExtract,
-  Indent,
-};
-
-static const char *optionTableKindName(OptionTableKind kind) {
-  switch (kind) {
-  case OptionTableKind::Interactive:
-    return "interactive";
-
-  case OptionTableKind::Batch:
-    return "batch";
-
-  case OptionTableKind::Frontend:
-    return "frontend";
-
-  case OptionTableKind::ModuleWrap:
-    return "moduleWrap";
-
-  case OptionTableKind::AutolinkExtract:
-    return "autolinkExtract";
-
-  case OptionTableKind::Indent:
-    return "indent";
-  }
-}
-
-static bool optionTableIncludes(OptionTableKind kind, const RawOption &option) {
-  assert(!option.isGroup());
-  
-  switch (kind) {
-  case OptionTableKind::Interactive:
-    return !(option.flags & (NoDriverOption | NoInteractiveOption));
-
-  case OptionTableKind::Batch:
-    return !(option.flags & (NoDriverOption | NoBatchOption));
-    
-  case OptionTableKind::Frontend:
-    return option.flags & FrontendOption;
-
-  case OptionTableKind::ModuleWrap:
-    return option.flags & ModuleWrapOption;
-
-  case OptionTableKind::AutolinkExtract:
-    return option.flags & AutolinkExtractOption;
-
-  case OptionTableKind::Indent:
-    return option.flags & SwiftIndentOption;
-  }  
-}
-
-std::string makeGenerator(const RawOption &option) {
-  std::string idName = option.idName;
-  if (option.isAlias()) {
-    idName = rawOptions[optionIndexByID[option.alias]].idName;
-  } else {
-    idName = option.idName;
-  }
-  
-  auto makeWithArg = [&](const std::string &caseName) {
-    return "Generator." + caseName + " { Option." + idName + "($0) }";
-  };
-  
-  switch (option.kind) {
-  case OptionKind::Group:
-  case OptionKind::Unknown:
-    assert(false);
-
-  case OptionKind::Input:
-    return "Generator.input";
-
-  case OptionKind::Flag:
-    return "Generator.flag { Option." + idName + " }";
-
-  case OptionKind::Joined:
-    return makeWithArg("joined");
-    
-  case OptionKind::Separate:
-    return makeWithArg("separate");
-
-  case OptionKind::RemainingArgs:
-    return makeWithArg("remaining");
-
-  case OptionKind::CommaJoined:
-    return makeWithArg("commaJoined");
-
-  case OptionKind::JoinedOrSeparate:
-    return makeWithArg("joinedOrSeparate");
-  }
-}
-
-void printOptionTable(std::ostream &out, OptionTableKind kind) {
-  out << "\n";
-  out << "extension OptionTable {\n";
-  out << "  public static var " << optionTableKindName(kind) << "Options"
-      << ": OptionTable {\n";
-  out << "    var parser = OptionTable()\n";
-
-  forEachOption([&](const RawOption &option) {
-      if (!optionTableIncludes(kind, option))
-        return;
-
-      forEachSpelling(option.prefixes, option.spelling,
-                      [&](const std::string &spelling,
-                          bool isAlternateSpelling) {
-          if (option.isAlias() || isAlternateSpelling) {
-            out << "      parser.addAlias(spelling: \"" << spelling << "\", "
-                << "generator: " << makeGenerator(option) << ", "
-                << "isHidden: " << (option.isHidden() ? "true" : "false")
-                << ")\n";
-            return;
-          }
-
-          out << "      parser.addOption(spelling: \"" << spelling << "\", "
-              << "generator: " << makeGenerator(option) << ", "
-              << "isHidden: " << (option.isHidden() ? "true" : "false") << ", "
-              << "metaVar: " << stringOrNil(option.metaVar) << ", "
-              << "helpText: " << stringOrNilLeftTrimmed(option.helpText)
-              << ")\n";
-        });
-    });
-
-  out << "    return parser\n";
-  out << "  }\n";
-  out << "}\n";
 }
 
 int makeOptions_main() {
@@ -319,10 +190,23 @@ int makeOptions_main() {
     forEachSpelling(option.prefixes, option.spelling,
                     [&](const std::string &spelling,
                         bool isAlternateSpelling) {
-      out << "  @Option(\"" << spelling << "\"";
+      out << "  public static let ";
+
+      // Add a '_' suffix if this is an alternate spelling.
+      if (isAlternateSpelling)
+        out << option.idName << "_";
+      else
+        out << escapeKeyword(option.idName);
+
+      // All options have Option type.
+      out << ": Option = Option(\"" << spelling << "\"";
 
       out << ", ";
       switch (option.kind) {
+      case OptionKind::Input:
+        out << ".input";
+        break;
+
       case OptionKind::CommaJoined:
         out << ".commaJoined";
         break;
@@ -348,7 +232,6 @@ int makeOptions_main() {
         break;
 
       case OptionKind::Group:
-      case OptionKind::Input:
       case OptionKind::Unknown:
         assert(false && "Should have been filtered out");
       }
@@ -360,11 +243,9 @@ int makeOptions_main() {
         out << ", alias: Option." << option.idName;
       }
 
-      if (option.flags != 0) {
+      if (option.flags != 0 || option.kind == OptionKind::Input) {
         bool anyEmitted = false;
-        auto emitFlag = [&](SwiftFlags flag, const char *name) {
-          if ((option.flags & flag) == 0) { return; }
-
+        auto emitFlag = [&](const char *name) {
           if (anyEmitted) {
             out << ", ";
           } else {
@@ -374,18 +255,26 @@ int makeOptions_main() {
           out << name;
         };
 
+        auto emitFlagIf = [&](SwiftFlags flag, const char *name) {
+          if ((option.flags & flag) == 0) { return; }
+          emitFlag(name);
+        };
+
         out << ", attributes: [";
-        emitFlag(HelpHidden, ".helpHidden");
-        emitFlag(FrontendOption, ".frontend");
-        emitFlag(NoDriverOption, ".noDriver");
-        emitFlag(NoInteractiveOption, ".noInteractive");
-        emitFlag(NoBatchOption, ".noBatch");
-        emitFlag(DoesNotAffectIncrementalBuild, ".doesNotAffectIncrementalBuild");
-        emitFlag(AutolinkExtractOption, ".autolinkExtract");
-        emitFlag(ModuleWrapOption, ".moduleWrap");
-        emitFlag(SwiftIndentOption, ".indent");
-        emitFlag(ArgumentIsPath, ".argumentIsPath");
-        emitFlag(ModuleInterfaceOption, ".moduleInterface");
+        emitFlagIf(HelpHidden, ".helpHidden");
+        emitFlagIf(FrontendOption, ".frontend");
+        emitFlagIf(NoDriverOption, ".noDriver");
+        emitFlagIf(NoInteractiveOption, ".noInteractive");
+        emitFlagIf(NoBatchOption, ".noBatch");
+        emitFlagIf(DoesNotAffectIncrementalBuild, ".doesNotAffectIncrementalBuild");
+        emitFlagIf(AutolinkExtractOption, ".autolinkExtract");
+        emitFlagIf(ModuleWrapOption, ".moduleWrap");
+        emitFlagIf(SwiftIndentOption, ".indent");
+        if (option.kind == OptionKind::Input)
+          emitFlag(".argumentIsPath");
+        else
+          emitFlagIf(ArgumentIsPath, ".argumentIsPath");
+        emitFlagIf(ModuleInterfaceOption, ".moduleInterface");
         out << "]";
       }
 
@@ -398,16 +287,7 @@ int makeOptions_main() {
       if (option.group != OptionID::Opt_INVALID) {
         out << ", group: ." << groups[groupIndexByID[option.group]].id;
       }
-      out << ") static var ";
-
-      // Add a '_' suffix if this is an alternate spelling.
-      if (isAlternateSpelling)
-        out << option.idName << "_";
-      else
-        out << escapeKeyword(option.idName);
-
-      // All options have Option type.
-      out << ": Option\n";
+      out << ")\n";
     });
   });
   out << "}\n";
@@ -421,7 +301,7 @@ int makeOptions_main() {
       forEachSpelling(option.prefixes, option.spelling,
                       [&](const std::string &spelling,
                           bool isAlternateSpelling) {
-        out << "      Option._" << option.idName;
+        out << "      Option." << option.idName;
         if (isAlternateSpelling)
           out << "_";
         out << ",\n";

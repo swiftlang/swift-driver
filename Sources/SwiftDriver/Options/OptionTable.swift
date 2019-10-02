@@ -36,6 +36,9 @@ extension OptionTable {
       // Figure out the display name, with metavariable if given
       var displayName = option.spelling
       switch option.kind {
+        case .input:
+          continue
+
         case .flag:
           break
 

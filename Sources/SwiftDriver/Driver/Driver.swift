@@ -248,7 +248,7 @@ extension Driver {
   ) -> CompilerMode {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
-      switch outputOption.option! {
+      switch outputOption.option {
       case .emit_pch, .emit_imported_modules, .index_file:
         return .singleCompile
 
@@ -283,12 +283,8 @@ extension Driver {
   private static func applyWorkingDirectory(_ workingDirectory: AbsolutePath,
                                             to parsedOptions: inout ParsedOptions) throws {
     parsedOptions.forEachModifying { parsedOption in
-      // Only translate input arguments and options whose arguments are paths.
-      if let option = parsedOption.option {
-        if !option.attributes.contains(.argumentIsPath) { return }
-      } else if !parsedOption.isInput {
-        return
-      }
+      // Only translate options whose arguments are paths.
+      if !parsedOption.option.attributes.contains(.argumentIsPath) { return }
 
       let translatedArgument: ParsedOption.Argument
       switch parsedOption.argument {
@@ -353,7 +349,7 @@ extension Driver {
     var linkerOutputType: LinkOutputType? = nil
 
     if let outputOption = parsedOptions.getLast(in: .modes) {
-      switch outputOption.option! {
+      switch outputOption.option {
       case .emit_executable:
         if parsedOptions.contains(.static) {
           diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
@@ -437,7 +433,7 @@ extension Driver {
     // Determine the debug level.
     let level: DebugInfoLevel?
     if let levelOption = parsedOptions.getLast(in: .g) {
-      switch levelOption.option! {
+      switch levelOption.option {
       case .g:
         level = .astTypes
 
@@ -476,7 +472,7 @@ extension Driver {
     }
 
     if format == .codeView && (level == .lineTables || level == .dwarfTypes) {
-      let levelOption = parsedOptions.getLast(in: .g)!.option!
+      let levelOption = parsedOptions.getLast(in: .g)!.option
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
     }
 

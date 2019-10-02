@@ -56,6 +56,9 @@ extension OptionTable {
 
       // Translate the argument
       switch option.kind {
+      case .input:
+        parsedOptions.addOption(option, argument: .single(argument))
+
       case .commaJoined:
         // Comma-separated list of arguments follows the option spelling.
         let rest = argument.dropFirst(option.spelling.count)

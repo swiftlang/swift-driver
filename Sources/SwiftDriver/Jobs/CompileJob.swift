@@ -10,7 +10,7 @@ extension Driver {
         fatalError("We were told to perform a standard compile, but no mode option was passed to the driver.")
       }
 
-      commandLine.appendFlag(compileModeOption.option!)
+      commandLine.appendFlag(compileModeOption.option)
     }
   }
 
