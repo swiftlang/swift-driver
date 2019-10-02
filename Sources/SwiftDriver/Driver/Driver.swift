@@ -36,7 +36,7 @@ public struct Driver {
   public let inputFiles: [InputFile]
 
   /// The mapping from input files to output files for each kind.
-  internal var outputFileMap: OutputFileMap
+  internal let outputFileMap: OutputFileMap
 
   /// The mode in which the compiler will execute.
   public let compilerMode: CompilerMode
