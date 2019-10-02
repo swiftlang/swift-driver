@@ -1,8 +1,6 @@
-/// Triple - Helper for working with autoconf configuration names. For
-/// historical reasons, we also call these 'triples' (they used to contain
-/// exactly three fields).
+/// Helper for working with target triples.
 ///
-/// Configuration names are strings in the canonical form:
+/// Target triples are strings in the canonical form:
 ///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM
 /// or
 ///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM-ENVIRONMENT
@@ -17,7 +15,7 @@
 /// Clients that need to handle the non-canonical triples that users often
 /// specify should use the normalize method.
 ///
-/// See autoconf/config.guess for a glimpse into what configuration names
+/// See autoconf/config.guess for a glimpse into what target triples
 /// look like in practice.
 ///
 /// This is a port of https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
@@ -433,7 +431,8 @@ private func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
 private func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch {
   switch archName {
   case "bpf":
-    fatalError("Unimplemented - need to determine host endianness")
+    // FIXME: need to determine host endianness
+    return .unknown
   case "bpf_be", "bpfeb":
     return .bpfeb
   case "bpf_le", "bpfel":
