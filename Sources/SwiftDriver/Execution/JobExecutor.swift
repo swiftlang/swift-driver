@@ -1,4 +1,5 @@
 import TSCBasic
+import enum TSCUtility.Diagnostics
 
 import Foundation
 import Dispatch
@@ -51,7 +52,7 @@ public struct ArgsResolver {
 
 public protocol JobExecutorDelegate {
   /// Called when a job starts executing.
-  func jobStarted(job: Job)
+  func jobStarted(job: Job, arguments: [String])
 
   /// Called when job had any output.
   func jobHadOutput(job: Job, output: String)
@@ -107,7 +108,12 @@ public final class JobExecutor {
     let engine = LLBuildEngine(delegate: delegate)
 
     let job = context.producerMap[output]!
-    _ = try engine.build(key: ExecuteJobRule.RuleKey(job: job))
+    let result = try engine.build(key: ExecuteJobRule.RuleKey(job: job))
+
+    // Throw the stub error the build didn't finish successfully.
+    if !result.success {
+      throw Diagnostics.fatalError
+    }
   }
 
   /// Create the context required during the execution.
@@ -217,13 +223,14 @@ class ExecuteJobRule: LLBuildRule {
     do {
       let tool = try resolver.resolve(.path(job.tool))
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
+      let arguments = [tool] + commandLine
 
-      let process = Process(arguments: [tool] + commandLine)
+      let process = Process(arguments: arguments)
       try process.launch()
 
       // Inform the delegate.
       context.delegateQueue.async {
-        context.executorDelegate?.jobStarted(job: job)
+        context.executorDelegate?.jobStarted(job: job, arguments: arguments)
       }
 
       let result = try process.waitUntilExit()

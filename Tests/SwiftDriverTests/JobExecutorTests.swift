@@ -13,7 +13,7 @@ class JobCollectingDelegate: JobExecutorDelegate {
   var started: [Job] = []
   var finished: [Job] = []
 
-  func jobStarted(job: Job) {
+  func jobStarted(job: Job, arguments: [String]) {
     started.append(job)
   }
 

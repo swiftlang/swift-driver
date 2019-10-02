@@ -1,3 +1,4 @@
+import TSCBasic
 
 extension Driver {
   /// Add the appropriate compile mode option to the command line for a compile job.
@@ -61,6 +62,10 @@ extension Driver {
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs, inputs: &inputs, commandLine: &commandLine)
+
+    if let stderrStream = stderrStream.stream as? LocalFileOutputByteStream, TerminalController.isTTY(stderrStream) {
+      commandLine.appendFlag(.color_diagnostics)
+    }
 
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
