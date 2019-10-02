@@ -89,7 +89,7 @@ extension ParsedOptions {
   }
 
   mutating func addInput(_ input: String) {
-    addOption(.input, argument: .single(input))
+    addOption(.INPUT, argument: .single(input))
   }
 }
 
@@ -172,7 +172,7 @@ extension ParsedOptions {
   ///
   /// This operation does not consume any inputs.
   public var hasAnyInput: Bool {
-    return parsedOptions.contains { $0.option == .input }
+    return parsedOptions.contains { $0.option == .INPUT }
   }
 
   /// Walk through all of the parsed options, modifying each one.
@@ -187,7 +187,7 @@ extension ParsedOptions {
   /// Find all of the inputs.
   public var allInputs: [String] {
     mutating get {
-      filter { $0.option == .input }.map { $0.argument.asSingle }
+      filter { $0.option == .INPUT }.map { $0.argument.asSingle }
     }
   }
 

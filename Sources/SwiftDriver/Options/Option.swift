@@ -20,7 +20,6 @@ public struct OptionAttributes: OptionSet, Hashable {
 }
 
 /// Describes a command-line option.
-@propertyWrapper
 public struct Option {
   /// The kind of option we have, which determines how it will be parsed.
   public enum Kind: Hashable {
@@ -81,8 +80,6 @@ public struct Option {
     self.helpText = helpText
     self.group = group
   }
-
-  public var wrappedValue: Option { self }
 }
 
 extension Option: Equatable {
@@ -119,10 +116,6 @@ extension Option {
     guard let alias = alias else { return self }
     return alias.canonical
   }
-}
-
-extension Option {
-  public static let input: Option = Option("<INPUT>", .input, attributes: [.argumentIsPath])
 }
 
 extension Option {
