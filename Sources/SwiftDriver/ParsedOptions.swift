@@ -166,7 +166,8 @@ extension ParsedOptions {
 
   /// Does this contain a particular option.
   public mutating func contains(_ option: Option) -> Bool {
-    return last { parsed in parsed.option == option } != nil
+    assert(option.alias == nil, "Don't check for aliased options")
+    return last { parsed in parsed.option?.canonical == option } != nil
   }
 
   /// Determine whether the parsed options contains an option in the given
@@ -209,7 +210,8 @@ extension ParsedOptions {
 
   /// Get the last argument matching the given option.
   public mutating func getLastArgument(_ option: Option) -> Argument? {
-    return last { parsed in parsed.option == option }?.argument
+    assert(option.alias == nil, "Don't check for aliased options")
+    return last { parsed in parsed.option?.canonical == option }?.argument
   }
 
   /// Get the last parsed option within the given option group.

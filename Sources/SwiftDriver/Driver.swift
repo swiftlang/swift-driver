@@ -161,7 +161,7 @@ public struct Driver {
   }
 
   /// Run the driver.
-  public mutating func run() throws {
+  public mutating func run(resolver: ArgsResolver, executorDelegate: JobExecutorDelegate? = nil) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
       let swiftCompiler = try getSwiftCompilerPath()
@@ -173,16 +173,22 @@ public struct Driver {
       return
     }
 
-    switch compilerMode {
-    case .standardCompile:
-      break
-    case .singleCompile:
-      break
-    case .repl:
-      break
-    case .immediate:
-      break
+    // Plan the build.
+    let jobs = planBuild()
+    if jobs.isEmpty { return }
+
+    // If we're only supposed to print the jobs, do so now.
+    if parsedOptions.contains(.driver_print_jobs) {
+      for job in jobs {
+        print(job)
+      }
+      return
     }
+
+    // Start up an executor and perform the build.
+    let mainOutput = jobs.last!.outputs.first!
+    let jobExecutor = JobExecutor(jobs: jobs, resolver: resolver, executorDelegate: executorDelegate)
+    try jobExecutor.build(mainOutput)
   }
 
   /// Returns the path to the Swift binary.

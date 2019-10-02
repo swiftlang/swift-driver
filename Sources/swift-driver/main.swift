@@ -2,8 +2,10 @@ import SwiftDriver
 import TSCLibc
 
 do {
+  let toolchain = DarwinToolchain()
   var driver = try Driver(args: CommandLine.arguments)
-  try driver.run()
+  let resolver = try ArgsResolver(toolchain: toolchain)
+  try driver.run(resolver: resolver)
 
   if driver.diagnosticEngine.hasErrors {
     exit(EXIT_FAILURE)

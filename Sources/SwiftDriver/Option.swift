@@ -110,6 +110,12 @@ extension Option {
   public var affectsIncrementalBuild: Bool {
     !attributes.contains(.doesNotAffectIncrementalBuild)
   }
+
+  /// Retrieves the canonical option, to be used for comparisons.
+  public var canonical: Option {
+    guard let alias = alias else { return self }
+    return alias.canonical
+  }
 }
 
 extension Option {
