@@ -174,7 +174,7 @@ public struct Triple {
     case openEmbedded
   }
 
-  public enum OS {
+  public enum OS: String {
     case unknown
 
     case ananas
@@ -212,6 +212,10 @@ public struct Triple {
     case hurd
     case wasi
     case emscripten
+
+    var name: String {
+      return rawValue
+    }
   }
 
   public enum Environment {
@@ -757,5 +761,46 @@ extension Triple.OS {
   /// isOSDarwin - Is this a "Darwin" OS (OS X, iOS, or watchOS).
   public var isDarwin: Bool {
     isMacOSX || isiOS || isWatchOS
+  }
+}
+
+// MARK: - Versions
+
+extension Triple {
+
+  /// Returns the name of the OS from the triple string.
+  public func osName() -> String {
+    let components = triple.split(separator: "-", maxSplits: 4)
+    if components.count > 2 {
+      return String(components[2])
+    }
+    return ""
+  }
+
+  /// Parse the version number from the OS name component of the triple, if present.
+  ///
+  /// For example, "fooos1.2.3" would return (1, 2, 3).
+  ///
+  /// If an entry is not defined, it will be returned as 0.
+  public func osVersion() -> (major: Int, minor: Int, micro: Int) {
+    var osName: Substring = self.osName()[...]
+
+    // Assume that the OS portion of the triple starts with the canonical name.
+    if osName.hasPrefix(os.name) {
+      osName = osName.dropFirst(os.name.count)
+    } else if os == .macosx, osName.hasPrefix("macos") {
+      osName = osName.dropFirst(5)
+    }
+
+    return version(from: osName)
+  }
+
+  /// Parses versions with upto three components.
+  private func version<S: StringProtocol>(from name: S) -> (major: Int, minor: Int, micro: Int) {
+    let components = name.split(separator: ".", maxSplits: 3).map{ Int($0) ?? 0 }
+    let major = components.count > 0 ? components[0] : 0
+    let minor = components.count > 1 ? components[1] : 0
+    let micro = components.count > 2 ? components[2] : 0
+    return (major, minor, micro)
   }
 }
