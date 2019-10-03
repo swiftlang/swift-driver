@@ -221,4 +221,78 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye", "something"])
     }
   }
+
+  func testLinking() throws {
+    let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
+    do {
+      // macOS target
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"])
+      let plannedJobs = try driver.planBuild()
+
+      let cmd = plannedJobs[2].commandLine
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("x86_64")))
+      XCTAssertTrue(cmd.contains(.flag("-macosx_version_min")))
+      XCTAssertTrue(cmd.contains(.flag("10.15.0")))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+    }
+
+    do {
+      // iOS target
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "arm64-apple-ios10.0"])
+      let plannedJobs = try driver.planBuild()
+      let cmd = plannedJobs[2].commandLine
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("arm64")))
+      XCTAssertTrue(cmd.contains(.flag("-iphoneos_version_min")))
+      XCTAssertTrue(cmd.contains(.flag("10.0.0")))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+    }
+
+    do {
+      // Xlinker flags
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w"])
+      let plannedJobs = try driver.planBuild()
+      let cmd = plannedJobs[2].commandLine
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-w")))
+      XCTAssertTrue(cmd.contains(.flag("-L")))
+      XCTAssertTrue(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+    }
+
+    do {
+      // static linking
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w"])
+      let plannedJobs = try driver.planBuild()
+      let cmd = plannedJobs[2].commandLine
+      XCTAssertTrue(cmd.contains(.flag("-static")))
+      XCTAssertTrue(cmd.contains(.flag("-o")))
+
+
+      // The regular Swift driver doesn't pass Xlinker flags to the static
+      // linker, so be consistent with this
+      XCTAssertFalse(cmd.contains(.flag("-w")))
+      XCTAssertFalse(cmd.contains(.flag("-L")))
+      XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+    }
+
+    do {
+      // executable linking
+      var driver = try Driver(args: commonArgs + ["-emit-executable"])
+      let plannedJobs = try driver.planBuild()
+      let cmd = plannedJobs[2].commandLine
+      XCTAssertTrue(cmd.contains(.flag("-o")))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+    }
+  }
 }

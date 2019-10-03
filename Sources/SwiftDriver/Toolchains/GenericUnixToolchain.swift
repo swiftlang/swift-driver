@@ -37,6 +37,8 @@ public final class GenericUnixToolchain: Toolchain {
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
       return try lookup(exec: "clang")
+    case .clang:
+      return try lookup(exec: "clang")
     }
   }
 

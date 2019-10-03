@@ -15,9 +15,9 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(Triple("x86_64-apple-macosx-macabixxmacho").objectFormat, .macho)
     XCTAssertEqual(Triple("mipsn32").environment, .gnuabin32)
 
-    XCTAssertEqual(Triple("x86_64-unknown-mylinux").osName(), "mylinux")
-    XCTAssertEqual(Triple("x86_64-unknown-mylinux-abi").osName(), "mylinux")
-    XCTAssertEqual(Triple("x86_64-unknown").osName(), "")
+    XCTAssertEqual(Triple("x86_64-unknown-mylinux").osName, "mylinux")
+    XCTAssertEqual(Triple("x86_64-unknown-mylinux-abi").osName, "mylinux")
+    XCTAssertEqual(Triple("x86_64-unknown").osName, "")
 
     XCTAssertEqual(Triple("x86_64-apple-macosx10.13").osVersion(), "10.13.0")
     XCTAssertEqual(Triple("x86_64-apple-macosx1x.13").osVersion(), "0.13.0")

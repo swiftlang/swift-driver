@@ -4,6 +4,7 @@ public enum Tool {
   case swiftCompiler
   case staticLinker
   case dynamicLinker
+  case clang
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers

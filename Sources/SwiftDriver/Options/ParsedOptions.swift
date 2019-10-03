@@ -12,7 +12,7 @@ public struct ParsedOption {
         return result
 
       default:
-        assert(false, "not a singular argument")
+        fatalError("not a single argument")
       }
     }
 
@@ -23,7 +23,7 @@ public struct ParsedOption {
         return result
 
       default:
-        assert(false, "not a multiple argument")
+        fatalError("not a multiple argument")
       }
     }
   }
@@ -193,6 +193,31 @@ extension ParsedOptions {
     return last { parsed in
       return options.contains(parsed.option)
     } != nil
+  }
+  /// Given an option and its negative form, return
+  /// true if the option is present, false if the negation is present, and
+  /// `default` if neither option is given. If both the option and its
+  /// negation are present, the last one wins.
+  public mutating func hasFlag(positive: Option,
+                               negative: Option,
+                               default: Bool) -> Bool {
+    let positiveIndexOpt = parsedOptions.lastIndex { $0.option == positive }
+    let negativeIndexOpt = parsedOptions.lastIndex { $0.option == negative }
+
+    // If neither are present, return the default
+    guard positiveIndexOpt != nil || negativeIndexOpt != nil else {
+      return `default`
+    }
+
+    // If the positive isn't provided, then the negative will be
+    guard let positiveIndex = positiveIndexOpt else { return false }
+
+    // If the negative isn't provided, then the positive will be
+    guard let negativeIndex = negativeIndexOpt else { return true }
+
+    // Otherwise, return true if the positive index is greater than the negative,
+    // false otherwise
+    return positiveIndex > negativeIndex
   }
 
   /// Get the last argument matching the given option.

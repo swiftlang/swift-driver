@@ -14,7 +14,13 @@ public final class DarwinToolchain: Toolchain {
       return try xcrunFind(exec: "ld")
 
     case .staticLinker:
-      return try xcrunFind(exec: "ar")
+      return try xcrunFind(exec: "libtool")
+
+    case .clang:
+      let result = try Process.checkNonZeroExit(
+        arguments: ["xcrun", "-toolchain", "default", "-f", "clang"]
+      ).spm_chomp()
+      return AbsolutePath(result)
     }
   }
 

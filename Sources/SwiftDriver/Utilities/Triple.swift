@@ -26,6 +26,9 @@ public struct Triple {
   /// The original triple string.
   public let triple: String
 
+  /// The subcomponents of the original triple string.
+  public let tripleComponents: [Substring]
+
   /// The parsed arch.
   public let arch: Arch
 
@@ -65,6 +68,10 @@ public struct Triple {
 
     public static func <(lhs: Version, rhs: Version) -> Bool {
       return (lhs.major, lhs.minor, lhs.micro) < (rhs.major, rhs.minor, rhs.micro)
+    }
+
+    public var description: String {
+      return "\(major).\(minor).\(micro)"
     }
   }
 
@@ -281,19 +288,39 @@ public struct Triple {
   public init(_ string: String) {
     self.triple = string
 
-    let components = string.split(separator: "-", maxSplits: 3)
+    self.tripleComponents = string.split(separator: "-")
 
-    self.arch = parseArch(components)
-    self.subArch = parseSubArch(components)
-    self.vendor = parseVendor(components)
-    self.os = parseOS(components)
-    self.environment = parseEnvironment(components)
+    self.arch = parseArch(tripleComponents)
+    self.subArch = parseSubArch(tripleComponents)
+    self.vendor = parseVendor(tripleComponents)
+    self.os = parseOS(tripleComponents)
+    self.environment = parseEnvironment(tripleComponents)
 
-    var objectFormat = parseObjectFormat(components)
+    var objectFormat = parseObjectFormat(tripleComponents)
     if objectFormat == .unknown {
       objectFormat = defaultObjectFormat(arch: arch, os: os)
     }
     self.objectFormat = objectFormat
+  }
+
+  public var archName: String {
+    guard let archName = tripleComponents.first else { return "unknown" }
+    return String(archName)
+  }
+
+  public var vendorName: String {
+    guard tripleComponents.count >= 2 else { return "unknown" }
+    return String(tripleComponents[1])
+  }
+
+  public var osName: String {
+    guard tripleComponents.count >= 3 else { return "unknown" }
+    return String(tripleComponents[2])
+  }
+
+  public var environmentName: String {
+    guard tripleComponents.count >= 4 else { return "unknown" }
+    return String(tripleComponents[3])
   }
 }
 
@@ -792,23 +819,13 @@ extension Triple.OS {
 // MARK: - Versions
 
 extension Triple {
-
-  /// Returns the name of the OS from the triple string.
-  public func osName() -> String {
-    let components = triple.split(separator: "-", maxSplits: 4)
-    if components.count > 2 {
-      return String(components[2])
-    }
-    return ""
-  }
-
   /// Parse the version number from the OS name component of the triple, if present.
   ///
   /// For example, "fooos1.2.3" would return (1, 2, 3).
   ///
   /// If an entry is not defined, it will be returned as 0.
   public func osVersion() -> Version {
-    var osName: Substring = self.osName()[...]
+    var osName: Substring = self.osName[...]
 
     // Assume that the OS portion of the triple starts with the canonical name.
     if osName.hasPrefix(os.name) {
