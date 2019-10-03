@@ -20,6 +20,9 @@ public struct Driver {
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
 
+  /// The target triple.
+  public let targetTriple: Triple
+
   /// The toolchain to use for resolution.
   public let toolchain: Toolchain
 
@@ -106,8 +109,12 @@ public struct Driver {
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
 
-    let targetTriple = self.parsedOptions.getLastArgument(.target)
-    self.toolchain = try Self.computeToolchain(targetTriple?.asSingle, diagnosticsEngine: diagnosticEngine)
+    if let targetTriple = self.parsedOptions.getLastArgument(.target)?.asSingle {
+      self.targetTriple = Triple(targetTriple)
+    } else {
+      self.targetTriple = try Triple.hostTargetTriple.get()
+    }
+    self.toolchain = try Self.computeToolchain(self.targetTriple, diagnosticsEngine: diagnosticEngine)
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driver_use_frontend_path) {
@@ -669,11 +676,9 @@ extension Driver {
 /// Toolchain computation.
 extension Driver {
   static func computeToolchain(
-    _ targetTriple: String?,
+    _ target: Triple,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> Toolchain {
-    let target = try targetTriple.map(Triple.init) ?? Triple.hostTargetTriple.get()
-
     switch target.os {
     case .darwin, .macosx, .ios, .tvos, .watchos:
       return DarwinToolchain()
