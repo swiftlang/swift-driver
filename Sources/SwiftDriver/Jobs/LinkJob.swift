@@ -243,7 +243,7 @@ extension Driver {
     try commandLine.append(
       contentsOf: parsedOptions.filter { $0.option.group == .linker_option }
     )
-    try commandLine.appendAll(.Xlinker, from: &parsedOptions)
+    try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
 
     return Job(
       tool: .absolute(try toolchain.getToolPath(linkerTool)),
