@@ -12,6 +12,33 @@ fileprivate func shouldColorDiagnostics() -> Bool {
 extension Driver {
   /// Add frontend options that are common to different frontend invocations.
   mutating func addCommonFrontendOptions(commandLine: inout [Job.ArgTemplate]) throws {
+    // Only pass -target to the REPL or immediate modes if it was explicitly
+    // specified on the command line.
+    switch compilerMode {
+    case .standardCompile, .singleCompile:
+      commandLine.appendFlag("-target")
+      commandLine.appendFlag(targetTriple.triple)
+
+    case .repl, .immediate:
+      if parsedOptions.hasArgument(.target) {
+        commandLine.appendFlag("-target")
+        commandLine.appendFlag(targetTriple.triple)
+      }
+    }
+
+    // Enable address top-byte ignored in the ARM64 backend.
+    if (targetTriple.arch == .aarch64) {
+      commandLine.appendFlag("-Xllvm")
+      commandLine.appendFlag("-aarch64-use-tbi")
+    }
+
+    // Enable or disable ObjC interop appropriately for the platform
+    if (targetTriple.os.isDarwin) {
+      commandLine.appendFlag("-enable-objc-interop")
+    } else {
+      commandLine.appendFlag("-disable-objc-interop")
+    }
+
     // Handle the CPU and its preferences.
     try commandLine.appendLast(.target_cpu, from: &parsedOptions)
 
