@@ -211,4 +211,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(!diags.hasErrors, "\(diags.diagnostics)")
     }
   }
+
+  func testResponseFileExpansion() throws {
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) {
+        $0 <<< "hello\nbye\nbye"
+      }
+      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + file.path.pathString, "something"])
+      XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye", "something"])
+    }
+  }
 }
