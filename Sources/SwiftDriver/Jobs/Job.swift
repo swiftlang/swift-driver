@@ -2,6 +2,13 @@ import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable {
+  public enum Kind: String, Codable {
+    case compile
+    case mergeModule = "merge-module"
+    case link
+    case generateDSYM = "generate-dsym"
+  }
+
   public enum ArgTemplate: Equatable {
     /// Represents a command-line flag that is substitued as-is.
     case flag(String)
@@ -24,12 +31,17 @@ public struct Job: Codable, Equatable {
   // FIXME: Figure out the exact type that is required here.
   public var outputs: [VirtualPath]
 
+  /// The kind of job.
+  public var kind: Kind
+
   public init(
+    kind: Kind,
     tool: VirtualPath,
     commandLine: [ArgTemplate],
     inputs: [VirtualPath],
     outputs: [VirtualPath]
   ) {
+    self.kind = kind
     self.tool = tool
     self.commandLine = commandLine
     self.inputs = inputs
