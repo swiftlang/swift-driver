@@ -26,7 +26,11 @@ extension Driver {
     try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
     try commandLine.appendLast(.autolink_force_load, from: &parsedOptions)
 
-    commandLine.appendFlag(true: .color_diagnostics, false: .no_color_diagnostics, default: shouldColorDiagnostics(), from: &parsedOptions)
+    if let colorOption = parsedOptions.last(where: { $0.option == .color_diagnostics || $0.option == .no_color_diagnostics }) {
+      commandLine.appendFlag(colorOption.option)
+    } else if shouldColorDiagnostics() {
+      commandLine.appendFlag(.color_diagnostics)
+    }
     try commandLine.appendLast(.fixit_all, from: &parsedOptions)
     try commandLine.appendLast(.warn_swift3_objc_inference_minimal, .warn_swift3_objc_inference_complete, from: &parsedOptions)
     try commandLine.appendLast(.warn_implicit_overrides, from: &parsedOptions)
