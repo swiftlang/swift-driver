@@ -145,26 +145,21 @@ extension Driver {
     commandLine.appendFlags("-module-name", moduleName)
   }
 
-  mutating func addFrontendSupplementaryOutputArguments(
-    commandLine: inout [Job.ArgTemplate],
-    primaryInputs: [InputFile],
-    allOutputs: inout [InputFile]
-  ) throws -> [VirtualPath] {
-    var outputs: [VirtualPath] = []
+  mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [InputFile]) throws -> [InputFile] {
+    var outputs: [InputFile] = []
 
-    @discardableResult
-    func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) -> VirtualPath {
+    func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) {
       commandLine.appendFlag(flag)
 
       let path = outputFileMap.getOutput(inputFile: input, outputType: outputType)
-      outputs.append(path)
       commandLine.append(.path(path))
-      return path
+      outputs.append(InputFile(file: path, type: outputType))
     }
 
     for input in primaryInputs {
-      let swiftModule = addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
-      allOutputs.append(InputFile(file: swiftModule, type: .swiftModule))
+      if moduleOutput != nil {
+        addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
+      }
 
       addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
       addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")

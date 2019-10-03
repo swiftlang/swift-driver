@@ -15,7 +15,7 @@ extension Driver {
   }
 
   /// Add the compiler inputs for a frontend compilation job, and return the corresponding primary set of outputs.
-  mutating func addCompileInputs(primaryInputs: [InputFile], inputs: inout [VirtualPath], commandLine: inout [Job.ArgTemplate]) -> [VirtualPath] {
+  mutating func addCompileInputs(primaryInputs: [InputFile], inputs: inout [VirtualPath], commandLine: inout [Job.ArgTemplate]) -> [InputFile] {
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [VirtualPath] = inputFiles.compactMap { inputFile in
       if inputFile.type.isPartOfSwiftCompilation {
@@ -33,7 +33,7 @@ extension Driver {
 
     // Add each of the input files.
     // FIXME: Use/create input file lists and primary input file lists.
-    var primaryOutputs: [VirtualPath] = []
+    var primaryOutputs: [InputFile] = []
     for input in swiftInputFiles {
       inputs.append(input)
 
@@ -45,7 +45,8 @@ extension Driver {
 
       // If there is a primary output, add it.
       if isPrimary, let compilerOutputType = compilerOutputType {
-        primaryOutputs.append(outputFileMap.getOutput(inputFile: input, outputType: compilerOutputType))
+        primaryOutputs.append(InputFile(file: outputFileMap.getOutput(inputFile: input, outputType: compilerOutputType),
+                                        type: compilerOutputType))
       }
     }
 
@@ -57,14 +58,13 @@ extension Driver {
                            allOutputs: inout [InputFile]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [VirtualPath] = []
-    var outputs: [VirtualPath] = []
+    var outputs: [InputFile] = []
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs, inputs: &inputs, commandLine: &commandLine)
     outputs += primaryOutputs
-
-    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs, allOutputs: &allOutputs)
+    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs)
 
     // Forward migrator flags.
     try commandLine.appendLast(.api_diff_data_file, from: &parsedOptions)
@@ -95,9 +95,7 @@ extension Driver {
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
       commandLine.appendFlag("-o")
-      commandLine.append(.path(primaryOutput))
-
-      allOutputs.append(InputFile(file: primaryOutput, type: compilerOutputType!))
+      commandLine.append(.path(primaryOutput.file))
     }
 
     try commandLine.appendLast(.embed_bitcode_marker, from: &parsedOptions)
@@ -124,7 +122,8 @@ extension Driver {
     try commandLine.appendLast(.runtime_compatibility_version, from: &parsedOptions)
     try commandLine.appendLast(.disable_autolinking_runtime_compatibility_dynamic_replacements, from: &parsedOptions)
 
-    return Job(tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs)
+    allOutputs += outputs
+    return Job(tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs.map { $0.file })
   }
 }
 
