@@ -121,27 +121,27 @@ final class SwiftDriverTests: XCTestCase {
 
   func testModuleSettings() throws {
     let driver1 = try Driver(args: ["swiftc", "foo.swift"])
-    XCTAssertNil(driver1.moduleOutputKind)
+    XCTAssertNil(driver1.moduleOutput)
     XCTAssertEqual(driver1.moduleName, "foo")
 
     let driver2 = try Driver(args: ["swiftc", "foo.swift", "-g"])
-    XCTAssertEqual(driver2.moduleOutputKind, .auxiliary)
+    XCTAssertEqual(driver2.moduleOutput, ModuleOutput.auxiliary(VirtualPath.temporary("foo.swiftmodule")))
     XCTAssertEqual(driver2.moduleName, "foo")
 
     let driver3 = try Driver(args: ["swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g"])
-    XCTAssertEqual(driver3.moduleOutputKind, .auxiliary)
+    XCTAssertEqual(driver3.moduleOutput, ModuleOutput.auxiliary( VirtualPath.temporary("wibble.swiftmodule")))
     XCTAssertEqual(driver3.moduleName, "wibble")
 
     let driver4 = try Driver(args: ["swiftc", "-emit-module", "foo.swift", "-module-name", "wibble", "bar.swift"])
-    XCTAssertEqual(driver4.moduleOutputKind, .topLevel)
+    XCTAssertEqual(driver4.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "wibble.swiftmodule")))
     XCTAssertEqual(driver4.moduleName, "wibble")
 
     let driver5 = try Driver(args: ["swiftc", "foo.swift", "bar.swift"])
-    XCTAssertNil(driver5.moduleOutputKind)
+    XCTAssertNil(driver5.moduleOutput)
     XCTAssertEqual(driver5.moduleName, "main")
 
     let driver6 = try Driver(args: ["swiftc", "-repl"])
-    XCTAssertNil(driver6.moduleOutputKind)
+    XCTAssertNil(driver6.moduleOutput)
     XCTAssertEqual(driver6.moduleName, "REPL")
 
     let driver7 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so"])
@@ -154,14 +154,14 @@ final class SwiftDriverTests: XCTestCase {
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
     let plannedJobs = try driver1.planBuild()
-    XCTAssertEqual(plannedJobs.count, 4)
+    XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(plannedJobs[0].outputs.count, 6)
     XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporary("foo.o"))
     XCTAssertEqual(plannedJobs[1].outputs.count, 6)
     XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporary("bar.o"))
-    XCTAssertTrue(plannedJobs[3].tool.name.contains("ld"))
-    XCTAssertEqual(plannedJobs[3].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[3].outputs.first!, VirtualPath.relative(RelativePath("Test")))
+    XCTAssertTrue(plannedJobs[2].tool.name.contains("ld"))
+    XCTAssertEqual(plannedJobs[2].outputs.count, 1)
+    XCTAssertEqual(plannedJobs[2].outputs.first!, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
     var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", "x64_64-apple-macosx10.14", "-g"])

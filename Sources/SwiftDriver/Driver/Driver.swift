@@ -2,12 +2,22 @@ import TSCBasic
 import TSCUtility
 
 /// How should the Swift module output be handled?
-public enum ModuleOutputKind {
+public enum ModuleOutput: Equatable {
   /// The Swift module is a top-level output.
-  case topLevel
+  case topLevel(VirtualPath)
 
   /// The Swift module is an auxiliary output.
-  case auxiliary
+  case auxiliary(VirtualPath)
+
+  public var outputPath: VirtualPath {
+    switch self {
+    case .topLevel(let path):
+      return path
+
+    case .auxiliary(let path):
+      return path
+    }
+  }
 }
 
 /// The Swift driver.
@@ -68,12 +78,14 @@ public struct Driver {
   /// The debug info format to use.
   public let debugInfoFormat: DebugInfoFormat
 
-  /// The form that the module output will take, e.g., top-level vs. auxiliary,
-  /// or \c nil to indicate that there is no module to output.
-  public let moduleOutputKind: ModuleOutputKind?
+  /// The form that the module output will take, e.g., top-level vs. auxiliary, and the path at which the module should be emitted.
+  /// \c nil if no module should be emitted.
+  public let moduleOutput: ModuleOutput?
 
   /// The name of the Swift module being built.
   public let moduleName: String
+
+  /// The path for the module file to be built
 
   /// The path of the SDK.
   public let sdkPath: String?
@@ -169,7 +181,7 @@ public struct Driver {
     (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
-    (self.moduleOutputKind, self.moduleName) = Self.computeModuleInfo(
+    (self.moduleOutput, self.moduleName) = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
 
@@ -596,7 +608,13 @@ extension Driver {
     linkerOutputType: LinkOutputType?,
     debugInfoLevel: DebugInfoLevel?,
     diagnosticsEngine: DiagnosticsEngine
-  ) -> (ModuleOutputKind?, String) {
+  ) throws -> (ModuleOutput?, String) {
+    // Figure out what kind of module we will output.
+    enum ModuleOutputKind {
+      case topLevel
+      case auxiliary
+    }
+
     var moduleOutputKind: ModuleOutputKind?
     if parsedOptions.hasArgument(.emit_module, .emit_module_path) {
       // The user has requested a module, so generate one and treat it as
@@ -624,6 +642,7 @@ extension Driver {
       moduleOutputKind = nil
     }
 
+    // Determine the name of the module.
     var moduleName: String
     if let arg = parsedOptions.getLastArgument(.module_name) {
       moduleName = arg.asSingle
@@ -658,9 +677,33 @@ extension Driver {
       moduleName = "__bad__"
     }
 
-    return (moduleOutputKind, moduleName)
-  }
+    // If we're not emiting a module, we're done.
+    if moduleOutputKind == nil {
+      return (nil, moduleName)
+    }
 
+    // Determine the module file to output.
+    let moduleOutputPath: VirtualPath
+
+    // FIXME: Look in the output file map. It looks like it is weirdly
+    // anchored to the first input?
+    if let modulePathArg = parsedOptions.getLastArgument(.emit_module_path) {
+      // The module path was specified.
+      moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
+    } else if moduleOutputKind == .topLevel {
+      // FIXME: Logic to infer from -o, primary outputs, etc.
+      moduleOutputPath = try .init(path: moduleName + "." + FileType.swiftModule.rawValue)
+    } else {
+      moduleOutputPath = .temporary(moduleName + "." + FileType.swiftModule.rawValue)
+    }
+
+    switch moduleOutputKind! {
+    case .topLevel:
+      return (.topLevel(moduleOutputPath), moduleName)
+    case .auxiliary:
+      return (.auxiliary(moduleOutputPath), moduleName)
+    }
+  }
 }
 
 // SDK computation.

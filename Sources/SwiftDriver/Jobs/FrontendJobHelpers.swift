@@ -141,6 +141,8 @@ extension Driver {
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
+
+    commandLine.appendFlags("-module-name", moduleName)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(

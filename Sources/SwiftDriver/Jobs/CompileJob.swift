@@ -86,8 +86,6 @@ extension Driver {
 
     try commandLine.appendLast(.parse_sil, from: &parsedOptions)
 
-    commandLine.appendFlags("-module-name", moduleName)
-
     try commandLine.appendLast(.migrate_keep_objc_visibility, from: &parsedOptions)
 
     if numThreads > 0 {
