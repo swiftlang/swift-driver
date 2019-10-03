@@ -6,9 +6,9 @@ extension Driver {
     var jobs = [Job]()
 
     // Keep track of the various outputs we care about from the jobs we build.
-    var linkerInputs: [InputFile] = []
-    var moduleInputs: [InputFile] = []
-    func addJobOutputs(_ jobOutputs: [InputFile]) {
+    var linkerInputs: [TypedVirtualPath] = []
+    var moduleInputs: [TypedVirtualPath] = []
+    func addJobOutputs(_ jobOutputs: [TypedVirtualPath]) {
       for jobOutput in jobOutputs {
         switch jobOutput.type {
         case .object, .autolink:
@@ -26,7 +26,7 @@ extension Driver {
     for input in inputFiles {
       switch input.type {
       case .swift, .sil, .sib:
-        var jobOutputs: [InputFile] = []
+        var jobOutputs: [TypedVirtualPath] = []
         let job = try compileJob(primaryInputs: [input], outputType: compilerOutputType, allOutputs: &jobOutputs)
         jobs.append(job)
         addJobOutputs(jobOutputs)

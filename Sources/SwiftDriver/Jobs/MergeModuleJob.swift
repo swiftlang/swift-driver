@@ -1,7 +1,7 @@
 import TSCBasic
 
 extension Driver {
-  mutating func mergeModuleJob(inputs allInputs: [InputFile]) throws -> Job {
+  mutating func mergeModuleJob(inputs allInputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [VirtualPath] = []
 

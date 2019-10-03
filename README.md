@@ -64,6 +64,8 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [ ] Support embedding of bitcode
   * [ ] Incremental compilation
   * [ ] Parseable output, as used by SwiftPM
+  * [ ] Response files
+  * [ ] Input and primary input file lists
 * Testing
   * [ ] Build stuff with SwiftPM or xcodebuild or your favorite build system, using `swift-driver`.
   * [ ] Port tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
