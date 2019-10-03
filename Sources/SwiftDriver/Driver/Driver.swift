@@ -376,7 +376,7 @@ extension Driver {
         linkerOutputType = parsedOptions.hasArgument(.static) ? .staticLibrary : .dynamicLibrary
         compilerOutputType = .object
 
-      case .emit_object:
+      case .emit_object, .c:
         compilerOutputType = .object
 
       case .emit_assembly:
@@ -429,7 +429,7 @@ extension Driver {
         compilerOutputType = nil
 
       default:
-        fatalError("unhandled output mode option")
+        fatalError("unhandled output mode option \(outputOption)")
       }
     } else if (parsedOptions.hasArgument(.emit_module, .emit_module_path)) {
       compilerOutputType = .swiftModule
