@@ -62,6 +62,9 @@ extension Driver {
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs, inputs: &inputs, commandLine: &commandLine)
+    outputs += primaryOutputs
+
+    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs)
 
     // Forward migrator flags.
     try commandLine.appendLast(.api_diff_data_file, from: &parsedOptions)
@@ -85,7 +88,6 @@ extension Driver {
 
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
-      outputs.append(primaryOutput)
       commandLine.appendFlag("-o")
       commandLine.append(.path(primaryOutput))
 
