@@ -52,13 +52,13 @@ public struct ArgsResolver {
 
 public protocol JobExecutorDelegate {
   /// Called when a job starts executing.
-  func jobStarted(job: Job, arguments: [String])
+  func jobStarted(job: Job, arguments: [String], pid: Int)
 
   /// Called when job had any output.
   func jobHadOutput(job: Job, output: String)
 
   /// Called when a job finished.
-  func jobFinished(job: Job, success: Bool)
+  func jobFinished(job: Job, success: Bool, pid: Int)
 }
 
 public final class JobExecutor {
@@ -220,6 +220,7 @@ class ExecuteJobRule: LLBuildRule {
     let job = key.job
 
     let value: DriverBuildValue
+    var pid = 0
     do {
       let tool = try resolver.resolve(.path(job.tool))
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
@@ -227,10 +228,11 @@ class ExecuteJobRule: LLBuildRule {
 
       let process = Process(arguments: arguments)
       try process.launch()
+      pid = Int(process.processID)
 
       // Inform the delegate.
       context.delegateQueue.async {
-        context.executorDelegate?.jobStarted(job: job, arguments: arguments)
+        context.executorDelegate?.jobStarted(job: job, arguments: arguments, pid: pid)
       }
 
       let result = try process.waitUntilExit()
@@ -250,7 +252,7 @@ class ExecuteJobRule: LLBuildRule {
 
     // Inform the delegate about job finishing.
     context.delegateQueue.async {
-      context.executorDelegate?.jobFinished(job: job, success: value.success)
+      context.executorDelegate?.jobFinished(job: job, success: value.success, pid: pid)
     }
 
     engine.taskIsComplete(value)

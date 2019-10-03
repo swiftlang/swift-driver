@@ -251,6 +251,7 @@ extension Driver {
     try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
 
     return Job(
+      kind: .link,
       tool: .absolute(try toolchain.getToolPath(linkerTool)),
       commandLine: commandLine,
       inputs: inputFiles,

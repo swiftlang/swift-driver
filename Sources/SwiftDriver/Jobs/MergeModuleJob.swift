@@ -41,6 +41,7 @@ extension Driver {
     commandLine.append(.path(moduleOutput!.outputPath))
 
     return Job(
+      kind: .mergeModule,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,

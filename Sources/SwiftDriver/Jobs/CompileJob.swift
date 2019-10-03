@@ -123,7 +123,7 @@ extension Driver {
     try commandLine.appendLast(.disable_autolinking_runtime_compatibility_dynamic_replacements, from: &parsedOptions)
 
     allOutputs += outputs
-    return Job(tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs.map { $0.file })
+    return Job(kind: .compile, tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs.map { $0.file })
   }
 }
 

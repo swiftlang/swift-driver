@@ -10,19 +10,21 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
 }
 
 class JobCollectingDelegate: JobExecutorDelegate {
+  func jobStarted(job: Job, arguments: [String], pid: Int) {
+        started.append(job)
+
+  }
+
+  func jobFinished(job: Job, success: Bool, pid: Int) {
+        finished.append(job)
+
+  }
+
   var started: [Job] = []
   var finished: [Job] = []
 
-  func jobStarted(job: Job, arguments: [String]) {
-    started.append(job)
-  }
-
   func jobHadOutput(job: Job, output: String) {
 
-  }
-
-  func jobFinished(job: Job, success: Bool) {
-    finished.append(job)
   }
 }
 
@@ -51,6 +53,7 @@ final class JobExecutorTests: XCTestCase {
       ]
 
       let compileFoo = Job(
+        kind: .compile,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
           "-frontend",
@@ -71,6 +74,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let compileMain = Job(
+        kind: .compile,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
           "-frontend",
@@ -90,6 +94,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let link = Job(
+        kind: .link,
         tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
         commandLine: [
           .path(.temporary("foo.o")),

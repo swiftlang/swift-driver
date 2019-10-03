@@ -286,7 +286,16 @@ public struct Driver {
   }
 
   mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
-    return ToolExecutionDelegate(isVerbose: parsedOptions.contains(.v))
+    var mode: ToolExecutionDelegate.Mode = .regular
+
+    // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
+    if parsedOptions.contains(.parseable_output) {
+      mode = .parsableOutput
+    } else if parsedOptions.contains(.v) {
+      mode = .verbose
+    }
+
+    return ToolExecutionDelegate(mode: mode)
   }
 }
 
