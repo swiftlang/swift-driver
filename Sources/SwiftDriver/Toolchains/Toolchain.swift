@@ -14,4 +14,5 @@ public protocol Toolchain {
 
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
+  func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 }

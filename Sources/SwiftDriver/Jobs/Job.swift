@@ -45,11 +45,9 @@ extension Job: CustomStringConvertible {
       result += " "
       switch arg {
       case .flag(let string):
-        // FIXME: Escaping
-        result += string
+        result += string.spm_shellEscaped()
       case .path(let path):
-        // FIXME: Escaping
-        result += path.name
+        result += path.name.spm_shellEscaped()
       }
     }
 

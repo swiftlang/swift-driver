@@ -45,7 +45,7 @@ public struct Triple {
   public let objectFormat: ObjectFormat
 
   /// Represents a version that may be present in the target triple.
-  public struct Version: Equatable {
+  public struct Version: Equatable, Comparable {
     public var major: Int
     public var minor: Int
     public var micro: Int
@@ -61,6 +61,10 @@ public struct Triple {
       self.major = major
       self.minor = minor
       self.micro = micro
+    }
+
+    public static func <(lhs: Version, rhs: Version) -> Bool {
+      return (lhs.major, lhs.minor, lhs.micro) < (rhs.major, rhs.minor, rhs.micro)
     }
   }
 
