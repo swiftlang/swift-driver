@@ -181,4 +181,34 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs3[0].commandLine.contains(.flag("Test")))
     XCTAssertTrue(plannedJobs3[0].commandLine.contains(.flag("-parse-as-library")))
   }
+
+  func testOutputFileMapLoading() throws {
+    let contents = """
+    {
+      "": {
+        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"
+      },
+      "/tmp/foo/Sources/foo/foo.swift": {
+        "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
+        "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
+        "swiftmodule": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
+        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps"
+      }
+    }
+    """
+
+    try withTemporaryFile { file in
+      let diags = DiagnosticsEngine()
+      try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+      let outputFileMap = try OutputFileMap.load(file: file.path, diagnosticEngine: diags)
+
+      let object = try outputFileMap.getOutput(inputFile: .init(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
+      XCTAssertEqual(object.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
+
+      let masterDeps = try outputFileMap.getOutput(inputFile: .init(path: ""), outputType: .swiftDeps)
+      XCTAssertEqual(masterDeps.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps")
+
+      XCTAssertTrue(!diags.hasErrors, "\(diags.diagnostics)")
+    }
+  }
 }

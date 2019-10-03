@@ -146,9 +146,12 @@ public struct Driver {
     self.inputFiles = try Self.collectInputFiles(&self.parsedOptions)
 
     // Initialize an empty output file map, which will be populated when we start creating jobs.
-    //
-    // FIXME: If one of the -output-file-map options was given, parse that file into outputFileMap.
-    self.outputFileMap = OutputFileMap()
+    if let outputFileMapArg = parsedOptions.getLastArgument(.output_file_map)?.asSingle {
+      let path = try AbsolutePath(validating: outputFileMapArg)
+      self.outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
+    } else {
+      self.outputFileMap = OutputFileMap()
+    }
 
     // Determine the compilation mode.
     self.compilerMode = Self.computeCompilerMode(&parsedOptions, driverKind: driverKind)
