@@ -119,6 +119,7 @@ public struct Driver {
   ) throws {
     // FIXME: Determine if we should run as subcommand.
 
+    let args = try Self.expandResponseFiles(args)
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
     self.driverKind = try Self.determineDriverKind(args: args)
     self.optionTable = OptionTable()
@@ -186,6 +187,25 @@ public struct Driver {
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
 
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
+  }
+
+  /// Expand response files in the input arguments and return a new argument list.
+  public static func expandResponseFiles(_ args: [String]) throws -> [String] {
+    // FIXME: This is very very prelimary. Need to look at how Swift compiler expands response file.
+
+    var result: [String] = []
+
+    // Go through each arg and add arguments from response files.
+    for arg in args {
+      if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
+        let contents = try localFileSystem.readFileContents(responseFile).cString
+        result += contents.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+      } else {
+        result.append(arg)
+      }
+    }
+
+    return result
   }
 
   /// Determine the driver kind based on the command-line arguments.
