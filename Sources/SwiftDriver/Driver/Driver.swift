@@ -100,11 +100,14 @@ public struct Driver {
     diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
   ) throws {
     // FIXME: Determine if we should run as subcommand.
-    self.toolchain = hostToolchain
+
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
     self.driverKind = try Self.determineDriverKind(args: args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
+
+    let targetTriple = self.parsedOptions.getLastArgument(.target)
+    self.toolchain = try Self.computeToolchain(targetTriple?.asSingle, diagnosticsEngine: diagnosticEngine)
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driver_use_frontend_path) {
@@ -660,5 +663,30 @@ extension Driver {
     }
 
     return sdkPath
+  }
+}
+
+/// Toolchain computation.
+extension Driver {
+  static func computeToolchain(
+    _ targetTriple: String?,
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws -> Toolchain {
+    let target = try targetTriple.map(Triple.init) ?? Triple.hostTargetTriple.get()
+
+    switch target.os {
+    case .darwin, .macosx, .ios, .tvos, .watchos:
+      return DarwinToolchain()
+    case .linux:
+      return GenericUnixToolchain()
+    case .freeBSD, .haiku:
+      return GenericUnixToolchain()
+    case .win32:
+      fatalError("Windows target not supported yet")
+    default:
+      diagnosticsEngine.emit(.error_unknown_target(target.triple))
+    }
+
+    throw Diagnostics.fatalError
   }
 }
