@@ -331,8 +331,8 @@ extension Driver {
         $0.option == .F || $0.option == .Fsystem
       }
       for opt in fSystemArgs {
-        commandLine.appendFlag(.F)
-        commandLine.appendFlag(opt.argument.asSingle)
+        commandLine.appendFlag("-F")
+        commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
       // FIXME: Sanitizer args

@@ -47,6 +47,23 @@ public enum VirtualPath: Hashable {
     }
   }
 
+  /// The extension of this path, for relative or absolute paths.
+  public var `extension`: String? {
+    switch self {
+    case .relative(let path):
+      return path.extension
+
+    case .absolute(let path):
+      return path.extension
+
+    case .standardInput, .standardOutput:
+      return nil
+
+    case .temporary(_):
+      return nil
+    }
+  }
+
   /// Whether this virtual path is to a temporary.
   public var isTemporary: Bool {
     switch self {

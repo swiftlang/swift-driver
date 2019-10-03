@@ -168,7 +168,7 @@ extension Array where Element == Job.ArgTemplate {
 
   /// Append a flag option's spelling to the command line arguments.
   mutating func appendFlag(_ option: Option) {
-    assert(option.kind == .flag)
+    assert(option.kind == .flag, "non-flag option \(option)")
     append(.flag(option.spelling))
   }
 
