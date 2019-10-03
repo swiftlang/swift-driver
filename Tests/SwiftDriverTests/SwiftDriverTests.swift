@@ -174,5 +174,11 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-target")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("x64_64-apple-macosx10.14")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-enable-anonymous-context-mangled-names")))
+
+    var driver3 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-module-name", "Test"])
+    let plannedJobs3 = try driver3.planBuild()
+    XCTAssertTrue(plannedJobs3[0].commandLine.contains(.flag("-module-name")))
+    XCTAssertTrue(plannedJobs3[0].commandLine.contains(.flag("Test")))
+    XCTAssertTrue(plannedJobs3[0].commandLine.contains(.flag("-parse-as-library")))
   }
 }

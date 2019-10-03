@@ -74,6 +74,15 @@ extension Driver {
 
     try addCommonFrontendOptions(commandLine: &commandLine)
 
+    if parsedOptions.contains(.parse_as_library) || parsedOptions.contains(.emit_library) {
+      commandLine.appendFlag("-parse-as-library")
+    }
+
+    try commandLine.appendLast(.parse_sil, from: &parsedOptions)
+
+    commandLine.appendFlag("-module-name")
+    commandLine.appendFlag(moduleName)
+
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
       outputs.append(primaryOutput)
