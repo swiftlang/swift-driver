@@ -164,8 +164,12 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[2].outputs.first!, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
-    var driver2 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt"])
+    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics"])
     let plannedJobs2 = try driver2.planBuild()
     XCTAssert(plannedJobs2[0].commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: "/tmp/diff.txt")))))
+    XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-HI")))
+    XCTAssert(!plannedJobs2[0].commandLine.contains(.flag("-Xfrontend")))
+    XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-no-color-diagnostics")))
+    XCTAssert(!plannedJobs2[0].commandLine.contains(.flag("-color-diagnostics")))
   }
 }

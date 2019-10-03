@@ -63,16 +63,6 @@ extension Driver {
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs, inputs: &inputs, commandLine: &commandLine)
 
-    if let sdkPath = sdkPath {
-      commandLine.appendFlag("-sdk")
-      // FIXME: Can this ever fail?
-      commandLine.append(.path(try! .init(path: sdkPath)))
-    }
-
-    if let stderrStream = stderrStream.stream as? LocalFileOutputByteStream, TerminalController.isTTY(stderrStream) {
-      commandLine.appendFlag(.color_diagnostics)
-    }
-
     // Forward migrator flags.
     try commandLine.appendLast(.api_diff_data_file, from: &parsedOptions)
     try commandLine.appendLast(.api_diff_data_dir, from: &parsedOptions)
@@ -81,6 +71,8 @@ extension Driver {
     if parsedOptions.hasArgument(.parse_stdlib) {
       commandLine.appendFlag(.disable_objc_attr_requires_foundation_module)
     }
+
+    try addCommonFrontendOptions(commandLine: &commandLine)
 
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
@@ -112,31 +104,31 @@ extension Array where Element == Job.ArgTemplate {
     append(.flag(option.spelling))
   }
 
+  /// Append a single argument from the given option.
+  private mutating func appendSingleArgument(option: Option, argument: String) throws {
+    if option.attributes.contains(.argumentIsPath) {
+      append(.path(try VirtualPath(path: argument)))
+    } else {
+      appendFlag(argument)
+    }
+  }
+
   /// Append a parsed option to the array of argument templates, expanding
   /// until multiple arguments if required.
   mutating func append(_ parsedOption: ParsedOption) throws {
     let option = parsedOption.option
     let argument = parsedOption.argument
 
-    /// Append a single argument from the given option.
-    func appendSingleArg(_ arg: String) throws {
-      if option.attributes.contains(.argumentIsPath) {
-        append(.path(try VirtualPath(path: argument.asSingle)))
-      } else {
-        appendFlag(argument.asSingle)
-      }
-    }
-
     switch option.kind {
     case .input:
-      try appendSingleArg(argument.asSingle)
+      try appendSingleArgument(option: option, argument: argument.asSingle)
 
     case .flag:
       appendFlag(option)
 
     case .separate, .joinedOrSeparate:
       appendFlag(option.spelling)
-      try appendSingleArg(argument.asSingle)
+      try appendSingleArgument(option: option, argument: argument.asSingle)
 
     case .commaJoined:
       assert(!option.attributes.contains(.argumentIsPath))
@@ -145,7 +137,7 @@ extension Array where Element == Job.ArgTemplate {
     case .remaining:
       appendFlag(option.spelling)
       for arg in argument.asMultiple {
-        try appendSingleArg(arg)
+        try appendSingleArgument(option: option, argument: arg)
       }
 
     case .joined:
@@ -157,12 +149,57 @@ extension Array where Element == Job.ArgTemplate {
     }
   }
 
+  /// Append the last parsed option that matches one of the given options
+  /// to this command line.
   mutating func appendLast(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
     guard let parsedOption = parsedOptions.last(where: { options.contains($0.option) }) else {
       return
     }
 
     try append(parsedOption)
+  }
+
+  /// Append the last parsed option from the given group to this command line.
+  mutating func appendLast(in group: Option.Group, from parsedOptions: inout ParsedOptions) throws {
+    guard let parsedOption = parsedOptions.getLast(in: group) else {
+      return
+    }
+
+    try append(parsedOption)
+  }
+
+  /// Append all parsed options that match one of the given options
+  /// to this command line.
+  mutating func appendAll(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
+    let matchingOptions = parsedOptions.filter { options.contains($0.option) }
+    for matching in matchingOptions {
+      try append(matching)
+    }
+  }
+
+  /// Append just the arguments from all parsed options that match one of the given options
+  /// to this command line.
+  mutating func appendAllArguments(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
+    let matchingOptions = parsedOptions.filter { options.contains($0.option) }
+    for matching in matchingOptions {
+      try self.appendSingleArgument(option: matching.option, argument: matching.argument.asSingle)
+    }
+  }
+
+  /// Append the last of the given flags that appears in the parsed options,
+  /// or the flag that corresponds to the default value if neither
+  /// appears.
+  mutating func appendFlag(true trueFlag: Option, false falseFlag: Option, default defaultValue: Bool, from parsedOptions: inout ParsedOptions) {
+    guard let parsedOption = parsedOptions.last(where: { $0.option == trueFlag || $0.option == falseFlag }) else {
+      if defaultValue {
+        appendFlag(trueFlag)
+      } else {
+        appendFlag(falseFlag)
+      }
+      return
+    }
+
+    appendFlag(parsedOption.option)
   }
 }
 
