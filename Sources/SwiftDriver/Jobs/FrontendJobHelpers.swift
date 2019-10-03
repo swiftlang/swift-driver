@@ -145,20 +145,25 @@ extension Driver {
 
   mutating func addFrontendSupplementaryOutputArguments(
     commandLine: inout [Job.ArgTemplate],
-    primaryInputs: [InputFile]
+    primaryInputs: [InputFile],
+    allOutputs: inout [InputFile]
   ) throws -> [VirtualPath] {
     var outputs: [VirtualPath] = []
 
-    func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) {
+    @discardableResult
+    func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) -> VirtualPath {
       commandLine.appendFlag(flag)
 
       let path = outputFileMap.getOutput(inputFile: input, outputType: outputType)
       outputs.append(path)
       commandLine.append(.path(path))
+      return path
     }
 
     for input in primaryInputs {
-      addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
+      let swiftModule = addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
+      allOutputs.append(InputFile(file: swiftModule, type: .swiftModule))
+
       addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
       addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
     }

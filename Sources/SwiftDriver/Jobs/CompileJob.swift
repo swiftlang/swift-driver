@@ -64,7 +64,7 @@ extension Driver {
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs, inputs: &inputs, commandLine: &commandLine)
     outputs += primaryOutputs
 
-    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs)
+    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs, allOutputs: &allOutputs)
 
     // Forward migrator flags.
     try commandLine.appendLast(.api_diff_data_file, from: &parsedOptions)
@@ -91,7 +91,7 @@ extension Driver {
       commandLine.appendFlag("-o")
       commandLine.append(.path(primaryOutput))
 
-      allOutputs.append(InputFile(file:primaryOutput, type: compilerOutputType!))
+      allOutputs.append(InputFile(file: primaryOutput, type: compilerOutputType!))
     }
 
     return Job(tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs)
