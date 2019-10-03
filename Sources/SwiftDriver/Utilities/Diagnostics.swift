@@ -50,4 +50,8 @@ extension Diagnostic.Message {
 
     return .error("module name \"\(moduleName)\" is reserved for the standard library\(suffix)")
   }
+
+  public static func warning_no_such_sdk(_ path: String) -> Diagnostic.Message {
+    .warning("no such SDK: \(path)")
+  }
 }

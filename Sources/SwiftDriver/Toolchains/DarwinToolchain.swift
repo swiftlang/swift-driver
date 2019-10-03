@@ -61,4 +61,8 @@ public final class DarwinToolchain: Toolchain {
   public var clangRT: Result<AbsolutePath, Error> {
     resourcesDirectory.map{ $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
   }
+
+  public func defaultSDKPath() throws -> AbsolutePath? {
+    return try sdk.get()
+  }
 }

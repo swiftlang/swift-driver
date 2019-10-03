@@ -69,6 +69,9 @@ public struct Driver {
   /// The name of the Swift module being built.
   public let moduleName: String
 
+  /// The path of the SDK.
+  public let sdkPath: String?
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream
@@ -150,6 +153,8 @@ public struct Driver {
     (self.moduleOutputKind, self.moduleName) = Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
+
+    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
   }
 
   /// Determine the driver kind based on the command-line arguments.
@@ -601,5 +606,55 @@ extension Driver {
     }
 
     return (moduleOutputKind, moduleName)
+  }
+
+  /// Computes the path to the SDK.
+  private static func computeSDKPath(
+    _ parsedOptions: inout ParsedOptions,
+    compilerMode: CompilerMode,
+    toolchain: Toolchain,
+    diagnosticsEngine: DiagnosticsEngine
+  ) -> String? {
+    var sdkPath: String?
+
+    if let arg = parsedOptions.getLastArgument(.sdk) {
+      sdkPath = arg.asSingle
+    } else if let SDKROOT = ProcessEnv.vars["SDKROOT"] {
+      sdkPath = SDKROOT
+    } else if compilerMode == .immediate || compilerMode == .repl {
+      // FIXME: ... is triple macOS ...
+      if true {
+        // In immediate modes, use the SDK provided by xcrun.
+        // This will prefer the SDK alongside the Swift found by "xcrun swift".
+        // We don't do this in compilation modes because defaulting to the
+        // latest SDK may not be intended.
+        sdkPath = try? toolchain.defaultSDKPath()?.pathString
+      }
+    }
+
+    // Delete trailing /.
+    sdkPath = sdkPath.map{ $0.last == "/" ? String($0.dropLast()) : $0 }
+
+    // Validate the SDK if we found one.
+    if let sdkPath = sdkPath {
+      let path: AbsolutePath
+
+      // FIXME: TSC should provide a better utility for this.
+      if let absPath = try? AbsolutePath(validating: sdkPath) {
+        path = absPath
+      } else if let cwd = localFileSystem.currentWorkingDirectory {
+        path = AbsolutePath(sdkPath, relativeTo: cwd)
+      } else {
+        diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
+        return sdkPath
+      }
+
+      if !localFileSystem.exists(path) {
+        diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
+      }
+      // .. else check if SDK is too old (we need target triple to diagnose that).
+    }
+
+    return sdkPath
   }
 }

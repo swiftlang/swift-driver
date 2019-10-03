@@ -11,6 +11,9 @@ public enum Tool {
 public protocol Toolchain {
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
+
+  /// Returns path of the default SDK, if there is one.
+  func defaultSDKPath() throws -> AbsolutePath?
 }
 
 /// The host's toolchain, to use as a default.
