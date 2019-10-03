@@ -43,4 +43,6 @@ public final class GenericUnixToolchain: Toolchain {
   public func defaultSDKPath() throws -> AbsolutePath? {
     return nil
   }
+
+  public var shouldStoreInvocationInDebugInfo: Bool { false }
 }

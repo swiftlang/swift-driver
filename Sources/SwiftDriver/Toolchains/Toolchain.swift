@@ -15,4 +15,7 @@ public protocol Toolchain {
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
   func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
+
+  /// When the compiler invocation should be stored in debug information.
+  var shouldStoreInvocationInDebugInfo: Bool { get }
 }
