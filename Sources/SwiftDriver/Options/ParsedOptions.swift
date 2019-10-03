@@ -36,7 +36,7 @@ public struct ParsedOption {
 }
 
 extension ParsedOption: CustomStringConvertible {
-  public var description: String {
+  public var unescapedDescription: String {
     switch option.kind {
     case .input:
       return argument.asSingle
@@ -65,6 +65,10 @@ extension ParsedOption: CustomStringConvertible {
       // FIXME: Escape spaces.
       return option.spelling + " " + argument.asMultiple.joined(separator: " ")
     }
+  }
+
+  public var description: String {
+    return unescapedDescription.spm_shellEscaped()
   }
 }
 
