@@ -20,18 +20,39 @@ utility, make sure to build with a `-I` which allows the Swift `Options.inc` to
 be found.
 
 ```
-$ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include
+$ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --product makeOptions
 ```
 
 # TODO
 
-The driver currently does very little. Next steps:
+The driver has basic support for building and linking Swift code. There are a bunch of things that need doing!
 
-* [x] Implement parsing of command line arguments (e.g., the `[String]` produced by `CommandLine.arguments`) into an array of `Option` values, capturing arguments and diagnosing unrecognized options, missing arguments, and other user errors.
-* [x] Infer the driver mode/kind from the name of the binary (e.g., `swift` -> `DriverKind.interactive`, `swiftc` -> `DriverKind.batch`, etc.) so we get the right options table. Recognize `--driver-mode` to change the mode from the command line.
-* [ ] Start building abstractions for inputs, outputs, and jobs.
-* [ ] Write a little script to help automate the compilation of that horrible C++ program `makeOptions.cpp` (passing in the Swift build directory so it can find the generated `Options.inc`) so we can automatically update `Options.swift`. Is there any way to do this via `Package.swift` to make it automatic?
-* [ ] Reflect option "group" information from `Options.inc` in the generated `Option`, since we'll need group-based queries.
-* [ ] Figure out a principled way to walk an array of `Option` values and turn it into command lines for various jobs so that we don't "forget" to process a particular kind of option.
-* [ ] Make `Option` conform to `CustomStringConvertible`, where its `description` is the canonically-rendered argument.
-* [ ] Think about whether there is a mostly-declarative way to map `Option`s down to command-line arguments for the various tools (`swift-frontend`, `ld`, etc.), which can (1) preserve the order that the existing driver produces, and (2) avoids repeating a huge series of `AddLastArg`/`AddAllArgs` calls as in the existing driver.
+* General
+  * [ ] Search for `FIXME:` or `TODO:`: there are lots of little things to improve
+  * [ ] Improve documentation of how to incorporate the driver into your own builds
+  * [ ] Make it easier to drop-in `swift-driver` as a replacement for Swift
+  * [ ] Add useful descriptions to any `Error` thrown within the library
+* Option parsing
+  * [ ] Look for complete "coverage" of the options in `Options.swift`. Is every option there checked somewhere in the driver?
+  * [ ] Find a better way to describe aliases for options. Can they be of some other type `OptionAlias` so we can't make the mistake of (e.g.) asking for an alias option when we're translating options?
+  * [ ] Diagnose unused options
+  * [ ] Typo correction for misspelled option names
+  * [ ] Find a better way than `makeOptions.cpp` to translate the command-line options from [Swift's repository](https://github.com/apple/swift/tree/master/include/swift/Option) into `Options.swift`.
+* Platform support
+  * [ ] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
+  * [ ] Fill out the `GenericUnixToolchain` toolchain to get it working
+  * [ ] Implement a `WindowsToolchain`
+* Compilation modes
+  * [ ] Batch mode
+  * [ ] Whole-module-optimization mode
+  * [ ] REPL and immediate modes
+* Unimplemented features
+  * [ ] Bridging headers, including precompiled bridging headers
+  * [ ] Support embedding of bitcode
+  * [ ] Incremental compilation
+  * [ ] Parseable output, as used by SwiftPM
+* Testing
+  * [ ] Build stuff with SwiftPM or xcodebuild or your favorite build system, using `swift-driver`.
+  * [ ] Port tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
+* Fun experiments
+  * [ ] Modify SwiftPM to import the SwiftDriver library, using its `Driver` to construct jobs and incorporate them into its own build graph
