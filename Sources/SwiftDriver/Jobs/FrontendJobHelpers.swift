@@ -145,15 +145,15 @@ extension Driver {
     commandLine.appendFlags("-module-name", moduleName)
   }
 
-  mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [InputFile]) throws -> [InputFile] {
-    var outputs: [InputFile] = []
+  mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {
+    var outputs: [TypedVirtualPath] = []
 
     func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) {
       commandLine.appendFlag(flag)
 
       let path = outputFileMap.getOutput(inputFile: input, outputType: outputType)
       commandLine.append(.path(path))
-      outputs.append(InputFile(file: path, type: outputType))
+      outputs.append(TypedVirtualPath(file: path, type: outputType))
     }
 
     for input in primaryInputs {

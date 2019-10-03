@@ -2,7 +2,7 @@ import TSCBasic
 
 extension Driver {
   /// Compute the output file for an image output.
-  private func outputFileForImage(inputs: [InputFile]) -> VirtualPath {
+  private func outputFileForImage(inputs: [TypedVirtualPath]) -> VirtualPath {
     // FIXME: The check for __bad__ here, is
     if inputs.count == 1 && moduleName == "__bad__" && inputs.first!.file != .standardInput {
       // FIXME: llvm::sys::path::stem(BaseInput);
@@ -152,7 +152,7 @@ extension Driver {
   }
 
   /// Link the given inputs.
-  mutating func linkJob(inputs: [InputFile]) throws -> Job {
+  mutating func linkJob(inputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = []
 
     // FIXME: If we used Clang as a linker instead of going straight to ld,

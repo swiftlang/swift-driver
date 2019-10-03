@@ -55,7 +55,7 @@ public struct Driver {
   public let workingDirectory: AbsolutePath?
 
   /// The set of input files
-  public let inputFiles: [InputFile]
+  public let inputFiles: [TypedVirtualPath]
 
   /// The mapping from input files to output files for each kind.
   internal let outputFileMap: OutputFileMap
@@ -369,11 +369,11 @@ extension Driver {
   }
 
   /// Collect all of the input files from the parsed options, translating them into input files.
-  private static func collectInputFiles(_ parsedOptions: inout ParsedOptions) throws -> [InputFile] {
+  private static func collectInputFiles(_ parsedOptions: inout ParsedOptions) throws -> [TypedVirtualPath] {
     return try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
-        return InputFile(file: .standardInput, type: .swift)
+        return TypedVirtualPath(file: .standardInput, type: .swift)
       }
 
       // Resolve the input file.
@@ -394,7 +394,7 @@ extension Driver {
       // driver, but seems odd.
       let fileType = FileType(rawValue: fileExtension) ?? FileType.object
 
-      return InputFile(file: file, type: fileType)
+      return TypedVirtualPath(file: file, type: fileType)
     }
   }
 

@@ -64,18 +64,18 @@ final class SwiftDriverTests: XCTestCase {
   func testInputFiles() throws {
     let driver1 = try Driver(args: ["swift", "a.swift", "/tmp/b.swift"])
     XCTAssertEqual(driver1.inputFiles,
-                   [ InputFile(file: .relative(RelativePath("a.swift")), type: .swift),
-                     InputFile(file: .absolute(AbsolutePath("/tmp/b.swift")), type: .swift) ])
+                   [ TypedVirtualPath(file: .relative(RelativePath("a.swift")), type: .swift),
+                     TypedVirtualPath(file: .absolute(AbsolutePath("/tmp/b.swift")), type: .swift) ])
     let driver2 = try Driver(args: ["swift", "a.swift", "-working-directory", "/wobble", "/tmp/b.swift"])
     XCTAssertEqual(driver2.inputFiles,
-                   [ InputFile(file: .absolute(AbsolutePath("/wobble/a.swift")), type: .swift),
-                     InputFile(file: .absolute(AbsolutePath("/tmp/b.swift")), type: .swift) ])
+                   [ TypedVirtualPath(file: .absolute(AbsolutePath("/wobble/a.swift")), type: .swift),
+                     TypedVirtualPath(file: .absolute(AbsolutePath("/tmp/b.swift")), type: .swift) ])
 
     let driver3 = try Driver(args: ["swift", "-"])
-    XCTAssertEqual(driver3.inputFiles, [ InputFile(file: .standardInput, type: .swift )])
+    XCTAssertEqual(driver3.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
 
     let driver4 = try Driver(args: ["swift", "-", "-working-directory" , "-wobble"])
-    XCTAssertEqual(driver4.inputFiles, [ InputFile(file: .standardInput, type: .swift )])
+    XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
   }
 
   func testPrimaryOutputKinds() throws {

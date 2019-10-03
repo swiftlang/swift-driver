@@ -1,5 +1,5 @@
-/// An input to the compilation job.
-public struct InputFile: Hashable {
+/// A path for which the type of the input is known.
+public struct TypedVirtualPath: Hashable {
   /// The file this input refers to.
   public let file: VirtualPath
 

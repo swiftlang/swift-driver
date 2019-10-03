@@ -15,7 +15,7 @@ extension Driver {
   }
 
   /// Add the compiler inputs for a frontend compilation job, and return the corresponding primary set of outputs.
-  mutating func addCompileInputs(primaryInputs: [InputFile], inputs: inout [VirtualPath], commandLine: inout [Job.ArgTemplate]) -> [InputFile] {
+  mutating func addCompileInputs(primaryInputs: [TypedVirtualPath], inputs: inout [VirtualPath], commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [VirtualPath] = inputFiles.compactMap { inputFile in
       if inputFile.type.isPartOfSwiftCompilation {
@@ -33,7 +33,7 @@ extension Driver {
 
     // Add each of the input files.
     // FIXME: Use/create input file lists and primary input file lists.
-    var primaryOutputs: [InputFile] = []
+    var primaryOutputs: [TypedVirtualPath] = []
     for input in swiftInputFiles {
       inputs.append(input)
 
@@ -45,7 +45,7 @@ extension Driver {
 
       // If there is a primary output, add it.
       if isPrimary, let compilerOutputType = compilerOutputType {
-        primaryOutputs.append(InputFile(file: outputFileMap.getOutput(inputFile: input, outputType: compilerOutputType),
+        primaryOutputs.append(TypedVirtualPath(file: outputFileMap.getOutput(inputFile: input, outputType: compilerOutputType),
                                         type: compilerOutputType))
       }
     }
@@ -54,11 +54,11 @@ extension Driver {
   }
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
-  mutating func compileJob(primaryInputs: [InputFile], outputType: FileType?,
-                           allOutputs: inout [InputFile]) throws -> Job {
+  mutating func compileJob(primaryInputs: [TypedVirtualPath], outputType: FileType?,
+                           allOutputs: inout [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [VirtualPath] = []
-    var outputs: [InputFile] = []
+    var outputs: [TypedVirtualPath] = []
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
