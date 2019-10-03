@@ -166,6 +166,8 @@ extension Driver {
 
       addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
       addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
+      addOutputsOfType(outputType: .optimizationRecord, input: input.file, flag: "-save-optimization-record-path")
+      addOutputsOfType(outputType: .remap, input: input.file, flag: "-emit-remap-file-path")
     }
 
     return outputs

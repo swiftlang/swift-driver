@@ -76,15 +76,23 @@ extension Driver {
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine)
+    // FIXME: MSVC runtime flags
 
-    if parsedOptions.contains(.parse_as_library) || parsedOptions.contains(.emit_library) {
+    // FIXME: -import-objc-header
+
+    if parsedOptions.hasArgument(.parse_as_library, .emit_library) {
       commandLine.appendFlag("-parse-as-library")
     }
 
     try commandLine.appendLast(.parse_sil, from: &parsedOptions)
 
-    commandLine.appendFlag("-module-name")
-    commandLine.appendFlag(moduleName)
+    commandLine.appendFlags("-module-name", moduleName)
+
+    try commandLine.appendLast(.migrate_keep_objc_visibility, from: &parsedOptions)
+
+    if numThreads > 0 {
+      commandLine.appendFlags("-num-threads", numThreads.description)
+    }
 
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
@@ -93,6 +101,30 @@ extension Driver {
 
       allOutputs.append(InputFile(file: primaryOutput, type: compilerOutputType!))
     }
+
+    try commandLine.appendLast(.embed_bitcode_marker, from: &parsedOptions)
+
+    // For `-index-file` mode add `-disable-typo-correction`, since the errors
+    // will be ignored and it can be expensive to do typo-correction.
+    if compilerOutputType == FileType.indexData {
+      commandLine.appendFlag(.disable_typo_correction)
+    }
+
+    if parsedOptions.contains(.index_store_path) {
+      try commandLine.appendLast(.index_store_path, from: &parsedOptions)
+      if !parsedOptions.contains(.index_ignore_system_modules) {
+        commandLine.appendFlag(.index_system_modules)
+      }
+    }
+
+    if parsedOptions.contains(.debug_info_store_invocation) &&
+       toolchain.shouldStoreInvocationInDebugInfo {
+      commandLine.appendFlag(.debug_info_store_invocation)
+    }
+
+    try commandLine.appendLast(.disable_autolinking_runtime_compatibility, from: &parsedOptions)
+    try commandLine.appendLast(.runtime_compatibility_version, from: &parsedOptions)
+    try commandLine.appendLast(.disable_autolinking_runtime_compatibility_dynamic_replacements, from: &parsedOptions)
 
     return Job(tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs)
   }

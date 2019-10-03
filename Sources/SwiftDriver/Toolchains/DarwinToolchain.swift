@@ -73,4 +73,10 @@ public final class DarwinToolchain: Toolchain {
   public func defaultSDKPath() throws -> AbsolutePath? {
     return try sdk.get()
   }
+
+  public var shouldStoreInvocationInDebugInfo: Bool {
+    // This matches the behavior in Clang.
+    !(ProcessEnv.vars["RC_DEBUG_OPTIONS"]?.isEmpty ?? false)
+  }
+
 }
