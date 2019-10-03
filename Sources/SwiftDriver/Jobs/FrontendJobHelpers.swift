@@ -106,5 +106,36 @@ extension Driver {
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAllArguments(.debug_prefix_map, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
+
+    if let workingDirectory = workingDirectory {
+      // Add -Xcc -working-directory before any other -Xcc options to ensure it is
+      // overridden by an explicit -Xcc -working-directory, although having a
+      // different working directory is probably incorrect.
+      commandLine.appendFlag("-Xcc")
+      commandLine.appendFlag("-working-directory")
+      commandLine.appendFlag("-Xcc")
+      commandLine.append(.path(.absolute(workingDirectory)))
+    }
+
+    // -g implies -enable-anonymous-context-mangled-names, because the extra
+    // metadata aids debugging.
+    if parsedOptions.getLast(in: .g) != nil {
+      // But don't add the option in optimized builds: it would prevent dead code
+      // stripping of unused metadata.
+      let shouldSupportAnonymousContextMangledNames: Bool
+      if let opt = parsedOptions.getLast(in: .O), opt.option != .Onone {
+        shouldSupportAnonymousContextMangledNames = false
+      } else {
+        shouldSupportAnonymousContextMangledNames = true
+      }
+
+      if shouldSupportAnonymousContextMangledNames {
+        commandLine.appendFlag("-enable-anonymous-context-mangled-names")
+      }
+    }
+
+    // Pass through any subsystem flags.
+    try commandLine.appendAll(.Xllvm, from: &parsedOptions)
+    try commandLine.appendAll(.Xcc, from: &parsedOptions)
   }
 }
