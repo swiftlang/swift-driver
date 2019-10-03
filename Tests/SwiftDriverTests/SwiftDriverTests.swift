@@ -8,11 +8,11 @@ final class SwiftDriverTests: XCTestCase {
       let options = OptionTable()
       // Parse each kind of option
       let results = try options.parse([
-        "input1", "-color-diagnostics", "-Ifoo", "-I", "bar",
+        "input1", "-color-diagnostics", "-Ifoo", "-I", "bar spaces",
         "-I=wibble", "input2", "-module-name", "main",
         "-sanitize=a,b,c", "--", "-foo", "-bar"])
       XCTAssertEqual(results.description,
-                     "input1 -color-diagnostics -I foo -I bar -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
+                     "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
     }
 
   func testParseErrors() {
@@ -154,14 +154,14 @@ final class SwiftDriverTests: XCTestCase {
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
     let plannedJobs = try driver1.planBuild()
-    XCTAssertEqual(plannedJobs.count, 3)
-    XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+    XCTAssertEqual(plannedJobs.count, 4)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 6)
     XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporary("foo.o"))
-    XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+    XCTAssertEqual(plannedJobs[1].outputs.count, 6)
     XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporary("bar.o"))
-    XCTAssertTrue(plannedJobs[2].tool.name.contains("ld"))
-    XCTAssertEqual(plannedJobs[2].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[2].outputs.first!, VirtualPath.relative(RelativePath("Test")))
+    XCTAssertTrue(plannedJobs[3].tool.name.contains("ld"))
+    XCTAssertEqual(plannedJobs[3].outputs.count, 1)
+    XCTAssertEqual(plannedJobs[3].outputs.first!, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
     var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", "x64_64-apple-macosx10.14", "-g"])

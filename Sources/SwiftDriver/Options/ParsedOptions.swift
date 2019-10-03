@@ -36,25 +36,22 @@ public struct ParsedOption {
 }
 
 extension ParsedOption: CustomStringConvertible {
-  public var unescapedDescription: String {
+  public var description: String {
     switch option.kind {
     case .input:
-      return argument.asSingle
+      return argument.asSingle.spm_shellEscaped()
 
     case .commaJoined:
-      // FIXME: Escape spaces.
-      return option.spelling + argument.asMultiple.joined(separator: ",")
+      return (option.spelling + argument.asMultiple.joined(separator: ",")).spm_shellEscaped()
 
     case .flag:
       return option.spelling
 
     case .joined:
-      // FIXME: Escape spaces.
-      return option.spelling + argument.asSingle
+      return (option.spelling + argument.asSingle).spm_shellEscaped()
 
     case .joinedOrSeparate, .separate:
-      // FIXME: Escape spaces.
-      return option.spelling + " " + argument.asSingle
+      return option.spelling + " " + argument.asSingle.spm_shellEscaped()
 
     case .remaining:
       let args = argument.asMultiple
@@ -62,13 +59,8 @@ extension ParsedOption: CustomStringConvertible {
         return option.spelling
       }
 
-      // FIXME: Escape spaces.
-      return option.spelling + " " + argument.asMultiple.joined(separator: " ")
+      return option.spelling + " " + argument.asMultiple.map { $0.spm_shellEscaped() }.joined(separator: " ")
     }
-  }
-
-  public var description: String {
-    return unescapedDescription.spm_shellEscaped()
   }
 }
 
