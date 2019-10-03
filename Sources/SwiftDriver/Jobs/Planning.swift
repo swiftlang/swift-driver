@@ -39,7 +39,7 @@ extension Driver {
         }
 
       case .swiftModule, .swiftDocumentation:
-        if moduleOutputKind != nil && linkerOutputType == nil {
+        if moduleOutput != nil && linkerOutputType == nil {
           // When generating a .swiftmodule as a top-level output (as opposed
           // to, for example, linking an image), treat .swiftmodule files as
           // inputs to a MergeModule action.
@@ -58,8 +58,8 @@ extension Driver {
     }
 
     // Plan the merge-module job, if there are module inputs.
-    if !moduleInputs.isEmpty {
-      jobs.append(try mergeModuleJob(inputs: linkerInputs))
+    if moduleOutput != nil && !moduleInputs.isEmpty {
+      jobs.append(try mergeModuleJob(inputs: moduleInputs))
     }
 
 
