@@ -21,6 +21,19 @@ be found.
 
 ```
 $ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --product makeOptions
+
+```
+
+## Using with SwiftPM
+
+Create a symlink of the `swift-driver` binary called `swiftc` and export that
+path in `SWIFT_EXEC` variable. This will allow you to use the driver when
+building and linking with SwiftPM. Manifest parsing will still be done using the
+current driver. Example:
+
+```
+ln -s /path/to/built/swift-driver swiftc
+SWIFT_EXEC=$PWD/swiftc swift build
 ```
 
 # TODO
