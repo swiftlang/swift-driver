@@ -57,6 +57,12 @@ extension Driver {
       }
     }
 
+    // Plan the merge-module job, if there are module inputs.
+    if !moduleInputs.isEmpty {
+      jobs.append(try mergeModuleJob(inputs: linkerInputs))
+    }
+
+
     // If we should link, do so.
     if linkerOutputType != nil && !linkerInputs.isEmpty {
       jobs.append(try linkJob(inputs: linkerInputs))

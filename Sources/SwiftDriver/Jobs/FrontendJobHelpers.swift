@@ -142,4 +142,32 @@ extension Driver {
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
   }
+
+  mutating func addFrontendSupplementaryOutputArguments(
+    commandLine: inout [Job.ArgTemplate],
+    primaryInputs: [InputFile],
+    allOutputs: inout [InputFile]
+  ) throws -> [VirtualPath] {
+    var outputs: [VirtualPath] = []
+
+    @discardableResult
+    func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) -> VirtualPath {
+      commandLine.appendFlag(flag)
+
+      let path = outputFileMap.getOutput(inputFile: input, outputType: outputType)
+      outputs.append(path)
+      commandLine.append(.path(path))
+      return path
+    }
+
+    for input in primaryInputs {
+      let swiftModule = addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
+      allOutputs.append(InputFile(file: swiftModule, type: .swiftModule))
+
+      addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
+      addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
+    }
+
+    return outputs
+  }
 }
