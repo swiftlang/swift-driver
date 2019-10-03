@@ -191,8 +191,13 @@ extension Driver {
     commandLine.append(contentsOf: inputFiles.map { .path($0) })
 
     // Add the output
-    let outputFile = outputFileForImage(inputs: inputs)
     commandLine.appendFlag("-o")
+    let outputFile: VirtualPath
+    if let output = parsedOptions.getLastArgument(.o) {
+      outputFile = try VirtualPath(path: output.asSingle)
+    } else {
+      outputFile = outputFileForImage(inputs: inputs)
+    }
     commandLine.appendPath(outputFile)
 
     // Add the SDK path
