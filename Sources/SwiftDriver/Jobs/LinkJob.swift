@@ -164,7 +164,7 @@ extension Driver {
     // Swift and use it as a linker without building compiler_rt.
     let darwinPlatformSuffix = targetTriple.darwinLibraryNameSuffix(distinguishSimulator: false)!
     let compilerRTPath = try clangLibraryPath(for: targetTriple)
-      .appending(component: "libclang_rt\(darwinPlatformSuffix).a")
+      .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
     if localFileSystem.exists(compilerRTPath) {
       commandLine.append(.path(.absolute(compilerRTPath)))
     }
