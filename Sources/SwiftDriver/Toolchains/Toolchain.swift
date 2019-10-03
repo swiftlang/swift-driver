@@ -15,9 +15,3 @@ public protocol Toolchain {
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
 }
-
-/// The host's toolchain, to use as a default.
-public var hostToolchain: Toolchain {
-  // FIXME: Support Linux, Windows, Android, etc. toolchains as well!
-  return DarwinToolchain()
-}

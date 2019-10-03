@@ -54,4 +54,8 @@ extension Diagnostic.Message {
   public static func warning_no_such_sdk(_ path: String) -> Diagnostic.Message {
     .warning("no such SDK: \(path)")
   }
+
+  public static func error_unknown_target(_ target: String) -> Diagnostic.Message {
+    .error("unknown target '\(target)'")
+  }
 }
