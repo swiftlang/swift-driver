@@ -112,7 +112,7 @@ fileprivate struct OutputFileMapJSON: Decodable {
 
 extension String {
   /// Append the extension for the given file type to the string.
-  fileprivate func appendingFileTypeExtension(_ type: FileType) -> String {
+  func appendingFileTypeExtension(_ type: FileType) -> String {
     let ext = type.rawValue
     if ext.isEmpty { return self }
 

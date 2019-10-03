@@ -149,6 +149,8 @@ extension Driver {
     var outputs: [TypedVirtualPath] = []
 
     func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) {
+      if outputType == compilerOutputType { return }
+
       commandLine.appendFlag(flag)
 
       let path = outputFileMap.getOutput(inputFile: input, outputType: outputType)
@@ -161,10 +163,22 @@ extension Driver {
         addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
       }
 
-      addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
-      addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
-      addOutputsOfType(outputType: .optimizationRecord, input: input.file, flag: "-save-optimization-record-path")
+      if moduleDocOutputPath != nil {
+        addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
+      }
+
+      if dependenciesFilePath != nil {
+        addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
+      }
+
+      if optimizationRecordPath != nil {
+        addOutputsOfType(outputType: .optimizationRecord, input: input.file, flag: "-save-optimization-record-path")
+      }
+
+      #if false
+      // FIXME: handle -update-code
       addOutputsOfType(outputType: .remap, input: input.file, flag: "-emit-remap-file-path")
+      #endif
     }
 
     return outputs

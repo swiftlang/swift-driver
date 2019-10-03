@@ -90,6 +90,33 @@ public struct Driver {
   /// The path of the SDK.
   public let sdkPath: String?
 
+  /// Path to the dependencies file.
+  public let dependenciesFilePath: VirtualPath?
+
+  /// Path to the reference dependencies (.swiftdeps) file.
+  public let referenceDependenciesFilePath: VirtualPath?
+
+  /// Path to the serialized diagnostics file.
+  public let serializedDiagnosticsFilePath: VirtualPath?
+
+  /// Path to the Objective-C generated header.
+  public let objcGeneratedHeaderPath: VirtualPath?
+
+  /// Path to the loaded module trace file.
+  public let loadedModuleTracePath: VirtualPath?
+
+  /// Path to the TBD file (text-based dylib).
+  public let tbdPath: VirtualPath?
+
+  /// Path to the module documentation file.
+  public let moduleDocOutputPath: VirtualPath?
+
+  /// Path to the Swift interface file.
+  public let swiftInterfacePath: VirtualPath?
+
+  /// Path to the optimization record.
+  public let optimizationRecordPath: VirtualPath?
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream
@@ -187,6 +214,18 @@ public struct Driver {
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
 
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
+
+    // Supplemental outputs.
+    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emit_dependencies, outputPath: .emit_dependencies_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDeps, isOutput: .emit_reference_dependencies, outputPath: .emit_reference_dependencies_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .diagnostics, isOutput: .serialize_diagnostics, outputPath: .serialize_diagnostics_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    // FIXME: -fixits-output-path
+    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .objcHeader, isOutput: .emit_objc_header, outputPath: .emit_objc_header_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .moduleTrace, isOutput: .emit_loaded_module_trace, outputPath: .emit_loaded_module_trace_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.tbdPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .tbd, isOutput: .emit_tbd, outputPath: .emit_tbd_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.moduleDocOutputPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDocumentation, isOutput: .emit_module_doc, outputPath: .emit_module_doc_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emit_module_interface, outputPath: .emit_module_interface_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .save_optimization_record, outputPath: .save_optimization_record_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
   }
 
   /// Expand response files in the input arguments and return a new argument list.
@@ -808,5 +847,56 @@ extension Driver {
     }
 
     throw Diagnostics.fatalError
+  }
+}
+
+// Supplementary outputs.
+extension Driver {
+  /// Determine the output path for a supplementary output.
+  static func computeSupplementaryOutputPath(
+    _ parsedOptions: inout ParsedOptions,
+    type: FileType,
+    isOutput: Option?,
+    outputPath: Option,
+    compilerOutputType: FileType?,
+    moduleName: String
+  ) throws -> VirtualPath? {
+    // FIXME: Do we need to check the output file map?
+
+    // If there is an explicit argument for the output path, use that
+    if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
+      // Consume the isOutput argument
+      if let isOutput = isOutput {
+        _ = parsedOptions.hasArgument(isOutput)
+      }
+      return try VirtualPath(path: outputPathArg.asSingle)
+    }
+
+    // If the output option was not provided, don't produce this output at all.
+    guard let isOutput = isOutput, parsedOptions.hasArgument(isOutput) else {
+      return nil
+    }
+
+    // If there is an output argument, derive the name from there.
+    if let outputPathArg = parsedOptions.getLastArgument(.o) {
+      let path = try VirtualPath(path: outputPathArg.asSingle)
+
+      // If the compiler output is of this type, use the argument directly.
+      if type == compilerOutputType {
+        return path
+      }
+
+      // Otherwise, put this output alongside the requested output.
+      let pathString: String
+      if let ext = path.extension {
+        pathString = String(path.name.dropLast(ext.count + 1))
+      } else {
+        pathString = path.name
+      }
+
+      return try VirtualPath(path: pathString.appendingFileTypeExtension(type))
+    }
+
+    return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
   }
 }

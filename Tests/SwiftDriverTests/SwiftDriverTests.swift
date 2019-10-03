@@ -155,9 +155,9 @@ final class SwiftDriverTests: XCTestCase {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
     let plannedJobs = try driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
-    XCTAssertEqual(plannedJobs[0].outputs.count, 5)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 1)
     XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporary("foo.o"))
-    XCTAssertEqual(plannedJobs[1].outputs.count, 5)
+    XCTAssertEqual(plannedJobs[1].outputs.count, 1)
     XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporary("bar.o"))
     XCTAssertTrue(plannedJobs[2].tool.name.contains("ld"))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
@@ -294,5 +294,23 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
     }
+  }
+
+  func testMergeModulesOnly() throws {
+    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
+    let plannedJobs1 = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs1.count, 3)
+    XCTAssertEqual(plannedJobs1[0].outputs.count, 3)
+    XCTAssertEqual(plannedJobs1[0].outputs[0], VirtualPath.temporary("foo.swiftmodule"))
+    XCTAssertEqual(plannedJobs1[0].outputs[1], VirtualPath.temporary("foo.swiftdoc"))
+    XCTAssertEqual(plannedJobs1[0].outputs[2], VirtualPath.temporary("foo.d"))
+    XCTAssertEqual(plannedJobs1[1].outputs.count, 3)
+    XCTAssertEqual(plannedJobs1[1].outputs[0], VirtualPath.temporary("bar.swiftmodule"))
+    XCTAssertEqual(plannedJobs1[1].outputs[1], VirtualPath.temporary("bar.swiftdoc"))
+    XCTAssertEqual(plannedJobs1[1].outputs[2], VirtualPath.temporary("bar.d"))
+    XCTAssertTrue(plannedJobs1[2].tool.name.contains("swift"))
+    XCTAssertEqual(plannedJobs1[2].outputs.count, 2)
+    XCTAssertEqual(plannedJobs1[2].outputs[0], VirtualPath.relative(RelativePath("Test.swiftmodule")))
+    XCTAssertEqual(plannedJobs1[2].outputs[1], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
   }
 }

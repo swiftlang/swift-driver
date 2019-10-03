@@ -4,6 +4,7 @@ extension Driver {
   mutating func mergeModuleJob(inputs allInputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [VirtualPath] = []
+    var outputs: [VirtualPath] = [moduleOutput!.outputPath]
 
     commandLine.appendFlags("-frontend", "-merge-modules", "-emit-module")
 
@@ -31,9 +32,20 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: Add MSVC runtime library flags
 
-    #if false
-    // FIXME: Add outputs for module docs, interface, serialize diags, objc headers, TBDs, etc.
-    #endif
+    // Add suppplementable outputs.
+    func addSupplementalOutput(path: VirtualPath?, flag: String) {
+      guard let path = path else { return }
+
+      commandLine.appendFlag(flag)
+      commandLine.appendPath(path)
+      outputs.append(path)
+    }
+
+    addSupplementalOutput(path: moduleDocOutputPath, flag: "-emit-module-doc-path")
+    addSupplementalOutput(path: swiftInterfacePath, flag: "-emit-module-interface-path")
+    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path")
+    addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path")
+    addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path")
 
     // FIXME: import-objc-header
 
@@ -45,7 +57,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
-      outputs: [moduleOutput!.outputPath]
+      outputs: outputs
     )
   }
 }
