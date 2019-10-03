@@ -43,6 +43,14 @@ public final class DarwinToolchain: Toolchain {
   public init() {
   }
 
+  public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
+    switch type {
+    case .executable: return moduleName
+    case .dynamicLibrary: return "lib\(moduleName).dylib"
+    case .staticLibrary: return "lib\(moduleName).a"
+    }
+  }
+
   /// Utility function to lookup an executable using xcrun.
   private func xcrunFind(exec: String) throws -> AbsolutePath {
     let path = try Process.checkNonZeroExit(

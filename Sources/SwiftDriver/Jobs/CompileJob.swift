@@ -98,6 +98,34 @@ extension Array where Element == Job.ArgTemplate {
     append(.flag(string))
   }
 
+  /// Append multiple flags to the command line arguments.
+  ///
+  /// When possible, use the more semantic forms `appendFlag` or
+  /// `append(_: Option)`.
+  mutating func appendFlags(_ flags: String...) {
+    appendFlags(flags)
+  }
+
+  /// Append multiple flags to the command line arguments.
+  ///
+  /// When possible, use the more semantic forms `appendFlag` or
+  /// `append(_: Option)`.
+  mutating func appendFlags(_ flags: [String]) {
+    for flag in flags {
+      append(.flag(flag))
+    }
+  }
+
+  /// Append a virtual path to the command line arguments.
+  mutating func appendPath(_ path: VirtualPath) {
+    append(.path(path))
+  }
+
+  /// Append an absolute path to the command line arguments.
+  mutating func appendPath(_ path: AbsolutePath) {
+    append(.path(.absolute(path)))
+  }
+
   /// Append a flag option's spelling to the command line arguments.
   mutating func appendFlag(_ option: Option) {
     assert(option.kind == .flag)
@@ -166,6 +194,12 @@ extension Array where Element == Job.ArgTemplate {
     }
 
     try append(parsedOption)
+  }
+
+  mutating func append(contentsOf options: [ParsedOption]) throws {
+    for option in options {
+      try append(option)
+    }
   }
 
   /// Append all parsed options that match one of the given options

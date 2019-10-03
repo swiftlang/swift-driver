@@ -20,6 +20,14 @@ public final class GenericUnixToolchain: Toolchain {
     throw Error.unableToFind(tool: exec)
   }
 
+  public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
+    switch type {
+    case .executable: return moduleName
+    case .dynamicLibrary: return "lib\(moduleName).so"
+    case .staticLibrary: return "lib\(moduleName).a"
+    }
+  }
+
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
