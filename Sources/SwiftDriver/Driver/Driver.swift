@@ -608,6 +608,10 @@ extension Driver {
     return (moduleOutputKind, moduleName)
   }
 
+}
+
+// SDK computation.
+extension Driver {
   /// Computes the path to the SDK.
   private static func computeSDKPath(
     _ parsedOptions: inout ParsedOptions,
