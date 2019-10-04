@@ -10,6 +10,9 @@ let package = Package(
     .executable(
       name: "swift-driver",
       targets: ["swift-driver"]),
+    .library(
+      name: "SwiftDriver",
+      targets: ["SwiftDriver"]),
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),

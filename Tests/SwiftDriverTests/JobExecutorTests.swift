@@ -10,21 +10,15 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
 }
 
 class JobCollectingDelegate: JobExecutorDelegate {
-  func jobStarted(job: Job, arguments: [String], pid: Int) {
-        started.append(job)
-
-  }
-
-  func jobFinished(job: Job, success: Bool, pid: Int) {
-        finished.append(job)
-
-  }
-
   var started: [Job] = []
   var finished: [Job] = []
 
-  func jobHadOutput(job: Job, output: String) {
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    finished.append(job)
+  }
 
+  func jobStarted(job: Job, arguments: [String], pid: Int) {
+    started.append(job)
   }
 }
 
@@ -68,9 +62,11 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporary("foo.o")),
         ],
-        inputs: [.relative(RelativePath("foo.swift")),
-                 .relative(RelativePath("main.swift"))],
-        outputs: [.temporary("foo.o")]
+        inputs: [
+          .init(file: .relative(RelativePath("foo.swift")), type: .swift),
+          .init(file: .relative(RelativePath("main.swift")), type: .swift),
+        ],
+        outputs: [.init(file: .temporary("foo.o"), type: .object)]
       )
 
       let compileMain = Job(
@@ -89,8 +85,11 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporary("main.o")),
         ],
-        inputs: [.relative(RelativePath("foo.swift")), .relative(RelativePath("main.swift"))],
-        outputs: [.temporary("main.o")]
+        inputs: [
+          .init(file: .relative(RelativePath("foo.swift")), type: .swift),
+          .init(file: .relative(RelativePath("main.swift")), type: .swift),
+        ],
+        outputs: [.init(file: .temporary("main.o"), type: .object)]
       )
 
       let link = Job(
@@ -109,8 +108,11 @@ final class JobExecutorTests: XCTestCase {
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
           .path(.relative(RelativePath("main"))),
         ],
-        inputs: [.temporary("foo.o"), .temporary("main.o")],
-        outputs: [.relative(RelativePath("main"))]
+        inputs: [
+          .init(file: .temporary("foo.o"), type: .object),
+          .init(file: .temporary("main.o"), type: .object),
+        ],
+        outputs: [.init(file: .relative(RelativePath("main")), type: .image)]
       )
 
       let delegate = JobCollectingDelegate()

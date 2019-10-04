@@ -2,7 +2,6 @@ import TSCBasic
 
 /// Delegate for printing execution information on the command-line.
 struct ToolExecutionDelegate: JobExecutorDelegate {
-
   enum Mode {
     case verbose
     case parsableOutput
@@ -20,11 +19,15 @@ struct ToolExecutionDelegate: JobExecutorDelegate {
       stdoutStream.flush()
     case .parsableOutput:
 
+      // Compute the outputs for the message.
+      let outputs: [BeganMessage.Output] = job.outputs.map {
+        .init(path: $0.file.name, type: $0.type.rawValue)
+      }
+
       let beganMessage = BeganMessage(
         pid: pid,
-        // FIXME: This needs to be the primary inputs :/
-        inputs: job.inputs.map{ $0.name },
-        outputs: job.outputs.map{ .init(path: $0.name, type: "object") },
+        inputs: job.displayInputs.map{ $0.file.name },
+        outputs: outputs,
         commandExecutable: arguments[0],
         commandArguments: arguments[1...].map{ String($0) }
       )
@@ -34,22 +37,24 @@ struct ToolExecutionDelegate: JobExecutorDelegate {
     }
   }
 
-  func jobHadOutput(job: Job, output: String) {
-    // FIXME: Merge with job finished delegate.
-    // FIXME: Need to see how current driver handles stdout/stderr.
-    stdoutStream <<< output
-    stdoutStream.flush()
-  }
-
-  func jobFinished(job: Job, success: Bool, pid: Int) {
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     switch mode {
     case .regular, .verbose:
       break
     case .parsableOutput:
-      // FIXME: Get the actual exit status.
-      let finishedMessage = FinishedMessage(exitStatus: success ? 0 : 1, pid: pid, output: nil)
-      let message = ParsableMessage.finishedMessage(name: job.kind.rawValue, msg: finishedMessage)
-      emit(message)
+
+      switch result.exitStatus {
+      case .terminated(let code):
+        let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
+        let finishedMessage = FinishedMessage(exitStatus: Int(code), pid: pid, output: output.isEmpty ? nil : output)
+        let message = ParsableMessage.finishedMessage(name: job.kind.rawValue, msg: finishedMessage)
+        emit(message)
+
+      case .signalled:
+        // FIXME: Implement this.
+        break
+      }
+
     }
   }
 

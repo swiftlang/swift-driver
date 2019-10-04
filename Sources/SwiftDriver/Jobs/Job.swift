@@ -23,13 +23,14 @@ public struct Job: Codable, Equatable {
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
 
+  /// The list of inputs to use for displaying purposes.
+  public var displayInputs: [TypedVirtualPath]
+
   /// The list of inputs for this job.
-  // FIXME: Figure out the exact type that is required here.
-  public var inputs: [VirtualPath]
+  public var inputs: [TypedVirtualPath]
 
   /// The outputs produced by the job.
-  // FIXME: Figure out the exact type that is required here.
-  public var outputs: [VirtualPath]
+  public var outputs: [TypedVirtualPath]
 
   /// The kind of job.
   public var kind: Kind
@@ -38,12 +39,14 @@ public struct Job: Codable, Equatable {
     kind: Kind,
     tool: VirtualPath,
     commandLine: [ArgTemplate],
-    inputs: [VirtualPath],
-    outputs: [VirtualPath]
+    displayInputs: [TypedVirtualPath]? = nil,
+    inputs: [TypedVirtualPath],
+    outputs: [TypedVirtualPath]
   ) {
     self.kind = kind
     self.tool = tool
     self.commandLine = commandLine
+    self.displayInputs = displayInputs ?? []
     self.inputs = inputs
     self.outputs = outputs
   }

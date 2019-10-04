@@ -15,11 +15,11 @@ extension Driver {
   }
 
   /// Add the compiler inputs for a frontend compilation job, and return the corresponding primary set of outputs.
-  mutating func addCompileInputs(primaryInputs: [TypedVirtualPath], inputs: inout [VirtualPath], commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
+  mutating func addCompileInputs(primaryInputs: [TypedVirtualPath], inputs: inout [TypedVirtualPath], commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
     // Collect the set of input files that are part of the Swift compilation.
-    let swiftInputFiles: [VirtualPath] = inputFiles.compactMap { inputFile in
+    let swiftInputFiles: [TypedVirtualPath] = inputFiles.compactMap { inputFile in
       if inputFile.type.isPartOfSwiftCompilation {
-        return inputFile.file
+        return inputFile
       }
 
       return nil
@@ -29,7 +29,7 @@ extension Driver {
     // we can check more quickly.
     let usesPrimaryFileInputs = compilerMode.usesPrimaryFileInputs
     assert(!usesPrimaryFileInputs || !primaryInputs.isEmpty)
-    let primaryInputFiles: Set<VirtualPath> = usesPrimaryFileInputs ? Set(primaryInputs.map { $0.file }) : Set()
+    let primaryInputFiles = usesPrimaryFileInputs ? Set(primaryInputs) : Set()
 
     // Add each of the input files.
     // FIXME: Use/create input file lists and primary input file lists.
@@ -41,14 +41,15 @@ extension Driver {
       if isPrimary {
         commandLine.appendFlag(.primary_file)
       }
-      commandLine.append(.path(input))
+      commandLine.append(.path(input.file))
 
       // If there is a primary output, add it.
       if isPrimary, let compilerOutputType = compilerOutputType {
-        primaryOutputs.append(
-          TypedVirtualPath(
-            file: (outputFileMap ?? OutputFileMap()).getOutput(inputFile: input, outputType: compilerOutputType),
-            type: compilerOutputType))
+        let output = (outputFileMap ?? OutputFileMap()).getOutput(
+          inputFile: input.file,
+          outputType: compilerOutputType
+        )
+        primaryOutputs.append(TypedVirtualPath(file: output, type: compilerOutputType))
       }
     }
 
@@ -59,7 +60,7 @@ extension Driver {
   mutating func compileJob(primaryInputs: [TypedVirtualPath], outputType: FileType?,
                            allOutputs: inout [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    var inputs: [VirtualPath] = []
+    var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
 
     commandLine.appendFlag("-frontend")
@@ -123,7 +124,14 @@ extension Driver {
     try commandLine.appendLast(.disable_autolinking_runtime_compatibility_dynamic_replacements, from: &parsedOptions)
 
     allOutputs += outputs
-    return Job(kind: .compile, tool: swiftCompiler, commandLine: commandLine, inputs: inputs, outputs: outputs.map { $0.file })
+    return Job(
+      kind: .compile,
+      tool: swiftCompiler,
+      commandLine: commandLine,
+      displayInputs: primaryInputs,
+      inputs: inputs,
+      outputs: outputs
+    )
   }
 }
 
