@@ -15,8 +15,21 @@ public protocol Toolchain {
 
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
-  func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 
   /// When the compiler invocation should be stored in debug information.
   var shouldStoreInvocationInDebugInfo: Bool { get }
+
+  /// Constructs a proper output file name for a linker product.
+  func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
+
+  /// Adds platform-specific linker flags to the provided command line
+  func addPlatformSpecificLinkerArgs(
+    to commandLine: inout [Job.ArgTemplate],
+    parsedOptions: inout ParsedOptions,
+    linkerOutputType: LinkOutputType,
+    inputs: [TypedVirtualPath],
+    outputFile: VirtualPath,
+    sdkPath: String?,
+    targetTriple: Triple
+  ) throws -> AbsolutePath
 }

@@ -71,6 +71,7 @@ extension Triple {
       return nil
     }
   }
+
   func darwinLibraryNameSuffix(distinguishSimulator: Bool = true) -> String? {
     guard let darwinPlatform = darwinPlatform else { return nil }
     let platform = distinguishSimulator ?
