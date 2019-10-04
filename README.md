@@ -24,6 +24,22 @@ $ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --prod
 
 ```
 
+## Testing
+
+Test using command-line SwiftPM or Xcode.
+
+```
+$ swift test --parallel
+```
+
+Integration tests are costly to run and are disable by default. Enable them
+using `SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS` environment variable. In Xcode,
+you can set this variable in the scheme's test action.
+
+```
+$ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 swift test --parallel
+```
+
 ## Using with SwiftPM
 
 Create a symlink of the `swift-driver` binary called `swiftc` and export that

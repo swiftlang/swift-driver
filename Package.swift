@@ -22,7 +22,7 @@ let package = Package(
       dependencies: ["SwiftToolsSupport-auto", "llbuildSwift"]),
     .testTarget(
       name: "SwiftDriverTests",
-      dependencies: ["SwiftDriver"]),
+      dependencies: ["SwiftDriver", "swift-driver"]),
 
     /// The primary driver executable.
     .target(
