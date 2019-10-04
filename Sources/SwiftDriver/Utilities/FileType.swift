@@ -2,7 +2,7 @@
 ///
 /// The raw values for these enumerations describe the default extension for]
 /// the file type.
-public enum FileType: String, Hashable, CaseIterable {
+public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift source file.
   case swift
 

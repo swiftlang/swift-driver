@@ -156,12 +156,12 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[0].outputs.first!, VirtualPath.temporary("foo.o"))
+    XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary("foo.o"))
     XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[1].outputs.first!, VirtualPath.temporary("bar.o"))
+    XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary("bar.o"))
     XCTAssertTrue(plannedJobs[2].tool.name.contains("ld"))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[2].outputs.first!, VirtualPath.relative(RelativePath("Test")))
+    XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
     var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", "x64_64-apple-macosx10.14", "-g"])
@@ -309,21 +309,21 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs1 = try driver1.planBuild()
     XCTAssertEqual(plannedJobs1.count, 3)
     XCTAssertEqual(plannedJobs1[0].outputs.count, 3)
-    XCTAssertEqual(plannedJobs1[0].outputs[0], VirtualPath.temporary("foo.swiftmodule"))
-    XCTAssertEqual(plannedJobs1[0].outputs[1], VirtualPath.temporary("foo.swiftdoc"))
-    XCTAssertEqual(plannedJobs1[0].outputs[2], VirtualPath.temporary("foo.d"))
+    XCTAssertEqual(plannedJobs1[0].outputs[0].file, VirtualPath.temporary("foo.swiftmodule"))
+    XCTAssertEqual(plannedJobs1[0].outputs[1].file, VirtualPath.temporary("foo.swiftdoc"))
+    XCTAssertEqual(plannedJobs1[0].outputs[2].file, VirtualPath.temporary("foo.d"))
     XCTAssert(plannedJobs1[0].commandLine.contains(.flag("-import-objc-header")))
 
     XCTAssertEqual(plannedJobs1[1].outputs.count, 3)
-    XCTAssertEqual(plannedJobs1[1].outputs[0], VirtualPath.temporary("bar.swiftmodule"))
-    XCTAssertEqual(plannedJobs1[1].outputs[1], VirtualPath.temporary("bar.swiftdoc"))
-    XCTAssertEqual(plannedJobs1[1].outputs[2], VirtualPath.temporary("bar.d"))
+    XCTAssertEqual(plannedJobs1[1].outputs[0].file, VirtualPath.temporary("bar.swiftmodule"))
+    XCTAssertEqual(plannedJobs1[1].outputs[1].file, VirtualPath.temporary("bar.swiftdoc"))
+    XCTAssertEqual(plannedJobs1[1].outputs[2].file, VirtualPath.temporary("bar.d"))
     XCTAssert(plannedJobs1[1].commandLine.contains(.flag("-import-objc-header")))
 
     XCTAssertTrue(plannedJobs1[2].tool.name.contains("swift"))
     XCTAssertEqual(plannedJobs1[2].outputs.count, 2)
-    XCTAssertEqual(plannedJobs1[2].outputs[0], VirtualPath.relative(RelativePath("Test.swiftmodule")))
-    XCTAssertEqual(plannedJobs1[2].outputs[1], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+    XCTAssertEqual(plannedJobs1[2].outputs[0].file, VirtualPath.relative(RelativePath("Test.swiftmodule")))
+    XCTAssertEqual(plannedJobs1[2].outputs[1].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
     XCTAssert(plannedJobs1[2].commandLine.contains(.flag("-import-objc-header")))
 
     var driver2 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule" ])
@@ -331,8 +331,8 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs2.count, 3)
     XCTAssertTrue(plannedJobs2[2].tool.name.contains("swift"))
     XCTAssertEqual(plannedJobs2[2].outputs.count, 2)
-    XCTAssertEqual(plannedJobs2[2].outputs[0], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
-    XCTAssertEqual(plannedJobs2[2].outputs[1], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+    XCTAssertEqual(plannedJobs2[2].outputs[0].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
+    XCTAssertEqual(plannedJobs2[2].outputs[1].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
 
   }
 }

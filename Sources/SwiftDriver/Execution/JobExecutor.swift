@@ -54,11 +54,8 @@ public protocol JobExecutorDelegate {
   /// Called when a job starts executing.
   func jobStarted(job: Job, arguments: [String], pid: Int)
 
-  /// Called when job had any output.
-  func jobHadOutput(job: Job, output: String)
-
   /// Called when a job finished.
-  func jobFinished(job: Job, success: Bool, pid: Int)
+  func jobFinished(job: Job, result: ProcessResult, pid: Int)
 }
 
 public final class JobExecutor {
@@ -121,8 +118,8 @@ public final class JobExecutor {
     var producerMap: [VirtualPath: Job] = [:]
     for job in jobs {
       for output in job.outputs {
-        assert(!producerMap.keys.contains(output), "multiple producers for output \(output): \(job) \(producerMap[output]!)")
-        producerMap[output] = job
+        assert(!producerMap.keys.contains(output.file), "multiple producers for output \(output): \(job) \(producerMap[output.file]!)")
+        producerMap[output.file] = job
       }
     }
 
@@ -189,7 +186,7 @@ class ExecuteJobRule: LLBuildRule {
     let context = engine.jobExecutorContext
 
     for (idx, input) in key.job.inputs.enumerated() {
-      if let producingJob = context.producerMap[input] {
+      if let producingJob = context.producerMap[input.file] {
         let key = ExecuteJobRule.RuleKey(job: producingJob)
         engine.taskNeedsInput(key, inputID: idx)
       }
@@ -238,21 +235,23 @@ class ExecuteJobRule: LLBuildRule {
       let result = try process.waitUntilExit()
       let success = result.exitStatus == .terminated(code: 0)
 
-      let output = try result.utf8Output() + result.utf8stderrOutput()
-
-      // FIXME: We should stream this.
+      // Inform the delegate about job finishing.
       context.delegateQueue.async {
-        context.executorDelegate?.jobHadOutput(job: job, output: output)
+        context.executorDelegate?.jobFinished(job: job, result: result, pid: pid)
       }
 
       value = .jobExecution(success: success)
     } catch {
+      context.delegateQueue.async {
+        let result = ProcessResult(
+          arguments: [],
+          exitStatus: .terminated(code: 1),
+          output: Result.success([]),
+          stderrOutput: Result.success([])
+        )
+        context.executorDelegate?.jobFinished(job: job, result: result, pid: 0)
+      }
       value = .jobExecution(success: false)
-    }
-
-    // Inform the delegate about job finishing.
-    context.delegateQueue.async {
-      context.executorDelegate?.jobFinished(job: job, success: value.success, pid: pid)
     }
 
     engine.taskIsComplete(value)

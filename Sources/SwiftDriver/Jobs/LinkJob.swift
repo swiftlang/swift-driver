@@ -364,8 +364,8 @@ extension Driver {
     }
 
     // Add inputs.
-    let inputFiles = inputs.map { $0.file }
-    commandLine.append(contentsOf: inputFiles.map { .path($0) })
+    let inputFiles = inputs
+    commandLine.append(contentsOf: inputFiles.map { .path($0.file) })
 
     // Add the output
     commandLine.appendFlag("-o")
@@ -382,7 +382,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(linkerTool)),
       commandLine: commandLine,
       inputs: inputFiles,
-      outputs: [outputFile]
+      outputs: [.init(file: outputFile, type: .object)]
     )
   }
 }

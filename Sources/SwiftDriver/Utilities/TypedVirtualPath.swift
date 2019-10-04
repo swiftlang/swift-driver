@@ -1,5 +1,5 @@
 /// A path for which the type of the input is known.
-public struct TypedVirtualPath: Hashable {
+public struct TypedVirtualPath: Hashable, Codable {
   /// The file this input refers to.
   public let file: VirtualPath
 

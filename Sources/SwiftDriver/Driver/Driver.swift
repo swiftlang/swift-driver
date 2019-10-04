@@ -370,7 +370,7 @@ extension Driver {
     // Start up an executor and perform the build.
     let mainOutput = jobs.last!.outputs.first!
     let jobExecutor = JobExecutor(jobs: jobs, resolver: resolver, executorDelegate: executorDelegate)
-    try jobExecutor.build(mainOutput)
+    try jobExecutor.build(mainOutput.file)
   }
 
   /// Returns the path to the Swift binary.
