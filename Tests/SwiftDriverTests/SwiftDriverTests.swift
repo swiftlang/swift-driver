@@ -213,12 +213,20 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testResponseFileExpansion() throws {
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) {
-        $0 <<< "hello\nbye\nbye"
+    try withTemporaryDirectory { path in
+      let diags = DiagnosticsEngine()
+      let fooPath = path.appending(component: "foo.rsp")
+      let barPath = path.appending(component: "bar.rsp")
+      try localFileSystem.writeFileContents(fooPath) {
+        $0 <<< "hello\nbye\nbye\\ to\\ you\n@\(barPath.pathString)"
       }
-      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + file.path.pathString, "something"])
-      XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye", "something"])
+      try localFileSystem.writeFileContents(barPath) {
+        $0 <<< "from\nbar\n@\(fooPath.pathString)"
+      }
+      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], diagnosticsEngine: diags)
+      XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
+      XCTAssertEqual(diags.diagnostics.count, 1)
+      XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
     }
   }
 

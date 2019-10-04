@@ -92,7 +92,6 @@ extension ParsedOptions {
 extension ParsedOptions: CustomStringConvertible {
   /// Pretty-printed version of all of the parsed options.
   public var description: String {
-    // FIXME: Escape spaces?
     return parsedOptions.map { $0.description }.joined(separator: " ")
   }
 }
