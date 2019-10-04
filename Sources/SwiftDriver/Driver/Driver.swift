@@ -18,6 +18,13 @@ public enum ModuleOutput: Equatable {
       return path
     }
   }
+
+  public var isTopLevel: Bool {
+    switch self {
+    case .topLevel: return true
+    default: return false
+    }
+  }
 }
 
 /// The Swift driver.
@@ -58,7 +65,7 @@ public struct Driver {
   public let inputFiles: [TypedVirtualPath]
 
   /// The mapping from input files to output files for each kind.
-  internal let outputFileMap: OutputFileMap
+  internal let outputFileMap: OutputFileMap?
 
   /// The mode in which the compiler will execute.
   public let compilerMode: CompilerMode
@@ -81,6 +88,9 @@ public struct Driver {
   /// The form that the module output will take, e.g., top-level vs. auxiliary, and the path at which the module should be emitted.
   /// \c nil if no module should be emitted.
   public let moduleOutput: ModuleOutput?
+
+  /// Code & data for incremental compilation
+  public let incrementalCompilation: IncrementalCompilation
 
   /// The name of the Swift module being built.
   public let moduleName: String
@@ -187,14 +197,16 @@ public struct Driver {
     }
 
     // Classify and collect all of the input files.
-    self.inputFiles = try Self.collectInputFiles(&self.parsedOptions)
+    let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
+    self.inputFiles = inputFiles
 
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.output_file_map)?.asSingle {
       let path = try AbsolutePath(validating: outputFileMapArg)
       self.outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
-    } else {
-      self.outputFileMap = OutputFileMap()
+    }
+    else {
+      self.outputFileMap = nil
     }
 
     // Determine the compilation mode.
@@ -210,9 +222,21 @@ public struct Driver {
     (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
-    (self.moduleOutput, self.moduleName) = try Self.computeModuleInfo(
+    let moduleOutput: ModuleOutput?
+    (moduleOutput, self.moduleName) = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
+    self.moduleOutput = moduleOutput
+
+    // Determine the state for incremental compilation
+    self.incrementalCompilation = IncrementalCompilation(
+      &parsedOptions,
+      compilerMode: compilerMode,
+      outputFileMap: self.outputFileMap,
+      compilerOutputType: self.compilerOutputType,
+      moduleOutput: moduleOutput,
+      inputFiles: inputFiles,
+      diagnosticEngine: diagnosticEngine)
 
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
 

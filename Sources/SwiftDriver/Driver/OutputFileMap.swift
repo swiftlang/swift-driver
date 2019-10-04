@@ -12,7 +12,7 @@ public struct OutputFileMap {
   /// file type.
   public func getOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath {
     // If we already have an output file, retrieve it.
-    if let output = entries[inputFile]?[outputType] {
+    if let output = existingOutput(inputFile: inputFile, outputType: outputType) {
       return output
     }
 
@@ -33,6 +33,14 @@ public struct OutputFileMap {
 
     // Form the virtual path.
     return .temporary(baseName.appendingFileTypeExtension(outputType))
+  }
+
+  public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {
+    entries[inputFile]?[outputType]
+  }
+
+  public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath? {
+    try! existingOutput(inputFile: VirtualPath(path: ""), outputType: outputType)
   }
 
   /// Load the output file map at the given path.

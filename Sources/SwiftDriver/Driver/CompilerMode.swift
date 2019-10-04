@@ -25,3 +25,19 @@ extension CompilerMode {
     }
   }
 }
+
+extension CompilerMode: CustomStringConvertible {
+    public var description: String {
+        switch self {
+
+        case .standardCompile:
+            return "standard compilation"
+        case .singleCompile:
+            return "whole module optimization"
+        case .repl:
+            return "read-eval-print-loop compilation"
+        case .immediate:
+            return "immediate compilation"
+        }
+  }
+}
