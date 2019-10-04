@@ -16,8 +16,7 @@ struct ToolExecutionDelegate: JobExecutorDelegate {
     case .regular:
       break
     case .verbose:
-      // FIXME: Do we need to escape the arguments?
-      stdoutStream <<< arguments.joined(separator: " ") <<< "\n"
+      stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
       stdoutStream.flush()
     case .parsableOutput:
 

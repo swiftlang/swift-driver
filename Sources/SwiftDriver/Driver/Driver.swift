@@ -157,8 +157,8 @@ public struct Driver {
   ) throws {
     // FIXME: Determine if we should run as subcommand.
 
-    let args = try Self.expandResponseFiles(args)
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
+    let args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)
     self.driverKind = try Self.determineDriverKind(args: args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
@@ -252,9 +252,21 @@ public struct Driver {
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emit_module_interface, outputPath: .emit_module_interface_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
     self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .save_optimization_record, outputPath: .save_optimization_record_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
   }
+}
 
-  /// Expand response files in the input arguments and return a new argument list.
-  public static func expandResponseFiles(_ args: [String]) throws -> [String] {
+// Response files.
+extension Driver {
+  /// Tokenize a single line in a response file
+  private static func tokenizeResponseFileLine(_ line: String) -> String {
+    // FIXME: This is wrong. We need to do proper shell escaping.
+    return line.replacingOccurrences(of: "\\ ", with: " ")
+  }
+
+  private static func expandResponseFiles(
+    _ args: [String],
+    diagnosticsEngine: DiagnosticsEngine,
+    visitedResponseFiles: inout Set<AbsolutePath>
+  ) throws -> [String] {
     // FIXME: This is very very prelimary. Need to look at how Swift compiler expands response file.
 
     var result: [String] = []
@@ -262,8 +274,17 @@ public struct Driver {
     // Go through each arg and add arguments from response files.
     for arg in args {
       if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
+        guard visitedResponseFiles.insert(responseFile).inserted else {
+          diagnosticsEngine.emit(.warn_recursive_response_file(responseFile))
+          continue
+        }
+        defer {
+          visitedResponseFiles.remove(responseFile)
+        }
+
         let contents = try localFileSystem.readFileContents(responseFile).cString
-        result += contents.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        let lines = contents.split(separator: "\n", omittingEmptySubsequences: true).map { tokenizeResponseFileLine(String($0)) }
+        result.append(contentsOf: try expandResponseFiles(lines, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles))
       } else {
         result.append(arg)
       }
@@ -272,6 +293,17 @@ public struct Driver {
     return result
   }
 
+  /// Expand response files in the input arguments and return a new argument list.
+  public static func expandResponseFiles(
+    _ args: [String],
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws -> [String] {
+    var visitedResponseFiles = Set<AbsolutePath>()
+    return try expandResponseFiles(args, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles)
+  }
+}
+
+extension Driver {
   /// Determine the driver kind based on the command-line arguments.
   public static func determineDriverKind(
     args: [String],
@@ -364,6 +396,10 @@ public struct Driver {
 }
 
 extension Diagnostic.Message {
+  static func warn_recursive_response_file(_ path: AbsolutePath) -> Diagnostic.Message {
+    .warning("response file '\(path)' is recursively expanded")
+  }
+
   static var error_no_swift_frontend: Diagnostic.Message {
     .error("-driver-use-frontend-path requires a Swift compiler executable argument")
   }

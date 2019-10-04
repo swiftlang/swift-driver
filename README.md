@@ -71,6 +71,7 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [ ] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
   * [ ] Fill out the `GenericUnixToolchain` toolchain to get it working
   * [ ] Implement a `WindowsToolchain`
+  * [ ] Implement proper tokenization for response files
 * Compilation modes
   * [ ] Batch mode
   * [ ] Whole-module-optimization mode
