@@ -47,8 +47,8 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path")
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path")
 
-    commandLine.appendFlag("-o")
-    commandLine.append(.path(moduleOutput!.outputPath))
+    commandLine.appendFlag(.o)
+    commandLine.appendPath(moduleOutput!.outputPath)
 
     return Job(
       kind: .mergeModule,

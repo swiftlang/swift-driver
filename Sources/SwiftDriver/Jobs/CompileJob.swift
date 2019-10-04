@@ -39,7 +39,7 @@ extension Driver {
 
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
-        commandLine.appendFlag("-primary-file")
+        commandLine.appendFlag(.primary_file)
       }
       commandLine.append(.path(input))
 
@@ -79,7 +79,7 @@ extension Driver {
     // FIXME: MSVC runtime flags
 
     if parsedOptions.hasArgument(.parse_as_library, .emit_library) {
-      commandLine.appendFlag("-parse-as-library")
+      commandLine.appendFlag(.parse_as_library)
     }
 
     try commandLine.appendLast(.parse_sil, from: &parsedOptions)
@@ -92,7 +92,7 @@ extension Driver {
 
     // Add primary outputs.
     for primaryOutput in primaryOutputs {
-      commandLine.appendFlag("-o")
+      commandLine.appendFlag(.o)
       commandLine.append(.path(primaryOutput.file))
     }
 

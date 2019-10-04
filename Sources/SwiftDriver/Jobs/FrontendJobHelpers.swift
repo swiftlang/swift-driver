@@ -16,34 +16,34 @@ extension Driver {
     // specified on the command line.
     switch compilerMode {
     case .standardCompile, .singleCompile:
-      commandLine.appendFlag("-target")
+      commandLine.appendFlag(.target)
       commandLine.appendFlag(targetTriple.triple)
 
     case .repl, .immediate:
       if parsedOptions.hasArgument(.target) {
-        commandLine.appendFlag("-target")
+        commandLine.appendFlag(.target)
         commandLine.appendFlag(targetTriple.triple)
       }
     }
 
     // Enable address top-byte ignored in the ARM64 backend.
     if (targetTriple.arch == .aarch64) {
-      commandLine.appendFlag("-Xllvm")
+      commandLine.appendFlag(.Xllvm)
       commandLine.appendFlag("-aarch64-use-tbi")
     }
 
     // Enable or disable ObjC interop appropriately for the platform
     if (targetTriple.os.isDarwin) {
-      commandLine.appendFlag("-enable-objc-interop")
+      commandLine.appendFlag(.enable_objc_interop)
     } else {
-      commandLine.appendFlag("-disable-objc-interop")
+      commandLine.appendFlag(.disable_objc_interop)
     }
 
     // Handle the CPU and its preferences.
     try commandLine.appendLast(.target_cpu, from: &parsedOptions)
 
     if let sdkPath = sdkPath {
-      commandLine.appendFlag("-sdk")
+      commandLine.appendFlag(.sdk)
       commandLine.append(.path(try .init(path: sdkPath)))
     }
 
@@ -115,10 +115,10 @@ extension Driver {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
       // different working directory is probably incorrect.
-      commandLine.appendFlag("-Xcc")
-      commandLine.appendFlag("-working-directory")
-      commandLine.appendFlag("-Xcc")
-      commandLine.append(.path(.absolute(workingDirectory)))
+      commandLine.appendFlag(.Xcc)
+      commandLine.appendFlag(.working_directory)
+      commandLine.appendFlag(.Xcc)
+      commandLine.appendPath(.absolute(workingDirectory))
     }
 
     // -g implies -enable-anonymous-context-mangled-names, because the extra
@@ -134,7 +134,7 @@ extension Driver {
       }
 
       if shouldSupportAnonymousContextMangledNames {
-        commandLine.appendFlag("-enable-anonymous-context-mangled-names")
+        commandLine.appendFlag(.enable_anonymous_context_mangled_names)
       }
     }
 
