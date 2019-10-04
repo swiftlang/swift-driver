@@ -158,7 +158,8 @@ extension Driver {
 
       commandLine.appendFlag(flag)
 
-      let path = outputFileMap.getOutput(inputFile: input, outputType: outputType)
+      let path = (outputFileMap ?? OutputFileMap())
+        .getOutput(inputFile: input, outputType: outputType)
       commandLine.append(.path(path))
       outputs.append(TypedVirtualPath(file: path, type: outputType))
     }

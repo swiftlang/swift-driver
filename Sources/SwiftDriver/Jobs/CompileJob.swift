@@ -45,8 +45,10 @@ extension Driver {
 
       // If there is a primary output, add it.
       if isPrimary, let compilerOutputType = compilerOutputType {
-        primaryOutputs.append(TypedVirtualPath(file: outputFileMap.getOutput(inputFile: input, outputType: compilerOutputType),
-                                        type: compilerOutputType))
+        primaryOutputs.append(
+          TypedVirtualPath(
+            file: (outputFileMap ?? OutputFileMap()).getOutput(inputFile: input, outputType: compilerOutputType),
+            type: compilerOutputType))
       }
     }
 

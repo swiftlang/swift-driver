@@ -58,7 +58,7 @@ public struct Driver {
   public let inputFiles: [TypedVirtualPath]
 
   /// The mapping from input files to output files for each kind.
-  internal let outputFileMap: OutputFileMap
+  internal let outputFileMap: OutputFileMap?
 
   /// The mode in which the compiler will execute.
   public let compilerMode: CompilerMode
@@ -196,12 +196,15 @@ public struct Driver {
     self.inputFiles = try Self.collectInputFiles(&self.parsedOptions)
 
     // Initialize an empty output file map, which will be populated when we start creating jobs.
+    let outputFileMap: OutputFileMap?
     if let outputFileMapArg = parsedOptions.getLastArgument(.output_file_map)?.asSingle {
       let path = try AbsolutePath(validating: outputFileMapArg)
-      self.outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
-    } else {
-      self.outputFileMap = OutputFileMap()
+      outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
     }
+    else {
+      outputFileMap = nil
+    }
+    self.outputFileMap = outputFileMap
 
     // Determine the compilation mode.
     self.compilerMode = Self.computeCompilerMode(&parsedOptions, driverKind: driverKind)
