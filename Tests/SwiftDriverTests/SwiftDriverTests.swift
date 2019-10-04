@@ -297,20 +297,25 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testMergeModulesOnly() throws {
-    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
+    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
     let plannedJobs1 = try driver1.planBuild()
     XCTAssertEqual(plannedJobs1.count, 3)
     XCTAssertEqual(plannedJobs1[0].outputs.count, 3)
     XCTAssertEqual(plannedJobs1[0].outputs[0], VirtualPath.temporary("foo.swiftmodule"))
     XCTAssertEqual(plannedJobs1[0].outputs[1], VirtualPath.temporary("foo.swiftdoc"))
     XCTAssertEqual(plannedJobs1[0].outputs[2], VirtualPath.temporary("foo.d"))
+    XCTAssert(plannedJobs1[0].commandLine.contains(.flag("-import-objc-header")))
+
     XCTAssertEqual(plannedJobs1[1].outputs.count, 3)
     XCTAssertEqual(plannedJobs1[1].outputs[0], VirtualPath.temporary("bar.swiftmodule"))
     XCTAssertEqual(plannedJobs1[1].outputs[1], VirtualPath.temporary("bar.swiftdoc"))
     XCTAssertEqual(plannedJobs1[1].outputs[2], VirtualPath.temporary("bar.d"))
+    XCTAssert(plannedJobs1[1].commandLine.contains(.flag("-import-objc-header")))
+
     XCTAssertTrue(plannedJobs1[2].tool.name.contains("swift"))
     XCTAssertEqual(plannedJobs1[2].outputs.count, 2)
     XCTAssertEqual(plannedJobs1[2].outputs[0], VirtualPath.relative(RelativePath("Test.swiftmodule")))
     XCTAssertEqual(plannedJobs1[2].outputs[1], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+    XCTAssert(plannedJobs1[2].commandLine.contains(.flag("-import-objc-header")))
   }
 }
