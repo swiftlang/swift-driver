@@ -8,9 +8,20 @@ public struct InputInfoMap {
     argsHash: String,
     lastBuildTime: Date,
     inputFiles: [TypedVirtualPath],
-    buildRecordPath: VirtualPath,
+    buildRecordPath: AbsolutePath,
     showIncrementalBuildDecisions: Bool
-    ) -> Self? {
+  ) -> Self? {
+    do {
+      try localFileSystem.readFileContents(buildRecordPath)
+    }
+    catch {
+      if showIncrementalBuildDecisions {
+        stderrStream <<<
+        "Incremental compilation could not read build record (\(error.localizedDescription)).\n"
+      }
+      
+      return nil
+    }
     stderrStream <<< "WARNING: incremental compilation not implemented yet\n"
     stderrStream.flush()
     return nil

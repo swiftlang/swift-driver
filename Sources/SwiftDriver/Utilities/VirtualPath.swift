@@ -77,6 +77,13 @@ public enum VirtualPath: Hashable {
       return true
     }
   }
+
+  public var absolutePath: AbsolutePath? {
+    switch self {
+    case let .absolute(absolutePath): return absolutePath
+    default: return nil
+    }
+  }
 }
 
 extension VirtualPath: Codable {

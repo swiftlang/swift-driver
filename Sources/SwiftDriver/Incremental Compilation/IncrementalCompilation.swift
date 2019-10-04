@@ -6,7 +6,7 @@ import Foundation
 public struct IncrementalCompilation {
   public let showIncrementalBuildDecisions: Bool
   public let shouldCompileIncrementally: Bool
-  public let buildRecordPath: VirtualPath?
+  public let buildRecordPath: AbsolutePath?
   public let outputBuildRecordForModuleOnlyBuild: Bool
   public let argsHash: String
   public let lastBuildTime: Date
@@ -95,14 +95,14 @@ public struct IncrementalCompilation {
     outputFileMap: OutputFileMap?,
     compilerOutputType: FileType?,
     diagnosticEngine: DiagnosticsEngine?
-  ) -> VirtualPath? {
+  ) -> AbsolutePath? {
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     guard let ofm = outputFileMap else {
       diagnosticEngine.map { $0.emit(.warning_incremental_requires_output_file_map) }
       return nil
     }
-    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)
+    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps).abolutePath
       else {
         diagnosticEngine.map { $0.emit(.warning_incremental_requires_build_record_entry) }
         return nil
@@ -111,7 +111,7 @@ public struct IncrementalCompilation {
     // '~moduleonly'. So that module-only mode doesn't mess up build-record
     // file for full compilation.
     return try! compilerOutputType == .swiftModule
-      ? VirtualPath(path: partialBuildRecordPath.name + "~moduleonly")
+      ? AbsolutePath(path: partialBuildRecordPath.name + "~moduleonly")
       : partialBuildRecordPath
   }
 
@@ -146,4 +146,5 @@ public extension Diagnostic.Message {
       "output file map has no master dependencies entry under \(FileType.swiftDeps)"
     )
   }
+  
 }
