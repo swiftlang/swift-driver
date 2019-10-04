@@ -23,11 +23,11 @@ final class ParsableMessageTests: XCTestCase {
 
     XCTAssertEqual(string, """
       {
-        "command-arguments" : [
+        "command_arguments" : [
           "-frontend",
           "compile"
         ],
-        "command-executable" : "\\/path\\/to\\/swiftc",
+        "command_executable" : "\\/path\\/to\\/swiftc",
         "inputs" : [
           "\\/path\\/to\\/foo.swift"
         ],
