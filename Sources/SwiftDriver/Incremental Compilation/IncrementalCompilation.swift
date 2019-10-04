@@ -27,7 +27,8 @@ public struct IncrementalCompilation {
     let shouldCompileIncrementally = Self.computeAndExplainShouldCompileIncrementally(
       &parsedOptions,
       showIncrementalBuildDecisions: showIncrementalBuildDecisions,
-      compilerMode: compilerMode)
+      compilerMode: compilerMode,
+      diagnosticEngine: diagnosticEngine)
 
     self.shouldCompileIncrementally = shouldCompileIncrementally
 
@@ -69,23 +70,24 @@ public struct IncrementalCompilation {
   private static func computeAndExplainShouldCompileIncrementally(
     _ parsedOptions: inout ParsedOptions,
     showIncrementalBuildDecisions: Bool,
-    compilerMode: CompilerMode
+    compilerMode: CompilerMode,
+    diagnosticEngine: DiagnosticsEngine
   )
     -> Bool
   {
-    func explain(disabledBecause why: String) {
-      stdoutStream <<< "Incremental compilation has been disabled, because it \(why).\n"
-      stdoutStream.flush()
-    }
     guard parsedOptions.hasArgument(.incremental) else {
       return false
     }
     guard compilerMode.supportsIncrementalCompilation else {
-      explain(disabledBecause: "is not compatible with \(compilerMode)")
+    diagnosticEngine.emit(
+      remark_incremental_compilation_disabled(
+        because: "it is not compatible with \(compilerMode)")
       return false
     }
     guard !parsedOptions.hasArgument(.embedBitcode) else {
-      explain(disabledBecause: "is not currently compatible with embedding LLVM IR bitcode")
+      diagnosticEngine.emit(
+        remark_incremental_compilation_disabled(
+          because: "is not currently compatible with embedding LLVM IR bitcode")
       return false
     }
     return true
@@ -146,5 +148,7 @@ public extension Diagnostic.Message {
       "output file map has no master dependencies entry under \(FileType.swiftDeps)"
     )
   }
-  
+  static func remark_incremental_compilation_disabled(because why: String) {
+    .remark("Incremental compilation has been disabled, because \(why).\n")
+  }
 }
