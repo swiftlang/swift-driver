@@ -317,5 +317,14 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs1[2].outputs[0], VirtualPath.relative(RelativePath("Test.swiftmodule")))
     XCTAssertEqual(plannedJobs1[2].outputs[1], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
     XCTAssert(plannedJobs1[2].commandLine.contains(.flag("-import-objc-header")))
+
+    var driver2 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule" ])
+    let plannedJobs2 = try driver2.planBuild()
+    XCTAssertEqual(plannedJobs2.count, 3)
+    XCTAssertTrue(plannedJobs2[2].tool.name.contains("swift"))
+    XCTAssertEqual(plannedJobs2[2].outputs.count, 2)
+    XCTAssertEqual(plannedJobs2[2].outputs[0], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
+    XCTAssertEqual(plannedJobs2[2].outputs[1], VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+
   }
 }

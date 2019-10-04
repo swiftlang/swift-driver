@@ -250,7 +250,7 @@ public struct Driver {
     self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .objcHeader, isOutput: .emit_objc_header, outputPath: .emit_objc_header_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
     self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .moduleTrace, isOutput: .emit_loaded_module_trace, outputPath: .emit_loaded_module_trace_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
     self.tbdPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .tbd, isOutput: .emit_tbd, outputPath: .emit_tbd_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.moduleDocOutputPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDocumentation, isOutput: .emit_module_doc, outputPath: .emit_module_doc_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(&parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emit_module_interface, outputPath: .emit_module_interface_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
     self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .save_optimization_record, outputPath: .save_optimization_record_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
   }
@@ -919,7 +919,8 @@ extension Driver {
     isOutput: Option?,
     outputPath: Option,
     compilerOutputType: FileType?,
-    moduleName: String
+    moduleName: String,
+    patternOutputFile: VirtualPath? = nil
   ) throws -> VirtualPath? {
     // FIXME: Do we need to check the output file map?
 
@@ -946,17 +947,56 @@ extension Driver {
         return path
       }
 
-      // Otherwise, put this output alongside the requested output.
-      let pathString: String
-      if let ext = path.extension {
-        pathString = String(path.name.dropLast(ext.count + 1))
-      } else {
-        pathString = path.name
-      }
-
-      return try VirtualPath(path: pathString.appendingFileTypeExtension(type))
+      return try path.replacingExtension(with: type)
     }
 
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
+  }
+
+  /// Determine the output path for a module documentation.
+  static func computeModuleDocOutputPath(
+    _ parsedOptions: inout ParsedOptions,
+    moduleOutputPath: VirtualPath?,
+    compilerOutputType: FileType?,
+    moduleName: String
+  ) throws -> VirtualPath? {
+    // FIXME: Do we need to check the output file map?
+
+    // If there is an explicit argument for the output path, use that
+    if let outputPathArg = parsedOptions.getLastArgument(.emit_module_doc_path) {
+      // Consume -emit-module-doc if it's there.
+      _ = parsedOptions.hasArgument(.emit_module_doc)
+
+      return try VirtualPath(path: outputPathArg.asSingle)
+    }
+
+    // If there's a known module output path, put the .swiftdoc file next
+    // to it.
+    if let moduleOutputPath = moduleOutputPath {
+      // Consume -emit-module-doc if it's there.
+      _ = parsedOptions.hasArgument(.emit_module_doc)
+
+      return try moduleOutputPath.replacingExtension(with: .swiftDocumentation)
+    }
+
+    // If not specifically asked to emit Swift module documentation, don't.
+    if !parsedOptions.hasArgument(.emit_module_doc) {
+      return nil
+    }
+
+    // If there is an output argument, derive the name from there.
+    if let outputPathArg = parsedOptions.getLastArgument(.o) {
+      let path = try VirtualPath(path: outputPathArg.asSingle)
+
+      // If the compiler output is of this type, use the argument directly.
+      if compilerOutputType == .swiftDocumentation {
+        return path
+      }
+
+      // Otherwise, put this output alongside the requested output.
+      return try path.replacingExtension(with: .swiftDocumentation)
+    }
+
+    return try VirtualPath(path: moduleName.appendingFileTypeExtension(.swiftDocumentation))
   }
 }

@@ -131,3 +131,18 @@ extension VirtualPath: Codable {
     }
   }
 }
+
+extension VirtualPath {
+  /// Replace the extension of the given path with a new one based on the
+  /// specified file type.
+  public func replacingExtension(with fileType: FileType) throws -> VirtualPath {
+    let pathString: String
+    if let ext = self.extension {
+      pathString = String(name.dropLast(ext.count + 1))
+    } else {
+      pathString = name
+    }
+
+    return try VirtualPath(path: pathString.appendingFileTypeExtension(fileType))
+  }
+}
