@@ -232,7 +232,7 @@ extension Driver {
     // relative to the compiler.
     let runtimePaths = try runtimeLibraryPaths(for: targetTriple, isShared: true)
     for path in runtimePaths {
-      commandLine.appendFlag("-L")
+      commandLine.appendFlag(.L)
       commandLine.appendPath(path)
     }
 
@@ -331,7 +331,7 @@ extension Driver {
         $0.option == .F || $0.option == .Fsystem
       }
       for opt in fSystemArgs {
-        commandLine.appendFlag("-F")
+        commandLine.appendFlag(.F)
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
