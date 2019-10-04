@@ -47,8 +47,6 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path")
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path")
 
-    // FIXME: import-objc-header
-
     commandLine.appendFlag("-o")
     commandLine.append(.path(moduleOutput!.outputPath))
 

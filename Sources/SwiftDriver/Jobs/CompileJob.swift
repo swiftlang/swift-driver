@@ -78,8 +78,6 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: MSVC runtime flags
 
-    // FIXME: -import-objc-header
-
     if parsedOptions.hasArgument(.parse_as_library, .emit_library) {
       commandLine.appendFlag("-parse-as-library")
     }
@@ -166,9 +164,15 @@ extension Array where Element == Job.ArgTemplate {
     append(.path(.absolute(path)))
   }
 
-  /// Append a flag option's spelling to the command line arguments.
+  /// Append an option's spelling to the command line arguments.
   mutating func appendFlag(_ option: Option) {
-    assert(option.kind == .flag, "non-flag option \(option)")
+    switch option.kind {
+    case .flag, .joinedOrSeparate, .remaining, .separate:
+      break
+    case .commaJoined, .input, .joined:
+      fatalError("Option cannot be appended as a flag: \(option)")
+    }
+
     append(.flag(option.spelling))
   }
 

@@ -142,6 +142,11 @@ extension Driver {
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
 
+    if let importedObjCHeader = importedObjCHeader {
+      commandLine.appendFlag(.import_objc_header)
+      commandLine.appendPath(importedObjCHeader)
+    }
+
     commandLine.appendFlags("-module-name", moduleName)
   }
 

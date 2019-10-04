@@ -85,10 +85,11 @@ public struct Driver {
   /// The name of the Swift module being built.
   public let moduleName: String
 
-  /// The path for the module file to be built
-
   /// The path of the SDK.
   public let sdkPath: String?
+
+  /// The path to the imported Objective-C header.
+  public let importedObjCHeader: VirtualPath?
 
   /// Path to the dependencies file.
   public let dependenciesFilePath: VirtualPath?
@@ -214,6 +215,8 @@ public struct Driver {
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
 
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
+
+    self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emit_dependencies, outputPath: .emit_dependencies_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
@@ -824,6 +827,39 @@ extension Driver {
     }
 
     return sdkPath
+  }
+}
+
+// Imported Objective-C header.
+extension Driver {
+  /// Compute the path of the imported Objective-C header.
+  static func computeImportedObjCHeader(_ parsedOptions: inout ParsedOptions, compilerMode: CompilerMode, diagnosticEngine: DiagnosticsEngine) throws -> VirtualPath? {
+    guard let objcHeaderPathArg = parsedOptions.getLastArgument(.import_objc_header) else {
+      return nil
+    }
+
+    // Check for conflicting options.
+    if parsedOptions.hasArgument(.import_underlying_module) {
+      diagnosticEngine.emit(.error_framework_bridging_header)
+    }
+
+    if parsedOptions.hasArgument(.emit_module_interface, .emit_module_interface_path) {
+      diagnosticEngine.emit(.error_bridging_header_module_interface)
+    }
+
+    let objcHeaderPath = try VirtualPath(path: objcHeaderPathArg.asSingle)
+    // FIXME: Precompile bridging header if requested.
+    return objcHeaderPath
+  }
+}
+
+extension Diagnostic.Message {
+  static var error_framework_bridging_header: Diagnostic.Message {
+    .error("using bridging headers with framework targets is unsupported")
+  }
+
+  static var error_bridging_header_module_interface: Diagnostic.Message {
+    .error("using bridging headers with module interfaces is unsupported")
   }
 }
 
