@@ -197,7 +197,8 @@ public struct Driver {
     }
 
     // Classify and collect all of the input files.
-    self.inputFiles = try Self.collectInputFiles(&self.parsedOptions)
+    let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
+    self.inputFiles = inputFiles
 
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.output_file_map)?.asSingle {
@@ -234,6 +235,7 @@ public struct Driver {
       outputFileMap: self.outputFileMap,
       compilerOutputType: self.compilerOutputType,
       moduleOutput: moduleOutput,
+      inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine)
 
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)

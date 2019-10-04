@@ -1,17 +1,24 @@
 import TSCBasic
 import TSCUtility
+import Foundation
 
+// FIXME: rename to something like IncrementalCompilationInitialState
 public struct IncrementalCompilation {
   public let showIncrementalBuildDecisions: Bool
   public let shouldCompileIncrementally: Bool
   public let buildRecordPath: VirtualPath?
   public let outputBuildRecordForModuleOnlyBuild: Bool
+  public let argsHash: String
+  public let lastBuildTime: Date
+  public let outOfDateMap: InputInfoMap?
+  public let rebuildEverything: Bool
 
   public init(_ parsedOptions: inout ParsedOptions,
        compilerMode: CompilerMode,
        outputFileMap: OutputFileMap?,
        compilerOutputType: FileType?,
        moduleOutput: ModuleOutput?,
+       inputFiles: [TypedVirtualPath],
        diagnosticEngine: DiagnosticsEngine
   ) {
     let showIncrementalBuildDecisions = Self.getShowIncrementalBuildDecisions(&parsedOptions)
@@ -33,9 +40,29 @@ public struct IncrementalCompilation {
     // file for '-emit-module' only mode as well.
     self.outputBuildRecordForModuleOnlyBuild = self.buildRecordPath != nil &&
       moduleOutput?.isTopLevel ?? false
+
+    let argsHash = Self.computeArgsHash(parsedOptions)
+    self.argsHash = argsHash
+    let lastBuildTime = Date.init()
+    self.lastBuildTime = lastBuildTime
+
+    if let buRP = buildRecordPath, shouldCompileIncrementally {
+      self.outOfDateMap = InputInfoMap.populateOutOfDateMap(
+        argsHash: argsHash,
+        lastBuildTime: lastBuildTime,
+        inputFiles: inputFiles,
+        buildRecordPath: buRP,
+        showIncrementalBuildDecisions: showIncrementalBuildDecisions)
+    }
+    else {
+      self.outOfDateMap = nil
+    }
+    // FIXME: Distinguish errors from "file removed", which is benign.
+    self.rebuildEverything = outOfDateMap == nil
   }
 
-  private static func getShowIncrementalBuildDecisions(_ parsedOptions: inout ParsedOptions)  -> Bool {
+  private static func getShowIncrementalBuildDecisions(_ parsedOptions: inout ParsedOptions)
+    -> Bool {
     parsedOptions.hasArgument(.driver_show_incremental)
   }
 
@@ -86,6 +113,16 @@ public struct IncrementalCompilation {
     return try! compilerOutputType == .swiftModule
       ? VirtualPath(path: partialBuildRecordPath.name + "~moduleonly")
       : partialBuildRecordPath
+  }
+
+  static private func computeArgsHash(_ parsedOptionsArg: ParsedOptions) -> String {
+    var parsedOptions = parsedOptionsArg
+    let hashInput = parsedOptions
+      .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
+      .map {$0.option.spelling}
+      .sorted()
+      .joined()
+    return SHA256(hashInput).digestString()
   }
 }
 
