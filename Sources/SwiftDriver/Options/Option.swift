@@ -23,7 +23,7 @@ public struct OptionAttributes: OptionSet, Hashable {
 public struct Option {
   /// The kind of option we have, which determines how it will be parsed.
   public enum Kind: Hashable {
-    /// An input file, which doesn't have a spelling but contains a single
+    /// An input file, which doesn't have a spelling but contains a singleextension Driver {
     /// argument.
     case input
     /// An option that enables/disables some specific behavior.

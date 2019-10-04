@@ -17,12 +17,13 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
     .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+    .package(url: "https://github.com/jpsim/Yams.git", .branch("master")),
   ],
   targets: [
     /// The driver library.
     .target(
       name: "SwiftDriver",
-      dependencies: ["SwiftToolsSupport-auto", "llbuildSwift"]),
+      dependencies: ["SwiftToolsSupport-auto", "llbuildSwift", "Yams"]),
     .testTarget(
       name: "SwiftDriverTests",
       dependencies: ["SwiftDriver", "swift-driver"]),

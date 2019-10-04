@@ -6,7 +6,7 @@
         "repositoryURL": "https://github.com/apple/swift-llbuild.git",
         "state": {
           "branch": "master",
-          "revision": "fb7ab0ddbd6020dd212a1dd931d46a9c94ea2d9c",
+          "revision": "0e6f22ce5469209567be9aad8a330852d473d3aa",
           "version": null
         }
       },
@@ -16,6 +16,15 @@
         "state": {
           "branch": "master",
           "revision": "8aad8045e68d399bd41976bb6ae56ef2b89cc515",
+          "version": null
+        }
+      },
+      {
+        "package": "Yams",
+        "repositoryURL": "https://github.com/jpsim/Yams.git",
+        "state": {
+          "branch": "master",
+          "revision": "fbc979b7feb4c32e2aa1087f958d826d3cf8472f",
           "version": null
         }
       }
