@@ -29,7 +29,6 @@ public struct ParsableMessage {
 
   public func toJSON() throws -> Data {
     let encoder = JSONEncoder()
-    encoder.keyEncodingStrategy = .convertToSnakeCase
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     return try encoder.encode(self)
   }
@@ -65,6 +64,14 @@ public struct BeganMessage: Encodable {
     self.commandExecutable = commandExecutable
     self.commandArguments = commandArguments
   }
+
+  private enum CodingKeys: String, CodingKey {
+    case pid
+    case inputs
+    case outputs
+    case commandExecutable = "command-executable"
+    case commandArguments = "command-arguments"
+  }
 }
 
 public struct FinishedMessage: Encodable {
@@ -82,6 +89,12 @@ public struct FinishedMessage: Encodable {
     self.exitStatus = exitStatus
     self.pid = pid
     self.output = output
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case pid
+    case output
+    case exitStatus = "exit-status"
   }
 }
 

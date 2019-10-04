@@ -23,11 +23,11 @@ final class ParsableMessageTests: XCTestCase {
 
     XCTAssertEqual(string, """
       {
-        "command_arguments" : [
+        "command-arguments" : [
           "-frontend",
           "compile"
         ],
-        "command_executable" : "\\/path\\/to\\/swiftc",
+        "command-executable" : "\\/path\\/to\\/swiftc",
         "inputs" : [
           "\\/path\\/to\\/foo.swift"
         ],
@@ -52,7 +52,7 @@ final class ParsableMessageTests: XCTestCase {
 
     XCTAssertEqual(string, """
     {
-      "exit_status" : 1,
+      "exit-status" : 1,
       "kind" : "finished",
       "name" : "compile",
       "output" : "hello",
