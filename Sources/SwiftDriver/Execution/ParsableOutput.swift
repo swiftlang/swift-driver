@@ -69,8 +69,8 @@ public struct BeganMessage: Encodable {
     case pid
     case inputs
     case outputs
-    case commandExecutable = "command-executable"
-    case commandArguments = "command-arguments"
+    case commandExecutable = "command_executable"
+    case commandArguments = "command_arguments"
   }
 }
 
