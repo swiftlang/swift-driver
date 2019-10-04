@@ -222,11 +222,9 @@ public struct Driver {
     (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
-    let moduleOutput: ModuleOutput?
-    (moduleOutput, self.moduleName) = try Self.computeModuleInfo(
+    (self.moduleOutput, self.moduleName) = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
-    self.moduleOutput = moduleOutput
 
     // Determine the state for incremental compilation
     self.incrementalCompilation = IncrementalCompilation(
@@ -234,7 +232,7 @@ public struct Driver {
       compilerMode: compilerMode,
       outputFileMap: self.outputFileMap,
       compilerOutputType: self.compilerOutputType,
-      moduleOutput: moduleOutput,
+      moduleOutput: self.moduleOutput,
       inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine)
 
