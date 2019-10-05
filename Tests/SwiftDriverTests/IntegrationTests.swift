@@ -44,10 +44,12 @@ final class IntegrationTests: IntegrationTestCase {
 
 /// A helper class for optionally running integration tests.
 open class IntegrationTestCase: XCTestCase {
+#if os(macOS)
   override open class var defaultTestSuite: XCTestSuite {
     if ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS") {
       return super.defaultTestSuite
     }
     return XCTestSuite(name: String(describing: type(of: self)))
   }
+#endif
 }
