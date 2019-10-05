@@ -237,51 +237,70 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
-      let cmd = plannedJobs[2].commandLine
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
       XCTAssertTrue(cmd.contains(.flag("x86_64")))
       XCTAssertTrue(cmd.contains(.flag("-macosx_version_min")))
       XCTAssertTrue(cmd.contains(.flag("10.15.0")))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
     do {
       // iOS target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "arm64-apple-ios10.0"])
       let plannedJobs = try driver.planBuild()
-      let cmd = plannedJobs[2].commandLine
+
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
       XCTAssertTrue(cmd.contains(.flag("arm64")))
       XCTAssertTrue(cmd.contains(.flag("-iphoneos_version_min")))
       XCTAssertTrue(cmd.contains(.flag("10.0.0")))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
     do {
       // Xlinker flags
       var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w"])
       let plannedJobs = try driver.planBuild()
-      let cmd = plannedJobs[2].commandLine
+
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-w")))
       XCTAssertTrue(cmd.contains(.flag("-L")))
       XCTAssertTrue(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
     do {
       // static linking
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w"])
       let plannedJobs = try driver.planBuild()
-      let cmd = plannedJobs[2].commandLine
+
+      XCTAssertEqual(plannedJobs.count, 3)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-static")))
       XCTAssertTrue(cmd.contains(.flag("-o")))
-
+      XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(cmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
 
       // The regular Swift driver doesn't pass Xlinker flags to the static
       // linker, so be consistent with this
@@ -290,17 +309,62 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
 
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
     do {
       // executable linking
       var driver = try Driver(args: commonArgs + ["-emit-executable"])
       let plannedJobs = try driver.planBuild()
-      let cmd = plannedJobs[2].commandLine
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-o")))
+      XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(cmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    do {
+      // linux target
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-o")))
+      XCTAssertTrue(cmd.contains(.flag("-shared")))
+      XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(cmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.so"))
+
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+    }
+
+    do {
+      // static linux linking
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+      let linkJob = plannedJobs[2]
+      let cmd = linkJob.commandLine
+      // we'd expect "ar crs libTest.a foo.o bar.o"
+      XCTAssertTrue(cmd.contains(.flag("crs")))
+      XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(cmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
+
+      XCTAssertFalse(cmd.contains(.flag("-o")))
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
   }
 
