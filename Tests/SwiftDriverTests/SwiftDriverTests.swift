@@ -238,7 +238,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
       let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+      
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
@@ -257,7 +261,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
       let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
@@ -276,7 +284,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
       let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-w")))
@@ -294,7 +306,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
       let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-static")))
       XCTAssertTrue(cmd.contains(.flag("-o")))
@@ -317,7 +333,11 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: commonArgs + ["-emit-executable"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
       let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-o")))
       XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
@@ -334,8 +354,18 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
 
-      XCTAssertEqual(plannedJobs.count, 3)
-      let linkJob = plannedJobs[2]
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let autolinkExtractJob = plannedJobs[2]
+      XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
+
+      let autolinkCmd = autolinkExtractJob.commandLine
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary("Test.autolink"))))
+
+      let linkJob = plannedJobs[3]
+      XCTAssertEqual(linkJob.kind, .link)
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-o")))
       XCTAssertTrue(cmd.contains(.flag("-shared")))
@@ -352,8 +382,17 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
 
-      XCTAssertEqual(plannedJobs.count, 3)
-      let linkJob = plannedJobs[2]
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let autolinkExtractJob = plannedJobs[2]
+      XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
+
+      let autolinkCmd = autolinkExtractJob.commandLine
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary("Test.autolink"))))
+
+      let linkJob = plannedJobs[3]
       let cmd = linkJob.commandLine
       // we'd expect "ar crs libTest.a foo.o bar.o"
       XCTAssertTrue(cmd.contains(.flag("crs")))

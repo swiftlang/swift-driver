@@ -62,11 +62,18 @@ extension Driver {
       jobs.append(try mergeModuleJob(inputs: moduleInputs))
     }
 
+    // If we need to autolink-extract, do so.
+    let autolinkInputs = linkerInputs.filter { $0.type == .object }
+    if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {
+      linkerInputs.append(contentsOf: autolinkExtractJob.outputs)
+      jobs.append(autolinkExtractJob)
+    }
 
     // If we should link, do so.
     if linkerOutputType != nil && !linkerInputs.isEmpty {
       jobs.append(try linkJob(inputs: linkerInputs))
     }
+
 
     // FIXME: Lots of follow-up actions for merging modules, etc.
 
