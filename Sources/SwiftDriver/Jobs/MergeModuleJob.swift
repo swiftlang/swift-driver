@@ -21,15 +21,15 @@ extension Driver {
 
     // Tell all files to parse as library, which is necessary to load them as
     // serialized ASTs.
-    commandLine.appendFlag(.parse_as_library)
+    commandLine.appendFlag(.parseAsLibrary)
 
     // Merge serialized SIL from partial modules.
-    commandLine.appendFlag(.sil_merge_partial_modules)
+    commandLine.appendFlag(.silMergePartialModules)
 
     // Disable SIL optimization passes; we've already optimized the code in each
     // partial mode.
-    commandLine.appendFlag(.disable_diagnostic_passes)
-    commandLine.appendFlag(.disable_sil_perf_optzns)
+    commandLine.appendFlag(.disableDiagnosticPasses)
+    commandLine.appendFlag(.disableSilPerfOptzns)
 
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: Add MSVC runtime library flags

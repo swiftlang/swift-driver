@@ -39,7 +39,7 @@ extension Driver {
 
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
-        commandLine.appendFlag(.primary_file)
+        commandLine.appendFlag(.primaryFile)
       }
       commandLine.append(.path(input.file))
 
@@ -70,24 +70,24 @@ extension Driver {
     outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs)
 
     // Forward migrator flags.
-    try commandLine.appendLast(.api_diff_data_file, from: &parsedOptions)
-    try commandLine.appendLast(.api_diff_data_dir, from: &parsedOptions)
-    try commandLine.appendLast(.dump_usr, from: &parsedOptions)
+    try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
+    try commandLine.appendLast(.apiDiffDataDir, from: &parsedOptions)
+    try commandLine.appendLast(.dumpUsr, from: &parsedOptions)
 
-    if parsedOptions.hasArgument(.parse_stdlib) {
-      commandLine.appendFlag(.disable_objc_attr_requires_foundation_module)
+    if parsedOptions.hasArgument(.parseStdlib) {
+      commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: MSVC runtime flags
 
-    if parsedOptions.hasArgument(.parse_as_library, .emit_library) {
-      commandLine.appendFlag(.parse_as_library)
+    if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
+      commandLine.appendFlag(.parseAsLibrary)
     }
 
-    try commandLine.appendLast(.parse_sil, from: &parsedOptions)
+    try commandLine.appendLast(.parseSil, from: &parsedOptions)
 
-    try commandLine.appendLast(.migrate_keep_objc_visibility, from: &parsedOptions)
+    try commandLine.appendLast(.migrateKeepObjcVisibility, from: &parsedOptions)
 
     if numThreads > 0 {
       commandLine.appendFlags("-num-threads", numThreads.description)
@@ -99,29 +99,29 @@ extension Driver {
       commandLine.append(.path(primaryOutput.file))
     }
 
-    try commandLine.appendLast(.embed_bitcode_marker, from: &parsedOptions)
+    try commandLine.appendLast(.embedBitcodeMarker, from: &parsedOptions)
 
     // For `-index-file` mode add `-disable-typo-correction`, since the errors
     // will be ignored and it can be expensive to do typo-correction.
     if compilerOutputType == FileType.indexData {
-      commandLine.appendFlag(.disable_typo_correction)
+      commandLine.appendFlag(.disableTypoCorrection)
     }
 
-    if parsedOptions.contains(.index_store_path) {
-      try commandLine.appendLast(.index_store_path, from: &parsedOptions)
-      if !parsedOptions.contains(.index_ignore_system_modules) {
-        commandLine.appendFlag(.index_system_modules)
+    if parsedOptions.contains(.indexStorePath) {
+      try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+      if !parsedOptions.contains(.indexIgnoreSystemModules) {
+        commandLine.appendFlag(.indexSystemModules)
       }
     }
 
-    if parsedOptions.contains(.debug_info_store_invocation) &&
+    if parsedOptions.contains(.debugInfoStoreInvocation) &&
        toolchain.shouldStoreInvocationInDebugInfo {
-      commandLine.appendFlag(.debug_info_store_invocation)
+      commandLine.appendFlag(.debugInfoStoreInvocation)
     }
 
-    try commandLine.appendLast(.disable_autolinking_runtime_compatibility, from: &parsedOptions)
-    try commandLine.appendLast(.runtime_compatibility_version, from: &parsedOptions)
-    try commandLine.appendLast(.disable_autolinking_runtime_compatibility_dynamic_replacements, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
+    try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
 
     allOutputs += outputs
     return Job(
@@ -299,31 +299,31 @@ extension FileType {
     case .object:
       return .c
     case .pch:
-      return .emit_pch
+      return .emitPch
     case .ast:
-      return .dump_ast
+      return .dumpAst
     case .raw_sil:
-      return .emit_silgen
+      return .emitSilgen
     case .sil:
-      return .emit_sil
+      return .emitSil
     case .raw_sib:
-      return .emit_sibgen
+      return .emitSibgen
     case .sib:
-      return .emit_sib
+      return .emitSib
     case .llvmIR:
-      return .emit_ir
+      return .emitIr
     case .llvmBitcode:
-      return .emit_bc
+      return .emitBc
     case .assembly:
       return .S
     case .swiftModule:
-      return .emit_module
+      return .emitModule
     case .importedModules:
-      return .emit_imported_modules
+      return .emitImportedModules
     case .indexData:
       return .typecheck
     case .remap:
-      return .update_code
+      return .updateCode
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,

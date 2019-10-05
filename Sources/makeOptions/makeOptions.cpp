@@ -49,12 +49,40 @@ enum SwiftFlags {
   ModuleInterfaceOption = (1 << 13),
 };
 
+static std::set<std::string> swiftKeywords = { "internal", "static" };
+
+/// Turns a snake_case_option_name into a camelCaseOptionName, and escapes
+/// it if it's a keyword.
+static std::string swiftify(const std::string &name) {
+  std::string result;
+  bool shouldUppercase = false;
+  for (char c : name) {
+    if (c == '_') {
+      shouldUppercase = true;
+      continue;
+    }
+
+    if (shouldUppercase && islower(c)) {
+      result.push_back(toupper(c));
+    } else {
+      result.push_back(c);
+    }
+
+    shouldUppercase = false;
+  }
+
+  if (swiftKeywords.count(result) > 0)
+    return "`" + result + "`";
+
+  return result;
+}
+
 /// Raw option from the TableGen'd output of the Swift options.
 struct RawOption {
   OptionID id;
   const char * const *prefixes;
   const char *spelling;
-  const char *idName;
+  std::string idName;
   OptionKind kind;
   OptionID group;
   OptionID alias;
@@ -84,7 +112,7 @@ struct RawOption {
 static const RawOption rawOptions[] = {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
-  { OptionID::Opt_##ID, PREFIX, NAME, #ID, OptionKind::KIND, \
+  { OptionID::Opt_##ID, PREFIX, NAME, swiftify(#ID), OptionKind::KIND, \
     OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR },
 #if __has_include("swift/Option/Options.inc")
 #include "swift/Option/Options.inc"
@@ -101,15 +129,6 @@ struct Group {
 static std::vector<Group> groups;
 static std::map<OptionID, unsigned> groupIndexByID;
 static std::map<OptionID, unsigned> optionIndexByID;
-
-static std::set<std::string> swiftKeywords = { "internal", "static" };
-
-static std::string escapeKeyword(const std::string &name) {
-  if (swiftKeywords.count(name) > 0)
-    return "`" + name + "`";
-
-  return name;
-}
 
 static std::string stringOrNil(const char *text) {
   if (!text)
@@ -167,9 +186,10 @@ int makeOptions_main() {
   for (const auto &rawOption : rawOptions) {
     if (rawOption.isGroup()) {
       std::string idName = rawOption.idName;
-      auto groupSuffixStart = idName.rfind("_Group");
+      auto groupSuffixStart = idName.rfind("Group");
       if (groupSuffixStart != std::string::npos) {
         idName.erase(idName.begin() + groupSuffixStart, idName.end());
+        idName = swiftify(idName);
       }
       
       groupIndexByID[rawOption.id] = groups.size();
@@ -190,13 +210,11 @@ int makeOptions_main() {
     forEachSpelling(option.prefixes, option.spelling,
                     [&](const std::string &spelling,
                         bool isAlternateSpelling) {
-      out << "  public static let ";
+      out << "  public static let " << option.idName;
 
       // Add a '_' suffix if this is an alternate spelling.
       if (isAlternateSpelling)
-        out << option.idName << "_";
-      else
-        out << escapeKeyword(option.idName);
+        out << "_";
 
       // All options have Option type.
       out << ": Option = Option(\"" << spelling << "\"";
@@ -315,7 +333,7 @@ int makeOptions_main() {
   out << "\nextension Option {\n";
   out << "  public enum Group {\n";
   for (const auto &group : groups) {
-    out << "    case " << escapeKeyword(group.id) << "\n";
+    out << "    case " << group.id << "\n";
   }
   out << "  }\n";
   out << "}\n";

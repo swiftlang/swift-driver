@@ -54,7 +54,7 @@ extension GenericUnixToolchain {
 
         // Select the linker to use.
       var linker: String?
-      if let arg = parsedOptions.getLastArgument(.use_ld) {
+      if let arg = parsedOptions.getLastArgument(.useLd) {
         linker = arg.asSingle
       } else {
         linker = defaultLinker(for: targetTriple)
@@ -88,7 +88,7 @@ extension GenericUnixToolchain {
       // surface this via a driver flag.  For now, opt for the simpler approach of
       // just using `clang` and avoid a dependency on the C++ runtime.
       var clangPath = try getToolPath(.clang)
-      if let toolsDirPath = parsedOptions.getLastArgument(.tools_directory) {
+      if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
         // FIXME: What if this isn't an absolute path?
         let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
 
@@ -107,11 +107,11 @@ extension GenericUnixToolchain {
         commandLine.appendFlag("-pie")
       }
 
-      let staticStdlib = parsedOptions.hasFlag(positive: .static_stdlib,
-                                                   negative: .no_static_stdlib,
+      let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
+                                               negative: .noStaticStdlib,
                                                    default: false)
-      let staticExecutable = parsedOptions.hasFlag(positive: .static_executable,
-                                                  negative: .no_static_executable,
+      let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
+                                                   negative: .noStaticExecutable,
                                                   default: false)
       let hasRuntimeArgs = !(staticStdlib || staticExecutable)
 
@@ -219,7 +219,7 @@ extension GenericUnixToolchain {
 //        }
 //      }
 
-      if parsedOptions.hasArgument(.profile_generate) {
+      if parsedOptions.hasArgument(.profileGenerate) {
         let libProfile = sharedResourceDirPath
           .parentDirectory // remove platform name
           .appending(components: "clang", "lib", targetTriple.osName,
@@ -236,10 +236,10 @@ extension GenericUnixToolchain {
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.append(
-        contentsOf: parsedOptions.filter { $0.option.group == .linker_option }
+        contentsOf: parsedOptions.filter { $0.option.group == .linkerOption }
       )
       try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
-      try commandLine.appendAllArguments(.Xclang_linker, from: &parsedOptions)
+      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
 
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)

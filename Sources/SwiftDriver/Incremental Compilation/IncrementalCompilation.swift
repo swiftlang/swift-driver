@@ -63,7 +63,7 @@ public struct IncrementalCompilation {
 
   private static func getShowIncrementalBuildDecisions(_ parsedOptions: inout ParsedOptions)
     -> Bool {
-    parsedOptions.hasArgument(.driver_show_incremental)
+    parsedOptions.hasArgument(.driverShowIncremental)
   }
 
   private static func computeAndExplainShouldCompileIncrementally(
@@ -84,7 +84,7 @@ public struct IncrementalCompilation {
       explain(disabledBecause: "is not compatible with \(compilerMode)")
       return false
     }
-    guard !parsedOptions.hasArgument(.embed_bitcode) else {
+    guard !parsedOptions.hasArgument(.embedBitcode) else {
       explain(disabledBecause: "is not currently compatible with embedding LLVM IR bitcode")
       return false
     }
