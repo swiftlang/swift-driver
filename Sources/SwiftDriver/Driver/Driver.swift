@@ -821,9 +821,9 @@ extension Driver {
       moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
     } else if moduleOutputKind == .topLevel {
       // FIXME: Logic to infer from -o, primary outputs, etc.
-      moduleOutputPath = try .init(path: moduleName + "." + FileType.swiftModule.rawValue)
+      moduleOutputPath = try .init(path: moduleName.appendingFileTypeExtension(.swiftModule))
     } else {
-      moduleOutputPath = .temporary(moduleName + "." + FileType.swiftModule.rawValue)
+      moduleOutputPath = .temporary(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
     }
 
     switch moduleOutputKind! {

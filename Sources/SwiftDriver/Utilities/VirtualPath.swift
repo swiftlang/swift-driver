@@ -16,7 +16,7 @@ public enum VirtualPath: Hashable {
   case standardOutput
 
   /// A temporary file with the given name.
-  case temporary(String)
+  case temporary(RelativePath)
 
   /// Form a virtual path which may be either absolute or relative.
   public init(path: String) throws {
@@ -42,24 +42,21 @@ public enum VirtualPath: Hashable {
     case .standardInput, .standardOutput:
       return "-"
 
-    case .temporary(let string):
-      return string
+    case .temporary(let path):
+      return path.pathString
     }
   }
 
   /// The extension of this path, for relative or absolute paths.
   public var `extension`: String? {
     switch self {
-    case .relative(let path):
+    case .relative(let path), .temporary(let path):
       return path.extension
 
     case .absolute(let path):
       return path.extension
 
     case .standardInput, .standardOutput:
-      return nil
-
-    case .temporary(_):
       return nil
     }
   }
@@ -126,7 +123,7 @@ extension VirtualPath: Codable {
       self = .standardOutput
     case .temporary:
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-      let a1 = try unkeyedValues.decode(String.self)
+      let a1 = try unkeyedValues.decode(RelativePath.self)
       self = .temporary(a1)
     }
   }

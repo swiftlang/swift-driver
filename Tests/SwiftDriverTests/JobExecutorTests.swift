@@ -60,13 +60,13 @@ final class JobExecutorTests: XCTestCase {
           "-sdk",
           .path(.absolute(try toolchain.sdk.get())),
           "-module-name", "main",
-          "-o", .path(.temporary("foo.o")),
+          "-o", .path(.temporary(RelativePath("foo.o"))),
         ],
         inputs: [
           .init(file: .relative(RelativePath("foo.swift")), type: .swift),
           .init(file: .relative(RelativePath("main.swift")), type: .swift),
         ],
-        outputs: [.init(file: .temporary("foo.o"), type: .object)]
+        outputs: [.init(file: .temporary(RelativePath("foo.o")), type: .object)]
       )
 
       let compileMain = Job(
@@ -83,21 +83,21 @@ final class JobExecutorTests: XCTestCase {
           "-sdk",
           .path(.absolute(try toolchain.sdk.get())),
           "-module-name", "main",
-          "-o", .path(.temporary("main.o")),
+          "-o", .path(.temporary(RelativePath("main.o"))),
         ],
         inputs: [
           .init(file: .relative(RelativePath("foo.swift")), type: .swift),
           .init(file: .relative(RelativePath("main.swift")), type: .swift),
         ],
-        outputs: [.init(file: .temporary("main.o"), type: .object)]
+        outputs: [.init(file: .temporary(RelativePath("main.o")), type: .object)]
       )
 
       let link = Job(
         kind: .link,
         tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
         commandLine: [
-          .path(.temporary("foo.o")),
-          .path(.temporary("main.o")),
+          .path(.temporary(RelativePath("foo.o"))),
+          .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
           "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
           "-lobjc", "-lSystem", "-arch", "x86_64",
@@ -109,8 +109,8 @@ final class JobExecutorTests: XCTestCase {
           .path(.relative(RelativePath("main"))),
         ],
         inputs: [
-          .init(file: .temporary("foo.o"), type: .object),
-          .init(file: .temporary("main.o"), type: .object),
+          .init(file: .temporary(RelativePath("foo.o")), type: .object),
+          .init(file: .temporary(RelativePath("main.o")), type: .object),
         ],
         outputs: [.init(file: .relative(RelativePath("main")), type: .image)]
       )
@@ -123,7 +123,7 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertEqual(output, "5\n")
       XCTAssertEqual(delegate.started.count, 3)
 
-      let fooObject = try resolver.resolve(.path(.temporary("foo.o")))
+      let fooObject = try resolver.resolve(.path(.temporary(RelativePath("foo.o"))))
       XCTAssertTrue(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be present in the temporary directory")
       try resolver.removeTemporaryDirectory()
       XCTAssertFalse(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be removed from the temporary directory")
@@ -156,7 +156,7 @@ final class JobExecutorTests: XCTestCase {
       tool: .absolute(AbsolutePath("/usr/bin/swift")),
       commandLine: [.flag("something")],
       inputs: [],
-      outputs: [.init(file: .temporary("main"), type: .object)]
+      outputs: [.init(file: .temporary(RelativePath("main")), type: .object)]
     )
 
     let delegate = JobCollectingDelegate()
@@ -165,7 +165,7 @@ final class JobExecutorTests: XCTestCase {
       executorDelegate: delegate,
       processProtocol: StubProcess.self
     )
-    try executor.build(.temporary("main"))
+    try executor.build(.temporary(RelativePath("main")))
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }

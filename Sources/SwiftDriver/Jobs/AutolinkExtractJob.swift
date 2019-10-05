@@ -12,7 +12,7 @@ extension Driver {
     }
 
     var commandLine = [Job.ArgTemplate]()
-    let output = VirtualPath.temporary("\(moduleName).autolink")
+    let output = VirtualPath.temporary(RelativePath("\(moduleName).autolink"))
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })
     commandLine.appendFlag(.o)
