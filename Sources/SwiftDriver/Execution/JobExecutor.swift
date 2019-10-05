@@ -247,7 +247,7 @@ class ExecuteJobRule: LLBuildRule {
       let arguments = [tool] + commandLine
 
       let process = try context.processProtocol.launchProcess(
-        arguments: arguments, environment: ProcessEnv.vars)
+        arguments: arguments)
       pid = Int(process.processID)
 
       // Inform the delegate.

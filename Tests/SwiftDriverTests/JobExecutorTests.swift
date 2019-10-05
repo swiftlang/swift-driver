@@ -134,7 +134,7 @@ final class JobExecutorTests: XCTestCase {
   func testStubProcessProtocol() throws {
     struct StubProcess: ProcessProtocol {
       static func launchProcess(
-        arguments: [String], environment: [String : String]
+        arguments: [String]
       ) throws -> ProcessProtocol {
         return StubProcess()
       }

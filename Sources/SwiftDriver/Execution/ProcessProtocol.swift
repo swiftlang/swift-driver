@@ -3,10 +3,7 @@ import TSCBasic
 /// Abstraction for functionality that allows working with subprocesses.
 public protocol ProcessProtocol {
   /// Launch a subprocess.
-  static func launchProcess(
-    arguments: [String],
-    environment: [String: String]
-  ) throws -> ProcessProtocol
+  static func launchProcess(arguments: [String]) throws -> ProcessProtocol
 
   /// The PID of the process.
   ///
@@ -23,9 +20,9 @@ public protocol ProcessProtocol {
 
 extension Process: ProcessProtocol {
   public static func launchProcess(
-    arguments: [String], environment: [String : String]
+    arguments: [String]
   ) throws -> ProcessProtocol {
-    let process = Process(arguments: arguments, environment: environment)
+    let process = Process(arguments: arguments)
     try process.launch()
     return process
   }
