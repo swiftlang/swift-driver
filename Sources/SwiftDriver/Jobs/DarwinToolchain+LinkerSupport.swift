@@ -26,7 +26,7 @@ extension DarwinToolchain {
     parsedOptions: inout ParsedOptions,
     targetTriple: Triple
   ) throws {
-    guard parsedOptions.hasArgument(.profile_generate) else { return }
+    guard parsedOptions.hasArgument(.profileGenerate) else { return }
     let clangPath = try clangLibraryPath(for: targetTriple,
                                          parsedOptions: &parsedOptions)
 
@@ -74,8 +74,8 @@ extension DarwinToolchain {
     targetTriple: Triple
   ) throws {
     guard parsedOptions.hasFlag(
-      positive: .link_objc_runtime,
-      negative: .no_link_objc_runtime,
+      positive: .linkObjcRuntime,
+      negative: .noLinkObjcRuntime,
       default: !targetTriple.supports(.compatibleObjCRuntime)
     ) else {
       return
@@ -157,7 +157,7 @@ extension DarwinToolchain {
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.append(
-        contentsOf: parsedOptions.filter { $0.option.group == .linker_option }
+        contentsOf: parsedOptions.filter { $0.option.group == .linkerOption }
       )
       try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
 
@@ -194,12 +194,12 @@ extension DarwinToolchain {
       commandLine.appendPath(try VirtualPath(path: sdkPath))
     }
 
-    if parsedOptions.contains(.embed_bitcode) ||
-      parsedOptions.contains(.embed_bitcode_marker) {
+    if parsedOptions.contains(.embedBitcode) ||
+      parsedOptions.contains(.embedBitcodeMarker) {
       commandLine.appendFlag("-bitcode_bundle")
     }
 
-    if parsedOptions.contains(.enable_app_extension) {
+    if parsedOptions.contains(.enableAppExtension) {
       commandLine.appendFlag("-application_extension")
     }
 

@@ -11,7 +11,7 @@ extension Toolchain {
   ) throws -> AbsolutePath {
     // FIXME: This almost certainly won't be an absolute path in practice...
     let resourceDirBase: AbsolutePath
-    if let resourceDir = parsedOptions.getLastArgument(.resource_dir) {
+    if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
       resourceDirBase = try AbsolutePath(validating: resourceDir.asSingle)
     } else if let sdk = parsedOptions.getLastArgument(.sdk), !triple.isDarwin {
       resourceDirBase = try AbsolutePath(validating: sdk.asSingle)
@@ -155,8 +155,8 @@ extension DarwinToolchain {
     /// Determines the appropriate rule for the
     init(parsedOptions: inout ParsedOptions, targetTriple: Triple) {
       if parsedOptions.hasFlag(
-        positive: .toolchain_stdlib_rpath,
-        negative: .no_toolchain_stdlib_rpath,
+        positive: .toolchainStdlibRpath,
+        negative: .noToolchainStdlibRpath,
         default: false
       ) {
         // If the user has explicitly asked for a toolchain stdlib, we should
@@ -169,7 +169,7 @@ extension DarwinToolchain {
         self = .toolchain
       }
       else if targetTriple.supports(.swiftInTheOS) ||
-          parsedOptions.hasArgument(.no_stdlib_rpath) {
+          parsedOptions.hasArgument(.noStdlibRpath) {
         // If targeting an OS with Swift in /usr/lib/swift, the LC_ID_DYLIB
         // install_name the stdlib will be an absolute path like
         // /usr/lib/swift/libswiftCore.dylib, and we do not need to provide an rpath

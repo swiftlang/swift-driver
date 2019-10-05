@@ -171,7 +171,7 @@ public struct Driver {
     self.toolchain = try Self.computeToolchain(self.targetTriple, diagnosticsEngine: diagnosticEngine)
 
     // Find the Swift compiler executable.
-    if let frontendPath = self.parsedOptions.getLastArgument(.driver_use_frontend_path) {
+    if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
       let frontendCommandLine = frontendPath.asSingle.split(separator: ";").map { String($0) }
       if frontendCommandLine.isEmpty {
         self.diagnosticEngine.emit(.error_no_swift_frontend)
@@ -186,7 +186,7 @@ public struct Driver {
     }
 
     // Compute the working directory.
-    workingDirectory = try parsedOptions.getLastArgument(.working_directory).map { workingDirectoryArg in
+    workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
       let cwd = localFileSystem.currentWorkingDirectory
       return try cwd.map{ AbsolutePath(workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
     }
@@ -201,7 +201,7 @@ public struct Driver {
     self.inputFiles = inputFiles
 
     // Initialize an empty output file map, which will be populated when we start creating jobs.
-    if let outputFileMapArg = parsedOptions.getLastArgument(.output_file_map)?.asSingle {
+    if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
       let path = try AbsolutePath(validating: outputFileMapArg)
       self.outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
     }
@@ -241,16 +241,16 @@ public struct Driver {
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
 
     // Supplemental outputs.
-    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emit_dependencies, outputPath: .emit_dependencies_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDeps, isOutput: .emit_reference_dependencies, outputPath: .emit_reference_dependencies_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .diagnostics, isOutput: .serialize_diagnostics, outputPath: .serialize_diagnostics_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emitDependencies, outputPath: .emitDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies, outputPath: .emitReferenceDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics, outputPath: .serializeDiagnosticsPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
     // FIXME: -fixits-output-path
-    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .objcHeader, isOutput: .emit_objc_header, outputPath: .emit_objc_header_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .moduleTrace, isOutput: .emit_loaded_module_trace, outputPath: .emit_loaded_module_trace_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.tbdPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .tbd, isOutput: .emit_tbd, outputPath: .emit_tbd_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader, outputPath: .emitObjcHeaderPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace, outputPath: .emitLoadedModuleTracePath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.tbdPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .tbd, isOutput: .emitTbd, outputPath: .emitTbdPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
     self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(&parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emit_module_interface, outputPath: .emit_module_interface_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .save_optimization_record, outputPath: .save_optimization_record_path, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface, outputPath: .emitModuleInterfacePath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .saveOptimizationRecord, outputPath: .saveOptimizationRecordPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
   }
 }
 
@@ -347,8 +347,8 @@ extension Driver {
       return try exec(path: swiftCompiler.pathString, args: ["swift"] + parsedOptions.commandLine)
     }
 
-    if parsedOptions.contains(.help) || parsedOptions.contains(.help_hidden) {
-      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: parsedOptions.contains(.help_hidden))
+    if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
+      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: parsedOptions.contains(.helpHidden))
       return
     }
 
@@ -357,7 +357,7 @@ extension Driver {
     if jobs.isEmpty { return }
 
     // If we're only supposed to print the jobs, do so now.
-    if parsedOptions.contains(.driver_print_jobs) {
+    if parsedOptions.contains(.driverPrintJobs) {
       for job in jobs {
         print(job)
       }
@@ -385,7 +385,7 @@ extension Driver {
     var mode: ToolExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
-    if parsedOptions.contains(.parseable_output) {
+    if parsedOptions.contains(.parseableOutput) {
       mode = .parsableOutput
     } else if parsedOptions.contains(.v) {
       mode = .verbose
@@ -418,10 +418,10 @@ extension Driver {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
-      case .emit_pch, .emit_imported_modules, .index_file:
+      case .emitPch, .emitImportedModules, .indexFile:
         return .singleCompile
 
-      case .repl, .deprecated_integrated_repl, .lldb_repl:
+      case .repl, .deprecatedIntegratedRepl, .lldbRepl:
         return .repl
 
       default:
@@ -434,7 +434,7 @@ extension Driver {
       return parsedOptions.hasAnyInput ? .immediate : .repl
     }
 
-    let requiresSingleCompile = parsedOptions.contains(.whole_module_optimization)
+    let requiresSingleCompile = parsedOptions.contains(.wholeModuleOptimization)
 
     // FIXME: Handle -enable-batch-mode and -disable-batch-mode flags.
 
@@ -519,73 +519,73 @@ extension Driver {
 
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
-      case .emit_executable:
+      case .emitExecutable:
         if parsedOptions.contains(.static) {
           diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
         }
         linkerOutputType = .executable
         compilerOutputType = .object
 
-      case .emit_library:
+      case .emitLibrary:
         linkerOutputType = parsedOptions.hasArgument(.static) ? .staticLibrary : .dynamicLibrary
         compilerOutputType = .object
 
-      case .emit_object, .c:
+      case .emitObject, .c:
         compilerOutputType = .object
 
-      case .emit_assembly:
+      case .emitAssembly:
         compilerOutputType = .assembly
 
-      case .emit_sil:
+      case .emitSil:
         compilerOutputType = .sil
 
-      case .emit_silgen:
+      case .emitSilgen:
         compilerOutputType = .raw_sil
 
-      case .emit_sib:
+      case .emitSib:
         compilerOutputType = .sib
 
-      case .emit_sibgen:
+      case .emitSibgen:
         compilerOutputType = .raw_sib
 
-      case .emit_ir:
+      case .emitIr:
         compilerOutputType = .llvmIR
 
-      case .emit_bc:
+      case .emitBc:
         compilerOutputType = .llvmBitcode
 
-      case .dump_ast:
+      case .dumpAst:
         compilerOutputType = .ast
 
-      case .emit_pch:
+      case .emitPch:
         compilerOutputType = .pch
 
-      case .emit_imported_modules:
+      case .emitImportedModules:
         compilerOutputType = .importedModules
 
-      case .index_file:
+      case .indexFile:
         compilerOutputType = .indexData
 
-      case .update_code:
+      case .updateCode:
         compilerOutputType = .remap
         linkerOutputType = nil
 
-      case .parse, .resolve_imports, .typecheck, .dump_parse, .emit_syntax,
-           .print_ast, .dump_type_refinement_contexts, .dump_scope_maps,
-           .dump_interface_hash, .dump_type_info, .verify_debug_info:
+      case .parse, .resolveImports, .typecheck, .dumpParse, .emitSyntax,
+           .printAst, .dumpTypeRefinementContexts, .dumpScopeMaps,
+           .dumpInterfaceHash, .dumpTypeInfo, .verifyDebugInfo:
         compilerOutputType = nil
 
       case .i:
         // FIXME: diagnose this
         break
 
-      case .repl, .deprecated_integrated_repl, .lldb_repl:
+      case .repl, .deprecatedIntegratedRepl, .lldbRepl:
         compilerOutputType = nil
 
       default:
         fatalError("unhandled output mode option \(outputOption)")
       }
-    } else if (parsedOptions.hasArgument(.emit_module, .emit_module_path)) {
+    } else if (parsedOptions.hasArgument(.emitModule, .emitModulePath)) {
       compilerOutputType = .swiftModule
     } else if (driverKind != .interactive) {
       linkerOutputType = .executable
@@ -603,13 +603,13 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode, diagnosticsEngine: DiagnosticsEngine
   ) -> Int {
-    guard let numThreadsArg = parsedOptions.getLastArgument(.num_threads) else {
+    guard let numThreadsArg = parsedOptions.getLastArgument(.numThreads) else {
       return 0
     }
 
     // Make sure we have a non-negative integer value.
     guard let numThreads = Int(numThreadsArg.asSingle), numThreads >= 0 else {
-      diagnosticsEngine.emit(Diagnostic.Message.error_invalid_arg_value(arg: .num_threads, value: numThreadsArg.asSingle))
+      diagnosticsEngine.emit(Diagnostic.Message.error_invalid_arg_value(arg: .numThreads, value: numThreadsArg.asSingle))
       return 0
     }
 
@@ -636,10 +636,10 @@ extension Driver {
       case .g:
         level = .astTypes
 
-      case .gline_tables_only:
+      case .glineTablesOnly:
         level = .lineTables
 
-      case .gdwarf_types:
+      case .gdwarfTypes:
         level = .dwarfTypes
 
       case .gnone:
@@ -654,16 +654,16 @@ extension Driver {
 
     // Determine the debug info format.
     let format: DebugInfoFormat
-    if let formatArg = parsedOptions.getLastArgument(.debug_info_format) {
+    if let formatArg = parsedOptions.getLastArgument(.debugInfoFormat) {
       if let parsedFormat = DebugInfoFormat(rawValue: formatArg.asSingle) {
         format = parsedFormat
       } else {
-        diagnosticsEngine.emit(.error_invalid_arg_value(arg: .debug_info_format, value: formatArg.asSingle))
+        diagnosticsEngine.emit(.error_invalid_arg_value(arg: .debugInfoFormat, value: formatArg.asSingle))
         format = .dwarf
       }
 
       if !parsedOptions.contains(in: .g) {
-        diagnosticsEngine.emit(.error_option_missing_required_argument(option: .debug_info_format, requiredArg: .g))
+        diagnosticsEngine.emit(.error_option_missing_required_argument(option: .debugInfoFormat, requiredArg: .g))
       }
     } else {
       // Default to DWARF.
@@ -722,7 +722,7 @@ extension Driver {
       break
     }
 
-    if parsedOptions.hasArgument(.parse_as_library, .parse_stdlib) {
+    if parsedOptions.hasArgument(.parseAsLibrary, .parseStdlib) {
       return false
     }
 
@@ -745,7 +745,7 @@ extension Driver {
     }
 
     var moduleOutputKind: ModuleOutputKind?
-    if parsedOptions.hasArgument(.emit_module, .emit_module_path) {
+    if parsedOptions.hasArgument(.emitModule, .emitModulePath) {
       // The user has requested a module, so generate one and treat it as
       // top-level output.
       moduleOutputKind = .topLevel
@@ -754,8 +754,8 @@ extension Driver {
       // requested one. Generate a module, but treat it as an intermediate output.
       moduleOutputKind = .auxiliary
     } else if (compilerMode != .singleCompile &&
-               parsedOptions.hasArgument(.emit_objc_header, .emit_objc_header_path,
-                                         .emit_module_interface, .emit_module_interface_path)) {
+      parsedOptions.hasArgument(.emitObjcHeader, .emitObjcHeaderPath,
+                                .emitModuleInterface, .emitModuleInterfacePath)) {
       // An option has been passed which requires whole-module knowledge, but we
       // don't have that. Generate a module, but treat it as an intermediate
       // output.
@@ -773,7 +773,7 @@ extension Driver {
 
     // Determine the name of the module.
     var moduleName: String
-    if let arg = parsedOptions.getLastArgument(.module_name) {
+    if let arg = parsedOptions.getLastArgument(.moduleName) {
       moduleName = arg.asSingle
     } else if compilerMode == .repl {
       // REPL mode should always use the REPL module.
@@ -799,10 +799,10 @@ extension Driver {
     }
 
     if !moduleName.isSwiftIdentifier {
-      diagnosticsEngine.emit(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.module_name)))
+      diagnosticsEngine.emit(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
       moduleName = "__bad__"
-    } else if moduleName == "Swift" && !parsedOptions.contains(.parse_stdlib) {
-      diagnosticsEngine.emit(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.module_name)))
+    } else if moduleName == "Swift" && !parsedOptions.contains(.parseStdlib) {
+      diagnosticsEngine.emit(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
       moduleName = "__bad__"
     }
 
@@ -816,7 +816,7 @@ extension Driver {
 
     // FIXME: Look in the output file map. It looks like it is weirdly
     // anchored to the first input?
-    if let modulePathArg = parsedOptions.getLastArgument(.emit_module_path) {
+    if let modulePathArg = parsedOptions.getLastArgument(.emitModulePath) {
       // The module path was specified.
       moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
     } else if moduleOutputKind == .topLevel {
@@ -892,16 +892,16 @@ extension Driver {
 extension Driver {
   /// Compute the path of the imported Objective-C header.
   static func computeImportedObjCHeader(_ parsedOptions: inout ParsedOptions, compilerMode: CompilerMode, diagnosticEngine: DiagnosticsEngine) throws -> VirtualPath? {
-    guard let objcHeaderPathArg = parsedOptions.getLastArgument(.import_objc_header) else {
+    guard let objcHeaderPathArg = parsedOptions.getLastArgument(.importObjcHeader) else {
       return nil
     }
 
     // Check for conflicting options.
-    if parsedOptions.hasArgument(.import_underlying_module) {
+    if parsedOptions.hasArgument(.importUnderlyingModule) {
       diagnosticEngine.emit(.error_framework_bridging_header)
     }
 
-    if parsedOptions.hasArgument(.emit_module_interface, .emit_module_interface_path) {
+    if parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath) {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
@@ -997,9 +997,9 @@ extension Driver {
     // FIXME: Do we need to check the output file map?
 
     // If there is an explicit argument for the output path, use that
-    if let outputPathArg = parsedOptions.getLastArgument(.emit_module_doc_path) {
+    if let outputPathArg = parsedOptions.getLastArgument(.emitModuleDocPath) {
       // Consume -emit-module-doc if it's there.
-      _ = parsedOptions.hasArgument(.emit_module_doc)
+      _ = parsedOptions.hasArgument(.emitModuleDoc)
 
       return try VirtualPath(path: outputPathArg.asSingle)
     }
@@ -1008,13 +1008,13 @@ extension Driver {
     // to it.
     if let moduleOutputPath = moduleOutputPath {
       // Consume -emit-module-doc if it's there.
-      _ = parsedOptions.hasArgument(.emit_module_doc)
+      _ = parsedOptions.hasArgument(.emitModuleDoc)
 
       return try moduleOutputPath.replacingExtension(with: .swiftDocumentation)
     }
 
     // If not specifically asked to emit Swift module documentation, don't.
-    if !parsedOptions.hasArgument(.emit_module_doc) {
+    if !parsedOptions.hasArgument(.emitModuleDoc) {
       return nil
     }
 

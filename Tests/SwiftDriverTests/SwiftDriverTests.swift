@@ -439,7 +439,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[2].outputs.count, 2)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+      XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
     }
 
     do {
@@ -449,8 +449,19 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[2].outputs.count, 2)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
+      XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
+    }
+
+    do {
+      // Make sure the swiftdoc path is correct for an inferred module
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-doc", "-emit-module"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
+      XCTAssertEqual(plannedJobs[2].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
+      XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
     }
 
   }
