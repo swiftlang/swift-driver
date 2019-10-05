@@ -48,6 +48,8 @@ public final class GenericUnixToolchain: Toolchain {
       return try lookup(exec: "clang")
     case .swiftAutolinkExtract:
       return try lookup(exec: "swift-autolink-extract")
+    case .dsymutil:
+      return try lookup(exec: "dsymutil")
     }
   }
 
