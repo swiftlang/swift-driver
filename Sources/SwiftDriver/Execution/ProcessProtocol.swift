@@ -2,34 +2,31 @@ import TSCBasic
 
 /// Abstraction for functionality that allows working with subprocesses.
 public protocol ProcessProtocol {
-  /// Initialize a new process.
-  init(arguments: [String], environment: [String: String])
+  /// Launch a subprocess.
+  static func launchProcess(
+    arguments: [String],
+    environment: [String: String]
+  ) throws -> ProcessProtocol
 
-  /// Launch the process.
+  /// The PID of the process.
   ///
-  /// The process should have a valid PID if the launch is successful. This
-  /// doesn't wait for the process to finish. It is illegal to call this method
-  /// multiple times.
-  func launch() throws
+  /// Clients that don't really launch a process can return
+  /// a negative number to represent a "quasi-pid".
+  ///
+  /// - SeeAlso: https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst#quasi-pids
+  var processID: Process.ProcessID { get }
 
   /// Wait for the process to finish execution.
   @discardableResult
   func waitUntilExit() throws -> ProcessResult
-
-  /// The process ID of the process.
-  ///
-  /// This will be populated once the process has launched.
-  var processID: Process.ProcessID { get }
 }
 
 extension Process: ProcessProtocol {
-  public convenience init(arguments: [String], environment: [String : String]) {
-    self.init(
-      arguments: arguments,
-      environment: environment,
-      outputRedirection: .collect,
-      verbose: false,
-      startNewProcessGroup: true
-    )
+  public static func launchProcess(
+    arguments: [String], environment: [String : String]
+  ) throws -> ProcessProtocol {
+    let process = Process(arguments: arguments, environment: environment)
+    try process.launch()
+    return process
   }
 }
