@@ -152,7 +152,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testStandardCompileJobs() throws {
-    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
+    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15"])
     let plannedJobs = try driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(plannedJobs[0].outputs.count, 1)
@@ -164,7 +164,8 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
-    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", "x64_64-apple-macosx10.14", "-g"])
+    let hostTriple = try Triple.hostTargetTriple.get()
+    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", hostTriple.triple, "-g"])
     let plannedJobs2 = try driver2.planBuild()
     XCTAssert(plannedJobs2[0].commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: "/tmp/diff.txt")))))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-HI")))
@@ -172,7 +173,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-no-color-diagnostics")))
     XCTAssert(!plannedJobs2[0].commandLine.contains(.flag("-color-diagnostics")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-target")))
-    XCTAssert(plannedJobs2[0].commandLine.contains(.flag("x64_64-apple-macosx10.14")))
+    XCTAssert(plannedJobs2[0].commandLine.contains(.flag(hostTriple.triple)))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-enable-anonymous-context-mangled-names")))
 
     var driver3 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-module-name", "Test"])
@@ -280,7 +281,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Xlinker flags
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w"])
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -302,7 +303,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // static linking
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w"])
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
@@ -330,7 +331,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // executable linking
-      var driver = try Driver(args: commonArgs + ["-emit-executable"])
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(3, plannedJobs.count)
       XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
