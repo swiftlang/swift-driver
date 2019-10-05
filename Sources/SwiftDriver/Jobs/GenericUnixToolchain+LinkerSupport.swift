@@ -141,7 +141,7 @@ extension GenericUnixToolchain {
 
       let swiftrtPath = sharedResourceDirPath
         .appending(
-          components: majorArchitectureName(for: targetTriple), "swiftrt.o"
+          components: String(majorArchitectureName(for: targetTriple)), "swiftrt.o"
         )
       commandLine.appendPath(swiftrtPath)
 

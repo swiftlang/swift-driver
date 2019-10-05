@@ -13,7 +13,7 @@ extension Toolchain {
     let resourceDirBase: AbsolutePath
     if let resourceDir = parsedOptions.getLastArgument(.resource_dir) {
       resourceDirBase = try AbsolutePath(validating: resourceDir.asSingle)
-    } else if let sdk = parsedOptions.getLastArgument(.sdk), !triple.os.isDarwin {
+    } else if let sdk = parsedOptions.getLastArgument(.sdk), !triple.isDarwin {
       resourceDirBase = try AbsolutePath(validating: sdk.asSingle)
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
@@ -35,7 +35,7 @@ extension Toolchain {
                                       isShared: true)
       .parentDirectory // Remove platform name.
       .appending(components: "clang", "lib",
-                 triple.os.isDarwin ? "darwin" : triple.platformName!)
+                 triple.isDarwin ? "darwin" : triple.platformName!)
   }
 
   func runtimeLibraryPaths(
@@ -52,9 +52,11 @@ extension Toolchain {
 
     return result
   }
+}
 
-  // MARK: - Common argument routines
+// MARK: - Common argument routines
 
+extension DarwinToolchain {
     func addArgsToLinkStdlib(
       to commandLine: inout [Job.ArgTemplate],
       parsedOptions: inout ParsedOptions,
@@ -125,10 +127,38 @@ extension Toolchain {
         commandLine.appendFlag(.L)
         commandLine.appendPath(path)
       }
+      
+      let rpaths = StdlibRpathRule(
+        parsedOptions: &parsedOptions,
+        targetTriple: targetTriple
+      )
+      for path in rpaths.paths(runtimeLibraryPaths: runtimePaths) {
+        commandLine.appendFlag("-rpath")
+        commandLine.appendPath(path)
+      }
+    }
+  
+  /// Represents the rpaths we need to add in order to find the
+  /// desired standard library at runtime.
+  fileprivate enum StdlibRpathRule {
+    /// Add a set of rpaths that will allow the compiler resource directory
+    /// to override Swift-in-the-OS dylibs.
+    case toolchain
+    
+    /// Add an rpath that will search Swift-in-the-OS dylibs, but not
+    /// compiler resource directory dylibs.
+    case os
 
-      if parsedOptions.hasFlag(positive: .toolchain_stdlib_rpath,
-                               negative: .no_toolchain_stdlib_rpath,
-                               default: false) {
+    /// Do not add any rpaths at all.
+    case none
+    
+    /// Determines the appropriate rule for the
+    init(parsedOptions: inout ParsedOptions, targetTriple: Triple) {
+      if parsedOptions.hasFlag(
+        positive: .toolchain_stdlib_rpath,
+        negative: .no_toolchain_stdlib_rpath,
+        default: false
+      ) {
         // If the user has explicitly asked for a toolchain stdlib, we should
         // provide one using -rpath. This used to be the default behaviour but it
         // was considered annoying in at least the SwiftPM scenario (see
@@ -136,11 +166,10 @@ extension Toolchain {
         // of deploying for Swift-in-the-OS. We keep it here as an optional
         // behaviour so that people downloading snapshot toolchains for testing new
         // stdlibs will be able to link to the stdlib bundled in that toolchain.
-        for path in runtimePaths {
-          commandLine.appendFlag("-rpath")
-          commandLine.appendPath(path)
-        }
-      } else if !targetTriple.requiresRPathForSwiftInTheOS || parsedOptions.hasArgument(.no_stdlib_rpath) {
+        self = .toolchain
+      }
+      else if targetTriple.supports(.swiftInTheOS) ||
+          parsedOptions.hasArgument(.no_stdlib_rpath) {
         // If targeting an OS with Swift in /usr/lib/swift, the LC_ID_DYLIB
         // install_name the stdlib will be an absolute path like
         // /usr/lib/swift/libswiftCore.dylib, and we do not need to provide an rpath
@@ -148,7 +177,9 @@ extension Toolchain {
         //
         // Also, if the user explicitly asks for no rpath entry, we assume they know
         // what they're doing and do not add one here.
-      } else {
+        self = .none
+      }
+      else {
         // The remaining cases are back-deploying (to OSs predating
         // Swift-in-the-OS). In these cases, the stdlib will be giving us (via
         // stdlib/linker-support/magic-symbols-for-install-name.c) an LC_ID_DYLIB
@@ -165,9 +196,20 @@ extension Toolchain {
         // Swift-in-OS libraries in the /usr/lib/swift location. That's the best we
         // can give for rpath, though it might fail at runtime if the support
         // package isn't installed.
-        commandLine.appendFlag("-rpath")
-        commandLine.appendPath(.absolute(AbsolutePath("/usr/lib/swift")))
+        self = .os
       }
     }
+    
+    func paths(runtimeLibraryPaths: [AbsolutePath]) -> [AbsolutePath] {
+      switch self {
+      case .toolchain:
+        return runtimeLibraryPaths
+      case .os:
+        return [AbsolutePath("/usr/lib/swift")]
+      case .none:
+        return []
+      }
+    }
+  }
 
 }

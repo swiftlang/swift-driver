@@ -33,7 +33,7 @@ extension Driver {
     }
 
     // Enable or disable ObjC interop appropriately for the platform
-    if (targetTriple.os.isDarwin) {
+    if targetTriple.isDarwin {
       commandLine.appendFlag(.enable_objc_interop)
     } else {
       commandLine.appendFlag(.disable_objc_interop)

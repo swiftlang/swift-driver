@@ -30,30 +30,10 @@ extension DarwinToolchain {
     let clangPath = try clangLibraryPath(for: targetTriple,
                                          parsedOptions: &parsedOptions)
 
-    let runtime: String
-    if targetTriple.os.isiOS {
-      runtime = targetTriple.os.isTvOS ? "tvos" : "ios"
-    } else if targetTriple.os.isWatchOS {
-      runtime = "watchos"
-    } else {
-      assert(targetTriple.os.isMacOSX)
-      runtime = "osx"
-    }
+    let runtime = targetTriple.darwinLibraryNameSuffix(distinguishSimulator: true)!
 
-    var sim = ""
-    if targetTriple.isSimulatorEnvironment {
-      sim = "sim"
-    }
-
-    var clangRTPath = clangPath
-      .appending(component: "libclang_rt.profile_\(runtime)\(sim).a")
-
-    // FIXME: Continue accepting the old path for simulator libraries for now.
-    if targetTriple.isSimulatorEnvironment &&
-      !localFileSystem.exists(clangRTPath) {
-      clangRTPath = clangRTPath.parentDirectory
-        .appending(component: "libclang_rt.profile_\(runtime).a")
-    }
+    let clangRTPath = clangPath
+      .appending(component: "libclang_rt.profile_\(runtime).a")
 
     commandLine.appendPath(clangRTPath)
   }
@@ -63,63 +43,41 @@ extension DarwinToolchain {
     targetTriple: Triple
   ) {
     // FIXME: Properly handle deployment targets.
-    assert(targetTriple.os.isiOS || targetTriple.os.isWatchOS || targetTriple.os.isMacOSX)
-
-    if (targetTriple.os.isiOS) {
-      if (targetTriple.os.isTvOS) {
-        if targetTriple.isSimulatorEnvironment {
-          commandLine.appendFlag("-tvos_simulator_version_min")
-        } else {
-          commandLine.appendFlag("-tvos_version_min")
-        }
-      } else {
-        if targetTriple.isSimulatorEnvironment {
-          commandLine.appendFlag("-ios_simulator_version_min")
-        } else {
-          commandLine.appendFlag("-iphoneos_version_min")
-        }
-      }
-      commandLine.appendFlag(targetTriple.iOSVersion().description)
-    } else if targetTriple.os.isWatchOS {
-      if targetTriple.isSimulatorEnvironment {
-        commandLine.appendFlag("-watchos_simulator_version_min")
-      } else {
-        commandLine.appendFlag("-watchos_version_min")
-      }
-      commandLine.appendFlag(targetTriple.watchOSVersion().description)
-    } else {
-      commandLine.appendFlag("-macosx_version_min")
-      commandLine.appendFlag(targetTriple.getMacOSXVersion().1.description)
+    
+    let darwinPlatform = targetTriple.darwinPlatform!
+    let flag: String
+    
+    switch darwinPlatform {
+    case .iOS(.device):
+      flag = "-iphoneos_version_min"
+    case .iOS(.simulator):
+      flag = "-ios_simulator_version_min"
+    case .macOS:
+      flag = "-macosx_version_min"
+    case .tvOS(.device):
+      flag = "-tvos_version_min"
+    case .tvOS(.simulator):
+      flag = "-tvos_simulator_version_min"
+    case .watchOS(.device):
+      flag = "-watchos_version_min"
+    case .watchOS(.simulator):
+      flag = "-watchos_simulator_version_min"
     }
+    
+    commandLine.appendFlag(flag)
+    commandLine.appendFlag(targetTriple.version(for: darwinPlatform).description)
   }
-
-  /// Returns true if the compiler depends on features provided by the ObjC
-  /// runtime that are not present on the deployment target indicated by
-  /// `triple`.
-  private func wantsObjCRuntime(triple: Triple) -> Bool {
-    // When updating the versions listed here, please record the most recent
-    // feature being depended on and when it was introduced:
-    //
-    // - Make assigning 'nil' to an NSMutableDictionary subscript delete the
-    //   entry, like it does for Swift.Dictionary, rather than trap.
-    if triple.os.isiOS {
-      return triple.iOSVersion() < Triple.Version(9, 0, 0)
-    } else if triple.os.isMacOSX {
-      return triple.getMacOSXVersion().1 < Triple.Version(10, 11, 0)
-    } else if triple.os.isWatchOS {
-      return false
-    }
-    fatalError("unknown Darwin OS")
-  }
-
+  
   private func addArgsToLinkARCLite(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
     targetTriple: Triple
   ) throws {
-    if !parsedOptions.hasFlag(positive: .link_objc_runtime,
-                              negative: .no_link_objc_runtime,
-                              default: wantsObjCRuntime(triple: targetTriple)) {
+    guard parsedOptions.hasFlag(
+      positive: .link_objc_runtime,
+      negative: .no_link_objc_runtime,
+      default: !targetTriple.supports(.compatibleObjCRuntime)
+    ) else {
       return
     }
 

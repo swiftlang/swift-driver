@@ -164,7 +164,7 @@ public struct Driver {
     self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
 
     if let targetTriple = self.parsedOptions.getLastArgument(.target)?.asSingle {
-      self.targetTriple = Triple(targetTriple)
+      self.targetTriple = Triple(targetTriple, normalizing: true)
     } else {
       self.targetTriple = try Triple.hostTargetTriple.get()
     }

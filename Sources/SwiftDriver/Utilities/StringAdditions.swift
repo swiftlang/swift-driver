@@ -7,3 +7,14 @@ extension String {
     return spm_mangledToC99ExtendedIdentifier() == self
   }
 }
+
+extension DefaultStringInterpolation {
+  /// Interpolates either the provided `value`, or if it is `nil`, the
+  /// `defaultValue`.
+  mutating func appendInterpolation<T>(_ value: T?, or defaultValue: String) {
+    guard let value = value else {
+      return appendInterpolation(defaultValue)
+    }
+    appendInterpolation(value)
+  }
+}

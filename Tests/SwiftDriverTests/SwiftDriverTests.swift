@@ -455,6 +455,28 @@ final class SwiftDriverTests: XCTestCase {
 
   }
 
+  func testTargetTriple() throws {
+    let driver1 = try Driver(args: ["swiftc", "-c", "foo.swift", "-module-name", "Foo"])
+
+    let expectedDefaultContents: String
+    #if os(macOS)
+    expectedDefaultContents = "x86_64-apple-darwin"
+    #elseif os(Linux)
+    expectedDefaultContents = "-unknown-linux"
+    #else
+    expectedDefaultContents = "-"
+    #endif
+
+    XCTAssert(driver1.targetTriple.triple.contains(expectedDefaultContents),
+              "Default triple \(driver1.targetTriple) contains \(expectedDefaultContents)")
+
+    let driver2 = try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-watchos12", "foo.swift", "-module-name", "Foo"])
+    XCTAssertEqual(driver2.targetTriple.triple, "x86_64-apple-watchos12")
+
+    let driver3 = try Driver(args: ["swiftc", "-c", "-target", "x86_64-watchos12", "foo.swift", "-module-name", "Foo"])
+    XCTAssertEqual(driver3.targetTriple.triple, "x86_64-unknown-watchos12")
+  }
+
   func testDSYMGeneration() throws {
     let commonArgs = [
       "swiftc", "-target", "x86_64-apple-macosx",

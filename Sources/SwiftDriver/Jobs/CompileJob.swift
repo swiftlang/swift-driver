@@ -142,8 +142,8 @@ extension Array where Element == Job.ArgTemplate {
   ///
   /// When possible, use the more semantic forms `appendFlag` or
   /// `append(_: Option)`.
-  mutating func appendFlag(_ string: String) {
-    append(.flag(string))
+  mutating func appendFlag<StringType: StringProtocol>(_ string: StringType) {
+    append(.flag(String(string)))
   }
 
   /// Append multiple flags to the command line arguments.
