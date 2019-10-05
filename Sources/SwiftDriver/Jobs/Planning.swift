@@ -23,6 +23,11 @@ extension Driver {
       }
     }
 
+    // If we should create emit module job, do so.
+    if shouldCreateEmitModuleJob {
+      jobs.append(try emitModuleJob())
+    }
+
     for input in inputFiles {
       switch input.type {
       case .swift, .sil, .sib:

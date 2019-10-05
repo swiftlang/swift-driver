@@ -128,6 +128,11 @@ public struct Driver {
   /// Path to the optimization record.
   public let optimizationRecordPath: VirtualPath?
 
+  /// If the driver should force emit module in a single invocation.
+  ///
+  /// This will force the driver to first emit the module and then run compile jobs.
+  public var forceEmitModuleInSingleInvocation: Bool = false
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream
