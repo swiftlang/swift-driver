@@ -21,18 +21,16 @@ public struct OutputFileMap {
     switch inputFile {
     case .absolute(let path):
       baseName = path.basenameWithoutExt
-    case .relative(let path):
+    case .relative(let path), .temporary(let path):
       baseName = path.basenameWithoutExt
     case .standardInput:
       baseName = ""
     case .standardOutput:
       fatalError("Standard output cannot be an input file")
-    case .temporary(let name):
-      baseName = name
     }
 
     // Form the virtual path.
-    return .temporary(baseName.appendingFileTypeExtension(outputType))
+    return .temporary(RelativePath(baseName.appendingFileTypeExtension(outputType)))
   }
 
   public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {
