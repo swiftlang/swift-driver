@@ -438,4 +438,46 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs2[2].outputs[1].file, VirtualPath.absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
 
   }
+
+  func testDSYMGeneration() throws {
+    let commonArgs = [
+      "swiftc", "-target", "x86_64-apple-macosx",
+      "foo.swift", "bar.swift", "-emit-executable",
+      "-module-name", "Test"
+    ]
+
+    do {
+      // No dSYM generation (no -g)
+      var driver = try Driver(args: commonArgs)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .generateDSYM })
+    }
+
+    do {
+      // No dSYM generation (-gnone)
+      var driver = try Driver(args: commonArgs + ["-gnone"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .generateDSYM })
+    }
+
+    do {
+      // dSYM generation (-g)
+      var driver = try Driver(args: commonArgs + ["-g"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 5)
+      let generateDSYMJob = plannedJobs.last!
+      XCTAssertEqual(generateDSYMJob.kind, .generateDSYM)
+
+      XCTAssertEqual(generateDSYMJob.outputs.last?.file, .temporary("foo.dSYM"))
+
+      let cmd = generateDSYMJob.commandLine
+      XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
+      XCTAssertTrue(cmd.contains(.path(.temporary("bar.o"))))
+    }
+  }
 }

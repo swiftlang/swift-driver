@@ -6,6 +6,7 @@ public enum Tool {
   case dynamicLinker
   case clang
   case swiftAutolinkExtract
+  case dsymutil
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers

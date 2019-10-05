@@ -70,10 +70,16 @@ extension Driver {
     }
 
     // If we should link, do so.
+    var link: Job?
     if linkerOutputType != nil && !linkerInputs.isEmpty {
-      jobs.append(try linkJob(inputs: linkerInputs))
+      link = try linkJob(inputs: linkerInputs)
+      jobs.append(link!)
     }
 
+    // If we should generate a dSYM, do so.
+    if let linkJob = link, targetTriple.os.isDarwin, debugInfoLevel != nil {
+      jobs.append(try generateDSYMJob(inputs: linkJob.outputs))
+    }
 
     // FIXME: Lots of follow-up actions for merging modules, etc.
 

@@ -23,6 +23,9 @@ public final class DarwinToolchain: Toolchain {
     case .staticLinker:
       return try xcrunFind(exec: "libtool")
 
+    case .dsymutil:
+      return try xcrunFind(exec: "dsymutil")
+
     case .clang:
       let result = try Process.checkNonZeroExit(
         arguments: ["xcrun", "-toolchain", "default", "-f", "clang"]
