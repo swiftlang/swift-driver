@@ -473,11 +473,10 @@ final class SwiftDriverTests: XCTestCase {
       let generateDSYMJob = plannedJobs.last!
       XCTAssertEqual(generateDSYMJob.kind, .generateDSYM)
 
-      XCTAssertEqual(generateDSYMJob.outputs.last?.file, .temporary("foo.dSYM"))
+      XCTAssertEqual(generateDSYMJob.outputs.last?.file, try VirtualPath(path: "Test.dSYM"))
 
       let cmd = generateDSYMJob.commandLine
-      XCTAssertTrue(cmd.contains(.path(.temporary("foo.o"))))
-      XCTAssertTrue(cmd.contains(.path(.temporary("bar.o"))))
+      XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test"))))
     }
   }
 }
