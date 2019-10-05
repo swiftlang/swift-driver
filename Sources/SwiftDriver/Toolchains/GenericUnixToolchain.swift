@@ -17,7 +17,14 @@ public final class GenericUnixToolchain: Toolchain {
       return path
     }
 
+    // If we happen to be on a macOS host, some tools might not be in our
+    // PATH, so we'll just use xcrun to find them too.
+    #if os(macOS)
+    return try xcrunFind(exec: exec)
+    #else
     throw Error.unableToFind(tool: exec)
+    #endif
+
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -39,6 +46,8 @@ public final class GenericUnixToolchain: Toolchain {
       return try lookup(exec: "clang")
     case .clang:
       return try lookup(exec: "clang")
+    case .swiftAutolinkExtract:
+      return try lookup(exec: "swift-autolink-extract")
     }
   }
 

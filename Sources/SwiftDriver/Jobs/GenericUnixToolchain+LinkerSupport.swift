@@ -145,7 +145,14 @@ extension GenericUnixToolchain {
         )
       commandLine.appendPath(swiftrtPath)
 
-      commandLine.append(contentsOf: inputs.map { .path($0.file) })
+      let inputFiles: [Job.ArgTemplate] = inputs.map { input in
+        // Autolink inputs are handled specially
+        if input.type == .autolink {
+          return .flag("@\(input.file.name)")
+        }
+        return .path(input.file)
+      }
+      commandLine.append(contentsOf: inputFiles)
 
       let fSystemArgs = parsedOptions.filter {
         $0.option == .F || $0.option == .Fsystem
@@ -163,14 +170,6 @@ extension GenericUnixToolchain {
         commandLine.appendFlag("--sysroot")
         commandLine.appendFlag(path)
       }
-
-      // FIXME: Add any autolinking scripts to the arguments
-//      for (const Job *Cmd : context.Inputs) {
-//        auto &OutputInfo = Cmd->getOutput()
-//        if (OutputInfo.getPrimaryOutputType() == file_types::TY_AutolinkFile)
-//        Arguments.push_back(context.Args.MakeArgString(
-//        Twine("@") + OutputInfo.getPrimaryOutputFilename()))
-//      }
 
       // Add the runtime library link paths.
       for path in runtimePaths {

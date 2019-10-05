@@ -7,6 +7,7 @@ public struct Job: Codable, Equatable {
     case mergeModule = "merge-module"
     case link
     case generateDSYM = "generate-dsym"
+    case autolinkExtract = "autolink-extract"
   }
 
   public enum ArgTemplate: Equatable {

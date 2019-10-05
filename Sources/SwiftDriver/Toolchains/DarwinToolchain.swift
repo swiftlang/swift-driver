@@ -1,5 +1,12 @@
 import TSCBasic
 
+/// Utility function to lookup an executable using xcrun.
+func xcrunFind(exec: String) throws -> AbsolutePath {
+  let path = try Process.checkNonZeroExit(
+    arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
+  return AbsolutePath(path)
+}
+
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
@@ -21,6 +28,8 @@ public final class DarwinToolchain: Toolchain {
         arguments: ["xcrun", "-toolchain", "default", "-f", "clang"]
       ).spm_chomp()
       return AbsolutePath(result)
+    case .swiftAutolinkExtract:
+      return try xcrunFind(exec: "swift-autolink-extract")
     }
   }
 
@@ -55,13 +64,6 @@ public final class DarwinToolchain: Toolchain {
     case .dynamicLibrary: return "lib\(moduleName).dylib"
     case .staticLibrary: return "lib\(moduleName).a"
     }
-  }
-
-  /// Utility function to lookup an executable using xcrun.
-  private func xcrunFind(exec: String) throws -> AbsolutePath {
-    let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
-    return AbsolutePath(path)
   }
 
   public var compatibility50: Result<AbsolutePath, Error> {
