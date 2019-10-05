@@ -2,9 +2,14 @@ import TSCBasic
 
 /// Utility function to lookup an executable using xcrun.
 func xcrunFind(exec: String) throws -> AbsolutePath {
+#if os(macOS)
   let path = try Process.checkNonZeroExit(
     arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
   return AbsolutePath(path)
+#else
+  // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
+  return AbsolutePath("/usr/bin/" + exec)
+#endif
 }
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
