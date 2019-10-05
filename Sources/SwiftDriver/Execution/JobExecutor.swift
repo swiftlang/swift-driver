@@ -75,10 +75,19 @@ public final class JobExecutor {
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
 
-    init(argsResolver: ArgsResolver, producerMap: [VirtualPath: Job], executorDelegate: JobExecutorDelegate?) {
+    /// The process protocol that will be used during job execution.
+    let processProtocol: ProcessProtocol.Type
+
+    init(
+      argsResolver: ArgsResolver,
+      producerMap: [VirtualPath: Job],
+      executorDelegate: JobExecutorDelegate?,
+      processProtocol: ProcessProtocol.Type = Process.self
+    ) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
       self.executorDelegate = executorDelegate
+      self.processProtocol = processProtocol
     }
   }
 
@@ -91,10 +100,19 @@ public final class JobExecutor {
   /// The job executor delegate.
   let executorDelegate: JobExecutorDelegate?
 
-  public init(jobs: [Job], resolver: ArgsResolver, executorDelegate: JobExecutorDelegate? = nil) {
+  /// The process protocol that will be used during job execution.
+  let processProtocol: ProcessProtocol.Type
+
+  public init(
+    jobs: [Job],
+    resolver: ArgsResolver,
+    executorDelegate: JobExecutorDelegate? = nil,
+    processProtocol: ProcessProtocol.Type = Process.self
+  ) {
     self.jobs = jobs
     self.argsResolver = resolver
     self.executorDelegate = executorDelegate
+    self.processProtocol = processProtocol
   }
 
   /// Build the given output.
@@ -123,7 +141,12 @@ public final class JobExecutor {
       }
     }
 
-    return Context(argsResolver: argsResolver, producerMap: producerMap, executorDelegate: executorDelegate)
+    return Context(
+      argsResolver: argsResolver,
+      producerMap: producerMap,
+      executorDelegate: executorDelegate,
+      processProtocol: processProtocol
+    )
   }
 }
 
@@ -223,8 +246,8 @@ class ExecuteJobRule: LLBuildRule {
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
       let arguments = [tool] + commandLine
 
-      let process = Process(arguments: arguments)
-      try process.launch()
+      let process = try context.processProtocol.launchProcess(
+        arguments: arguments, environment: ProcessEnv.vars)
       pid = Int(process.processID)
 
       // Inform the delegate.

@@ -11,10 +11,10 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
 
 class JobCollectingDelegate: JobExecutorDelegate {
   var started: [Job] = []
-  var finished: [Job] = []
+  var finished: [(Job, ProcessResult)] = []
 
   func jobFinished(job: Job, result: ProcessResult, pid: Int) {
-    finished.append(job)
+    finished.append((job, result))
   }
 
   func jobStarted(job: Job, arguments: [String], pid: Int) {
@@ -129,5 +129,44 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertFalse(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be removed from the temporary directory")
     }
 #endif
+  }
+
+  func testStubProcessProtocol() throws {
+    struct StubProcess: ProcessProtocol {
+      static func launchProcess(
+        arguments: [String], environment: [String : String]
+      ) throws -> ProcessProtocol {
+        return StubProcess()
+      }
+
+      var processID: TSCBasic.Process.ProcessID { .init(-1) }
+
+      func waitUntilExit() throws -> ProcessResult {
+        return ProcessResult(
+          arguments: [],
+          exitStatus: .terminated(code: 0),
+          output: Result.success(ByteString("test").contents),
+          stderrOutput: Result.success([])
+        )
+      }
+    }
+
+    let job = Job(
+      kind: .compile,
+      tool: .absolute(AbsolutePath("/usr/bin/swift")),
+      commandLine: [.flag("something")],
+      inputs: [],
+      outputs: [.init(file: .temporary("main"), type: .object)]
+    )
+
+    let delegate = JobCollectingDelegate()
+    let executor = JobExecutor(
+      jobs: [job], resolver: try ArgsResolver(),
+      executorDelegate: delegate,
+      processProtocol: StubProcess.self
+    )
+    try executor.build(.temporary("main"))
+
+    XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }
 }

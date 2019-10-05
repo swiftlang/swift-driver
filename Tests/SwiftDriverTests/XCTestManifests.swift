@@ -7,6 +7,7 @@ extension JobExecutorTests {
     // to regenerate.
     static let __allTests__JobExecutorTests = [
         ("testDarwinBasic", testDarwinBasic),
+        ("testStubProcessProtocol", testStubProcessProtocol),
     ]
 }
 
