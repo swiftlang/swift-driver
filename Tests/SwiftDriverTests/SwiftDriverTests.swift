@@ -683,4 +683,8 @@ final class SwiftDriverTests: XCTestCase {
     """)
   }
 
+  func testRegressions() throws {
+    var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
+    _ = try driverWithEmptySDK.planBuild()
+  }
 }

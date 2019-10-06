@@ -1037,6 +1037,11 @@ extension Driver {
         sdkPath = try? toolchain.defaultSDKPath()?.pathString
       }
     }
+    
+    // An empty string explicitly clears the SDK.
+    if sdkPath == "" {
+      sdkPath = nil
+    }
 
     // Delete trailing /.
     sdkPath = sdkPath.map{ $0.last == "/" ? String($0.dropLast()) : $0 }
