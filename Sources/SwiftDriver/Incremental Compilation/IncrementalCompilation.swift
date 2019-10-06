@@ -5,13 +5,13 @@ import Foundation
 // FIXME: rename to something like IncrementalCompilationInitialState
 public struct IncrementalCompilation {
   public let showIncrementalBuildDecisions: Bool
-  public let shouldCompileIncrementally: Bool
-  public let buildRecordPath: VirtualPath?
+  public let enableIncrementalBuild: Bool
+  public let buildRecordPath: AbsolutePath?
   public let outputBuildRecordForModuleOnlyBuild: Bool
   public let argsHash: String
   public let lastBuildTime: Date
   public let outOfDateMap: InputInfoMap?
-  public let rebuildEverything: Bool
+  public var rebuildEverything: Bool { return outOfDateMap == nil }
 
   public init(_ parsedOptions: inout ParsedOptions,
        compilerMode: CompilerMode,
@@ -24,17 +24,18 @@ public struct IncrementalCompilation {
     let showIncrementalBuildDecisions = Self.getShowIncrementalBuildDecisions(&parsedOptions)
     self.showIncrementalBuildDecisions = showIncrementalBuildDecisions
 
-    let shouldCompileIncrementally = Self.computeAndExplainShouldCompileIncrementally(
+    let enableIncrementalBuild = Self.computeAndExplainShouldCompileIncrementally(
       &parsedOptions,
       showIncrementalBuildDecisions: showIncrementalBuildDecisions,
-      compilerMode: compilerMode)
+      compilerMode: compilerMode,
+      diagnosticEngine: diagnosticEngine)
 
-    self.shouldCompileIncrementally = shouldCompileIncrementally
+    self.enableIncrementalBuild = enableIncrementalBuild
 
     self.buildRecordPath = Self.computeBuildRecordPath(
       outputFileMap: outputFileMap,
       compilerOutputType: compilerOutputType,
-      diagnosticEngine: shouldCompileIncrementally ? diagnosticEngine : nil)
+      diagnosticEngine: enableIncrementalBuild ? diagnosticEngine : nil)
 
     // If we emit module along with full compilation, emit build record
     // file for '-emit-module' only mode as well.
@@ -46,19 +47,26 @@ public struct IncrementalCompilation {
     let lastBuildTime = Date.init()
     self.lastBuildTime = lastBuildTime
 
-    if let buRP = buildRecordPath, shouldCompileIncrementally {
-      self.outOfDateMap = InputInfoMap.populateOutOfDateMap(
+    if let buRP = buildRecordPath, enableIncrementalBuild {
+      let outOfDateMap = InputInfoMap.populateOutOfDateMap(
         argsHash: argsHash,
         lastBuildTime: lastBuildTime,
         inputFiles: inputFiles,
         buildRecordPath: buRP,
-        showIncrementalBuildDecisions: showIncrementalBuildDecisions)
+        showIncrementalBuildDecisions: showIncrementalBuildDecisions,
+        diagnosticEngine: diagnosticEngine)
+      if let mismatchReason = outOfDateMap?.matches(argsHash: argsHash,
+                                                    inputFiles: inputFiles) {
+        diagnosticEngine.emit(.remark_incremental_compilation_disabled(because: mismatchReason))
+        self.outOfDateMap = nil
+      }
+      else {
+        self.outOfDateMap = outOfDateMap
+      }
     }
     else {
       self.outOfDateMap = nil
     }
-    // FIXME: Distinguish errors from "file removed", which is benign.
-    self.rebuildEverything = outOfDateMap == nil
   }
 
   private static func getShowIncrementalBuildDecisions(_ parsedOptions: inout ParsedOptions)
@@ -69,23 +77,24 @@ public struct IncrementalCompilation {
   private static func computeAndExplainShouldCompileIncrementally(
     _ parsedOptions: inout ParsedOptions,
     showIncrementalBuildDecisions: Bool,
-    compilerMode: CompilerMode
+    compilerMode: CompilerMode,
+    diagnosticEngine: DiagnosticsEngine
   )
     -> Bool
   {
-    func explain(disabledBecause why: String) {
-      stdoutStream <<< "Incremental compilation has been disabled, because it \(why).\n"
-      stdoutStream.flush()
-    }
     guard parsedOptions.hasArgument(.incremental) else {
       return false
     }
     guard compilerMode.supportsIncrementalCompilation else {
-      explain(disabledBecause: "is not compatible with \(compilerMode)")
+    diagnosticEngine.emit(
+      .remark_incremental_compilation_disabled(
+        because: "it is not compatible with \(compilerMode)"))
       return false
     }
     guard !parsedOptions.hasArgument(.embedBitcode) else {
-      explain(disabledBecause: "is not currently compatible with embedding LLVM IR bitcode")
+      diagnosticEngine.emit(
+        .remark_incremental_compilation_disabled(
+          because: "is not currently compatible with embedding LLVM IR bitcode"))
       return false
     }
     return true
@@ -95,14 +104,14 @@ public struct IncrementalCompilation {
     outputFileMap: OutputFileMap?,
     compilerOutputType: FileType?,
     diagnosticEngine: DiagnosticsEngine?
-  ) -> VirtualPath? {
+  ) -> AbsolutePath? {
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     guard let ofm = outputFileMap else {
       diagnosticEngine.map { $0.emit(.warning_incremental_requires_output_file_map) }
       return nil
     }
-    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)
+    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)?.absolutePath
       else {
         diagnosticEngine.map { $0.emit(.warning_incremental_requires_build_record_entry) }
         return nil
@@ -110,8 +119,8 @@ public struct IncrementalCompilation {
     // In 'emit-module' only mode, use build-record filename suffixed with
     // '~moduleonly'. So that module-only mode doesn't mess up build-record
     // file for full compilation.
-    return try! compilerOutputType == .swiftModule
-      ? VirtualPath(path: partialBuildRecordPath.name + "~moduleonly")
+    return compilerOutputType == .swiftModule
+      ? AbsolutePath(partialBuildRecordPath.pathString + "~moduleonly")
       : partialBuildRecordPath
   }
 
@@ -145,5 +154,8 @@ public extension Diagnostic.Message {
       "ignoring -incremental; " +
       "output file map has no master dependencies entry under \(FileType.swiftDeps)"
     )
+  }
+  static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
+    .remark("Incremental compilation has been disabled, because \(why).\n")
   }
 }
