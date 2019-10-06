@@ -171,10 +171,10 @@ public struct Driver {
     // FIXME: Determine if we should run as subcommand.
 
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
-    let args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)
-    self.driverKind = try Self.determineDriverKind(args: args)
+    var args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)[...]
+    self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
+    self.parsedOptions = try optionTable.parse(Array(args))
 
     if let targetTriple = self.parsedOptions.getLastArgument(.target)?.asSingle {
       self.targetTriple = Triple(targetTriple, normalizing: true)
@@ -320,25 +320,31 @@ extension Driver {
 }
 
 extension Driver {
-  /// Determine the driver kind based on the command-line arguments.
+  /// Determine the driver kind based on the command-line arguments, consuming the arguments
+  /// conveying this information.
   public static func determineDriverKind(
-    args: [String],
+    args: inout ArraySlice<String>,
     cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
   ) throws -> DriverKind {
     // Get the basename of the driver executable.
-    let execPath = try cwd.map{ AbsolutePath(args[0], relativeTo: $0) } ?? AbsolutePath(validating: args[0])
+    let execRelPath = args.removeFirst()
+    let execPath = try cwd.map{ AbsolutePath(execRelPath, relativeTo: $0) } ?? AbsolutePath(validating: execRelPath)
     var driverName = execPath.basename
 
     // Determine driver kind based on the first argument.
-    if args.count > 1 {
-      let driverModeOption = "--driver-mode="
-      if args[1].starts(with: driverModeOption) {
-        driverName = String(args[1].dropFirst(driverModeOption.count))
-      } else if args[1] == "-frontend" {
-        return .frontend
-      } else if args[1] == "-modulewrap" {
-        return .moduleWrap
-      }
+    let driverModeOption = "--driver-mode="
+    switch args.first {
+    case "-frontend"?:
+      args.removeFirst()
+      return .frontend
+    case "-modulewrap"?:
+      args.removeFirst()
+      return .moduleWrap
+    case let firstArg? where firstArg.hasPrefix(driverModeOption):
+      args.removeFirst()
+      driverName = String(firstArg.dropFirst(driverModeOption.count))
+    default:
+      break
     }
 
     switch driverName {
