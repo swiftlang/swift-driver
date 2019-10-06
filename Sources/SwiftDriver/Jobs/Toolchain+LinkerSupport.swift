@@ -23,7 +23,7 @@ extension Toolchain {
         .parentDirectory // remove /bin
         .appending(components: "lib", isShared ? "swift" : "swift_static")
     }
-    return resourceDirBase.appending(components: triple.platformName ?? "")
+    return resourceDirBase.appending(components: triple.platformName() ?? "")
   }
 
   func clangLibraryPath(
@@ -35,7 +35,7 @@ extension Toolchain {
                                       isShared: true)
       .parentDirectory // Remove platform name.
       .appending(components: "clang", "lib",
-                 triple.isDarwin ? "darwin" : triple.platformName!)
+                 triple.platformName(conflatingDarwin: true)!)
   }
 
   func runtimeLibraryPaths(

@@ -1,17 +1,42 @@
-public enum DarwinPlatform: RawRepresentable, Hashable {
+/// Represents any of the "Apple" platforms handled by `DarwinToolchain`.
+/// This boils down a lot of complicated logic about different variants and
+/// environments into a straightforward, tightly-modeled type that can be
+/// switched over.
+///
+/// `DarwinPlatform` does not contain version information, but
+/// `Triple.version(for:)` retrieves a version based on the
+/// corresponding `DarwinPlatform`.
+public enum DarwinPlatform: Hashable {
+  /// macOS, corresponding to the `macosx`, `macos`, and `darwin` OS names.
+  case macOS
+  
+  /// iOS, corresponding to the `ios` and `iphoneos` OS names. This does not
+  /// match tvOS.
+  case iOS(Environment)
+  
+  /// tvOS, corresponding to the `tvos` OS name.
+  case tvOS(Environment)
+  
+  /// watchOS, corresponding to the `watchos` OS name.
+  case watchOS(Environment)
+  
+  /// The most general form of environment information attached to a
+  /// `DarwinPlatform`.
+  ///
+  /// The environment is a variant of the platform like `device` or `simulator`.
+  /// Not all platforms support all values of environment. This type is a superset of
+  /// all the environments available on any case.
   public enum Environment: Hashable {
-    // FIXME: iOS should also have a state for macCatalyst. This
-    // should probably be modeled as a separate type to preserve
-    // exhaustivity checking for tvOS and watchOS.
+    // FIXME: iOS should also have a state for macCatalyst. We should
+    // probably have an EnvironmentWithoutCatalyst type for tvOS and
+    // watchOS to use and mechanisms to convert between them.
     case device
     case simulator
   }
   
-  case macOS
-  case iOS(Environment)
-  case tvOS(Environment)
-  case watchOS(Environment)
-  
+  /// Returns the same platform, but with the environment replaced by
+  /// `environment`. Returns `nil` if `environment` is not valid
+  /// for `self`.
   func with(_ environment: Environment) -> DarwinPlatform? {
     switch self {
     case .macOS:
@@ -26,28 +51,9 @@ public enum DarwinPlatform: RawRepresentable, Hashable {
     }
   }
   
-  public init?(rawValue: String) {
-    switch rawValue {
-    case "macosx":
-      self = .macOS
-    case "iphoneos":
-      self = .iOS(.device)
-    case "iphonesimulator":
-      self = .iOS(.simulator)
-    case "appletvos":
-      self = .tvOS(.device)
-    case "appletvsimulator":
-      self = .tvOS(.simulator)
-    case "watchos":
-      self = .watchOS(.device)
-    case "watchsimulator":
-      self = .watchOS(.simulator)
-    default:
-      return nil
-    }
-  }
-  
-  public var rawValue: String {
+  /// The platform name, i.e. the name clang uses to identify this platform in its
+  /// resource directory.
+  public var platformName: String {
     switch self {
     case .macOS:
       return "macosx"
@@ -65,18 +71,52 @@ public enum DarwinPlatform: RawRepresentable, Hashable {
       return "watchsimulator"
     }
   }
+  
+  /// The name used to identify this platform in compiler_rt file names.
+  public var libraryNameSuffix: String {
+    switch self {
+    case .macOS:
+      return "osx"
+    case .iOS(.device):
+      return "ios"
+    case .iOS(.simulator):
+      return "iossim"
+    case .tvOS(.device):
+      return "tvos"
+    case .tvOS(.simulator):
+      return "tvossim"
+    case .watchOS(.device):
+      return "watchos"
+    case .watchOS(.simulator):
+      return "watchossim"
+    }
+  }
 }
 
 extension Triple {
+  /// If this is a Darwin device platform, should it be inferred to be a device simulator?
   public var _isSimulatorEnvironment: Bool {
     // FIXME: transitional, this should eventually stop testing arch, and
     // switch to only checking the -environment field.
     return environment == .simulator || arch == .x86 || arch == .x86_64
   }
   
-  /// Returns the OS version equivalent for the given platform.
-  public func version(for platform: DarwinPlatform) -> Triple.Version {
-    switch platform {
+  /// Returns the OS version equivalent for the given platform, converting and
+  /// defaulting various representations.
+  ///
+  /// - Parameter compatibilityPlatform: Overrides the platform to be fetched.
+  ///   For compatibility reasons, you sometimes have to e.g. pass an argument with a macOS
+  ///   version number even when you're building watchOS code. This parameter specifies the
+  ///   platform you need a version number for; the method will then return an arbitrary but
+  ///   suitable version number for `compatibilityPlatform`.
+  ///
+  /// - Precondition: `self` must be able to provide a version for `compatibilityPlatform`.
+  ///   Not all combinations are valid; in particular, you cannot fetch a watchOS version
+  ///   from an iOS/tvOS triple or vice versa.
+  public func version(for compatibilityPlatform: DarwinPlatform? = nil)
+    -> Triple.Version
+  {
+    switch compatibilityPlatform ?? darwinPlatform! {
     case .macOS:
       return _macOSVersion!
     case .iOS, .tvOS:
@@ -86,6 +126,10 @@ extension Triple {
     }
   }
   
+  /// Returns the `DarwinPlatform` for this triple, or `nil` if it is a non-Darwin
+  /// platform.
+  ///
+  /// - SeeAlso: DarwinPlatform
   public var darwinPlatform: DarwinPlatform? {
     func makeEnvironment() -> DarwinPlatform.Environment {
       _isSimulatorEnvironment ? .simulator : .device
@@ -104,7 +148,13 @@ extension Triple {
     }
   }
   
-  public var platformName: String? {
+  /// The platform name, i.e. the name clang uses to identify this target in its
+  /// resource directory.
+  ///
+  /// - Parameter conflatingDarwin: If true, all Darwin platforms will be
+  ///   identified as just `darwin` instead of by individual platform names.
+  ///   Defaults to `false`.
+  public func platformName(conflatingDarwin: Bool = false) -> String? {
     switch os {
     case nil:
       fatalError("unknown OS")
@@ -112,7 +162,8 @@ extension Triple {
       guard let darwinPlatform = darwinPlatform else {
         fatalError("unsupported darwin platform kind?")
       }
-      return darwinPlatform.rawValue
+      return conflatingDarwin ? "darwin" : darwinPlatform.platformName
+      
     case .linux:
       return environment == .android ? "android" : "linux"
     case .freeBSD:
@@ -140,21 +191,6 @@ extension Triple {
          .amdhsa, .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd,
          .wasi, .emscripten:
       return nil
-    }
-  }
-
-  func darwinLibraryNameSuffix(distinguishSimulator: Bool = true) -> String? {
-    guard let darwinPlatform = darwinPlatform else { return nil }
-    let platform = distinguishSimulator ?
-      darwinPlatform : darwinPlatform.with(.device)!
-    switch platform {
-    case .macOS: return "osx"
-    case .iOS(.device): return "ios"
-    case .iOS(.simulator): return "iossim"
-    case .tvOS(.device): return "tvos"
-    case .tvOS(.simulator): return "tvossim"
-    case .watchOS(.device): return "watchos"
-    case .watchOS(.simulator): return "watchossim"
     }
   }
 }
@@ -212,7 +248,8 @@ extension Triple {
       watchOS: Triple.Version?,
       nonDarwin: Bool = false
     ) {
-      self.init(macOS: macOS, iOS: iOS, tvOS: iOS, watchOS: watchOS)
+      self.init(macOS: macOS, iOS: iOS, tvOS: iOS, watchOS: watchOS,
+                nonDarwin: nonDarwin)
     }
     
     /// Returns the version when the feature was introduced on the specified Darwin
@@ -231,7 +268,8 @@ extension Triple {
     }
   }
   
-  /// Checks whether the triple supports the specified feature.
+  /// Checks whether the triple supports the specified feature, i.e., the feature
+  /// has been introduced by the OS and version indicated by the triple.
   public func supports(_ feature: FeatureAvailability) -> Bool {
     guard let darwinPlatform = darwinPlatform else {
       return feature.nonDarwin
@@ -245,17 +283,18 @@ extension Triple {
 }
 
 extension Triple.FeatureAvailability {
+  /// A Swift runtime is guaranteed to be available at `/usr/lib/swift` in triples
+  /// supporting this feature. More specifically, there is no need to include a
+  /// `/usr/lib/swift` rpath if this feature is supported.
   static let swiftInTheOS = Self(
     // macOS 10.14.4 contains a copy of Swift, but the linker will still use an
     // rpath-based install name until 10.15.
     macOS: Triple.Version(10, 15, 0),
     iOS: Triple.Version(12, 2, 0),
-    watchOS: Triple.Version(5, 2, 0),
-    nonDarwin: false
+    watchOS: Triple.Version(5, 2, 0)
   )
   
-  /// Minimum OS version with a fully compatible ObjC runtime. Below these versions,
-  /// we will link libarclite.
+  /// Linking `libarclite` is unnecessary for triples supporting this feature.
   static let compatibleObjCRuntime = Self(
     macOS: Triple.Version(10, 11, 0),
     iOS: Triple.Version(9, 0, 0),
