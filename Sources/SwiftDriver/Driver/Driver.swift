@@ -147,6 +147,8 @@ public struct Driver {
       stream <<< "warning: "
     case .note:
       stream <<< "note: "
+    case .remark:
+      stream <<< "remark: "
     case .ignored:
         break
     }
