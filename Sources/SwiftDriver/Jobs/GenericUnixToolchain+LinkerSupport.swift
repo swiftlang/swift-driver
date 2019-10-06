@@ -39,6 +39,7 @@ extension GenericUnixToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     sdkPath: String?,
+    sanitizers: Set<Sanitizer>,
     targetTriple: Triple
   ) throws -> AbsolutePath {
     switch linkerOutputType {
@@ -207,17 +208,19 @@ extension GenericUnixToolchain {
 
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
-      // FIXME: Add Sanitizer handling
-//      if (job.getKind() == LinkKind::Executable && context.OI.SelectedSanitizers) {
-//        Arguments.push_back(context.Args.MakeArgString(
-//          "-fsanitize=" + getSanitizerList(context.OI.SelectedSanitizers)))
-//
-//        // The TSan runtime depends on the blocks runtime and libdispatch.
-//        if (context.OI.SelectedSanitizers & SanitizerKind::Thread) {
-//          Arguments.push_back("-lBlocksRuntime")
-//          Arguments.push_back("-ldispatch")
-//        }
-//      }
+      if linkerOutputType == .executable && !sanitizers.isEmpty {
+        let sanitizerNames = sanitizers
+          .map { $0.rawValue }
+          .sorted() // Sort so we get a stable, testable order
+          .joined(separator: ",")
+        commandLine.appendFlag("-fsanitize=\(sanitizerNames)")
+
+        // The TSan runtime depends on the blocks runtime and libdispatch.
+        if sanitizers.contains(.thread) {
+          commandLine.appendFlag("-lBlocksRuntime")
+          commandLine.appendFlag("-ldispatch")
+        }
+      }
 
       if parsedOptions.hasArgument(.profileGenerate) {
         let libProfile = sharedResourceDirPath

@@ -36,6 +36,7 @@ extension Driver {
       inputs: inputs,
       outputFile: outputFile,
       sdkPath: sdkPath,
+      sanitizers: enabledSanitizers,
       targetTriple: targetTriple
     )
 

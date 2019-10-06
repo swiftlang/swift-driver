@@ -19,6 +19,10 @@ extension Diagnostic.Message {
     .error("argument '\(arg)' is not allowed with '\(other)'")
   }
 
+  public static func error_unsupported_opt_for_target(arg: String, target: Triple) -> Diagnostic.Message {
+    .error("unsupported option '\(arg)' for target '\(target.triple)'")
+  }
+
   public static var error_mode_cannot_emit_module: Diagnostic.Message {
     .error("this mode does not support emitting modules")
   }

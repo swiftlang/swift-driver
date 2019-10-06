@@ -86,7 +86,6 @@ extension Driver {
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
     try commandLine.appendLast(.warningsAsErrors, from: &parsedOptions)
-    try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeCoverageEQ, from: &parsedOptions)
     try commandLine.appendLast(.static, from: &parsedOptions)
     try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
@@ -108,6 +107,7 @@ extension Driver {
     try commandLine.appendLast(.disableAstscopeLookup, from: &parsedOptions)
     try commandLine.appendLast(.disableParserLookup, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
+    try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendAllArguments(.debugPrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
 

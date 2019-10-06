@@ -16,6 +16,7 @@ func xcrunFind(exec: String) throws -> AbsolutePath {
 ///
 /// FIXME: This class is not thread-safe.
 public final class DarwinToolchain: Toolchain {
+
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
@@ -95,4 +96,15 @@ public final class DarwinToolchain: Toolchain {
     !(ProcessEnv.vars["RC_DEBUG_OPTIONS"]?.isEmpty ?? false)
   }
 
+  public func runtimeLibraryName(
+    for sanitizer: Sanitizer,
+    targetTriple: Triple,
+    isShared: Bool
+  ) throws -> String {
+    return """
+    libclang_rt.\(sanitizer.libraryName)_\
+    \(targetTriple.darwinPlatform!.libraryNameSuffix)\
+    \(isShared ? "_dynamic.dylib" : ".a")
+    """
+  }
 }

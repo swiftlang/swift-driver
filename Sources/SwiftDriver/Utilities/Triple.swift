@@ -576,6 +576,34 @@ extension Triple {
         return nil
       }
     }
+
+    /// Whether or not this architecture has 64-bit pointers
+    var is64Bit: Bool { pointerBitWidth == 64 }
+
+    /// Whether or not this architecture has 32-bit pointers
+    var is32Bit: Bool { pointerBitWidth == 32 }
+
+    /// Whether or not this architecture has 16-bit pointers
+    var is16Bit: Bool { pointerBitWidth == 16 }
+
+    /// The width in bits of pointers on this architecture.
+    var pointerBitWidth: Int {
+      switch self {
+      case .avr, .msp430:
+        return 16
+
+      case .arc, .arm, .armeb, .hexagon, .le32, .mips, .mipsel, .nvptx,
+           .ppc, .r600, .riscv32, .sparc, .sparcel, .tce, .tcele, .thumb,
+           .thumbeb, .x86, .xcore, .amdil, .hsail, .spir, .kalimba,.lanai,
+           .shave, .wasm32, .renderscript32, .aarch64_32:
+        return 32
+
+      case .aarch64, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
+           .mips64el, .nvptx64, .ppc64, .ppc64le, .riscv64, .sparcv9, .systemz,
+           .x86_64, .amdil64, .hsail64, .spir64,  .wasm64, .renderscript64:
+        return 64
+      }
+    }
   }
 }
 
