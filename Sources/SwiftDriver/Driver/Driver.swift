@@ -79,6 +79,9 @@ public struct Driver {
   /// When > 0, the number of threads to use in a multithreaded build.
   public let numThreads: Int
 
+  /// The specified maximum number of parallel jobs to execute.
+  public let numParallelJobs: Int?
+
   /// The level of debug information to produce.
   public let debugInfoLevel: DebugInfoLevel?
 
@@ -220,13 +223,14 @@ public struct Driver {
     }
 
     // Determine the compilation mode.
-    self.compilerMode = Self.computeCompilerMode(&parsedOptions, driverKind: driverKind)
+    self.compilerMode = Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Figure out the primary outputs from the driver.
     (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
+    self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
     (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
@@ -430,10 +434,37 @@ extension Diagnostic.Message {
 }
 
 extension Driver {
+  /// Parse an option's value into an \c Int.
+  ///
+  /// If the parsed options don't contain an option with this value, returns
+  /// \c nil.
+  /// If the parsed option does contain an option with this value, but the
+  /// value is not parsable as an \c Int, emits an error and returns \c nil.
+  /// Otherwise, returns the parsed value.
+  private static func parseIntOption(
+    _ parsedOptions: inout ParsedOptions,
+    option: Option,
+    diagnosticsEngine: DiagnosticsEngine
+  ) -> Int? {
+    guard let argument = parsedOptions.getLastArgument(option) else {
+      return nil
+    }
+
+    guard let value = Int(argument.asSingle) else {
+      diagnosticsEngine.emit(.error_invalid_arg_value(arg: option, value: argument.asSingle))
+      return nil
+    }
+
+    return value
+  }
+}
+
+extension Driver {
   /// Compute the compiler mode based on the options.
   private static func computeCompilerMode(
     _ parsedOptions: inout ParsedOptions,
-    driverKind: DriverKind
+    driverKind: DriverKind,
+    diagnosticsEngine: DiagnosticsEngine
   ) -> CompilerMode {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
@@ -454,15 +485,34 @@ extension Driver {
       return parsedOptions.hasAnyInput ? .immediate : .repl
     }
 
-    let requiresSingleCompile = parsedOptions.contains(.wholeModuleOptimization)
+    let requiresSingleCompile = parsedOptions.hasArgument(.wholeModuleOptimization, .indexFile)
 
-    // FIXME: Handle -enable-batch-mode and -disable-batch-mode flags.
+    let wantBatchMode = parsedOptions.hasFlag(positive: .enableBatchMode, negative: .disableBatchMode, default: false)
 
     if requiresSingleCompile {
+      if wantBatchMode {
+        let disablingOption: Option = parsedOptions.hasArgument(.wholeModuleOptimization) ? .wholeModuleOptimization : .indexFile
+        diagnosticsEngine.emit(.warn_ignoring_batch_mode(disablingOption))
+      }
+
       return .singleCompile
     }
 
+    // For batch mode, collect information
+    if wantBatchMode {
+      let batchSeed = parseIntOption(&parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine) ?? 0
+      let batchCount = parseIntOption(&parsedOptions, option: .driverBatchCount, diagnosticsEngine: diagnosticsEngine)
+      let batchSizeLimit = parseIntOption(&parsedOptions, option: .driverBatchSizeLimit, diagnosticsEngine: diagnosticsEngine)
+      return .batchCompile(BatchModeInfo(seed: batchSeed, count: batchCount, sizeLimit: batchSizeLimit))
+    }
+
     return .standardCompile
+  }
+}
+
+extension Diagnostic.Message {
+  static func warn_ignoring_batch_mode(_ option: Option) -> Diagnostic.Message {
+    .warning("ignoring '-enable-batch-mode' because '\(option.spelling)' was also specified")
   }
 }
 
@@ -642,6 +692,34 @@ extension Driver {
     #endif
 
     return numThreads
+  }
+
+  /// Determine the number of parallel jobs to execute.
+  static func determineNumParallelJobs(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticsEngine: DiagnosticsEngine
+  ) -> Int? {
+    guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
+      return nil
+    }
+
+    guard numJobs >= 1 else {
+      diagnosticsEngine.emit(.error_invalid_arg_value(arg: .j, value: String(numJobs)))
+      return nil
+    }
+
+    if let determinismRequested = ProcessEnv.vars["SWIFTC_MAXIMUM_DETERMINISM"], !determinismRequested.isEmpty {
+      diagnosticsEngine.emit(.remark_max_determinism_overriding(.j))
+      return 1
+    }
+
+    return numJobs
+  }
+}
+
+extension Diagnostic.Message {
+  static func remark_max_determinism_overriding(_ option: Option) -> Diagnostic.Message {
+    .remark("SWIFTC_MAXIMUM_DETERMINISM overriding \(option.spelling)")
   }
 }
 
