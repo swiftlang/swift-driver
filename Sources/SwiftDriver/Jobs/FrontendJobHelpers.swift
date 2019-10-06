@@ -165,15 +165,15 @@ extension Driver {
     }
 
     for input in primaryInputs {
-      if moduleOutput != nil {
+      if moduleOutput != nil && !forceEmitModuleInSingleInvocation {
         addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
       }
 
-      if moduleDocOutputPath != nil {
+      if moduleDocOutputPath != nil && !forceEmitModuleInSingleInvocation {
         addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
       }
 
-      if dependenciesFilePath != nil {
+      if dependenciesFilePath != nil && !forceEmitModuleInSingleInvocation {
         addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
       }
 

@@ -124,6 +124,12 @@ extension Driver {
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
 
     allOutputs += outputs
+
+    // If we're creating emit module job, order the compile jobs after that.
+    if shouldCreateEmitModuleJob {
+      inputs.append(TypedVirtualPath(file: moduleOutput!.outputPath, type: .swiftModule))
+    }
+
     return Job(
       kind: .compile,
       tool: swiftCompiler,
