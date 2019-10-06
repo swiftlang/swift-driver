@@ -131,7 +131,7 @@ extension ParsedOptions {
 extension ParsedOptions {
   /// Return all options that match the given predicate.
   ///
-  /// Any options that match the \c isIncluded predicate will be marked "consumed".
+  /// Any options that match the `isIncluded` predicate will be marked "consumed".
   public mutating func filter(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> [ParsedOption] {
     var result: [ParsedOption] = []
     for index in parsedOptions.indices {
@@ -146,7 +146,7 @@ extension ParsedOptions {
 
   /// Return the last parsed options that matches the given predicate.
   ///
-  /// Any options that match the \c isIncluded predicate will be marked "consumed".
+  /// Any options that match the `isIncluded` predicate will be marked "consumed".
   public mutating func last(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> ParsedOption? {
     return try filter(where: isIncluded).last
   }

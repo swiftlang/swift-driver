@@ -33,8 +33,8 @@ public struct Option {
     /// An option whose argument is in the following command-line argument.
     case separate
     /// An option whose argument either directly follows the spelling (like
-    /// \c .joined) when non-empty, or otherwise is the following command-line
-    /// argument (like \c .separate).
+    /// `.joined`) when non-empty, or otherwise is the following command-line
+    /// argument (like `.separate`).
     case joinedOrSeparate
     /// An option with multiple arguments, which are collected from all
     /// falling command-line arguments.

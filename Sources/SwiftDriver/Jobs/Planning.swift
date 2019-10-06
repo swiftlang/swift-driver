@@ -247,7 +247,7 @@ extension Driver {
   /// Describes the partitions used when batching.
   private struct BatchPartitions {
     /// Assignment of each Swift input file to a particular partition.
-    /// The values are indices into \c partitions.
+    /// The values are indices into `partitions`.
     let assignment: [TypedVirtualPath : Int]
 
     /// The contents of each partition.
