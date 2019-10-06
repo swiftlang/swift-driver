@@ -39,6 +39,20 @@ func makeDriverSymlinks(
 
   return (swift: swift, swiftc: swiftc)
 }
+
+func printCommand(args: [String], extraEnv: [String: String]) {
+  print("$", terminator: "")
+  if !extraEnv.isEmpty {
+    print(" env", terminator: "")
+    for (key, value) in extraEnv {
+      print(" \(key)=\(value.spm_shellEscaped())", terminator: "")
+    }
+  }
+  for arg in args {
+    print(" ", arg.spm_shellEscaped(), separator: "", terminator: "")
+  }
+  print()
+}
 #endif
 
 
@@ -48,16 +62,18 @@ final class IntegrationTests: IntegrationTestCase {
     try withTemporaryDirectory() { path in
       let (swift: _, swiftc: compiler) = try makeDriverSymlinks(in: path)
 
-      var env = ProcessEnv.vars
-      env["SWIFT_EXEC"] = compiler.pathString
-
       let buildPath = path.appending(component: "build")
+      let args = [
+        "swift", "build", "--package-path", packageDirectory.pathString,
+        "--build-path", buildPath.pathString
+      ]
+      let extraEnv = [ "SWIFT_EXEC": compiler.pathString]
+
+      printCommand(args: args, extraEnv: extraEnv)
+
       let result = try TSCBasic.Process.checkNonZeroExit(
-        arguments: [
-          "swift", "build", "--package-path", packageDirectory.pathString,
-          "--build-path", buildPath.pathString
-        ],
-        environment: env
+        arguments: args,
+        environment: ProcessEnv.vars.merging(extraEnv) { $1 }
       )
 
       XCTAssertTrue(localFileSystem.isExecutableFile(buildPath.appending(RelativePath("debug/swift-driver"))), result)
@@ -153,15 +169,24 @@ final class IntegrationTests: IntegrationTestCase {
       let (swift: swift, swiftc: swiftc) =
           try makeDriverSymlinks(in: tempDir, with: swiftBuildDir)
 
-      var env = ProcessEnv.vars
-      env["SWIFT"] = swift.pathString
-      env["SWIFTC"] = swiftc.pathString
-      env["SWIFT_DRIVER_SWIFT_EXEC"] = frontendFile.pathString
+      let args = [
+        litFile.pathString, "-svi", "--time-tests",
+        "--param", "swift_site_config=\(litConfigFile.pathString)",
+        testDir.pathString
+      ]
       
-      let process = TSCBasic.Process(args:
-        litFile.pathString, "-svi", "--time-tests", "--param",
-        "swift_site_config=\(litConfigFile.pathString)", testDir.pathString,
-        environment: env, outputRedirection: .none
+      let extraEnv = [
+        "SWIFT": swift.pathString,
+        "SWIFTC": swiftc.pathString,
+        "SWIFT_DRIVER_SWIFT_EXEC": frontendFile.pathString
+      ]
+      
+      printCommand(args: args, extraEnv: extraEnv)
+      
+      let process = TSCBasic.Process(
+        arguments: args,
+        environment: ProcessEnv.vars.merging(extraEnv) { $1 },
+        outputRedirection: .none
       )
       try process.launch()
       let result = try process.waitUntilExit()
