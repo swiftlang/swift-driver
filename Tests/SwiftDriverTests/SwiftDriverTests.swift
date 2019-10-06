@@ -151,6 +151,12 @@ final class SwiftDriverTests: XCTestCase {
     let driver8 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift"])
     XCTAssertEqual(driver8.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["module name \"Swift\" is reserved for the standard library"])
   }
+  
+  func testModuleNameFallbacks() throws {
+    assertNoErrorDiagnostics(try Driver(args: ["swiftc", "file.foo.swift"]))
+    assertNoErrorDiagnostics(try Driver(args: ["swiftc", ".foo.swift"]))
+    assertNoErrorDiagnostics(try Driver(args: ["swiftc", "foo-bar.swift"]))
+  }
 
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15"])
@@ -686,11 +692,12 @@ final class SwiftDriverTests: XCTestCase {
   func testRegressions() throws {
     var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
     _ = try driverWithEmptySDK.planBuild()
-    
-    let driverWithMultiDottedFile = try Driver(args: ["swiftc", "file.foo.swift"])
-    XCTAssertFalse(driverWithMultiDottedFile.diagnosticEngine.hasErrors)
-    
-    let driverWithDotfile = try Driver(args: ["swiftc", ".foo.swift"])
-    XCTAssertFalse(driverWithDotfile.diagnosticEngine.hasErrors)
   }
+}
+
+func assertNoErrorDiagnostics(_ driver: Driver,
+                              _ message: String = "Emitted an error diagnostic",
+                              file: StaticString = #file, line: UInt = #line) {
+  XCTAssertFalse(driver.diagnosticEngine.hasErrors,
+                 message, file: file, line: line)
 }

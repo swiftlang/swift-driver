@@ -967,20 +967,26 @@ extension Driver {
       moduleName = rawModuleName
     } else if parsedOptions.allInputs.count == 1 {
       moduleName = baseNameWithoutExtension(parsedOptions.allInputs.first!)
-    } else if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
-      // FIXME: Current driver notes that this is a "fallback module name"
-      moduleName = "main"
     } else {
-      // FIXME: Current driver notes that this is a "fallback module name".
+      // This value will fail the isSwiftIdentifier test below.
       moduleName = ""
+    }
+    
+    func fallbackOrDiagnose(_ error: Diagnostic.Message) {
+      // FIXME: Current driver notes that this is a "fallback module name".
+      if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
+        moduleName = "main"
+      }
+      else {
+        diagnosticsEngine.emit(error)
+        moduleName = "__bad__"
+      }
     }
 
     if !moduleName.isSwiftIdentifier {
-      diagnosticsEngine.emit(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
-      moduleName = "__bad__"
+      fallbackOrDiagnose(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     } else if moduleName == "Swift" && !parsedOptions.contains(.parseStdlib) {
-      diagnosticsEngine.emit(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
-      moduleName = "__bad__"
+      fallbackOrDiagnose(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     }
 
     // If we're not emiting a module, we're done.
