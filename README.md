@@ -68,8 +68,8 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [ ] Typo correction for misspelled option names
   * [ ] Find a better way than `makeOptions.cpp` to translate the command-line options from [Swift's repository](https://github.com/apple/swift/tree/master/include/swift/Option) into `Options.swift`.
 * Platform support
-  * [ ] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
-  * [ ] Fill out the `GenericUnixToolchain` toolchain to get it working
+  * [x] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
+  * [x] Fill out the `GenericUnixToolchain` toolchain to get it working
   * [ ] Implement a `WindowsToolchain`
   * [ ] Implement proper tokenization for response files
 * Compilation modes
@@ -77,14 +77,15 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [ ] Whole-module-optimization mode
   * [ ] REPL and immediate modes
 * Unimplemented features
-  * [ ] Bridging headers, including precompiled bridging headers
+  * [x] Precompiled bridging headers
   * [ ] Support embedding of bitcode
   * [ ] Incremental compilation
-  * [ ] Parseable output, as used by SwiftPM
-  * [ ] Response files
+  * [x] Parseable output, as used by SwiftPM
+  * [x] Response files
   * [ ] Input and primary input file lists
 * Testing
   * [ ] Build stuff with SwiftPM or xcodebuild or your favorite build system, using `swift-driver`.
-  * [ ] Port tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
+  * [ ] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver)
+  * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
 * Fun experiments
   * [ ] Modify SwiftPM to import the SwiftDriver library, using its `Driver` to construct jobs and incorporate them into its own build graph
