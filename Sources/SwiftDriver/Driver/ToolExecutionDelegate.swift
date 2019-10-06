@@ -1,16 +1,16 @@
 import TSCBasic
 
 /// Delegate for printing execution information on the command-line.
-struct ToolExecutionDelegate: JobExecutorDelegate {
-  enum Mode {
+public struct ToolExecutionDelegate: JobExecutorDelegate {
+  public enum Mode {
     case verbose
     case parsableOutput
     case regular
   }
 
-  let mode: Mode
+  public let mode: Mode
 
-  func jobStarted(job: Job, arguments: [String], pid: Int) {
+  public func jobStarted(job: Job, arguments: [String], pid: Int) {
     switch mode {
     case .regular:
       break
@@ -37,12 +37,17 @@ struct ToolExecutionDelegate: JobExecutorDelegate {
     }
   }
 
-  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     switch mode {
     case .regular, .verbose:
-      break
-    case .parsableOutput:
+      // FIXME: Check what the current driver does.
+      let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
+      if !output.isEmpty {
+        stdoutStream <<< output
+        stdoutStream.flush()
+      }
 
+    case .parsableOutput:
       switch result.exitStatus {
       case .terminated(let code):
         let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""

@@ -2,9 +2,6 @@ import TSCBasic
 
 /// Abstraction for functionality that allows working with subprocesses.
 public protocol ProcessProtocol {
-  /// Launch a subprocess.
-  static func launchProcess(arguments: [String]) throws -> ProcessProtocol
-
   /// The PID of the process.
   ///
   /// Clients that don't really launch a process can return
