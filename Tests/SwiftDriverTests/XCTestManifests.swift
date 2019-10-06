@@ -37,6 +37,7 @@ extension SwiftDriverTests {
     static let __allTests__SwiftDriverTests = [
         ("testCompilerMode", testCompilerMode),
         ("testDebugSettings", testDebugSettings),
+        ("testDOTFileEmission", testDOTFileEmission),
         ("testDriverKindParsing", testDriverKindParsing),
         ("testDSYMGeneration", testDSYMGeneration),
         ("testInputFiles", testInputFiles),
