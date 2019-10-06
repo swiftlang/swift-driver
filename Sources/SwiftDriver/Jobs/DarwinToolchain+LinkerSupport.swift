@@ -21,6 +21,67 @@ extension DarwinToolchain {
     return nil
   }
 
+  func addLinkRuntimeLibraryRPath(
+    to commandLine: inout [Job.ArgTemplate],
+    parsedOptions: inout ParsedOptions,
+    targetTriple: Triple,
+    darwinLibName: String
+  ) throws {
+    // Adding the rpaths might negatively interact when other rpaths are involved,
+    // so we should make sure we add the rpaths last, after all user-specified
+    // rpaths. This is currently true from this place, but we need to be
+    // careful if this function is ever called before user's rpaths are emitted.
+    assert(darwinLibName.hasSuffix(".dylib"), "must be a dynamic library")
+
+    // Add @executable_path to rpath to support having the dylib copied with
+    // the executable.
+    commandLine.appendFlag("-rpath")
+    commandLine.appendFlag("@executable_path")
+
+    // Add the path to the resource dir to rpath to support using the dylib
+    // from the default location without copying.
+
+
+    let clangPath = try clangLibraryPath(for: targetTriple, parsedOptions: &parsedOptions)
+    commandLine.appendFlag("-rpath")
+    commandLine.appendPath(clangPath)
+  }
+
+  func addLinkSanitizerLibArgsForDarwin(
+    to commandLine: inout [Job.ArgTemplate],
+    parsedOptions: inout ParsedOptions,
+    targetTriple: Triple,
+    sanitizer: Sanitizer,
+    isShared: Bool
+  ) throws {
+    // Sanitizer runtime libraries requires C++.
+    commandLine.appendFlag("-lc++");
+    // Add explicit dependency on -lc++abi, as -lc++ doesn't re-export
+    // all RTTI-related symbols that are used.
+    commandLine.appendFlag("-lc++abi");
+
+    let sanitizerName = try runtimeLibraryName(
+      for: sanitizer,
+      targetTriple: targetTriple,
+      isShared: isShared
+    )
+    try addLinkRuntimeLibrary(
+      named: sanitizerName,
+      to: &commandLine,
+      for: targetTriple,
+      parsedOptions: &parsedOptions
+    )
+
+    if isShared {
+      try addLinkRuntimeLibraryRPath(
+        to: &commandLine,
+        parsedOptions: &parsedOptions,
+        targetTriple: targetTriple,
+        darwinLibName: sanitizerName
+      )
+    }
+  }
+
   private func addProfileGenerationArgs(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
@@ -104,6 +165,7 @@ extension DarwinToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     sdkPath: String?,
+    sanitizers: Set<Sanitizer>,
     targetTriple: Triple
   ) throws -> AbsolutePath {
 
@@ -142,8 +204,22 @@ extension DarwinToolchain {
         commandLine.appendFlag(.F)
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
-
-      // FIXME: Sanitizer args
+      
+      // Linking sanitizers will add rpaths, which might negatively interact when
+      // other rpaths are involved, so we should make sure we add the rpaths after
+      // all user-specified rpaths.
+      for sanitizer in sanitizers {
+        if sanitizer == .fuzzer {
+          guard linkerOutputType == .executable else { continue }
+        }
+        try addLinkSanitizerLibArgsForDarwin(
+          to: &commandLine,
+          parsedOptions: &parsedOptions,
+          targetTriple: targetTriple,
+          sanitizer: sanitizer,
+          isShared: sanitizer != .fuzzer
+        )
+      }
 
       commandLine.appendFlag("-arch")
       commandLine.appendFlag(targetTriple.archName)

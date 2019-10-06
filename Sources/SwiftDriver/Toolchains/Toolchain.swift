@@ -32,6 +32,13 @@ public protocol Toolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     sdkPath: String?,
+    sanitizers: Set<Sanitizer>,
     targetTriple: Triple
   ) throws -> AbsolutePath
+
+  func runtimeLibraryName(
+    for sanitizer: Sanitizer,
+    targetTriple: Triple,
+    isShared: Bool
+  ) throws -> String
 }

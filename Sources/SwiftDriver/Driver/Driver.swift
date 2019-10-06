@@ -82,6 +82,9 @@ public struct Driver {
   /// The level of debug information to produce.
   public let debugInfoLevel: DebugInfoLevel?
 
+  /// The set of sanitizers that were requested
+  public let enabledSanitizers: Set<Sanitizer>
+
   /// The debug info format to use.
   public let debugInfoFormat: DebugInfoFormat
 
@@ -246,6 +249,8 @@ public struct Driver {
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
+
+    self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emitDependencies, outputPath: .emitDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
@@ -692,6 +697,81 @@ extension Driver {
 
     return (level, format)
   }
+
+  /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
+  /// sanitizers that were requested.
+  static func parseSanitizerArgValues(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine,
+    toolchain: Toolchain,
+    targetTriple: Triple
+  ) throws -> Set<Sanitizer> {
+
+    var set = Set<Sanitizer>()
+
+    let args = parsedOptions
+      .filter { $0.option == .sanitizeEQ }
+      .flatMap { $0.argument.asMultiple }
+
+    // Find the sanitizer kind.
+    for arg in args {
+      guard let sanitizer = Sanitizer(rawValue: arg) else {
+        // Unrecognized sanitizer option
+        diagnosticEngine.emit(
+          .error_invalid_arg_value(arg: .sanitizeEQ, value: arg))
+        continue
+      }
+
+      // Support is determined by existence of the sanitizer library.
+      // FIXME: Should we do this? This prevents cross-compiling with sanitizers
+      //        enabled.
+      var sanitizerSupported = try toolchain.runtimeLibraryExists(
+        for: sanitizer,
+        targetTriple: targetTriple,
+        parsedOptions: &parsedOptions,
+        isShared: sanitizer != .fuzzer
+      )
+
+      // TSan is explicitly not supported for 32 bits.
+      if sanitizer == .thread && !targetTriple.arch!.is64Bit {
+        sanitizerSupported = false
+      }
+
+      if !sanitizerSupported {
+        diagnosticEngine.emit(
+          .error_unsupported_opt_for_target(
+            arg: "-sanitize=\(sanitizer.rawValue)",
+            target: targetTriple
+          )
+        )
+      } else {
+        set.insert(sanitizer)
+      }
+    }
+
+    // Check that we're one of the known supported targets for sanitizers.
+    if !(targetTriple.isWindows || targetTriple.isDarwin || targetTriple.os == .linux) {
+      diagnosticEngine.emit(
+        .error_unsupported_opt_for_target(
+          arg: "-sanitize=",
+          target: targetTriple
+        )
+      )
+    }
+
+    // Address and thread sanitizers can not be enabled concurrently.
+    if set.contains(.thread) && set.contains(.address) {
+      diagnosticEngine.emit(
+        .error_argument_not_allowed_with(
+          arg: "-sanitize=thread",
+          other: "-sanitize=address"
+        )
+      )
+    }
+
+    return set
+  }
+
 }
 
 // Module computation.

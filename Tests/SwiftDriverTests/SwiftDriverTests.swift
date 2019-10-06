@@ -408,6 +408,104 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testSanitizerArgs() throws {
+    let commonArgs = [
+      "swiftc", "foo.swift", "bar.swift",
+      "-emit-executable", "-target", "x86_64-apple-macosx",
+      "-module-name", "Test"
+    ]
+    do {
+      // address sanitizer
+      var driver = try Driver(args: commonArgs + ["-sanitize=address"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains {
+        if case .path(let path) = $0 {
+          return path.name.contains("darwin/libclang_rt.asan_osx_dynamic.dylib")
+        }
+        return false
+      })
+    }
+
+    do {
+      // thread sanitizer
+      var driver = try Driver(args: commonArgs + ["-sanitize=thread"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=thread")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains {
+        if case .path(let path) = $0 {
+          return path.name.contains("darwin/libclang_rt.tsan_osx_dynamic.dylib")
+        }
+        return false
+      })
+    }
+
+    do {
+      // undefined behavior sanitizer
+      var driver = try Driver(args: commonArgs + ["-sanitize=undefined"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=undefined")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains {
+        if case .path(let path) = $0 {
+          return path.name.contains("darwin/libclang_rt.ubsan_osx_dynamic.dylib")
+        }
+        return false
+      })
+    }
+
+    // FIXME: This test will fail when run on macOS, because the driver uses
+    //        the existence of the runtime support libraries to determine if
+    //        a sanitizer is supported. Until we allow cross-compiling with
+    //        sanitizers, we'll need to disable this test on macOS
+    #if os(Linux)
+    do {
+      // linux multiple sanitizers
+      var driver = try Driver(
+        args: commonArgs + [
+          "-target", "x86_64-unknown-linux",
+          "-sanitize=address", "-sanitize=undefined"
+        ]
+      )
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=undefined")))
+
+      let linkJob = plannedJobs[3]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address,undefined")))
+    }
+    #endif
+  }
+
   func testMergeModulesOnly() throws {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])

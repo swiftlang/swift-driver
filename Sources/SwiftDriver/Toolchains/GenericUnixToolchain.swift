@@ -58,4 +58,12 @@ public final class GenericUnixToolchain: Toolchain {
   }
 
   public var shouldStoreInvocationInDebugInfo: Bool { false }
+
+  public func runtimeLibraryName(
+    for sanitizer: Sanitizer,
+    targetTriple: Triple,
+    isShared: Bool
+  ) throws -> String {
+    return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).a"
+  }
 }

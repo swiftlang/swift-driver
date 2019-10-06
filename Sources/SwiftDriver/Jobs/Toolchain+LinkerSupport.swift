@@ -52,6 +52,35 @@ extension Toolchain {
 
     return result
   }
+
+  func addLinkRuntimeLibrary(
+    named name: String,
+    to commandLine: inout [Job.ArgTemplate],
+    for triple: Triple,
+    parsedOptions: inout ParsedOptions
+  ) throws {
+    let path = try clangLibraryPath(for: triple, parsedOptions: &parsedOptions)
+      .appending(component: name)
+    commandLine.appendPath(path)
+  }
+
+  func runtimeLibraryExists(
+    for sanitizer: Sanitizer,
+    targetTriple: Triple,
+    parsedOptions: inout ParsedOptions,
+    isShared: Bool
+  ) throws -> Bool {
+    let runtimeName = try runtimeLibraryName(
+      for: sanitizer,
+      targetTriple: targetTriple,
+      isShared: isShared
+    )
+    let path = try clangLibraryPath(
+      for: targetTriple,
+      parsedOptions: &parsedOptions
+    ).appending(component: runtimeName)
+    return localFileSystem.exists(path)
+  }
 }
 
 // MARK: - Common argument routines
