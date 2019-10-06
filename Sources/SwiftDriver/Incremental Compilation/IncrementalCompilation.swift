@@ -139,7 +139,7 @@ public struct IncrementalCompilation {
 fileprivate extension CompilerMode {
   var supportsIncrementalCompilation: Bool {
     switch self {
-    case .standardCompile, .immediate, .repl: return true
+    case .standardCompile, .immediate, .repl, .batchCompile: return true
     case .singleCompile: return false
     }
   }

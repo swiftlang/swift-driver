@@ -73,11 +73,11 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [ ] Implement a `WindowsToolchain`
   * [ ] Implement proper tokenization for response files
 * Compilation modes
-  * [ ] Batch mode
+  * [x] Batch mode
   * [ ] Whole-module-optimization mode
   * [ ] REPL and immediate modes
 * Unimplemented features
-  * [x] Precompiled bridging headers
+  * [ ] Precompiled bridging headers
   * [ ] Support embedding of bitcode
   * [ ] Incremental compilation
   * [x] Parseable output, as used by SwiftPM

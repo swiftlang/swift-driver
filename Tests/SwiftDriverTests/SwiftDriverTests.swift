@@ -506,6 +506,21 @@ final class SwiftDriverTests: XCTestCase {
     #endif
   }
 
+  func testBatchModeCompiles() throws {
+    var driver1 = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "foo2.swift", "bar2.swift", "foo3.swift", "bar3.swift", "foo4.swift", "bar4.swift", "foo5.swift", "bar5.swift", "wibble.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-enable-batch-mode", "-driver-batch-count", "3"])
+    let plannedJobs = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs.count, 4)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+    XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo1.o")))
+    XCTAssertEqual(plannedJobs[1].outputs.count, 4)
+    XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary(RelativePath("foo3.o")))
+    XCTAssertEqual(plannedJobs[2].outputs.count, 3)
+    XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.temporary(RelativePath("foo5.o")))
+    XCTAssertTrue(plannedJobs[3].tool.name.contains("ld"))
+    XCTAssertEqual(plannedJobs[3].outputs.count, 1)
+    XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
+  }
+
   func testMergeModulesOnly() throws {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
