@@ -103,7 +103,7 @@ public final class DarwinToolchain: Toolchain {
   ) throws -> String {
     return """
     libclang_rt.\(sanitizer.libraryName)_\
-    \(targetTriple.darwinLibraryNameSuffix(distinguishSimulator: true)!)\
+    \(targetTriple.darwinPlatform!.libraryNameSuffix)\
     \(isShared ? "_dynamic.dylib" : ".a")
     """
   }
