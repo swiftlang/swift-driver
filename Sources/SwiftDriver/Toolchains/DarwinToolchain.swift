@@ -1,7 +1,15 @@
 import TSCBasic
 
+fileprivate func envVarName(forExecutable toolName: String) -> String {
+  return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
+}
+
 /// Utility function to lookup an executable using xcrun.
 func xcrunFind(exec: String) throws -> AbsolutePath {
+  if let overrideString = ProcessEnv.vars[envVarName(forExecutable: exec)] {
+    return try AbsolutePath(validating: overrideString)
+  }
+
 #if os(macOS)
   let path = try Process.checkNonZeroExit(
     arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
