@@ -686,5 +686,11 @@ final class SwiftDriverTests: XCTestCase {
   func testRegressions() throws {
     var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
     _ = try driverWithEmptySDK.planBuild()
+    
+    let driverWithMultiDottedFile = try Driver(args: ["swiftc", "file.foo.swift"])
+    XCTAssertFalse(driverWithMultiDottedFile.diagnosticEngine.hasErrors)
+    
+    let driverWithDotfile = try Driver(args: ["swiftc", ".foo.swift"])
+    XCTAssertFalse(driverWithDotfile.diagnosticEngine.hasErrors)
   }
 }

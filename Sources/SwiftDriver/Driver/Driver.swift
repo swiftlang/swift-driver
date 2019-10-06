@@ -868,12 +868,12 @@ extension Driver {
   private static func baseNameWithoutExtension(_ path: String, hasExtension: inout Bool) -> String {
     if let absolute = try? AbsolutePath(validating: path) {
       hasExtension = absolute.extension != nil
-      return absolute.basenameWithoutExt
+      return absolute.basenameWithoutAllExts
     }
 
     if let relative = try? RelativePath(validating: path) {
       hasExtension = relative.extension != nil
-      return relative.basenameWithoutExt
+      return relative.basenameWithoutAllExts
     }
 
     hasExtension = false
