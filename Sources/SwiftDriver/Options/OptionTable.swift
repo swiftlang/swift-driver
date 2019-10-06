@@ -2,7 +2,7 @@ public struct OptionTable {
   public init() { }
 
   /// Retrieve the options.
-  public var options: [Option] = Option.allOptions
+  public var options: [Option] = Option.allOptions + Option.extraOptions
 }
 
 extension String {

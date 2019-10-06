@@ -1,6 +1,7 @@
 import XCTest
 import SwiftDriver
 import TSCBasic
+import TSCUtility
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {
@@ -641,4 +642,45 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test"))))
     }
   }
+
+  func testDOTFileEmission() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-emit-executable", "test.swift", "-emit-module",
+      "-target", "x86_64-apple-macosx"
+    ])
+    let plannedJobs = try driver.planBuild()
+
+    var serializer = DOTJobGraphSerializer(jobs: plannedJobs)
+    var output = ""
+    serializer.writeDOT(to: &output)
+
+    XCTAssertEqual(output,
+    """
+    digraph Jobs {
+      "compile (swift)" [style=bold];
+      "test.swift" [fontsize=12];
+      "test.swift" -> "compile (swift)" [color=blue];
+      "test.o" [fontsize=12];
+      "compile (swift)" -> "test.o" [color=green];
+      "test.swiftmodule" [fontsize=12];
+      "compile (swift)" -> "test.swiftmodule" [color=green];
+      "test.swiftdoc" [fontsize=12];
+      "compile (swift)" -> "test.swiftdoc" [color=green];
+      "mergeModule (swift)" [style=bold];
+      "test.swiftmodule" [fontsize=12];
+      "test.swiftmodule" -> "mergeModule (swift)" [color=blue];
+      "test.swiftmodule" [fontsize=12];
+      "mergeModule (swift)" -> "test.swiftmodule" [color=green];
+      "test.swiftdoc" [fontsize=12];
+      "mergeModule (swift)" -> "test.swiftdoc" [color=green];
+      "link (ld)" [style=bold];
+      "test.o" [fontsize=12];
+      "test.o" -> "link (ld)" [color=blue];
+      "test" [fontsize=12];
+      "link (ld)" -> "test" [color=green];
+    }
+
+    """)
+  }
+
 }

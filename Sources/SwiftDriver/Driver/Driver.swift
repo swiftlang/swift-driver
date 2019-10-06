@@ -383,6 +383,13 @@ extension Driver {
       return
     }
 
+    if parsedOptions.contains(.driverPrintGraphviz) {
+      var serializer = DOTJobGraphSerializer(jobs: jobs)
+      serializer.writeDOT(to: &stdoutStream)
+      stdoutStream.flush()
+      return
+    }
+
     // Create and use the tool execution delegate if one is not provided explicitly.
     let executorDelegate = executorDelegate ?? createToolExecutionDelegate()
 
