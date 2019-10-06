@@ -358,8 +358,7 @@ extension Driver {
   /// Run the driver.
   public mutating func run(
     resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate? = nil,
-    processProtocol: ProcessProtocol.Type = Process.self
+    executorDelegate: JobExecutorDelegate? = nil
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
@@ -388,13 +387,11 @@ extension Driver {
     let executorDelegate = executorDelegate ?? createToolExecutionDelegate()
 
     // Start up an executor and perform the build.
-    let mainOutput = jobs.last!.outputs.first!
     let jobExecutor = JobExecutor(
         jobs: jobs, resolver: resolver,
-        executorDelegate: executorDelegate,
-        processProtocol: processProtocol
+        executorDelegate: executorDelegate
     )
-    try jobExecutor.build(mainOutput.file)
+    try jobExecutor.execute()
   }
 
   /// Returns the path to the Swift binary.
@@ -405,7 +402,7 @@ extension Driver {
     return AbsolutePath(path)
   }
 
-  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
+  public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.

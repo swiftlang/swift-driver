@@ -56,6 +56,17 @@ public protocol JobExecutorDelegate {
 
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
+
+  /// Launch the process for given command line.
+  ///
+  /// This will be called on the execution queue.
+  func launchProcess(for job: Job, arguments: [String]) throws -> ProcessProtocol
+}
+
+extension JobExecutorDelegate {
+    public func launchProcess(for job: Job, arguments: [String]) throws -> ProcessProtocol {
+    return try Process.launchProcess(arguments: arguments)
+  }
 }
 
 public final class JobExecutor {
@@ -70,24 +81,19 @@ public final class JobExecutor {
     let argsResolver: ArgsResolver
 
     /// The job executor delegate.
-    let executorDelegate: JobExecutorDelegate?
+    let executorDelegate: JobExecutorDelegate
 
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
 
-    /// The process protocol that will be used during job execution.
-    let processProtocol: ProcessProtocol.Type
-
     init(
       argsResolver: ArgsResolver,
       producerMap: [VirtualPath: Job],
-      executorDelegate: JobExecutorDelegate?,
-      processProtocol: ProcessProtocol.Type = Process.self
+      executorDelegate: JobExecutorDelegate
     ) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
       self.executorDelegate = executorDelegate
-      self.processProtocol = processProtocol
     }
   }
 
@@ -98,32 +104,26 @@ public final class JobExecutor {
   let argsResolver: ArgsResolver
 
   /// The job executor delegate.
-  let executorDelegate: JobExecutorDelegate?
-
-  /// The process protocol that will be used during job execution.
-  let processProtocol: ProcessProtocol.Type
+  let executorDelegate: JobExecutorDelegate
 
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate? = nil,
-    processProtocol: ProcessProtocol.Type = Process.self
+    executorDelegate: JobExecutorDelegate
   ) {
     self.jobs = jobs
     self.argsResolver = resolver
     self.executorDelegate = executorDelegate
-    self.processProtocol = processProtocol
   }
 
-  /// Build the given output.
-  public func build(_ output: VirtualPath) throws {
+  /// Execute all jobs.
+  public func execute() throws {
     let context = createContext(jobs)
 
     let delegate = JobExecutorBuildDelegate(context)
     let engine = LLBuildEngine(delegate: delegate)
 
-    let job = context.producerMap[output]!
-    let result = try engine.build(key: ExecuteJobRule.RuleKey(job: job))
+    let result = try engine.build(key: ExecuteAllJobsRule.RuleKey(jobs: jobs))
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {
@@ -144,8 +144,7 @@ public final class JobExecutor {
     return Context(
       argsResolver: argsResolver,
       producerMap: producerMap,
-      executorDelegate: executorDelegate,
-      processProtocol: processProtocol
+      executorDelegate: executorDelegate
     )
   }
 }
@@ -160,6 +159,8 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
 
   func lookupRule(rule: String, key: Key) -> Rule {
     switch rule {
+    case ExecuteAllJobsRule.ruleName:
+      return ExecuteAllJobsRule(key)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key)
     default:
@@ -182,6 +183,51 @@ struct DriverBuildValue: LLBuildValue {
 
   static func jobExecution(success: Bool) -> DriverBuildValue {
     return .init(success: success, kind: .jobExecution)
+  }
+}
+
+class ExecuteAllJobsRule: LLBuildRule {
+  struct RuleKey: LLBuildKey {
+    typealias BuildValue = DriverBuildValue
+    typealias BuildRule = ExecuteAllJobsRule
+
+    let jobs: [Job]
+  }
+
+  override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
+
+  private let key: RuleKey
+
+  /// True if any of the inputs had any error.
+  private var allInputsSucceeded: Bool = true
+
+  init(_ key: Key) {
+    self.key = RuleKey(key)
+    super.init()
+  }
+
+  override func start(_ engine: LLTaskBuildEngine) {
+    for (idx, job) in key.jobs.enumerated() {
+        let key = ExecuteJobRule.RuleKey(job: job)
+        engine.taskNeedsInput(key, inputID: idx)
+    }
+  }
+
+  override func isResultValid(_ priorValue: Value) -> Bool {
+    return false
+  }
+
+  override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
+    do {
+      let buildValue = try DriverBuildValue(value)
+      allInputsSucceeded = allInputsSucceeded && buildValue.success
+    } catch {
+      allInputsSucceeded = false
+    }
+  }
+
+  override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+    engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
   }
 }
 
@@ -246,13 +292,12 @@ class ExecuteJobRule: LLBuildRule {
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
       let arguments = [tool] + commandLine
 
-      let process = try context.processProtocol.launchProcess(
-        arguments: arguments)
+      let process = try context.executorDelegate.launchProcess(for: job, arguments: arguments)
       pid = Int(process.processID)
 
       // Inform the delegate.
       context.delegateQueue.async {
-        context.executorDelegate?.jobStarted(job: job, arguments: arguments, pid: pid)
+        context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
       }
 
       let result = try process.waitUntilExit()
@@ -260,7 +305,7 @@ class ExecuteJobRule: LLBuildRule {
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
-        context.executorDelegate?.jobFinished(job: job, result: result, pid: pid)
+        context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
 
       value = .jobExecution(success: success)
@@ -272,7 +317,7 @@ class ExecuteJobRule: LLBuildRule {
           output: Result.success([]),
           stderrOutput: Result.success([])
         )
-        context.executorDelegate?.jobFinished(job: job, result: result, pid: 0)
+        context.executorDelegate.jobFinished(job: job, result: result, pid: 0)
       }
       value = .jobExecution(success: false)
     }
