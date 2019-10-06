@@ -92,7 +92,7 @@ public struct Driver {
   public let debugInfoFormat: DebugInfoFormat
 
   /// The form that the module output will take, e.g., top-level vs. auxiliary, and the path at which the module should be emitted.
-  /// \c nil if no module should be emitted.
+  /// `nil` if no module should be emitted.
   public let moduleOutput: ModuleOutput?
 
   /// Code & data for incremental compilation
@@ -434,12 +434,12 @@ extension Diagnostic.Message {
 }
 
 extension Driver {
-  /// Parse an option's value into an \c Int.
+  /// Parse an option's value into an `Int`.
   ///
   /// If the parsed options don't contain an option with this value, returns
-  /// \c nil.
+  /// `nil`.
   /// If the parsed option does contain an option with this value, but the
-  /// value is not parsable as an \c Int, emits an error and returns \c nil.
+  /// value is not parsable as an `Int`, emits an error and returns `nil`.
   /// Otherwise, returns the parsed value.
   private static func parseIntOption(
     _ parsedOptions: inout ParsedOptions,
