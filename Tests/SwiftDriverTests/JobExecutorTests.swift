@@ -10,8 +10,28 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
 }
 
 class JobCollectingDelegate: JobExecutorDelegate {
+  struct StubProcess: ProcessProtocol {
+    static func launchProcess(
+      arguments: [String]
+    ) throws -> ProcessProtocol {
+      return StubProcess()
+    }
+
+    var processID: TSCBasic.Process.ProcessID { .init(-1) }
+
+    func waitUntilExit() throws -> ProcessResult {
+      return ProcessResult(
+        arguments: [],
+        exitStatus: .terminated(code: 0),
+        output: Result.success(ByteString("test").contents),
+        stderrOutput: Result.success([])
+      )
+    }
+  }
+
   var started: [Job] = []
   var finished: [(Job, ProcessResult)] = []
+  var useStubProcess = false
 
   func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     finished.append((job, result))
@@ -19,6 +39,13 @@ class JobCollectingDelegate: JobExecutorDelegate {
 
   func jobStarted(job: Job, arguments: [String], pid: Int) {
     started.append(job)
+  }
+
+  func launchProcess(for job: Job, arguments: [String]) throws -> ProcessProtocol {
+    if useStubProcess {
+      return StubProcess()
+    }
+    return try TSCBasic.Process.launchProcess(arguments: arguments)
   }
 }
 
@@ -117,7 +144,7 @@ final class JobExecutorTests: XCTestCase {
 
       let delegate = JobCollectingDelegate()
       let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
-      try executor.build(.relative(RelativePath("main")))
+      try executor.execute()
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
@@ -132,25 +159,6 @@ final class JobExecutorTests: XCTestCase {
   }
 
   func testStubProcessProtocol() throws {
-    struct StubProcess: ProcessProtocol {
-      static func launchProcess(
-        arguments: [String]
-      ) throws -> ProcessProtocol {
-        return StubProcess()
-      }
-
-      var processID: TSCBasic.Process.ProcessID { .init(-1) }
-
-      func waitUntilExit() throws -> ProcessResult {
-        return ProcessResult(
-          arguments: [],
-          exitStatus: .terminated(code: 0),
-          output: Result.success(ByteString("test").contents),
-          stderrOutput: Result.success([])
-        )
-      }
-    }
-
     let job = Job(
       kind: .compile,
       tool: .absolute(AbsolutePath("/usr/bin/swift")),
@@ -160,12 +168,12 @@ final class JobExecutorTests: XCTestCase {
     )
 
     let delegate = JobCollectingDelegate()
+    delegate.useStubProcess = true
     let executor = JobExecutor(
       jobs: [job], resolver: try ArgsResolver(),
-      executorDelegate: delegate,
-      processProtocol: StubProcess.self
+      executorDelegate: delegate
     )
-    try executor.build(.temporary(RelativePath("main")))
+    try executor.execute()
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }
