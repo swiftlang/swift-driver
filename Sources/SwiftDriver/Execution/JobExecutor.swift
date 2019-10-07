@@ -86,14 +86,24 @@ public final class JobExecutor {
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
 
+    /// Operation queue for executing tasks in parallel.
+    let jobQueue: OperationQueue
+
+    /// The process set to use when launching new processes.
+    let processSet: ProcessSet?
+
     init(
       argsResolver: ArgsResolver,
       producerMap: [VirtualPath: Job],
-      executorDelegate: JobExecutorDelegate
+      executorDelegate: JobExecutorDelegate,
+      jobQueue: OperationQueue,
+      processSet: ProcessSet?
     ) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
       self.executorDelegate = executorDelegate
+      self.jobQueue = jobQueue
+      self.processSet = processSet
     }
   }
 
@@ -106,14 +116,24 @@ public final class JobExecutor {
   /// The job executor delegate.
   let executorDelegate: JobExecutorDelegate
 
+  /// The number of jobs to run in parallel.
+  let numParallelJobs: Int
+
+  /// The process set to use when launching new processes.
+  let processSet: ProcessSet?
+
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate
+    executorDelegate: JobExecutorDelegate,
+    numParallelJobs: Int? = nil,
+    processSet: ProcessSet? = nil
   ) {
     self.jobs = jobs
     self.argsResolver = resolver
     self.executorDelegate = executorDelegate
+    self.numParallelJobs = numParallelJobs ?? 1
+    self.processSet = processSet
   }
 
   /// Execute all jobs.
@@ -141,10 +161,16 @@ public final class JobExecutor {
       }
     }
 
+    let jobQueue = OperationQueue()
+    jobQueue.name = "org.swift.driver.job-execution"
+    jobQueue.maxConcurrentOperationCount = numParallelJobs
+
     return Context(
       argsResolver: argsResolver,
       producerMap: producerMap,
-      executorDelegate: executorDelegate
+      executorDelegate: executorDelegate,
+      jobQueue: jobQueue,
+      processSet: processSet
     )
   }
 }
@@ -282,6 +308,13 @@ class ExecuteJobRule: LLBuildRule {
     }
 
     let context = engine.jobExecutorContext
+    context.jobQueue.addOperation {
+      self.executeJob(engine)
+    }
+  }
+
+  private func executeJob(_ engine: LLTaskBuildEngine) {
+    let context = engine.jobExecutorContext
     let resolver = context.argsResolver
     let job = key.job
 
@@ -294,6 +327,11 @@ class ExecuteJobRule: LLBuildRule {
 
       let process = try context.executorDelegate.launchProcess(for: job, arguments: arguments)
       pid = Int(process.processID)
+
+      // Add it to the process set if it's a real process.
+      if case let realProcess as TSCBasic.Process = process {
+        try context.processSet?.add(realProcess)
+      }
 
       // Inform the delegate.
       context.delegateQueue.async {

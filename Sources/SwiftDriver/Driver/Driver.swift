@@ -358,7 +358,8 @@ extension Driver {
   /// Run the driver.
   public mutating func run(
     resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate? = nil
+    executorDelegate: JobExecutorDelegate? = nil,
+    processSet: ProcessSet? = nil
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
@@ -389,7 +390,9 @@ extension Driver {
     // Start up an executor and perform the build.
     let jobExecutor = JobExecutor(
         jobs: jobs, resolver: resolver,
-        executorDelegate: executorDelegate
+        executorDelegate: executorDelegate,
+        numParallelJobs: numParallelJobs,
+        processSet: processSet
     )
     try jobExecutor.execute()
   }
