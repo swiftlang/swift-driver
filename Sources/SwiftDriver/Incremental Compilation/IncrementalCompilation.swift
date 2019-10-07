@@ -30,7 +30,8 @@ public struct IncrementalCompilation {
        compilerOutputType: FileType?,
        moduleOutput: ModuleOutput?,
        inputFiles: [TypedVirtualPath],
-       diagnosticEngine: DiagnosticsEngine
+       diagnosticEngine: DiagnosticsEngine,
+       actualSwiftVersion: String?
   ) {
     let showIncrementalBuildDecisions = Self.getShowIncrementalBuildDecisions(&parsedOptions)
     self.showIncrementalBuildDecisions = showIncrementalBuildDecisions
@@ -66,8 +67,11 @@ public struct IncrementalCompilation {
         buildRecordPath: buRP,
         showIncrementalBuildDecisions: showIncrementalBuildDecisions,
         diagnosticEngine: diagnosticEngine)
-      if let mismatchReason = outOfDateMap?.matches(argsHash: argsHash,
-                                                    inputFiles: inputFiles) {
+      if let mismatchReason = outOfDateMap?.matches(
+        argsHash: argsHash,
+        inputFiles: inputFiles,
+        actualSwiftVersion: actualSwiftVersion
+      ) {
         diagnosticEngine.emit(.remark_incremental_compilation_disabled(because: mismatchReason))
         self.outOfDateMap = nil
       }

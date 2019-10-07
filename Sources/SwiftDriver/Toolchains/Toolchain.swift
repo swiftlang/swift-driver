@@ -53,3 +53,11 @@ public protocol Toolchain {
     isShared: Bool
   ) throws -> String
 }
+
+extension Toolchain {
+  public func swiftCompilerVersion() throws -> String {
+    try Process.checkNonZeroExit(
+      args: getToolPath(.swiftCompiler).pathString, "-version"
+    ).split(separator: "\n").first.map(String.init) ?? ""
+  }
+}

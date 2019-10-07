@@ -731,6 +731,11 @@ final class SwiftDriverTests: XCTestCase {
     var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
     _ = try driverWithEmptySDK.planBuild()
   }
+  
+  func testToolchainUtilities() throws {
+    let swiftVersion = try DarwinToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
+    assertString(swiftVersion, contains: "Swift version ")
+  }
 }
 
 func assertNoErrorDiagnostics(_ driver: Driver,
@@ -738,4 +743,15 @@ func assertNoErrorDiagnostics(_ driver: Driver,
                               file: StaticString = #file, line: UInt = #line) {
   XCTAssertFalse(driver.diagnosticEngine.hasErrors,
                  message, file: file, line: line)
+}
+
+func assertString(
+  _ haystack: String, contains needle: String, _ message: String = "",
+  file: StaticString = #file, line: UInt = #line
+) {
+  XCTAssertTrue(haystack.contains(needle), """
+                \(String(reflecting: needle)) not found in \
+                \(String(reflecting: haystack))\
+                \(message.isEmpty ? "" : ": " + message)
+                """, file: file, line: line)
 }
