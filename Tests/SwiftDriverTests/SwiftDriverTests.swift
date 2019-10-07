@@ -191,9 +191,9 @@ final class SwiftDriverTests: XCTestCase {
   }
   
   func testModuleNameFallbacks() throws {
-    assertNoErrorDiagnostics(try Driver(args: ["swiftc", "file.foo.swift"]))
-    assertNoErrorDiagnostics(try Driver(args: ["swiftc", ".foo.swift"]))
-    assertNoErrorDiagnostics(try Driver(args: ["swiftc", "foo-bar.swift"]))
+    try assertNoDriverDiagnostics(args: "swiftc", "file.foo.swift")
+    try assertNoDriverDiagnostics(args: "swiftc", ".foo.swift")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo-bar.swift")
   }
 
   func testStandardCompileJobs() throws {
@@ -243,17 +243,16 @@ final class SwiftDriverTests: XCTestCase {
     """
 
     try withTemporaryFile { file in
-      let diags = DiagnosticsEngine()
-      try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
-      let outputFileMap = try OutputFileMap.load(file: file.path, diagnosticEngine: diags)
+      try assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        let outputFileMap = try OutputFileMap.load(file: file.path, diagnosticEngine: diags)
 
-      let object = try outputFileMap.getOutput(inputFile: .init(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
-      XCTAssertEqual(object.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
+        let object = try outputFileMap.getOutput(inputFile: .init(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
+        XCTAssertEqual(object.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
 
-      let masterDeps = try outputFileMap.getOutput(inputFile: .init(path: ""), outputType: .swiftDeps)
-      XCTAssertEqual(masterDeps.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps")
-
-      XCTAssertTrue(!diags.hasErrors, "\(diags.diagnostics)")
+        let masterDeps = try outputFileMap.getOutput(inputFile: .init(path: ""), outputType: .swiftDeps)
+        XCTAssertEqual(masterDeps.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps")
+      }
     }
   }
 
@@ -735,13 +734,6 @@ final class SwiftDriverTests: XCTestCase {
     let swiftVersion = try DarwinToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
     assertString(swiftVersion, contains: "Swift version ")
   }
-}
-
-func assertNoErrorDiagnostics(_ driver: Driver,
-                              _ message: String = "Emitted an error diagnostic",
-                              file: StaticString = #file, line: UInt = #line) {
-  XCTAssertFalse(driver.diagnosticEngine.hasErrors,
-                 message, file: file, line: line)
 }
 
 func assertString(
