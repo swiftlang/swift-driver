@@ -15,20 +15,25 @@ fileprivate func envVarName(forExecutable toolName: String) -> String {
   return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
 }
 
-/// Utility function to lookup an executable using xcrun.
-func xcrunFind(exec: String) throws -> AbsolutePath {
-  if let overrideString = ProcessEnv.vars[envVarName(forExecutable: exec)] {
-    return try AbsolutePath(validating: overrideString)
-  }
+// FIXME: This should be in DarwinToolchain, but GenericUnixToolchain is
+// currently using it too for some reason.
+extension Toolchain {
+  /// Utility function to lookup an executable using xcrun.
+  func xcrunFind(exec: String) throws -> AbsolutePath {
+    if let overrideString = env[envVarName(forExecutable: exec)] {
+      return try AbsolutePath(validating: overrideString)
+    }
 
-#if os(macOS)
-  let path = try Process.checkNonZeroExit(
-    arguments: ["xcrun", "-sdk", "macosx", "--find", exec]).spm_chomp()
-  return AbsolutePath(path)
-#else
-  // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
-  return AbsolutePath("/usr/bin/" + exec)
-#endif
+  #if os(macOS)
+    let path = try Process.checkNonZeroExit(
+      arguments: ["xcrun", "-sdk", "macosx", "--find", exec]
+    ).spm_chomp()
+    return AbsolutePath(path)
+  #else
+    // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
+    return AbsolutePath("/usr/bin/" + exec)
+  #endif
+  }
 }
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
