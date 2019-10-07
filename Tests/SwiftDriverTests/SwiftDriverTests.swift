@@ -132,62 +132,77 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDebugSettings() throws {
-    let driver1 = try Driver(args: ["swiftc", "foo.swift", "-emit-module"])
-    XCTAssertNil(driver1.debugInfoLevel)
-    XCTAssertEqual(driver1.debugInfoFormat, .dwarf)
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module") { driver in
+      XCTAssertNil(driver.debugInfoLevel)
+      XCTAssertEqual(driver.debugInfoFormat, .dwarf)
+    }
 
-    let driver2 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g"])
-    XCTAssertEqual(driver2.debugInfoLevel, .astTypes)
-    XCTAssertEqual(driver2.debugInfoFormat, .dwarf)
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g") { driver in
+      XCTAssertEqual(driver.debugInfoLevel, .astTypes)
+      XCTAssertEqual(driver.debugInfoFormat, .dwarf)
+    }
 
-    let driver3 = try Driver(args: ["swiftc", "-g", "foo.swift", "-gline-tables-only"])
-    XCTAssertEqual(driver3.debugInfoLevel, .lineTables)
-    XCTAssertEqual(driver3.debugInfoFormat, .dwarf)
+    try assertNoDriverDiagnostics(args: "swiftc", "-g", "foo.swift", "-gline-tables-only") { driver in
+      XCTAssertEqual(driver.debugInfoLevel, .lineTables)
+      XCTAssertEqual(driver.debugInfoFormat, .dwarf)
+    }
 
-    let driver4 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview"])
-    XCTAssertEqual(driver4.debugInfoLevel, .astTypes)
-    XCTAssertEqual(driver4.debugInfoFormat, .codeView)
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview") { driver in
+      XCTAssertEqual(driver.debugInfoLevel, .astTypes)
+      XCTAssertEqual(driver.debugInfoFormat, .codeView)
+    }
 
-    let driver5 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-debug-info-format=dwarf"])
-    XCTAssertEqual(driver5.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["option '-debug-info-format=' is missing a required argument (-g)"])
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-debug-info-format=dwarf") {
+      $1.expect(.error("option '-debug-info-format=' is missing a required argument (-g)"))
+    }
 
-    let driver6 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=notdwarf"])
-    XCTAssertEqual(driver6.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["invalid value 'notdwarf' in '-debug-info-format='"])
-
-    let driver7 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-gdwarf-types", "-debug-info-format=codeview"])
-    XCTAssertEqual(driver7.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["argument 'codeview' is not allowed with '-gdwarf-types'"])
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=notdwarf") {
+      $1.expect(.error("invalid value 'notdwarf' in '-debug-info-format='"))
+    }
+    
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-gdwarf-types", "-debug-info-format=codeview") {
+      $1.expect(.error("argument 'codeview' is not allowed with '-gdwarf-types'"))
+    }
   }
 
   func testModuleSettings() throws {
-    let driver1 = try Driver(args: ["swiftc", "foo.swift"])
-    XCTAssertNil(driver1.moduleOutput)
-    XCTAssertEqual(driver1.moduleName, "foo")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift") { driver in
+      XCTAssertNil(driver.moduleOutput)
+      XCTAssertEqual(driver.moduleName, "foo")
+    }
 
-    let driver2 = try Driver(args: ["swiftc", "foo.swift", "-g"])
-    XCTAssertEqual(driver2.moduleOutput, ModuleOutput.auxiliary(VirtualPath.temporary(RelativePath("foo.swiftmodule"))))
-    XCTAssertEqual(driver2.moduleName, "foo")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.auxiliary(VirtualPath.temporary(RelativePath("foo.swiftmodule"))))
+      XCTAssertEqual(driver.moduleName, "foo")
+    }
 
-    let driver3 = try Driver(args: ["swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g"])
-    XCTAssertEqual(driver3.moduleOutput, ModuleOutput.auxiliary( VirtualPath.temporary(RelativePath("wibble.swiftmodule"))))
-    XCTAssertEqual(driver3.moduleName, "wibble")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.auxiliary( VirtualPath.temporary(RelativePath("wibble.swiftmodule"))))
+      XCTAssertEqual(driver.moduleName, "wibble")
+    }
 
-    let driver4 = try Driver(args: ["swiftc", "-emit-module", "foo.swift", "-module-name", "wibble", "bar.swift"])
-    XCTAssertEqual(driver4.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "wibble.swiftmodule")))
-    XCTAssertEqual(driver4.moduleName, "wibble")
+    try assertNoDriverDiagnostics(args: "swiftc", "-emit-module", "foo.swift", "-module-name", "wibble", "bar.swift") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "wibble.swiftmodule")))
+      XCTAssertEqual(driver.moduleName, "wibble")
+    }
 
-    let driver5 = try Driver(args: ["swiftc", "foo.swift", "bar.swift"])
-    XCTAssertNil(driver5.moduleOutput)
-    XCTAssertEqual(driver5.moduleName, "main")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift") { driver in
+      XCTAssertNil(driver.moduleOutput)
+      XCTAssertEqual(driver.moduleName, "main")
+    }
+    
+    try assertNoDriverDiagnostics(args: "swiftc", "-repl") { driver in
+      XCTAssertNil(driver.moduleOutput)
+      XCTAssertEqual(driver.moduleName, "REPL")
+    }
+    
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so") { driver in
+      XCTAssertEqual(driver.moduleName, "Wibble")
+    }
 
-    let driver6 = try Driver(args: ["swiftc", "-repl"])
-    XCTAssertNil(driver6.moduleOutput)
-    XCTAssertEqual(driver6.moduleName, "REPL")
-
-    let driver7 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so"])
-    XCTAssertEqual(driver7.moduleName, "Wibble")
-
-    let driver8 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift"])
-    XCTAssertEqual(driver8.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["module name \"Swift\" is reserved for the standard library"])
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
+      $1.expect(.error_stdlib_module_name(moduleName: "Swift", explicitModuleName: true))
+    }
   }
   
   func testModuleNameFallbacks() throws {
