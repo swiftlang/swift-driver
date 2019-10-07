@@ -26,22 +26,49 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDriverKindParsing() throws {
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swift"]), .interactive)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["/path/to/swift"]), .interactive)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc"]), .batch)
-    XCTAssertEqual(try Driver.determineDriverKind(args: [".build/debug/swiftc"]), .batch)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "-frontend"]), .frontend)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "-modulewrap"]), .moduleWrap)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["/path/to/swiftc", "-modulewrap"]), .moduleWrap)
+    func assertArgs(
+      _ args: String...,
+      parseTo driverKind: DriverKind,
+      leaving remainingArgs: ArraySlice<String>,
+      file: StaticString = #file, line: UInt = #line
+    ) throws {
+      var slice = args[...]
+      let result = try Driver.determineDriverKind(args: &slice)
+      
+      XCTAssertEqual(result, driverKind, file: file, line: line)
+      XCTAssertEqual(slice, remainingArgs, file: file, line: line)
+    }
+    func assertArgsThrow(
+      _ args: String...,
+      file: StaticString = #file, line: UInt = #line
+    ) throws {
+      var slice = args[...]
+      XCTAssertThrowsError(try Driver.determineDriverKind(args: &slice))
+    }
 
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift"]), .interactive)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift-autolink-extract"]), .autolinkExtract)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=swift-indent"]), .indent)
-    XCTAssertEqual(try Driver.determineDriverKind(args: ["swift", "--driver-mode=swift-autolink-extract"]), .autolinkExtract)
+    try assertArgs("swift", parseTo: .interactive, leaving: [])
+    try assertArgs("/path/to/swift", parseTo: .interactive, leaving: [])
+    try assertArgs("swiftc", parseTo: .batch, leaving: [])
+    try assertArgs(".build/debug/swiftc", parseTo: .batch, leaving: [])
+    try assertArgs("swiftc", "-frontend", parseTo: .frontend, leaving: [])
+    try assertArgs("swiftc", "-modulewrap", parseTo: .moduleWrap, leaving: [])
+    try assertArgs("/path/to/swiftc", "-modulewrap",
+                   parseTo: .moduleWrap, leaving: [])
 
-    XCTAssertThrowsError(try Driver.determineDriverKind(args: ["driver"]))
-    XCTAssertThrowsError(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode=blah"]))
-    XCTAssertThrowsError(try Driver.determineDriverKind(args: ["swiftc", "--driver-mode="]))
+    try assertArgs("swiftc", "--driver-mode=swift", parseTo: .interactive, leaving: [])
+    try assertArgs("swiftc", "--driver-mode=swift-autolink-extract", parseTo: .autolinkExtract, leaving: [])
+    try assertArgs("swiftc", "--driver-mode=swift-indent", parseTo: .indent, leaving: [])
+    try assertArgs("swift", "--driver-mode=swift-autolink-extract", parseTo: .autolinkExtract, leaving: [])
+    
+    try assertArgs("swift", "-zelda", parseTo: .interactive, leaving: ["-zelda"])
+    try assertArgs("/path/to/swiftc", "-modulewrap", "savannah",
+                   parseTo: .moduleWrap, leaving: ["savannah"])
+    try assertArgs("swiftc", "--driver-mode=swift", "swiftc",
+                   parseTo: .interactive, leaving: ["swiftc"])
+
+    try assertArgsThrow("driver")
+    try assertArgsThrow("swiftc", "--driver-mode=blah")
+    try assertArgsThrow("swiftc", "--driver-mode=")
   }
 
   func testCompilerMode() throws {
@@ -150,6 +177,12 @@ final class SwiftDriverTests: XCTestCase {
 
     let driver8 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift"])
     XCTAssertEqual(driver8.diagnosticEngine.diagnostics.map{$0.localizedDescription}, ["module name \"Swift\" is reserved for the standard library"])
+  }
+  
+  func testModuleNameFallbacks() throws {
+    assertNoErrorDiagnostics(try Driver(args: ["swiftc", "file.foo.swift"]))
+    assertNoErrorDiagnostics(try Driver(args: ["swiftc", ".foo.swift"]))
+    assertNoErrorDiagnostics(try Driver(args: ["swiftc", "foo-bar.swift"]))
   }
 
   func testStandardCompileJobs() throws {
@@ -683,4 +716,15 @@ final class SwiftDriverTests: XCTestCase {
     """)
   }
 
+  func testRegressions() throws {
+    var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
+    _ = try driverWithEmptySDK.planBuild()
+  }
+}
+
+func assertNoErrorDiagnostics(_ driver: Driver,
+                              _ message: String = "Emitted an error diagnostic",
+                              file: StaticString = #file, line: UInt = #line) {
+  XCTAssertFalse(driver.diagnosticEngine.hasErrors,
+                 message, file: file, line: line)
 }

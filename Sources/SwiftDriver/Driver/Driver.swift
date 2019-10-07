@@ -171,10 +171,10 @@ public struct Driver {
     // FIXME: Determine if we should run as subcommand.
 
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
-    let args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)
-    self.driverKind = try Self.determineDriverKind(args: args)
+    var args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)[...]
+    self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args.dropFirst()))
+    self.parsedOptions = try optionTable.parse(Array(args))
 
     if let targetTriple = self.parsedOptions.getLastArgument(.target)?.asSingle {
       self.targetTriple = Triple(targetTriple, normalizing: true)
@@ -320,25 +320,31 @@ extension Driver {
 }
 
 extension Driver {
-  /// Determine the driver kind based on the command-line arguments.
+  /// Determine the driver kind based on the command-line arguments, consuming the arguments
+  /// conveying this information.
   public static func determineDriverKind(
-    args: [String],
+    args: inout ArraySlice<String>,
     cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
   ) throws -> DriverKind {
     // Get the basename of the driver executable.
-    let execPath = try cwd.map{ AbsolutePath(args[0], relativeTo: $0) } ?? AbsolutePath(validating: args[0])
+    let execRelPath = args.removeFirst()
+    let execPath = try cwd.map{ AbsolutePath(execRelPath, relativeTo: $0) } ?? AbsolutePath(validating: execRelPath)
     var driverName = execPath.basename
 
     // Determine driver kind based on the first argument.
-    if args.count > 1 {
-      let driverModeOption = "--driver-mode="
-      if args[1].starts(with: driverModeOption) {
-        driverName = String(args[1].dropFirst(driverModeOption.count))
-      } else if args[1] == "-frontend" {
-        return .frontend
-      } else if args[1] == "-modulewrap" {
-        return .moduleWrap
-      }
+    let driverModeOption = "--driver-mode="
+    switch args.first {
+    case "-frontend"?:
+      args.removeFirst()
+      return .frontend
+    case "-modulewrap"?:
+      args.removeFirst()
+      return .moduleWrap
+    case let firstArg? where firstArg.hasPrefix(driverModeOption):
+      args.removeFirst()
+      driverName = String(firstArg.dropFirst(driverModeOption.count))
+    default:
+      break
     }
 
     switch driverName {
@@ -868,12 +874,12 @@ extension Driver {
   private static func baseNameWithoutExtension(_ path: String, hasExtension: inout Bool) -> String {
     if let absolute = try? AbsolutePath(validating: path) {
       hasExtension = absolute.extension != nil
-      return absolute.basenameWithoutExt
+      return absolute.basenameWithoutAllExts
     }
 
     if let relative = try? RelativePath(validating: path) {
       hasExtension = relative.extension != nil
-      return relative.basenameWithoutExt
+      return relative.basenameWithoutAllExts
     }
 
     hasExtension = false
@@ -967,20 +973,26 @@ extension Driver {
       moduleName = rawModuleName
     } else if parsedOptions.allInputs.count == 1 {
       moduleName = baseNameWithoutExtension(parsedOptions.allInputs.first!)
-    } else if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
-      // FIXME: Current driver notes that this is a "fallback module name"
-      moduleName = "main"
     } else {
-      // FIXME: Current driver notes that this is a "fallback module name".
+      // This value will fail the isSwiftIdentifier test below.
       moduleName = ""
+    }
+    
+    func fallbackOrDiagnose(_ error: Diagnostic.Message) {
+      // FIXME: Current driver notes that this is a "fallback module name".
+      if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
+        moduleName = "main"
+      }
+      else {
+        diagnosticsEngine.emit(error)
+        moduleName = "__bad__"
+      }
     }
 
     if !moduleName.isSwiftIdentifier {
-      diagnosticsEngine.emit(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
-      moduleName = "__bad__"
+      fallbackOrDiagnose(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     } else if moduleName == "Swift" && !parsedOptions.contains(.parseStdlib) {
-      diagnosticsEngine.emit(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
-      moduleName = "__bad__"
+      fallbackOrDiagnose(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     }
 
     // If we're not emiting a module, we're done.
@@ -1036,6 +1048,11 @@ extension Driver {
         // latest SDK may not be intended.
         sdkPath = try? toolchain.defaultSDKPath()?.pathString
       }
+    }
+    
+    // An empty string explicitly clears the SDK.
+    if sdkPath == "" {
+      sdkPath = nil
     }
 
     // Delete trailing /.

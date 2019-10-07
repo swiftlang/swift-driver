@@ -40,6 +40,18 @@ you can set this variable in the scheme's test action.
 $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 swift test --parallel
 ```
 
+Some integration tests run the lit test suites in a Swift working copy.
+To enable these, clone Swift and its dependencies and buld them with
+build-script, then set both `SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS`
+and `SWIFT_DRIVER_LIT_DIR`, either in your Xcode scheme or
+on the command line:
+
+```
+$ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
+  SWIFT_DRIVER_LIT_DIR=/path/to/build/Ninja-ReleaseAssert/swift-.../test-... \
+  swift test --parallel
+```
+
 ## Using with SwiftPM
 
 Create a symlink of the `swift-driver` binary called `swiftc` and export that
@@ -85,7 +97,7 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [ ] Input and primary input file lists
 * Testing
   * [ ] Build stuff with SwiftPM or xcodebuild or your favorite build system, using `swift-driver`.
-  * [ ] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver)
+  * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver)
   * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
 * Fun experiments
   * [ ] Modify SwiftPM to import the SwiftDriver library, using its `Driver` to construct jobs and incorporate them into its own build graph
