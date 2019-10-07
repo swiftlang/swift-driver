@@ -1,4 +1,16 @@
+//===--------------- EmitModuleJob.swift - Swift Module Emission Job ------===//
+//
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 extension Driver {
+  /// Form a job that emits a single module
   mutating func emitModuleJob() throws -> Job {
     let moduleOutputPath = moduleOutput!.outputPath
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }

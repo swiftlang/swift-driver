@@ -1,3 +1,15 @@
+//===--------------- Triple+Platforms.swift - Swift Platform Triples ------===//
+//
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
 /// Represents any of the "Apple" platforms handled by `DarwinToolchain`.
 /// This boils down a lot of complicated logic about different variants and
 /// environments into a straightforward, tightly-modeled type that can be
