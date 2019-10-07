@@ -26,7 +26,8 @@ extension Toolchain {
 
   #if os(macOS)
     let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", exec]
+      arguments: ["xcrun", "-sdk", "macosx", "--find", exec],
+      environment: env
     ).spm_chomp()
     return AbsolutePath(path)
   #else
@@ -40,7 +41,8 @@ extension Toolchain {
 ///
 /// FIXME: This class is not thread-safe.
 public final class DarwinToolchain: Toolchain {
-
+  public let env: [String: String]
+  
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
@@ -58,7 +60,8 @@ public final class DarwinToolchain: Toolchain {
 
     case .clang:
       let result = try Process.checkNonZeroExit(
-        arguments: ["xcrun", "-toolchain", "default", "-f", "clang"]
+        arguments: ["xcrun", "-toolchain", "default", "-f", "clang"],
+        environment: env
       ).spm_chomp()
       return AbsolutePath(result)
     case .swiftAutolinkExtract:
@@ -74,7 +77,9 @@ public final class DarwinToolchain: Toolchain {
   /// SDK path.
   public lazy var sdk: Result<AbsolutePath, Swift.Error> = Result {
     let result = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"]).spm_chomp()
+      arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"],
+      environment: env
+    ).spm_chomp()
     return AbsolutePath(result)
   }
 
@@ -88,7 +93,9 @@ public final class DarwinToolchain: Toolchain {
     return swiftCompiler.map{ $0.appending(RelativePath("../../lib/swift/macosx")) }
   }
 
-  public init() {
+  
+  public init(env: [String: String]) {
+    self.env = env
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -112,12 +119,16 @@ public final class DarwinToolchain: Toolchain {
   }
 
   public func defaultSDKPath() throws -> AbsolutePath? {
-    return try sdk.get()
+    let result = try Process.checkNonZeroExit(
+      arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"],
+      environment: env
+    ).spm_chomp()
+    return AbsolutePath(result)
   }
 
   public var shouldStoreInvocationInDebugInfo: Bool {
     // This matches the behavior in Clang.
-    !(ProcessEnv.vars["RC_DEBUG_OPTIONS"]?.isEmpty ?? false)
+    !(env["RC_DEBUG_OPTIONS"]?.isEmpty ?? false)
   }
 
   public func runtimeLibraryName(

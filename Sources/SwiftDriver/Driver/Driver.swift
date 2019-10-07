@@ -44,6 +44,11 @@ public struct Driver {
     case invalidDriverName(String)
     case invalidInput(String)
   }
+  
+  /// The set of environment variables that are visible to the driver and
+  /// processes it launches. This is a hook for testing; in actual use
+  /// it should be identical to the real environment.
+  public let env: [String: String]
 
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
@@ -175,10 +180,20 @@ public struct Driver {
   }
 
   /// Create the driver with the given arguments.
+  ///
+  /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
+  ///   at the beginning.
+  /// - Parameter env: The environment variables to use. This is a hook for testing;
+  ///   in production, you should use the default argument, which copies the current environment.
+  /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
+  ///   emitted. The default argument prints diagnostics to stderr.
   public init(
     args: [String],
+    env: [String: String] = ProcessEnv.vars,
     diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
   ) throws {
+    self.env = env
+    
     // FIXME: Determine if we should run as subcommand.
 
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
@@ -191,7 +206,7 @@ public struct Driver {
       .map {
         Triple($0, normalizing: true)
       }
-    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine)
+    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env)
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
@@ -240,7 +255,7 @@ public struct Driver {
 
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
-    self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     // Compute debug information output.
     (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
@@ -262,7 +277,7 @@ public struct Driver {
       actualSwiftVersion: try? toolchain.swiftCompilerVersion()
     )
 
-    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine)
+    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
 
@@ -419,15 +434,13 @@ extension Driver {
         numParallelJobs: numParallelJobs,
         processSet: processSet
     )
-    try jobExecutor.execute()
+    try jobExecutor.execute(env: env)
   }
 
   /// Returns the path to the Swift binary.
   func getSwiftCompilerPath() throws -> AbsolutePath {
     // FIXME: This is very preliminary. Need to figure out how to get the actual Swift executable path.
-    let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", "swift"]).spm_chomp()
-    return AbsolutePath(path)
+    try toolchain.getToolPath(.swiftCompiler)
   }
 
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
@@ -722,7 +735,8 @@ extension Driver {
   /// Determine the number of parallel jobs to execute.
   static func determineNumParallelJobs(
     _ parsedOptions: inout ParsedOptions,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    env: [String: String]
   ) -> Int? {
     guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
       return nil
@@ -733,7 +747,7 @@ extension Driver {
       return nil
     }
 
-    if let determinismRequested = ProcessEnv.vars["SWIFTC_MAXIMUM_DETERMINISM"], !determinismRequested.isEmpty {
+    if let determinismRequested = env["SWIFTC_MAXIMUM_DETERMINISM"], !determinismRequested.isEmpty {
       diagnosticsEngine.emit(.remark_max_determinism_overriding(.j))
       return 1
     }
@@ -1046,13 +1060,14 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode,
     toolchain: Toolchain,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    env: [String: String]
   ) -> String? {
     var sdkPath: String?
 
     if let arg = parsedOptions.getLastArgument(.sdk) {
       sdkPath = arg.asSingle
-    } else if let SDKROOT = ProcessEnv.vars["SDKROOT"] {
+    } else if let SDKROOT = env["SDKROOT"] {
       sdkPath = SDKROOT
     } else if compilerMode == .immediate || compilerMode == .repl {
       // FIXME: ... is triple macOS ...
@@ -1160,11 +1175,12 @@ extension Driver {
   
   static func computeToolchain(
     _ explicitTarget: Triple?,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    env: [String: String]
   ) throws -> (Toolchain, Triple) {
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
-    let toolchain = toolchainType.init()
+    let toolchain = toolchainType.init(env: env)
     return (toolchain, try explicitTarget ?? toolchain.hostTargetTriple())
   }
 }

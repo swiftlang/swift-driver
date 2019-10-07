@@ -52,18 +52,18 @@ class JobCollectingDelegate: JobExecutorDelegate {
     started.append(job)
   }
 
-  func launchProcess(for job: Job, arguments: [String]) throws -> ProcessProtocol {
+  func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol {
     if useStubProcess {
       return StubProcess()
     }
-    return try TSCBasic.Process.launchProcess(arguments: arguments)
+    return try TSCBasic.Process.launchProcess(arguments: arguments, env: env)
   }
 }
 
 final class JobExecutorTests: XCTestCase {
   func testDarwinBasic() throws {
 #if os(macOS)
-    let toolchain = DarwinToolchain()
+    let toolchain = DarwinToolchain(env: ProcessEnv.vars)
     try withTemporaryDirectory { path in
       let foo = path.appending(component: "foo.swift")
       let main = path.appending(component: "main.swift")
@@ -155,7 +155,7 @@ final class JobExecutorTests: XCTestCase {
 
       let delegate = JobCollectingDelegate()
       let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
-      try executor.execute()
+      try executor.execute(env: toolchain.env)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
@@ -184,32 +184,22 @@ final class JobExecutorTests: XCTestCase {
       jobs: [job], resolver: try ArgsResolver(),
       executorDelegate: delegate
     )
-    try executor.execute()
+    try executor.execute(env: ProcessEnv.vars)
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }
   
   func testSwiftDriverExecOverride() throws {
-    let previousSwiftExec = ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"]
+    var env = ProcessEnv.vars
     
-    try ProcessEnv.unsetVar("SWIFT_DRIVER_SWIFT_EXEC")
-    
-    let toolchain = DarwinToolchain()
-    let normalSwiftPath = try toolchain.getToolPath(.swiftCompiler)
-    
+    env.removeValue(forKey: "SWIFT_DRIVER_SWIFT_EXEC")
+    let normalToolchain = DarwinToolchain(env: env)
+    let normalSwiftPath = try normalToolchain.getToolPath(.swiftCompiler)
     XCTAssertEqual(normalSwiftPath.basenameWithoutExt, "swift")
     
-    try ProcessEnv.setVar("SWIFT_DRIVER_SWIFT_EXEC",
-                          value: "/some/garbage/path/fnord")
-    let overridePath = try toolchain.getToolPath(.swiftCompiler)
-    
-    XCTAssertEqual(overridePath, AbsolutePath("/some/garbage/path/fnord"))
-    
-    if let previousSwiftExec = previousSwiftExec {
-      try ProcessEnv.setVar("SWIFT_DRIVER_SWIFT_EXEC", value: previousSwiftExec)
-    }
-    else {
-      try ProcessEnv.unsetVar("SWIFT_DRIVER_SWIFT_EXEC")
-    }
+    env["SWIFT_DRIVER_SWIFT_EXEC"] = "/some/garbage/path/fnord"
+    let overriddenToolchain = DarwinToolchain(env: env)
+    let overriddenSwiftPath = try overriddenToolchain.getToolPath(.swiftCompiler)
+    XCTAssertEqual(overriddenSwiftPath, AbsolutePath("/some/garbage/path/fnord"))
   }
 }

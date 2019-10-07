@@ -23,7 +23,9 @@ public enum Tool {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
-  init()
+  init(env: [String: String])
+  
+  var env: [String: String] { get }
   
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
@@ -59,14 +61,16 @@ public protocol Toolchain {
 extension Toolchain {
   public func swiftCompilerVersion() throws -> String {
     try Process.checkNonZeroExit(
-      args: getToolPath(.swiftCompiler).pathString, "-version"
+      args: getToolPath(.swiftCompiler).pathString, "-version",
+      environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
   
   /// Returns the target triple string for the current host.
   public func hostTargetTriple() throws -> Triple {
     let triple = try Process.checkNonZeroExit(
-      args: getToolPath(.clang).pathString, "-print-target-triple"
+      args: getToolPath(.clang).pathString, "-print-target-triple",
+      environment: env
     ).spm_chomp()
     return Triple(triple)
   }
