@@ -187,12 +187,11 @@ public struct Driver {
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args))
 
-    if let targetTriple = self.parsedOptions.getLastArgument(.target)?.asSingle {
-      self.targetTriple = Triple(targetTriple, normalizing: true)
-    } else {
-      self.targetTriple = try Triple.hostTargetTriple.get()
-    }
-    self.toolchain = try Self.computeToolchain(self.targetTriple, diagnosticsEngine: diagnosticEngine)
+    let explicitTarget = (self.parsedOptions.getLastArgument(.target)?.asSingle)
+      .map {
+        Triple($0, normalizing: true)
+      }
+    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine)
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
@@ -1131,26 +1130,42 @@ extension Diagnostic.Message {
   }
 }
 
-/// Toolchain computation.
-extension Driver {
-  static func computeToolchain(
-    _ target: Triple,
-    diagnosticsEngine: DiagnosticsEngine
-  ) throws -> Toolchain {
-    switch target.os {
+extension Triple {
+  func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
+    switch os {
     case .darwin, .macosx, .ios, .tvos, .watchos:
-      return DarwinToolchain()
+      return DarwinToolchain.self
     case .linux:
-      return GenericUnixToolchain()
+      return GenericUnixToolchain.self
     case .freeBSD, .haiku:
-      return GenericUnixToolchain()
+      return GenericUnixToolchain.self
     case .win32:
       fatalError("Windows target not supported yet")
     default:
-      diagnosticsEngine.emit(.error_unknown_target(target.triple))
+      diagnosticsEngine.emit(.error_unknown_target(triple))
+      throw Diagnostics.fatalError
     }
+  }
+}
 
-    throw Diagnostics.fatalError
+/// Toolchain computation.
+extension Driver {
+  #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+  static let defaultToolchainType: Toolchain.Type = DarwinToolchain.self
+  #elseif os(Windows)
+  static let defaultToolchainType: Toolchain.Type = { fatalError("Windows target not supported yet") }()
+  #else
+  static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
+  #endif
+  
+  static func computeToolchain(
+    _ explicitTarget: Triple?,
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws -> (Toolchain, Triple) {
+    let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
+          defaultToolchainType
+    let toolchain = toolchainType.init()
+    return (toolchain, try explicitTarget ?? toolchain.hostTargetTriple())
   }
 }
 

@@ -209,8 +209,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
-    let hostTriple = try Triple.hostTargetTriple.get()
-    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", hostTriple.triple, "-g"])
+    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", "powerpc-apple-macosx10.4", "-g"])
     let plannedJobs2 = try driver2.planBuild()
     XCTAssert(plannedJobs2[0].commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: "/tmp/diff.txt")))))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-HI")))
@@ -218,7 +217,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-no-color-diagnostics")))
     XCTAssert(!plannedJobs2[0].commandLine.contains(.flag("-color-diagnostics")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-target")))
-    XCTAssert(plannedJobs2[0].commandLine.contains(.flag(hostTriple.triple)))
+    XCTAssert(plannedJobs2[0].commandLine.contains(.flag("powerpc-apple-macosx10.4")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-enable-anonymous-context-mangled-names")))
 
     var driver3 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-module-name", "Test"])

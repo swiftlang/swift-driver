@@ -23,6 +23,8 @@ public enum Tool {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
+  init()
+  
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
@@ -59,5 +61,13 @@ extension Toolchain {
     try Process.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version"
     ).split(separator: "\n").first.map(String.init) ?? ""
+  }
+  
+  /// Returns the target triple string for the current host.
+  public func hostTargetTriple() throws -> Triple {
+    let triple = try Process.checkNonZeroExit(
+      args: getToolPath(.clang).pathString, "-print-target-triple"
+    ).spm_chomp()
+    return Triple(triple)
   }
 }

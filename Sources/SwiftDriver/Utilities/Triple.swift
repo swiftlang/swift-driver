@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class TSCBasic.Process
-
 /// Helper for working with target triples.
 ///
 /// Target triples are strings in the canonical form:
@@ -1250,14 +1248,4 @@ extension Triple {
       fatalError("unexpected OS for Darwin triple")
     }
   }
-}
-
-extension Triple {
-  /// Returns the target triple string for the current host.
-  public static var hostTargetTriple: Result<Triple, Error> = {
-    Result {
-      let triple = try Process.checkNonZeroExit(arguments: ["clang", "-print-target-triple"]).spm_chomp()
-      return Triple(triple)
-    }
-  }()
 }

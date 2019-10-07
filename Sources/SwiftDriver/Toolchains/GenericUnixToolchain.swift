@@ -19,7 +19,7 @@ public final class GenericUnixToolchain: Toolchain {
 
   private let searchPaths: [AbsolutePath]
 
-  init() {
+  public init() {
     self.searchPaths = getEnvSearchPaths(pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
   }
 
