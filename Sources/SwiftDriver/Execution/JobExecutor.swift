@@ -71,12 +71,12 @@ public protocol JobExecutorDelegate {
   /// Launch the process for given command line.
   ///
   /// This will be called on the execution queue.
-  func launchProcess(for job: Job, arguments: [String]) throws -> ProcessProtocol
+  func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol
 }
 
 extension JobExecutorDelegate {
-    public func launchProcess(for job: Job, arguments: [String]) throws -> ProcessProtocol {
-    return try Process.launchProcess(arguments: arguments)
+  public func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol {
+    return try Process.launchProcess(arguments: arguments, env: env)
   }
 }
 
@@ -90,6 +90,9 @@ public final class JobExecutor {
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
+    
+    /// The environment variables.
+    let env: [String: String]
 
     /// The job executor delegate.
     let executorDelegate: JobExecutorDelegate
@@ -105,6 +108,7 @@ public final class JobExecutor {
 
     init(
       argsResolver: ArgsResolver,
+      env: [String: String],
       producerMap: [VirtualPath: Job],
       executorDelegate: JobExecutorDelegate,
       jobQueue: OperationQueue,
@@ -112,6 +116,7 @@ public final class JobExecutor {
     ) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
+      self.env = env
       self.executorDelegate = executorDelegate
       self.jobQueue = jobQueue
       self.processSet = processSet
@@ -148,8 +153,8 @@ public final class JobExecutor {
   }
 
   /// Execute all jobs.
-  public func execute() throws {
-    let context = createContext(jobs)
+  public func execute(env: [String: String]) throws {
+    let context = createContext(jobs, env: env)
 
     let delegate = JobExecutorBuildDelegate(context)
     let engine = LLBuildEngine(delegate: delegate)
@@ -163,7 +168,7 @@ public final class JobExecutor {
   }
 
   /// Create the context required during the execution.
-  func createContext(_ jobs: [Job]) -> Context {
+  func createContext(_ jobs: [Job], env: [String: String]) -> Context {
     var producerMap: [VirtualPath: Job] = [:]
     for job in jobs {
       for output in job.outputs {
@@ -178,6 +183,7 @@ public final class JobExecutor {
 
     return Context(
       argsResolver: argsResolver,
+      env: env,
       producerMap: producerMap,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
@@ -327,6 +333,7 @@ class ExecuteJobRule: LLBuildRule {
   private func executeJob(_ engine: LLTaskBuildEngine) {
     let context = engine.jobExecutorContext
     let resolver = context.argsResolver
+    let env = context.env
     let job = key.job
 
     let value: DriverBuildValue
@@ -336,7 +343,9 @@ class ExecuteJobRule: LLBuildRule {
       let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
       let arguments = [tool] + commandLine
 
-      let process = try context.executorDelegate.launchProcess(for: job, arguments: arguments)
+      let process = try context.executorDelegate.launchProcess(
+        for: job, arguments: arguments, env: env
+      )
       pid = Int(process.processID)
 
       // Add it to the process set if it's a real process.

@@ -149,24 +149,22 @@ public extension InputInfoMap {
   }
 
   /// Returns why it did not match
-  func matches(argsHash: String, inputFiles: [TypedVirtualPath]) -> String? {
-  guard Self.getSwiftVersion() == self.swiftVersion else {
-    return "the compiler version has changed from \(self.swiftVersion) to \(swiftVersion)"
+  func matches(argsHash: String, inputFiles: [TypedVirtualPath], actualSwiftVersion: String?) -> String? {
+    guard let actualSwiftVersion = actualSwiftVersion else {
+      return "the version of the compiler we will be using could not determined"
     }
-  guard argsHash == self.argsHash else {
-    return "different arguments were passed to the compiler"
+    guard actualSwiftVersion == self.swiftVersion else {
+      return "the compiler version has changed from \(self.swiftVersion) to \(actualSwiftVersion)"
     }
-  let missingInputs = Set(self.inputInfos.keys).subtracting(inputFiles.map {$0.file})
-  guard missingInputs.isEmpty else {
-    return "the following inputs were used in the previous compilation but not in this one: "
-      + missingInputs.map {$0.name} .joined(separator: ", ")
+    guard argsHash == self.argsHash else {
+      return "different arguments were passed to the compiler"
+    }
+    let missingInputs = Set(self.inputInfos.keys).subtracting(inputFiles.map {$0.file})
+    guard missingInputs.isEmpty else {
+      return "the following inputs were used in the previous compilation but not in this one: "
+        + missingInputs.map {$0.name} .joined(separator: ", ")
     }
     return nil
-  }
-
-  static func getSwiftVersion()  -> String? {
-    return try? Process.checkNonZeroExit(arguments: ["xcrun", "swift", "-version"])
-      .split(separator: "\n").first.map(String.init)
   }
 }
 

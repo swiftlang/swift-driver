@@ -28,9 +28,10 @@ public protocol ProcessProtocol {
 
 extension Process: ProcessProtocol {
   public static func launchProcess(
-    arguments: [String]
+    arguments: [String],
+    env: [String: String]
   ) throws -> ProcessProtocol {
-    let process = Process(arguments: arguments)
+    let process = Process(arguments: arguments, environment: env)
     try process.launch()
     return process
   }

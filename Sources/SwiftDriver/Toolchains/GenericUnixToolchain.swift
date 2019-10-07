@@ -16,11 +16,14 @@ public final class GenericUnixToolchain: Toolchain {
   enum Error: Swift.Error {
     case unableToFind(tool: String)
   }
+  
+  public let env: [String: String]
 
   private let searchPaths: [AbsolutePath]
 
-  init() {
-    self.searchPaths = getEnvSearchPaths(pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+  public init(env: [String: String]) {
+    self.env = env
+    self.searchPaths = getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
   }
 
   private func lookup(exec: String) throws -> AbsolutePath {

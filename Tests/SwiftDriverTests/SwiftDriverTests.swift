@@ -209,8 +209,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
 
     // Forwarding of arguments.
-    let hostTriple = try Triple.hostTargetTriple.get()
-    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", hostTriple.triple, "-g"])
+    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-target", "powerpc-apple-macosx10.4", "-g"])
     let plannedJobs2 = try driver2.planBuild()
     XCTAssert(plannedJobs2[0].commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: "/tmp/diff.txt")))))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-HI")))
@@ -218,7 +217,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-no-color-diagnostics")))
     XCTAssert(!plannedJobs2[0].commandLine.contains(.flag("-color-diagnostics")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-target")))
-    XCTAssert(plannedJobs2[0].commandLine.contains(.flag(hostTriple.triple)))
+    XCTAssert(plannedJobs2[0].commandLine.contains(.flag("powerpc-apple-macosx10.4")))
     XCTAssert(plannedJobs2[0].commandLine.contains(.flag("-enable-anonymous-context-mangled-names")))
 
     var driver3 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-library", "-module-name", "Test"])
@@ -731,6 +730,11 @@ final class SwiftDriverTests: XCTestCase {
     var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
     _ = try driverWithEmptySDK.planBuild()
   }
+  
+  func testToolchainUtilities() throws {
+    let swiftVersion = try DarwinToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
+    assertString(swiftVersion, contains: "Swift version ")
+  }
 }
 
 func assertNoErrorDiagnostics(_ driver: Driver,
@@ -738,4 +742,15 @@ func assertNoErrorDiagnostics(_ driver: Driver,
                               file: StaticString = #file, line: UInt = #line) {
   XCTAssertFalse(driver.diagnosticEngine.hasErrors,
                  message, file: file, line: line)
+}
+
+func assertString(
+  _ haystack: String, contains needle: String, _ message: String = "",
+  file: StaticString = #file, line: UInt = #line
+) {
+  XCTAssertTrue(haystack.contains(needle), """
+                \(String(reflecting: needle)) not found in \
+                \(String(reflecting: haystack))\
+                \(message.isEmpty ? "" : ": " + message)
+                """, file: file, line: line)
 }
