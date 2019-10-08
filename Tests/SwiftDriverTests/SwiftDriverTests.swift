@@ -710,14 +710,10 @@ final class SwiftDriverTests: XCTestCase {
       "test.swiftdoc" [fontsize=12];
       "compile (swift)" -> "test.swiftdoc" [color=green];
       "mergeModule (swift)" [style=bold];
-      "test.swiftmodule" [fontsize=12];
       "test.swiftmodule" -> "mergeModule (swift)" [color=blue];
-      "test.swiftmodule" [fontsize=12];
       "mergeModule (swift)" -> "test.swiftmodule" [color=green];
-      "test.swiftdoc" [fontsize=12];
       "mergeModule (swift)" -> "test.swiftdoc" [color=green];
       "link (ld)" [style=bold];
-      "test.o" [fontsize=12];
       "test.o" -> "link (ld)" [color=blue];
       "test" [fontsize=12];
       "link (ld)" -> "test" [color=green];
