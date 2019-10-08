@@ -251,7 +251,7 @@ extension Array where Element == Job.ArgTemplate {
   /// Append the last parsed option that matches one of the given options
   /// to this command line.
   mutating func appendLast(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
-    guard let parsedOption = parsedOptions.last(where: { options.contains($0.option) }) else {
+    guard let parsedOption = parsedOptions.last(for: options) else {
       return
     }
 
@@ -276,8 +276,7 @@ extension Array where Element == Job.ArgTemplate {
   /// Append all parsed options that match one of the given options
   /// to this command line.
   mutating func appendAll(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
-    let matchingOptions = parsedOptions.filter { options.contains($0.option) }
-    for matching in matchingOptions {
+    for matching in parsedOptions.arguments(for: options) {
       try append(matching)
     }
   }
@@ -285,8 +284,7 @@ extension Array where Element == Job.ArgTemplate {
   /// Append just the arguments from all parsed options that match one of the given options
   /// to this command line.
   mutating func appendAllArguments(_ options: Option..., from parsedOptions: inout ParsedOptions) throws {
-    let matchingOptions = parsedOptions.filter { options.contains($0.option) }
-    for matching in matchingOptions {
+    for matching in parsedOptions.arguments(for: options) {
       try self.appendSingleArgument(option: matching.option, argument: matching.argument.asSingle)
     }
   }
@@ -295,16 +293,12 @@ extension Array where Element == Job.ArgTemplate {
   /// or the flag that corresponds to the default value if neither
   /// appears.
   mutating func appendFlag(true trueFlag: Option, false falseFlag: Option, default defaultValue: Bool, from parsedOptions: inout ParsedOptions) {
-    guard let parsedOption = parsedOptions.last(where: { $0.option == trueFlag || $0.option == falseFlag }) else {
-      if defaultValue {
-        appendFlag(trueFlag)
-      } else {
-        appendFlag(falseFlag)
-      }
-      return
-    }
-
-    appendFlag(parsedOption.option)
+    let isTrue = parsedOptions.hasFlag(
+      positive: trueFlag,
+      negative: falseFlag,
+      default: defaultValue
+    )
+    appendFlag(isTrue ? trueFlag : falseFlag)
   }
 }
 

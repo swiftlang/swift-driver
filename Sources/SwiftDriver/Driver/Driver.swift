@@ -581,7 +581,11 @@ extension Driver {
         })
       }
 
-      parsedOption = .init(option: parsedOption.option, argument: translatedArgument)
+      parsedOption = .init(
+        option: parsedOption.option,
+        argument: translatedArgument,
+        index: parsedOption.index
+      )
     }
   }
 
