@@ -1,30 +1,42 @@
 # Swift compiler driver
 
-A reimplementation of the Swift compiler's "driver", which coordinates Swift compilation,
-linking, etc., in Swift. Why reimplement the Swift compiler driver?
+Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/apple/swift-package-manager) or Xcode's build system.
 
-* Swift is way more fun to code in than C++
-* Swift's current driver code is a bit messy and could use major refactoring
-* Swift's driver is standalone, relatively small (~10kloc) and in a separate process from the main body of the compiler, so it's an easy target for reimplementation
+The `swift-driver` project is a new implementation of the Swift compiler driver that is intended to replace the [existing driver](https://github.com/apple/swift/tree/master/lib/Driver) with a more extensible, maintainable, and robust code base. The specific goals of this project include:
 
-## Building
+* A maintainable, robust, and flexible Swift code base
+* Library-based architecture that allows better integration with build tools
+* Leverage existing Swift build technologies ([SwiftPM](https://github.com/apple/swift-package-manager), [llbuild](https://github.com/apple/swift-llbuild))
+* A platform for experimenting with more efficient build models for Swift, including compile servers and unifying build graphs across different driver invocations
 
-Use the Swift package manager to build.
+## Getting Started
+
+Use the Swift package manager to build `swift-driver`:
 
 ```
 $ swift build
 ```
 
-If you need to run the `makeOptions`
-utility, make sure to build with a `-I` which allows the Swift `Options.inc` to
-be found.
+To use `swift-driver` in place of the existing Swift driver, create a symbolic link from `swift` and `swiftc` to `swift-driver`:
 
 ```
-$ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --product makeOptions
-
+ln -s /path/to/built/swift-driver $SOME_PATH/swift
+ln -s /path/to/built/swift-driver $SOME_PATH/swiftc
 ```
 
-## Testing
+Swift packages can be built with the new Swift driver by overriding `SWIFT_EXEC` to refer to the `swiftc` symbolic link created above, e.g.,
+
+```
+SWIFT_EXEC=$SOME_PATH/swiftc swift build
+```
+
+Similarly, one can use the new Swift driver within Xcode by adding a custom build setting (usually at the project level) named `SWIFT_EXEC` that refers to `$SOME_PATH/swiftc`.
+
+## Developing `swift-driver`
+
+The new Swift driver is a work in progress, and there are numerous places for anyone with an interest to contribute! This section covers testing, miscellaneous development tips and tricks, and a rough development plan showing what work still needs to be done.
+
+### Testing
 
 Test using command-line SwiftPM or Xcode.
 
@@ -52,31 +64,34 @@ $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   swift test --parallel
 ```
 
-## Using with SwiftPM
+### Rebuilding `Options.swift`
 
-Create a symlink of the `swift-driver` binary called `swiftc` and export that
-path in `SWIFT_EXEC` variable. This will allow you to use the driver when
-building and linking with SwiftPM. Manifest parsing will still be done using the
-current driver. Example:
+`Options.swift`, which contains the complete set of options that can be parsed by the driver, is automatically generated from the [option tables in the Swift compiler](https://github.com/apple/swift/tree/master/include/swift/Option). If you need to regenerate `Options.swift`, you will need to [build the Swift compiler](https://github.com/apple/swift#building-swift) and then build `makeOptions` program with a `-I` that allows the generated `Options.inc` to
+be found, e.g.:
 
 ```
-ln -s /path/to/built/swift-driver swiftc
-SWIFT_EXEC=$PWD/swiftc swift build
+$ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --product makeOptions
 ```
 
-# TODO
+Then, run `makeOptions` and redirect the output to overwrite `Options.swift`:
 
-The driver has basic support for building and linking Swift code. There are a bunch of things that need doing!
+```
+$ .build/path/to/makeOptions > Sources/SwiftDriver/Options/Options.swift
+```
 
-* General
-  * [ ] Search for `FIXME:` or `TODO:`: there are lots of little things to improve
+### Development plan
+
+The goal of the new Swift driver is to provide a drop-in replacement for the existinh driver, which means that there is a fixed initial feature set to implement before the existing Swift driver can be deprecated and removed. The development plan below covers that feature set, as well as describing a number of tasks that can improve the Swift driver---from code cleanups, to improving testing, implementing missing features, and integrating with existing systems.
+
+* Code and documentation quality
+  * [ ] Search for `FIXME:` or `TODO:`: there are lots of little things to improve!
   * [ ] Improve documentation of how to incorporate the driver into your own builds
-  * [ ] Make it easier to drop-in `swift-driver` as a replacement for Swift
   * [ ] Add useful descriptions to any `Error` thrown within the library
+  * [ ] Improve 
 * Option parsing
   * [ ] Look for complete "coverage" of the options in `Options.swift`. Is every option there checked somewhere in the driver?
   * [ ] Find a better way to describe aliases for options. Can they be of some other type `OptionAlias` so we can't make the mistake of (e.g.) asking for an alias option when we're translating options?
-  * [ ] Diagnose unused options
+  * [ ] Diagnose unused options on the command line
   * [ ] Typo correction for misspelled option names
   * [ ] Find a better way than `makeOptions.cpp` to translate the command-line options from [Swift's repository](https://github.com/apple/swift/tree/master/include/swift/Option) into `Options.swift`.
 * Platform support
@@ -87,8 +102,9 @@ The driver has basic support for building and linking Swift code. There are a bu
 * Compilation modes
   * [x] Batch mode
   * [ ] Whole-module-optimization mode
-  * [ ] REPL and immediate modes
-* Unimplemented features
+  * [ ] REPL mode
+  * [ ] Immediate mode
+* Features
   * [ ] Precompiled bridging headers
   * [ ] Support embedding of bitcode
   * [ ] Incremental compilation
@@ -96,8 +112,11 @@ The driver has basic support for building and linking Swift code. There are a bu
   * [x] Response files
   * [ ] Input and primary input file lists
 * Testing
-  * [ ] Build stuff with SwiftPM or xcodebuild or your favorite build system, using `swift-driver`.
-  * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver)
+  * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
+  * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver).
+  * [ ] Investigate differences between test results for the Swift repository's driver test suite (above) between the existing and new driver.
   * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
-* Fun experiments
-  * [ ] Modify SwiftPM to import the SwiftDriver library, using its `Driver` to construct jobs and incorporate them into its own build graph
+  * [ ] Fuzz the command-line options to try to crash the Swift driver itself
+* Integration
+  * [ ] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/master/utils/build-script) to build `swift-driver`.
+  * [ ] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/master/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
