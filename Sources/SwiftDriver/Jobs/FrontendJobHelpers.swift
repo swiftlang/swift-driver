@@ -64,7 +64,7 @@ extension Driver {
     try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
     try commandLine.appendLast(.autolinkForceLoad, from: &parsedOptions)
 
-    if let colorOption = parsedOptions.last(where: { $0.option == .colorDiagnostics || $0.option == .noColorDiagnostics }) {
+    if let colorOption = parsedOptions.last(for: .colorDiagnostics, .noColorDiagnostics) {
       commandLine.appendFlag(colorOption.option)
     } else if shouldColorDiagnostics() {
       commandLine.appendFlag(.colorDiagnostics)
