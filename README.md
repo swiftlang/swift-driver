@@ -87,7 +87,6 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [ ] Search for `FIXME:` or `TODO:`: there are lots of little things to improve!
   * [ ] Improve documentation of how to incorporate the driver into your own builds
   * [ ] Add useful descriptions to any `Error` thrown within the library
-  * [ ] Improve 
 * Option parsing
   * [ ] Look for complete "coverage" of the options in `Options.swift`. Is every option there checked somewhere in the driver?
   * [ ] Find a better way to describe aliases for options. Can they be of some other type `OptionAlias` so we can't make the mistake of (e.g.) asking for an alias option when we're translating options?
