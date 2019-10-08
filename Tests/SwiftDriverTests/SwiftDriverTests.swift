@@ -257,6 +257,36 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testOutputFileMapStoring() throws {
+    // Create sample OutputFileMap:
+
+    // Rather than writing VirtualPath(path:...) over and over again, make strings, then fix it
+    let stringyEntries: [String: [FileType: String]] = [
+      "": [.swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"],
+      "foo.swift" : [
+        .dependencies: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
+        .object: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
+        .swiftModule: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
+        .swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps"
+        ]
+    ]
+    let pathyEntries = try Dictionary(uniqueKeysWithValues:
+      stringyEntries.map { try
+        (
+          VirtualPath(path: $0.key),
+          Dictionary(uniqueKeysWithValues: $0.value.map { try ($0.key, VirtualPath(path: $0.value))})
+        )})
+    let sampleOutputFileMap = OutputFileMap(entries: pathyEntries)
+
+    try withTemporaryFile { file in
+      try sampleOutputFileMap.store(file: file.path, diagnosticEngine: DiagnosticsEngine())
+      let contentsForDebugging = try localFileSystem.readFileContents(file.path).cString
+      _ = contentsForDebugging
+      let recoveredOutputFileMap = try OutputFileMap.load(file: file.path, diagnosticEngine: DiagnosticsEngine())
+      XCTAssertEqual(sampleOutputFileMap, recoveredOutputFileMap)
+    }
+  }
+
   func testResponseFileExpansion() throws {
     try withTemporaryDirectory { path in
       let diags = DiagnosticsEngine()

@@ -13,11 +13,15 @@ import TSCBasic
 import Foundation
 
 /// Mapping of input file paths to specific output files.
-public struct OutputFileMap {
+public struct OutputFileMap: Equatable {
   /// The known mapping from input file to specific output files.
   public var entries: [VirtualPath : [FileType : VirtualPath]] = [:]
 
   public init() { }
+
+  public init(entries: [VirtualPath : [FileType : VirtualPath]]) {
+    self.entries = entries
+  }
 
   /// For the given input file, retrieve or create an output file for the given
   /// file type.
@@ -67,10 +71,25 @@ public struct OutputFileMap {
 
     return outputFileMap
   }
+
+  /// Store the output file map at the given path.
+  public func store(
+    file: AbsolutePath,
+    diagnosticEngine: DiagnosticsEngine
+  ) throws {
+    let encoder = JSONEncoder()
+    if #available(macOS 10.15, *) {
+        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+    } else {
+        encoder.outputFormatting = [.prettyPrinted]
+    }
+    let contents = try encoder.encode(OutputFileMapJSON.fromVirtualOutputFileMap(entries).entries)
+    try localFileSystem.writeFileContents(file, bytes: ByteString(contents))
+  }
 }
 
 /// Struct for loading the JSON file from disk.
-fileprivate struct OutputFileMapJSON: Decodable {
+fileprivate struct OutputFileMapJSON: Codable {
   /// The top-level key.
   private struct Key: CodingKey {
     var stringValue: String
@@ -84,7 +103,8 @@ fileprivate struct OutputFileMapJSON: Decodable {
   }
 
   /// The data associated with an input file.
-  private struct Entry: Decodable {
+  /// \c fileprivate so that the \c store method above can see it
+  fileprivate struct Entry: Codable {
     enum CodingKeys: String, CodingKey {
       case dependencies
       case object
@@ -99,12 +119,16 @@ fileprivate struct OutputFileMapJSON: Decodable {
   }
 
   /// The parsed entires
-  private let entries: [String: Entry]
+  /// \c fileprivate so that the \c store method above can see it
+  fileprivate let entries: [String: Entry]
 
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: Key.self)
     let result = try container.allKeys.map { ($0.stringValue, try container.decode(Entry.self, forKey: $0)) }
-    self.entries = Dictionary(uniqueKeysWithValues: result)
+    self.init(entries: Dictionary(uniqueKeysWithValues: result))
+  }
+  private init(entries: [String: Entry]) {
+    self.entries = entries
   }
 
   /// Converts into virtual path entries.
@@ -124,6 +148,25 @@ fileprivate struct OutputFileMapJSON: Decodable {
     }
 
     return result
+  }
+
+  /// Converts from virtual path entries
+  static func fromVirtualOutputFileMap(
+    _ entries: [VirtualPath : [FileType : VirtualPath]]
+  ) -> Self {
+    func convert(entry: (key: VirtualPath, value: [FileType: VirtualPath])) -> (String, Entry) {
+      // We use a VirtualPath with an empty path for the master entry, but its name is "." and we need ""
+      let fixedIfMaster = entry.key.name == "." ? "" : entry.key.name
+      return (fixedIfMaster, convert(outputs: entry.value))
+    }
+    func convert(outputs: [FileType: VirtualPath]) -> Entry {
+      Entry(
+        dependencies: outputs[.dependencies]?.name,
+        object: outputs[.object]?.name,
+        swiftmodule: outputs[.swiftModule]?.name,
+        swiftDependencies: outputs[.swiftDeps]?.name)
+    }
+    return Self(entries: Dictionary(uniqueKeysWithValues: entries.map(convert(entry:))))
   }
 }
 
