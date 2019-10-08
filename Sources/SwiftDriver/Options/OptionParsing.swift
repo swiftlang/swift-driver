@@ -123,7 +123,7 @@ extension OptionTable {
         index += 1
       }
     }
-
+    parsedOptions.buildIndex()
     return parsedOptions
   }
 }

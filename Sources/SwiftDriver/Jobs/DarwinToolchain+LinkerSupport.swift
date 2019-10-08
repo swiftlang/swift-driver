@@ -208,9 +208,7 @@ extension DarwinToolchain {
       fallthrough
     case .executable:
       linkerTool = .dynamicLinker
-      let fSystemArgs = parsedOptions.filter {
-        $0.option == .F || $0.option == .Fsystem
-      }
+      let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
       for opt in fSystemArgs {
         commandLine.appendFlag(.F)
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
@@ -245,7 +243,7 @@ extension DarwinToolchain {
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.append(
-        contentsOf: parsedOptions.filter { $0.option.group == .linkerOption }
+        contentsOf: parsedOptions.arguments(in: .linkerOption)
       )
       try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
 
