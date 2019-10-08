@@ -15,32 +15,15 @@ public enum OptionParseError : Error {
 }
 
 extension OptionTable {
-  private func matchOption(_ argument: String) -> Option? {
-    var bestOption: Option? = nil
-
-    // FIXME: Use a binary search or trie or similar.
-    for option in options {
-      // If there isn't a prefix match, keep going.
-      if !argument.starts(with: option.spelling) { continue }
-
-      // If this is the first option we've seen, or if it's a longer
-      // match than the best option so far, then we have a new best
-      // option.
-      if let bestOption = bestOption,
-        bestOption.spelling.count >= option.spelling.count {
-        continue
-      }
-
-      bestOption = option
-    }
-
-    return bestOption
-  }
-
   /// Parse the given command-line arguments into a set of options.
   ///
   /// Throws an error if the command line contains any errors.
   public func parse(_ arguments: [String]) throws -> ParsedOptions {
+    var trie = PrefixTrie<String.UTF8View, Option>()
+    for opt in Option.allOptions {
+      trie[opt.spelling.utf8] = opt
+    }
+
     var parsedOptions = ParsedOptions()
     var index = arguments.startIndex
     while index < arguments.endIndex {
@@ -59,8 +42,11 @@ extension OptionTable {
         continue
       }
 
-      // Match to an option, identified by key.
-      guard let option = matchOption(argument) else {
+      // Match to an option, identified by key. Note that this is a prefix
+      // match -- if the option is a `.flag`, we'll explicitly check to see if
+      // there's an unmatched suffix at the end, and pop an error. Otherwise,
+      // we'll treat the unmatched suffix as the argument to the option.
+      guard let option = trie[argument.utf8] else {
         throw OptionParseError.unknownOption(
           index: index - 1, argument: argument)
       }
