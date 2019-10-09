@@ -20,7 +20,7 @@ extension OptionTable {
   /// Throws an error if the command line contains any errors.
   public func parse(_ arguments: [String]) throws -> ParsedOptions {
     var trie = PrefixTrie<String.UTF8View, Option>()
-    for opt in Option.allOptions {
+    for opt in options {
       trie[opt.spelling.utf8] = opt
     }
 
