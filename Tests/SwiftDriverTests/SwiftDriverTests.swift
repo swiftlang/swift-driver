@@ -592,6 +592,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address,undefined")))
     }
     #endif
+
+    do {
+      // Sanitizer coverage args
+      var driver = Driver(args: commonArgs + ["-sanitize-coverage=func,trace-pc"])
+      let opts = driver.sanitizerCoverageOptions
+      XCTAssertTrue(opts.flags.contains(.traceProgramCounter))
+      XCTAssertFalse(opts.flags.contains(.traceProgramCounterGuard))
+    }
   }
 
   func testBatchModeCompiles() throws {

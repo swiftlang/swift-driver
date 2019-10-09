@@ -104,6 +104,9 @@ public struct Driver {
   /// The set of sanitizers that were requested
   public let enabledSanitizers: Set<Sanitizer>
 
+  /// The sanitizer coverage options that were requested
+  public let sanitizerCoverageOptions: Sanitizer.CoverageOptions?
+
   /// The debug info format to use.
   public let debugInfoFormat: DebugInfoFormat
 
@@ -282,6 +285,7 @@ public struct Driver {
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
+    self.sanitizerCoverageOptions  = Self.parseSanitizerCoverageArgs(&parsedOptions, diagnosticEngine: diagnosticEngine, sanitizers: enabledSanitizers)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emitDependencies, outputPath: .emitDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
@@ -891,6 +895,75 @@ extension Driver {
     }
 
     return set
+  }
+
+  static func parseSanitizerCoverageArgs(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine,
+    sanitizers: Set<Sanitizer>
+  ) -> Sanitizer.CoverageOptions? {
+    var typeOpt: Sanitizer.CoverageType?
+    var flags = Sanitizer.CoverageOptions.Flags()
+
+    let args = parsedOptions
+      .arguments(for: .sanitizeCoverageEQ)
+      .flatMap { $0.argument.asMultiple }
+
+    for arg in args {
+      switch arg {
+      case "func" where typeOpt == nil:
+        typeOpt = .function
+      case "bb" where typeOpt == nil:
+        typeOpt = .basicBlock
+      case "edge" where typeOpt == nil:
+        typeOpt = .edge
+      case "indirect-calls":
+        flags.insert(.indirectCalls)
+      case "trace-bb":
+        flags.insert(.traceBasicBlock)
+      case "trace-cmp":
+        flags.insert(.traceComparisons)
+      case "8bit-counters":
+        flags.insert(.use8BitCounters)
+      case "trace-pc":
+        flags.insert(.traceProgramCounter)
+      case "trace-pc-guard":
+        flags.insert(.traceProgramCounterGuard)
+      default:
+        diagnosticEngine.emit(
+          .error_unsupported_option_argument(
+            option: .sanitizeCoverageEQ,
+            arg: arg
+          )
+        )
+        return nil
+      }
+    }
+
+    guard let type = typeOpt else {
+      diagnosticEngine.emit(
+        .error_option_missing_required_argument(
+          option: .sanitizeCoverageEQ,
+          requiredArg: #""func", "bb", "edge""#
+        )
+      )
+      return nil
+    }
+
+    // Running the sanitizer coverage pass will add undefined symbols to
+    // functions in compiler-rt's "sanitizer_common". "sanitizer_common" isn't
+    // shipped as a separate library we can link with. However those are defined
+    // in the various sanitizer runtime libraries so we require that we are
+    // doing a sanitized build so we pick up the required functions during
+    // linking.
+    if sanitizers.isEmpty {
+      diagnosticEngine.emit(
+        .error_option_requires_sanitizer(option: .sanitizeCoverageEQ)
+      )
+      return nil
+    }
+
+    return Sanitizer.CoverageOptions(coverageType: type, flags: flags)
   }
 
 }

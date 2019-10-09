@@ -19,7 +19,19 @@ extension Diagnostic.Message {
   }
 
   public static func error_option_missing_required_argument(option: Option, requiredArg: Option) -> Diagnostic.Message {
-    .error("option '\(option.spelling)' is missing a required argument (\(requiredArg.spelling))")
+    error_option_missing_required_argument(option: option, requiredArg: option.spelling)
+  }
+
+  public static func error_option_missing_required_argument(option: Option, requiredArg: String) -> Diagnostic.Message {
+    .error("option '\(option.spelling)' is missing a required argument (\(requiredArg))")
+  }
+
+  public static func error_option_requires_sanitizer(option: Option) -> Diagnostic.Message {
+    .error("option '\(option.spelling)' requires a sanitizer to be enabled. Use -sanitize= to enable a sanitizer")
+  }
+
+  public static func error_unsupported_option_argument(option: Option, arg: String) -> Diagnostic.Message {
+    .error("unsupported argument '\(arg)' to option '\(option.spelling)'")
   }
 
   public static func error_invalid_arg_value(arg: Option, value: String) -> Diagnostic.Message {
