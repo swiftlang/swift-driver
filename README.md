@@ -44,7 +44,7 @@ Test using command-line SwiftPM or Xcode.
 $ swift test --parallel
 ```
 
-Integration tests are costly to run and are disable by default. Enable them
+Integration tests are costly to run and are disabled by default. Enable them
 using `SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS` environment variable. In Xcode,
 you can set this variable in the scheme's test action.
 
@@ -81,7 +81,7 @@ $ .build/path/to/makeOptions > Sources/SwiftDriver/Options/Options.swift
 
 ### Development plan
 
-The goal of the new Swift driver is to provide a drop-in replacement for the existinh driver, which means that there is a fixed initial feature set to implement before the existing Swift driver can be deprecated and removed. The development plan below covers that feature set, as well as describing a number of tasks that can improve the Swift driver---from code cleanups, to improving testing, implementing missing features, and integrating with existing systems.
+The goal of the new Swift driver is to provide a drop-in replacement for the existing driver, which means that there is a fixed initial feature set to implement before the existing Swift driver can be deprecated and removed. The development plan below covers that feature set, as well as describing a number of tasks that can improve the Swift driver---from code cleanups, to improving testing, implementing missing features, and integrating with existing systems.
 
 * Code and documentation quality
   * [ ] Search for `FIXME:` or `TODO:`: there are lots of little things to improve!
@@ -113,7 +113,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
 * Testing
   * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
   * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver).
-  * [ ] Investigate differences between test results for the Swift repository's driver test suite (above) between the existing and new driver.
+  * [ ] Investigate differences in the test results for the Swift repository's driver test suite (above) between the existing and new driver.
   * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
   * [ ] Fuzz the command-line options to try to crash the Swift driver itself
 * Integration
