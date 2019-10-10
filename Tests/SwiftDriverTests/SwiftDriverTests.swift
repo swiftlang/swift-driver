@@ -30,10 +30,21 @@ final class SwiftDriverTests: XCTestCase {
   func testParseErrors() {
     let options = OptionTable()
 
-    // FIXME: Check for the exact form of the error
-    XCTAssertThrowsError(try options.parse(["-unrecognized"]))
-    XCTAssertThrowsError(try options.parse(["-I"]))
-    XCTAssertThrowsError(try options.parse(["-module-name"]))
+    XCTAssertThrowsError(try options.parse(["-unrecognized"])) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-unrecognized"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-I"])) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-I"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-color-diagnostics", "-I"])) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 1, argument: "-I"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-module-name"])) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-module-name"))
+    }
   }
 
   func testDriverKindParsing() throws {
