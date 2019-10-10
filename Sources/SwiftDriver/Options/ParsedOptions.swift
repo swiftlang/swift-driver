@@ -273,7 +273,7 @@ extension ParsedOptions {
                                negative: Option,
                                default: Bool) -> Bool {
     let positiveOpt = lookup(positive).last
-    let negativeOpt = lookup(positive).last
+    let negativeOpt = lookup(negative).last
 
     // If neither are present, return the default
     guard positiveOpt != nil || negativeOpt != nil else {
