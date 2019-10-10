@@ -78,11 +78,15 @@ public struct OutputFileMap: Equatable {
     diagnosticEngine: DiagnosticsEngine
   ) throws {
     let encoder = JSONEncoder()
+
+  #if os(Linux)
+    encoder.outputFormatting = [.prettyPrinted]
+  #else
     if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
-    } else {
-        encoder.outputFormatting = [.prettyPrinted]
     }
+  #endif
+
     let contents = try encoder.encode(OutputFileMapJSON.fromVirtualOutputFileMap(entries).entries)
     try localFileSystem.writeFileContents(file, bytes: ByteString(contents))
   }
