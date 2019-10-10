@@ -53,7 +53,7 @@ $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 swift test --parallel
 ```
 
 Some integration tests run the lit test suites in a Swift working copy.
-To enable these, clone Swift and its dependencies and buld them with
+To enable these, clone Swift and its dependencies and build them with
 build-script, then set both `SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS`
 and `SWIFT_DRIVER_LIT_DIR`, either in your Xcode scheme or
 on the command line:
