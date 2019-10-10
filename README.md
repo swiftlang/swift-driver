@@ -1,4 +1,4 @@
-# Swift compiler driver
+# Swift Compiler Driver
 
 Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/apple/swift-package-manager) or Xcode's build system.
 
@@ -79,7 +79,7 @@ Then, run `makeOptions` and redirect the output to overwrite `Options.swift`:
 $ .build/path/to/makeOptions > Sources/SwiftDriver/Options/Options.swift
 ```
 
-### Development plan
+### Development Plan
 
 The goal of the new Swift driver is to provide a drop-in replacement for the existing driver, which means that there is a fixed initial feature set to implement before the existing Swift driver can be deprecated and removed. The development plan below covers that feature set, as well as describing a number of tasks that can improve the Swift driver---from code cleanups, to improving testing, implementing missing features, and integrating with existing systems.
 
