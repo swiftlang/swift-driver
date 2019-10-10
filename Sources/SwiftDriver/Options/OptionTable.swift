@@ -14,6 +14,14 @@ public struct OptionTable {
 
   /// Retrieve the options.
   public var options: [Option] = Option.allOptions + Option.extraOptions
+  public lazy var groupMap: [Option.Group: [Option]] = {
+    var map = [Option.Group: [Option]]()
+    for opt in options {
+      guard let group = opt.group else { continue }
+      map[group, default: []].append(opt)
+    }
+    return map
+  }()
 }
 
 extension String {

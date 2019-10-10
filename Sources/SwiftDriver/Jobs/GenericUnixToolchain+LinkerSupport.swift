@@ -166,9 +166,7 @@ extension GenericUnixToolchain {
       }
       commandLine.append(contentsOf: inputFiles)
 
-      let fSystemArgs = parsedOptions.filter {
-        $0.option == .F || $0.option == .Fsystem
-      }
+      let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
       for opt in fSystemArgs {
         if opt.option == .Fsystem {
           commandLine.appendFlag("-iframework")
@@ -250,7 +248,7 @@ extension GenericUnixToolchain {
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.append(
-        contentsOf: parsedOptions.filter { $0.option.group == .linkerOption }
+        contentsOf: parsedOptions.arguments(in: .linkerOption)
       )
       try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
       try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
