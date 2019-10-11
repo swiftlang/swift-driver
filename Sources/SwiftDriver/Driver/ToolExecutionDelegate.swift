@@ -51,11 +51,10 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     switch mode {
     case .regular, .verbose:
-      // FIXME: Check what the current driver does.
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
       if !output.isEmpty {
-        stdoutStream <<< output
-        stdoutStream.flush()
+        stderrStream <<< output
+        stderrStream.flush()
       }
 
     case .parsableOutput:
