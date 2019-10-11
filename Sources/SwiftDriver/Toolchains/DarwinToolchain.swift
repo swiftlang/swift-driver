@@ -15,10 +15,12 @@ fileprivate func envVarName(forExecutable toolName: String) -> String {
   return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
 }
 
-// FIXME: This should be in DarwinToolchain, but GenericUnixToolchain is
-// currently using it too for some reason.
-extension Toolchain {
-  /// Utility function to lookup an executable using xcrun.
+/// Toolchain for Darwin-based platforms, such as macOS and iOS.
+///
+/// FIXME: This class is not thread-safe.
+public final class DarwinToolchain: Toolchain {
+  public let env: [String: String]
+
   func xcrunFind(exec: String) throws -> AbsolutePath {
     if let overrideString = env[envVarName(forExecutable: exec)] {
       return try AbsolutePath(validating: overrideString)
@@ -35,14 +37,7 @@ extension Toolchain {
     return AbsolutePath("/usr/bin/" + exec)
   #endif
   }
-}
 
-/// Toolchain for Darwin-based platforms, such as macOS and iOS.
-///
-/// FIXME: This class is not thread-safe.
-public final class DarwinToolchain: Toolchain {
-  public let env: [String: String]
-  
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
