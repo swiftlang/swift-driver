@@ -9,7 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-public enum OptionParseError : Error {
+public enum OptionParseError : Error, Equatable {
   case unknownOption(index: Int, argument: String)
   case missingArgument(index: Int, argument: String)
 }
