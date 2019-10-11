@@ -106,6 +106,7 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
     }
   }
 
+  /// Returns the number of nodes in the trie
   public var nodeCount: Int {
 
       var count = 0
