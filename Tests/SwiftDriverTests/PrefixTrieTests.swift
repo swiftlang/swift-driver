@@ -63,7 +63,11 @@ final class PrefixTrieTests: XCTestCase {
     trie["123890"] = nil
     XCTAssertEqual(trie.nodeCount, 7)
     XCTAssertNil(trie["123890"])
-    trie["abc"] = 979899 // 3 new node, 0 common nodes
+    trie["abc"] = 979899 // 3 new nodes, 0 common nodes
+    XCTAssertEqual(trie.nodeCount, 10)
+    // existing prefix that cannot be deleted since
+    // 12345 & 12367 exist
+    trie["123"] = nil
     XCTAssertEqual(trie.nodeCount, 10)
 
   }
