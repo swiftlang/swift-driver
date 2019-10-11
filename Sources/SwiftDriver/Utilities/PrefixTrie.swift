@@ -57,10 +57,15 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
     set {
       var index = key.startIndex
       var current = root
+      var traversed: [(node: Node, step: Key.Element?)] = [(root, nil)]
 
       // Traverse as much of the prefix as we can, keeping track of the index
       // we ended on
       while index < key.endIndex, let next = current.next[key[index]] {
+        if newValue == nil {
+            traversed.append((next, key[index]))
+        }
+
         key.formIndex(after: &index)
         current = next
       }
@@ -68,10 +73,23 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
       // We're matching a prefix of an existing key in the trie
       if index == key.endIndex {
         // Update the value in the trie with the new value
-
-        // FIXME: If `newValue` is `nil`, we won't clean up intermediate entries
-        //        in the trie.
         current.value = newValue
+        // backtrack and remove dead branches
+        if newValue == nil {
+            var current = traversed.popLast()
+            while let parent = traversed.popLast(), let currentStep = current?.step {
+                if parent.node.next[currentStep]?.value == nil
+                  && parent.node.next[currentStep]?.next.keys.count == 0 {
+                    parent.node.next[currentStep] = nil
+                    current = parent
+                }
+            }
+        }
+        return
+      }
+
+      // If the value we're adding is `nil` just return and don't create the trie
+      guard newValue != nil else {
         return
       }
 
@@ -86,5 +104,18 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
         current = new
       }
     }
+  }
+
+  public var nodeCount: Int {
+
+      var count = 0
+
+      var nodes = [self.root]
+      while let currentNode = nodes.popLast() {
+          nodes.append(contentsOf: currentNode.next.values)
+          count += currentNode.next.keys.count
+      }
+
+      return count
   }
 }
