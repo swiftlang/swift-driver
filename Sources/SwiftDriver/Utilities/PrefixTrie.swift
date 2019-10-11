@@ -57,6 +57,10 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
     set {
       var index = key.startIndex
       var current = root
+      // Keep track of which nodes we've visited along the way,
+      // so we can walk back up this if we need to prune dead branches.
+      // Note: This is only used (and is only appended to) if the new
+      //       value being stored is `nil`.
       var traversed: [(node: Node, step: Key.Element?)] = [(root, nil)]
 
       // Traverse as much of the prefix as we can, keeping track of the index
