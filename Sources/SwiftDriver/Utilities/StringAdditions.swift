@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 extension String {
   /// Whether this string is a Swift identifier.
-  var isSwiftIdentifier: Bool {
+  public var sd_isSwiftIdentifier: Bool {
     guard let start = unicodeScalars.first else {
       return false
     }
@@ -125,6 +125,7 @@ extension Unicode.Scalar {
   func isCIdentifierBody(allowDollar: Bool = false) -> Bool {
     if (0x41...0x5A).contains(value) ||
        (0x61...0x7A).contains(value) ||
+       isASCIIDigit                  ||
        self == "_" {
       return true
     } else {
