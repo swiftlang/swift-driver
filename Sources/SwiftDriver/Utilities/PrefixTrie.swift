@@ -61,13 +61,13 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
       // so we can walk back up this if we need to prune dead branches.
       // Note: This is only used (and is only appended to) if the new
       //       value being stored is `nil`.
-      var traversed: [(node: Node, step: Key.Element?)] = [(root, nil)]
+      var traversed: [(parent: Node, step: Key.Element)] = []
 
       // Traverse as much of the prefix as we can, keeping track of the index
       // we ended on
       while index < key.endIndex, let next = current.next[key[index]] {
         if newValue == nil {
-            traversed.append((next, key[index]))
+            traversed.append((current, key[index]))
         }
 
         key.formIndex(after: &index)
@@ -78,16 +78,9 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
       if index == key.endIndex {
         // Update the value in the trie with the new value
         current.value = newValue
-        // backtrack and remove dead branches
-        if newValue == nil {
-            var current = traversed.popLast()
-            while let parent = traversed.popLast(), let currentStep = current?.step {
-                if parent.node.next[currentStep]?.value == nil
-                  && parent.node.next[currentStep]?.next.keys.count == 0 {
-                    parent.node.next[currentStep] = nil
-                    current = parent
-                }
-            }
+        // remove dead nodes if the current child is a leaf
+        if newValue == nil && current.next.keys.count == 0 {
+          self.pruneEmptyBranchesIfNeeded(traversed)
         }
         return
       }
@@ -106,6 +99,20 @@ public struct PrefixTrie<Key: Collection, Value> where Key.Element: Hashable {
         let new = Node(value: index == key.endIndex ? newValue : nil)
         current.next[step] = new
         current = new
+      }
+    }
+  }
+
+
+  /// Given a list of nodes starting from a root node to any other node along a branch,
+  /// prune the branch of any dead nodes along the way.
+  private func pruneEmptyBranchesIfNeeded(_ traversed: [(parent: Node, step: Key.Element)]) {
+    for (parent, step) in traversed.reversed() {
+      // find the first parent with a value or more than one child.
+      // If we traversed up to the root then chop everything regarless.
+      if parent.value != nil || parent.next.keys.count > 1 || parent === traversed.first!.parent {
+        parent.next[step] = nil
+        break
       }
     }
   }
