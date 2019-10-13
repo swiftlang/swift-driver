@@ -4,10 +4,16 @@ import SwiftDriver
 final class PrefixTrieTests: XCTestCase {
   func testSimpleTrie() {
     var trie = PrefixTrie<String, Int>()
+
+    trie["1234"] = nil
+    XCTAssertEqual(trie.nodeCount, 0)
+
     trie["a"] = 0
     trie["b"] = 1
     trie["abcd"] = 2
     trie["abc"] = 3
+
+    XCTAssertEqual(trie.nodeCount, 5)
 
     XCTAssertEqual(trie["a"], 0)
     XCTAssertEqual(trie["ab"], 0)
@@ -37,6 +43,7 @@ final class PrefixTrieTests: XCTestCase {
   }
 
   func testUpdating() {
+
     var trie = PrefixTrie<String, Int>()
     trie["garbage"] = 0
     XCTAssertEqual(trie["garbage"], 0)
@@ -46,6 +53,23 @@ final class PrefixTrieTests: XCTestCase {
 
     trie["garbage"] = nil
     XCTAssertNil(trie["garbage"])
+    XCTAssertEqual(trie.nodeCount, 0)
+
+    trie["12345"] = 12345 // 5 nodes
+    trie["12367"] = 12367 // 3 common nodes, 2 new nodes
+    XCTAssertEqual(trie.nodeCount, 7)
+    trie["123890"] = 123890 // 3 common nodes, 3 new nodes
+    XCTAssertEqual(trie.nodeCount, 10)
+    trie["123890"] = nil
+    XCTAssertEqual(trie.nodeCount, 7)
+    XCTAssertNil(trie["123890"])
+    trie["abc"] = 979899 // 3 new nodes, 0 common nodes
+    XCTAssertEqual(trie.nodeCount, 10)
+    // existing prefix that cannot be deleted since
+    // 12345 & 12367 exist
+    trie["123"] = nil
+    XCTAssertEqual(trie.nodeCount, 10)
+
   }
 
   func testCollectionMatching() {
