@@ -40,23 +40,7 @@ public enum VirtualPath: Hashable {
   }
 
   /// The name of the path for presentation purposes.
-  ///
-  /// FIXME: Maybe this should be debugDescription or description
-  public var name: String {
-    switch self {
-    case .relative(let path):
-      return path.pathString
-
-    case .absolute(let path):
-      return path.pathString
-
-    case .standardInput, .standardOutput:
-      return "-"
-
-    case .temporary(let path):
-      return path.pathString
-    }
-  }
+  public var name: String { description }
 
   /// The extension of this path, for relative or absolute paths.
   public var `extension`: String? {
@@ -143,6 +127,24 @@ extension VirtualPath: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(RelativePath.self)
       self = .temporary(a1)
+    }
+  }
+}
+
+extension VirtualPath: CustomStringConvertible {
+  public var description: String {
+    switch self {
+    case .relative(let path):
+      return path.pathString
+
+    case .absolute(let path):
+      return path.pathString
+
+    case .standardInput, .standardOutput:
+      return "-"
+
+    case .temporary(let path):
+      return path.pathString
     }
   }
 }
