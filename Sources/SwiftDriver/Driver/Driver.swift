@@ -688,8 +688,7 @@ extension Driver {
         compilerOutputType = nil
 
       case .i:
-        // FIXME: diagnose this
-        break
+        diagnosticsEngine.emit(.error_i_mode(driverKind))
 
       case .repl, .deprecatedIntegratedRepl, .lldbRepl:
         compilerOutputType = nil
@@ -704,6 +703,17 @@ extension Driver {
     }
 
     return (compilerOutputType, linkerOutputType)
+  }
+}
+
+extension Diagnostic.Message {
+  public static func error_i_mode(_ driverKind: DriverKind) -> Diagnostic.Message {
+    .error(
+      """
+      the flag '-i' is no longer required and has been removed;
+      use '\(driverKind.usage) input-filename'
+      """
+    )
   }
 }
 

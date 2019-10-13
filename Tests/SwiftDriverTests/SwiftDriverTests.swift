@@ -142,6 +142,12 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver3.linkerOutputType, .staticLibrary)
   }
 
+  func testPrimaryOutputKindsDiagnostics() throws {
+      try assertDriverDiagnostics(args: "swift", "-i") {
+          $1.expect(.error_i_mode(.interactive))
+      }
+  }
+
   func testDebugSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module") { driver in
       XCTAssertNil(driver.debugInfoLevel)
