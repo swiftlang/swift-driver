@@ -348,19 +348,20 @@ extension Driver {
       .map { tokenizeResponseFileLine($0) }
       .filter { !$0.isEmpty }
   }
-    
+  
+  /// Recursively expands the response files.
+  /// - Parameter visitedResponseFiles: Set containing visited response files to detect recursive parsing.
   private static func expandResponseFiles(
     _ args: [String],
     diagnosticsEngine: DiagnosticsEngine,
     visitedResponseFiles: inout Set<AbsolutePath>
   ) throws -> [String] {
-    // FIXME: This is very very prelimary. Need to look at how Swift compiler expands response file.
-
     var result: [String] = []
 
     // Go through each arg and add arguments from response files.
     for arg in args {
       if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
+        // Guard against infinity parsing loop.
         guard visitedResponseFiles.insert(responseFile).inserted else {
           diagnosticsEngine.emit(.warn_recursive_response_file(responseFile))
           continue
