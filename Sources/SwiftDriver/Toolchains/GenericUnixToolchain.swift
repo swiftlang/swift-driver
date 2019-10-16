@@ -34,7 +34,7 @@ public final class GenericUnixToolchain: Toolchain {
     // If we happen to be on a macOS host, some tools might not be in our
     // PATH, so we'll just use xcrun to find them too.
     #if os(macOS)
-    return try xcrunFind(exec: exec)
+    return try DarwinToolchain(env: self.env).xcrunFind(exec: exec)
     #else
     throw Error.unableToFind(tool: exec)
     #endif
