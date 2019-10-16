@@ -335,7 +335,50 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
     }
   }
-
+  
+  /// Tests how response files tokens such as spaces, comments, escaping characters and quotes, get parsed and expanded.
+  func testResponseFileTokenization() throws {
+    try withTemporaryDirectory { path  in
+      let diags = DiagnosticsEngine()
+      let fooPath = path.appending(component: "foo.rsp")
+      let barPath = path.appending(component: "bar.rsp")
+      let escapingPath = path.appending(component: "escaping.rsp")
+      
+      try localFileSystem.writeFileContents(fooPath) {
+        $0 <<< #"""
+        Command1 --kkc
+        //This is a comment
+        // this is another comment
+        but this is \\\\\a command
+        @\#(barPath.pathString)
+        @YouAren'tAFile
+        """#
+      }
+      
+      try localFileSystem.writeFileContents(barPath) {
+        $0 <<< #"""
+        swift
+        "rocks!"
+        compiler
+        -Xlinker
+        
+        @loader_path
+        mkdir "Quoted Dir"
+        cd Unquoted \\Dir
+        // Bye!
+        """#
+      }
+      
+      try localFileSystem.writeFileContents(escapingPath) {
+        $0 <<< "swift\n--driver-mode=swift\tc\n-v\r\n//comment\n\"the end\""
+      }
+      let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], diagnosticsEngine: diags)
+      XCTAssertEqual(args, [#"Command1 --kkc"#, #"but this is \\a command"#, #"swift"#, #""rocks!""# ,#"compiler"#, #"-Xlinker"#, #"@loader_path"#, #"mkdir "Quoted Dir""#, #"cd Unquoted \Dir"#, #"@YouAren'tAFile"#])
+      let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], diagnosticsEngine: diags)
+      XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","\"the end\""])
+    }
+  }
+  
   func testLinking() throws {
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
     do {

@@ -297,26 +297,70 @@ public struct Driver {
   }
 }
 
-// Response files.
+// MARK: - Response files.
 extension Driver {
-  /// Tokenize a single line in a response file
-  private static func tokenizeResponseFileLine(_ line: String) -> String {
-    // FIXME: This is wrong. We need to do proper shell escaping.
-    return line.replacingOccurrences(of: "\\ ", with: " ")
+  /// Tokenize a single line in a response file.
+  ///
+  /// This method supports response files with:
+  /// 1. Double slash comments at the beginning of a line.
+  /// 2. Backslash escaping.
+  /// 3. Space character (U+0020 SPACE).
+  ///
+  /// - Returns: One line String ready to be used in the shell, if any.
+  ///
+  /// - Complexity: O(*n*), where *n* is the length of the line.
+  private static func tokenizeResponseFileLine<S: StringProtocol>(_ line: S) -> String? {
+    if line.isEmpty { return nil }
+    
+    // Support double dash comments only if they start at the beginning of a line.
+    if line.hasPrefix("//") { return nil }
+    
+    var result: String = ""
+    /// Indicates if we just parsed an escaping backslash.
+    var isEscaping = false
+    
+    for char in line {
+      if char.isNewline { return result }
+
+      // Backslash escapes to the next character.
+      if char == #"\"#, !isEscaping {
+        isEscaping = true
+        continue
+      } else if isEscaping {
+        // Disable escaping and keep parsing.
+        isEscaping = false
+      }
+      
+      // Ignore spacing characters, except by the space character.
+      if char.isWhitespace && char != " " { continue }
+      
+      result.append(char)
+    }
+    return result.isEmpty ? nil : result
   }
 
+  /// Tokenize each line of the response file, omitting empty lines.
+  ///
+  /// - Parameter content: response file's content to be tokenized.
+  private static func tokenizeResponseFile(_ content: String) -> [String] {
+    return content
+      .split(separator: "\n")
+      .compactMap { tokenizeResponseFileLine($0) }
+  }
+  
+  /// Recursively expands the response files.
+  /// - Parameter visitedResponseFiles: Set containing visited response files to detect recursive parsing.
   private static func expandResponseFiles(
     _ args: [String],
     diagnosticsEngine: DiagnosticsEngine,
     visitedResponseFiles: inout Set<AbsolutePath>
   ) throws -> [String] {
-    // FIXME: This is very very prelimary. Need to look at how Swift compiler expands response file.
-
     var result: [String] = []
 
     // Go through each arg and add arguments from response files.
     for arg in args {
       if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
+        // Guard against infinite parsing loop.
         guard visitedResponseFiles.insert(responseFile).inserted else {
           diagnosticsEngine.emit(.warn_recursive_response_file(responseFile))
           continue
@@ -326,7 +370,7 @@ extension Driver {
         }
 
         let contents = try localFileSystem.readFileContents(responseFile).cString
-        let lines = contents.split(separator: "\n", omittingEmptySubsequences: true).map { tokenizeResponseFileLine(String($0)) }
+        let lines = tokenizeResponseFile(contents)
         result.append(contentsOf: try expandResponseFiles(lines, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles))
       } else {
         result.append(arg)
