@@ -344,7 +344,7 @@ extension Driver {
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
     return content
-      .split(separator: "\n").map { $0 }
+      .split(separator: "\n")
       .compactMap { tokenizeResponseFileLine($0) }
   }
   
