@@ -1032,7 +1032,7 @@ extension Driver {
       }
     }
 
-    if !moduleName.isSwiftIdentifier {
+    if !moduleName.sd_isSwiftIdentifier {
       fallbackOrDiagnose(.error_bad_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     } else if moduleName == "Swift" && !parsedOptions.contains(.parseStdlib) {
       fallbackOrDiagnose(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
