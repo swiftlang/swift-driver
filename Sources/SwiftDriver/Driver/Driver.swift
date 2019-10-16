@@ -313,7 +313,7 @@ extension Driver {
     if line.isEmpty { return nil }
     
     // Support double dash comments only if they start at the beginning of a line.
-    if line.first == "/", line.count > 1, line[line.index(after: line.startIndex)] == "/" { return nil }
+    if line.hasPrefix("//") { return nil }
     
     var result: String = ""
     /// Indicates if we just parsed an escaping backslash.
