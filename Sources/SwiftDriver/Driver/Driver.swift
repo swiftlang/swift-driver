@@ -306,14 +306,14 @@ extension Driver {
   /// 2. Backslash escaping.
   /// 3. Space character (U+0020 SPACE).
   ///
-  /// - Returns: A String ready to be used in the shell.
+  /// - Returns: One line String ready to be used in the shell, if any.
   ///
   /// - Complexity: O(*n*), where *n* is the length of the line.
-  private static func tokenizeResponseFileLine<S: StringProtocol>(_ line: S) -> String {
-    if line.isEmpty { return "" }
+  private static func tokenizeResponseFileLine<S: StringProtocol>(_ line: S) -> String? {
+    if line.isEmpty { return nil }
     
     // Support double dash comments only if they start at the beginning of a line.
-    if line.count > 1, line.first == "/", line[line.index(after: line.startIndex)] == "/" { return "" }
+    if line.first == "/", line.count > 1, line[line.index(after: line.startIndex)] == "/" { return nil }
     
     var result: String = ""
     /// Indicates if we just parsed an escaping backslash.
@@ -336,7 +336,7 @@ extension Driver {
       
       result.append(char)
     }
-    return result
+    return result.isEmpty ? nil : result
   }
 
   /// Tokenize each line of the response file, omitting empty lines.
@@ -344,9 +344,8 @@ extension Driver {
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
     return content
-      .split(separator: "\n")
-      .map { tokenizeResponseFileLine($0) }
-      .filter { !$0.isEmpty }
+      .split(separator: "\n").map { $0 }
+      .compactMap { tokenizeResponseFileLine($0) }
   }
   
   /// Recursively expands the response files.
@@ -361,7 +360,7 @@ extension Driver {
     // Go through each arg and add arguments from response files.
     for arg in args {
       if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
-        // Guard against infinity parsing loop.
+        // Guard against infinite parsing loop.
         guard visitedResponseFiles.insert(responseFile).inserted else {
           diagnosticsEngine.emit(.warn_recursive_response_file(responseFile))
           continue
