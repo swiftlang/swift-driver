@@ -166,7 +166,13 @@ final class SwiftDriverTests: XCTestCase {
 
         XCTAssertNil(try Driver(args: ["swiftc", "-j", "0"]).numParallelJobs)
 
-        XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"], env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]).numParallelJobs, 1)
+        XCTAssertEqual(
+          try Driver(
+            args: ["swiftc", "-j", "4", "-target", "x86_64-apple-macosx10.15"],
+            env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]
+          ).numParallelJobs,
+          1
+        )
     }
 
     func testMultithreadingDiagnostics() throws {
