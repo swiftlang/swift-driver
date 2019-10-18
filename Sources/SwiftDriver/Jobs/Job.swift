@@ -20,6 +20,7 @@ public struct Job: Codable, Equatable {
     case generateDSYM = "generate-dsym"
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
+    case generatePCH = "generate-pch"
     case interpret
     case repl
     case verifyDebugInfo = "verify-debug-info"

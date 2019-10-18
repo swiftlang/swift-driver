@@ -1332,9 +1332,7 @@ extension Driver {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
-    let objcHeaderPath = try VirtualPath(path: objcHeaderPathArg.asSingle)
-    // FIXME: Precompile bridging header if requested.
-    return objcHeaderPath
+    return try VirtualPath(path: objcHeaderPathArg.asSingle)
   }
 }
 

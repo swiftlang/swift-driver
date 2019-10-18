@@ -45,6 +45,12 @@ extension Driver {
         }
       }
     }
+    
+    if let importedObjCHeader = importedObjCHeader,
+        parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true),
+        importedObjCHeader.extension == FileType.objcHeader.rawValue {
+        jobs.append(try generatePCHJob(input: .init(file: importedObjCHeader, type: .objcHeader)))
+    }
 
     // If we should create emit module job, do so.
     if shouldCreateEmitModuleJob {
