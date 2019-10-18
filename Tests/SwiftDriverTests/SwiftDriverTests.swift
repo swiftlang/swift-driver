@@ -150,48 +150,51 @@ final class SwiftDriverTests: XCTestCase {
 
     func testMultithreading() throws {
 
-        XCTAssertEqual(try Driver(args: ["swiftc"]).numThreads, 0)
+      XCTAssertEqual(try Driver(args: ["swiftc"]).numThreads, 0)
 
-        XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "4"]).numThreads, 4)
+      XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "4"]).numThreads, 4)
 
-        XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "0"]).numThreads, 0)
+      XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "0"]).numThreads, 0)
 
-        XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "-1"]).numThreads, 0)
+      XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "-1"]).numThreads, 0)
 
-        XCTAssertEqual(try Driver(args: ["swiftc", "-enable-batch-mode", "-num-threads", "4"]).numThreads, 0)
+      XCTAssertEqual(try Driver(args: ["swiftc", "-enable-batch-mode", "-num-threads", "4"]).numThreads, 0)
 
-        XCTAssertNil(try Driver(args: ["swiftc"]).numParallelJobs)
+      XCTAssertNil(try Driver(args: ["swiftc"]).numParallelJobs)
 
-        XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"]).numParallelJobs, 4)
+      XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"]).numParallelJobs, 4)
 
-        XCTAssertNil(try Driver(args: ["swiftc", "-j", "0"]).numParallelJobs)
+      XCTAssertNil(try Driver(args: ["swiftc", "-j", "0"]).numParallelJobs)
 
-        XCTAssertEqual(
-          try Driver(
-            args: ["swiftc", "-j", "4", "-target", "x86_64-apple-macosx10.15"],
-            env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]
-          ).numParallelJobs,
-          1
-        )
+      XCTAssertEqual(
+        try Driver(
+          args: ["swiftc", "-j", "4", "-target", "x86_64-apple-macosx10.15"],
+          env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]
+        ).numParallelJobs,
+        1
+      )
     }
 
     func testMultithreadingDiagnostics() throws {
 
-        try assertDriverDiagnostics(args: "swift", "-num-threads", "-1") {
-            $1.expect(.error_invalid_arg_value(arg: .numThreads, value: "-1"))
-        }
+      try assertDriverDiagnostics(args: "swift", "-num-threads", "-1") {
+        $1.expect(.error_invalid_arg_value(arg: .numThreads, value: "-1"))
+      }
 
-        try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-num-threads", "4") {
-            $1.expect(.warning("ignoring -num-threads argument; cannot multithread batch mode"))
-        }
+      try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-num-threads", "4") {
+        $1.expect(.warning("ignoring -num-threads argument; cannot multithread batch mode"))
+      }
 
-        try assertDriverDiagnostics(args: "swiftc", "-j", "0") {
-            $1.expect(.error_invalid_arg_value(arg: .j, value: "0"))
-        }
+      try assertDriverDiagnostics(args: "swiftc", "-j", "0") {
+        $1.expect(.error_invalid_arg_value(arg: .j, value: "0"))
+      }
 
-        try assertDriverDiagnostics(args: "swiftc", "-j", "8", env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]) {
-            $1.expect(.remark("SWIFTC_MAXIMUM_DETERMINISM overriding -j"))
-        }
+      try assertDriverDiagnostics(
+        args: "swiftc", "-j", "8", "-target", "x86_64-apple-macosx10.15",
+        env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]
+      ) {
+        $1.expect(.remark("SWIFTC_MAXIMUM_DETERMINISM overriding -j"))
+      }
     }
 
   func testDebugSettings() throws {
