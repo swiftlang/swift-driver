@@ -751,7 +751,7 @@ extension Driver {
 }
 
 extension Diagnostic.Message {
-  public static func error_i_mode(_ driverKind: DriverKind) -> Diagnostic.Message {
+  static func error_i_mode(_ driverKind: DriverKind) -> Diagnostic.Message {
     .error(
       """
       the flag '-i' is no longer required and has been removed; \
@@ -775,17 +775,14 @@ extension Driver {
 
     // Make sure we have a non-negative integer value.
     guard let numThreads = Int(numThreadsArg.asSingle), numThreads >= 0 else {
-      diagnosticsEngine.emit(Diagnostic.Message.error_invalid_arg_value(arg: .numThreads, value: numThreadsArg.asSingle))
+      diagnosticsEngine.emit(.error_invalid_arg_value(arg: .numThreads, value: numThreadsArg.asSingle))
       return 0
     }
 
-    #if false
-    // FIXME: Check for batch mode.
-    if false {
+    if case .batchCompile = compilerMode {
       diagnosticsEngine.emit(.warning_cannot_multithread_batch_mode)
       return 0
     }
-    #endif
 
     return numThreads
   }
