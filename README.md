@@ -64,6 +64,17 @@ $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   swift test --parallel
 ```
 
+#### Running lldb on Linux
+
+If you want to run lldb on Linux you first need to build the project by running `swift build`.
+The executables can be found in the `.build/x86_64-<system>-linux/debug` directory.
+
+For instance, to run the driver package tests in lldb on Linux run the following command:
+
+```
+$ lldb .build/x86_64-<system>-linux/debug/swift-driverPackageTests.xctest
+```
+
 ### Rebuilding `Options.swift`
 
 `Options.swift`, which contains the complete set of options that can be parsed by the driver, is automatically generated from the [option tables in the Swift compiler](https://github.com/apple/swift/tree/master/include/swift/Option). If you need to regenerate `Options.swift`, you will need to [build the Swift compiler](https://github.com/apple/swift#building-swift) and then build `makeOptions` program with a `-I` that allows the generated `Options.inc` to
