@@ -97,7 +97,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
   * [x] Fill out the `GenericUnixToolchain` toolchain to get it working
   * [ ] Implement a `WindowsToolchain`
-  * [ ] Implement proper tokenization for response files
+  * [x] Implement proper tokenization for response files
 * Compilation modes
   * [x] Batch mode
   * [ ] Whole-module-optimization mode

@@ -144,9 +144,58 @@ final class SwiftDriverTests: XCTestCase {
 
   func testPrimaryOutputKindsDiagnostics() throws {
       try assertDriverDiagnostics(args: "swift", "-i") {
-          $1.expect(.error_i_mode(.interactive))
+        $1.expect(.error("the flag '-i' is no longer required and has been removed; use 'swift input-filename'"))
       }
   }
+
+    func testMultithreading() throws {
+
+      XCTAssertEqual(try Driver(args: ["swiftc"]).numThreads, 0)
+
+      XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "4"]).numThreads, 4)
+
+      XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "0"]).numThreads, 0)
+
+      XCTAssertEqual(try Driver(args: ["swiftc", "-num-threads", "-1"]).numThreads, 0)
+
+      XCTAssertEqual(try Driver(args: ["swiftc", "-enable-batch-mode", "-num-threads", "4"]).numThreads, 0)
+
+      XCTAssertNil(try Driver(args: ["swiftc"]).numParallelJobs)
+
+      XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"]).numParallelJobs, 4)
+
+      XCTAssertNil(try Driver(args: ["swiftc", "-j", "0"]).numParallelJobs)
+
+      XCTAssertEqual(
+        try Driver(
+          args: ["swiftc", "-j", "4", "-target", "x86_64-apple-macosx10.15"],
+          env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]
+        ).numParallelJobs,
+        1
+      )
+    }
+
+    func testMultithreadingDiagnostics() throws {
+
+      try assertDriverDiagnostics(args: "swift", "-num-threads", "-1") {
+        $1.expect(.error_invalid_arg_value(arg: .numThreads, value: "-1"))
+      }
+
+      try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-num-threads", "4") {
+        $1.expect(.warning("ignoring -num-threads argument; cannot multithread batch mode"))
+      }
+
+      try assertDriverDiagnostics(args: "swiftc", "-j", "0") {
+        $1.expect(.error_invalid_arg_value(arg: .j, value: "0"))
+      }
+
+      try assertDriverDiagnostics(
+        args: "swiftc", "-j", "8", "-target", "x86_64-apple-macosx10.15",
+        env: ["SWIFTC_MAXIMUM_DETERMINISM": "1"]
+      ) {
+        $1.expect(.remark("SWIFTC_MAXIMUM_DETERMINISM overriding -j"))
+      }
+    }
 
   func testDebugSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module") { driver in
@@ -335,7 +384,50 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
     }
   }
-
+  
+  /// Tests how response files tokens such as spaces, comments, escaping characters and quotes, get parsed and expanded.
+  func testResponseFileTokenization() throws {
+    try withTemporaryDirectory { path  in
+      let diags = DiagnosticsEngine()
+      let fooPath = path.appending(component: "foo.rsp")
+      let barPath = path.appending(component: "bar.rsp")
+      let escapingPath = path.appending(component: "escaping.rsp")
+      
+      try localFileSystem.writeFileContents(fooPath) {
+        $0 <<< #"""
+        Command1 --kkc
+        //This is a comment
+        // this is another comment
+        but this is \\\\\a command
+        @\#(barPath.pathString)
+        @YouAren'tAFile
+        """#
+      }
+      
+      try localFileSystem.writeFileContents(barPath) {
+        $0 <<< #"""
+        swift
+        "rocks!"
+        compiler
+        -Xlinker
+        
+        @loader_path
+        mkdir "Quoted Dir"
+        cd Unquoted \\Dir
+        // Bye!
+        """#
+      }
+      
+      try localFileSystem.writeFileContents(escapingPath) {
+        $0 <<< "swift\n--driver-mode=swift\tc\n-v\r\n//comment\n\"the end\""
+      }
+      let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], diagnosticsEngine: diags)
+      XCTAssertEqual(args, [#"Command1 --kkc"#, #"but this is \\a command"#, #"swift"#, #""rocks!""# ,#"compiler"#, #"-Xlinker"#, #"@loader_path"#, #"mkdir "Quoted Dir""#, #"cd Unquoted \Dir"#, #"@YouAren'tAFile"#])
+      let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], diagnosticsEngine: diags)
+      XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","\"the end\""])
+    }
+  }
+  
   func testLinking() throws {
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
     do {
