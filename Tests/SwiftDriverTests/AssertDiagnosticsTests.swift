@@ -113,26 +113,26 @@ class AssertDiagnosticsTests: FailableTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "test.swift")
     
     try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
-      driver.diagnosticEngine.emit(.error_mode_cannot_emit_module)
-      verify.expect(.error_mode_cannot_emit_module)
+      driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
+      verify.expect(.error("this mode does not support emitting modules"))
     }
     
     try assertFails {
       try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
-        verify.expect(.error_mode_cannot_emit_module)
+        verify.expect(.error("this mode does not support emitting modules"))
       }
     }
     
     try assertFails {
       try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
-        driver.diagnosticEngine.emit(.error_mode_cannot_emit_module)
+        driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
       }
     }
     
     try assertFails(times: 2) {
       try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
-        driver.diagnosticEngine.emit(.error_mode_cannot_emit_module)
-        verify.expect(.error_static_emit_executable_disallowed)
+        driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
+        verify.expect(.error("-static may not be used with -emit-executable"))
       }
     }
   }

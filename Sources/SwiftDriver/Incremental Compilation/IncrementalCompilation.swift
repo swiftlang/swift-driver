@@ -160,7 +160,7 @@ fileprivate extension CompilerMode {
   }
 }
 
-public extension Diagnostic.Message {
+extension Diagnostic.Message {
   static var warning_incremental_requires_output_file_map: Diagnostic.Message {
     .warning("ignoring -incremental (currently requires an output file map)")
   }
