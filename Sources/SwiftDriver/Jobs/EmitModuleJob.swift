@@ -32,7 +32,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: Add MSVC runtime library flags
 
-    // Add suppplementable outputs.
+    // Add supplemental outputs.
     func addSupplementalOutput(path: VirtualPath?, flag: String, type: FileType) {
       guard let path = path else { return }
 

@@ -721,6 +721,33 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
   }
 
+  func testSingleThreadedWholeModuleOptimizationCompiles() throws {
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15"])
+    let plannedJobs = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+    XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("Test.o")))
+    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+
+    XCTAssertEqual(plannedJobs[1].kind, .link)
+  }
+
+  func testMultiThreadedWholeModuleOptimizationCompiles() throws {
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
+        "-num-threads", "4", "-target", "x86_64-apple-macosx10.15"])
+    let plannedJobs = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+    XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
+    XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
+    XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+
+    XCTAssertEqual(plannedJobs[1].kind, .link)
+  }
+
   func testMergeModulesOnly() throws {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])

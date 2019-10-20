@@ -164,38 +164,73 @@ extension Driver {
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {
     var outputs: [TypedVirtualPath] = []
 
-    func addOutputsOfType(outputType: FileType, input: VirtualPath, flag: String) {
+    /// Add output of a particular type, if needed.
+    func addOutputOfType(
+        outputType: FileType, finalOutputPath: VirtualPath?,
+        input: VirtualPath?, flag: String
+    ) {
+      // If there is no final output, there's nothing to do.
+      guard let finalOutputPath = finalOutputPath else { return }
+
+      // If the whole of the compiler output is this type, there's nothing to
+      // do.
       if outputType == compilerOutputType { return }
 
+      // Add the appropriate flag.
       commandLine.appendFlag(flag)
 
-      let path = (outputFileMap ?? OutputFileMap())
-        .getOutput(inputFile: input, outputType: outputType)
-      commandLine.append(.path(path))
-      outputs.append(TypedVirtualPath(file: path, type: outputType))
+      // Compute the output path based on the input path (if there is one), or
+      // use the final output.
+      let outputPath: VirtualPath
+      if let input = input {
+        outputPath = (outputFileMap ?? OutputFileMap())
+          .getOutput(inputFile: input, outputType: outputType)
+      } else {
+        outputPath = finalOutputPath
+      }
+
+      commandLine.append(.path(outputPath))
+      outputs.append(TypedVirtualPath(file: outputPath, type: outputType))
     }
 
-    for input in primaryInputs {
-      if moduleOutput != nil && !forceEmitModuleInSingleInvocation {
-        addOutputsOfType(outputType: .swiftModule, input: input.file, flag: "-emit-module-path")
+    /// Add all of the outputs needed for a given input.
+    func addAllOutputsFor(input: VirtualPath?) {
+      if !forceEmitModuleInSingleInvocation {
+        addOutputOfType(
+            outputType: .swiftModule,
+            finalOutputPath: moduleOutput?.outputPath,
+            input: input,
+            flag: "-emit-module-path")
+        addOutputOfType(
+            outputType: .swiftDocumentation,
+            finalOutputPath: moduleDocOutputPath,
+            input: input,
+            flag: "-emit-module-doc-path")
+        addOutputOfType(
+            outputType: .dependencies,
+            finalOutputPath: dependenciesFilePath,
+            input: input,
+            flag: "-emit-dependencies-path")
       }
 
-      if moduleDocOutputPath != nil && !forceEmitModuleInSingleInvocation {
-        addOutputsOfType(outputType: .swiftDocumentation, input: input.file, flag: "-emit-module-doc-path")
-      }
-
-      if dependenciesFilePath != nil && !forceEmitModuleInSingleInvocation {
-        addOutputsOfType(outputType: .dependencies, input: input.file, flag: "-emit-dependencies-path")
-      }
-
-      if optimizationRecordPath != nil {
-        addOutputsOfType(outputType: .optimizationRecord, input: input.file, flag: "-save-optimization-record-path")
-      }
+      addOutputOfType(
+          outputType: .optimizationRecord,
+          finalOutputPath: optimizationRecordPath,
+          input: input,
+          flag: "-save-optimization-record-path")
 
       #if false
       // FIXME: handle -update-code
-      addOutputsOfType(outputType: .remap, input: input.file, flag: "-emit-remap-file-path")
+      addOutputOfType(outputType: .remap, input: input.file, flag: "-emit-remap-file-path")
       #endif
+    }
+
+    if compilerMode.usesPrimaryFileInputs {
+      for input in primaryInputs {
+        addAllOutputsFor(input: input.file)
+      }
+    } else {
+      addAllOutputsFor(input: nil)
     }
 
     return outputs
