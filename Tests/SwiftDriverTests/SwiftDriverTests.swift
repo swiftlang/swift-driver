@@ -178,7 +178,7 @@ final class SwiftDriverTests: XCTestCase {
     func testMultithreadingDiagnostics() throws {
 
       try assertDriverDiagnostics(args: "swift", "-num-threads", "-1") {
-        $1.expect(.error_invalid_arg_value(arg: .numThreads, value: "-1"))
+        $1.expect(.error("invalid value '-1' in '-num-threads'"))
       }
 
       try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-num-threads", "4") {
@@ -186,7 +186,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       try assertDriverDiagnostics(args: "swiftc", "-j", "0") {
-        $1.expect(.error_invalid_arg_value(arg: .j, value: "0"))
+        $1.expect(.error("invalid value '0' in '-j'"))
       }
 
       try assertDriverDiagnostics(
@@ -267,7 +267,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
-      $1.expect(.error_stdlib_module_name(moduleName: "Swift", explicitModuleName: true))
+        $1.expect(.error("module name \"Swift\" is reserved for the standard library"))
     }
   }
   
