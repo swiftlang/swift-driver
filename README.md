@@ -122,7 +122,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Implement proper tokenization for response files
 * Compilation modes
   * [x] Batch mode
-  * [ ] Whole-module-optimization mode
+  * [x] Whole-module-optimization mode
   * [ ] REPL mode
   * [ ] Immediate mode
 * Features
@@ -132,6 +132,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Parseable output, as used by SwiftPM
   * [x] Response files
   * [ ] Input and primary input file lists
+  * [ ] Complete `OutputFileMap` implementation to handle all file types uniformly
 * Testing
   * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
   * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver).

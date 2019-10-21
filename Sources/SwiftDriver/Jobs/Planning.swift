@@ -40,15 +40,33 @@ extension Driver {
     }
 
     let partitions: BatchPartitions?
-    if case let .batchCompile(batchInfo) = compilerMode {
+    switch compilerMode {
+    case .batchCompile(let batchInfo):
       partitions = batchPartitions(batchInfo)
-    } else {
+
+    case .immediate, .repl:
+      fatalError("immediate and REPL modes are currently unsupported")
+
+    case .singleCompile:
+      // Create a single compile job for all of the files, none of which
+      // are primary.
+      var jobOutputs: [TypedVirtualPath] = []
+      let job = try compileJob(primaryInputs: [], outputType: compilerOutputType, allOutputs: &jobOutputs)
+      jobs.append(job)
+      addJobOutputs(jobOutputs)
+
+      partitions = nil
+
+    case .standardCompile:
       partitions = nil
     }
 
     for input in inputFiles {
       switch input.type {
       case .swift, .sil, .sib:
+        // Generate a compile job for primary inputs here.
+        guard compilerMode.usesPrimaryFileInputs else { break }
+
         var primaryInputs: [TypedVirtualPath]
         if let partitions = partitions, let partitionIdx = partitions.assignment[input] {
           // We have a partitioning for batch mode. If this input file isn't the first
@@ -94,7 +112,7 @@ extension Driver {
     }
 
     // Plan the merge-module job, if there are module inputs.
-    if moduleOutput != nil && !moduleInputs.isEmpty {
+    if moduleOutput != nil && !moduleInputs.isEmpty && compilerMode.usesPrimaryFileInputs {
       jobs.append(try mergeModuleJob(inputs: moduleInputs))
     }
 
@@ -126,10 +144,10 @@ extension Driver {
   public mutating func planBuild() throws -> [Job] {
     // Plan the build.
     switch compilerMode {
-    case .immediate, .repl, .singleCompile:
+    case .immediate, .repl:
       fatalError("Not yet supported")
 
-    case .standardCompile, .batchCompile:
+    case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()
     }
   }

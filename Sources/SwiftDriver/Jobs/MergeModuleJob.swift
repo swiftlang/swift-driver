@@ -45,20 +45,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: Add MSVC runtime library flags
 
-    // Add suppplementable outputs.
-    func addSupplementalOutput(path: VirtualPath?, flag: String, type: FileType) {
-      guard let path = path else { return }
-
-      commandLine.appendFlag(flag)
-      commandLine.appendPath(path)
-      outputs.append(.init(file: path, type: type))
-    }
-
-    addSupplementalOutput(path: moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
-    addSupplementalOutput(path: swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
-    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
-    addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
-    addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
+    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutput!.outputPath)
