@@ -115,6 +115,7 @@ fileprivate struct OutputFileMapJSON: Codable {
       case swiftmodule
       case swiftinterface
       case swiftDependencies = "swift-dependencies"
+      case diagnostics
     }
 
     let dependencies: String?
@@ -122,6 +123,7 @@ fileprivate struct OutputFileMapJSON: Codable {
     let swiftmodule: String?
     let swiftinterface: String?
     let swiftDependencies: String?
+    let diagnostics: String?
   }
 
   /// The parsed entires
@@ -150,6 +152,7 @@ fileprivate struct OutputFileMapJSON: Codable {
       map[.swiftModule] = entry.swiftmodule
       map[.swiftInterface] = entry.swiftinterface
       map[.swiftDeps] = entry.swiftDependencies
+      map[.diagnostics] = entry.diagnostics
 
       result[input] = try map.mapValues(VirtualPath.init(path:))
     }
@@ -172,7 +175,8 @@ fileprivate struct OutputFileMapJSON: Codable {
         object: outputs[.object]?.name,
         swiftmodule: outputs[.swiftModule]?.name,
         swiftinterface: outputs[.swiftInterface]?.name,
-        swiftDependencies: outputs[.swiftDeps]?.name)
+        swiftDependencies: outputs[.swiftDeps]?.name,
+        diagnostics: outputs[.diagnostics]?.name)
     }
     return Self(entries: Dictionary(uniqueKeysWithValues: entries.map(convert(entry:))))
   }
