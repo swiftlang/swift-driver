@@ -122,7 +122,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Implement proper tokenization for response files
 * Compilation modes
   * [x] Batch mode
-  * [ ] Whole-module-optimization mode
+  * [x] Whole-module-optimization mode
   * [ ] REPL mode
   * [ ] Immediate mode
 * Features
