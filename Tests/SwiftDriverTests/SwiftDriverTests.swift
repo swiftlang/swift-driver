@@ -766,7 +766,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("-import-objc-header")))
