@@ -722,13 +722,16 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
-    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15"])
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h"])
     let plannedJobs = try driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
-    XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("Test.o")))
+    XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+    XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("Test.o")))
+    XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.relative(RelativePath("Test-Swift.h")))
+    XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.relative(RelativePath("Test.swiftinterface")))
     XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-module-interface-path")))
 
     XCTAssertEqual(plannedJobs[1].kind, .link)
   }
