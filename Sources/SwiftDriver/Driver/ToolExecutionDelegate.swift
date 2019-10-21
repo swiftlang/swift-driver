@@ -32,7 +32,7 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
 
       // Compute the outputs for the message.
       let outputs: [BeganMessage.Output] = job.outputs.map {
-        .init(path: $0.file.name, type: $0.type.rawValue)
+        .init(path: $0.file.name, type: $0.type.description)
       }
 
       let beganMessage = BeganMessage(
