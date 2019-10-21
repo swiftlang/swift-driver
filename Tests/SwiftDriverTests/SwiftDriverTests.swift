@@ -751,6 +751,36 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[1].kind, .link)
   }
 
+  func testWholeModuleOptimizationOutputFileMap() throws {
+    let contents = """
+    {
+      "": {
+        "swiftinterface": "/tmp/salty/Test.swiftinterface"
+      }
+    }
+    """
+
+    try withTemporaryFile { file in
+      try assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
+            "-num-threads", "4", "-target", "x86_64-apple-macosx10.15",
+            "-output-file-map", file.path.pathString, "-emit-module-interface"])
+        let plannedJobs = try driver1.planBuild()
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+        XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+        XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
+        XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
+        XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+        XCTAssertEqual(plannedJobs[0].outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
+        XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+      }
+    }
+  }
+
   func testMergeModulesOnly() throws {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
