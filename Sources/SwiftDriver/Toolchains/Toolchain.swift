@@ -9,6 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 import TSCBasic
 
 public enum Tool {
@@ -73,5 +74,13 @@ extension Toolchain {
       environment: env
     ).spm_chomp()
     return Triple(triple)
+  }
+  
+  /// Returns the `executablePath`'s directory.
+  public var executableDir: AbsolutePath {
+    guard let path = Bundle.main.executablePath else {
+      fatalError("Could not find executable path.")
+    }
+    return AbsolutePath(path).parentDirectory
   }
 }

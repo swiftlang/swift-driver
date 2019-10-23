@@ -20,38 +20,25 @@ fileprivate func envVarName(forExecutable toolName: String) -> String {
 /// FIXME: This class is not thread-safe.
 public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
-
-  func xcrunFind(exec: String) throws -> AbsolutePath {
-    if let overrideString = env[envVarName(forExecutable: exec)] {
-      return try AbsolutePath(validating: overrideString)
-    }
-
-  #if os(macOS)
-    let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", exec],
-      environment: env
-    ).spm_chomp()
-    return AbsolutePath(path)
-  #else
-    // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
-    return AbsolutePath("/usr/bin/" + exec)
-  #endif
+  
+  public init(env: [String: String]) {
+    self.env = env
   }
-
+  
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try xcrunFind(exec: "swift")
+      return try lookup(exec: "swift")
 
     case .dynamicLinker:
-      return try xcrunFind(exec: "ld")
+      return try lookup(exec: "ld")
 
     case .staticLinker:
-      return try xcrunFind(exec: "libtool")
+      return try lookup(exec: "libtool")
 
     case .dsymutil:
-      return try xcrunFind(exec: "dsymutil")
+      return try lookup(exec: "dsymutil")
 
     case .clang:
       let result = try Process.checkNonZeroExit(
@@ -60,13 +47,13 @@ public final class DarwinToolchain: Toolchain {
       ).spm_chomp()
       return AbsolutePath(result)
     case .swiftAutolinkExtract:
-      return try xcrunFind(exec: "swift-autolink-extract")
+      return try lookup(exec: "swift-autolink-extract")
     }
   }
 
   /// Swift compiler path.
   public lazy var swiftCompiler: Result<AbsolutePath, Swift.Error> = Result {
-    try xcrunFind(exec: "swift")
+    try lookup(exec: "swift")
   }
 
   /// SDK path.
@@ -86,11 +73,6 @@ public final class DarwinToolchain: Toolchain {
   public var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
     // FIXME: This will need to take -resource-dir and target triple into account.
     return swiftCompiler.map{ $0.appending(RelativePath("../../lib/swift/macosx")) }
-  }
-
-  
-  public init(env: [String: String]) {
-    self.env = env
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -136,5 +118,30 @@ public final class DarwinToolchain: Toolchain {
     \(targetTriple.darwinPlatform!.libraryNameSuffix)\
     \(isShared ? "_dynamic.dylib" : ".a")
     """
+  }
+  
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` enviroment variable, if found nothing,
+  /// looks in the executable path; finally, fallback to xcrunFind.
+  /// - Parameter exec: executable to look for [i.e. `swift`].
+  func lookup(exec: String) throws -> AbsolutePath {
+    if let overrideString = env[envVarName(forExecutable: exec)] {
+      return try AbsolutePath(validating: overrideString)
+    } else if let path = lookupExecutablePath(filename: exec, searchPaths: [executableDir]) {
+      return path
+    }
+    return try xcrunFind(exec: exec)
+  }
+  
+  private func xcrunFind(exec: String) throws -> AbsolutePath {
+  #if os(macOS)
+    let path = try Process.checkNonZeroExit(
+      arguments: ["xcrun", "-sdk", "macosx", "--find", exec],
+      environment: env
+    ).spm_chomp()
+    return AbsolutePath(path)
+  #else
+    // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
+    return AbsolutePath("/usr/bin/" + exec)
+  #endif
   }
 }
