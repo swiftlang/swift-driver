@@ -11,10 +11,6 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 
-fileprivate func envVarName(forExecutable toolName: String) -> String {
-  return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
-}
-
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
@@ -124,7 +120,7 @@ public final class DarwinToolchain: Toolchain {
   /// looks in the executable path; finally, fallback to xcrunFind.
   /// - Parameter exec: executable to look for [i.e. `swift`].
   func lookup(exec: String) throws -> AbsolutePath {
-    if let overrideString = env[envVarName(forExecutable: exec)] {
+    if let overrideString = envVar(forExecutable: exec) {
       return try AbsolutePath(validating: overrideString)
     } else if let path = lookupExecutablePath(filename: exec, searchPaths: [executableDir]) {
       return path

@@ -83,4 +83,15 @@ extension Toolchain {
     }
     return AbsolutePath(path).parentDirectory
   }
+  
+  /// Looks for `SWIFT_DRIVER_TOOLNAME_EXEC` in the `env` property.
+  /// - Returns: Environment variable value, if any.
+  func envVar(forExecutable toolName: String) -> String? {
+    return env[envVarName(for: toolName)]
+  }
+  
+  /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
+  private func envVarName(for toolName: String) -> String {
+    return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
+  }
 }
