@@ -13,35 +13,10 @@ import TSCBasic
 
 /// Toolchain for Unix-like systems.
 public final class GenericUnixToolchain: Toolchain {
-  enum Error: Swift.Error {
-    case unableToFind(tool: String)
-  }
-  
   public let env: [String: String]
-
-  private let searchPaths: [AbsolutePath]
 
   public init(env: [String: String]) {
     self.env = env
-    self.searchPaths = getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
-  }
-
-  /// Looks in the `executablePath`, if found nothing, looks in the enviroment search paths.
-  /// - Parameter exec: executable to look for [i.e. `swift`].
-  private func lookup(exec: String) throws -> AbsolutePath {
-    if let path = lookupExecutablePath(filename: exec, searchPaths: [executableDir]) {
-      return path
-    } else if let path = lookupExecutablePath(filename: exec, searchPaths: searchPaths) {
-      return path
-    }
-
-    // If we happen to be on a macOS host, some tools might not be in our
-    // PATH, so we'll just use xcrun to find them too.
-    #if os(macOS)
-    return try DarwinToolchain(env: self.env).lookup(exec: exec)
-    #else
-    throw Error.unableToFind(tool: exec)
-    #endif
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {

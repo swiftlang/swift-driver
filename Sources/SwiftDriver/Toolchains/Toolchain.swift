@@ -28,6 +28,8 @@ public protocol Toolchain {
   
   var env: [String: String] { get }
   
+  var searchPaths: [AbsolutePath] { get }
+  
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
@@ -60,6 +62,10 @@ public protocol Toolchain {
 }
 
 extension Toolchain {
+  public var searchPaths: [AbsolutePath] {
+    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+  }
+  
   public func swiftCompilerVersion() throws -> String {
     try Process.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version",
@@ -94,4 +100,38 @@ extension Toolchain {
   private func envVarName(for toolName: String) -> String {
     return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
   }
+  
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` enviroment variable, if found nothing,
+  /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
+  /// - Parameter exec: executable to look for [i.e. `swift`].
+  func lookup(exec: String) throws -> AbsolutePath {
+    if let overrideString = envVar(forExecutable: exec) {
+      return try AbsolutePath(validating: overrideString)
+    } else if let path = lookupExecutablePath(filename: exec, searchPaths: [executableDir]) {
+      return path
+    } else if let path = try? xcrunFind(exec: exec) {
+      return path
+    } else if let path = lookupExecutablePath(filename: exec, searchPaths: searchPaths) {
+      return path
+    } else {
+      throw ToolchainError.unableToFind(tool: exec)
+    }
+  }
+  
+  private func xcrunFind(exec: String) throws -> AbsolutePath {
+  #if os(macOS)
+    let path = try Process.checkNonZeroExit(
+      arguments: ["xcrun", "-sdk", "macosx", "--find", exec],
+      environment: env
+    ).spm_chomp()
+    return AbsolutePath(path)
+  #else
+    // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
+    return AbsolutePath("/usr/bin/" + exec)
+  #endif
+  }
+}
+
+fileprivate enum ToolchainError: Swift.Error {
+  case unableToFind(tool: String)
 }

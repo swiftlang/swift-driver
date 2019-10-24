@@ -546,7 +546,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-
+    
     do {
       // linux target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
