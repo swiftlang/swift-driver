@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import Foundation
-import TSCBasic
 
 import SwiftDriver
 

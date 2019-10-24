@@ -12,7 +12,6 @@
 import XCTest
 
 import SwiftDriver
-import TSCBasic
 
 final class TripleTests: XCTestCase {
   func testBasics() throws {

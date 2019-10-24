@@ -83,16 +83,6 @@ extension Job: CustomStringConvertible {
   }
 }
 
-/// The type of action.
-enum ActionType {
-  case compile
-  case mergeModule
-  case dynamicLink
-  case generateDSYM
-  case generatePCH
-  case verifyDebugInfo
-}
-
 // MARK: - Job.ArgTemplate + Codable
 
 extension Job.ArgTemplate: Codable {
