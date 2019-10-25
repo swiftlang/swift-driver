@@ -12,12 +12,7 @@
 
 // FIXME: This is directly copied from SwiftPM, consider moving this to llbuild.
 
-// We either export the llbuildSwift shared library or the llbuild framework.
-#if canImport(llbuildSwift)
 @_exported import llbuildSwift
-#else
-@_exported import llbuild
-#endif
 
 import Foundation
 
