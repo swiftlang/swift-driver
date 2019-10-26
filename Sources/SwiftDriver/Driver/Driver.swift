@@ -284,16 +284,70 @@ public struct Driver {
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
     // Supplemental outputs.
-    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emitDependencies, outputPath: .emitDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies, outputPath: .emitReferenceDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics, outputPath: .serializeDiagnosticsPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .dependencies, isOutput: .emitDependencies,
+        outputPath: .emitDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies,
+        outputPath: .emitReferenceDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics,
+        outputPath: .serializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
     // FIXME: -fixits-output-path
-    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader, outputPath: .emitObjcHeaderPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace, outputPath: .emitLoadedModuleTracePath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.tbdPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .tbd, isOutput: .emitTbd, outputPath: .emitTbdPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(&parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface, outputPath: .emitModuleInterfacePath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .saveOptimizationRecord, outputPath: .saveOptimizationRecordPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader,
+        outputPath: .emitObjcHeaderPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace,
+        outputPath: .emitLoadedModuleTracePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.tbdPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .tbd, isOutput: .emitTbd,
+        outputPath: .emitTbdPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(
+        &parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface,
+        outputPath: .emitModuleInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .optimizationRecord,
+        isOutput: .saveOptimizationRecord,
+        outputPath: .saveOptimizationRecordPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
   }
 }
 
@@ -1249,11 +1303,11 @@ extension Driver {
     isOutput: Option?,
     outputPath: Option,
     compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    outputFileMap: OutputFileMap?,
     moduleName: String,
     patternOutputFile: VirtualPath? = nil
   ) throws -> VirtualPath? {
-    // FIXME: Do we need to check the output file map?
-
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
       // Consume the isOutput argument
@@ -1266,6 +1320,14 @@ extension Driver {
     // If the output option was not provided, don't produce this output at all.
     guard let isOutput = isOutput, parsedOptions.hasArgument(isOutput) else {
       return nil
+    }
+
+    // If this is a single-file compile and there is an entry in the
+    // output file map, use that.
+    if compilerMode.isSingleCompilation,
+        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+            outputType: type) {
+      return singleOutputPath
     }
 
     // If there is an output argument, derive the name from there.
@@ -1288,16 +1350,24 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     moduleOutputPath: VirtualPath?,
     compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    outputFileMap: OutputFileMap?,
     moduleName: String
   ) throws -> VirtualPath? {
-    // FIXME: Do we need to check the output file map?
-
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(.emitModuleDocPath) {
       // Consume -emit-module-doc if it's there.
       _ = parsedOptions.hasArgument(.emitModuleDoc)
 
       return try VirtualPath(path: outputPathArg.asSingle)
+    }
+
+    // If this is a single-file compile and there is an entry in the
+    // output file map, use that.
+    if compilerMode.isSingleCompilation,
+        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+          outputType: .swiftDocumentation) {
+      return singleOutputPath
     }
 
     // If there's a known module output path, put the .swiftdoc file next

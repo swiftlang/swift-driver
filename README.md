@@ -64,6 +64,28 @@ $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   swift test --parallel
 ```
 
+#### Preparing a Linux docker for debug
+
+When developing on macOS without quick access to a Linux machine, using a Linux Docker is often helpful when debugging.
+
+To get a docker up and running to the following:
+- Install Docker for Mac.
+- Get the newest swift docker image `docker pull swift`.
+- Run the following command to start a docker
+```
+$ docker run -v /path/to/swift-driver:/home/swift-driver \
+  --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined -it swift:latest bash
+```
+- Install dependencies by running
+```
+$ apt-get update
+$ apt-get install libsqlite3-dev
+$ apt-get install libncurses-dev
+```
+- You can now go to `/home/swift-driver` and run `swift test --parallel` to run your tests.
+
+
 ### Rebuilding `Options.swift`
 
 `Options.swift`, which contains the complete set of options that can be parsed by the driver, is automatically generated from the [option tables in the Swift compiler](https://github.com/apple/swift/tree/master/include/swift/Option). If you need to regenerate `Options.swift`, you will need to [build the Swift compiler](https://github.com/apple/swift#building-swift) and then build `makeOptions` program with a `-I` that allows the generated `Options.inc` to
@@ -100,7 +122,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Implement proper tokenization for response files
 * Compilation modes
   * [x] Batch mode
-  * [ ] Whole-module-optimization mode
+  * [x] Whole-module-optimization mode
   * [ ] REPL mode
   * [ ] Immediate mode
 * Features
@@ -110,6 +132,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Parseable output, as used by SwiftPM
   * [x] Response files
   * [ ] Input and primary input file lists
+  * [ ] Complete `OutputFileMap` implementation to handle all file types uniformly
 * Testing
   * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
   * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver).

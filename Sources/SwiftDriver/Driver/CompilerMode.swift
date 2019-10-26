@@ -47,6 +47,17 @@ extension CompilerMode {
       return true
     }
   }
+
+  /// Whether this compilation mode compiles the whole target in one job.
+  public var isSingleCompilation: Bool {
+    switch self {
+    case .immediate, .repl, .standardCompile, .batchCompile:
+      return false
+
+    case .singleCompile:
+      return true
+    }
+  }
 }
 
 extension CompilerMode: CustomStringConvertible {
