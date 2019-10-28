@@ -36,6 +36,10 @@ Similarly, one can use the new Swift driver within Xcode by adding a custom buil
 
 The new Swift driver is a work in progress, and there are numerous places for anyone with an interest to contribute! This section covers testing, miscellaneous development tips and tricks, and a rough development plan showing what work still needs to be done.
 
+### Driver Documentation
+
+For a conceptual overview of the driver, see [The Swift Driver, Compilation Model, and Command-Line Experience](https://github.com/apple/swift/blob/master/docs/Driver.md). To learn more about the internals, see [Driver Design & Internals](https://github.com/apple/swift/blob/master/docs/DriverInternals.rst) and [Parseable Driver Output](https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst).
+
 ### Testing
 
 Test using command-line SwiftPM or Xcode.
