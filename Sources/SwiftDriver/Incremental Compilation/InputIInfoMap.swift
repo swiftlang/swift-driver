@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import Foundation
 @_implementationOnly import Yams
 
@@ -172,8 +171,5 @@ public extension InputInfoMap {
 extension Diagnostic.Message {
   static func remark_could_not_read_build_record(_ error: Error) -> Diagnostic.Message {
     .remark("Incremental compilation could not read build record: \(error.localizedDescription).")
-  }
-  static var remark_incremental_compilation_not_implemented_yet: Diagnostic.Message {
-    .remark("Incremental compilation not implemented yet")
   }
 }

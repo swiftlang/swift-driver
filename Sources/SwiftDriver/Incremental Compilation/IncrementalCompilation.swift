@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import Foundation
 
 // FIXME: rename to something like IncrementalCompilationInitialState

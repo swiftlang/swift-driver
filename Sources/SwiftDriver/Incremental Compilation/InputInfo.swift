@@ -9,8 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-import TSCUtility
 import Foundation
 
 public struct InputInfo: Equatable {
@@ -22,8 +20,6 @@ public struct InputInfo: Equatable {
     self.status = status
     self.previousModTime = previousModTime
   }
-
-  static let newlyAdded = Self(status: .newlyAdded, previousModTime: Date.distantFuture)
 }
 
 public extension InputInfo {

@@ -12,7 +12,6 @@
 import XCTest
 import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {
