@@ -16,7 +16,7 @@ public struct ParsableMessage {
   public enum Kind {
     case began(BeganMessage)
     case finished(FinishedMessage)
-    case signalled
+    case signalled(SignalledMessage)
     case skipped
   }
 
@@ -35,6 +35,13 @@ public struct ParsableMessage {
     msg: FinishedMessage
   ) -> ParsableMessage {
     return ParsableMessage(name: name, kind: .finished(msg))
+  }
+
+  public static func signalledMessage(
+    name: String,
+    msg: SignalledMessage
+  ) -> ParsableMessage {
+    return ParsableMessage(name: name, kind: .signalled(msg))
   }
 
   public func toJSON() throws -> Data {
@@ -108,6 +115,27 @@ public struct FinishedMessage: Encodable {
   }
 }
 
+public struct SignalledMessage: Encodable {
+  let pid: Int
+  let output: String?
+  let errorMessage: String
+  let signal: Int
+
+  public init(pid: Int, output: String?, errorMessage: String, signal: Int) {
+    self.pid = pid
+    self.output = output
+    self.errorMessage = errorMessage
+    self.signal = signal
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case pid
+    case output
+    case errorMessage = "error-message"
+    case signal
+  }
+}
+
 extension ParsableMessage: Encodable {
   enum CodingKeys: CodingKey {
     case name
@@ -125,8 +153,9 @@ extension ParsableMessage: Encodable {
     case .finished(let msg):
       try container.encode("finished", forKey: .kind)
       try msg.encode(to: encoder)
-    case .signalled:
-      break
+    case .signalled(let msg):
+      try container.encode("signalled", forKey: .kind)
+      try msg.encode(to: encoder)
     case .skipped:
       break
     }

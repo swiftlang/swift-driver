@@ -70,4 +70,22 @@ final class ParsableMessageTests: XCTestCase {
     }
     """)
   }
+
+    func testSignalledMessage() throws {
+      let msg = SignalledMessage(pid: 2, output: "sig", errorMessage: "err", signal: 3)
+      let signalledMessage = ParsableMessage.signalledMessage(name: "compile", msg: msg)
+      let encoded = try signalledMessage.toJSON()
+      let string = String(data: encoded, encoding: .utf8)!
+
+      XCTAssertEqual(string, """
+      {
+        "error-message" : "err",
+        "kind" : "signalled",
+        "name" : "compile",
+        "output" : "sig",
+        "pid" : 2,
+        "signal" : 3
+      }
+      """)
+    }
 }
