@@ -214,7 +214,19 @@ int makeOptions_main() {
 
   // Add static properties to Option for each of the options.
   auto &out = std::cout;
-  out << "\n";
+
+  out <<
+      "//===--------------- Options.swift - Swift Driver Options -----------------===//\n"
+      "//\n"
+      "// This source file is part of the Swift.org open source project\n"
+      "//\n"
+      "// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors\n"
+      "// Licensed under Apache License v2.0 with Runtime Library Exception\n"
+      "//\n"
+      "// See https://swift.org/LICENSE.txt for license information\n"
+      "// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors\n"
+      "//\n"
+      "//===----------------------------------------------------------------------===//\n\n";
   out << "extension Option {\n";
   forEachOption([&](const RawOption &option) {
     // Look through each spelling of the option.
