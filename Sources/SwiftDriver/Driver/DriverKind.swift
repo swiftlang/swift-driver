@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-/// Describes which mode the driver is in, which dictates
+
+/// Describes which mode the driver is in.
 public enum DriverKind {
   case interactive
   case batch
