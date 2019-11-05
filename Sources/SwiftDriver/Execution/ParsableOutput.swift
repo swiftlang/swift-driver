@@ -25,23 +25,23 @@ public struct ParsableMessage {
 
   public static func beganMessage(
     name: String,
-    msg: BeganMessage
+    message: BeganMessage
   ) -> ParsableMessage {
-    return ParsableMessage(name: name, kind: .began(msg))
+    return ParsableMessage(name: name, kind: .began(message))
   }
 
   public static func finishedMessage(
     name: String,
-    msg: FinishedMessage
+    message: FinishedMessage
   ) -> ParsableMessage {
-    return ParsableMessage(name: name, kind: .finished(msg))
+    return ParsableMessage(name: name, kind: .finished(message))
   }
 
   public static func signalledMessage(
     name: String,
-    msg: SignalledMessage
+    message: SignalledMessage
   ) -> ParsableMessage {
-    return ParsableMessage(name: name, kind: .signalled(msg))
+    return ParsableMessage(name: name, kind: .signalled(message))
   }
 
   public func toJSON() throws -> Data {
