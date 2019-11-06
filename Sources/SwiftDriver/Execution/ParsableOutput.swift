@@ -23,25 +23,9 @@ public struct ParsableMessage {
   public let name: String
   public let kind: Kind
 
-  public static func beganMessage(
-    name: String,
-    message: BeganMessage
-  ) -> ParsableMessage {
-    return ParsableMessage(name: name, kind: .began(message))
-  }
-
-  public static func finishedMessage(
-    name: String,
-    message: FinishedMessage
-  ) -> ParsableMessage {
-    return ParsableMessage(name: name, kind: .finished(message))
-  }
-
-  public static func signalledMessage(
-    name: String,
-    message: SignalledMessage
-  ) -> ParsableMessage {
-    return ParsableMessage(name: name, kind: .signalled(message))
+  public init(name: String, kind: Kind) {
+    self.name = name
+    self.kind = kind
   }
 
   public func toJSON() throws -> Data {

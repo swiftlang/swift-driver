@@ -26,7 +26,7 @@ final class ParsableMessageTests: XCTestCase {
       commandArguments: ["-frontend", "compile"]
     )
 
-    let beganMessage = ParsableMessage.beganMessage(name: "compile", message: message)
+    let beganMessage = ParsableMessage(name: "compile", kind: .began(message))
 
     let encoded = try beganMessage.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
@@ -56,7 +56,7 @@ final class ParsableMessageTests: XCTestCase {
 
   func testFinishedMessage() throws {
     let message = FinishedMessage(exitStatus: 1, pid: 1, output: "hello")
-    let finishedMessage = ParsableMessage.finishedMessage(name: "compile", message: message)
+    let finishedMessage = ParsableMessage(name: "compile", kind: .finished(message))
     let encoded = try finishedMessage.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
 
@@ -73,7 +73,7 @@ final class ParsableMessageTests: XCTestCase {
 
     func testSignalledMessage() throws {
       let message = SignalledMessage(pid: 2, output: "sig", errorMessage: "err", signal: 3)
-      let signalledMessage = ParsableMessage.signalledMessage(name: "compile", message: message)
+      let signalledMessage = ParsableMessage(name: "compile", kind: .signalled(message))
       let encoded = try signalledMessage.toJSON()
       let string = String(data: encoded, encoding: .utf8)!
 
