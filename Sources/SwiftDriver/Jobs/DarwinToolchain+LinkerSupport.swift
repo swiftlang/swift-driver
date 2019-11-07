@@ -114,27 +114,7 @@ extension DarwinToolchain {
     targetTriple: Triple
   ) {
     // FIXME: Properly handle deployment targets.
-    
-    let flag: String
-    
-    switch targetTriple.darwinPlatform! {
-    case .iOS(.device):
-      flag = "-iphoneos_version_min"
-    case .iOS(.simulator):
-      flag = "-ios_simulator_version_min"
-    case .macOS:
-      flag = "-macosx_version_min"
-    case .tvOS(.device):
-      flag = "-tvos_version_min"
-    case .tvOS(.simulator):
-      flag = "-tvos_simulator_version_min"
-    case .watchOS(.device):
-      flag = "-watchos_version_min"
-    case .watchOS(.simulator):
-      flag = "-watchos_simulator_version_min"
-    }
-    
-    commandLine.appendFlag(flag)
+    commandLine.appendFlag(targetTriple.darwinPlatform!.platformVersionMinFlag)
     commandLine.appendFlag(targetTriple.version().description)
   }
   

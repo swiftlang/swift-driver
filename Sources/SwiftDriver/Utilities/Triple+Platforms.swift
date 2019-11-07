@@ -83,6 +83,26 @@ public enum DarwinPlatform: Hashable {
       return "watchsimulator"
     }
   }
+
+  /// The platform minimum version flag
+  public var platformVersionMinFlag: String {
+    switch self {
+    case .iOS(.device):
+      return "-iphoneos_version_min"
+    case .iOS(.simulator):
+      return "-ios_simulator_version_min"
+    case .macOS:
+      return "-macosx_version_min"
+    case .tvOS(.device):
+      return "-tvos_version_min"
+    case .tvOS(.simulator):
+      return "-tvos_simulator_version_min"
+    case .watchOS(.device):
+      return "-watchos_version_min"
+    case .watchOS(.simulator):
+      return "-watchos_simulator_version_min"
+    }
+  }
   
   /// The name used to identify this platform in compiler_rt file names.
   public var libraryNameSuffix: String {
