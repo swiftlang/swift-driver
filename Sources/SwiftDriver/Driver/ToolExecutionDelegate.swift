@@ -54,7 +54,7 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
         commandArguments: arguments[1...].map{ String($0) }
       )
 
-      let message = ParsableMessage.beganMessage(name: job.kind.rawValue, msg: beganMessage)
+      let message = ParsableMessage(name: job.kind.rawValue, kind: .began(beganMessage))
       emit(message)
     }
   }
@@ -75,12 +75,12 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
       switch result.exitStatus {
       case .terminated(let code):
         let finishedMessage = FinishedMessage(exitStatus: Int(code), pid: pid, output: output)
-        message = ParsableMessage.finishedMessage(name: job.kind.rawValue, msg: finishedMessage)
+        message = ParsableMessage(name: job.kind.rawValue, kind: .finished(finishedMessage))
 
       case .signalled(let signal):
         let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
         let signalledMessage = SignalledMessage(pid: pid, output: output, errorMessage: errorMessage, signal: Int(signal))
-        message = ParsableMessage.signalledMessage(name: job.kind.rawValue, msg: signalledMessage)
+        message = ParsableMessage(name: job.kind.rawValue, kind: .signalled(signalledMessage))
       }
       emit(message)
     }
