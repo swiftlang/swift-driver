@@ -31,21 +31,12 @@ public struct OutputFileMap: Equatable {
       return output
     }
 
-    // Create a temporary file
-    let baseName: String
-    switch inputFile {
-    case .absolute(let path):
-      baseName = path.basenameWithoutExt
-    case .relative(let path), .temporary(let path):
-      baseName = path.basenameWithoutExt
-    case .standardInput:
-      baseName = ""
-    case .standardOutput:
+    if inputFile == .standardOutput {
       fatalError("Standard output cannot be an input file")
     }
 
     // Form the virtual path.
-    return .temporary(RelativePath(baseName.appendingFileTypeExtension(outputType)))
+    return .temporary(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType)))
   }
 
   public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {

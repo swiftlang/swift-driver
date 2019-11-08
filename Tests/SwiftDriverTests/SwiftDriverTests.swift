@@ -46,6 +46,43 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testInvocationRunModes() throws {
+
+    let driver1 = try Driver.invocationRunMode(forArgs: ["swift"])
+    XCTAssertEqual(driver1.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver1.args, ["swift"])
+
+    let driver2 = try Driver.invocationRunMode(forArgs: ["swift", "-buzz"])
+    XCTAssertEqual(driver2.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver2.args, ["swift", "-buzz"])
+
+    let driver3 = try Driver.invocationRunMode(forArgs: ["swift", "/"])
+    XCTAssertEqual(driver3.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver3.args, ["swift", "/"])
+
+    let driver4 = try Driver.invocationRunMode(forArgs: ["swift", "./foo"])
+    XCTAssertEqual(driver4.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver4.args, ["swift", "./foo"])
+
+    let driver5 = try Driver.invocationRunMode(forArgs: ["swift", "repl"])
+    XCTAssertEqual(driver5.mode, .normal(isRepl: true))
+    XCTAssertEqual(driver5.args, ["swift"])
+
+    let driver6 = try Driver.invocationRunMode(forArgs: ["swift", "foo", "bar"])
+    XCTAssertEqual(driver6.mode, .subcommand("swift-foo"))
+    XCTAssertEqual(driver6.args, ["swift-foo", "bar"])
+  }
+
+  func testSubcommandsHandling() throws {
+
+    XCTAssertNoThrow(try Driver(args: ["swift"]))
+    XCTAssertNoThrow(try Driver(args: ["swift", "-I=foo"]))
+    XCTAssertNoThrow(try Driver(args: ["swift", ".foo"]))
+    XCTAssertNoThrow(try Driver(args: ["swift", "/foo"]))
+
+    XCTAssertThrowsError(try Driver(args: ["swift", "foo"]))
+  }
+
   func testDriverKindParsing() throws {
     func assertArgs(
       _ args: String...,

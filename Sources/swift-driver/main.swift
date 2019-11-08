@@ -23,7 +23,23 @@ do {
     processSet.terminate()
   }
 
-  var driver = try Driver(args: CommandLine.arguments)
+  let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
+
+  if case .subcommand(let subcommand) = mode {
+    // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
+    // If we didn't find the tool there, let the OS search for it.
+    let subcommandPath = Process.findExecutable(arguments[0])?.parentDirectory.appending(component: subcommand)
+                         ?? Process.findExecutable(subcommand)
+
+    if subcommandPath == nil || !localFileSystem.exists(subcommandPath!) {
+      fatalError("cannot find subcommand executable '\(subcommand)'")
+    }
+
+    // Execute the subcommand.
+    try exec(path: subcommandPath?.pathString ?? "", args: Array(arguments.dropFirst()))
+  }
+
+  var driver = try Driver(args: arguments)
   let resolver = try ArgsResolver()
   try driver.run(resolver: resolver, processSet: processSet)
 
