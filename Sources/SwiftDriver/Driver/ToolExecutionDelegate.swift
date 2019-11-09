@@ -11,6 +11,17 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 
+#if canImport(Darwin)
+import Darwin.C
+#elseif os(Windows)
+import MSVCRT
+import WinSDK
+#elseif canImport(Glibc)
+import Glibc
+#else
+#error("Missing libc or equivalent")
+#endif
+
 /// Delegate for printing execution information on the command-line.
 public struct ToolExecutionDelegate: JobExecutorDelegate {
   public enum Mode {
@@ -43,7 +54,7 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
         commandArguments: arguments[1...].map{ String($0) }
       )
 
-      let message = ParsableMessage.beganMessage(name: job.kind.rawValue, msg: beganMessage)
+      let message = ParsableMessage(name: job.kind.rawValue, kind: .began(beganMessage))
       emit(message)
     }
   }
@@ -58,18 +69,20 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
       }
 
     case .parsableOutput:
+      let output = (try? result.utf8Output() + result.utf8stderrOutput()).flatMap { $0.isEmpty ? nil : $0 }
+      let message: ParsableMessage
+
       switch result.exitStatus {
       case .terminated(let code):
-        let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
-        let finishedMessage = FinishedMessage(exitStatus: Int(code), pid: pid, output: output.isEmpty ? nil : output)
-        let message = ParsableMessage.finishedMessage(name: job.kind.rawValue, msg: finishedMessage)
-        emit(message)
+        let finishedMessage = FinishedMessage(exitStatus: Int(code), pid: pid, output: output)
+        message = ParsableMessage(name: job.kind.rawValue, kind: .finished(finishedMessage))
 
-      case .signalled:
-        // FIXME: Implement this.
-        break
+      case .signalled(let signal):
+        let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
+        let signalledMessage = SignalledMessage(pid: pid, output: output, errorMessage: errorMessage, signal: Int(signal))
+        message = ParsableMessage(name: job.kind.rawValue, kind: .signalled(signalledMessage))
       }
-
+      emit(message)
     }
   }
 

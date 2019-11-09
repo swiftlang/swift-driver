@@ -24,16 +24,6 @@ public struct OptionTable {
   }()
 }
 
-extension String {
-  fileprivate func canonicalizedForArgName() -> String {
-    var result = self
-    while result.first != nil && result.first! == "-" {
-      result = String(result.dropFirst())
-    }
-    return result.lowercased()
-  }
-}
-
 extension OptionTable {
   /// Print help information to the terminal.
   public func printHelp(usage: String, title: String, includeHidden: Bool) {

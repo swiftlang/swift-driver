@@ -12,7 +12,6 @@
 import XCTest
 import TSCBasic
 
-import SwiftDriver
 
 #if os(macOS)
 private func bundleRoot() -> AbsolutePath {

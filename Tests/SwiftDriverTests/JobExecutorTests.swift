@@ -22,12 +22,6 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
 
 class JobCollectingDelegate: JobExecutorDelegate {
   struct StubProcess: ProcessProtocol {
-    static func launchProcess(
-      arguments: [String]
-    ) throws -> ProcessProtocol {
-      return StubProcess()
-    }
-
     var processID: TSCBasic.Process.ProcessID { .init(-1) }
 
     func waitUntilExit() throws -> ProcessResult {
