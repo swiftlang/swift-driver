@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 
 extension Driver {
   mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 
 extension GenericUnixToolchain {
   private func defaultLinker(for targetTriple: Triple) -> String? {

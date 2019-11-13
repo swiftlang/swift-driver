@@ -31,21 +31,12 @@ public struct OutputFileMap: Equatable {
       return output
     }
 
-    // Create a temporary file
-    let baseName: String
-    switch inputFile {
-    case .absolute(let path):
-      baseName = path.basenameWithoutExt
-    case .relative(let path), .temporary(let path):
-      baseName = path.basenameWithoutExt
-    case .standardInput:
-      baseName = ""
-    case .standardOutput:
+    if inputFile == .standardOutput {
       fatalError("Standard output cannot be an input file")
     }
 
     // Form the virtual path.
-    return .temporary(RelativePath(baseName.appendingFileTypeExtension(outputType)))
+    return .temporary(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType)))
   }
 
   public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {
@@ -113,13 +104,17 @@ fileprivate struct OutputFileMapJSON: Codable {
       case dependencies
       case object
       case swiftmodule
+      case swiftinterface
       case swiftDependencies = "swift-dependencies"
+      case diagnostics
     }
 
     let dependencies: String?
     let object: String?
     let swiftmodule: String?
+    let swiftinterface: String?
     let swiftDependencies: String?
+    let diagnostics: String?
   }
 
   /// The parsed entires
@@ -146,7 +141,9 @@ fileprivate struct OutputFileMapJSON: Codable {
       map[.dependencies] = entry.dependencies
       map[.object] = entry.object
       map[.swiftModule] = entry.swiftmodule
+      map[.swiftInterface] = entry.swiftinterface
       map[.swiftDeps] = entry.swiftDependencies
+      map[.diagnostics] = entry.diagnostics
 
       result[input] = try map.mapValues(VirtualPath.init(path:))
     }
@@ -168,7 +165,9 @@ fileprivate struct OutputFileMapJSON: Codable {
         dependencies: outputs[.dependencies]?.name,
         object: outputs[.object]?.name,
         swiftmodule: outputs[.swiftModule]?.name,
-        swiftDependencies: outputs[.swiftDeps]?.name)
+        swiftinterface: outputs[.swiftInterface]?.name,
+        swiftDependencies: outputs[.swiftDeps]?.name,
+        diagnostics: outputs[.diagnostics]?.name)
     }
     return Self(entries: Dictionary(uniqueKeysWithValues: entries.map(convert(entry:))))
   }

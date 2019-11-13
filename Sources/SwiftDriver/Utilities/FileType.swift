@@ -111,7 +111,7 @@ extension FileType: CustomStringConvertible {
     switch self {
     case .swift, .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .assembly,
-         .diagnostics, .remap, .tbd, .pcm, .pch:
+         .remap, .tbd, .pcm, .pch:
       return rawValue
 
     case .ast:
@@ -146,6 +146,9 @@ extension FileType: CustomStringConvertible {
 
     case .optimizationRecord:
       return "opt-record"
+
+    case .diagnostics:
+      return "diagnostics"
     }
   }
 }

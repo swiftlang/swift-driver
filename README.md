@@ -36,6 +36,10 @@ Similarly, one can use the new Swift driver within Xcode by adding a custom buil
 
 The new Swift driver is a work in progress, and there are numerous places for anyone with an interest to contribute! This section covers testing, miscellaneous development tips and tricks, and a rough development plan showing what work still needs to be done.
 
+### Driver Documentation
+
+For a conceptual overview of the driver, see [The Swift Driver, Compilation Model, and Command-Line Experience](https://github.com/apple/swift/blob/master/docs/Driver.md). To learn more about the internals, see [Driver Design & Internals](https://github.com/apple/swift/blob/master/docs/DriverInternals.rst) and [Parseable Driver Output](https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst).
+
 ### Testing
 
 Test using command-line SwiftPM or Xcode.
@@ -63,6 +67,28 @@ $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   SWIFT_DRIVER_LIT_DIR=/path/to/build/Ninja-ReleaseAssert/swift-.../test-... \
   swift test --parallel
 ```
+
+#### Preparing a Linux docker for debug
+
+When developing on macOS without quick access to a Linux machine, using a Linux Docker is often helpful when debugging.
+
+To get a docker up and running to the following:
+- Install Docker for Mac.
+- Get the newest swift docker image `docker pull swift`.
+- Run the following command to start a docker
+```
+$ docker run -v /path/to/swift-driver:/home/swift-driver \
+  --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined -it swift:latest bash
+```
+- Install dependencies by running
+```
+$ apt-get update
+$ apt-get install libsqlite3-dev
+$ apt-get install libncurses-dev
+```
+- You can now go to `/home/swift-driver` and run `swift test --parallel` to run your tests.
+
 
 ### Rebuilding `Options.swift`
 
@@ -100,7 +126,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Implement proper tokenization for response files
 * Compilation modes
   * [x] Batch mode
-  * [ ] Whole-module-optimization mode
+  * [x] Whole-module-optimization mode
   * [ ] REPL mode
   * [ ] Immediate mode
 * Features
@@ -110,6 +136,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Parseable output, as used by SwiftPM
   * [x] Response files
   * [ ] Input and primary input file lists
+  * [ ] Complete `OutputFileMap` implementation to handle all file types uniformly
 * Testing
   * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
   * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver).

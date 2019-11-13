@@ -12,7 +12,6 @@
 import XCTest
 import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {
@@ -45,6 +44,43 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertThrowsError(try options.parse(["-module-name"])) { error in
       XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-module-name"))
     }
+  }
+
+  func testInvocationRunModes() throws {
+
+    let driver1 = try Driver.invocationRunMode(forArgs: ["swift"])
+    XCTAssertEqual(driver1.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver1.args, ["swift"])
+
+    let driver2 = try Driver.invocationRunMode(forArgs: ["swift", "-buzz"])
+    XCTAssertEqual(driver2.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver2.args, ["swift", "-buzz"])
+
+    let driver3 = try Driver.invocationRunMode(forArgs: ["swift", "/"])
+    XCTAssertEqual(driver3.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver3.args, ["swift", "/"])
+
+    let driver4 = try Driver.invocationRunMode(forArgs: ["swift", "./foo"])
+    XCTAssertEqual(driver4.mode, .normal(isRepl: false))
+    XCTAssertEqual(driver4.args, ["swift", "./foo"])
+
+    let driver5 = try Driver.invocationRunMode(forArgs: ["swift", "repl"])
+    XCTAssertEqual(driver5.mode, .normal(isRepl: true))
+    XCTAssertEqual(driver5.args, ["swift"])
+
+    let driver6 = try Driver.invocationRunMode(forArgs: ["swift", "foo", "bar"])
+    XCTAssertEqual(driver6.mode, .subcommand("swift-foo"))
+    XCTAssertEqual(driver6.args, ["swift-foo", "bar"])
+  }
+
+  func testSubcommandsHandling() throws {
+
+    XCTAssertNoThrow(try Driver(args: ["swift"]))
+    XCTAssertNoThrow(try Driver(args: ["swift", "-I=foo"]))
+    XCTAssertNoThrow(try Driver(args: ["swift", ".foo"]))
+    XCTAssertNoThrow(try Driver(args: ["swift", "/foo"]))
+
+    XCTAssertThrowsError(try Driver(args: ["swift", "foo"]))
   }
 
   func testDriverKindParsing() throws {
@@ -178,7 +214,7 @@ final class SwiftDriverTests: XCTestCase {
     func testMultithreadingDiagnostics() throws {
 
       try assertDriverDiagnostics(args: "swift", "-num-threads", "-1") {
-        $1.expect(.error_invalid_arg_value(arg: .numThreads, value: "-1"))
+        $1.expect(.error("invalid value '-1' in '-num-threads'"))
       }
 
       try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-num-threads", "4") {
@@ -186,7 +222,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       try assertDriverDiagnostics(args: "swiftc", "-j", "0") {
-        $1.expect(.error_invalid_arg_value(arg: .j, value: "0"))
+        $1.expect(.error("invalid value '0' in '-j'"))
       }
 
       try assertDriverDiagnostics(
@@ -267,7 +303,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
-      $1.expect(.error_stdlib_module_name(moduleName: "Swift", explicitModuleName: true))
+        $1.expect(.error("module name \"Swift\" is reserved for the standard library"))
     }
   }
   
@@ -721,6 +757,66 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
   }
 
+  func testSingleThreadedWholeModuleOptimizationCompiles() throws {
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h"])
+    let plannedJobs = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+    XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("Test.o")))
+    XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.relative(RelativePath("Test-Swift.h")))
+    XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.relative(RelativePath("Test.swiftinterface")))
+    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-module-interface-path")))
+
+    XCTAssertEqual(plannedJobs[1].kind, .link)
+  }
+
+  func testMultiThreadedWholeModuleOptimizationCompiles() throws {
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
+        "-num-threads", "4", "-target", "x86_64-apple-macosx10.15"])
+    let plannedJobs = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+    XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
+    XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
+    XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+
+    XCTAssertEqual(plannedJobs[1].kind, .link)
+  }
+
+  func testWholeModuleOptimizationOutputFileMap() throws {
+    let contents = """
+    {
+      "": {
+        "swiftinterface": "/tmp/salty/Test.swiftinterface"
+      }
+    }
+    """
+
+    try withTemporaryFile { file in
+      try assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
+            "-num-threads", "4", "-target", "x86_64-apple-macosx10.15",
+            "-output-file-map", file.path.pathString, "-emit-module-interface"])
+        let plannedJobs = try driver1.planBuild()
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+        XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+        XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
+        XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
+        XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+        XCTAssertEqual(plannedJobs[0].outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
+        XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+      }
+    }
+  }
+
   func testMergeModulesOnly() throws {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
@@ -739,7 +835,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("-import-objc-header")))

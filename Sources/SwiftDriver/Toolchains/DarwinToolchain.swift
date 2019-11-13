@@ -29,16 +29,16 @@ public final class DarwinToolchain: Toolchain {
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(exec: "swift")
+      return try lookup(executable: "swift")
 
     case .dynamicLinker:
-      return try lookup(exec: "ld")
+      return try lookup(executable: "ld")
 
     case .staticLinker:
-      return try lookup(exec: "libtool")
+      return try lookup(executable: "libtool")
 
     case .dsymutil:
-      return try lookup(exec: "dsymutil")
+      return try lookup(executable: "dsymutil")
 
     case .clang:
       let result = try Process.checkNonZeroExit(
@@ -47,13 +47,13 @@ public final class DarwinToolchain: Toolchain {
       ).spm_chomp()
       return AbsolutePath(result)
     case .swiftAutolinkExtract:
-      return try lookup(exec: "swift-autolink-extract")
+      return try lookup(executable: "swift-autolink-extract")
     }
   }
 
   /// Swift compiler path.
   public lazy var swiftCompiler: Result<AbsolutePath, Swift.Error> = Result {
-    try lookup(exec: "swift")
+    try lookup(executable: "swift")
   }
 
   /// SDK path.
@@ -120,28 +120,30 @@ public final class DarwinToolchain: Toolchain {
     """
   }
   
-  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` enviroment variable, if found nothing,
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the executable path; finally, fallback to xcrunFind.
   /// - Parameter exec: executable to look for [i.e. `swift`].
-  func lookup(exec: String) throws -> AbsolutePath {
-    if let overrideString = env[envVarName(forExecutable: exec)] {
+  func lookup(executable: String) throws -> AbsolutePath {
+    if let overrideString = env[envVarName(forExecutable: executable)] {
       return try AbsolutePath(validating: overrideString)
-    } else if let path = lookupExecutablePath(filename: exec, searchPaths: [executableDir]) {
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
       return path
     }
-    return try xcrunFind(exec: exec)
+    return try xcrunFind(executable: executable)
   }
   
-  private func xcrunFind(exec: String) throws -> AbsolutePath {
-  #if os(macOS)
+  private func xcrunFind(executable: String) throws -> AbsolutePath {
+    let xcrun = "xcrun"
+    guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
+      // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
+      // TODO: remove this hack and emit an error once we have a generalized Toolchain routine for finding Tools.
+      return AbsolutePath("/usr/bin/" + executable)
+    }
+    
     let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", exec],
+      arguments: [xcrun, "-sdk", "macosx", "--find", executable],
       environment: env
     ).spm_chomp()
     return AbsolutePath(path)
-  #else
-    // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
-    return AbsolutePath("/usr/bin/" + exec)
-  #endif
   }
 }

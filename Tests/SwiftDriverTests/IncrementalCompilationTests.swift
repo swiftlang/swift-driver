@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import XCTest
-import TSCBasic
-import TSCUtility
 
 import SwiftDriver
 

@@ -79,6 +79,18 @@ public enum VirtualPath: Hashable {
     default: return nil
     }
   }
+
+  /// Retrieve the basename of the path without the extension.
+  public var basenameWithoutExt: String {
+    switch self {
+    case .absolute(let path):
+      return path.basenameWithoutExt
+    case .relative(let path), .temporary(let path):
+      return path.basenameWithoutExt
+    case .standardInput, .standardOutput:
+      return ""
+    }
+  }
 }
 
 extension VirtualPath: Codable {

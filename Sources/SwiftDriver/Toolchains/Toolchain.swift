@@ -60,6 +60,10 @@ public protocol Toolchain {
 }
 
 extension Toolchain {
+  public var searchPaths: [AbsolutePath] {
+    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+  }
+  
   public func swiftCompilerVersion() throws -> String {
     try Process.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version",

@@ -54,14 +54,25 @@ extension Driver {
       }
       commandLine.append(.path(input.file))
 
-      // If there is a primary output, add it.
-      if isPrimary, let compilerOutputType = compilerOutputType {
+      // If there is a primary output or we are doing multithreaded compiles,
+      // add an output for the input.
+      if isPrimary || numThreads > 0,
+          let compilerOutputType = compilerOutputType {
         let output = (outputFileMap ?? OutputFileMap()).getOutput(
           inputFile: input.file,
           outputType: compilerOutputType
         )
         primaryOutputs.append(TypedVirtualPath(file: output, type: compilerOutputType))
       }
+    }
+
+    // When not using primary file inputs or multithreading, add a single output.
+    if !usesPrimaryFileInputs && numThreads == 0,
+        let outputType = compilerOutputType {
+      let existingOutputPath = outputFileMap?.existingOutputForSingleInput(
+          outputType: outputType)
+      let output = existingOutputPath ?? VirtualPath.temporary(.init(moduleName.appendingFileTypeExtension(outputType)))
+      primaryOutputs.append(TypedVirtualPath(file: output, type: outputType))
     }
 
     return primaryOutputs

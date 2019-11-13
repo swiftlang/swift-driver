@@ -43,6 +43,7 @@ public struct Driver {
   enum Error: Swift.Error {
     case invalidDriverName(String)
     case invalidInput(String)
+    case subcommandPassedToDriver
   }
   
   /// The set of environment variables that are visible to the driver and
@@ -193,11 +194,15 @@ public struct Driver {
     diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
   ) throws {
     self.env = env
-    
-    // FIXME: Determine if we should run as subcommand.
 
     self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
+
+    if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
+      throw Error.subcommandPassedToDriver
+    }
+
     var args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)[...]
+
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args))
@@ -284,16 +289,118 @@ public struct Driver {
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
     // Supplemental outputs.
-    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .dependencies, isOutput: .emitDependencies, outputPath: .emitDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies, outputPath: .emitReferenceDependenciesPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics, outputPath: .serializeDiagnosticsPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .dependencies, isOutput: .emitDependencies,
+        outputPath: .emitDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies,
+        outputPath: .emitReferenceDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics,
+        outputPath: .serializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
     // FIXME: -fixits-output-path
-    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader, outputPath: .emitObjcHeaderPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace, outputPath: .emitLoadedModuleTracePath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.tbdPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .tbd, isOutput: .emitTbd, outputPath: .emitTbdPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(&parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface, outputPath: .emitModuleInterfacePath, compilerOutputType: compilerOutputType, moduleName: moduleName)
-    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(&parsedOptions, type: .optimizationRecord, isOutput: .saveOptimizationRecord, outputPath: .saveOptimizationRecordPath, compilerOutputType: compilerOutputType, moduleName: moduleName)
+    self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader,
+        outputPath: .emitObjcHeaderPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace,
+        outputPath: .emitLoadedModuleTracePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.tbdPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .tbd, isOutput: .emitTbd,
+        outputPath: .emitTbdPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(
+        &parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface,
+        outputPath: .emitModuleInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+    self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .optimizationRecord,
+        isOutput: .saveOptimizationRecord,
+        outputPath: .saveOptimizationRecordPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleName)
+  }
+}
+
+extension Driver {
+
+  public enum InvocationRunMode: Equatable {
+    case normal(isRepl: Bool)
+    case subcommand(String)
+  }
+
+  /// Determines whether the given arguments constitute a normal invocation,
+  /// or whether they invoke a subcommand.
+  ///
+  /// Returns the invocation mode along with the arguments modified for that mode.
+  public static func invocationRunMode(
+    forArgs args: [String]
+  ) throws -> (mode: InvocationRunMode, args: [String]) {
+
+    assert(!args.isEmpty)
+
+    let execName = try VirtualPath(path: args[0]).basenameWithoutExt
+
+    // If we are not run as 'swift' or there are no program arguments, always invoke as normal.
+    guard execName == "swift", args.count > 1 else { return (.normal(isRepl: false), args) }
+
+    // Otherwise, we have a program argument.
+    let firstArg = args[1]
+
+    // If it looks like an option or a path, then invoke in interactive mode with the arguments as given.
+    if firstArg.hasPrefix("-") || firstArg.hasPrefix("/") || firstArg.contains(".") {
+        return (.normal(isRepl: false), args)
+    }
+
+    // Otherwise, we should have some sort of subcommand.
+
+    var updatedArgs = args
+
+    // If it is the "built-in" 'repl', then use the normal driver.
+    if firstArg == "repl" {
+        updatedArgs.remove(at: 1)
+        return (.normal(isRepl: true), updatedArgs)
+    }
+
+    let subcommand = "swift-\(firstArg)"
+
+    updatedArgs.replaceSubrange(0...1, with: [subcommand])
+
+    return (.subcommand(subcommand), updatedArgs)
   }
 }
 
@@ -1249,11 +1356,11 @@ extension Driver {
     isOutput: Option?,
     outputPath: Option,
     compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    outputFileMap: OutputFileMap?,
     moduleName: String,
     patternOutputFile: VirtualPath? = nil
   ) throws -> VirtualPath? {
-    // FIXME: Do we need to check the output file map?
-
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
       // Consume the isOutput argument
@@ -1266,6 +1373,14 @@ extension Driver {
     // If the output option was not provided, don't produce this output at all.
     guard let isOutput = isOutput, parsedOptions.hasArgument(isOutput) else {
       return nil
+    }
+
+    // If this is a single-file compile and there is an entry in the
+    // output file map, use that.
+    if compilerMode.isSingleCompilation,
+        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+            outputType: type) {
+      return singleOutputPath
     }
 
     // If there is an output argument, derive the name from there.
@@ -1288,16 +1403,24 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     moduleOutputPath: VirtualPath?,
     compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    outputFileMap: OutputFileMap?,
     moduleName: String
   ) throws -> VirtualPath? {
-    // FIXME: Do we need to check the output file map?
-
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(.emitModuleDocPath) {
       // Consume -emit-module-doc if it's there.
       _ = parsedOptions.hasArgument(.emitModuleDoc)
 
       return try VirtualPath(path: outputPathArg.asSingle)
+    }
+
+    // If this is a single-file compile and there is an entry in the
+    // output file map, use that.
+    if compilerMode.isSingleCompilation,
+        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+          outputType: .swiftDocumentation) {
+      return singleOutputPath
     }
 
     // If there's a known module output path, put the .swiftdoc file next
