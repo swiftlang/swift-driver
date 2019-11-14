@@ -100,24 +100,48 @@ fileprivate struct OutputFileMapJSON: Codable {
   /// The data associated with an input file.
   /// \c fileprivate so that the \c store method above can see it
   fileprivate struct Entry: Codable {
-    enum CodingKeys: String, CodingKey {
-      case dependencies
-      case object
-      case swiftmodule
-      case swiftinterface
-      case swiftDependencies = "swift-dependencies"
-      case diagnostics
+
+    private struct CodingKeys: CodingKey {
+
+      let fileType: FileType
+
+      init(fileType: FileType) {
+        self.fileType = fileType
+      }
+
+      init?(stringValue: String) {
+        guard let fileType = FileType(name: stringValue) else { return nil }
+        self.fileType = fileType
+      }
+
+      var stringValue: String { fileType.name }
+      var intValue: Int? { nil }
+      init?(intValue: Int) { nil }
     }
 
-    let dependencies: String?
-    let object: String?
-    let swiftmodule: String?
-    let swiftinterface: String?
-    let swiftDependencies: String?
-    let diagnostics: String?
+    let paths: [FileType: String]
+
+    fileprivate init(paths: [FileType: String]) {
+      self.paths = paths
+    }
+
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+
+      paths = try Dictionary(uniqueKeysWithValues:
+        container.allKeys.map { key in (key.fileType, try container.decode(String.self, forKey: key)) }
+      )
+    }
+
+    func encode(to encoder: Encoder) throws {
+
+      var container = encoder.container(keyedBy: CodingKeys.self)
+
+      try paths.forEach { fileType, path in try container.encode(path, forKey: CodingKeys(fileType: fileType)) }
+    }
   }
 
-  /// The parsed entires
+  /// The parsed entries
   /// \c fileprivate so that the \c store method above can see it
   fileprivate let entries: [String: Entry]
 
@@ -132,23 +156,9 @@ fileprivate struct OutputFileMapJSON: Codable {
 
   /// Converts into virtual path entries.
   func toVirtualOutputFileMap() throws -> [VirtualPath : [FileType : VirtualPath]] {
-    var result: [VirtualPath : [FileType : VirtualPath]] = [:]
-
-    for (input, entry) in entries {
-      let input = try VirtualPath(path: input)
-
-      var map: [FileType: String] = [:]
-      map[.dependencies] = entry.dependencies
-      map[.object] = entry.object
-      map[.swiftModule] = entry.swiftmodule
-      map[.swiftInterface] = entry.swiftinterface
-      map[.swiftDeps] = entry.swiftDependencies
-      map[.diagnostics] = entry.diagnostics
-
-      result[input] = try map.mapValues(VirtualPath.init(path:))
-    }
-
-    return result
+    Dictionary(uniqueKeysWithValues: try entries.map { input, entry in
+      (try VirtualPath(path: input), try entry.paths.mapValues(VirtualPath.init(path:)))
+    })
   }
 
   /// Converts from virtual path entries
@@ -161,13 +171,7 @@ fileprivate struct OutputFileMapJSON: Codable {
       return (fixedIfMaster, convert(outputs: entry.value))
     }
     func convert(outputs: [FileType: VirtualPath]) -> Entry {
-      Entry(
-        dependencies: outputs[.dependencies]?.name,
-        object: outputs[.object]?.name,
-        swiftmodule: outputs[.swiftModule]?.name,
-        swiftinterface: outputs[.swiftInterface]?.name,
-        swiftDependencies: outputs[.swiftDeps]?.name,
-        diagnostics: outputs[.diagnostics]?.name)
+      Entry(paths: outputs.mapValues({ $0.name }))
     }
     return Self(entries: Dictionary(uniqueKeysWithValues: entries.map(convert(entry:))))
   }
