@@ -9,9 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+import Foundation
 import SwiftDriver
 import TSCBasic
+import XCTest
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {
@@ -1210,19 +1211,19 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
-      // TODO check outputs for pch
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-o")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
-      // TODO check value of flag
+      XCTAssert(plannedJobs[1].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
     }
-    // ^^^^^^^^^^^^^
-    // RUN: %target-build-swift -typecheck -driver-print-jobs -import-objc-header %S/Inputs/bridging-header.h %s 2>&1 | %FileCheck %s -check-prefix=YESPCHJOB
-    // YESPCHJOB: {{.*}}swift{{c?(\.exe)?"?}} -frontend {{.*}} -emit-pch -o {{.*}}bridging-header-{{.*}}.pch
-    // YESPCHJOB: {{.*}}swift{{c?(\.exe)?"?}} -frontend {{.*}} -import-objc-header {{.*}}bridging-header-{{.*}}.pch
     
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
@@ -1244,10 +1245,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-index-store-path")))
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "idx"))))
-      // TODO check outputs for pch
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-o")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
@@ -1263,10 +1268,12 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
-      // TODO check outputs for pch
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
@@ -1283,10 +1290,12 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
-      // TODO check outputs for pch
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
@@ -1327,11 +1336,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
-      // TODO -serialize-diagnostics-path {{.*}}bridging-header-{{.*}}.dia{{"?}}
+      XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.dia")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .diagnostics)
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[1].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.dia")))))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
-      // TODO check outputs for pch
       
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
@@ -1342,22 +1356,32 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "-serialize-diagnostics", "foo.swift", "-emit-module", "-emit-module-path", "/module-path-dir"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.count, 3)
       
       XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
-      // TODO -serialize-diagnostics-path {{.*}}/pch/bridging-header-{{.*}}.dia{{"?}}
+      XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+      XCTAssertNotNil(plannedJobs[0].outputs[0].file.name.range(of: #"/pch/TestInputHeader-.*.dia"#, options: .regularExpression))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .diagnostics)
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[1].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
+      XCTAssert(plannedJobs[0].commandLine.contains {
+        guard case .path(let path) = $0 else { return false }
+        return path.name.range(of: #"/pch/TestInputHeader-.*.dia"#, options: .regularExpression) != nil
+      })
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
-      // TODO check outputs for pch
       
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+      
+      // FIXME: validate that merge module is correct job and that it has correct inputs and flags
     }
     
     do {
@@ -1369,10 +1393,12 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
-      // TODO check outputs for pch
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
@@ -1389,9 +1415,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
       XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-O")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
-      // TODO check outputs for pch
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-o")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)

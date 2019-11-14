@@ -62,6 +62,11 @@ extension Driver {
 
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: Add MSVC runtime library flags
+    
+    if let importedObjCHeader = importedObjCHeader {
+      commandLine.appendFlag(.importObjcHeader)
+      commandLine.appendPath(importedObjCHeader)
+    }
 
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
 

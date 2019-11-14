@@ -124,6 +124,9 @@ public struct Driver {
   /// The path to the imported Objective-C header.
   public let importedObjCHeader: VirtualPath?
 
+  /// The path to the pch for the imported Objective-C header.
+  public var bridgingPrecompiledHeader: VirtualPath?
+
   /// Path to the dependencies file.
   public let dependenciesFilePath: VirtualPath?
 

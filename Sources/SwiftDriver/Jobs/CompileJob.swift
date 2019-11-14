@@ -103,6 +103,18 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: MSVC runtime flags
 
+    if let importedObjCHeader = importedObjCHeader {
+      commandLine.appendFlag(.importObjcHeader)
+      if !parsedOptions.contains(.pchOutputDir), let pch = bridgingPrecompiledHeader {
+        commandLine.appendPath(pch)
+      } else {
+        commandLine.appendPath(importedObjCHeader)
+        if compilerMode != .singleCompile {
+          commandLine.appendFlag(.pchDisableValidation)
+        }
+      }
+    }
+
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
     }

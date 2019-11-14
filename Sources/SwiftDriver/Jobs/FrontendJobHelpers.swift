@@ -155,11 +155,6 @@ extension Driver {
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
 
-    if let importedObjCHeader = importedObjCHeader {
-      commandLine.appendFlag(.importObjcHeader)
-      commandLine.appendPath(importedObjCHeader)
-    }
-
     // Repl Jobs may include -module-name depending on the selected REPL (LLDB or integrated).
     if compilerMode != .repl {
       commandLine.appendFlags("-module-name", moduleName)
