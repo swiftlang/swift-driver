@@ -1,4 +1,4 @@
-//===--------------- GeneratePCHJob.swift - Swift Autolink Extract ----===//
+//===--------------- GeneratePCHJob.swift - Generate PCH Job ----===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -14,30 +14,31 @@ import TSCBasic
 import TSCUtility
 
 extension Driver {
-    mutating func generatePCHJob(input: TypedVirtualPath) throws -> Job {
-        var inputs = [TypedVirtualPath]()
-        var outputs = [TypedVirtualPath]()
-        
-        var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-        
-        inputs.append(input)
-        commandLine.appendPath(input.file)
-        commandLine.appendFlag(.emitPch)
-        
-        try addCommonFrontendOptions(commandLine: &commandLine)
-        
-        if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-            outputs.append(.init(file: try VirtualPath(path: outputDirectory), type: .pch))
-            try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
-        }
-        
-        return Job(
-            kind: .generatePCH,
-            tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-            commandLine: commandLine,
-            displayInputs: [],
-            inputs: inputs,
-            outputs: outputs
-        )
+  mutating func generatePCHJob(input: TypedVirtualPath) throws -> Job {
+    var inputs = [TypedVirtualPath]()
+    var outputs = [TypedVirtualPath]()
+    
+    var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
+    
+    inputs.append(input)
+    commandLine.appendPath(input.file)
+    commandLine.appendFlag(.emitPch)
+    
+    try addCommonFrontendOptions(commandLine: &commandLine)
+    try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    
+    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      outputs.append(.init(file: try VirtualPath(path: outputDirectory), type: .pch))
+      try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
     }
+    
+    return Job(
+      kind: .generatePCH,
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      commandLine: commandLine,
+      displayInputs: [],
+      inputs: inputs,
+      outputs: outputs
+    )
+  }
 }
