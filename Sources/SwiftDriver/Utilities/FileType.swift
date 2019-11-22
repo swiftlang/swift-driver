@@ -12,7 +12,7 @@
 
 /// Describes the kinds of files that the driver understands.
 ///
-/// The raw values for these enumerations describe the default extension for]
+/// The raw values for these enumerations describe the default extension for
 /// the file type.
 public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift source file.
@@ -45,11 +45,14 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// A compiled Swift module file.
   case swiftModule = "swiftmodule"
 
-  /// Swift documentation for amodule.
+  /// Swift documentation for a module.
   case swiftDocumentation = "swiftdoc"
 
   /// A textual Swift interface file.
   case swiftInterface = "swiftinterface"
+
+  /// Serialized source information.
+  case swiftSourceInfoFile = "swiftsourceinfo"
 
   /// Assembler source.
   case assembly = "s"
@@ -110,7 +113,7 @@ extension FileType: CustomStringConvertible {
   public var description: String {
     switch self {
     case .swift, .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink,
-         .swiftModule, .swiftDocumentation, .swiftInterface, .assembly,
+         .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
          .remap, .tbd, .pcm, .pch:
       return rawValue
 
@@ -163,8 +166,83 @@ extension FileType {
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
-         .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface:
+         .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface, .swiftSourceInfoFile:
       return false
+    }
+  }
+}
+
+extension FileType {
+
+  private static let typesByName = Dictionary(uniqueKeysWithValues: FileType.allCases.map { ($0.name, $0) })
+
+  init?(name: String) {
+    guard let type = Self.typesByName[name] else { return nil }
+
+    self = type
+  }
+
+  /// The NAME values as specified in FileTypes.def
+  var name: String {
+    switch self {
+    case .swift:
+      return "swift"
+    case .sil:
+      return "sil"
+    case .sib:
+      return "sib"
+    case .image:
+      return "image"
+    case .object:
+      return "object"
+    case .dSYM:
+      return "dSYM"
+    case .dependencies:
+      return "dependencies"
+    case .autolink:
+      return "autolink"
+    case .swiftModule:
+      return "swiftmodule"
+    case .swiftDocumentation:
+      return "swiftdoc"
+    case .swiftInterface:
+      return "swiftinterface"
+    case .swiftSourceInfoFile:
+      return "swiftsourceinfo"
+    case .assembly:
+      return "assembly"
+    case .remap:
+      return "remap"
+    case .tbd:
+      return "tbd"
+    case .pcm:
+      return "pcm"
+    case .pch:
+      return "pch"
+    case .ast:
+      return "ast-dump"
+    case .raw_sil:
+      return "raw-sil"
+    case .raw_sib:
+      return "raw-sib"
+    case .llvmIR:
+      return "llvm-ir"
+    case .llvmBitcode:
+      return "llvm-bc"
+    case .objcHeader:
+      return "objc-header"
+    case .swiftDeps:
+      return "swift-dependencies"
+    case .importedModules:
+      return "imported-modules"
+    case .moduleTrace:
+      return "module-trace"
+    case .indexData:
+      return "index-data"
+    case .optimizationRecord:
+      return "opt-record"
+    case .diagnostics:
+      return "diagnostics"
     }
   }
 }
