@@ -893,6 +893,21 @@ final class SwiftDriverTests: XCTestCase {
     assertString(swiftVersion, contains: "Swift version ")
   #endif
   }
+  
+  func testToolchainClangPath() {
+    // TODO: remove this conditional check once DarwinToolchain does not requires xcrun to look for clang.
+    var toolchain: Toolchain
+    #if os(macOS)
+    toolchain = DarwinToolchain(env: ProcessEnv.vars)
+    #else
+    toolchain = GenericUnixToolchain(env: ProcessEnv.vars)
+    #endif
+    
+    XCTAssertEqual(
+      try? toolchain.getToolPath(.swiftCompiler).parentDirectory,
+      try? toolchain.getToolPath(.clang).parentDirectory
+    )
+  }
 }
 
 func assertString(

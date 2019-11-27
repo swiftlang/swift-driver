@@ -114,7 +114,8 @@ extension Toolchain {
     } else if let path = lookupExecutablePath(filename: exec, searchPaths: searchPaths) {
       return path
     } else {
-      throw ToolchainError.unableToFind(tool: exec)
+      // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
+      return AbsolutePath("/usr/bin/" + exec)
     }
   }
   
@@ -126,8 +127,7 @@ extension Toolchain {
     ).spm_chomp()
     return AbsolutePath(path)
   #else
-    // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
-    return AbsolutePath("/usr/bin/" + exec)
+    throw ToolchainError.unableToFind(tool: exec)
   #endif
   }
 }
