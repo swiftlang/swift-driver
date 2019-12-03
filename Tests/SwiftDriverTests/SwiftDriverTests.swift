@@ -582,7 +582,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-
+    
     do {
       // linux target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
@@ -988,6 +988,21 @@ final class SwiftDriverTests: XCTestCase {
     let swiftVersion = try DarwinToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
     assertString(swiftVersion, contains: "Swift version ")
   #endif
+  }
+  
+  func testToolchainClangPath() {
+    // TODO: remove this conditional check once DarwinToolchain does not requires xcrun to look for clang.
+    var toolchain: Toolchain
+    #if os(macOS)
+    toolchain = DarwinToolchain(env: ProcessEnv.vars)
+    #else
+    toolchain = GenericUnixToolchain(env: ProcessEnv.vars)
+    #endif
+    
+    XCTAssertEqual(
+      try? toolchain.getToolPath(.swiftCompiler).parentDirectory,
+      try? toolchain.getToolPath(.clang).parentDirectory
+    )
   }
 }
 
