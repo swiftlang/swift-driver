@@ -160,7 +160,10 @@ extension Driver {
       commandLine.appendPath(importedObjCHeader)
     }
 
-    commandLine.appendFlags("-module-name", moduleName)
+    // Repl Jobs may include -module-name depending on the selected REPL (LLDB or integrated).
+    if compilerMode != .repl {
+      commandLine.appendFlags("-module-name", moduleName)
+    }
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {

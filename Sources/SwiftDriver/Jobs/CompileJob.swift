@@ -311,6 +311,17 @@ extension Array where Element == Job.ArgTemplate {
     )
     appendFlag(isTrue ? trueFlag : falseFlag)
   }
+
+  var joinedArguments: String {
+    return self.map {
+      switch $0 {
+        case .flag(let string):
+          return string.spm_shellEscaped()
+        case .path(let path):
+          return path.name.spm_shellEscaped()
+      }
+    }.joined(separator: " ")
+  }
 }
 
 

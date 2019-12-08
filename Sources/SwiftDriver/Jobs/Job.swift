@@ -21,6 +21,7 @@ public struct Job: Codable, Equatable {
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
     case interpret
+    case repl
   }
 
   public enum ArgTemplate: Equatable {
@@ -73,17 +74,7 @@ public struct Job: Codable, Equatable {
 
 extension Job: CustomStringConvertible {
   public var description: String {
-    var result: String = tool.name
-
-    for arg in commandLine {
-      result += " "
-      switch arg {
-      case .flag(let string):
-        result += string.spm_shellEscaped()
-      case .path(let path):
-        result += path.name.spm_shellEscaped()
-      }
-    }
+    var result: String = "\(tool.name) \(commandLine.joinedArguments)"
 
     if !self.extraEnvironment.isEmpty {
       result += " #"

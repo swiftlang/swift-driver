@@ -19,6 +19,7 @@ public enum Tool {
   case clang
   case swiftAutolinkExtract
   case dsymutil
+  case lldb
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers
