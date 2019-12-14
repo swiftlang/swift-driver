@@ -144,8 +144,11 @@ extension Driver {
   public mutating func planBuild() throws -> [Job] {
     // Plan the build.
     switch compilerMode {
-    case .immediate, .repl:
+    case .repl:
       fatalError("Not yet supported")
+
+    case .immediate:
+      return [try interpretJob(inputs: inputFiles)]
 
     case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()

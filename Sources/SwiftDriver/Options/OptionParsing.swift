@@ -18,7 +18,8 @@ extension OptionTable {
   /// Parse the given command-line arguments into a set of options.
   ///
   /// Throws an error if the command line contains any errors.
-  public func parse(_ arguments: [String]) throws -> ParsedOptions {
+  public func parse(_ arguments: [String],
+                    forInteractiveMode isInteractiveMode: Bool = false) throws -> ParsedOptions {
     var trie = PrefixTrie<String.UTF8View, Option>()
     for opt in options {
       trie[opt.spelling.utf8] = opt
@@ -39,6 +40,13 @@ extension OptionTable {
       // If this is not a flag, record it as an input.
       if argument == "-" || argument.first! != "-" {
         parsedOptions.addInput(argument)
+
+        // In interactive mode, synthesize a "--" argument for all args after the first input.
+        if isInteractiveMode && index < arguments.endIndex {
+          parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[index...])))
+          break
+        }
+
         continue
       }
 
