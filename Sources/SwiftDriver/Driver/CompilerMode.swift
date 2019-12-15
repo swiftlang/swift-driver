@@ -31,7 +31,7 @@ public enum CompilerMode: Equatable {
 /// Information about batch mode, which is used to determine how to form
 /// the batches of jobs.
 public struct BatchModeInfo: Equatable {
-  let seed: Int
+  let seed: Int?
   let count: Int?
   let sizeLimit: Int?
 }
