@@ -148,11 +148,11 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testInputFiles() throws {
-    let driver1 = try Driver(args: ["swift", "a.swift", "/tmp/b.swift"])
+    let driver1 = try Driver(args: ["swiftc", "a.swift", "/tmp/b.swift"])
     XCTAssertEqual(driver1.inputFiles,
                    [ TypedVirtualPath(file: .relative(RelativePath("a.swift")), type: .swift),
                      TypedVirtualPath(file: .absolute(AbsolutePath("/tmp/b.swift")), type: .swift) ])
-    let driver2 = try Driver(args: ["swift", "a.swift", "-working-directory", "/wobble", "/tmp/b.swift"])
+    let driver2 = try Driver(args: ["swiftc", "a.swift", "-working-directory", "/wobble", "/tmp/b.swift"])
     XCTAssertEqual(driver2.inputFiles,
                    [ TypedVirtualPath(file: .absolute(AbsolutePath("/wobble/a.swift")), type: .swift),
                      TypedVirtualPath(file: .absolute(AbsolutePath("/tmp/b.swift")), type: .swift) ])
@@ -873,6 +873,42 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
     }
 
+  }
+
+  func testImmediateMode() throws {
+    do {
+      var driver = try Driver(args: ["swift", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.inputs.count, 1)
+      XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
+      XCTAssertEqual(job.outputs.count, 0)
+      XCTAssertTrue(job.commandLine.contains(.flag("-frontend")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-interpret")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-module-name")))
+      XCTAssertTrue(job.commandLine.contains(.flag("foo")))
+
+      XCTAssertFalse(job.commandLine.contains(.flag("--")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "foo.swift", "-some", "args", "-for=foo"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.inputs.count, 1)
+      XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
+      XCTAssertEqual(job.outputs.count, 0)
+      XCTAssertTrue(job.commandLine.contains(.flag("-frontend")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-interpret")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-module-name")))
+      XCTAssertTrue(job.commandLine.contains(.flag("foo")))
+      XCTAssertTrue(job.commandLine.contains(.flag("--")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-some")))
+      XCTAssertTrue(job.commandLine.contains(.flag("args")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-for=foo")))
+    }
   }
 
   func testTargetTriple() throws {

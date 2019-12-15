@@ -205,7 +205,7 @@ public struct Driver {
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args))
+    self.parsedOptions = try optionTable.parse(Array(args), forInteractiveMode: self.driverKind == .interactive)
 
     let explicitTarget = (self.parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
@@ -842,6 +842,9 @@ extension Driver {
         diagnosticsEngine.emit(.error_i_mode(driverKind))
 
       case .repl, .deprecatedIntegratedRepl, .lldbRepl:
+        compilerOutputType = nil
+
+      case .interpret:
         compilerOutputType = nil
 
       default:
