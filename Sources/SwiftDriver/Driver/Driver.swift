@@ -205,7 +205,7 @@ public struct Driver {
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args), forInteractiveMode: self.driverKind == .interactive)
+    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
 
     let explicitTarget = (self.parsedOptions.getLastArgument(.target)?.asSingle)
       .map {

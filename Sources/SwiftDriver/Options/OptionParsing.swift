@@ -12,6 +12,7 @@
 public enum OptionParseError : Error, Equatable {
   case unknownOption(index: Int, argument: String)
   case missingArgument(index: Int, argument: String)
+  case unsupportedOption(index: Int, option: Option)
 }
 
 extension OptionTable {
@@ -19,7 +20,7 @@ extension OptionTable {
   ///
   /// Throws an error if the command line contains any errors.
   public func parse(_ arguments: [String],
-                    forInteractiveMode isInteractiveMode: Bool = false) throws -> ParsedOptions {
+                    for driverKind: DriverKind) throws -> ParsedOptions {
     var trie = PrefixTrie<String.UTF8View, Option>()
     for opt in options {
       trie[opt.spelling.utf8] = opt
@@ -42,7 +43,7 @@ extension OptionTable {
         parsedOptions.addInput(argument)
 
         // In interactive mode, synthesize a "--" argument for all args after the first input.
-        if isInteractiveMode && index < arguments.endIndex {
+        if driverKind == .interactive && index < arguments.endIndex {
           parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[index...])))
           break
         }
@@ -57,6 +58,10 @@ extension OptionTable {
       guard let option = trie[argument.utf8] else {
         throw OptionParseError.unknownOption(
           index: index - 1, argument: argument)
+      }
+
+      guard option.isAccepted(by: driverKind) else {
+        throw OptionParseError.unsupportedOption(index: index - 1, option: option)
       }
 
       // Translate the argument
