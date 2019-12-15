@@ -689,7 +689,7 @@ extension Driver {
 
     // For batch mode, collect information
     if wantBatchMode {
-      let batchSeed = parseIntOption(&parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine) ?? 0
+      let batchSeed = parseIntOption(&parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine)
       let batchCount = parseIntOption(&parsedOptions, option: .driverBatchCount, diagnosticsEngine: diagnosticsEngine)
       let batchSizeLimit = parseIntOption(&parsedOptions, option: .driverBatchSizeLimit, diagnosticsEngine: diagnosticsEngine)
       return .batchCompile(BatchModeInfo(seed: batchSeed, count: batchCount, sizeLimit: batchSizeLimit))
