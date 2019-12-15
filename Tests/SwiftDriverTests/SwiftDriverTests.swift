@@ -46,11 +46,11 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     XCTAssertThrowsError(try options.parse(["-o"], for: .interactive)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, option: .o))
+      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-o", option: .o, currentDriverKind: .interactive))
     }
 
     XCTAssertThrowsError(try options.parse(["-repl"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, option: .repl))
+      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-repl", option: .repl, currentDriverKind: .batch))
     }
 
   }

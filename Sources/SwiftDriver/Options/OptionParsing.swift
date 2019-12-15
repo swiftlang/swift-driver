@@ -9,10 +9,26 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-public enum OptionParseError : Error, Equatable {
+import TSCBasic
+
+public enum OptionParseError : Error, Equatable, DiagnosticData {
   case unknownOption(index: Int, argument: String)
   case missingArgument(index: Int, argument: String)
-  case unsupportedOption(index: Int, option: Option)
+  case unsupportedOption(index: Int, argument: String, option: Option, currentDriverKind: DriverKind)
+
+  public var description: String {
+    switch self {
+    case let .unknownOption(index: _, argument: arg):
+      return "unknown argument: '\(arg)'"
+    case let .missingArgument(index: _, argument: arg):
+      return "missing argument value for '\(arg)'"
+    case let .unsupportedOption(index: _, argument: arg, option: option, currentDriverKind: driverKind):
+      // TODO: This logic to choose the recommended kind is copied from the C++
+      // driver and could be improved.
+      let recommendedDriverKind: DriverKind = option.attributes.contains(.noBatch) ? .interactive : .batch
+      return "option '\(arg)' is not supported by '\(driverKind.usage)'; did you mean to use '\(recommendedDriverKind.usage)'?"
+    }
+  }
 }
 
 extension OptionTable {
@@ -60,8 +76,11 @@ extension OptionTable {
           index: index - 1, argument: argument)
       }
 
+      // Make sure this option is supported by the current driver kind.
       guard option.isAccepted(by: driverKind) else {
-        throw OptionParseError.unsupportedOption(index: index - 1, option: option)
+        throw OptionParseError.unsupportedOption(
+          index: index - 1, argument: argument, option: option,
+          currentDriverKind: driverKind)
       }
 
       // Translate the argument

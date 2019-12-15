@@ -191,11 +191,11 @@ public struct Driver {
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
-    diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
+    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
   ) throws {
     self.env = env
 
-    self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
+    self.diagnosticEngine = diagnosticsEngine
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
