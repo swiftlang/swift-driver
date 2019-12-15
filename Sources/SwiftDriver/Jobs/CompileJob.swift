@@ -349,7 +349,7 @@ extension FileType {
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
-         .optimizationRecord,.swiftInterface:
+         .optimizationRecord, .swiftInterface, .swiftSourceInfoFile:
       fatalError("Output type can never be a primary output")
     }
   }

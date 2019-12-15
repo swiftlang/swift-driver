@@ -11,10 +11,6 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 
-fileprivate func envVarName(forExecutable toolName: String) -> String {
-  return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
-}
-
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
@@ -118,32 +114,5 @@ public final class DarwinToolchain: Toolchain {
     \(targetTriple.darwinPlatform!.libraryNameSuffix)\
     \(isShared ? "_dynamic.dylib" : ".a")
     """
-  }
-  
-  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
-  /// looks in the executable path; finally, fallback to xcrunFind.
-  /// - Parameter exec: executable to look for [i.e. `swift`].
-  func lookup(executable: String) throws -> AbsolutePath {
-    if let overrideString = env[envVarName(forExecutable: executable)] {
-      return try AbsolutePath(validating: overrideString)
-    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
-      return path
-    }
-    return try xcrunFind(executable: executable)
-  }
-  
-  private func xcrunFind(executable: String) throws -> AbsolutePath {
-    let xcrun = "xcrun"
-    guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
-      // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
-      // TODO: remove this hack and emit an error once we have a generalized Toolchain routine for finding Tools.
-      return AbsolutePath("/usr/bin/" + executable)
-    }
-    
-    let path = try Process.checkNonZeroExit(
-      arguments: [xcrun, "-sdk", "macosx", "--find", executable],
-      environment: env
-    ).spm_chomp()
-    return AbsolutePath(path)
   }
 }

@@ -28,6 +28,8 @@ public protocol Toolchain {
   
   var env: [String: String] { get }
   
+  var searchPaths: [AbsolutePath] { get }
+  
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
@@ -87,4 +89,50 @@ extension Toolchain {
     }
     return AbsolutePath(path).parentDirectory
   }
+  
+  /// Looks for `SWIFT_DRIVER_TOOLNAME_EXEC` in the `env` property.
+  /// - Returns: Environment variable value, if any.
+  func envVar(forExecutable toolName: String) -> String? {
+    return env[envVarName(for: toolName)]
+  }
+  
+  /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
+  private func envVarName(for toolName: String) -> String {
+    return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
+  }
+  
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
+  /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
+  /// - Parameter executable: executable to look for [i.e. `swift`].
+  func lookup(executable: String) throws -> AbsolutePath {
+    if let overrideString = envVar(forExecutable: executable) {
+      return try AbsolutePath(validating: overrideString)
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
+      return path
+    } else if let path = try? xcrunFind(executable: executable) {
+      return path
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
+      return path
+    } else {
+      // This is a hack so our tests work on linux.
+      return AbsolutePath("/usr/bin/" + executable)
+    }
+  }
+  
+  private func xcrunFind(executable: String) throws -> AbsolutePath {
+    let xcrun = "xcrun"
+    guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
+      throw ToolchainError.unableToFind(tool: xcrun)
+    }
+    
+    let path = try Process.checkNonZeroExit(
+      arguments: [xcrun, "-sdk", "macosx", "--find", executable],
+      environment: env
+    ).spm_chomp()
+    return AbsolutePath(path)
+  }
+}
+
+fileprivate enum ToolchainError: Swift.Error {
+  case unableToFind(tool: String)
 }
