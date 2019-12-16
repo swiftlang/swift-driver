@@ -890,6 +890,12 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("foo")))
 
       XCTAssertFalse(job.commandLine.contains(.flag("--")))
+
+      #if os(macOS)
+      XCTAssertTrue(job.extraEnvironment.keys.contains("DYLD_LIBRARY_PATH"))
+      #elseif os(Linux)
+      XCTAssertTrue(job.extraEnvironment.keys.contains("LD_LIBRARY_PATH"))
+      #endif
     }
 
     do {
@@ -909,6 +915,30 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("args")))
       XCTAssertTrue(job.commandLine.contains(.flag("-for=foo")))
     }
+    #if os(macOS)
+    do {
+      var driver = try Driver(args: ["swift", "-L/path/to/lib", "-F/path/to/framework", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.inputs.count, 1)
+      XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
+      XCTAssertEqual(job.outputs.count, 0)
+      XCTAssertTrue(job.extraEnvironment.contains { $0 == "DYLD_LIBRARY_PATH" && $1.contains("/path/to/lib") })
+      XCTAssertTrue(job.extraEnvironment.contains { $0 == "DYLD_FRAMEWORK_PATH" && $1.contains("/path/to/framework") })
+    }
+    #elseif os(Linux)
+    do {
+      var driver = try Driver(args: ["swift", "-L/path/to/lib", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.inputs.count, 1)
+      XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
+      XCTAssertEqual(job.outputs.count, 0)
+      XCTAssertTrue(job.extraEnvironment.contains { $0 == "LD_LIBRARY_PATH" && $1.contains("/path/to/lib") })
+    }
+    #endif
   }
 
   func testTargetTriple() throws {
