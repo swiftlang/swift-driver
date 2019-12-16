@@ -36,14 +36,17 @@ extension Driver {
     // The immediate arguments must be last.
     try commandLine.appendLast(.DASHDASH, from: &parsedOptions)
 
-    // FIXME: Set [DY]LD_LIBRARY_PATH, DYLD_FRAMEWORK_PATH if needed.
+    let extraEnvironment = try toolchain.platformSpecificInterpreterEnvironmentVariables(
+      env: self.env, parsedOptions: &parsedOptions, sdkPath: self.sdkPath,
+      targetTriple: self.targetTriple)
 
     return Job(
       kind: .interpret,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs:inputs,
-      outputs: []
+      outputs: [],
+      extraEnvironment: extraEnvironment
     )
   }
 }

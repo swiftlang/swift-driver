@@ -333,8 +333,8 @@ class ExecuteJobRule: LLBuildRule {
   private func executeJob(_ engine: LLTaskBuildEngine) {
     let context = engine.jobExecutorContext
     let resolver = context.argsResolver
-    let env = context.env
     let job = key.job
+    let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
     var pid = 0

@@ -59,6 +59,12 @@ public protocol Toolchain {
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String
+
+  func platformSpecificInterpreterEnvironmentVariables(
+    env: [String: String],
+    parsedOptions: inout ParsedOptions,
+    sdkPath: String?,
+    targetTriple: Triple) throws -> [String: String]
 }
 
 extension Toolchain {
