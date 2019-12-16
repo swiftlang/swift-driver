@@ -1058,11 +1058,8 @@ final class SwiftDriverTests: XCTestCase {
   }
   
   func testToolchainUtilities() throws {
-    // FIXME: This doesn't work on Linux.
-  #if os(macOS)
     let swiftVersion = try DarwinToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
     assertString(swiftVersion, contains: "Swift version ")
-  #endif
   }
   
   func testToolchainClangPath() {
