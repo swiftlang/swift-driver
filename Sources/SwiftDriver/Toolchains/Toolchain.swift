@@ -107,34 +107,35 @@ extension Toolchain {
     return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
   }
   
-  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` enviroment variable, if found nothing,
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
-  /// - Parameter exec: executable to look for [i.e. `swift`].
-  func lookup(exec: String) throws -> AbsolutePath {
-    if let overrideString = envVar(forExecutable: exec) {
+  /// - Parameter executable: executable to look for [i.e. `swift`].
+  func lookup(executable: String) throws -> AbsolutePath {
+    if let overrideString = envVar(forExecutable: executable) {
       return try AbsolutePath(validating: overrideString)
-    } else if let path = lookupExecutablePath(filename: exec, searchPaths: [executableDir]) {
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
       return path
-    } else if let path = try? xcrunFind(exec: exec) {
+    } else if let path = try? xcrunFind(executable: executable) {
       return path
-    } else if let path = lookupExecutablePath(filename: exec, searchPaths: searchPaths) {
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
       return path
     } else {
-      // This is a hack so our tests work on linux. We need a better way for looking up tools in general.
-      return AbsolutePath("/usr/bin/" + exec)
+      // This is a hack so our tests work on linux.
+      return AbsolutePath("/usr/bin/" + executable)
     }
   }
   
-  private func xcrunFind(exec: String) throws -> AbsolutePath {
-  #if os(macOS)
+  private func xcrunFind(executable: String) throws -> AbsolutePath {
+    let xcrun = "xcrun"
+    guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
+      throw ToolchainError.unableToFind(tool: xcrun)
+    }
+    
     let path = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--find", exec],
+      arguments: [xcrun, "-sdk", "macosx", "--find", executable],
       environment: env
     ).spm_chomp()
     return AbsolutePath(path)
-  #else
-    throw ToolchainError.unableToFind(tool: exec)
-  #endif
   }
 }
 

@@ -25,16 +25,16 @@ public final class DarwinToolchain: Toolchain {
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(exec: "swift")
+      return try lookup(executable: "swift")
 
     case .dynamicLinker:
-      return try lookup(exec: "ld")
+      return try lookup(executable: "ld")
 
     case .staticLinker:
-      return try lookup(exec: "libtool")
+      return try lookup(executable: "libtool")
 
     case .dsymutil:
-      return try lookup(exec: "dsymutil")
+      return try lookup(executable: "dsymutil")
 
     case .clang:
       let result = try Process.checkNonZeroExit(
@@ -43,13 +43,13 @@ public final class DarwinToolchain: Toolchain {
       ).spm_chomp()
       return AbsolutePath(result)
     case .swiftAutolinkExtract:
-      return try lookup(exec: "swift-autolink-extract")
+      return try lookup(executable: "swift-autolink-extract")
     }
   }
 
   /// Swift compiler path.
   public lazy var swiftCompiler: Result<AbsolutePath, Swift.Error> = Result {
-    try lookup(exec: "swift")
+    try lookup(executable: "swift")
   }
 
   /// SDK path.

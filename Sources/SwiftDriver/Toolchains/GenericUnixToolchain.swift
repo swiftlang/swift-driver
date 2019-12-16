@@ -30,18 +30,18 @@ public final class GenericUnixToolchain: Toolchain {
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(exec: "swift")
+      return try lookup(executable: "swift")
     case .staticLinker:
-      return try lookup(exec: "ar")
+      return try lookup(executable: "ar")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
-      return try lookup(exec: "clang")
+      return try lookup(executable: "clang")
     case .clang:
-      return try lookup(exec: "clang")
+      return try lookup(executable: "clang")
     case .swiftAutolinkExtract:
-      return try lookup(exec: "swift-autolink-extract")
+      return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
-      return try lookup(exec: "dsymutil")
+      return try lookup(executable: "dsymutil")
     }
   }
 
