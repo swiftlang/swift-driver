@@ -16,6 +16,7 @@ import TSCBasic
 import TSCUtility
 
 var intHandler: InterruptHandler?
+let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 
 do {
   let processSet = ProcessSet()
@@ -39,7 +40,7 @@ do {
     try exec(path: subcommandPath?.pathString ?? "", args: Array(arguments.dropFirst()))
   }
 
-  var driver = try Driver(args: arguments)
+  var driver = try Driver(args: arguments, diagnosticsEngine: diagnosticsEngine)
   let resolver = try ArgsResolver()
   try driver.run(resolver: resolver, processSet: processSet)
 
@@ -48,6 +49,8 @@ do {
   }
 } catch Diagnostics.fatalError {
   exit(EXIT_FAILURE)
+} catch let diagnosticData as DiagnosticData {
+  diagnosticsEngine.emit(.error(diagnosticData))
 } catch {
   print("error: \(error)")
   exit(EXIT_FAILURE)

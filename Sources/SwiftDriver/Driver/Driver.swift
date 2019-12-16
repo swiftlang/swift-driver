@@ -191,11 +191,11 @@ public struct Driver {
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
-    diagnosticsHandler: @escaping DiagnosticsEngine.DiagnosticsHandler = Driver.stderrDiagnosticsHandler
+    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
   ) throws {
     self.env = env
 
-    self.diagnosticEngine = DiagnosticsEngine(handlers: [diagnosticsHandler])
+    self.diagnosticEngine = diagnosticsEngine
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -205,7 +205,7 @@ public struct Driver {
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args), forInteractiveMode: self.driverKind == .interactive)
+    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
 
     let explicitTarget = (self.parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
