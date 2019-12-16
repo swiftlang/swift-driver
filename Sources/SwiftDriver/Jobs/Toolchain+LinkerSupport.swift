@@ -23,8 +23,9 @@ extension Toolchain {
     let resourceDirBase: AbsolutePath
     if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
       resourceDirBase = try AbsolutePath(validating: resourceDir.asSingle)
-    } else if let sdk = parsedOptions.getLastArgument(.sdk), !triple.isDarwin {
-      resourceDirBase = try AbsolutePath(validating: sdk.asSingle)
+    } else if let sdk = parsedOptions.getLastArgument(.sdk),
+      let sdkPath = try? AbsolutePath(validating: sdk.asSingle) {
+      resourceDirBase = sdkPath
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
     } else {
