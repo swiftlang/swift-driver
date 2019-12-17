@@ -548,7 +548,7 @@ extension Driver {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
       let swiftCompiler = try getSwiftCompilerPath()
-      return try exec(path: swiftCompiler.pathString, args: ["swift"] + parsedOptions.commandLine)
+      return try exec(path: swiftCompiler.pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {

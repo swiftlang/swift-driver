@@ -48,6 +48,28 @@ extension DriverKind {
     }
   }
 
+  public var usageArgs: [String] {
+    switch self {
+    case .autolinkExtract:
+      return ["swift-autolink-extract"]
+
+    case .batch:
+      return ["swiftc"]
+
+    case .frontend:
+      return ["swift", "-frontend"]
+
+    case .indent:
+      return ["swift-indent"]
+
+    case .interactive:
+      return ["swift"]
+
+    case .moduleWrap:
+      return ["swift-modulewrap"]
+    }
+  }
+
   public var title: String {
     switch self {
     case .autolinkExtract:
