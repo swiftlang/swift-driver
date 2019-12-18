@@ -32,7 +32,8 @@ extension Driver {
         tool: .absolute(try toolchain.getToolPath(.lldb)),
         commandLine: [Job.ArgTemplate.flag(lldbArg)],
         inputs: [],
-        outputs: []
+        outputs: [],
+        requiresInPlaceExecution: true
       )
     } else {
       // Invoke the integrated REPL, which is part of the frontend.
@@ -43,7 +44,8 @@ extension Driver {
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: commandLine,
         inputs: [],
-        outputs: []
+        outputs: [],
+        requiresInPlaceExecution: true
       )
     }
   }

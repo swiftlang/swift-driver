@@ -50,6 +50,9 @@ public struct Job: Codable, Equatable {
   /// Any extra environment variables which should be set while running the job.
   public var extraEnvironment: [String: String]
 
+  /// Whether or not the job must be executed in place, replacing the current driver process.
+  public var requiresInPlaceExecution: Bool
+
   /// The kind of job.
   public var kind: Kind
 
@@ -60,7 +63,8 @@ public struct Job: Codable, Equatable {
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
-    extraEnvironment: [String: String] = [:]
+    extraEnvironment: [String: String] = [:],
+    requiresInPlaceExecution: Bool = false
   ) {
     self.kind = kind
     self.tool = tool
@@ -69,6 +73,7 @@ public struct Job: Codable, Equatable {
     self.inputs = inputs
     self.outputs = outputs
     self.extraEnvironment = extraEnvironment
+    self.requiresInPlaceExecution = requiresInPlaceExecution
   }
 }
 

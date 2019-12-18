@@ -901,6 +901,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
       XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
     }
 
@@ -910,6 +911,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
       XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
     }
 
@@ -921,6 +923,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
       XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
     }
 
@@ -930,6 +933,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("swift"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
       XCTAssertTrue(replJob.commandLine.count >= 2)
       XCTAssertEqual(replJob.commandLine[0], .flag("-frontend"))
       XCTAssertEqual(replJob.commandLine[1], .flag("-repl"))
@@ -950,6 +954,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -967,6 +972,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -985,6 +991,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
