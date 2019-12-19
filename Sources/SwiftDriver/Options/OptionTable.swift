@@ -26,11 +26,11 @@ public struct OptionTable {
 
 extension OptionTable {
   /// Print help information to the terminal.
-  public func printHelp(usage: String, title: String, includeHidden: Bool) {
+  public func printHelp(driverKind: DriverKind, includeHidden: Bool) {
     print("""
-      OVERVIEW: \(title)
+      OVERVIEW: \(driverKind.title)
 
-      USAGE: \(usage)
+      USAGE: \(driverKind.usage)
 
       OPTIONS:
       """)
@@ -38,6 +38,7 @@ extension OptionTable {
     for option in options {
       if option.isAlias { continue }
       if option.isHelpHidden && !includeHidden { continue }
+      guard option.isAccepted(by: driverKind) else { continue }
       guard let helpText = option.helpText else { continue }
 
       let maxDisplayNameLength = 23
@@ -70,6 +71,9 @@ extension OptionTable {
           repeating: " ", count: maxDisplayNameLength)
         print("  \(leftPadding) \(helpText)")
       }
+    }
+    if let seeAlsoMessage = driverKind.seeAlsoHelpMessage {
+      print("\n\(seeAlsoMessage)")
     }
   }
 }

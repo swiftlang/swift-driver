@@ -27,25 +27,7 @@ public enum DriverKind {
 
 extension DriverKind {
   public var usage: String {
-    switch self {
-    case .autolinkExtract:
-      return "swift-autolink-extract"
-
-    case .batch:
-      return "swiftc"
-
-    case .frontend:
-      return "swift -frontend"
-
-    case .indent:
-      return "swift-indent"
-
-    case .interactive:
-      return "swift"
-
-    case .moduleWrap:
-      return "swift-modulewrap"
-    }
+    usageArgs.joined(separator: " ")
   }
 
   public var usageArgs: [String] {
@@ -86,6 +68,23 @@ extension DriverKind {
 
     case .moduleWrap:
       return "Swift Module Wrapper"
+    }
+  }
+  
+  public var seeAlsoHelpMessage: String? {
+    switch self {
+    case .interactive:
+      return """
+             SEE ALSO - PACKAGE MANAGER COMMANDS:
+                     "swift build" Build sources into binary products
+                     "swift package" Perform operations on Swift packages
+                     "swift run" Build and run an executable product
+                     "swift test" Build and run tests
+             """
+    case .batch:
+      return "SEE ALSO: swift build, swift run, swift package, swift test"
+    default:
+      return nil
     }
   }
 }
