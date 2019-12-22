@@ -309,6 +309,18 @@ final class SwiftDriverTests: XCTestCase {
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
         $1.expect(.error("module name \"Swift\" is reserved for the standard library"))
     }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "some/dir/libFoo.so", "-module-name", "MyModule") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "some/dir/MyModule.swiftmodule")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "/", "-module-name", "MyModule") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "/MyModule.swiftmodule")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "../../some/other/dir/libFoo.so", "-module-name", "MyModule") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "../../some/other/dir/MyModule.swiftmodule")))
+    }
   }
   
   func testModuleNameFallbacks() throws {
