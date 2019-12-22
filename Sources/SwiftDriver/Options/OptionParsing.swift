@@ -9,16 +9,34 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-public enum OptionParseError : Error, Equatable {
+import TSCBasic
+
+public enum OptionParseError : Error, Equatable, DiagnosticData {
   case unknownOption(index: Int, argument: String)
   case missingArgument(index: Int, argument: String)
+  case unsupportedOption(index: Int, argument: String, option: Option, currentDriverKind: DriverKind)
+
+  public var description: String {
+    switch self {
+    case let .unknownOption(index: _, argument: arg):
+      return "unknown argument: '\(arg)'"
+    case let .missingArgument(index: _, argument: arg):
+      return "missing argument value for '\(arg)'"
+    case let .unsupportedOption(index: _, argument: arg, option: option, currentDriverKind: driverKind):
+      // TODO: This logic to choose the recommended kind is copied from the C++
+      // driver and could be improved.
+      let recommendedDriverKind: DriverKind = option.attributes.contains(.noBatch) ? .interactive : .batch
+      return "option '\(arg)' is not supported by '\(driverKind.usage)'; did you mean to use '\(recommendedDriverKind.usage)'?"
+    }
+  }
 }
 
 extension OptionTable {
   /// Parse the given command-line arguments into a set of options.
   ///
   /// Throws an error if the command line contains any errors.
-  public func parse(_ arguments: [String]) throws -> ParsedOptions {
+  public func parse(_ arguments: [String],
+                    for driverKind: DriverKind) throws -> ParsedOptions {
     var trie = PrefixTrie<String.UTF8View, Option>()
     for opt in options {
       trie[opt.spelling.utf8] = opt
@@ -39,6 +57,13 @@ extension OptionTable {
       // If this is not a flag, record it as an input.
       if argument == "-" || argument.first! != "-" {
         parsedOptions.addInput(argument)
+
+        // In interactive mode, synthesize a "--" argument for all args after the first input.
+        if driverKind == .interactive && index < arguments.endIndex {
+          parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[index...])))
+          break
+        }
+
         continue
       }
 
@@ -49,6 +74,13 @@ extension OptionTable {
       guard let option = trie[argument.utf8] else {
         throw OptionParseError.unknownOption(
           index: index - 1, argument: argument)
+      }
+
+      // Make sure this option is supported by the current driver kind.
+      guard option.isAccepted(by: driverKind) else {
+        throw OptionParseError.unsupportedOption(
+          index: index - 1, argument: argument, option: option,
+          currentDriverKind: driverKind)
       }
 
       // Translate the argument

@@ -28,6 +28,7 @@ extension Option {
   public static let colorDiagnostics: Option = Option("-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Print diagnostics in color")
   public static let compileModuleFromInterface: Option = Option("-compile-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and produce a module", group: .modes)
   public static let continueBuildingAfterErrors: Option = Option("-continue-building-after-errors", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Continue building, even after errors are encountered")
+  public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
   public static let c: Option = Option("-c", .flag, alias: Option.emitObject, attributes: [.frontend, .noInteractive], group: .modes)
   public static let debugAssertAfterParse: Option = Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing", group: .debugCrash)
@@ -51,6 +52,7 @@ extension Option {
   public static let debuggerSupport: Option = Option("-debugger-support", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Process swift code as if running in the debugger")
   public static let debuggerTestingTransform: Option = Option("-debugger-testing-transform", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Instrument the code with calls to an intrinsic that record the expected values of local variables so they can be compared against the results from the debugger.")
   public static let deprecatedIntegratedRepl: Option = Option("-deprecated-integrated-repl", .flag, attributes: [.frontend, .noBatch], group: .modes)
+  public static let diagnosticDocumentationPath: Option = Option("-diagnostic-documentation-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Path to diagnostic documentation resources")
   public static let diagnosticsEditorMode: Option = Option("-diagnostics-editor-mode", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnostics will be used in editor")
   public static let disableAccessControl: Option = Option("-disable-access-control", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't respect access control restrictions")
   public static let disableArcOpts: Option = Option("-disable-arc-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL ARC optimization passes.")
@@ -62,10 +64,11 @@ extension Option {
   public static let disableBatchMode: Option = Option("-disable-batch-mode", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Disable combining frontend jobs into batches")
   public static let disableBridgingPch: Option = Option("-disable-bridging-pch", .flag, attributes: [.helpHidden], helpText: "Disable automatic generation of bridging PCH files")
   public static let disableConstraintSolverPerformanceHacks: Option = Option("-disable-constraint-solver-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable all the hacks in the constraint solver")
+  public static let disableDebuggerShadowCopies: Option = Option("-disable-debugger-shadow-copies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable debugger shadow copies of local variables.This option is only useful for testing the compiler.")
   public static let disableDeserializationRecovery: Option = Option("-disable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let disableDiagnosticPasses: Option = Option("-disable-diagnostic-passes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run diagnostic passes")
-  public static let disableFunctionBuilderOneWayConstraints: Option = Option("-disable-function-builder-one-way-constraints", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable one-way constraints in the function builder transformation")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
+  public static let disableInvalidEphemeralnessAsError: Option = Option("-disable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as warnings")
   public static let disableLegacyTypeInfo: Option = Option("-disable-legacy-type-info", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable legacy type layout")
   public static let disableLlvmOptzns: Option = Option("-disable-llvm-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run LLVM optimization passes")
   public static let disableLlvmSlpVectorizer: Option = Option("-disable-llvm-slp-vectorizer", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run LLVM SLP vectorizer")
@@ -78,6 +81,7 @@ extension Option {
   public static let disableNskeyedarchiverDiagnostics: Option = Option("-disable-nskeyedarchiver-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow classes with unstable mangled names to adopt NSCoding")
   public static let disableObjcAttrRequiresFoundationModule: Option = Option("-disable-objc-attr-requires-foundation-module", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable requiring uses of @objc to require importing the Foundation module")
   public static let disableObjcInterop: Option = Option("-disable-objc-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable Objective-C interop code generation and config directives")
+  public static let disableOssaOpts: Option = Option("-disable-ossa-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL OSSA optimization passes.")
   public static let disableParserLookup: Option = Option("-disable-parser-lookup", .flag, attributes: [.frontend], helpText: "Disable parser lookup & use ast scope lookup only (experimental)")
   public static let disablePlaygroundTransform: Option = Option("-disable-playground-transform", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable playground transformation")
   public static let disablePreviousImplementationCallsInDynamicReplacements: Option = Option("-disable-previous-implementation-calls-in-dynamic-replacements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable calling the previous implementation in dynamic replacements")
@@ -92,14 +96,18 @@ extension Option {
   public static let disableSwift3ObjcInference: Option = Option("-disable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable Swift 3's @objc inference rules for NSObject-derived classes and 'dynamic' members (emulates Swift 4 behavior)")
   public static let disableTargetOsChecking: Option = Option("-disable-target-os-checking", .flag, attributes: [.frontend, .noDriver], helpText: "Disable checking the target OS of serialized modules")
   public static let disableTestableAttrRequiresTestableModule: Option = Option("-disable-testable-attr-requires-testable-module", .flag, attributes: [.frontend, .noDriver], helpText: "Disable checking of @testable")
-  public static let disableTsanInoutInstrumentation: Option = Option("-disable-tsan-inout-instrumentation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable treatment of inout parameters as Thread Sanitizer accesses")
   public static let disableTypoCorrection: Option = Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction")
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diable verification of access markers used to enforce exclusivity.")
   public static let driverAlwaysRebuildDependents: Option = Option("-driver-always-rebuild-dependents", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Always rebuild dependents of files that have been modified", group: .internalDebug)
   public static let driverBatchCount: Option = Option("-driver-batch-count", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number of batch-mode partitions, rather than partitioning dynamically", group: .internalDebug)
   public static let driverBatchSeed: Option = Option("-driver-batch-seed", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given seed value to randomize batch-mode partitions", group: .internalDebug)
   public static let driverBatchSizeLimit: Option = Option("-driver-batch-size-limit", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number as the upper limit on dynamic batch-mode partition size", group: .internalDebug)
-  public static let driverEmitExperimentalDependencyDotFileAfterEveryImport: Option = Option("-driver-emit-experimental-dependency-dot-file-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Emit dot files every time driver imports an experimental swiftdeps file.", group: .internalDebug)
+  public static let driverCompareIncrementalSchemesPathEQ: Option = Option("-driver-compare-incremental-schemes-path=", .joined, alias: Option.driverCompareIncrementalSchemesPath)
+  public static let driverCompareIncrementalSchemesPath: Option = Option("-driver-compare-incremental-schemes-path", .separate, attributes: [.doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Path to use for machine-readable comparision")
+  public static let driverCompareIncrementalSchemes: Option = Option("-driver-compare-incremental-schemes", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Print a simple message comparing dependencies with source ranges (w/ fallback)")
+  public static let driverDumpCompiledSourceDiffs: Option = Option("-driver-dump-compiled-source-diffs", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Show the compiled source diffs read upon startup", group: .internalDebug)
+  public static let driverDumpSwiftRanges: Option = Option("-driver-dump-swift-ranges", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Show the unparsed ranges read upon startup", group: .internalDebug)
+  public static let driverEmitFineGrainedDependencyDotFileAfterEveryImport: Option = Option("-driver-emit-fine-grained-dependency-dot-file-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Emit dot files every time driver imports an fine-grained swiftdeps file.", group: .internalDebug)
   public static let driverFilelistThresholdEQ: Option = Option("-driver-filelist-threshold=", .joined, alias: Option.driverFilelistThreshold)
   public static let driverFilelistThreshold: Option = Option("-driver-filelist-threshold", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Pass input or output file names as filelists if there are more than <n>", group: .internalDebug)
   public static let driverForceResponseFiles: Option = Option("-driver-force-response-files", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Force the use of response files for testing", group: .internalDebug)
@@ -115,13 +123,14 @@ extension Option {
   public static let driverTimeCompilation: Option = Option("-driver-time-compilation", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Prints the total time it took to execute all compilation tasks")
   public static let driverUseFilelists: Option = Option("-driver-use-filelists", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Pass input files as filelists whenever possible", group: .internalDebug)
   public static let driverUseFrontendPath: Option = Option("-driver-use-frontend-path", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given executable to perform compilations. Arguments can be passed as a ';' separated list", group: .internalDebug)
-  public static let driverVerifyExperimentalDependencyGraphAfterEveryImport: Option = Option("-driver-verify-experimental-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import", group: .internalDebug)
+  public static let driverVerifyFineGrainedDependencyGraphAfterEveryImport: Option = Option("-driver-verify-fine-grained-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import", group: .internalDebug)
   public static let dumpApiPath: Option = Option("-dump-api-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The path to output swift interface files for the compiled source files")
   public static let dumpAst: Option = Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)", group: .modes)
   public static let dumpClangDiagnostics: Option = Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr")
   public static let dumpInterfaceHash: Option = Option("-dump-interface-hash", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and dump interface token hash(es)", group: .modes)
   public static let dumpMigrationStatesDir: Option = Option("-dump-migration-states-dir", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Dump the input text, output text, and states for migration to <path>")
   public static let dumpParse: Option = Option("-dump-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s) and dump AST(s)", group: .modes)
+  public static let dumpPcm: Option = Option("-dump-pcm", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Dump debugging information about a precompiled Clang module", group: .modes)
   public static let dumpScopeMaps: Option = Option("-dump-scope-maps", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<expanded-or-list-of-line:column>", helpText: "Parse and type-check input file(s) and dump the scope map(s)", group: .modes)
   public static let dumpTypeInfo: Option = Option("-dump-type-info", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Output YAML dump of fixed-size types from all imported modules", group: .modes)
   public static let dumpTypeRefinementContexts: Option = Option("-dump-type-refinement-contexts", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Type-check input file(s) and dump type refinement contexts(s)", group: .modes)
@@ -131,6 +140,8 @@ extension Option {
   public static let embedBitcode: Option = Option("-embed-bitcode", .flag, attributes: [.frontend, .noInteractive], helpText: "Embed LLVM IR bitcode as data")
   public static let emitAssembly: Option = Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit assembly file(s) (-S)", group: .modes)
   public static let emitBc: Option = Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM BC file(s)", group: .modes)
+  public static let emitCompiledSourcePath: Option = Option("-emit-compiled-source-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output compiled source to <path>")
+  public static let emitCompiledSource: Option = Option("-emit-compiled-source", .flag, attributes: [.frontend, .noDriver], helpText: "Emit compiled source")
   public static let emitDependenciesPath: Option = Option("-emit-dependencies-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output basic Make-compatible dependencies file to <path>")
   public static let emitDependencies: Option = Option("-emit-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit basic Make-compatible dependencies files")
   public static let emitExecutable: Option = Option("-emit-executable", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a linked executable", group: .modes)
@@ -157,6 +168,7 @@ extension Option {
   public static let emitParseableModuleInterfacePath: Option = Option("-emit-parseable-module-interface-path", .separate, alias: Option.emitModuleInterfacePath, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath])
   public static let emitParseableModuleInterface: Option = Option("-emit-parseable-module-interface", .flag, alias: Option.emitModuleInterface, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild])
   public static let emitPch: Option = Option("-emit-pch", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit PCH for imported Objective-C header file", group: .modes)
+  public static let emitPcm: Option = Option("-emit-pcm", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a precompiled Clang module from a module map", group: .modes)
   public static let emitReferenceDependenciesPath: Option = Option("-emit-reference-dependencies-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output Swift-style dependencies file to <path>")
   public static let emitReferenceDependencies: Option = Option("-emit-reference-dependencies", .flag, attributes: [.frontend, .noDriver], helpText: "Emit a Swift-style dependencies file")
   public static let emitRemapFilePath: Option = Option("-emit-remap-file-path", .separate, attributes: [.frontend, .noDriver, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<path>", helpText: "Emit the replacement map describing Swift Migrator changes to <path>")
@@ -166,6 +178,8 @@ extension Option {
   public static let emitSil: Option = Option("-emit-sil", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit canonical SIL file(s)", group: .modes)
   public static let emitSortedSil: Option = Option("-emit-sorted-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When printing SIL, print out all sil entities sorted by name to ease diffing")
   public static let stackPromotionChecks: Option = Option("-emit-stack-promotion-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit runtime checks for correct stack promotion of objects.")
+  public static let emitSwiftRangesPath: Option = Option("-emit-swift-ranges-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output unparsed ranges to <path>")
+  public static let emitSwiftRanges: Option = Option("-emit-swift-ranges", .flag, attributes: [.frontend, .noDriver], helpText: "Emit unparsed source ranges")
   public static let emitSyntax: Option = Option("-emit-syntax", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and emit the Syntax tree(s) as JSON", group: .modes)
   public static let emitTbdPathEQ: Option = Option("-emit-tbd-path=", .joined, alias: Option.emitTbdPath, attributes: [.frontend, .noInteractive, .argumentIsPath])
   public static let emitTbdPath: Option = Option("-emit-tbd-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Emit the TBD file to <path>")
@@ -177,13 +191,16 @@ extension Option {
   public static let enableBatchMode: Option = Option("-enable-batch-mode", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Enable combining frontend jobs into batches")
   public static let enableBridgingPch: Option = Option("-enable-bridging-pch", .flag, attributes: [.helpHidden], helpText: "Enable automatic generation of bridging PCH files")
   public static let enableCxxInterop: Option = Option("-enable-cxx-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable C++ interop code generation and config directives")
+  public static let enableDescriptiveDiagnostics: Option = Option("-enable-descriptive-diagnostics", .flag, attributes: [.frontend, .noDriver], helpText: "Show descriptive diagnostic information, if available.")
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
-  public static let enableExperimentalDependencies: Option = Option("-enable-experimental-dependencies", .flag, attributes: [.helpHidden, .frontend], helpText: "Experimental work-in-progress to be more selective about incremental recompilation")
+  public static let enableExperimentalConcisePoundFile: Option = Option("-enable-experimental-concise-pound-file", .flag, attributes: [.frontend], helpText: "Enable experimental concise '#file' identifier and '#filePath' alternative")
+  public static let enableExperimentalDifferentiableProgramming: Option = Option("-enable-experimental-differentiable-programming", .flag, attributes: [.frontend], helpText: "Enable experimental differentiable programming features")
   public static let enableExperimentalStaticAssert: Option = Option("-enable-experimental-static-assert", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental #assert")
-  public static let enableFunctionBuilderOneWayConstraints: Option = Option("-enable-function-builder-one-way-constraints", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable one-way constraints in the function builder transformation")
+  public static let enableFineGrainedDependencies: Option = Option("-enable-fine-grained-dependencies", .flag, attributes: [.helpHidden, .frontend], helpText: "Experimental work-in-progress to be more selective about incremental recompilation")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
   public static let enableInferImportAsMember: Option = Option("-enable-infer-import-as-member", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Infer when a global could be imported as a member")
+  public static let enableInvalidEphemeralnessAsError: Option = Option("-enable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as errors")
   public static let enableLargeLoadableTypes: Option = Option("-enable-large-loadable-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable Large Loadable types IRGen pass")
   public static let enableLibraryEvolution: Option = Option("-enable-library-evolution", .flag, attributes: [.frontend, .moduleInterface], helpText: "Build the module to allow binary-compatible library evolution")
   public static let enableLlvmValueNames: Option = Option("-enable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add names to local values in LLVM IR")
@@ -197,6 +214,8 @@ extension Option {
   public static let enableResilience: Option = Option("-enable-resilience", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Deprecated, use -enable-library-evolution instead")
   public static let enableSilOpaqueValues: Option = Option("-enable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable SIL Opaque Values")
   public static let enableSourceImport: Option = Option("-enable-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable importing of Swift source files")
+  public static let enableSourceRangeDependencies: Option = Option("-enable-source-range-dependencies", .flag, helpText: "Try using source range information")
+  public static let enableSubstSilFunctionTypesForFunctionValues: Option = Option("-enable-subst-sil-function-types-for-function-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use substituted function types for SIL type lowering of function values")
   public static let enableSwift3ObjcInference: Option = Option("-enable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable Swift 3's @objc inference rules for NSObject-derived classes and 'dynamic' members (emulates Swift 3 behavior)")
   public static let enableSwiftcall: Option = Option("-enable-swiftcall", .flag, attributes: [.frontend, .noDriver], helpText: "Enable the use of LLVM swiftcall support")
   public static let enableTargetOsChecking: Option = Option("-enable-target-os-checking", .flag, attributes: [.frontend, .noDriver], helpText: "Enable checking the target OS of serialized modules")
@@ -205,11 +224,11 @@ extension Option {
   public static let enableThrowWithoutTry: Option = Option("-enable-throw-without-try", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow throwing function calls without 'try'")
   public static let enableVerifyExclusivity: Option = Option("-enable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable verification of access markers used to enforce exclusivity.")
   public static let enforceExclusivityEQ: Option = Option("-enforce-exclusivity=", .joined, attributes: [.frontend, .moduleInterface], metaVar: "<enforcement>", helpText: "Enforce law of exclusivity")
-  public static let experimentalDependencyIncludeIntrafile: Option = Option("-experimental-dependency-include-intrafile", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Include within-file dependencies.", group: .internalDebug)
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let externalPassPipelineFilename: Option = Option("-external-pass-pipeline-filename", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<pass_pipeline_file>", helpText: "Use the pass pipeline defined by <pass_pipeline_file>")
   public static let FEQ: Option = Option("-F=", .joined, alias: Option.F, attributes: [.frontend, .argumentIsPath])
   public static let filelist: Option = Option("-filelist", .separate, attributes: [.frontend, .noDriver], helpText: "Specify source inputs in a file rather than on the command line")
+  public static let fineGrainedDependencyIncludeIntrafile: Option = Option("-fine-grained-dependency-include-intrafile", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Include within-file dependencies.", group: .internalDebug)
   public static let fixitAll: Option = Option("-fixit-all", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Apply all fixits from diagnostics without any filtering")
   public static let forcePublicLinkage: Option = Option("-force-public-linkage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force public linkage for private symbols. Used by LLDB.")
   public static let forceSingleFrontendInvocation: Option = Option("-force-single-frontend-invocation", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
@@ -228,6 +247,7 @@ extension Option {
   public static let help_: Option = Option("--help", .flag, alias: Option.help, attributes: [.frontend, .autolinkExtract, .moduleWrap, .indent], helpText: "Display available options")
   public static let h: Option = Option("-h", .flag, alias: Option.help)
   public static let IEQ: Option = Option("-I=", .joined, alias: Option.I, attributes: [.frontend, .argumentIsPath])
+  public static let ignoreModuleSourceInfo: Option = Option("-ignore-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid getting source location from .swiftsourceinfo files")
   public static let importCfTypes: Option = Option("-import-cf-types", .flag, attributes: [.helpHidden, .frontend], helpText: "Recognize and import CF types as class types")
   public static let importModule: Option = Option("-import-module", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Implicitly import the specified module")
   public static let importObjcHeader: Option = Option("-import-objc-header", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Implicitly imports an Objective-C header file")
@@ -303,6 +323,7 @@ extension Option {
   public static let printInstCounts: Option = Option("-print-inst-counts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Before IRGen, count all the various SIL instructions. Must be used in conjunction with -print-stats.")
   public static let printLlvmInlineTree: Option = Option("-print-llvm-inline-tree", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print the LLVM inline tree.")
   public static let printStats: Option = Option("-print-stats", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print various statistics")
+  public static let printTargetInfo: Option = Option("-print-target-info", .flag, attributes: [.frontend], metaVar: "<triple>", helpText: "Print target information for the given target <triple>, such as x86_64-apple-macos10.9")
   public static let profileCoverageMapping: Option = Option("-profile-coverage-mapping", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate coverage data for use with profiled execution counts")
   public static let profileGenerate: Option = Option("-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts")
   public static let profileStatsEntities: Option = Option("-profile-stats-entities", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir, subdivided by source entity")
@@ -321,6 +342,7 @@ extension Option {
   public static let RpassEQ: Option = Option("-Rpass=", .joined, attributes: [.frontend], helpText: "Report performed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let runtimeCompatibilityVersion: Option = Option("-runtime-compatibility-version", .separate, attributes: [.frontend], helpText: "Link compatibility library for Swift runtime version, or 'none'")
   public static let sanitizeCoverageEQ: Option = Option("-sanitize-coverage=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<type>", helpText: "Specify the type of coverage instrumentation for Sanitizers and additional options separated by commas")
+  public static let sanitizeRecoverEQ: Option = Option("-sanitize-recover=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Specify which sanitizer runtime checks (see -sanitize=) will generate instrumentation that allows error recovery. Listed checks should be comma separated. Default behavior is to not allow error recovery.")
   public static let sanitizeEQ: Option = Option("-sanitize=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Turn on runtime checks for erroneous behavior.")
   public static let saveOptimizationRecordPath: Option = Option("-save-optimization-record-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Specify the file name of any generated YAML optimization record")
   public static let saveOptimizationRecord: Option = Option("-save-optimization-record", .flag, attributes: [.frontend], helpText: "Generate a YAML optimization record file")
@@ -376,6 +398,7 @@ extension Option {
   public static let typecheck: Option = Option("-typecheck", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s)", group: .modes)
   public static let typoCorrectionLimit: Option = Option("-typo-correction-limit", .separate, attributes: [.helpHidden, .frontend], metaVar: "<n>", helpText: "Limit the number of times the compiler will attempt typo correction to <n>")
   public static let updateCode: Option = Option("-update-code", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Update Swift code")
+  public static let useClangFunctionTypes: Option = Option("-use-clang-function-types", .flag, attributes: [.frontend, .noDriver], helpText: "Use stored Clang function types for computing canonical types.")
   public static let useJit: Option = Option("-use-jit", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Register Objective-C classes as if the JIT were in use")
   public static let useLd: Option = Option("-use-ld=", .joined, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies the linker to be used")
   public static let useMalloc: Option = Option("-use-malloc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allocate internal data structures using malloc (for memory debugging)")
@@ -436,6 +459,7 @@ extension Option {
       Option.colorDiagnostics,
       Option.compileModuleFromInterface,
       Option.continueBuildingAfterErrors,
+      Option.CrossModuleOptimization,
       Option.crosscheckUnqualifiedLookup,
       Option.c,
       Option.debugAssertAfterParse,
@@ -459,6 +483,7 @@ extension Option {
       Option.debuggerSupport,
       Option.debuggerTestingTransform,
       Option.deprecatedIntegratedRepl,
+      Option.diagnosticDocumentationPath,
       Option.diagnosticsEditorMode,
       Option.disableAccessControl,
       Option.disableArcOpts,
@@ -470,10 +495,11 @@ extension Option {
       Option.disableBatchMode,
       Option.disableBridgingPch,
       Option.disableConstraintSolverPerformanceHacks,
+      Option.disableDebuggerShadowCopies,
       Option.disableDeserializationRecovery,
       Option.disableDiagnosticPasses,
-      Option.disableFunctionBuilderOneWayConstraints,
       Option.disableIncrementalLlvmCodegeneration,
+      Option.disableInvalidEphemeralnessAsError,
       Option.disableLegacyTypeInfo,
       Option.disableLlvmOptzns,
       Option.disableLlvmSlpVectorizer,
@@ -486,6 +512,7 @@ extension Option {
       Option.disableNskeyedarchiverDiagnostics,
       Option.disableObjcAttrRequiresFoundationModule,
       Option.disableObjcInterop,
+      Option.disableOssaOpts,
       Option.disableParserLookup,
       Option.disablePlaygroundTransform,
       Option.disablePreviousImplementationCallsInDynamicReplacements,
@@ -500,14 +527,18 @@ extension Option {
       Option.disableSwift3ObjcInference,
       Option.disableTargetOsChecking,
       Option.disableTestableAttrRequiresTestableModule,
-      Option.disableTsanInoutInstrumentation,
       Option.disableTypoCorrection,
       Option.disableVerifyExclusivity,
       Option.driverAlwaysRebuildDependents,
       Option.driverBatchCount,
       Option.driverBatchSeed,
       Option.driverBatchSizeLimit,
-      Option.driverEmitExperimentalDependencyDotFileAfterEveryImport,
+      Option.driverCompareIncrementalSchemesPathEQ,
+      Option.driverCompareIncrementalSchemesPath,
+      Option.driverCompareIncrementalSchemes,
+      Option.driverDumpCompiledSourceDiffs,
+      Option.driverDumpSwiftRanges,
+      Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport,
       Option.driverFilelistThresholdEQ,
       Option.driverFilelistThreshold,
       Option.driverForceResponseFiles,
@@ -523,13 +554,14 @@ extension Option {
       Option.driverTimeCompilation,
       Option.driverUseFilelists,
       Option.driverUseFrontendPath,
-      Option.driverVerifyExperimentalDependencyGraphAfterEveryImport,
+      Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport,
       Option.dumpApiPath,
       Option.dumpAst,
       Option.dumpClangDiagnostics,
       Option.dumpInterfaceHash,
       Option.dumpMigrationStatesDir,
       Option.dumpParse,
+      Option.dumpPcm,
       Option.dumpScopeMaps,
       Option.dumpTypeInfo,
       Option.dumpTypeRefinementContexts,
@@ -539,6 +571,8 @@ extension Option {
       Option.embedBitcode,
       Option.emitAssembly,
       Option.emitBc,
+      Option.emitCompiledSourcePath,
+      Option.emitCompiledSource,
       Option.emitDependenciesPath,
       Option.emitDependencies,
       Option.emitExecutable,
@@ -565,6 +599,7 @@ extension Option {
       Option.emitParseableModuleInterfacePath,
       Option.emitParseableModuleInterface,
       Option.emitPch,
+      Option.emitPcm,
       Option.emitReferenceDependenciesPath,
       Option.emitReferenceDependencies,
       Option.emitRemapFilePath,
@@ -574,6 +609,8 @@ extension Option {
       Option.emitSil,
       Option.emitSortedSil,
       Option.stackPromotionChecks,
+      Option.emitSwiftRangesPath,
+      Option.emitSwiftRanges,
       Option.emitSyntax,
       Option.emitTbdPathEQ,
       Option.emitTbdPath,
@@ -585,13 +622,16 @@ extension Option {
       Option.enableBatchMode,
       Option.enableBridgingPch,
       Option.enableCxxInterop,
+      Option.enableDescriptiveDiagnostics,
       Option.enableDeserializationRecovery,
       Option.enableDynamicReplacementChaining,
-      Option.enableExperimentalDependencies,
+      Option.enableExperimentalConcisePoundFile,
+      Option.enableExperimentalDifferentiableProgramming,
       Option.enableExperimentalStaticAssert,
-      Option.enableFunctionBuilderOneWayConstraints,
+      Option.enableFineGrainedDependencies,
       Option.enableImplicitDynamic,
       Option.enableInferImportAsMember,
+      Option.enableInvalidEphemeralnessAsError,
       Option.enableLargeLoadableTypes,
       Option.enableLibraryEvolution,
       Option.enableLlvmValueNames,
@@ -605,6 +645,8 @@ extension Option {
       Option.enableResilience,
       Option.enableSilOpaqueValues,
       Option.enableSourceImport,
+      Option.enableSourceRangeDependencies,
+      Option.enableSubstSilFunctionTypesForFunctionValues,
       Option.enableSwift3ObjcInference,
       Option.enableSwiftcall,
       Option.enableTargetOsChecking,
@@ -613,11 +655,11 @@ extension Option {
       Option.enableThrowWithoutTry,
       Option.enableVerifyExclusivity,
       Option.enforceExclusivityEQ,
-      Option.experimentalDependencyIncludeIntrafile,
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.externalPassPipelineFilename,
       Option.FEQ,
       Option.filelist,
+      Option.fineGrainedDependencyIncludeIntrafile,
       Option.fixitAll,
       Option.forcePublicLinkage,
       Option.forceSingleFrontendInvocation,
@@ -636,6 +678,7 @@ extension Option {
       Option.help_,
       Option.h,
       Option.IEQ,
+      Option.ignoreModuleSourceInfo,
       Option.importCfTypes,
       Option.importModule,
       Option.importObjcHeader,
@@ -711,6 +754,7 @@ extension Option {
       Option.printInstCounts,
       Option.printLlvmInlineTree,
       Option.printStats,
+      Option.printTargetInfo,
       Option.profileCoverageMapping,
       Option.profileGenerate,
       Option.profileStatsEntities,
@@ -729,6 +773,7 @@ extension Option {
       Option.RpassEQ,
       Option.runtimeCompatibilityVersion,
       Option.sanitizeCoverageEQ,
+      Option.sanitizeRecoverEQ,
       Option.sanitizeEQ,
       Option.saveOptimizationRecordPath,
       Option.saveOptimizationRecord,
@@ -784,6 +829,7 @@ extension Option {
       Option.typecheck,
       Option.typoCorrectionLimit,
       Option.updateCode,
+      Option.useClangFunctionTypes,
       Option.useJit,
       Option.useLd,
       Option.useMalloc,

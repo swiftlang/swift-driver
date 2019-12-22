@@ -20,6 +20,7 @@ public struct Job: Codable, Equatable {
     case generateDSYM = "generate-dsym"
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
+    case interpret
   }
 
   public enum ArgTemplate: Equatable {
@@ -44,6 +45,9 @@ public struct Job: Codable, Equatable {
 
   /// The outputs produced by the job.
   public var outputs: [TypedVirtualPath]
+  
+  /// Any extra environment variables which should be set while running the job.
+  public var extraEnvironment: [String: String]
 
   /// The kind of job.
   public var kind: Kind
@@ -54,7 +58,8 @@ public struct Job: Codable, Equatable {
     commandLine: [ArgTemplate],
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
-    outputs: [TypedVirtualPath]
+    outputs: [TypedVirtualPath],
+    extraEnvironment: [String: String] = [:]
   ) {
     self.kind = kind
     self.tool = tool
@@ -62,6 +67,7 @@ public struct Job: Codable, Equatable {
     self.displayInputs = displayInputs ?? []
     self.inputs = inputs
     self.outputs = outputs
+    self.extraEnvironment = extraEnvironment
   }
 }
 
@@ -76,6 +82,13 @@ extension Job: CustomStringConvertible {
         result += string.spm_shellEscaped()
       case .path(let path):
         result += path.name.spm_shellEscaped()
+      }
+    }
+
+    if !self.extraEnvironment.isEmpty {
+      result += " #"
+      for (envVar, val) in extraEnvironment {
+        result += " \(envVar)=\(val)"
       }
     }
 

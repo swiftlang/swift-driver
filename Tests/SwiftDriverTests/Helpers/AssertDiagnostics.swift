@@ -23,7 +23,7 @@ fileprivate func assertDriverDiagnostics(
   let matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
   
-  var driver = try Driver(args: args, env: env, diagnosticsHandler: matcher.emit(_:))
+  var driver = try Driver(args: args, env: env, diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:)]))
   try body(&driver, matcher)
 }
 

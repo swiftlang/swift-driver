@@ -13,32 +13,10 @@ import TSCBasic
 
 /// Toolchain for Unix-like systems.
 public final class GenericUnixToolchain: Toolchain {
-  enum Error: Swift.Error {
-    case unableToFind(tool: String)
-  }
-  
   public let env: [String: String]
-
-  private let searchPaths: [AbsolutePath]
 
   public init(env: [String: String]) {
     self.env = env
-    self.searchPaths = getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
-  }
-
-  private func lookup(exec: String) throws -> AbsolutePath {
-    if let path = lookupExecutablePath(filename: exec, searchPaths: searchPaths) {
-      return path
-    }
-
-    // If we happen to be on a macOS host, some tools might not be in our
-    // PATH, so we'll just use xcrun to find them too.
-    #if os(macOS)
-    return try DarwinToolchain(env: self.env).xcrunFind(exec: exec)
-    #else
-    throw Error.unableToFind(tool: exec)
-    #endif
-
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -52,18 +30,18 @@ public final class GenericUnixToolchain: Toolchain {
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(exec: "swift")
+      return try lookup(executable: "swift")
     case .staticLinker:
-      return try lookup(exec: "ar")
+      return try lookup(executable: "ar")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
-      return try lookup(exec: "clang")
+      return try lookup(executable: "clang")
     case .clang:
-      return try lookup(exec: "clang")
+      return try lookup(executable: "clang")
     case .swiftAutolinkExtract:
-      return try lookup(exec: "swift-autolink-extract")
+      return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
-      return try lookup(exec: "dsymutil")
+      return try lookup(executable: "dsymutil")
     }
   }
 

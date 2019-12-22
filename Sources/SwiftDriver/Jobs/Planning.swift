@@ -144,8 +144,11 @@ extension Driver {
   public mutating func planBuild() throws -> [Job] {
     // Plan the build.
     switch compilerMode {
-    case .immediate, .repl:
+    case .repl:
       fatalError("Not yet supported")
+
+    case .immediate:
+      return [try interpretJob(inputs: inputFiles)]
 
     case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()
@@ -304,7 +307,11 @@ extension Driver {
       partitionIndices.append(contentsOf: Array(repeating: partitionIdx, count: fillCount))
     }
     assert(partitionIndices.count == numInputFiles)
-    // FIXME: If info.seed is non-null, shuffle.
+
+    if let seed = info.seed {
+      var generator = PredictableRandomNumberGenerator(seed: UInt64(seed))
+      partitionIndices.shuffle(using: &generator)
+    }
 
     // Form the actual partitions.
     var assignment: [TypedVirtualPath : Int] = [:]

@@ -9,6 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 import TSCBasic
 
 public enum Tool {
@@ -26,6 +27,8 @@ public protocol Toolchain {
   init(env: [String: String])
   
   var env: [String: String] { get }
+  
+  var searchPaths: [AbsolutePath] { get }
   
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
@@ -56,9 +59,19 @@ public protocol Toolchain {
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String
+
+  func platformSpecificInterpreterEnvironmentVariables(
+    env: [String: String],
+    parsedOptions: inout ParsedOptions,
+    sdkPath: String?,
+    targetTriple: Triple) throws -> [String: String]
 }
 
 extension Toolchain {
+  public var searchPaths: [AbsolutePath] {
+    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+  }
+  
   public func swiftCompilerVersion() throws -> String {
     try Process.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version",
@@ -74,4 +87,67 @@ extension Toolchain {
     ).spm_chomp()
     return Triple(triple)
   }
+  
+  /// Returns the `executablePath`'s directory.
+  public var executableDir: AbsolutePath {
+    guard let path = Bundle.main.executablePath else {
+      fatalError("Could not find executable path.")
+    }
+    return AbsolutePath(path).parentDirectory
+  }
+  
+  /// Looks for `SWIFT_DRIVER_TOOLNAME_EXEC` in the `env` property.
+  /// - Returns: Environment variable value, if any.
+  func envVar(forExecutable toolName: String) -> String? {
+    return env[envVarName(for: toolName)]
+  }
+  
+  /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
+  private func envVarName(for toolName: String) -> String {
+    return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
+  }
+  
+  /// Use this property only for testing purposes, for example,
+  /// to enable cross-compiling tests that depends on macOS tooling such as `dsymutil`.
+  ///
+  /// Returns true if `SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK` is set to `1`.
+  private var fallbackToExecutableDefaultPath: Bool {
+    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] == "1"
+  }
+  
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
+  /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
+  /// - Parameter executable: executable to look for [i.e. `swift`].
+  func lookup(executable: String) throws -> AbsolutePath {
+    if let overrideString = envVar(forExecutable: executable) {
+      return try AbsolutePath(validating: overrideString)
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
+      return path
+    } else if let path = try? xcrunFind(executable: executable) {
+      return path
+    } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
+      return path
+    } else if fallbackToExecutableDefaultPath {
+      return AbsolutePath("/usr/bin/" + executable)
+    } else {
+      throw ToolchainError.unableToFind(tool: executable)
+    }
+  }
+  
+  private func xcrunFind(executable: String) throws -> AbsolutePath {
+    let xcrun = "xcrun"
+    guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
+      throw ToolchainError.unableToFind(tool: xcrun)
+    }
+    
+    let path = try Process.checkNonZeroExit(
+      arguments: [xcrun, "-sdk", "macosx", "--find", executable],
+      environment: env
+    ).spm_chomp()
+    return AbsolutePath(path)
+  }
+}
+
+fileprivate enum ToolchainError: Swift.Error {
+  case unableToFind(tool: String)
 }
