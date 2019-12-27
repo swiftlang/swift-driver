@@ -1221,8 +1221,14 @@ extension Driver {
       // The module path was specified.
       moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
     } else if moduleOutputKind == .topLevel {
-      // FIXME: Logic to infer from -o, primary outputs, etc.
-      moduleOutputPath = try .init(path: moduleName.appendingFileTypeExtension(.swiftModule))
+      // FIXME: Logic to infer from primary outputs, etc.
+      let moduleFilename = moduleName.appendingFileTypeExtension(.swiftModule)
+      if let outputArg = parsedOptions.getLastArgument(.o)?.asSingle, let lastSeparatorIndex = outputArg.lastIndex(of: "/") {
+        // Put the module next to the top-level output.
+        moduleOutputPath = try .init(path: outputArg[outputArg.startIndex...lastSeparatorIndex] + moduleFilename)
+      } else {
+        moduleOutputPath = try .init(path: moduleFilename)
+      }
     } else {
       moduleOutputPath = .temporary(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
     }
