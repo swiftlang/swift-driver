@@ -12,6 +12,7 @@
 import TSCBasic
 
 public typealias Diagnostic = TSCBasic.Diagnostic
+public typealias DiagnosticData = TSCBasic.DiagnosticData
 
 extension Diagnostic.Message {
   static var error_static_emit_executable_disallowed: Diagnostic.Message {

@@ -46,7 +46,8 @@ extension Driver {
       commandLine: commandLine,
       inputs:inputs,
       outputs: [],
-      extraEnvironment: extraEnvironment
+      extraEnvironment: extraEnvironment,
+      requiresInPlaceExecution: true
     )
   }
 }

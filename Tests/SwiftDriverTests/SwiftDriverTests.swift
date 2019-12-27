@@ -885,12 +885,76 @@ final class SwiftDriverTests: XCTestCase {
 
   }
 
+  func testRepl() throws {
+
+    func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
+      if case .flag(let replString) = arg {
+        return replString.hasPrefix("--repl=") &&
+          !replString.contains("-module-name")
+      }
+      return false
+    }
+
+    do {
+      var driver = try Driver(args: ["swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-repl"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+    }
+
+    do {
+      let (mode, args) = try Driver.invocationRunMode(forArgs: ["swift", "repl"])
+      XCTAssertEqual(mode, .normal(isRepl: true))
+      var driver = try Driver(args: args)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-deprecated-integrated-repl"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("swift"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssertTrue(replJob.commandLine.count >= 2)
+      XCTAssertEqual(replJob.commandLine[0], .flag("-frontend"))
+      XCTAssertEqual(replJob.commandLine[1], .flag("-repl"))
+      XCTAssert(replJob.commandLine.contains(.flag("-module-name")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-repl", "/foo/bar/Test.swift"])
+      XCTAssertThrowsError(try driver.planBuild()) { error in
+        XCTAssertEqual(error as? PlanningError, .replReceivedInput)
+      }
+    }
+  }
+
   func testImmediateMode() throws {
     do {
       var driver = try Driver(args: ["swift", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -908,6 +972,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -926,6 +991,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)

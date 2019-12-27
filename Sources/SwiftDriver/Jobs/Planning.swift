@@ -9,6 +9,18 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
+public enum PlanningError: Error, DiagnosticData {
+  case replReceivedInput
+
+  public var description: String {
+    switch self {
+    case .replReceivedInput:
+      return "REPL mode requires no input files"
+    }
+  }
+}
+
 /// Planning for builds
 extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
@@ -145,7 +157,10 @@ extension Driver {
     // Plan the build.
     switch compilerMode {
     case .repl:
-      fatalError("Not yet supported")
+      if !inputFiles.isEmpty {
+        throw PlanningError.replReceivedInput
+      }
+      return [try replJob()]
 
     case .immediate:
       return [try interpretJob(inputs: inputFiles)]

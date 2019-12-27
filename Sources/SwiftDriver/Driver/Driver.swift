@@ -575,6 +575,11 @@ extension Driver {
       return
     }
 
+    if jobs.contains(where: { $0.requiresInPlaceExecution }) {
+      assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
+      return try executeJobInPlace(jobs[0], resolver: resolver)
+    }
+
     // Create and use the tool execution delegate if one is not provided explicitly.
     let executorDelegate = executorDelegate ?? createToolExecutionDelegate()
 
@@ -605,6 +610,19 @@ extension Driver {
     }
 
     return ToolExecutionDelegate(mode: mode)
+  }
+
+  /// Execute a single job in-place.
+  private func executeJobInPlace(_ job: Job, resolver: ArgsResolver) throws {
+    let tool = try resolver.resolve(.path(job.tool))
+    let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
+    let arguments = [tool] + commandLine
+
+    for (envVar, value) in job.extraEnvironment {
+      try ProcessEnv.setVar(envVar, value: value)
+    }
+
+    return try exec(path: tool, args: arguments)
   }
 }
 
