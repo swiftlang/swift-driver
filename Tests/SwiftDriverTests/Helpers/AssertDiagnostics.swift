@@ -14,9 +14,9 @@ import XCTest
 import SwiftDriver
 import TSCBasic
 
-fileprivate func assertDriverDiagnostics(
+func assertDriverDiagnostics(
   args: [String],
-  env: [String: String],
+  env: [String: String] = ProcessEnv.vars,
   file: StaticString = #file, line: UInt = #line,
   do body: (inout Driver, DiagnosticVerifier) throws -> Void
 ) throws {

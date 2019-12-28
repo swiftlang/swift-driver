@@ -151,6 +151,9 @@ public struct Driver {
   /// Path to the optimization record.
   public let optimizationRecordPath: VirtualPath?
 
+  /// Whether 'dwarfdump' should be used to verify debug info.
+  public let shouldVerifyDebugInfo: Bool
+
   /// If the driver should force emit module in a single invocation.
   ///
   /// This will force the driver to first emit the module and then run compile jobs.
@@ -263,7 +266,8 @@ public struct Driver {
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     // Compute debug information output.
-    (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    (self.debugInfoLevel, self.debugInfoFormat, shouldVerifyDebugInfo: self.shouldVerifyDebugInfo) =
+      Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     (self.moduleOutput, self.moduleName) = try Self.computeModuleInfo(
@@ -948,10 +952,12 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat) {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat, shouldVerifyDebugInfo: Bool) {
+    var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
+
     // Determine the debug level.
     let level: DebugInfoLevel?
-    if let levelOption = parsedOptions.getLast(in: .g) {
+    if let levelOption = parsedOptions.getLast(in: .g), levelOption.option != .gnone {
       switch levelOption.option {
       case .g:
         level = .astTypes
@@ -962,14 +968,16 @@ extension Driver {
       case .gdwarfTypes:
         level = .dwarfTypes
 
-      case .gnone:
-        level = nil
-
       default:
         fatalError("Unhandle option in the '-g' group")
       }
     } else {
+      // -gnone, or no debug level specified
       level = nil
+      if shouldVerify {
+        shouldVerify = false
+        diagnosticsEngine.emit(.verify_debug_info_requires_debug_option)
+      }
     }
 
     // Determine the debug info format.
@@ -995,7 +1003,7 @@ extension Driver {
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
     }
 
-    return (level, format)
+    return (level, format, shouldVerifyDebugInfo: shouldVerify)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
@@ -1072,6 +1080,12 @@ extension Driver {
     return set
   }
 
+}
+
+extension Diagnostic.Message {
+  static var verify_debug_info_requires_debug_option: Diagnostic.Message {
+    .warning("ignoring '-verify-debug-info'; no debug info is being generated")
+  }
 }
 
 // Module computation.
