@@ -20,6 +20,7 @@ public enum Tool {
   case swiftAutolinkExtract
   case dsymutil
   case lldb
+  case dwarfdump
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers

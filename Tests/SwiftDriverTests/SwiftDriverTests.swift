@@ -1081,6 +1081,50 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testVerifyDebugInfo() throws {
+    let commonArgs = [
+      "swiftc", "foo.swift", "bar.swift",
+      "-emit-executable", "-module-name", "Test", "-verify-debug-info"
+    ]
+
+    // No dSYM generation (no -g), therefore no verification
+    try assertDriverDiagnostics(args: commonArgs) { driver, verifier in
+      verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+    }
+
+    // No dSYM generation (-gnone), therefore no verification
+    try assertDriverDiagnostics(args: commonArgs + ["-gnone"]) { driver, verifier in
+      verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+    }
+
+    do {
+      // dSYM generation and verification (-g + -verify-debug-info)
+      var driver = try Driver(args: commonArgs + ["-g"])
+      let plannedJobs = try driver.planBuild()
+
+      let verifyDebugInfoJob = plannedJobs.last!
+      let cmd = verifyDebugInfoJob.commandLine
+
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs.count, 6)
+        XCTAssertEqual(verifyDebugInfoJob.inputs.first?.file, try VirtualPath(path: "Test.dSYM"))
+        XCTAssertTrue(cmd.contains(.flag("--verify")))
+        XCTAssertTrue(cmd.contains(.flag("--debug-info")))
+        XCTAssertTrue(cmd.contains(.flag("--eh-frame")))
+        XCTAssertTrue(cmd.contains(.flag("--quiet")))
+        XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test.dSYM"))))
+      } else {
+        XCTAssertEqual(plannedJobs.count, 4)
+      }
+    }
+  }
+
   func testDOTFileEmission() throws {
     var driver = try Driver(args: [
       "swiftc", "-emit-executable", "test.swift", "-emit-module"
