@@ -156,6 +156,11 @@ public struct Driver {
   /// This will force the driver to first emit the module and then run compile jobs.
   public var forceEmitModuleInSingleInvocation: Bool = false
 
+  /// The module dependency graph, which is populated during the planning phase
+  /// only when all modules will be prebuilt and treated as explicit by the
+  /// various compilation jobs.
+  var moduleDependencyGraph: ModuleDependencyGraph? = nil
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream

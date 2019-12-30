@@ -22,6 +22,7 @@ public struct Job: Codable, Equatable {
     case emitModule = "emit-module"
     case interpret
     case repl
+    case moduleDependencyGraph = "emit-imported-modules"
   }
 
   public enum ArgTemplate: Equatable {

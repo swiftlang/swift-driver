@@ -12,9 +12,12 @@
 extension Option {
   public static let driverPrintGraphviz: Option = Option("-driver-print-graphviz", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Write the job graph as a graphviz file", group: .internalDebug)
 
+  public static let driverPrebuildModuleDependencies: Option = Option("-driver-prebuild-module-dependencies", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
+
   public static var extraOptions: [Option] {
     return [
-      Option.driverPrintGraphviz
+      Option.driverPrintGraphviz,
+      Option.driverPrebuildModuleDependencies
     ]
   }
 }
