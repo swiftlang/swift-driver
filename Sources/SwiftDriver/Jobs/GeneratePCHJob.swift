@@ -27,12 +27,7 @@ extension Driver {
     
     outputs.append(output)
     
-    try addCommonFrontendOptions(commandLine: &commandLine)
-
-    if let importedObjCHeader = importedObjCHeader {
-      commandLine.appendFlag(.importObjcHeader)
-      commandLine.appendPath(importedObjCHeader)
-    }
+    try addCommonFrontendOptions(commandLine: &commandLine, requestPrecompiledObjCHeader: false)
     
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
     
