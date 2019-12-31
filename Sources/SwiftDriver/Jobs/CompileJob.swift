@@ -105,13 +105,17 @@ extension Driver {
 
     if let importedObjCHeader = importedObjCHeader {
       commandLine.appendFlag(.importObjcHeader)
-      if !parsedOptions.contains(.pchOutputDir), let pch = bridgingPrecompiledHeader {
-        commandLine.appendPath(pch)
+      if let pch = bridgingPrecompiledHeader {
+        if parsedOptions.contains(.pchOutputDir) {
+          commandLine.appendPath(importedObjCHeader)
+          if compilerMode != .singleCompile {
+            commandLine.appendFlag(.pchDisableValidation)
+          }
+        } else {
+          commandLine.appendPath(pch)
+        }
       } else {
         commandLine.appendPath(importedObjCHeader)
-        if compilerMode != .singleCompile {
-          commandLine.appendFlag(.pchDisableValidation)
-        }
       }
     }
 
