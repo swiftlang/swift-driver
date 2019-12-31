@@ -15,7 +15,7 @@ import TSCBasic
 import TSCUtility
 
 extension Driver {
-  mutating func generatePCHJob(input: TypedVirtualPath) throws -> Job {
+  mutating func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath) throws -> Job {
     var inputs = [TypedVirtualPath]()
     var outputs = [TypedVirtualPath]()
     
@@ -24,6 +24,8 @@ extension Driver {
     inputs.append(input)
     commandLine.appendPath(input.file)
     commandLine.appendFlag(.emitPch)
+    
+    outputs.append(output)
     
     try addCommonFrontendOptions(commandLine: &commandLine)
 
@@ -34,6 +36,7 @@ extension Driver {
     
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
     
+    // TODO: Should this just be pch output with extension changed?
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       commandLine.appendFlag(.serializeDiagnosticsPath)
       let path: VirtualPath
@@ -52,20 +55,12 @@ extension Driver {
       outputs.append(.init(file: path, type: .diagnostics))
     }
     
-    // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
-    let pchFileName = input.file.basenameWithoutExt.appendingFileTypeExtension(.pch)
-    let output: VirtualPath
-    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      let outputPath = (outputDirectory as NSString).appendingPathComponent(pchFileName)
-      output = try VirtualPath(path: outputPath)
+    if parsedOptions.hasArgument(.pchOutputDir) {
       try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
     } else {
-      output = .temporary(RelativePath(pchFileName))
       commandLine.appendFlag(.o)
-      commandLine.appendPath(output)
+      commandLine.appendPath(output.file)
     }
-    outputs.append(.init(file: output, type: .pch))
-    bridgingPrecompiledHeader = output
     
     return Job(
       kind: .generatePCH,

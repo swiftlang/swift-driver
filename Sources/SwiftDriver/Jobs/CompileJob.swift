@@ -26,7 +26,7 @@ extension Driver {
   }
 
   /// Add the compiler inputs for a frontend compilation job, and return the corresponding primary set of outputs.
-  mutating func addCompileInputs(primaryInputs: [TypedVirtualPath], inputs: inout [TypedVirtualPath], commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
+  func addCompileInputs(primaryInputs: [TypedVirtualPath], inputs: inout [TypedVirtualPath], commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [TypedVirtualPath] = inputFiles.compactMap { inputFile in
       if inputFile.type.isPartOfSwiftCompilation {

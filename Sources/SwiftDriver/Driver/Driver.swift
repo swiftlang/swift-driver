@@ -9,6 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
+import Foundation
 import TSCBasic
 import TSCUtility
 
@@ -125,7 +127,7 @@ public struct Driver {
   public let importedObjCHeader: VirtualPath?
 
   /// The path to the pch for the imported Objective-C header.
-  public var bridgingPrecompiledHeader: VirtualPath?
+  public let bridgingPrecompiledHeader: VirtualPath?
 
   /// Path to the dependencies file.
   public let dependenciesFilePath: VirtualPath?
@@ -292,6 +294,7 @@ public struct Driver {
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
+    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions, importedObjCHeader: importedObjCHeader)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
@@ -1335,11 +1338,39 @@ extension Driver {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
-    return try VirtualPath(path: objcHeaderPathArg.asSingle)
+    let objcHeader = try VirtualPath(path: objcHeaderPathArg.asSingle)
+    
+    if objcHeader.extension != FileType.objcHeader.rawValue {
+      diagnosticEngine.emit(.error_objc_header_not_header)
+    }
+    
+    return objcHeader
+  }
+  
+  /// Compute the path of the generated bridging PCH for the Objective-C header.
+  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions, importedObjCHeader: VirtualPath?) throws -> VirtualPath? {
+    guard let input = importedObjCHeader,
+      parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
+        return nil
+    }
+    // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
+    let pchFileName = input.basenameWithoutExt.appendingFileTypeExtension(.pch)
+    let output: VirtualPath
+    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      let outputPath = (outputDirectory as NSString).appendingPathComponent(pchFileName)
+      output = try VirtualPath(path: outputPath)
+    } else {
+      output = .temporary(RelativePath(pchFileName))
+    }
+    return output
   }
 }
 
 extension Diagnostic.Message {
+  static var error_objc_header_not_header: Diagnostic.Message {
+    .error("ObjC header needs to be .h file")
+  }
+  
   static var error_framework_bridging_header: Diagnostic.Message {
     .error("using bridging headers with framework targets is unsupported")
   }

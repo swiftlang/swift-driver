@@ -47,9 +47,9 @@ extension Driver {
     }
     
     if let importedObjCHeader = importedObjCHeader,
-        parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true),
-        importedObjCHeader.extension == FileType.objcHeader.rawValue {
-        jobs.append(try generatePCHJob(input: .init(file: importedObjCHeader, type: .objcHeader)))
+      let bridgingPrecompiledHeader = bridgingPrecompiledHeader {
+      jobs.append(try generatePCHJob(input: .init(file: importedObjCHeader, type: .objcHeader),
+                                     output: .init(file: bridgingPrecompiledHeader, type: .pch)))
     }
 
     // If we should create emit module job, do so.
