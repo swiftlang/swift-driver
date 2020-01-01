@@ -155,14 +155,18 @@ extension Driver {
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
-    
+
     if let importedObjCHeader = importedObjCHeader {
       commandLine.appendFlag(.importObjcHeader)
       if requestPrecompiledObjCHeader, let pch = bridgingPrecompiledHeader {
         if parsedOptions.contains(.pchOutputDir) {
           commandLine.appendPath(importedObjCHeader)
-          if compilerMode != .singleCompile {
+          switch compilerMode {
+          case .standardCompile, .batchCompile, .repl, .immediate:
             commandLine.appendFlag(.pchDisableValidation)
+          case .singleCompile:
+            // Don't disable validation for single compile
+            break
           }
         } else {
           commandLine.appendPath(pch)

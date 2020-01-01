@@ -9,8 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-
-import Foundation
 import TSCBasic
 import TSCUtility
 
@@ -1338,39 +1336,28 @@ extension Driver {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
-    let objcHeader = try VirtualPath(path: objcHeaderPathArg.asSingle)
-    
-    if objcHeader.extension != FileType.objcHeader.rawValue {
-      diagnosticEngine.emit(.error_objc_header_not_header)
-    }
-    
-    return objcHeader
+    return try VirtualPath(path: objcHeaderPathArg.asSingle)
   }
-  
+
   /// Compute the path of the generated bridging PCH for the Objective-C header.
   static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions, importedObjCHeader: VirtualPath?) throws -> VirtualPath? {
     guard let input = importedObjCHeader,
       parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
         return nil
     }
+    // FIXME: Check OutputFileMap?
+
     // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
     let pchFileName = input.basenameWithoutExt.appendingFileTypeExtension(.pch)
-    let output: VirtualPath
     if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      let outputPath = (outputDirectory as NSString).appendingPathComponent(pchFileName)
-      output = try VirtualPath(path: outputPath)
+      return try VirtualPath(path: outputDirectory).appending(component: pchFileName)
     } else {
-      output = .temporary(RelativePath(pchFileName))
+      return .temporary(RelativePath(pchFileName))
     }
-    return output
   }
 }
 
 extension Diagnostic.Message {
-  static var error_objc_header_not_header: Diagnostic.Message {
-    .error("ObjC header needs to be .h file")
-  }
-  
   static var error_framework_bridging_header: Diagnostic.Message {
     .error("using bridging headers with framework targets is unsupported")
   }

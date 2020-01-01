@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 import TSCUtility
 
@@ -31,17 +30,16 @@ extension Driver {
     
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
     
+    // TODO: Move this to Driver and check OutputFileMap
     // TODO: Should this just be pch output with extension changed?
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       commandLine.appendFlag(.serializeDiagnosticsPath)
       let path: VirtualPath
       if let modulePath = parsedOptions.getLastArgument(.emitModulePath) {
-        var outputBase = (outputDirectory as NSString).appendingPathComponent(input.file.basenameWithoutExt)
-        outputBase.append("-")
         // TODO: does this hash need to be persistent?
         let code = UInt(bitPattern: modulePath.asSingle.hashValue)
-        outputBase.append(String(code, radix: 36))
-        path = try VirtualPath(path: outputBase.appendingFileTypeExtension(.diagnostics))
+        let outputName = input.file.basenameWithoutExt + "-" + String(code, radix: 36)
+        path = try VirtualPath(path: outputDirectory).appending(component: outputName.appendingFileTypeExtension(.diagnostics))
       } else {
         // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
         path = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
