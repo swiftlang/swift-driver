@@ -29,13 +29,14 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, requestPrecompiledObjCHeader: false)
     
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
-    
-    // TODO: Move this to Driver and check OutputFileMap
+
     // TODO: Should this just be pch output with extension changed?
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       commandLine.appendFlag(.serializeDiagnosticsPath)
       let path: VirtualPath
-      if let modulePath = parsedOptions.getLastArgument(.emitModulePath) {
+      if let outputPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: .diagnostics) {
+        path = outputPath
+      } else if let modulePath = parsedOptions.getLastArgument(.emitModulePath) {
         // TODO: does this hash need to be persistent?
         let code = UInt(bitPattern: modulePath.asSingle.hashValue)
         let outputName = input.file.basenameWithoutExt + "-" + String(code, radix: 36)

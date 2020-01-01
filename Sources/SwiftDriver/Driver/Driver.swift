@@ -292,7 +292,9 @@ public struct Driver {
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
-    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions, importedObjCHeader: importedObjCHeader)
+    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
+                                                                               importedObjCHeader: importedObjCHeader,
+                                                                               outputFileMap: outputFileMap)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
@@ -1340,12 +1342,17 @@ extension Driver {
   }
 
   /// Compute the path of the generated bridging PCH for the Objective-C header.
-  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions, importedObjCHeader: VirtualPath?) throws -> VirtualPath? {
+  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
+                                               importedObjCHeader: VirtualPath?,
+                                               outputFileMap: OutputFileMap?) throws -> VirtualPath? {
     guard let input = importedObjCHeader,
       parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
         return nil
     }
-    // FIXME: Check OutputFileMap?
+
+    if let outputPath = outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+      return outputPath
+    }
 
     // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
     let pchFileName = input.basenameWithoutExt.appendingFileTypeExtension(.pch)
