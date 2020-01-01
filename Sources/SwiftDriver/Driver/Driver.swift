@@ -556,7 +556,7 @@ extension Driver {
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
-      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: parsedOptions.contains(.helpHidden))
+      optionTable.printHelp(driverKind: driverKind, includeHidden: parsedOptions.contains(.helpHidden))
       return
     }
 
