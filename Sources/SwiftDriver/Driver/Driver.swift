@@ -557,8 +557,7 @@ extension Driver {
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
-      let swiftCompiler = try getSwiftCompilerPath()
-      return try exec(path: swiftCompiler.pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
+      return try exec(path: swiftCompiler.name, args: driverKind.usageArgs + parsedOptions.commandLine)
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
@@ -601,12 +600,6 @@ extension Driver {
         processSet: processSet
     )
     try jobExecutor.execute(env: env)
-  }
-
-  /// Returns the path to the Swift binary.
-  func getSwiftCompilerPath() throws -> AbsolutePath {
-    // FIXME: This is very preliminary. Need to figure out how to get the actual Swift executable path.
-    try toolchain.getToolPath(.swiftCompiler)
   }
 
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {

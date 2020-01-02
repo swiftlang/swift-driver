@@ -13,6 +13,7 @@ import TSCBasic
 
 extension DarwinToolchain {
   private func findARCLiteLibPath() throws -> AbsolutePath? {
+    // FIXME: Thread the driver's swiftCompiler path here.
     let path = try getToolPath(.swiftCompiler)
       .parentDirectory // 'swift'
       .parentDirectory // 'bin'

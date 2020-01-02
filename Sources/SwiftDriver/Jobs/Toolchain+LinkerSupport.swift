@@ -29,6 +29,7 @@ extension Toolchain {
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
     } else {
+      // FIXME: Thread the driver's swiftCompiler path here.
       resourceDirBase = try getToolPath(.swiftCompiler)
         .parentDirectory // remove /swift
         .parentDirectory // remove /bin
