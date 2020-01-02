@@ -45,6 +45,12 @@ extension Driver {
         }
       }
     }
+    
+    if let importedObjCHeader = importedObjCHeader,
+      let bridgingPrecompiledHeader = bridgingPrecompiledHeader {
+      jobs.append(try generatePCHJob(input: .init(file: importedObjCHeader, type: .objcHeader),
+                                     output: .init(file: bridgingPrecompiledHeader, type: .pch)))
+    }
 
     // If we should create emit module job, do so.
     if shouldCreateEmitModuleJob {

@@ -124,6 +124,9 @@ public struct Driver {
   /// The path to the imported Objective-C header.
   public let importedObjCHeader: VirtualPath?
 
+  /// The path to the pch for the imported Objective-C header.
+  public let bridgingPrecompiledHeader: VirtualPath?
+
   /// Path to the dependencies file.
   public let dependenciesFilePath: VirtualPath?
 
@@ -289,6 +292,9 @@ public struct Driver {
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
+    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
+                                                                               importedObjCHeader: importedObjCHeader,
+                                                                               outputFileMap: outputFileMap)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
@@ -1332,9 +1338,29 @@ extension Driver {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
-    let objcHeaderPath = try VirtualPath(path: objcHeaderPathArg.asSingle)
-    // FIXME: Precompile bridging header if requested.
-    return objcHeaderPath
+    return try VirtualPath(path: objcHeaderPathArg.asSingle)
+  }
+
+  /// Compute the path of the generated bridging PCH for the Objective-C header.
+  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
+                                               importedObjCHeader: VirtualPath?,
+                                               outputFileMap: OutputFileMap?) throws -> VirtualPath? {
+    guard let input = importedObjCHeader,
+      parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
+        return nil
+    }
+
+    if let outputPath = outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+      return outputPath
+    }
+
+    // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
+    let pchFileName = input.basenameWithoutExt.appendingFileTypeExtension(.pch)
+    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      return try VirtualPath(path: outputDirectory).appending(component: pchFileName)
+    } else {
+      return .temporary(RelativePath(pchFileName))
+    }
   }
 }
 
