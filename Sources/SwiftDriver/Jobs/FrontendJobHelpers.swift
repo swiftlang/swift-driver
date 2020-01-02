@@ -161,12 +161,9 @@ extension Driver {
       if requestPrecompiledObjCHeader, let pch = bridgingPrecompiledHeader {
         if parsedOptions.contains(.pchOutputDir) {
           commandLine.appendPath(importedObjCHeader)
-          switch compilerMode {
-          case .standardCompile, .batchCompile, .repl, .immediate:
+          try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
+          if !compilerMode.isSingleCompilation {
             commandLine.appendFlag(.pchDisableValidation)
-          case .singleCompile:
-            // Don't disable validation for single compile
-            break
           }
         } else {
           commandLine.appendPath(pch)
