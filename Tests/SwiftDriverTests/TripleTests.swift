@@ -196,17 +196,17 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.os, Triple.OS.linux)
     XCTAssertEqual(T.environment, Triple.Environment.musleabi)
 
-//    T = Triple("armv6hl-none-linux-gnueabi")
-//    XCTAssertEqual(T.arch, Triple.Arch.arm)
-//    XCTAssertEqual(T.os, Triple.OS.linux)
-//    XCTAssertEqual(T.vendor, nil)
-//    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
-//
-//    T = Triple("armv7hl-none-linux-gnueabi")
-//    XCTAssertEqual(T.arch, Triple.Arch.arm)
-//    XCTAssertEqual(T.os, Triple.OS.linux)
-//    XCTAssertEqual(T.vendor, nil)
-//    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    T = Triple("armv6hl-none-linux-gnueabi")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.os, Triple.OS.linux)
+    XCTAssertEqual(T.vendor, nil)
+    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+
+    T = Triple("armv7hl-none-linux-gnueabi")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.os, Triple.OS.linux)
+    XCTAssertEqual(T.vendor, nil)
+    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
 
     T = Triple("amdil-unknown-unknown")
     XCTAssertEqual(T.arch, Triple.Arch.amdil)
@@ -351,11 +351,11 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.os, Triple.OS.freeBSD)
     XCTAssertEqual(T.environment, nil)
 
-//    T = Triple("armv7hl-suse-linux-gnueabi")
-//    XCTAssertEqual(T.arch, Triple.Arch.arm)
-//    XCTAssertEqual(T.vendor, Triple.Vendor.suse)
-//    XCTAssertEqual(T.os, Triple.OS.linux)
-//    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    T = Triple("armv7hl-suse-linux-gnueabi")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.vendor, Triple.Vendor.suse)
+    XCTAssertEqual(T.os, Triple.OS.linux)
+    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
 
     T = Triple("i586-pc-haiku")
     XCTAssertEqual(T.arch, Triple.Arch.x86)
@@ -562,24 +562,24 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.environment, Triple.Environment.gnu)
 //    XCTAssertEqual(T.subArch, Triple.SubArch.mipsSubArch_r6)
 
-//    T = Triple("arm-oe-linux-gnueabi")
-//    XCTAssertEqual(T.arch, Triple.Arch.arm)
-//    XCTAssertEqual(T.vendor, Triple.Vendor.openEmbedded)
-//    XCTAssertEqual(T.os, Triple.OS.linux)
-//    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    T = Triple("arm-oe-linux-gnueabi")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.vendor, Triple.Vendor.openEmbedded)
+    XCTAssertEqual(T.os, Triple.OS.linux)
+    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
 
     T = Triple("aarch64-oe-linux")
     XCTAssertEqual(T.arch, Triple.Arch.aarch64)
     XCTAssertEqual(T.vendor, Triple.Vendor.openEmbedded)
     XCTAssertEqual(T.os, Triple.OS.linux)
     XCTAssertEqual(T.environment, nil)
-//    XCTAssertTrue(T.isArch64Bit())
+    XCTAssertEqual(T.arch?.is64Bit, true)
 
     T = Triple("arm64_32-apple-ios")
     XCTAssertEqual(T.arch, Triple.Arch.aarch64_32)
     XCTAssertEqual(T.os, Triple.OS.ios)
     XCTAssertEqual(T.environment, nil)
-//    XCTAssertTrue(T.isArch32Bit())
+    XCTAssertEqual(T.arch?.is32Bit, true)
 
     T = Triple("huh")
     XCTAssertEqual(T.arch, nil)
@@ -748,35 +748,39 @@ final class TripleTests: XCTestCase {
 //              "i686-pc-windows-elf")
   }
 
-//  func testNormalizeARM() {
-//    assertNormalizesEqual("armv6-netbsd-eabi",
-//              "armv6-unknown-netbsd-eabi")
-//    assertNormalizesEqual("armv7-netbsd-eabi",
-//              "armv7-unknown-netbsd-eabi")
-//    assertNormalizesEqual("armv6eb-netbsd-eabi",
-//              "armv6eb-unknown-netbsd-eabi")
-//    assertNormalizesEqual("armv7eb-netbsd-eabi",
-//              "armv7eb-unknown-netbsd-eabi")
-//    assertNormalizesEqual("armv6-netbsd-eabihf",
-//              "armv6-unknown-netbsd-eabihf")
-//    assertNormalizesEqual("armv7-netbsd-eabihf",
-//              "armv7-unknown-netbsd-eabihf")
-//    assertNormalizesEqual("armv6eb-netbsd-eabihf",
-//              "armv6eb-unknown-netbsd-eabihf")
-//    assertNormalizesEqual("armv7eb-netbsd-eabihf",
-//              "armv7eb-unknown-netbsd-eabihf")
-//
+  func testNormalizeARM() {
+    assertNormalizesEqual("armv6-netbsd-eabi",
+              "armv6-unknown-netbsd-eabi")
+    assertNormalizesEqual("armv7-netbsd-eabi",
+              "armv7-unknown-netbsd-eabi")
+    assertNormalizesEqual("armv6eb-netbsd-eabi",
+              "armv6eb-unknown-netbsd-eabi")
+    assertNormalizesEqual("armv7eb-netbsd-eabi",
+              "armv7eb-unknown-netbsd-eabi")
+    assertNormalizesEqual("armv6-netbsd-eabihf",
+              "armv6-unknown-netbsd-eabihf")
+    assertNormalizesEqual("armv7-netbsd-eabihf",
+              "armv7-unknown-netbsd-eabihf")
+    assertNormalizesEqual("armv6eb-netbsd-eabihf",
+              "armv6eb-unknown-netbsd-eabihf")
+    assertNormalizesEqual("armv7eb-netbsd-eabihf",
+              "armv7eb-unknown-netbsd-eabihf")
+
 //    assertNormalizesEqual("armv7-suse-linux-gnueabi",
 //              "armv7-suse-linux-gnueabihf")
-//
-//    var T: Triple
-//    T = Triple("armv6--netbsd-eabi")
-//    XCTAssertEqual(.arm, T.arch)
-//    T = Triple("armv6eb--netbsd-eabi")
-//    XCTAssertEqual(.armeb, T.arch)
-//    T = Triple("armv7-suse-linux-gnueabihf")
-//    XCTAssertEqual(.gnueabihf, T.environment)
-//  }
+
+    var T: Triple
+    T = Triple("armv6--netbsd-eabi")
+    XCTAssertEqual(.arm, T.arch)
+    T = Triple("armv6eb--netbsd-eabi")
+    XCTAssertEqual(.armeb, T.arch)
+    T = Triple("arm64--netbsd-eabi")
+    XCTAssertEqual(.aarch64, T.arch)
+    T = Triple("aarch64_be--netbsd-eabi")
+    XCTAssertEqual(.aarch64_be, T.arch)
+    T = Triple("armv7-suse-linux-gnueabihf")
+    XCTAssertEqual(.gnueabihf, T.environment)
+  }
 
   func testOSVersion() {
     var T: Triple
@@ -842,36 +846,36 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(V?.minor, 0)
     XCTAssertEqual(V?.micro, 0)
 
-//    T = Triple("armv7-apple-ios")
-//    XCTAssertFalse(T.os?.isMacOSX)
-//    XCTAssertTrue(T.os?.isiOS)
-////    XCTAssertFalse(T.isArch16Bit())
-////    XCTAssertTrue(T.isArch32Bit())
-////    XCTAssertFalse(T.isArch64Bit())
-//    V = T.macOSXVersion
-//    XCTAssertEqual(V?.major, 10)
-//    XCTAssertEqual(V?.minor, 4)
-//    XCTAssertEqual(V?.micro, 0)
-//    V = T.iOSVersion
-//    XCTAssertEqual(V?.major, 5)
-//    XCTAssertEqual(V?.minor, 0)
-//    XCTAssertEqual(V?.micro, 0)
-//
-//    T = Triple("armv7-apple-ios7.0")
-//    XCTAssertFalse(T.os?.isMacOSX)
-//    XCTAssertTrue(T.os?.isiOS)
-////    XCTAssertFalse(T.isArch16Bit())
-////    XCTAssertTrue(T.isArch32Bit())
-////    XCTAssertFalse(T.isArch64Bit())
-//    V = T.macOSXVersion
-//    XCTAssertEqual(V?.major, 10)
-//    XCTAssertEqual(V?.minor, 4)
-//    XCTAssertEqual(V?.micro, 0)
-//    V = T.iOSVersion
-//    XCTAssertEqual(V?.major, 7)
-//    XCTAssertEqual(V?.minor, 0)
-//    XCTAssertEqual(V?.micro, 0)
-//    XCTAssertFalse(T._isSimulatorEnvironment)
+    T = Triple("armv7-apple-ios")
+    XCTAssertFalse(T.os?.isMacOSX)
+    XCTAssertTrue(T.os?.isiOS)
+    XCTAssertEqual(T.arch?.is16Bit, false)
+    XCTAssertEqual(T.arch?.is32Bit, true)
+    XCTAssertEqual(T.arch?.is64Bit, false)
+    V = T.version(for: .macOS)
+    XCTAssertEqual(V?.major, 10)
+    XCTAssertEqual(V?.minor, 4)
+    XCTAssertEqual(V?.micro, 0)
+    V = T.version(for: .iOS(.device))
+    XCTAssertEqual(V?.major, 5)
+    XCTAssertEqual(V?.minor, 0)
+    XCTAssertEqual(V?.micro, 0)
+
+    T = Triple("armv7-apple-ios7.0")
+    XCTAssertFalse(T.os?.isMacOSX)
+    XCTAssertTrue(T.os?.isiOS)
+    XCTAssertEqual(T.arch?.is16Bit, false)
+    XCTAssertEqual(T.arch?.is32Bit, true)
+    XCTAssertEqual(T.arch?.is64Bit, false)
+    V = T.version(for: .macOS)
+    XCTAssertEqual(V?.major, 10)
+    XCTAssertEqual(V?.minor, 4)
+    XCTAssertEqual(V?.micro, 0)
+    V = T.version(for: .iOS(.device))
+    XCTAssertEqual(V?.major, 7)
+    XCTAssertEqual(V?.minor, 0)
+    XCTAssertEqual(V?.micro, 0)
+    XCTAssertFalse(T._isSimulatorEnvironment)
 
     T = Triple("x86_64-apple-ios10.3-simulator")
     XCTAssertTrue(T.os?.isiOS)
