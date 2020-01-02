@@ -50,7 +50,8 @@ extension GenericUnixToolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple
+    targetTriple: Triple,
+    swiftCompiler: AbsolutePath
   ) throws -> AbsolutePath {
     switch linkerOutputType {
     case .dynamicLibrary:
@@ -129,7 +130,7 @@ extension GenericUnixToolchain {
       let runtimePaths = try runtimeLibraryPaths(
         for: targetTriple,
         parsedOptions: &parsedOptions,
-        sdkPath: sdkPath,
+        sdkPath: sdkPath, swiftCompiler: swiftCompiler,
         isShared: hasRuntimeArgs
       )
 
@@ -147,6 +148,7 @@ extension GenericUnixToolchain {
       let sharedResourceDirPath = try computeResourceDirPath(
         for: targetTriple,
         parsedOptions: &parsedOptions,
+        swiftCompiler: swiftCompiler,
         isShared: true
       )
 
@@ -192,6 +194,7 @@ extension GenericUnixToolchain {
       var linkFilePath: AbsolutePath? = try computeResourceDirPath(
         for: targetTriple,
         parsedOptions: &parsedOptions,
+        swiftCompiler: swiftCompiler,
         isShared: false
       )
 

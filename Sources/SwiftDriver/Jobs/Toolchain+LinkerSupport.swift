@@ -17,6 +17,7 @@ extension Toolchain {
   func computeResourceDirPath(
     for triple: Triple,
     parsedOptions: inout ParsedOptions,
+    swiftCompiler: AbsolutePath,
     isShared: Bool
   ) throws -> AbsolutePath {
     // FIXME: This almost certainly won't be an absolute path in practice...
@@ -29,8 +30,7 @@ extension Toolchain {
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
     } else {
-      // FIXME: Thread the driver's swiftCompiler path here.
-      resourceDirBase = try getToolPath(.swiftCompiler)
+      resourceDirBase = swiftCompiler
         .parentDirectory // remove /swift
         .parentDirectory // remove /bin
         .appending(components: "lib", isShared ? "swift" : "swift_static")
@@ -40,10 +40,12 @@ extension Toolchain {
 
   func clangLibraryPath(
     for triple: Triple,
+    swiftCompiler: AbsolutePath,
     parsedOptions: inout ParsedOptions
   ) throws -> AbsolutePath {
     return try computeResourceDirPath(for: triple,
                                       parsedOptions: &parsedOptions,
+                                      swiftCompiler: swiftCompiler,
                                       isShared: true)
       .parentDirectory // Remove platform name.
       .appending(components: "clang", "lib",
@@ -54,9 +56,12 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
+    swiftCompiler: AbsolutePath,
     isShared: Bool
   ) throws -> [AbsolutePath] {
-    var result = [try computeResourceDirPath(for: triple, parsedOptions: &parsedOptions, isShared: isShared)]
+    var result = [try computeResourceDirPath(
+      for: triple, parsedOptions: &parsedOptions,
+      swiftCompiler: swiftCompiler, isShared: isShared)]
 
     if let path = sdkPath {
       result.append(AbsolutePath(path).appending(RelativePath("usr/lib/swift")))
@@ -69,9 +74,12 @@ extension Toolchain {
     named name: String,
     to commandLine: inout [Job.ArgTemplate],
     for triple: Triple,
-    parsedOptions: inout ParsedOptions
+    parsedOptions: inout ParsedOptions,
+    swiftCompiler: AbsolutePath
   ) throws {
-    let path = try clangLibraryPath(for: triple, parsedOptions: &parsedOptions)
+    let path = try clangLibraryPath(
+      for: triple, swiftCompiler: swiftCompiler,
+      parsedOptions: &parsedOptions)
       .appending(component: name)
     commandLine.appendPath(path)
   }
@@ -80,6 +88,7 @@ extension Toolchain {
     for sanitizer: Sanitizer,
     targetTriple: Triple,
     parsedOptions: inout ParsedOptions,
+    swiftCompiler: AbsolutePath,
     isShared: Bool
   ) throws -> Bool {
     let runtimeName = try runtimeLibraryName(
@@ -89,6 +98,7 @@ extension Toolchain {
     )
     let path = try clangLibraryPath(
       for: targetTriple,
+      swiftCompiler: swiftCompiler,
       parsedOptions: &parsedOptions
     ).appending(component: runtimeName)
     return localFileSystem.exists(path)
@@ -102,7 +112,8 @@ extension DarwinToolchain {
       to commandLine: inout [Job.ArgTemplate],
       parsedOptions: inout ParsedOptions,
       sdkPath: String?,
-      targetTriple: Triple
+      targetTriple: Triple,
+      swiftCompiler: AbsolutePath
     ) throws {
 
       // Link compatibility libraries, if we're deploying back to OSes that
@@ -162,6 +173,7 @@ extension DarwinToolchain {
         for: targetTriple,
         parsedOptions: &parsedOptions,
         sdkPath: sdkPath,
+        swiftCompiler: swiftCompiler,
         isShared: true
       )
       for path in runtimePaths {

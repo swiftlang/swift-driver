@@ -70,7 +70,7 @@ extension Driver {
 
     return Job(
       kind: .emitModule,
-      tool: swiftCompiler,
+      tool: .absolute(swiftCompiler),
       commandLine: commandLine,
       inputs: inputs,
       outputs: outputs

@@ -51,7 +51,7 @@ extension Driver {
 
     return Job(
       kind: .mergeModule,
-      tool: swiftCompiler,
+      tool: .absolute(swiftCompiler),
       commandLine: commandLine,
       inputs: inputs,
       outputs: outputs

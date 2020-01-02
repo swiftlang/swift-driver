@@ -44,6 +44,7 @@ public struct Driver {
     case invalidDriverName(String)
     case invalidInput(String)
     case subcommandPassedToDriver
+    case relativeFrontendPath(String)
   }
   
   /// The set of environment variables that are visible to the driver and
@@ -70,7 +71,7 @@ public struct Driver {
   var parsedOptions: ParsedOptions
 
   /// The Swift compiler executable.
-  public let swiftCompiler: VirtualPath
+  public let swiftCompiler: AbsolutePath
 
   /// Extra command-line arguments to pass to the Swift compiler.
   public let swiftCompilerPrefixArgs: [String]
@@ -224,13 +225,13 @@ public struct Driver {
       let frontendCommandLine = frontendPath.asSingle.split(separator: ";").map { String($0) }
       if frontendCommandLine.isEmpty {
         self.diagnosticEngine.emit(.error_no_swift_frontend)
-        self.swiftCompiler = .absolute(try self.toolchain.getToolPath(.swiftCompiler))
+        self.swiftCompiler = try self.toolchain.getToolPath(.swiftCompiler)
       } else {
-        self.swiftCompiler = try VirtualPath(path: frontendCommandLine.first!)
+        self.swiftCompiler = try AbsolutePath(validating: frontendCommandLine.first!)
       }
       self.swiftCompilerPrefixArgs = Array(frontendCommandLine.dropFirst())
     } else {
-      self.swiftCompiler = .absolute(try self.toolchain.getToolPath(.swiftCompiler))
+      self.swiftCompiler = try self.toolchain.getToolPath(.swiftCompiler)
       self.swiftCompilerPrefixArgs = []
     }
 
@@ -297,7 +298,10 @@ public struct Driver {
                                                                                importedObjCHeader: importedObjCHeader,
                                                                                outputFileMap: outputFileMap)
 
-    self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
+    self.enabledSanitizers = try Self.parseSanitizerArgValues(
+      &parsedOptions, diagnosticEngine: diagnosticEngine,
+      toolchain: toolchain, targetTriple: targetTriple,
+      swiftCompiler: swiftCompiler)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
@@ -558,7 +562,7 @@ extension Driver {
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
-      return try exec(path: swiftCompiler.name, args: driverKind.usageArgs + parsedOptions.commandLine)
+      return try exec(path: swiftCompiler.pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
@@ -1012,7 +1016,8 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     toolchain: Toolchain,
-    targetTriple: Triple
+    targetTriple: Triple,
+    swiftCompiler: AbsolutePath
   ) throws -> Set<Sanitizer> {
 
     var set = Set<Sanitizer>()
@@ -1037,6 +1042,7 @@ extension Driver {
         for: sanitizer,
         targetTriple: targetTriple,
         parsedOptions: &parsedOptions,
+        swiftCompiler: swiftCompiler,
         isShared: sanitizer != .fuzzer
       )
 
