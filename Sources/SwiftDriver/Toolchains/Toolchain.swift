@@ -77,7 +77,6 @@ extension Toolchain {
   }
   
   public func swiftCompilerVersion(_ swiftCompiler: AbsolutePath) throws -> String {
-    // FIXME: Thread the driver's swiftCompiler path here.
     try Process.checkNonZeroExit(
       args: swiftCompiler.pathString, "-version",
       environment: env
