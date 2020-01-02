@@ -124,6 +124,9 @@ public struct Driver {
   /// The path to the imported Objective-C header.
   public let importedObjCHeader: VirtualPath?
 
+  /// The path to the pch for the imported Objective-C header.
+  public let bridgingPrecompiledHeader: VirtualPath?
+
   /// Path to the dependencies file.
   public let dependenciesFilePath: VirtualPath?
 
@@ -150,6 +153,9 @@ public struct Driver {
 
   /// Path to the optimization record.
   public let optimizationRecordPath: VirtualPath?
+
+  /// Whether 'dwarfdump' should be used to verify debug info.
+  public let shouldVerifyDebugInfo: Bool
 
   /// If the driver should force emit module in a single invocation.
   ///
@@ -263,7 +269,8 @@ public struct Driver {
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     // Compute debug information output.
-    (self.debugInfoLevel, self.debugInfoFormat) = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    (self.debugInfoLevel, self.debugInfoFormat, shouldVerifyDebugInfo: self.shouldVerifyDebugInfo) =
+      Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     (self.moduleOutput, self.moduleName) = try Self.computeModuleInfo(
@@ -285,6 +292,9 @@ public struct Driver {
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
+    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
+                                                                               importedObjCHeader: importedObjCHeader,
+                                                                               outputFileMap: outputFileMap)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
 
@@ -552,7 +562,7 @@ extension Driver {
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
-      optionTable.printHelp(usage: driverKind.usage, title: driverKind.title, includeHidden: parsedOptions.contains(.helpHidden))
+      optionTable.printHelp(driverKind: driverKind, includeHidden: parsedOptions.contains(.helpHidden))
       return
     }
 
@@ -573,6 +583,11 @@ extension Driver {
       serializer.writeDOT(to: &stdoutStream)
       stdoutStream.flush()
       return
+    }
+
+    if jobs.contains(where: { $0.requiresInPlaceExecution }) {
+      assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
+      return try executeJobInPlace(jobs[0], resolver: resolver)
     }
 
     // Create and use the tool execution delegate if one is not provided explicitly.
@@ -605,6 +620,19 @@ extension Driver {
     }
 
     return ToolExecutionDelegate(mode: mode)
+  }
+
+  /// Execute a single job in-place.
+  private func executeJobInPlace(_ job: Job, resolver: ArgsResolver) throws {
+    let tool = try resolver.resolve(.path(job.tool))
+    let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
+    let arguments = [tool] + commandLine
+
+    for (envVar, value) in job.extraEnvironment {
+      try ProcessEnv.setVar(envVar, value: value)
+    }
+
+    return try exec(path: tool, args: arguments)
   }
 }
 
@@ -930,10 +958,12 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat) {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat, shouldVerifyDebugInfo: Bool) {
+    var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
+
     // Determine the debug level.
     let level: DebugInfoLevel?
-    if let levelOption = parsedOptions.getLast(in: .g) {
+    if let levelOption = parsedOptions.getLast(in: .g), levelOption.option != .gnone {
       switch levelOption.option {
       case .g:
         level = .astTypes
@@ -944,14 +974,16 @@ extension Driver {
       case .gdwarfTypes:
         level = .dwarfTypes
 
-      case .gnone:
-        level = nil
-
       default:
         fatalError("Unhandle option in the '-g' group")
       }
     } else {
+      // -gnone, or no debug level specified
       level = nil
+      if shouldVerify {
+        shouldVerify = false
+        diagnosticsEngine.emit(.verify_debug_info_requires_debug_option)
+      }
     }
 
     // Determine the debug info format.
@@ -977,7 +1009,7 @@ extension Driver {
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
     }
 
-    return (level, format)
+    return (level, format, shouldVerifyDebugInfo: shouldVerify)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
@@ -1054,6 +1086,12 @@ extension Driver {
     return set
   }
 
+}
+
+extension Diagnostic.Message {
+  static var verify_debug_info_requires_debug_option: Diagnostic.Message {
+    .warning("ignoring '-verify-debug-info'; no debug info is being generated")
+  }
 }
 
 // Module computation.
@@ -1203,8 +1241,14 @@ extension Driver {
       // The module path was specified.
       moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
     } else if moduleOutputKind == .topLevel {
-      // FIXME: Logic to infer from -o, primary outputs, etc.
-      moduleOutputPath = try .init(path: moduleName.appendingFileTypeExtension(.swiftModule))
+      // FIXME: Logic to infer from primary outputs, etc.
+      let moduleFilename = moduleName.appendingFileTypeExtension(.swiftModule)
+      if let outputArg = parsedOptions.getLastArgument(.o)?.asSingle, let lastSeparatorIndex = outputArg.lastIndex(of: "/") {
+        // Put the module next to the top-level output.
+        moduleOutputPath = try .init(path: outputArg[outputArg.startIndex...lastSeparatorIndex] + moduleFilename)
+      } else {
+        moduleOutputPath = try .init(path: moduleFilename)
+      }
     } else {
       moduleOutputPath = .temporary(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
     }
@@ -1294,9 +1338,29 @@ extension Driver {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
-    let objcHeaderPath = try VirtualPath(path: objcHeaderPathArg.asSingle)
-    // FIXME: Precompile bridging header if requested.
-    return objcHeaderPath
+    return try VirtualPath(path: objcHeaderPathArg.asSingle)
+  }
+
+  /// Compute the path of the generated bridging PCH for the Objective-C header.
+  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
+                                               importedObjCHeader: VirtualPath?,
+                                               outputFileMap: OutputFileMap?) throws -> VirtualPath? {
+    guard let input = importedObjCHeader,
+      parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
+        return nil
+    }
+
+    if let outputPath = outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+      return outputPath
+    }
+
+    // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
+    let pchFileName = input.basenameWithoutExt.appendingFileTypeExtension(.pch)
+    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      return try VirtualPath(path: outputDirectory).appending(component: pchFileName)
+    } else {
+      return .temporary(RelativePath(pchFileName))
+    }
   }
 }
 

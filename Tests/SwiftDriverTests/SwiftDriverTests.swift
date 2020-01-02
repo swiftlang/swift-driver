@@ -9,9 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+import Foundation
 import SwiftDriver
 import TSCBasic
+import XCTest
 
 final class SwiftDriverTests: XCTestCase {
     func testParsing() throws {
@@ -308,6 +309,18 @@ final class SwiftDriverTests: XCTestCase {
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
         $1.expect(.error("module name \"Swift\" is reserved for the standard library"))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "some/dir/libFoo.so", "-module-name", "MyModule") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "some/dir/MyModule.swiftmodule")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "/", "-module-name", "MyModule") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "/MyModule.swiftmodule")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "../../some/other/dir/libFoo.so", "-module-name", "MyModule") { driver in
+      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "../../some/other/dir/MyModule.swiftmodule")))
     }
   }
   
@@ -829,7 +842,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testMergeModulesOnly() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs.count, 3)
@@ -885,12 +898,76 @@ final class SwiftDriverTests: XCTestCase {
 
   }
 
+  func testRepl() throws {
+
+    func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
+      if case .flag(let replString) = arg {
+        return replString.hasPrefix("--repl=") &&
+          !replString.contains("-module-name")
+      }
+      return false
+    }
+
+    do {
+      var driver = try Driver(args: ["swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-repl"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+    }
+
+    do {
+      let (mode, args) = try Driver.invocationRunMode(forArgs: ["swift", "repl"])
+      XCTAssertEqual(mode, .normal(isRepl: true))
+      var driver = try Driver(args: args)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-deprecated-integrated-repl"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("swift"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      XCTAssertTrue(replJob.commandLine.count >= 2)
+      XCTAssertEqual(replJob.commandLine[0], .flag("-frontend"))
+      XCTAssertEqual(replJob.commandLine[1], .flag("-repl"))
+      XCTAssert(replJob.commandLine.contains(.flag("-module-name")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-repl", "/foo/bar/Test.swift"])
+      XCTAssertThrowsError(try driver.planBuild()) { error in
+        XCTAssertEqual(error as? PlanningError, .replReceivedInput)
+      }
+    }
+  }
+
   func testImmediateMode() throws {
     do {
       var driver = try Driver(args: ["swift", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -908,6 +985,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -926,6 +1004,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
+      XCTAssertTrue(job.requiresInPlaceExecution)
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
@@ -1003,6 +1082,50 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testVerifyDebugInfo() throws {
+    let commonArgs = [
+      "swiftc", "foo.swift", "bar.swift",
+      "-emit-executable", "-module-name", "Test", "-verify-debug-info"
+    ]
+
+    // No dSYM generation (no -g), therefore no verification
+    try assertDriverDiagnostics(args: commonArgs) { driver, verifier in
+      verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+    }
+
+    // No dSYM generation (-gnone), therefore no verification
+    try assertDriverDiagnostics(args: commonArgs + ["-gnone"]) { driver, verifier in
+      verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+    }
+
+    do {
+      // dSYM generation and verification (-g + -verify-debug-info)
+      var driver = try Driver(args: commonArgs + ["-g"])
+      let plannedJobs = try driver.planBuild()
+
+      let verifyDebugInfoJob = plannedJobs.last!
+      let cmd = verifyDebugInfoJob.commandLine
+
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs.count, 6)
+        XCTAssertEqual(verifyDebugInfoJob.inputs.first?.file, try VirtualPath(path: "Test.dSYM"))
+        XCTAssertTrue(cmd.contains(.flag("--verify")))
+        XCTAssertTrue(cmd.contains(.flag("--debug-info")))
+        XCTAssertTrue(cmd.contains(.flag("--eh-frame")))
+        XCTAssertTrue(cmd.contains(.flag("--quiet")))
+        XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test.dSYM"))))
+      } else {
+        XCTAssertEqual(plannedJobs.count, 4)
+      }
+    }
+  }
+
   func testDOTFileEmission() throws {
     var driver = try Driver(args: [
       "swiftc", "-emit-executable", "test.swift", "-emit-module"
@@ -1076,6 +1199,234 @@ final class SwiftDriverTests: XCTestCase {
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     let driver2 = try Driver(args: ["swift", "main.swift"], env: env)
     XCTAssertNoThrow(try driver2.toolchain.getToolPath(.dsymutil))
+  }
+  
+  func testPCHGeneration() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-o")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-index-store-path", "idx", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-index-store-path")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "idx"))))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-o")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "-embed-bitcode", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      // FIXME: Verify llvm-bc as output
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "-whole-module-optimization", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "-serialize-diagnostics", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, .temporary(RelativePath("TestInputHeader.dia")))
+      XCTAssertEqual(plannedJobs[0].outputs[1].type, .diagnostics)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.dia")))))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+      
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "-serialize-diagnostics", "foo.swift", "-emit-module", "-emit-module-path", "/module-path-dir"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssertNotNil(plannedJobs[0].outputs[1].file.name.range(of: #"/pch/TestInputHeader-.*.dia"#, options: .regularExpression))
+      XCTAssertEqual(plannedJobs[0].outputs[1].type, .diagnostics)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
+      XCTAssert(plannedJobs[0].commandLine.contains {
+        guard case .path(let path) = $0 else { return false }
+        return path.name.range(of: #"/pch/TestInputHeader-.*.dia"#, options: .regularExpression) != nil
+      })
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+      
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+      
+      // FIXME: validate that merge module is correct job and that it has correct inputs and flags
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "-whole-module-optimization", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, try VirtualPath(path: "/pch/TestInputHeader.pch"))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+      XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+    }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-O", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("TestInputHeader.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("TestInputHeader.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-O")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-o")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+    }
   }
 }
 

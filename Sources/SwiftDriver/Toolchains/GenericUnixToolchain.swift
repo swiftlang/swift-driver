@@ -42,6 +42,10 @@ public final class GenericUnixToolchain: Toolchain {
       return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
       return try lookup(executable: "dsymutil")
+    case .lldb:
+      return try lookup(executable: "lldb")
+    case .dwarfdump:
+      return try lookup(executable: "dwarfdump")
     }
   }
 

@@ -44,6 +44,10 @@ public final class DarwinToolchain: Toolchain {
       return AbsolutePath(result)
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
+    case .lldb:
+      return try lookup(executable: "lldb")
+    case .dwarfdump:
+      return try lookup(executable: "dwarfdump")
     }
   }
 

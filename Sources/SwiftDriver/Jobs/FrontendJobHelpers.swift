@@ -22,7 +22,8 @@ fileprivate func shouldColorDiagnostics() -> Bool {
 
 extension Driver {
   /// Add frontend options that are common to different frontend invocations.
-  mutating func addCommonFrontendOptions(commandLine: inout [Job.ArgTemplate]) throws {
+  mutating func addCommonFrontendOptions(commandLine: inout [Job.ArgTemplate],
+                                         requestPrecompiledObjCHeader: Bool = true) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
     switch compilerMode {
@@ -157,10 +158,28 @@ extension Driver {
 
     if let importedObjCHeader = importedObjCHeader {
       commandLine.appendFlag(.importObjcHeader)
-      commandLine.appendPath(importedObjCHeader)
+      if requestPrecompiledObjCHeader, let pch = bridgingPrecompiledHeader {
+        if parsedOptions.contains(.pchOutputDir) {
+          commandLine.appendPath(importedObjCHeader)
+          switch compilerMode {
+          case .standardCompile, .batchCompile, .repl, .immediate:
+            commandLine.appendFlag(.pchDisableValidation)
+          case .singleCompile:
+            // Don't disable validation for single compile
+            break
+          }
+        } else {
+          commandLine.appendPath(pch)
+        }
+      } else {
+        commandLine.appendPath(importedObjCHeader)
+      }
     }
 
-    commandLine.appendFlags("-module-name", moduleName)
+    // Repl Jobs may include -module-name depending on the selected REPL (LLDB or integrated).
+    if compilerMode != .repl {
+      commandLine.appendFlags("-module-name", moduleName)
+    }
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {

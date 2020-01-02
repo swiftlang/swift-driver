@@ -91,6 +91,24 @@ public enum VirtualPath: Hashable {
       return ""
     }
   }
+
+  /// Returns the virtual path with an additional literal component appended.
+  ///
+  /// This should not be used with `.standardInput` or `.standardOutput`.
+  public func appending(component: String) -> VirtualPath {
+    switch self {
+    case .absolute(let path):
+      return .absolute(path.appending(component: component))
+    case .relative(let path):
+      // FIXME: TSCBasic should probably have RelativePath.appending(component:)
+      return .relative(RelativePath(path.pathString + "/" + component))
+    case .temporary(let path):
+      return .temporary(RelativePath(path.pathString + "/" + component))
+    case .standardInput, .standardOutput:
+      assertionFailure("Can't append path component to standard in/out")
+      return self
+    }
+  }
 }
 
 extension VirtualPath: Codable {

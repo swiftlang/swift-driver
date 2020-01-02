@@ -20,7 +20,10 @@ public struct Job: Codable, Equatable {
     case generateDSYM = "generate-dsym"
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
+    case generatePCH = "generate-pch"
     case interpret
+    case repl
+    case verifyDebugInfo = "verify-debug-info"
   }
 
   public enum ArgTemplate: Equatable {
@@ -49,6 +52,9 @@ public struct Job: Codable, Equatable {
   /// Any extra environment variables which should be set while running the job.
   public var extraEnvironment: [String: String]
 
+  /// Whether or not the job must be executed in place, replacing the current driver process.
+  public var requiresInPlaceExecution: Bool
+
   /// The kind of job.
   public var kind: Kind
 
@@ -59,7 +65,8 @@ public struct Job: Codable, Equatable {
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
-    extraEnvironment: [String: String] = [:]
+    extraEnvironment: [String: String] = [:],
+    requiresInPlaceExecution: Bool = false
   ) {
     self.kind = kind
     self.tool = tool
@@ -68,22 +75,13 @@ public struct Job: Codable, Equatable {
     self.inputs = inputs
     self.outputs = outputs
     self.extraEnvironment = extraEnvironment
+    self.requiresInPlaceExecution = requiresInPlaceExecution
   }
 }
 
 extension Job: CustomStringConvertible {
   public var description: String {
-    var result: String = tool.name
-
-    for arg in commandLine {
-      result += " "
-      switch arg {
-      case .flag(let string):
-        result += string.spm_shellEscaped()
-      case .path(let path):
-        result += path.name.spm_shellEscaped()
-      }
-    }
+    var result: String = "\(tool.name) \(commandLine.joinedArguments)"
 
     if !self.extraEnvironment.isEmpty {
       result += " #"
