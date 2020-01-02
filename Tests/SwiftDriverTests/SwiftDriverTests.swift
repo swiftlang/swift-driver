@@ -1202,7 +1202,7 @@ final class SwiftDriverTests: XCTestCase {
     let driver2 = try Driver(args: ["swift", "main.swift"], env: env)
     XCTAssertNoThrow(try driver2.toolchain.getToolPath(.dsymutil))
   }
-  
+
   func testPCHGeneration() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
@@ -1436,6 +1436,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+    }
+  }
+
+  func testPCMGeneration() throws {
+     do {
+       var driver = try Driver(args: ["swiftc", "-emit-pcm", "module.modulemap", "-module-name", "Test"])
+       let plannedJobs = try driver.planBuild()
+       XCTAssertEqual(plannedJobs.count, 1)
+
+       XCTAssertEqual(plannedJobs[0].kind, .generatePCM)
+       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("module.modulemap")))
+       XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+       XCTAssertEqual(plannedJobs[0].outputs[0].file, .relative(RelativePath("Test.pcm")))
     }
   }
 }

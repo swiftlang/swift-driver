@@ -22,7 +22,10 @@ extension Driver {
 
     commandLine.appendFlag("-frontend")
     
-    try addCommonFrontendOptions(commandLine: &commandLine, requestPrecompiledObjCHeader: false)
+    try addCommonFrontendOptions(
+      commandLine: &commandLine, bridgingHeaderHandling: .parsed)
+    
+    try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
     // TODO: Should this just be pch output with extension changed?
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {

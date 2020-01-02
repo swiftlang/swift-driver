@@ -701,6 +701,9 @@ extension Driver {
       case .repl, .deprecatedIntegratedRepl, .lldbRepl:
         return .repl
 
+      case .emitPcm:
+        return .compilePcm
+
       default:
         // Output flag doesn't determine the compiler mode.
         break
@@ -859,6 +862,9 @@ extension Driver {
 
       case .emitPch:
         compilerOutputType = .pch
+
+      case .emitPcm:
+        compilerOutputType = .pcm
 
       case .emitImportedModules:
         compilerOutputType = .importedModules
