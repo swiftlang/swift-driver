@@ -74,10 +74,10 @@ extension Toolchain {
     getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
   }
   
-  public func swiftCompilerVersion() throws -> String {
+  public func swiftCompilerVersion(_ swiftCompiler: VirtualPath) throws -> String {
     // FIXME: Thread the driver's swiftCompiler path here.
     try Process.checkNonZeroExit(
-      args: getToolPath(.swiftCompiler).pathString, "-version",
+      args: swiftCompiler.name, "-version",
       environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
   }

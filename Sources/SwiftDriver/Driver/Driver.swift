@@ -286,7 +286,8 @@ public struct Driver {
       moduleOutput: self.moduleOutput,
       inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine,
-      actualSwiftVersion: try? toolchain.swiftCompilerVersion()
+      actualSwiftVersion:
+        try? toolchain.swiftCompilerVersion(self.swiftCompiler)
     )
 
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
