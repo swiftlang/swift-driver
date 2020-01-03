@@ -1168,8 +1168,12 @@ final class SwiftDriverTests: XCTestCase {
   }
   
   func testToolchainUtilities() throws {
-    let darwinSwiftVersion = try DarwinToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
-    let unixSwiftVersion = try GenericUnixToolchain(env: ProcessEnv.vars).swiftCompilerVersion()
+    let darwinToolchain = DarwinToolchain(env: ProcessEnv.vars)
+    let darwinSwiftVersion = try darwinToolchain.swiftCompilerVersion(
+      darwinToolchain.getToolPath(.swiftCompiler))
+    let unixToolchain =  GenericUnixToolchain(env: ProcessEnv.vars)
+    let unixSwiftVersion = try unixToolchain.swiftCompilerVersion(
+      unixToolchain.getToolPath(.swiftCompiler))
     assertString(darwinSwiftVersion, contains: "Swift version ")
     assertString(unixSwiftVersion, contains: "Swift version ")
   }

@@ -154,7 +154,7 @@ extension Driver {
 
     return Job(
       kind: .compile,
-      tool: swiftCompiler,
+      tool: .absolute(swiftCompiler),
       commandLine: commandLine,
       displayInputs: primaryInputs,
       inputs: inputs,

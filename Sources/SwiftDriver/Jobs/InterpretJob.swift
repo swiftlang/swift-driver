@@ -38,11 +38,11 @@ extension Driver {
 
     let extraEnvironment = try toolchain.platformSpecificInterpreterEnvironmentVariables(
       env: self.env, parsedOptions: &parsedOptions, sdkPath: self.sdkPath,
-      targetTriple: self.targetTriple)
+      targetTriple: self.targetTriple, swiftCompiler: self.swiftCompiler)
 
     return Job(
       kind: .interpret,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: .absolute(swiftCompiler),
       commandLine: commandLine,
       inputs:inputs,
       outputs: [],

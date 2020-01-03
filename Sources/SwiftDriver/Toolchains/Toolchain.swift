@@ -53,7 +53,8 @@ public protocol Toolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple
+    targetTriple: Triple,
+    swiftCompiler: AbsolutePath
   ) throws -> AbsolutePath
 
   func runtimeLibraryName(
@@ -66,7 +67,8 @@ public protocol Toolchain {
     env: [String: String],
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
-    targetTriple: Triple) throws -> [String: String]
+    targetTriple: Triple,
+    swiftCompiler: AbsolutePath) throws -> [String: String]
 }
 
 extension Toolchain {
@@ -74,9 +76,9 @@ extension Toolchain {
     getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
   }
   
-  public func swiftCompilerVersion() throws -> String {
+  public func swiftCompilerVersion(_ swiftCompiler: AbsolutePath) throws -> String {
     try Process.checkNonZeroExit(
-      args: getToolPath(.swiftCompiler).pathString, "-version",
+      args: swiftCompiler.pathString, "-version",
       environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
