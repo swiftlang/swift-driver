@@ -570,6 +570,15 @@ extension Driver {
       return
     }
 
+    if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
+      // Follow gcc/clang behavior and use stdout for --version and stderr for -v.
+      try printVersion(outputStream: &stdoutStream)
+      return
+    }
+    if parsedOptions.hasArgument(.v) {
+      try printVersion(outputStream: &stderrStream)
+    }
+
     // Plan the build.
     let jobs = try planBuild()
     if jobs.isEmpty { return }
@@ -631,6 +640,11 @@ extension Driver {
     }
 
     return try exec(path: tool, args: arguments)
+  }
+
+  private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
+    outputStream.write(try Process.checkNonZeroExit(args: swiftCompiler.pathString, "--version"))
+    outputStream.flush()
   }
 }
 
