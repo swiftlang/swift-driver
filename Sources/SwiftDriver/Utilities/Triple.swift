@@ -574,10 +574,12 @@ extension Triple {
     }
 
     private static func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch? {
+
+      let isLittleEndianHost = 1.littleEndian == 1
+
       switch archName {
       case "bpf":
-        // FIXME: need to determine host endianness
-        return nil
+        return isLittleEndianHost ? .bpfel : .bpfeb
       case "bpf_be", "bpfeb":
         return .bpfeb
       case "bpf_le", "bpfel":
