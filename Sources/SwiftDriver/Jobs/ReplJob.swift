@@ -41,7 +41,7 @@ extension Driver {
       commandLine.appendFlags("-module-name", moduleName)
       return Job(
         kind: .repl,
-        tool: .absolute(swiftCompiler),
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: commandLine,
         inputs: [],
         outputs: [],

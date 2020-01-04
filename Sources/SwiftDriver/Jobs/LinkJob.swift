@@ -48,8 +48,7 @@ extension Driver {
       outputFile: outputFile,
       sdkPath: sdkPath,
       sanitizers: enabledSanitizers,
-      targetTriple: targetTriple,
-      swiftCompiler: swiftCompiler
+      targetTriple: targetTriple
     )
 
     return Job(

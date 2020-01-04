@@ -34,14 +34,13 @@ extension DarwinToolchain {
     env: [String : String],
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
-    targetTriple: Triple,
-    swiftCompiler: AbsolutePath) throws -> [String: String] {
+    targetTriple: Triple) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
       for: targetTriple,
       parsedOptions: &parsedOptions,
-      sdkPath: sdkPath, swiftCompiler: swiftCompiler,
+      sdkPath: sdkPath,
       isShared: true
     ).map { $0.pathString }
 
@@ -63,15 +62,13 @@ extension GenericUnixToolchain {
     env: [String : String],
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
-    targetTriple: Triple,
-    swiftCompiler: AbsolutePath) throws -> [String: String] {
+    targetTriple: Triple) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
       for: targetTriple,
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
-      swiftCompiler: swiftCompiler,
       isShared: true
     ).map { $0.pathString }
 

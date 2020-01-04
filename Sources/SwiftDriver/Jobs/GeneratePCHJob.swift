@@ -60,7 +60,7 @@ extension Driver {
     
     return Job(
       kind: .generatePCH,
-      tool: .absolute(swiftCompiler),
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
