@@ -21,13 +21,29 @@ fileprivate func shouldColorDiagnostics() -> Bool {
 }
 
 extension Driver {
+  /// How the bridging header should be handled.
+  enum BridgingHeaderHandling {
+    /// Ignore the bridging header entirely.
+    case ignored
+
+    /// Parse the bridging header, even if other jobs will use a precompiled
+    /// bridging header.
+    ///
+    /// This is typically used only when precompiling the bridging header.
+    case parsed
+
+    /// Use the precompiled bridging header.
+    case precompiled
+  }
   /// Add frontend options that are common to different frontend invocations.
-  mutating func addCommonFrontendOptions(commandLine: inout [Job.ArgTemplate],
-                                         requestPrecompiledObjCHeader: Bool = true) throws {
+  mutating func addCommonFrontendOptions(
+    commandLine: inout [Job.ArgTemplate],
+    bridgingHeaderHandling: BridgingHeaderHandling = .precompiled
+  ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
     switch compilerMode {
-    case .standardCompile, .singleCompile, .batchCompile:
+    case .standardCompile, .singleCompile, .batchCompile, .compilePCM:
       commandLine.appendFlag(.target)
       commandLine.appendFlag(targetTriple.triple)
 
@@ -156,9 +172,11 @@ extension Driver {
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
 
-    if let importedObjCHeader = importedObjCHeader {
+    if let importedObjCHeader = importedObjCHeader,
+        bridgingHeaderHandling != .ignored {
       commandLine.appendFlag(.importObjcHeader)
-      if requestPrecompiledObjCHeader, let pch = bridgingPrecompiledHeader {
+      if bridgingHeaderHandling == .precompiled,
+          let pch = bridgingPrecompiledHeader {
         if parsedOptions.contains(.pchOutputDir) {
           commandLine.appendPath(importedObjCHeader)
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)

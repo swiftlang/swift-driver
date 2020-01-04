@@ -12,11 +12,15 @@
 
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput
+  case emitPCMWrongInputFiles
 
   public var description: String {
     switch self {
     case .replReceivedInput:
       return "REPL mode requires no input files"
+
+    case .emitPCMWrongInputFiles:
+      return "Clang module emission requires exactly one input file (the module map)"
     }
   }
 }
@@ -45,7 +49,8 @@ extension Driver {
         }
       }
     }
-    
+
+    // Precompile the bridging header if needed.
     if let importedObjCHeader = importedObjCHeader,
       let bridgingPrecompiledHeader = bridgingPrecompiledHeader {
       jobs.append(try generatePCHJob(input: .init(file: importedObjCHeader, type: .objcHeader),
@@ -62,8 +67,8 @@ extension Driver {
     case .batchCompile(let batchInfo):
       partitions = batchPartitions(batchInfo)
 
-    case .immediate, .repl:
-      fatalError("immediate and REPL modes are currently unsupported")
+    case .immediate, .repl, .compilePCM:
+      fatalError("compiler mode \(compilerMode) is handled elsewhere")
 
     case .singleCompile:
       // Create a single compile job for all of the files, none of which
@@ -157,8 +162,6 @@ extension Driver {
       }
     }
 
-    // FIXME: Lots of follow-up actions for merging modules, etc.
-
     return jobs
   }
 
@@ -177,6 +180,12 @@ extension Driver {
 
     case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()
+
+    case .compilePCM:
+      if inputFiles.count != 1 {
+        throw PlanningError.emitPCMWrongInputFiles
+      }
+      return [try generatePCMJob(input: inputFiles.first!)]
     }
   }
 }
