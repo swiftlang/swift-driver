@@ -300,7 +300,7 @@ extension Driver {
     // yields 26/25 = 1 batch, but a single batch of 26 exceeds the
     // limit. The calculation must round up, which can be calculated
     // using: `(x + y - 1) / y`
-    let divideUp = { num, div in
+    let divideRoundingUp = { num, div in
         return (num + div - 1) / div
     }
 
@@ -309,7 +309,7 @@ extension Driver {
     let sizeLimit = info.sizeLimit ?? defaultSizeLimit
 
     let numTasks = numParallelJobs ?? 1
-    return max(numTasks, divideUp(numInputFiles, sizeLimit))
+    return max(numTasks, divideRoundingUp(numInputFiles, sizeLimit))
   }
 
   /// Describes the partitions used when batching.
