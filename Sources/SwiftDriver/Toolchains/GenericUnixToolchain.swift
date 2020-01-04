@@ -15,6 +15,9 @@ import TSCBasic
 public final class GenericUnixToolchain: Toolchain {
   public let env: [String: String]
 
+  /// Doubles as path cache and point for overriding normal lookup
+  private var toolPaths = [Tool: AbsolutePath]()
+
   public init(env: [String: String]) {
     self.env = env
   }
@@ -27,7 +30,19 @@ public final class GenericUnixToolchain: Toolchain {
     }
   }
 
+  /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
+    // Check the cache
+    if let toolPath = toolPaths[tool] {
+      return toolPath
+    }
+    let path = try lookupToolPath(tool)
+    // Cache the path
+    toolPaths[tool] = path
+    return path
+  }
+
+  private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift")
@@ -47,6 +62,10 @@ public final class GenericUnixToolchain: Toolchain {
     case .dwarfdump:
       return try lookup(executable: "dwarfdump")
     }
+  }
+
+  public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
+    toolPaths[tool] = path
   }
 
   public func defaultSDKPath() throws -> AbsolutePath? {

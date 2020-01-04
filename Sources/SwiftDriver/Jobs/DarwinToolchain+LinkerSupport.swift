@@ -12,9 +12,8 @@
 import TSCBasic
 
 extension DarwinToolchain {
-  private func findARCLiteLibPath(swiftCompiler: AbsolutePath) throws
-      -> AbsolutePath? {
-    let path = swiftCompiler
+  private func findARCLiteLibPath() throws -> AbsolutePath? {
+    let path = try getToolPath(.swiftCompiler)
       .parentDirectory // 'swift'
       .parentDirectory // 'bin'
       .appending(components: "lib", "arc")
@@ -36,7 +35,6 @@ extension DarwinToolchain {
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
     targetTriple: Triple,
-    swiftCompiler: AbsolutePath,
     darwinLibName: String
   ) throws {
     // Adding the rpaths might negatively interact when other rpaths are involved,
@@ -55,7 +53,7 @@ extension DarwinToolchain {
 
 
     let clangPath = try clangLibraryPath(
-      for: targetTriple, swiftCompiler: swiftCompiler,
+      for: targetTriple,
       parsedOptions: &parsedOptions)
     commandLine.appendFlag("-rpath")
     commandLine.appendPath(clangPath)
@@ -65,7 +63,6 @@ extension DarwinToolchain {
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
     targetTriple: Triple,
-    swiftCompiler: AbsolutePath,
     sanitizer: Sanitizer,
     isShared: Bool
   ) throws {
@@ -84,8 +81,7 @@ extension DarwinToolchain {
       named: sanitizerName,
       to: &commandLine,
       for: targetTriple,
-      parsedOptions: &parsedOptions,
-      swiftCompiler: swiftCompiler
+      parsedOptions: &parsedOptions
     )
 
     if isShared {
@@ -93,7 +89,6 @@ extension DarwinToolchain {
         to: &commandLine,
         parsedOptions: &parsedOptions,
         targetTriple: targetTriple,
-        swiftCompiler: swiftCompiler,
         darwinLibName: sanitizerName
       )
     }
@@ -102,12 +97,10 @@ extension DarwinToolchain {
   private func addProfileGenerationArgs(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    targetTriple: Triple,
-    swiftCompiler: AbsolutePath
+    targetTriple: Triple
   ) throws {
     guard parsedOptions.hasArgument(.profileGenerate) else { return }
     let clangPath = try clangLibraryPath(for: targetTriple,
-                                         swiftCompiler: swiftCompiler,
                                          parsedOptions: &parsedOptions)
 
     let runtime = targetTriple.darwinPlatform!.libraryNameSuffix
@@ -150,7 +143,6 @@ extension DarwinToolchain {
   private func addArgsToLinkARCLite(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    swiftCompiler: AbsolutePath,
     targetTriple: Triple
   ) throws {
     guard parsedOptions.hasFlag(
@@ -161,8 +153,7 @@ extension DarwinToolchain {
       return
     }
 
-    guard let arcLiteLibPath = try findARCLiteLibPath(
-        swiftCompiler: swiftCompiler),
+    guard let arcLiteLibPath = try findARCLiteLibPath(),
       let platformName = targetTriple.platformName() else {
         return
     }
@@ -187,8 +178,7 @@ extension DarwinToolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple,
-    swiftCompiler: AbsolutePath
+    targetTriple: Triple
   ) throws -> AbsolutePath {
 
     // FIXME: If we used Clang as a linker instead of going straight to ld,
@@ -204,7 +194,7 @@ extension DarwinToolchain {
         targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
     let compilerRTPath =
       try clangLibraryPath(
-        for: targetTriple, swiftCompiler: swiftCompiler,
+        for: targetTriple,
         parsedOptions: &parsedOptions)
       .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
     if localFileSystem.exists(compilerRTPath) {
@@ -237,7 +227,6 @@ extension DarwinToolchain {
           to: &commandLine,
           parsedOptions: &parsedOptions,
           targetTriple: targetTriple,
-          swiftCompiler: swiftCompiler,
           sanitizer: sanitizer,
           isShared: sanitizer != .fuzzer
         )
@@ -250,8 +239,7 @@ extension DarwinToolchain {
         to: &commandLine,
         parsedOptions: &parsedOptions,
         sdkPath: sdkPath,
-        targetTriple: targetTriple,
-        swiftCompiler: swiftCompiler
+        targetTriple: targetTriple
       )
 
       // These custom arguments should be right before the object file at the
@@ -270,7 +258,6 @@ extension DarwinToolchain {
     try addArgsToLinkARCLite(
       to: &commandLine,
       parsedOptions: &parsedOptions,
-      swiftCompiler: swiftCompiler,
       targetTriple: targetTriple
     )
     addDeploymentTargetArgs(
@@ -280,8 +267,7 @@ extension DarwinToolchain {
     try addProfileGenerationArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions,
-      targetTriple: targetTriple,
-      swiftCompiler: swiftCompiler
+      targetTriple: targetTriple
     )
 
     commandLine.appendFlags(

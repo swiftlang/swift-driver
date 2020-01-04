@@ -16,6 +16,9 @@ import TSCBasic
 /// FIXME: This class is not thread-safe.
 public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
+
+  /// Doubles as path cache and point for overriding normal lookup
+  private var toolPaths = [Tool: AbsolutePath]()
   
   public init(env: [String: String]) {
     self.env = env
@@ -23,6 +26,17 @@ public final class DarwinToolchain: Toolchain {
   
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
+    // Check the cache
+    if let toolPath = toolPaths[tool] {
+      return toolPath
+    }
+    let path = try lookupToolPath(tool)
+    // Cache the path
+    toolPaths[tool] = path
+    return path
+  }
+
+  private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift")
@@ -51,9 +65,8 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  /// Swift compiler path.
-  public lazy var swiftCompiler: Result<AbsolutePath, Swift.Error> = Result {
-    try lookup(executable: "swift")
+  public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
+    toolPaths[tool] = path
   }
 
   /// SDK path.
@@ -72,7 +85,9 @@ public final class DarwinToolchain: Toolchain {
 
   public var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
     // FIXME: This will need to take -resource-dir and target triple into account.
-    return swiftCompiler.map{ $0.appending(RelativePath("../../lib/swift/macosx")) }
+    return Result {
+      try getToolPath(.swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
+    }
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {

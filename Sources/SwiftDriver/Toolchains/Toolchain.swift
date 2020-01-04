@@ -35,6 +35,9 @@ public protocol Toolchain {
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
+  /// Set an absolute path to be used for a particular tool.
+  func overrideToolPath(_ tool: Tool, path: AbsolutePath)
+
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
 
@@ -53,8 +56,7 @@ public protocol Toolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple,
-    swiftCompiler: AbsolutePath
+    targetTriple: Triple
   ) throws -> AbsolutePath
 
   func runtimeLibraryName(
@@ -67,8 +69,7 @@ public protocol Toolchain {
     env: [String: String],
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
-    targetTriple: Triple,
-    swiftCompiler: AbsolutePath) throws -> [String: String]
+    targetTriple: Triple) throws -> [String: String]
 }
 
 extension Toolchain {
@@ -76,9 +77,9 @@ extension Toolchain {
     getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
   }
   
-  public func swiftCompilerVersion(_ swiftCompiler: AbsolutePath) throws -> String {
+  public func swiftCompilerVersion() throws -> String {
     try Process.checkNonZeroExit(
-      args: swiftCompiler.pathString, "-version",
+      args: getToolPath(.swiftCompiler).pathString, "-version",
       environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
