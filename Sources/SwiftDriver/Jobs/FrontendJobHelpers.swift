@@ -43,7 +43,7 @@ extension Driver {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
     switch compilerMode {
-    case .standardCompile, .singleCompile, .batchCompile, .compilePcm:
+    case .standardCompile, .singleCompile, .batchCompile, .compilePCM:
       commandLine.appendFlag(.target)
       commandLine.appendFlag(targetTriple.triple)
 

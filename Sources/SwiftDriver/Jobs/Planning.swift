@@ -67,7 +67,7 @@ extension Driver {
     case .batchCompile(let batchInfo):
       partitions = batchPartitions(batchInfo)
 
-    case .immediate, .repl, .compilePcm:
+    case .immediate, .repl, .compilePCM:
       fatalError("compiler mode \(compilerMode) is handled elsewhere")
 
     case .singleCompile:
@@ -181,7 +181,7 @@ extension Driver {
     case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()
 
-    case .compilePcm:
+    case .compilePCM:
       if inputFiles.count != 1 {
         throw PlanningError.emitPCMWrongInputFiles
       }

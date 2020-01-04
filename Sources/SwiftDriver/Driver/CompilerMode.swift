@@ -28,7 +28,7 @@ public enum CompilerMode: Equatable {
   case immediate
 
   /// Compile a Clang module (.pcm).
-  case compilePcm
+  case compilePCM
 }
 
 /// Information about batch mode, which is used to determine how to form
@@ -43,7 +43,7 @@ extension CompilerMode {
   /// Whether this compilation mode uses -primary-file to specify its inputs.
   public var usesPrimaryFileInputs: Bool {
     switch self {
-    case .immediate, .repl, .singleCompile, .compilePcm:
+    case .immediate, .repl, .singleCompile, .compilePCM:
       return false
 
     case .standardCompile, .batchCompile:
@@ -57,7 +57,7 @@ extension CompilerMode {
     case .immediate, .repl, .standardCompile, .batchCompile:
       return false
 
-    case .singleCompile, .compilePcm:
+    case .singleCompile, .compilePCM:
       return true
     }
   }
@@ -76,7 +76,7 @@ extension CompilerMode: CustomStringConvertible {
         return "read-eval-print-loop compilation"
       case .immediate:
         return "immediate compilation"
-      case .compilePcm:
+      case .compilePCM:
         return "compile Clang module (.pcm)"
       }
   }

@@ -38,7 +38,8 @@ extension Driver {
                      type: .pcm)
     } else {
       output = .init(
-        file: try VirtualPath(path: moduleName + "." + FileType.pcm.name),
+        file: try VirtualPath(
+          path: moduleName.appendingFileTypeExtension(.pcm)),
         type: .pcm)
     }
 

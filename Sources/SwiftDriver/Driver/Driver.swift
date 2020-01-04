@@ -702,7 +702,7 @@ extension Driver {
         return .repl
 
       case .emitPcm:
-        return .compilePcm
+        return .compilePCM
 
       default:
         // Output flag doesn't determine the compiler mode.
