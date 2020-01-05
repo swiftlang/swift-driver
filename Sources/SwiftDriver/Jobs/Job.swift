@@ -12,7 +12,7 @@
 import TSCBasic
 
 /// A job represents an individual subprocess that should be invoked during compilation.
-public struct Job: Codable, Equatable {
+public struct Job: Codable, Equatable, Hashable {
   public enum Kind: String, Codable {
     case compile
     case mergeModule = "merge-module"
@@ -29,7 +29,7 @@ public struct Job: Codable, Equatable {
     case verifyDebugInfo = "verify-debug-info"
   }
 
-  public enum ArgTemplate: Equatable {
+  public enum ArgTemplate: Equatable, Hashable {
     /// Represents a command-line flag that is substitued as-is.
     case flag(String)
 
@@ -42,6 +42,9 @@ public struct Job: Codable, Equatable {
 
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
+
+  /// Whether or not the job supports using response files to pass command line arguments.
+  public var supportsResponseFiles: Bool
 
   /// The list of inputs to use for displaying purposes.
   public var displayInputs: [TypedVirtualPath]
@@ -69,7 +72,8 @@ public struct Job: Codable, Equatable {
     inputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
     extraEnvironment: [String: String] = [:],
-    requiresInPlaceExecution: Bool = false
+    requiresInPlaceExecution: Bool = false,
+    supportsResponseFiles: Bool = false
   ) {
     self.kind = kind
     self.tool = tool
@@ -79,21 +83,7 @@ public struct Job: Codable, Equatable {
     self.outputs = outputs
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
-  }
-}
-
-extension Job: CustomStringConvertible {
-  public var description: String {
-    var result: String = "\(tool.name) \(commandLine.joinedArguments)"
-
-    if !self.extraEnvironment.isEmpty {
-      result += " #"
-      for (envVar, val) in extraEnvironment {
-        result += " \(envVar)=\(val)"
-      }
-    }
-
-    return result
+    self.supportsResponseFiles = supportsResponseFiles
   }
 }
 

@@ -158,7 +158,8 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: primaryInputs,
       inputs: inputs,
-      outputs: outputs
+      outputs: outputs,
+      supportsResponseFiles: true
     )
   }
 }

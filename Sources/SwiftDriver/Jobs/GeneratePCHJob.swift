@@ -67,7 +67,8 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
-      outputs: outputs
+      outputs: outputs,
+      supportsResponseFiles: true
     )
   }
 }

@@ -580,10 +580,12 @@ extension Driver {
     let jobs = try planBuild()
     if jobs.isEmpty { return }
 
+    let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
+
     // If we're only supposed to print the jobs, do so now.
     if parsedOptions.contains(.driverPrintJobs) {
       for job in jobs {
-        print(job)
+        try Self.printJob(job, resolver: resolver, forceResponseFiles: forceResponseFiles)
       }
       return
     }
@@ -597,7 +599,7 @@ extension Driver {
 
     if jobs.contains(where: { $0.requiresInPlaceExecution }) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
-      return try executeJobInPlace(jobs[0], resolver: resolver)
+      return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
     }
 
     // Create and use the tool execution delegate if one is not provided explicitly.
@@ -608,7 +610,8 @@ extension Driver {
         jobs: jobs, resolver: resolver,
         executorDelegate: executorDelegate,
         numParallelJobs: numParallelJobs,
-        processSet: processSet
+        processSet: processSet,
+        forceResponseFiles: forceResponseFiles
     )
     try jobExecutor.execute(env: env)
   }
@@ -627,16 +630,33 @@ extension Driver {
   }
 
   /// Execute a single job in-place.
-  private func executeJobInPlace(_ job: Job, resolver: ArgsResolver) throws {
-    let tool = try resolver.resolve(.path(job.tool))
-    let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
-    let arguments = [tool] + commandLine
+  private func executeJobInPlace(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
+    let arguments = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
 
     for (envVar, value) in job.extraEnvironment {
       try ProcessEnv.setVar(envVar, value: value)
     }
 
-    return try exec(path: tool, args: arguments)
+    return try exec(path: arguments[0], args: arguments)
+  }
+
+  private static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
+    let originalArgs = job.commandLine.joinedArguments
+    let args = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    var result = args.joined(separator: " ")
+
+    if args.count >= 2, args[1].hasPrefix("@") {
+      // Print the response file arguments as a comment.
+      result += " # \(originalArgs)"
+    }
+
+    if !job.extraEnvironment.isEmpty {
+      result += " #"
+      for (envVar, val) in job.extraEnvironment {
+        result += " \(envVar)=\(val)"
+      }
+    }
+    print(result)
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {

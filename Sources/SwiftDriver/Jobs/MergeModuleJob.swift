@@ -54,7 +54,8 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
-      outputs: outputs
+      outputs: outputs,
+      supportsResponseFiles: true
     )
   }
 }
