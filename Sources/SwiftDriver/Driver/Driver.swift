@@ -423,24 +423,24 @@ extension Driver {
   /// This method supports response files with:
   /// 1. Double slash comments at the beginning of a line.
   /// 2. Backslash escaping.
-  /// 3. Space character (U+0020 SPACE).
+  /// 3. Shell Quoting
   ///
-  /// - Returns: One line String ready to be used in the shell, if any.
+  /// - Returns: An array of 0 or more command line arguments
   ///
   /// - Complexity: O(*n*), where *n* is the length of the line.
-  private static func tokenizeResponseFileLine<S: StringProtocol>(_ line: S) -> String? {
-    if line.isEmpty { return nil }
-    
+  private static func tokenizeResponseFileLine<S: StringProtocol>(_ line: S) -> [String] {
     // Support double dash comments only if they start at the beginning of a line.
-    if line.hasPrefix("//") { return nil }
-    
-    var result: String = ""
+    if line.hasPrefix("//") { return [] }
+
+    var tokens: [String] = []
+    var token: String = ""
+    // Conservatively assume ~1 token per line.-flag="quoted string"
+    token.reserveCapacity(line.count)
     /// Indicates if we just parsed an escaping backslash.
     var isEscaping = false
+    var quoted = false
     
     for char in line {
-      if char.isNewline { return result }
-
       // Backslash escapes to the next character.
       if char == #"\"#, !isEscaping {
         isEscaping = true
@@ -448,23 +448,37 @@ extension Driver {
       } else if isEscaping {
         // Disable escaping and keep parsing.
         isEscaping = false
+      } else if char.isShellQuote {
+        quoted.toggle()
+        continue
+      } else if char.isWhitespace && !quoted {
+        // If this is an unquoted whitespace character, start a new token.
+        tokens.append(token)
+        token = ""
+        continue
       }
-      
-      // Ignore spacing characters, except by the space character.
-      if char.isWhitespace && char != " " { continue }
-      
-      result.append(char)
+
+      token.append(char)
     }
-    return result.isEmpty ? nil : result
+    // Add the final token
+    tokens.append(token)
+
+    return tokens.filter { !$0.isEmpty }
   }
 
   /// Tokenize each line of the response file, omitting empty lines.
   ///
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
-    return content
-      .split(separator: "\n")
-      .compactMap { tokenizeResponseFileLine($0) }
+    #if !os(macOS) && !os(Linux)
+      #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
+    #endif
+    var array: [String] = []
+    array.reserveCapacity(256)
+    content.split { $0 == "\n" || $0 == "\r\n" }
+           .map { tokenizeResponseFileLine($0) }
+           .forEach { array += $0 }
+    return array
   }
   
   /// Recursively expands the response files.
@@ -640,7 +654,7 @@ extension Driver {
     return try exec(path: arguments[0], args: arguments)
   }
 
-  private static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
+  public static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
     let originalArgs = job.commandLine.joinedArguments
     let args = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
     var result = args.joined(separator: " ")

@@ -453,7 +453,8 @@ final class SwiftDriverTests: XCTestCase {
         // this is another comment
         but this is \\\\\a command
         @\#(barPath.pathString)
-        @YouAren'tAFile
+        @NotAFile
+        -flag="quoted string with a \"quote\" inside" -another-flag
         """#
       }
       
@@ -466,18 +467,18 @@ final class SwiftDriverTests: XCTestCase {
         
         @loader_path
         mkdir "Quoted Dir"
-        cd Unquoted \\Dir
+        cd Unquoted\ Dir
         // Bye!
         """#
       }
       
       try localFileSystem.writeFileContents(escapingPath) {
-        $0 <<< "swift\n--driver-mode=swift\tc\n-v\r\n//comment\n\"the end\""
+        $0 <<< "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
       }
       let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], diagnosticsEngine: diags)
-      XCTAssertEqual(args, [#"Command1 --kkc"#, #"but this is \\a command"#, #"swift"#, #""rocks!""# ,#"compiler"#, #"-Xlinker"#, #"@loader_path"#, #"mkdir "Quoted Dir""#, #"cd Unquoted \Dir"#, #"@YouAren'tAFile"#])
+      XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag"])
       let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], diagnosticsEngine: diags)
-      XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","\"the end\""])
+      XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","the end"])
     }
   }
   

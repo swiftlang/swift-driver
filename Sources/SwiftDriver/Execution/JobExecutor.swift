@@ -68,7 +68,7 @@ public struct ArgsResolver {
       (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {
       assert(!forceResponseFiles || job.supportsResponseFiles,
              "Platform does not support response files for job: \(job)")
-      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(job.hashValue).resp")
+      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
       try localFileSystem.writeFileContents(responseFilePath) { $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n") }
       resolvedArguments = [resolvedArguments[0], "@\(responseFilePath.pathString)"]
     }
