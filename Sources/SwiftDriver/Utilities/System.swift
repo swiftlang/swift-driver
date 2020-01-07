@@ -19,7 +19,7 @@ import Glibc
 #if os(macOS) || os(Linux)
 // Adapted from llvm::sys::commandLineFitsWithinSystemLimits.
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
-  let upperBound = sysconf(_SC_ARG_MAX)
+  let upperBound = sysconf(Int32(_SC_ARG_MAX))
   guard upperBound != -1 else {
     // The system reports no limit.
     return true
@@ -36,8 +36,9 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   var commandLineLength = path.utf8.count + 1
   for arg in args {
     #if os(Linux)
-      // Linux limits the length of each individual argument to MAX_ARG_STRLEN,
-      guard arg.utf8.count < MAX_ARG_STRLEN else {
+      // Linux limits the length of each individual argument to MAX_ARG_STRLEN.
+      // There is no available constant, so it is hardcoded here.
+      guard arg.utf8.count < 32 * 4096 else {
         return false
       }
     #endif
