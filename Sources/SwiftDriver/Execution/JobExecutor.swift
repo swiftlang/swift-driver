@@ -33,11 +33,16 @@ public struct ArgsResolver {
   }
 
   public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> [String] {
+    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    return arguments
+  }
+
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> ([String], usingResponseFile: Bool) {
     let tool = try resolve(.path(job.tool))
     var arguments = [tool] + (try job.commandLine.map { try resolve($0) })
-    try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
-                                   forceResponseFiles: forceResponseFiles)
-    return arguments
+    let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
+                                                           forceResponseFiles: forceResponseFiles)
+    return (arguments, usingResponseFile)
   }
 
   /// Resolve the given argument.
@@ -63,15 +68,20 @@ public struct ArgsResolver {
     }
   }
 
-  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], forceResponseFiles: Bool) throws {
+  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], forceResponseFiles: Bool) throws -> Bool {
     if forceResponseFiles ||
       (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {
       assert(!forceResponseFiles || job.supportsResponseFiles,
              "Platform does not support response files for job: \(job)")
+      // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
       let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
-      try localFileSystem.writeFileContents(responseFilePath) { $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n") }
+      try localFileSystem.writeFileContents(responseFilePath) {
+        $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n")
+      }
       resolvedArguments = [resolvedArguments[0], "@\(responseFilePath.pathString)"]
+      return true
     }
+    return false
   }
 
   /// Remove the temporary directory from disk.
@@ -369,8 +379,8 @@ class ExecuteJobRule: LLBuildRule {
     let value: DriverBuildValue
     var pid = 0
     do {
-      let arguments = try resolver.resolveArgumentList(for: job,
-                                                       forceResponseFiles: context.forceResponseFiles)
+      let arguments: [String] = try resolver.resolveArgumentList(for: job,
+                                                                 forceResponseFiles: context.forceResponseFiles)
 
       let process = try context.executorDelegate.launchProcess(
         for: job, arguments: arguments, env: env

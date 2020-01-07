@@ -456,6 +456,7 @@ final class SwiftDriverTests: XCTestCase {
         @NotAFile
         -flag="quoted string with a \"quote\" inside" -another-flag
         """#
+        <<< "\nthis  line\thas        lots \t  of    whitespace"
       }
       
       try localFileSystem.writeFileContents(barPath) {
@@ -476,7 +477,7 @@ final class SwiftDriverTests: XCTestCase {
         $0 <<< "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
       }
       let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], diagnosticsEngine: diags)
-      XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag"])
+      XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
       let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], diagnosticsEngine: diags)
       XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","the end"])
     }

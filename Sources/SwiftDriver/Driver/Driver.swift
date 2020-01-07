@@ -434,10 +434,11 @@ extension Driver {
 
     var tokens: [String] = []
     var token: String = ""
-    // Conservatively assume ~1 token per line.-flag="quoted string"
+    // Conservatively assume ~1 token per line.
     token.reserveCapacity(line.count)
-    /// Indicates if we just parsed an escaping backslash.
+    // Indicates if we just parsed an escaping backslash.
     var isEscaping = false
+    // Indicates if we are currently parsing quoted text.
     var quoted = false
     
     for char in line {
@@ -449,10 +450,11 @@ extension Driver {
         // Disable escaping and keep parsing.
         isEscaping = false
       } else if char.isShellQuote {
+        // If an unescaped shell quote appears, begin or end quoting.
         quoted.toggle()
         continue
       } else if char.isWhitespace && !quoted {
-        // If this is an unquoted whitespace character, start a new token.
+        // This is unquoted, unescaped whitespace, start a new token.
         tokens.append(token)
         token = ""
         continue
@@ -463,6 +465,7 @@ extension Driver {
     // Add the final token
     tokens.append(token)
 
+    // Filter any empty tokens that might be parsed if there's excessive whitespace.
     return tokens.filter { !$0.isEmpty }
   }
 
@@ -645,7 +648,7 @@ extension Driver {
 
   /// Execute a single job in-place.
   private func executeJobInPlace(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
-    let arguments = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    let arguments: [String] = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
 
     for (envVar, value) in job.extraEnvironment {
       try ProcessEnv.setVar(envVar, value: value)
@@ -655,13 +658,12 @@ extension Driver {
   }
 
   public static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
-    let originalArgs = job.commandLine.joinedArguments
-    let args = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
     var result = args.joined(separator: " ")
 
-    if args.count >= 2, args[1].hasPrefix("@") {
+    if usedResponseFile {
       // Print the response file arguments as a comment.
-      result += " # \(originalArgs)"
+      result += " # \(job.commandLine.joinedArguments)"
     }
 
     if !job.extraEnvironment.isEmpty {
