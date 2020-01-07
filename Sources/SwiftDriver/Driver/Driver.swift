@@ -476,12 +476,8 @@ extension Driver {
     #if !os(macOS) && !os(Linux)
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
-    var array: [String] = []
-    array.reserveCapacity(256)
-    content.split { $0 == "\n" || $0 == "\r\n" }
-           .map { tokenizeResponseFileLine($0) }
-           .forEach { array += $0 }
-    return array
+    return content.split { $0 == "\n" || $0 == "\r\n" }
+           .flatMap { tokenizeResponseFileLine($0) }
   }
   
   /// Recursively expands the response files.

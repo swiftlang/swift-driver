@@ -482,6 +482,51 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","the end"])
     }
   }
+
+  func testUsingResponseFiles() throws {
+    let manyArgs = (1...500_000).map { "-DTEST_\($0)" }
+    // Needs response file
+    do {
+      var driver = try Driver(args: ["swift"] + manyArgs + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver()
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
+      XCTAssertTrue(resolvedArgs.count == 2)
+      XCTAssertEqual(resolvedArgs[1].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
+      let contents = try localFileSystem.readFileContents(responseFilePath).description
+      XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
+      XCTAssertTrue(contents.contains("-D\nTEST_500000"))
+      XCTAssertTrue(contents.contains("-D\nTEST_1"))
+    }
+    // Forced response file
+    do {
+      var driver = try Driver(args: ["swift"] + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver()
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: true)
+      XCTAssertTrue(resolvedArgs.count == 2)
+      XCTAssertEqual(resolvedArgs[1].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
+      let contents = try localFileSystem.readFileContents(responseFilePath).description
+      XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
+    }
+
+    // No response file
+    do {
+      var driver = try Driver(args: ["swift"] + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver()
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
+      XCTAssertFalse(resolvedArgs.map { $0.hasPrefix("@") }.reduce(false){ $0 || $1 })
+    }
+  }
   
   func testLinking() throws {
     var env = ProcessEnv.vars
