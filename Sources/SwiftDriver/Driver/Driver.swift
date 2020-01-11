@@ -551,37 +551,9 @@ extension Driver {
     }
   }
 
-  /// Create a job if needed for simple requests that can be immediately
-  /// forwarded to the frontend.
-  public mutating func immediateForwardingJob() throws -> Job? {
-    if parsedOptions.hasArgument(.printTargetInfo) {
-      var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
-                                            .flag("-print-target-info")]
-      try commandLine.appendLast(.target, from: &parsedOptions)
-      try commandLine.appendLast(.sdk, from: &parsedOptions)
-      try commandLine.appendLast(.resourceDir, from: &parsedOptions)
-      return Job(kind: .printTargetInfo,
-                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-                 commandLine: commandLine,
-                 inputs: [],
-                 outputs: [],
-                 requiresInPlaceExecution: true)
-    }
-
-    if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
-      return Job(kind: .versionRequest,
-                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-                 commandLine: [.flag("--version")],
-                 inputs: [],
-                 outputs: [],
-                 requiresInPlaceExecution: true)
-    }
-
-    return nil
-  }
-
   /// Run the driver.
   public mutating func run(
+    jobs: [Job],
     resolver: ArgsResolver,
     executorDelegate: JobExecutorDelegate? = nil,
     processSet: ProcessSet? = nil
@@ -598,14 +570,6 @@ extension Driver {
 
     if parsedOptions.hasArgument(.v) {
       try printVersion(outputStream: &stderrStream)
-    }
-
-    let jobs: [Job]
-    if let job = try immediateForwardingJob() {
-      jobs = [job]
-    } else {
-      // Plan the build.
-      jobs = try planBuild()
     }
 
     if jobs.isEmpty { return }

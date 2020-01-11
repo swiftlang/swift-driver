@@ -165,8 +165,42 @@ extension Driver {
     return jobs
   }
 
+  /// Create a job if needed for simple requests that can be immediately
+  /// forwarded to the frontend.
+  public mutating func immediateForwardingJob() throws -> Job? {
+    if parsedOptions.hasArgument(.printTargetInfo) {
+      var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
+                                            .flag("-print-target-info")]
+      try commandLine.appendLast(.target, from: &parsedOptions)
+      try commandLine.appendLast(.sdk, from: &parsedOptions)
+      try commandLine.appendLast(.resourceDir, from: &parsedOptions)
+      return Job(kind: .printTargetInfo,
+                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+                 commandLine: commandLine,
+                 inputs: [],
+                 outputs: [],
+                 requiresInPlaceExecution: true)
+    }
+
+    if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
+      return Job(kind: .versionRequest,
+                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+                 commandLine: [.flag("--version")],
+                 inputs: [],
+                 outputs: [],
+                 requiresInPlaceExecution: true)
+    }
+
+    return nil
+  }
+
   /// Plan a build by producing a set of jobs to complete the build.
   public mutating func planBuild() throws -> [Job] {
+    // Handle invocations which can be trivially forwarded to the frontend.
+    if let job = try immediateForwardingJob() {
+      return [job]
+    }
+
     // Plan the build.
     switch compilerMode {
     case .repl:
