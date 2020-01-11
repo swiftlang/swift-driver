@@ -196,7 +196,7 @@ extension Driver {
 
   /// Plan a build by producing a set of jobs to complete the build.
   public mutating func planBuild() throws -> [Job] {
-    // Handle invocations which can be trivially forwarded to the frontend.
+
     if let job = try immediateForwardingJob() {
       return [job]
     }

@@ -1203,6 +1203,29 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertNoThrow(try driver2.toolchain.getToolPath(.dsymutil))
   }
 
+  func testVersionRequest() throws {
+    for arg in ["-version", "--version"] {
+      var driver = try Driver(args: ["swift"] + [arg])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.kind, .versionRequest)
+      XCTAssertEqual(job.commandLine, [.flag("--version")])
+    }
+  }
+
+  func testPrintTargetInfo() throws {
+    var driver = try Driver(args: ["swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertTrue(plannedJobs.count == 1)
+    let job = plannedJobs[0]
+    XCTAssertEqual(job.kind, .printTargetInfo)
+    XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
+    XCTAssertTrue(job.commandLine.contains(.flag("-target")))
+    XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
+    XCTAssertTrue(job.commandLine.contains(.flag("-resource-dir")))
+  }
+
   func testPCHGeneration() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
