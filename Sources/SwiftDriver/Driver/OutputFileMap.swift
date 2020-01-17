@@ -74,7 +74,8 @@ public struct OutputFileMap: Equatable {
     encoder.outputFormatting = [.prettyPrinted]
   #else
     if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        // FIXME: use system Foundation when building via build-script on macOS.
+        encoder.outputFormatting = [.prettyPrinted/*, .withoutEscapingSlashes*/]
     }
   #endif
 
