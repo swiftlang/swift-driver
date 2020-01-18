@@ -55,7 +55,10 @@ extension Toolchain {
     sdkPath: String?,
     isShared: Bool
   ) throws -> [AbsolutePath] {
-    var result = [try computeResourceDirPath(for: triple, parsedOptions: &parsedOptions, isShared: isShared)]
+    var result = [try computeResourceDirPath(
+      for: triple,
+      parsedOptions: &parsedOptions,
+      isShared: isShared)]
 
     if let path = sdkPath {
       result.append(AbsolutePath(path).appending(RelativePath("usr/lib/swift")))
@@ -70,7 +73,9 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions
   ) throws {
-    let path = try clangLibraryPath(for: triple, parsedOptions: &parsedOptions)
+    let path = try clangLibraryPath(
+      for: triple,
+      parsedOptions: &parsedOptions)
       .appending(component: name)
     commandLine.appendPath(path)
   }

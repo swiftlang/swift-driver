@@ -35,6 +35,9 @@ public protocol Toolchain {
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
+  /// Set an absolute path to be used for a particular tool.
+  func overrideToolPath(_ tool: Tool, path: AbsolutePath)
+
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
 

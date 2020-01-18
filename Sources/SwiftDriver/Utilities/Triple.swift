@@ -569,15 +569,76 @@ extension Triple {
       }
     }
 
+    enum Endianness {
+      case big, little
+
+      // Based on LLVM's ARM::parseArchEndian
+      init?<S: StringProtocol>(armArchName archName: S) {
+        if archName.starts(with: "armeb") || archName.starts(with: "thumbeb") || archName.starts(with: "aarch64_be") {
+          self = .big
+        } else if archName.starts(with: "arm") || archName.starts(with: "thumb") {
+          self = archName.hasSuffix("eb") ? .big : .little
+        } else if archName.starts(with: "aarch64") || archName.starts(with: "aarch64_32") {
+          self = .little
+        } else {
+          return nil
+        }
+      }
+    }
+
+    enum ARMISA {
+      case aarch64, thumb, arm
+
+      // Based on LLVM's ARM::parseArchISA
+      init?<S: StringProtocol>(archName: S) {
+        if archName.starts(with: "aarch64") || archName.starts(with: "arm64") {
+          self = .aarch64
+        } else if archName.starts(with: "thumb") {
+          self = .thumb
+        } else if archName.starts(with: "arm") {
+          self = .arm
+        } else {
+          return nil
+        }
+      }
+    }
+
+    // Parse ARM architectures not handled by `parse`. On its own, this is not
+    // enough to correctly parse an ARM architecture.
     private static func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch? {
-      fatalError("Unimplemented")
+      let ISA = ARMISA(archName: archName)
+      let endianness = Endianness(armArchName: archName)
+
+      var arch: Triple.Arch? = nil
+      switch (endianness, ISA) {
+      case (.little, .arm):
+        arch = .arm
+      case (.little, .thumb):
+        arch = .thumb
+      case (.little, .aarch64):
+        arch = .aarch64
+      case (.big, .arm):
+        arch = .armeb
+      case (.big, .thumb):
+        arch = .thumbeb
+      case (.big, .aarch64):
+        arch = .aarch64_be
+      default:
+        break
+      }
+
+      // FIXME: thumb architectures require additional validation. See LLVM's [parseARMArch](https://llvm.org/doxygen/Triple_8cpp.html#a721eb5bffb57cea96d7a9b45cbe302cf)
+
+      return arch
     }
 
     private static func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch? {
+
+      let isLittleEndianHost = 1.littleEndian == 1
+
       switch archName {
       case "bpf":
-        // FIXME: need to determine host endianness
-        return nil
+        return isLittleEndianHost ? .bpfel : .bpfeb
       case "bpf_be", "bpfeb":
         return .bpfeb
       case "bpf_le", "bpfel":
@@ -588,13 +649,13 @@ extension Triple {
     }
 
     /// Whether or not this architecture has 64-bit pointers
-    var is64Bit: Bool { pointerBitWidth == 64 }
+    public var is64Bit: Bool { pointerBitWidth == 64 }
 
     /// Whether or not this architecture has 32-bit pointers
-    var is32Bit: Bool { pointerBitWidth == 32 }
+    public var is32Bit: Bool { pointerBitWidth == 32 }
 
     /// Whether or not this architecture has 16-bit pointers
-    var is16Bit: Bool { pointerBitWidth == 16 }
+    public var is16Bit: Bool { pointerBitWidth == 16 }
 
     /// The width in bits of pointers on this architecture.
     var pointerBitWidth: Int {

@@ -21,6 +21,9 @@ public struct Job: Codable, Equatable {
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
     case generatePCH = "generate-pch"
+
+    /// Generate a compiled Clang module.
+    case generatePCM = "generate-pcm"
     case interpret
     case repl
     case verifyDebugInfo = "verify-debug-info"

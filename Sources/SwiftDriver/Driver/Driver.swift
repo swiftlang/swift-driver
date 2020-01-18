@@ -44,6 +44,7 @@ public struct Driver {
     case invalidDriverName(String)
     case invalidInput(String)
     case subcommandPassedToDriver
+    case relativeFrontendPath(String)
   }
   
   /// The set of environment variables that are visible to the driver and
@@ -68,9 +69,6 @@ public struct Driver {
 
   /// The set of parsed options.
   var parsedOptions: ParsedOptions
-
-  /// The Swift compiler executable.
-  public let swiftCompiler: VirtualPath
 
   /// Extra command-line arguments to pass to the Swift compiler.
   public let swiftCompilerPrefixArgs: [String]
@@ -221,16 +219,16 @@ public struct Driver {
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
-      let frontendCommandLine = frontendPath.asSingle.split(separator: ";").map { String($0) }
+      var frontendCommandLine = frontendPath.asSingle.split(separator: ";").map { String($0) }
       if frontendCommandLine.isEmpty {
         self.diagnosticEngine.emit(.error_no_swift_frontend)
-        self.swiftCompiler = .absolute(try self.toolchain.getToolPath(.swiftCompiler))
+        self.swiftCompilerPrefixArgs = []
       } else {
-        self.swiftCompiler = try VirtualPath(path: frontendCommandLine.first!)
+        let frontendPath = frontendCommandLine.removeFirst()
+        self.toolchain.overrideToolPath(.swiftCompiler, path: try AbsolutePath(validating: frontendPath))
+        self.swiftCompilerPrefixArgs = frontendCommandLine
       }
-      self.swiftCompilerPrefixArgs = Array(frontendCommandLine.dropFirst())
     } else {
-      self.swiftCompiler = .absolute(try self.toolchain.getToolPath(.swiftCompiler))
       self.swiftCompilerPrefixArgs = []
     }
 
@@ -296,7 +294,11 @@ public struct Driver {
                                                                                importedObjCHeader: importedObjCHeader,
                                                                                outputFileMap: outputFileMap)
 
-    self.enabledSanitizers = try Self.parseSanitizerArgValues(&parsedOptions, diagnosticEngine: diagnosticEngine, toolchain: toolchain, targetTriple: targetTriple)
+    self.enabledSanitizers = try Self.parseSanitizerArgValues(
+      &parsedOptions,
+      diagnosticEngine: diagnosticEngine,
+      toolchain: toolchain,
+      targetTriple: targetTriple)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
@@ -557,13 +559,21 @@ extension Driver {
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
-      let swiftCompiler = try getSwiftCompilerPath()
-      return try exec(path: swiftCompiler.pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
+      return try exec(path: toolchain.getToolPath(.swiftCompiler).pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
       optionTable.printHelp(driverKind: driverKind, includeHidden: parsedOptions.contains(.helpHidden))
       return
+    }
+
+    if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
+      // Follow gcc/clang behavior and use stdout for --version and stderr for -v.
+      try printVersion(outputStream: &stdoutStream)
+      return
+    }
+    if parsedOptions.hasArgument(.v) {
+      try printVersion(outputStream: &stderrStream)
     }
 
     // Plan the build.
@@ -603,12 +613,6 @@ extension Driver {
     try jobExecutor.execute(env: env)
   }
 
-  /// Returns the path to the Swift binary.
-  func getSwiftCompilerPath() throws -> AbsolutePath {
-    // FIXME: This is very preliminary. Need to figure out how to get the actual Swift executable path.
-    try toolchain.getToolPath(.swiftCompiler)
-  }
-
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
@@ -633,6 +637,11 @@ extension Driver {
     }
 
     return try exec(path: tool, args: arguments)
+  }
+
+  private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
+    outputStream.write(try Process.checkNonZeroExit(args: toolchain.getToolPath(.swiftCompiler).pathString, "--version"))
+    outputStream.flush()
   }
 }
 
@@ -691,6 +700,9 @@ extension Driver {
 
       case .repl, .deprecatedIntegratedRepl, .lldbRepl:
         return .repl
+
+      case .emitPcm:
+        return .compilePCM
 
       default:
         // Output flag doesn't determine the compiler mode.
@@ -850,6 +862,9 @@ extension Driver {
 
       case .emitPch:
         compilerOutputType = .pch
+
+      case .emitPcm:
+        compilerOutputType = .pcm
 
       case .emitImportedModules:
         compilerOutputType = .importedModules

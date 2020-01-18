@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
+import TSCBasic
 
 extension Toolchain {
   func addPathEnvironmentVariableIfNeeded(

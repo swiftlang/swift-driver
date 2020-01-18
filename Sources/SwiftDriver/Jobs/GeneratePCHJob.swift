@@ -19,14 +19,11 @@ extension Driver {
     var outputs = [TypedVirtualPath]()
     
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
+
+    commandLine.appendFlag("-frontend")
     
-    inputs.append(input)
-    commandLine.appendPath(input.file)
-    commandLine.appendFlag(.emitPch)
-    
-    outputs.append(output)
-    
-    try addCommonFrontendOptions(commandLine: &commandLine, requestPrecompiledObjCHeader: false)
+    try addCommonFrontendOptions(
+      commandLine: &commandLine, bridgingHeaderHandling: .parsed)
     
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
@@ -48,6 +45,13 @@ extension Driver {
       commandLine.appendPath(path)
       outputs.append(.init(file: path, type: .diagnostics))
     }
+
+    inputs.append(input)
+    commandLine.appendPath(input.file)
+
+    try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+
+    commandLine.appendFlag(.emitPch)
     
     if parsedOptions.hasArgument(.pchOutputDir) {
       try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
@@ -55,6 +59,7 @@ extension Driver {
       commandLine.appendFlag(.o)
       commandLine.appendPath(output.file)
     }
+    outputs.append(output)
     
     return Job(
       kind: .generatePCH,

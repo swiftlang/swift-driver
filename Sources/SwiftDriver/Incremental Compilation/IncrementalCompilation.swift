@@ -154,7 +154,7 @@ fileprivate extension CompilerMode {
   var supportsIncrementalCompilation: Bool {
     switch self {
     case .standardCompile, .immediate, .repl, .batchCompile: return true
-    case .singleCompile: return false
+    case .singleCompile, .compilePCM: return false
     }
   }
 }
