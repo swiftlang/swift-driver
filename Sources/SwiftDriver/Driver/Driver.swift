@@ -553,6 +553,7 @@ extension Driver {
 
   /// Run the driver.
   public mutating func run(
+    jobs: [Job],
     resolver: ArgsResolver,
     executorDelegate: JobExecutorDelegate? = nil,
     processSet: ProcessSet? = nil
@@ -567,17 +568,10 @@ extension Driver {
       return
     }
 
-    if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
-      // Follow gcc/clang behavior and use stdout for --version and stderr for -v.
-      try printVersion(outputStream: &stdoutStream)
-      return
-    }
     if parsedOptions.hasArgument(.v) {
       try printVersion(outputStream: &stderrStream)
     }
 
-    // Plan the build.
-    let jobs = try planBuild()
     if jobs.isEmpty { return }
 
     // If we're only supposed to print the jobs, do so now.

@@ -27,6 +27,8 @@ public struct Job: Codable, Equatable {
     case interpret
     case repl
     case verifyDebugInfo = "verify-debug-info"
+    case printTargetInfo = "print-target-info"
+    case versionRequest = "version-request"
   }
 
   public enum ArgTemplate: Equatable {
