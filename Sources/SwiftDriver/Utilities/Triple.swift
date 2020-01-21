@@ -603,33 +603,6 @@ extension Triple {
       }
     }
 
-    enum ARMProfile {
-      case a, r, m
-
-      init?<S: StringProtocol>(_ archName: S) {
-        switch Triple.SubArch.parse(Substring(Triple.Arch.cannonicalARMArchName(from: archName))) {
-          case .armSubArch_v6m, .armSubArch_v7m, .armSubArch_v7em,
-               .armSubArch_v8m_mainline, .armSubArch_v8m_baseline,
-               .armSubArch_v8_1m_mainline:
-            self = .m
-          case .armSubArch_v7r, .armSubArch_v8r:
-            self = .r
-          case .armSubArch_v7, .armSubArch_v7ve, .armSubArch_v7k,
-               .armSubArch_v8, .armSubArch_v8_1a, .armSubArch_v8_2a,
-               .armSubArch_v8_3a, .armSubArch_v8_4a, .armSubArch_v8_5a:
-            self = .a
-          case .armSubArch_v2, .armSubArch_v2a, .armSubArch_v3, .armSubArch_v3m,
-               .armSubArch_v4, .armSubArch_v4t, .armSubArch_v5, .armSubArch_v5e,
-               .armSubArch_v6, .armSubArch_v6k, .armSubArch_v6kz, .armSubArch_v6t2,
-               .armSubArch_v7s,
-               .kalimbaSubArch_v3, .kalimbaSubArch_v4, .kalimbaSubArch_v5,
-               .mipsSubArch_r6,
-               nil:
-            return nil
-        }
-      }
-    }
-
     // Parse ARM architectures not handled by `parse`. On its own, this is not
     // enough to correctly parse an ARM architecture.
     private static func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch? {
@@ -666,12 +639,8 @@ extension Triple {
           return nil
       }
 
-      let subArch = Triple.SubArch.parse(archName)
-      let profile = subArch?.armProfile
-      let version = subArch?.armVersion
-
       // Thumb only for v6m
-      if profile == .m && version == 6 {
+      if case .arm(let subArch) = Triple.SubArch.parse(archName), subArch.profile == .m && subArch.version == 6 {
         if endianness == .big {
           return .thumbeb
         } else {
@@ -793,47 +762,95 @@ extension Triple {
 
 extension Triple {
   public enum SubArch: Hashable {
-    case armSubArch_v2
-    case armSubArch_v2a
-    case armSubArch_v3
-    case armSubArch_v3m
-    case armSubArch_v4
-    case armSubArch_v4t
-    case armSubArch_v5
-    case armSubArch_v5e
-    case armSubArch_v6
-    case armSubArch_v6k
-    case armSubArch_v6kz
-    case armSubArch_v6m
-    case armSubArch_v6t2
-    case armSubArch_v7
-    case armSubArch_v7em
-    case armSubArch_v7k
-    case armSubArch_v7m
-    case armSubArch_v7r
-    case armSubArch_v7s
-    case armSubArch_v7ve
-    case armSubArch_v8
-    case armSubArch_v8_1a
-    case armSubArch_v8_1m_mainline
-    case armSubArch_v8_2a
-    case armSubArch_v8_3a
-    case armSubArch_v8_4a
-    case armSubArch_v8_5a
-    case armSubArch_v8m_baseline
-    case armSubArch_v8m_mainline
-    case armSubArch_v8r
 
-    case kalimbaSubArch_v3
-    case kalimbaSubArch_v4
-    case kalimbaSubArch_v5
+    public enum ARM {
 
-    case mipsSubArch_r6
+      public enum Profile {
+        case a, r, m
+      }
+
+      case v2
+      case v2a
+      case v3
+      case v3m
+      case v4
+      case v4t
+      case v5
+      case v5e
+      case v6
+      case v6k
+      case v6kz
+      case v6m
+      case v6t2
+      case v7
+      case v7em
+      case v7k
+      case v7m
+      case v7r
+      case v7s
+      case v7ve
+      case v8
+      case v8_1a
+      case v8_1m_mainline
+      case v8_2a
+      case v8_3a
+      case v8_4a
+      case v8_5a
+      case v8m_baseline
+      case v8m_mainline
+      case v8r
+
+      var profile: Triple.SubArch.ARM.Profile? {
+        switch self {
+        case .v6m, .v7m, .v7em, .v8m_mainline, .v8m_baseline, .v8_1m_mainline:
+          return .m
+        case .v7r, .v8r:
+          return .r
+        case .v7, .v7ve, .v7k, .v8, .v8_1a, .v8_2a, .v8_3a, .v8_4a, .v8_5a:
+          return .a
+        case .v2, .v2a, .v3, .v3m, .v4, .v4t, .v5, .v5e, .v6, .v6k, .v6kz, .v6t2, .v7s:
+          return nil
+        }
+      }
+
+      var version: Int {
+        switch self {
+        case .v2, .v2a:
+          return 2
+        case .v3, .v3m:
+          return 3
+        case .v4, .v4t:
+          return 4
+        case .v5, .v5e:
+          return 5
+        case .v6, .v6k, .v6kz, .v6m, .v6t2:
+          return 6
+        case .v7, .v7em, .v7k, .v7m, .v7r, .v7s, .v7ve:
+          return 7
+        case .v8, .v8_1a, .v8_1m_mainline, .v8_2a, .v8_3a, .v8_4a, .v8_5a, .v8m_baseline, .v8m_mainline, .v8r:
+          return 8
+        }
+      }
+    }
+
+    public enum Kalimba {
+      case v3
+      case v4
+      case v5
+    }
+
+    public enum MIPS {
+      case r6
+    }
+
+    case arm(ARM)
+    case kalimba(Kalimba)
+    case mips(MIPS)
 
     fileprivate static func parse<S: StringProtocol>(_ component: S) -> Triple.SubArch? {
 
       if component.hasPrefix("mips") && (component.hasSuffix("r6el") || component.hasSuffix("r6")) {
-        return .mipsSubArch_r6
+        return .mips(.r6)
       }
 
       let armSubArch = Triple.Arch.cannonicalARMArchName(from: component)
@@ -841,11 +858,11 @@ extension Triple {
       if armSubArch.isEmpty {
         switch component {
         case _ where component.hasSuffix("kalimba3"):
-          return .kalimbaSubArch_v3
+          return .kalimba(.v3)
         case _ where component.hasSuffix("kalimba4"):
-          return .kalimbaSubArch_v4
+          return .kalimba(.v4)
         case _ where component.hasSuffix("kalimba5"):
-          return .kalimbaSubArch_v5
+          return .kalimba(.v5)
         default:
           return nil
         }
@@ -853,112 +870,66 @@ extension Triple {
 
       switch armSubArch {
       case "v2":
-        return .armSubArch_v2
+        return .arm(.v2)
       case "v2a":
-        return .armSubArch_v2a
+        return .arm(.v2a)
       case "v3":
-        return .armSubArch_v3
+        return .arm(.v3)
       case "v3m":
-        return .armSubArch_v3m
+        return .arm(.v3m)
       case "v4":
-        return .armSubArch_v4
+        return .arm(.v4)
       case "v4t":
-        return .armSubArch_v4t
+        return .arm(.v4t)
       case "v5t":
-        return .armSubArch_v5
+        return .arm(.v5)
       case "v5te", "v5tej", "xscale":
-        return .armSubArch_v5e
+        return .arm(.v5e)
       case "v6":
-        return .armSubArch_v6
+        return .arm(.v6)
       case "v6k":
-        return .armSubArch_v6k
+        return .arm(.v6k)
       case "v6kz":
-        return .armSubArch_v6kz
+        return .arm(.v6kz)
       case "v6-m":
-        return .armSubArch_v6m
+        return .arm(.v6m)
       case "v6t2":
-        return .armSubArch_v6t2
+        return .arm(.v6t2)
       case "v7-a":
-        return .armSubArch_v7
+        return .arm(.v7)
       case "v7k":
-        return .armSubArch_v7k
+        return .arm(.v7k)
       case "v7-m":
-        return .armSubArch_v7m
+        return .arm(.v7m)
       case "v7e-m":
-        return .armSubArch_v7em
+        return .arm(.v7em)
       case "v7-r":
-        return .armSubArch_v7r
+        return .arm(.v7r)
       case "v7s":
-        return .armSubArch_v7s
+        return .arm(.v7s)
       case "v7ve":
-        return .armSubArch_v7ve
+        return .arm(.v7ve)
       case "v8-a":
-        return .armSubArch_v8
+        return .arm(.v8)
       case "v8-m.main":
-        return .armSubArch_v8m_mainline
+        return .arm(.v8m_mainline)
       case "v8-m.base":
-        return .armSubArch_v8m_baseline
+        return .arm(.v8m_baseline)
       case "v8-r":
-        return .armSubArch_v8r
+        return .arm(.v8r)
       case "v8.1-m.main":
-        return .armSubArch_v8_1m_mainline
+        return .arm(.v8_1m_mainline)
       case "v8.1-a":
-        return .armSubArch_v8_1a
+        return .arm(.v8_1a)
       case "v8.2-a":
-        return .armSubArch_v8_2a
+        return .arm(.v8_2a)
       case "v8.3-a":
-        return .armSubArch_v8_3a
+        return .arm(.v8_3a)
       case "v8.4-a":
-        return .armSubArch_v8_4a
+        return .arm(.v8_4a)
       case "v8.5-a":
-        return .armSubArch_v8_5a
+        return .arm(.v8_5a)
       default:
-        return nil
-      }
-    }
-
-    var armProfile: Triple.Arch.ARMProfile? {
-      switch self {
-      case .armSubArch_v6m, .armSubArch_v7m, .armSubArch_v7em,
-           .armSubArch_v8m_mainline, .armSubArch_v8m_baseline,
-           .armSubArch_v8_1m_mainline:
-        return .m
-      case .armSubArch_v7r, .armSubArch_v8r:
-        return .r
-      case .armSubArch_v7, .armSubArch_v7ve, .armSubArch_v7k,
-           .armSubArch_v8, .armSubArch_v8_1a, .armSubArch_v8_2a,
-           .armSubArch_v8_3a, .armSubArch_v8_4a, .armSubArch_v8_5a:
-        return .a
-      case .armSubArch_v2, .armSubArch_v2a, .armSubArch_v3, .armSubArch_v3m,
-           .armSubArch_v4, .armSubArch_v4t, .armSubArch_v5, .armSubArch_v5e,
-           .armSubArch_v6, .armSubArch_v6k, .armSubArch_v6kz, .armSubArch_v6t2,
-           .armSubArch_v7s,
-           .kalimbaSubArch_v3, .kalimbaSubArch_v4, .kalimbaSubArch_v5,
-           .mipsSubArch_r6:
-        return nil
-      }
-    }
-
-    var armVersion: Int? {
-      switch self {
-      case .armSubArch_v2, .armSubArch_v2a:
-        return 2
-      case .armSubArch_v3, .armSubArch_v3m:
-        return 3
-      case .armSubArch_v4, .armSubArch_v4t:
-        return 4
-      case .armSubArch_v5, .armSubArch_v5e:
-        return 5
-      case .armSubArch_v6, .armSubArch_v6k, .armSubArch_v6kz, .armSubArch_v6m, .armSubArch_v6t2:
-        return 6
-      case .armSubArch_v7, .armSubArch_v7em, .armSubArch_v7k, .armSubArch_v7m, .armSubArch_v7r,
-           .armSubArch_v7s, .armSubArch_v7ve:
-        return 7
-      case .armSubArch_v8, .armSubArch_v8_1a, .armSubArch_v8_1m_mainline, .armSubArch_v8_2a,
-           .armSubArch_v8_3a, .armSubArch_v8_4a, .armSubArch_v8_5a, .armSubArch_v8m_baseline,
-           .armSubArch_v8m_mainline, .armSubArch_v8r:
-        return 8
-      case .kalimbaSubArch_v3, .kalimbaSubArch_v4, .kalimbaSubArch_v5, .mipsSubArch_r6:
         return nil
       }
     }
