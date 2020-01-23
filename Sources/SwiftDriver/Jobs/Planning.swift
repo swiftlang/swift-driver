@@ -168,6 +168,20 @@ extension Driver {
   /// Create a job if needed for simple requests that can be immediately
   /// forwarded to the frontend.
   public mutating func immediateForwardingJob() throws -> Job? {
+
+    // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
+    if !driverKind.isSwiftCompiler {
+      var commandLine: [Job.ArgTemplate] = driverKind.usageArgs
+      try commandLine.append(contentsOf: parsedOptions.allArguments())
+      return Job(kind: .forwarding,
+                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+                 commandLine: commandLine,
+                 displayInputs: [],
+                 inputs: [],
+                 outputs: [],
+                 requiresInPlaceExecution: true)
+    }
+
     if parsedOptions.hasArgument(.printTargetInfo) {
       var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
                                             .flag("-print-target-info")]

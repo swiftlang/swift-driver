@@ -29,6 +29,9 @@ public struct Job: Codable, Equatable {
     case verifyDebugInfo = "verify-debug-info"
     case printTargetInfo = "print-target-info"
     case versionRequest = "version-request"
+
+    // A generic job which forwards a command line to another tool.
+    case forwarding
   }
 
   public enum ArgTemplate: Equatable {

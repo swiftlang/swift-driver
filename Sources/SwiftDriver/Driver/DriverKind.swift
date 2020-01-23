@@ -27,28 +27,28 @@ public enum DriverKind {
 
 extension DriverKind {
   public var usage: String {
-    usageArgs.joined(separator: " ")
+    usageArgs.joinedArguments
   }
 
-  public var usageArgs: [String] {
+  public var usageArgs: [Job.ArgTemplate] {
     switch self {
     case .autolinkExtract:
-      return ["swift-autolink-extract"]
+      return [.flag("swift-autolink-extract")]
 
     case .batch:
-      return ["swiftc"]
+      return [.flag("swiftc")]
 
     case .frontend:
-      return ["swift", "-frontend"]
+      return [.flag("swift"), .flag("-frontend")]
 
     case .indent:
-      return ["swift-indent"]
+      return [.flag("swift-indent")]
 
     case .interactive:
-      return ["swift"]
+      return [.flag("swift")]
 
     case .moduleWrap:
-      return ["swift-modulewrap"]
+      return [.flag("swift-modulewrap")]
     }
   }
 

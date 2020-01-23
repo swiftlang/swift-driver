@@ -139,6 +139,67 @@ final class SwiftDriverTests: XCTestCase {
     try assertArgsThrow("swiftc", "--driver-mode=")
   }
 
+  func testForwarding() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-frontend", "foo", "bar",
+                                     "-debug-assert-after-parse"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let forwardingJob = plannedJobs.first!
+      XCTAssertEqual(forwardingJob.kind, .forwarding)
+      XCTAssertTrue(forwardingJob.requiresInPlaceExecution)
+      let expected: [Job.ArgTemplate] = [.flag("swift"), .flag("-frontend"),
+                                         .path(try VirtualPath(path: "foo")),
+                                         .path(try VirtualPath(path: "bar")),
+                                         .flag("-debug-assert-after-parse")]
+      XCTAssertEqual(forwardingJob.commandLine, expected)
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc",
+                                     "--driver-mode=swift-autolink-extract",
+                                     "foo"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let forwardingJob = plannedJobs.first!
+      XCTAssertEqual(forwardingJob.kind, .forwarding)
+      XCTAssertTrue(forwardingJob.requiresInPlaceExecution)
+      let expected: [Job.ArgTemplate] = [.flag("swift-autolink-extract"),
+                                         .path(try VirtualPath(path: "foo"))]
+      XCTAssertEqual(forwardingJob.commandLine, expected)
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc",
+                                     "--driver-mode=swift-indent",
+                                     "bar"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let forwardingJob = plannedJobs.first!
+      XCTAssertEqual(forwardingJob.kind, .forwarding)
+      XCTAssertTrue(forwardingJob.requiresInPlaceExecution)
+      let expected: [Job.ArgTemplate] = [.flag("swift-indent"),
+                                         .path(try VirtualPath(path: "bar"))]
+      XCTAssertEqual(forwardingJob.commandLine, expected)
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc",
+                                     "-modulewrap",
+                                     "bar", "-o", "foo"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let forwardingJob = plannedJobs.first!
+      XCTAssertEqual(forwardingJob.kind, .forwarding)
+      XCTAssertTrue(forwardingJob.requiresInPlaceExecution)
+      let expected: [Job.ArgTemplate] = [.flag("swift-modulewrap"),
+                                         .path(try VirtualPath(path: "bar")),
+                                         .flag("-o"),
+                                         .path(try VirtualPath(path: "foo"))]
+      XCTAssertEqual(forwardingJob.commandLine, expected)
+    }
+  }
+
   func testCompilerMode() throws {
     do {
       let driver1 = try Driver(args: ["swift", "main.swift"])

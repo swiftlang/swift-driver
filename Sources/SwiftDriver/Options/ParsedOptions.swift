@@ -184,6 +184,14 @@ extension ParsedOptions {
     return result
   }
 
+  /// Return all options and mark them as consumed.
+  public mutating func allArguments() -> [ParsedOption] {
+    for option in parsedOptions {
+      consumed[option.index] = true
+    }
+    return parsedOptions
+  }
+
   public mutating func arguments(for options: Option...) -> [ParsedOption] {
     return options.flatMap { lookup($0) }
   }
