@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 extension DarwinToolchain {
   private func findARCLiteLibPath() throws -> AbsolutePath? {

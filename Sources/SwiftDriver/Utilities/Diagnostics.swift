@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 public typealias Diagnostic = TSCBasic.Diagnostic
 public typealias DiagnosticData = TSCBasic.DiagnosticData

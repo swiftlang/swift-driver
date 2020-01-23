@@ -191,6 +191,19 @@ extension Driver {
                  requiresInPlaceExecution: true)
     }
 
+    if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
+      var commandLine: [Job.ArgTemplate] = [.flag("-tool=\(driverKind.rawValue)")]
+      if parsedOptions.contains(.helpHidden) {
+        commandLine.append(.flag("-show-hidden"))
+      }
+      return Job(kind: .help,
+                 tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
+                 commandLine: commandLine,
+                 inputs: [],
+                 outputs: [],
+                 requiresInPlaceExecution: true)
+    }
+
     return nil
   }
 

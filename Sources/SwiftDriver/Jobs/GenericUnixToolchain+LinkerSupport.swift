@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 extension GenericUnixToolchain {
   private func defaultLinker(for targetTriple: Triple) -> String? {

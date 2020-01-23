@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import Foundation
+import SwiftOptions
 
 // FIXME: rename to something like IncrementalCompilationInitialState
 public struct IncrementalCompilation {

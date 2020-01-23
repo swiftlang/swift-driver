@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 extension Driver {
   /// Add the appropriate compile mode option to the command line for a compile job.

@@ -11,50 +11,11 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 import SwiftDriver
+import SwiftOptions
 import TSCBasic
 import XCTest
 
 final class SwiftDriverTests: XCTestCase {
-    func testParsing() throws {
-      // Form an options table
-      let options = OptionTable()
-      // Parse each kind of option
-      let results = try options.parse([
-        "input1", "-color-diagnostics", "-Ifoo", "-I", "bar spaces",
-        "-I=wibble", "input2", "-module-name", "main",
-        "-sanitize=a,b,c", "--", "-foo", "-bar"], for: .batch)
-      XCTAssertEqual(results.description,
-                     "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
-    }
-
-  func testParseErrors() {
-    let options = OptionTable()
-
-    XCTAssertThrowsError(try options.parse(["-unrecognized"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-unrecognized"))
-    }
-
-    XCTAssertThrowsError(try options.parse(["-I"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-I"))
-    }
-
-    XCTAssertThrowsError(try options.parse(["-color-diagnostics", "-I"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 1, argument: "-I"))
-    }
-
-    XCTAssertThrowsError(try options.parse(["-module-name"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-module-name"))
-    }
-
-    XCTAssertThrowsError(try options.parse(["-o"], for: .interactive)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-o", option: .o, currentDriverKind: .interactive))
-    }
-
-    XCTAssertThrowsError(try options.parse(["-repl"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-repl", option: .repl, currentDriverKind: .batch))
-    }
-
-  }
 
   func testInvocationRunModes() throws {
 
@@ -189,6 +150,36 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
   }
+
+  // This test is dependent on the swift-help executable being available, which
+  // isn't always the case right now.
+  #if false
+  func testHelp() throws {
+    do {
+      var driver = try Driver(args: ["swift", "--help"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let helpJob = plannedJobs.first!
+      XCTAssertTrue(helpJob.kind == .help)
+      XCTAssertTrue(helpJob.requiresInPlaceExecution)
+      XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
+      let expected: [Job.ArgTemplate] = [.flag("-tool=swift")]
+      XCTAssertEqual(helpJob.commandLine, expected)
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-help-hidden"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let helpJob = plannedJobs.first!
+      XCTAssertTrue(helpJob.kind == .help)
+      XCTAssertTrue(helpJob.requiresInPlaceExecution)
+      XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
+      let expected: [Job.ArgTemplate] = [.flag("-tool=swiftc"), .flag("-show-hidden")]
+      XCTAssertEqual(helpJob.commandLine, expected)
+    }
+  }
+  #endif
 
   func testInputFiles() throws {
     let driver1 = try Driver(args: ["swiftc", "a.swift", "/tmp/b.swift"])
