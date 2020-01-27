@@ -721,7 +721,7 @@ extension Driver {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
-      case .emitPch, .emitImportedModules, .indexFile:
+      case .emitPch, .emitImportedModules:
         return .singleCompile
 
       case .repl, .deprecatedIntegratedRepl, .lldbRepl:
@@ -740,13 +740,13 @@ extension Driver {
       return parsedOptions.hasAnyInput ? .immediate : .repl
     }
 
-    let requiresSingleCompile = parsedOptions.hasArgument(.wholeModuleOptimization, .indexFile)
-
+    let useWMO = parsedOptions.hasFlag(positive: .wholeModuleOptimization, negative: .noWholeModuleOptimization, default: false)
+    let hasIndexFile = parsedOptions.hasArgument(.indexFile)
     let wantBatchMode = parsedOptions.hasFlag(positive: .enableBatchMode, negative: .disableBatchMode, default: false)
 
-    if requiresSingleCompile {
+    if useWMO || hasIndexFile {
       if wantBatchMode {
-        let disablingOption: Option = parsedOptions.hasArgument(.wholeModuleOptimization) ? .wholeModuleOptimization : .indexFile
+        let disablingOption: Option = useWMO ? .wholeModuleOptimization : .indexFile
         diagnosticsEngine.emit(.warn_ignoring_batch_mode(disablingOption))
       }
 
