@@ -152,9 +152,42 @@ final class SwiftDriverTests: XCTestCase {
       let driver1 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
       XCTAssertEqual(driver1.compilerMode, .singleCompile)
 
-      let driver2 = try Driver(args: ["swiftc", "main.swift", "-g"])
+      let driver2 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization", "-no-whole-module-optimization"])
       XCTAssertEqual(driver2.compilerMode, .standardCompile)
+
+      let driver3 = try Driver(args: ["swiftc", "main.swift", "-g"])
+      XCTAssertEqual(driver3.compilerMode, .standardCompile)
     }
+  }
+
+  func testBatchModeDiagnostics() throws {
+      try assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode") { driver in
+        switch driver.compilerMode {
+        case .batchCompile:
+          break
+        default:
+          XCTFail("Expected batch compile, got \(driver.compilerMode)")
+        }
+      }
+
+      try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization") { driver, diagnostics in
+        XCTAssertEqual(driver.compilerMode, .singleCompile)
+        diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-whole-module-optimization' was also specified"))
+      }
+
+      try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization", "-no-whole-module-optimization", "-index-file", "-module-name", "foo") { driver, diagnostics in
+        XCTAssertEqual(driver.compilerMode, .singleCompile)
+        diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-index-file' was also specified"))
+      }
+
+      try assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization", "-no-whole-module-optimization") { driver in
+        switch driver.compilerMode {
+        case .batchCompile:
+          break
+        default:
+          XCTFail("Expected batch compile, got \(driver.compilerMode)")
+        }
+      }
   }
 
   func testInputFiles() throws {
