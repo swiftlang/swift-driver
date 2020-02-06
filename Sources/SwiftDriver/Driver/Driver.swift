@@ -291,6 +291,7 @@ public struct Driver {
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
+                                                                               compilerMode: compilerMode,
                                                                                importedObjCHeader: importedObjCHeader,
                                                                                outputFileMap: outputFileMap)
 
@@ -1384,9 +1385,11 @@ extension Driver {
 
   /// Compute the path of the generated bridging PCH for the Objective-C header.
   static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
+                                               compilerMode: CompilerMode,
                                                importedObjCHeader: VirtualPath?,
                                                outputFileMap: OutputFileMap?) throws -> VirtualPath? {
-    guard let input = importedObjCHeader,
+    guard compilerMode.supportsBridgingPCH,
+      let input = importedObjCHeader,
       parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
         return nil
     }

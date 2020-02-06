@@ -61,6 +61,17 @@ extension CompilerMode {
       return true
     }
   }
+
+  // Whether this compilation mode supports the use of bridging pre-compiled
+  // headers.
+  public var supportsBridgingPCH: Bool {
+    switch self {
+    case .batchCompile, .singleCompile, .standardCompile, .compilePCM:
+      return true
+    case .immediate, .repl:
+      return false
+    }
+  }
 }
 
 extension CompilerMode: CustomStringConvertible {
