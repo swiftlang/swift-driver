@@ -1544,6 +1544,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
     }
+
+    // Immediate mode doesn't generate a pch
+    do {
+      var driver = try Driver(args: ["swift", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .interpret)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.relative(RelativePath("TestInputHeader.h")))))
+    }
   }
 
   func testPCMGeneration() throws {
