@@ -1320,8 +1320,8 @@ extension Driver {
     } else if let SDKROOT = env["SDKROOT"] {
       sdkPath = SDKROOT
     } else if compilerMode == .immediate || compilerMode == .repl {
-      // FIXME: ... is triple macOS ...
-      if true {
+      let triple = try? toolchain.hostTargetTriple()
+      if triple?.isMacOSX == true {
         // In immediate modes, use the SDK provided by xcrun.
         // This will prefer the SDK alongside the Swift found by "xcrun swift".
         // We don't do this in compilation modes because defaulting to the
