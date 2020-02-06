@@ -1055,7 +1055,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("-interpret")))
       XCTAssertTrue(job.commandLine.contains(.flag("-module-name")))
       XCTAssertTrue(job.commandLine.contains(.flag("foo")))
-
+      
+      if driver.targetTriple.isMacOSX {
+        XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
+      }
+      
       XCTAssertFalse(job.commandLine.contains(.flag("--")))
       XCTAssertTrue(job.extraEnvironment.keys.contains("\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH"))
     }
