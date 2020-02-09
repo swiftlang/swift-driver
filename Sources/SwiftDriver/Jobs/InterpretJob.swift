@@ -47,7 +47,8 @@ extension Driver {
       inputs:inputs,
       outputs: [],
       extraEnvironment: extraEnvironment,
-      requiresInPlaceExecution: true
+      requiresInPlaceExecution: true,
+      supportsResponseFiles: true
     )
   }
 }

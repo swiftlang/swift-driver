@@ -152,9 +152,42 @@ final class SwiftDriverTests: XCTestCase {
       let driver1 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
       XCTAssertEqual(driver1.compilerMode, .singleCompile)
 
-      let driver2 = try Driver(args: ["swiftc", "main.swift", "-g"])
+      let driver2 = try Driver(args: ["swiftc", "main.swift", "-whole-module-optimization", "-no-whole-module-optimization"])
       XCTAssertEqual(driver2.compilerMode, .standardCompile)
+
+      let driver3 = try Driver(args: ["swiftc", "main.swift", "-g"])
+      XCTAssertEqual(driver3.compilerMode, .standardCompile)
     }
+  }
+
+  func testBatchModeDiagnostics() throws {
+      try assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode") { driver in
+        switch driver.compilerMode {
+        case .batchCompile:
+          break
+        default:
+          XCTFail("Expected batch compile, got \(driver.compilerMode)")
+        }
+      }
+
+      try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization") { driver, diagnostics in
+        XCTAssertEqual(driver.compilerMode, .singleCompile)
+        diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-whole-module-optimization' was also specified"))
+      }
+
+      try assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization", "-no-whole-module-optimization", "-index-file", "-module-name", "foo") { driver, diagnostics in
+        XCTAssertEqual(driver.compilerMode, .singleCompile)
+        diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-index-file' was also specified"))
+      }
+
+      try assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization", "-no-whole-module-optimization") { driver in
+        switch driver.compilerMode {
+        case .batchCompile:
+          break
+        default:
+          XCTFail("Expected batch compile, got \(driver.compilerMode)")
+        }
+      }
   }
 
   func testInputFiles() throws {
@@ -453,8 +486,10 @@ final class SwiftDriverTests: XCTestCase {
         // this is another comment
         but this is \\\\\a command
         @\#(barPath.pathString)
-        @YouAren'tAFile
+        @NotAFile
+        -flag="quoted string with a \"quote\" inside" -another-flag
         """#
+        <<< "\nthis  line\thas        lots \t  of    whitespace"
       }
       
       try localFileSystem.writeFileContents(barPath) {
@@ -466,18 +501,63 @@ final class SwiftDriverTests: XCTestCase {
         
         @loader_path
         mkdir "Quoted Dir"
-        cd Unquoted \\Dir
+        cd Unquoted\ Dir
         // Bye!
         """#
       }
       
       try localFileSystem.writeFileContents(escapingPath) {
-        $0 <<< "swift\n--driver-mode=swift\tc\n-v\r\n//comment\n\"the end\""
+        $0 <<< "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
       }
       let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], diagnosticsEngine: diags)
-      XCTAssertEqual(args, [#"Command1 --kkc"#, #"but this is \\a command"#, #"swift"#, #""rocks!""# ,#"compiler"#, #"-Xlinker"#, #"@loader_path"#, #"mkdir "Quoted Dir""#, #"cd Unquoted \Dir"#, #"@YouAren'tAFile"#])
+      XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
       let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], diagnosticsEngine: diags)
-      XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","\"the end\""])
+      XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","the end"])
+    }
+  }
+
+  func testUsingResponseFiles() throws {
+    let manyArgs = (1...500_000).map { "-DTEST_\($0)" }
+    // Needs response file
+    do {
+      var driver = try Driver(args: ["swift"] + manyArgs + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver()
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
+      XCTAssertTrue(resolvedArgs.count == 2)
+      XCTAssertEqual(resolvedArgs[1].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
+      let contents = try localFileSystem.readFileContents(responseFilePath).description
+      XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
+      XCTAssertTrue(contents.contains("-D\nTEST_500000"))
+      XCTAssertTrue(contents.contains("-D\nTEST_1"))
+    }
+    // Forced response file
+    do {
+      var driver = try Driver(args: ["swift"] + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver()
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: true)
+      XCTAssertTrue(resolvedArgs.count == 2)
+      XCTAssertEqual(resolvedArgs[1].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
+      let contents = try localFileSystem.readFileContents(responseFilePath).description
+      XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
+    }
+
+    // No response file
+    do {
+      var driver = try Driver(args: ["swift"] + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver()
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
+      XCTAssertFalse(resolvedArgs.map { $0.hasPrefix("@") }.reduce(false){ $0 || $1 })
     }
   }
   
@@ -975,7 +1055,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("-interpret")))
       XCTAssertTrue(job.commandLine.contains(.flag("-module-name")))
       XCTAssertTrue(job.commandLine.contains(.flag("foo")))
-
+      
+      if driver.targetTriple.isMacOSX {
+        XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
+      }
+      
       XCTAssertFalse(job.commandLine.contains(.flag("--")))
       XCTAssertTrue(job.extraEnvironment.keys.contains("\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH"))
     }
@@ -1459,6 +1543,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
+    }
+
+    // Immediate mode doesn't generate a pch
+    do {
+      var driver = try Driver(args: ["swift", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .interpret)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.path(.relative(RelativePath("TestInputHeader.h")))))
     }
   }
 

@@ -428,6 +428,7 @@ extension Option {
   public static let warnSwift3ObjcInference: Option = Option("-warn-swift3-objc-inference", .flag, alias: Option.warnSwift3ObjcInferenceComplete, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild])
   public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors")
   public static let wholeModuleOptimization: Option = Option("-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Optimize input files together instead of individually")
+  public static let noWholeModuleOptimization: Option = Option("-no-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable optimizing input files together instead of individually")
   public static let wmo: Option = Option("-wmo", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let workingDirectoryEQ: Option = Option("-working-directory=", .joined, alias: Option.workingDirectory)
   public static let workingDirectory: Option = Option("-working-directory", .separate, metaVar: "<path>", helpText: "Resolve file paths relative to the specified directory")
@@ -723,6 +724,7 @@ extension Option {
       Option.noStdlibRpath,
       Option.noToolchainStdlibRpath,
       Option.nostdimport,
+      Option.noWholeModuleOptimization,
       Option.numThreads,
       Option.Onone,
       Option.Oplayground,

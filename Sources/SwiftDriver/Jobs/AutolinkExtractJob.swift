@@ -33,7 +33,8 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
       commandLine: commandLine,
       inputs: inputs,
-      outputs: [.init(file: output, type: .autolink)]
+      outputs: [.init(file: output, type: .autolink)],
+      supportsResponseFiles: true
     )
   }
 }

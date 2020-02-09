@@ -51,6 +51,7 @@ extension Driver {
       targetTriple: targetTriple
     )
 
+    // TODO: some, but not all, linkers support response files.
     return Job(
       kind: .link,
       tool: .absolute(toolPath),

@@ -133,3 +133,9 @@ extension Unicode.Scalar {
     }
   }
 }
+
+extension Character {
+  var isShellQuote: Bool {
+    return self == "\"" || self == "'"
+  }
+}

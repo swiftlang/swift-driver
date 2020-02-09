@@ -127,10 +127,10 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
 * Compilation modes
   * [x] Batch mode
   * [x] Whole-module-optimization mode
-  * [ ] REPL mode
-  * [ ] Immediate mode
+  * [x] REPL mode
+  * [x] Immediate mode
 * Features
-  * [ ] Precompiled bridging headers
+  * [x] Precompiled bridging headers
   * [ ] Support embedding of bitcode
   * [ ] Incremental compilation
   * [x] Parseable output, as used by SwiftPM

@@ -606,10 +606,11 @@ extension Triple {
     // Parse ARM architectures not handled by `parse`. On its own, this is not
     // enough to correctly parse an ARM architecture.
     private static func parseARMArch<S: StringProtocol>(_ archName: S) -> Triple.Arch? {
+
       let ISA = ARMISA(archName: archName)
       let endianness = Endianness(armArchName: archName)
 
-      var arch: Triple.Arch? = nil
+      let arch: Triple.Arch?
       switch (endianness, ISA) {
       case (.little, .arm):
         arch = .arm
@@ -623,13 +624,92 @@ extension Triple {
         arch = .thumbeb
       case (.big, .aarch64):
         arch = .aarch64_be
-      default:
-        break
+      case (nil, _), (_, nil):
+        arch = nil
       }
 
-      // FIXME: thumb architectures require additional validation. See LLVM's [parseARMArch](https://llvm.org/doxygen/Triple_8cpp.html#a721eb5bffb57cea96d7a9b45cbe302cf)
+      let cannonicalArchName = cannonicalARMArchName(from: archName)
+
+      if cannonicalArchName.isEmpty {
+        return nil
+      }
+
+      // Thumb only exists in v4+
+      if ISA == .thumb && (cannonicalArchName.hasPrefix("v2") || cannonicalArchName.hasPrefix("v3")) {
+          return nil
+      }
+
+      // Thumb only for v6m
+      if case .arm(let subArch) = Triple.SubArch.parse(archName), subArch.profile == .m && subArch.version == 6 {
+        if endianness == .big {
+          return .thumbeb
+        } else {
+          return .thumb
+        }
+      }
 
       return arch
+    }
+
+    // Based on LLVM's ARM::getCanonicalArchName
+    //
+    // MArch is expected to be of the form (arm|thumb)?(eb)?(v.+)?(eb)?, but
+    // (iwmmxt|xscale)(eb)? is also permitted. If the former, return
+    // "v.+", if the latter, return unmodified string, minus 'eb'.
+    // If invalid, return empty string.
+    fileprivate static func cannonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
+      var name = Substring(arch)
+
+      func dropPrefix(_ prefix: String) {
+        if name.hasPrefix(prefix) {
+          name = name.dropFirst(prefix.count)
+        }
+      }
+
+      let possiblePrefixes = ["arm64_32", "arm64", "aarch64_32", "arm", "thumb", "aarch64"]
+
+      if let prefix = possiblePrefixes.first(where: name.hasPrefix) {
+        dropPrefix(prefix)
+
+        if prefix == "aarch64" {
+          // AArch64 uses "_be", not "eb" suffix.
+          if name.contains("eb") {
+            return ""
+          }
+
+          dropPrefix("_be")
+        }
+      }
+
+      // Ex. "armebv7", move past the "eb".
+      if name != arch {
+        dropPrefix("eb")
+      }
+      // Or, if it ends with eb ("armv7eb"), chop it off.
+      else if name.hasSuffix("eb") {
+        name = name.dropLast(2)
+      }
+
+      // Reached the end - arch is valid.
+      if name.isEmpty {
+        return String(arch)
+      }
+
+      // Only match non-marketing names
+      if name != arch {
+        // Must start with 'vN'.
+        if name.count >= 2 && (name.first != "v" || !name.dropFirst().first!.isNumber) {
+          return ""
+        }
+
+        // Can't have an extra 'eb'.
+        if name.hasPrefix("eb") {
+          return ""
+        }
+      }
+
+      // Arch will either be a 'v' name (v7a) or a marketing name (xscale).
+      return String(name)
     }
 
     private static func parseBPFArch<S: StringProtocol>(_ archName: S) -> Triple.Arch? {
@@ -682,8 +762,176 @@ extension Triple {
 
 extension Triple {
   public enum SubArch: Hashable {
-    fileprivate static func parse(_ component: Substring) -> Triple.SubArch? {
-      return nil
+
+    public enum ARM {
+
+      public enum Profile {
+        case a, r, m
+      }
+
+      case v2
+      case v2a
+      case v3
+      case v3m
+      case v4
+      case v4t
+      case v5
+      case v5e
+      case v6
+      case v6k
+      case v6kz
+      case v6m
+      case v6t2
+      case v7
+      case v7em
+      case v7k
+      case v7m
+      case v7r
+      case v7s
+      case v7ve
+      case v8
+      case v8_1a
+      case v8_1m_mainline
+      case v8_2a
+      case v8_3a
+      case v8_4a
+      case v8_5a
+      case v8m_baseline
+      case v8m_mainline
+      case v8r
+
+      var profile: Triple.SubArch.ARM.Profile? {
+        switch self {
+        case .v6m, .v7m, .v7em, .v8m_mainline, .v8m_baseline, .v8_1m_mainline:
+          return .m
+        case .v7r, .v8r:
+          return .r
+        case .v7, .v7ve, .v7k, .v8, .v8_1a, .v8_2a, .v8_3a, .v8_4a, .v8_5a:
+          return .a
+        case .v2, .v2a, .v3, .v3m, .v4, .v4t, .v5, .v5e, .v6, .v6k, .v6kz, .v6t2, .v7s:
+          return nil
+        }
+      }
+
+      var version: Int {
+        switch self {
+        case .v2, .v2a:
+          return 2
+        case .v3, .v3m:
+          return 3
+        case .v4, .v4t:
+          return 4
+        case .v5, .v5e:
+          return 5
+        case .v6, .v6k, .v6kz, .v6m, .v6t2:
+          return 6
+        case .v7, .v7em, .v7k, .v7m, .v7r, .v7s, .v7ve:
+          return 7
+        case .v8, .v8_1a, .v8_1m_mainline, .v8_2a, .v8_3a, .v8_4a, .v8_5a, .v8m_baseline, .v8m_mainline, .v8r:
+          return 8
+        }
+      }
+    }
+
+    public enum Kalimba {
+      case v3
+      case v4
+      case v5
+    }
+
+    public enum MIPS {
+      case r6
+    }
+
+    case arm(ARM)
+    case kalimba(Kalimba)
+    case mips(MIPS)
+
+    fileprivate static func parse<S: StringProtocol>(_ component: S) -> Triple.SubArch? {
+
+      if component.hasPrefix("mips") && (component.hasSuffix("r6el") || component.hasSuffix("r6")) {
+        return .mips(.r6)
+      }
+
+      let armSubArch = Triple.Arch.cannonicalARMArchName(from: component)
+
+      if armSubArch.isEmpty {
+        switch component {
+        case _ where component.hasSuffix("kalimba3"):
+          return .kalimba(.v3)
+        case _ where component.hasSuffix("kalimba4"):
+          return .kalimba(.v4)
+        case _ where component.hasSuffix("kalimba5"):
+          return .kalimba(.v5)
+        default:
+          return nil
+        }
+      }
+
+      switch armSubArch {
+      case "v2":
+        return .arm(.v2)
+      case "v2a":
+        return .arm(.v2a)
+      case "v3":
+        return .arm(.v3)
+      case "v3m":
+        return .arm(.v3m)
+      case "v4":
+        return .arm(.v4)
+      case "v4t":
+        return .arm(.v4t)
+      case "v5t":
+        return .arm(.v5)
+      case "v5te", "v5tej", "xscale":
+        return .arm(.v5e)
+      case "v6":
+        return .arm(.v6)
+      case "v6k":
+        return .arm(.v6k)
+      case "v6kz":
+        return .arm(.v6kz)
+      case "v6-m":
+        return .arm(.v6m)
+      case "v6t2":
+        return .arm(.v6t2)
+      case "v7-a":
+        return .arm(.v7)
+      case "v7k":
+        return .arm(.v7k)
+      case "v7-m":
+        return .arm(.v7m)
+      case "v7e-m":
+        return .arm(.v7em)
+      case "v7-r":
+        return .arm(.v7r)
+      case "v7s":
+        return .arm(.v7s)
+      case "v7ve":
+        return .arm(.v7ve)
+      case "v8-a":
+        return .arm(.v8)
+      case "v8-m.main":
+        return .arm(.v8m_mainline)
+      case "v8-m.base":
+        return .arm(.v8m_baseline)
+      case "v8-r":
+        return .arm(.v8r)
+      case "v8.1-m.main":
+        return .arm(.v8_1m_mainline)
+      case "v8.1-a":
+        return .arm(.v8_1a)
+      case "v8.2-a":
+        return .arm(.v8_2a)
+      case "v8.3-a":
+        return .arm(.v8_3a)
+      case "v8.4-a":
+        return .arm(.v8_4a)
+      case "v8.5-a":
+        return .arm(.v8_5a)
+      default:
+        return nil
+      }
     }
   }
 }
