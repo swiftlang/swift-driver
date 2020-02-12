@@ -46,7 +46,7 @@ public struct Driver {
     case subcommandPassedToDriver
     case relativeFrontendPath(String)
   }
-  
+
   /// The set of environment variables that are visible to the driver and
   /// processes it launches. This is a hook for testing; in actual use
   /// it should be identical to the real environment.
@@ -441,7 +441,7 @@ extension Driver {
     var isEscaping = false
     // Indicates if we are currently parsing quoted text.
     var quoted = false
-    
+
     for char in line {
       // Backslash escapes to the next character.
       if char == #"\"#, !isEscaping {
@@ -480,7 +480,7 @@ extension Driver {
     return content.split { $0 == "\n" || $0 == "\r\n" }
            .flatMap { tokenizeResponseFileLine($0) }
   }
-  
+
   /// Recursively expands the response files.
   /// - Parameter visitedResponseFiles: Set containing visited response files to detect recursive parsing.
   private static func expandResponseFiles(
@@ -1251,7 +1251,7 @@ extension Driver {
       // This value will fail the isSwiftIdentifier test below.
       moduleName = ""
     }
-    
+
     func fallbackOrDiagnose(_ error: Diagnostic.Message) {
       // FIXME: Current driver notes that this is a "fallback module name".
       if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
@@ -1330,7 +1330,7 @@ extension Driver {
         sdkPath = try? toolchain.defaultSDKPath()?.pathString
       }
     }
-    
+
     // An empty string explicitly clears the SDK.
     if sdkPath == "" {
       sdkPath = nil
@@ -1445,7 +1445,7 @@ extension Driver {
   #else
   static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
   #endif
-  
+
   static func computeToolchain(
     _ explicitTarget: Triple?,
     diagnosticsEngine: DiagnosticsEngine,

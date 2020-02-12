@@ -172,7 +172,7 @@ extension DarwinToolchain {
         commandLine.appendFlag(.L)
         commandLine.appendPath(path)
       }
-      
+
       let rpaths = StdlibRpathRule(
         parsedOptions: &parsedOptions,
         targetTriple: targetTriple
@@ -182,21 +182,21 @@ extension DarwinToolchain {
         commandLine.appendPath(path)
       }
     }
-  
+
   /// Represents the rpaths we need to add in order to find the
   /// desired standard library at runtime.
   fileprivate enum StdlibRpathRule {
     /// Add a set of rpaths that will allow the compiler resource directory
     /// to override Swift-in-the-OS dylibs.
     case toolchain
-    
+
     /// Add an rpath that will search Swift-in-the-OS dylibs, but not
     /// compiler resource directory dylibs.
     case os
 
     /// Do not add any rpaths at all.
     case none
-    
+
     /// Determines the appropriate rule for the
     init(parsedOptions: inout ParsedOptions, targetTriple: Triple) {
       if parsedOptions.hasFlag(
@@ -244,7 +244,7 @@ extension DarwinToolchain {
         self = .os
       }
     }
-    
+
     func paths(runtimeLibraryPaths: [AbsolutePath]) -> [AbsolutePath] {
       switch self {
       case .toolchain:

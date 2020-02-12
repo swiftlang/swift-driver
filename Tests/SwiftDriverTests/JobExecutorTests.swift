@@ -182,26 +182,26 @@ final class JobExecutorTests: XCTestCase {
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }
-  
+
   func testSwiftDriverExecOverride() throws {
     var env = ProcessEnv.vars
     let envVarName = "SWIFT_DRIVER_SWIFT_EXEC"
     let dummyPath = "/some/garbage/path/fnord"
-    
+
     // DarwinToolchain
     env.removeValue(forKey: envVarName)
     let normalSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(normalSwiftPath.basenameWithoutExt, "swift")
-    
+
     env[envVarName] = dummyPath
     let overriddenSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(overriddenSwiftPath, AbsolutePath(dummyPath))
-    
+
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
     let unixSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(unixSwiftPath.basenameWithoutExt, "swift")
-    
+
     env[envVarName] = dummyPath
     let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(unixOverriddenSwiftPath, AbsolutePath(dummyPath))

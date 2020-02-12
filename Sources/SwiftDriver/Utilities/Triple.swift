@@ -62,7 +62,7 @@ public struct Triple {
   /// Represents a version that may be present in the target triple.
   public struct Version: Equatable, Comparable, CustomStringConvertible {
     public static let zero = Version(0, 0, 0)
-    
+
     public var major: Int
     public var minor: Int
     public var micro: Int

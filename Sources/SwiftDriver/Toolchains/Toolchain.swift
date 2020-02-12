@@ -27,11 +27,11 @@ public enum Tool {
 /// and other tools required to build Swift code.
 public protocol Toolchain {
   init(env: [String: String])
-  
+
   var env: [String: String] { get }
-  
+
   var searchPaths: [AbsolutePath] { get }
-  
+
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
@@ -76,14 +76,14 @@ extension Toolchain {
   public var searchPaths: [AbsolutePath] {
     getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
   }
-  
+
   public func swiftCompilerVersion() throws -> String {
     try Process.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version",
       environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
-  
+
   /// Returns the target triple string for the current host.
   public func hostTargetTriple() throws -> Triple {
     let triple = try Process.checkNonZeroExit(
@@ -92,7 +92,7 @@ extension Toolchain {
     ).spm_chomp()
     return Triple(triple)
   }
-  
+
   /// Returns the `executablePath`'s directory.
   public var executableDir: AbsolutePath {
     guard let path = Bundle.main.executablePath else {
@@ -100,18 +100,18 @@ extension Toolchain {
     }
     return AbsolutePath(path).parentDirectory
   }
-  
+
   /// Looks for `SWIFT_DRIVER_TOOLNAME_EXEC` in the `env` property.
   /// - Returns: Environment variable value, if any.
   func envVar(forExecutable toolName: String) -> String? {
     return env[envVarName(for: toolName)]
   }
-  
+
   /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
   private func envVarName(for toolName: String) -> String {
     return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
   }
-  
+
   /// Use this property only for testing purposes, for example,
   /// to enable cross-compiling tests that depends on macOS tooling such as `dsymutil`.
   ///
@@ -119,7 +119,7 @@ extension Toolchain {
   private var fallbackToExecutableDefaultPath: Bool {
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] == "1"
   }
-  
+
   /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
@@ -138,13 +138,13 @@ extension Toolchain {
       throw ToolchainError.unableToFind(tool: executable)
     }
   }
-  
+
   private func xcrunFind(executable: String) throws -> AbsolutePath {
     let xcrun = "xcrun"
     guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
       throw ToolchainError.unableToFind(tool: xcrun)
     }
-    
+
     let path = try Process.checkNonZeroExit(
       arguments: [xcrun, "-sdk", "macosx", "--find", executable],
       environment: env

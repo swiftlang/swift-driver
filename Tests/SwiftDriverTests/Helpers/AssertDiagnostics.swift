@@ -22,7 +22,7 @@ func assertDriverDiagnostics(
 ) throws {
   let matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
-  
+
   var driver = try Driver(args: args, env: env, diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:)]))
   try body(&driver, matcher)
 }
@@ -62,7 +62,7 @@ func assertDiagnostics(
 ) rethrows {
   var matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
-  
+
   let diags = DiagnosticsEngine(handlers: [matcher.emit(_:)])
   try body(diags, matcher)
 }
@@ -102,12 +102,12 @@ final class DiagnosticVerifier {
     let file: StaticString
     let line: UInt
   }
-  
+
   // When we're finished, we will nil the dispatch queue so that any diagnostics
   // emitted after verification will cause a crash.
   fileprivate var queue: DispatchQueue? =
       DispatchQueue(label: "DiagnosticVerifier")
-  
+
   // Access to `actual` and `expected` must be synchronized on `queue`. (Even
   // reads should be, although we only enforce writes.)
   fileprivate var actual: [Diagnostic] = [] {
@@ -116,11 +116,11 @@ final class DiagnosticVerifier {
   fileprivate var expected: [Expectation] = [] {
      didSet { dispatchPrecondition(condition: .onQueue(queue!)) }
   }
-  
+
   // Access to `permitted` is not synchronized because it is only used from the
   // test.
   fileprivate var permitted: Set<Diagnostic.Behavior> = [.note, .remark, .ignored]
-  
+
   /// Callback for the diagnostic engine or driver to use.
   fileprivate func emit(_ diag: Diagnostic) {
     guard let queue = queue else {
@@ -133,11 +133,11 @@ final class DiagnosticVerifier {
           return
         }
       }
-      
+
       self.actual.append(diag)
     }
   }
-  
+
   /// Adds an expectation that, by the end of the assertion that created this
   /// verifier, the indicated diagnostic will have been emitted. If no diagnostic
   /// with the same behavior and a message containing this message's text
@@ -149,39 +149,39 @@ final class DiagnosticVerifier {
   ) {
     queue!.async {
       var remaining = repetitions
-      
+
       for (i, diag) in self.actual.zippedIndices where diag.matches(message) {
         self.actual.remove(at: i)
         remaining -= 1
         if remaining < 1 { return }
       }
-      
+
       let expectation = Expectation(message: message, file: file, line: line)
       self.expected.append(contentsOf: repeatElement(expectation, count: remaining))
     }
   }
-  
+
   /// Tells the verifier to permit unexpected diagnostics with
   /// the indicated behaviors without causing a test failure.
   func permitUnexpected(_ behaviors: Diagnostic.Behavior...) {
     permitted.formUnion(behaviors)
   }
-  
+
   /// Tells the verifier to forbid unexpected diagnostics with
   /// the indicated behaviors; any such diagnostics will cause
   /// a test failure.
   func forbidUnexpected(_ behaviors: Diagnostic.Behavior...) {
     permitted.subtract(behaviors)
   }
-  
+
   /// Performs the final verification that the actual diagnostics
   /// matched the expectations.
   func verify(file: StaticString, line: UInt) {
     // All along, we have removed expectations and diagnostics as they've been
     // matched, so if there's anything left, it didn't get matched.
-    
+
     var failures: [(String, StaticString, UInt)] = []
-    
+
     queue!.sync {
       for diag in self.actual where !self.permitted.contains(diag.behavior) {
         failures.append((
@@ -189,7 +189,7 @@ final class DiagnosticVerifier {
           file, line
         ))
       }
-      
+
       for expectation in self.expected {
         failures.append((
           "Driver did not emit expected diagnostic: \(expectation.message)",
@@ -198,7 +198,7 @@ final class DiagnosticVerifier {
       }
       self.queue = nil
     }
-    
+
     for failure in failures {
       XCTFail(failure.0, file: failure.1, line: failure.2)
     }
