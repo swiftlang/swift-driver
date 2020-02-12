@@ -47,6 +47,25 @@ public struct OutputFileMap: Equatable {
     try! existingOutput(inputFile: VirtualPath(path: ""), outputType: outputType)
   }
 
+  public func resolveRelativePaths(relativeTo absPath: AbsolutePath) -> OutputFileMap {
+    let resolvedKeyValues: [(VirtualPath, [FileType : VirtualPath])] = entries.map {
+      let resolvedKey: VirtualPath
+      // Special case for single dependency record, leave it as is
+      if ($0.key == .relative(.init(""))) {
+        resolvedKey = $0.key
+      } else {
+        resolvedKey = $0.key.resolvedRelativePath(base: absPath)
+      }
+      let resolvedValue = $0.value.mapValues {
+        $0.resolvedRelativePath(base: absPath)
+      }
+      return (resolvedKey, resolvedValue)
+    }
+    return OutputFileMap(entries: .init(resolvedKeyValues, uniquingKeysWith: { _,_ in
+      fatalError("Paths collided after resolving")
+    }))
+  }
+
   /// Load the output file map at the given path.
   public static func load(
     file: AbsolutePath,
@@ -156,9 +175,9 @@ fileprivate struct OutputFileMapJSON: Codable {
 
   /// Converts into virtual path entries.
   func toVirtualOutputFileMap() throws -> [VirtualPath : [FileType : VirtualPath]] {
-    Dictionary(uniqueKeysWithValues: try entries.map { input, entry in
+    Dictionary(try entries.map { input, entry in
       (try VirtualPath(path: input), try entry.paths.mapValues(VirtualPath.init(path:)))
-    })
+    }, uniquingKeysWith: { $1 })
   }
 
   /// Converts from virtual path entries
@@ -184,5 +203,12 @@ extension String {
     if ext.isEmpty { return self }
 
     return self + "." + ext
+  }
+}
+
+extension VirtualPath {
+  fileprivate func resolvedRelativePath(base: AbsolutePath) -> VirtualPath {
+    guard case let .relative(relPath) = self else { return self }
+    return .absolute(.init(base, relPath))
   }
 }

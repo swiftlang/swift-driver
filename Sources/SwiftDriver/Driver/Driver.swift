@@ -247,13 +247,19 @@ public struct Driver {
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
     self.inputFiles = inputFiles
 
+    let outputFileMap: OutputFileMap?
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
       let path = try AbsolutePath(validating: outputFileMapArg)
-      self.outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
+      outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
+    } else {
+      outputFileMap = nil
     }
-    else {
-      self.outputFileMap = nil
+
+    if let workingDirectory = self.workingDirectory {
+      self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
+    } else {
+      self.outputFileMap = outputFileMap
     }
 
     // Determine the compilation mode.
