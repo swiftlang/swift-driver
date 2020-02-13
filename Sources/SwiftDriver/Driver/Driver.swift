@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import TSCUtility
+import Foundation
 
 /// How should the Swift module output be handled?
 public enum ModuleOutput: Equatable {
@@ -78,6 +79,9 @@ public struct Driver {
 
   /// The set of input files
   public let inputFiles: [TypedVirtualPath]
+
+  /// The last time each input file was modified, recorded at the start of the build.
+  public let recordedInputModificationDates: [TypedVirtualPath: Date]
 
   /// The mapping from input files to output files for each kind.
   internal let outputFileMap: OutputFileMap?
@@ -246,6 +250,14 @@ public struct Driver {
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
     self.inputFiles = inputFiles
+    self.recordedInputModificationDates = .init(uniqueKeysWithValues:
+      Set(inputFiles).compactMap {
+        if case .absolute(let absolutePath) = $0.file,
+          let modTime = try? localFileSystem.getFileInfo(absolutePath).modTime {
+          return ($0, modTime)
+        }
+        return nil
+    })
 
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
@@ -619,7 +631,8 @@ extension Driver {
         executorDelegate: executorDelegate,
         numParallelJobs: numParallelJobs,
         processSet: processSet,
-        forceResponseFiles: forceResponseFiles
+        forceResponseFiles: forceResponseFiles,
+        recordedInputModificationDates: recordedInputModificationDates
     )
     try jobExecutor.execute(env: env)
   }
@@ -644,6 +657,8 @@ extension Driver {
     for (envVar, value) in job.extraEnvironment {
       try ProcessEnv.setVar(envVar, value: value)
     }
+
+    try job.verifyInputsNotModified(since: self.recordedInputModificationDates)
 
     return try exec(path: arguments[0], args: arguments)
   }
