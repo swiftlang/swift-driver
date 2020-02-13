@@ -119,7 +119,7 @@ public final class JobExecutor {
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
-    
+
     /// The environment variables.
     let env: [String: String]
 

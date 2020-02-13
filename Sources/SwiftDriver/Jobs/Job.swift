@@ -56,7 +56,7 @@ public struct Job: Codable, Equatable, Hashable {
 
   /// The outputs produced by the job.
   public var outputs: [TypedVirtualPath]
-  
+
   /// Any extra environment variables which should be set while running the job.
   public var extraEnvironment: [String: String]
 
