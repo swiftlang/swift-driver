@@ -617,7 +617,7 @@ extension Driver {
       return
     }
 
-    if jobs.contains(where: { $0.requiresInPlaceExecution }) {
+    if jobs.contains(where: { $0.requiresInPlaceExecution }) || jobs.count == 1 {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
     }

@@ -227,6 +227,34 @@ final class SwiftDriverTests: XCTestCase {
       }
   }
 
+  func testBaseOutputPaths() throws {
+    // Test the combination of -c and -o includes the base output path.
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "foo.swift", "-o", "/some/output/path/bar.o"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/some/output/path/bar.o"))))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-sil", "foo.swift", "-o", "/some/output/path/bar.sil"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/some/output/path/bar.sil"))))
+    }
+
+    do {
+      // If no output is specified, verify we print to stdout for textual formats.
+      var driver = try Driver(args: ["swiftc", "-emit-assembly", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(.standardOutput)))
+    }
+  }
+
     func testMultithreading() throws {
 
       XCTAssertEqual(try Driver(args: ["swiftc"]).numThreads, 0)

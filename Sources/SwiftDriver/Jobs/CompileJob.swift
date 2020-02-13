@@ -25,8 +25,57 @@ extension Driver {
     }
   }
 
-  /// Add the compiler inputs for a frontend compilation job, and return the corresponding primary set of outputs.
-  func addCompileInputs(primaryInputs: [TypedVirtualPath], inputs: inout [TypedVirtualPath], commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
+  fileprivate mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
+                                        isTopLevel: Bool) -> TypedVirtualPath {
+    if let path = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
+      return TypedVirtualPath(file: path, type: outputType)
+    }
+
+    if isTopLevel {
+      if let baseOutput = parsedOptions.getLastArgument(.o)?.asSingle,
+         let baseOutputPath = try? VirtualPath(path: baseOutput){
+        return TypedVirtualPath(file: baseOutputPath, type: outputType)
+      } else if compilerOutputType?.isTextual == true {
+        return TypedVirtualPath(file: .standardOutput, type: outputType)
+      }
+    }
+
+    let baseName: String
+    if (!compilerMode.usesPrimaryFileInputs && numThreads == 0) {
+      baseName = moduleName
+    } else {
+      baseName = input.file.basenameWithoutExt
+    }
+
+    if !isTopLevel {
+      return TypedVirtualPath(file:VirtualPath.temporary(.init(baseName.appendingFileTypeExtension(outputType))),
+                              type: outputType)
+    }
+
+    return TypedVirtualPath(file: .relative(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
+  }
+
+  /// Add the compiler inputs for a frontend compilation job, and return the
+  /// corresponding primary set of outputs.
+  mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
+                                 inputs: inout [TypedVirtualPath],
+                                 commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
+    // Is this compile job top-level
+    let isTopLevel: Bool
+
+    switch compilerOutputType {
+    case .assembly, .sil, .raw_sil, .llvmIR, .ast:
+      isTopLevel = true
+    case .object:
+      isTopLevel = (linkerOutputType == nil)
+    case .swift, .sib, .image, .dSYM, .dependencies, .autolink,
+         .swiftModule, .swiftDocumentation, .swiftInterface,
+         .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
+         .objcHeader, .swiftDeps, .remap, .importedModules, .tbd, .moduleTrace,
+         .indexData, .optimizationRecord, .pcm, .pch, nil:
+      isTopLevel = false
+    }
+
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [TypedVirtualPath] = inputFiles.compactMap { inputFile in
       if inputFile.type.isPartOfSwiftCompilation {
@@ -58,21 +107,19 @@ extension Driver {
       // add an output for the input.
       if isPrimary || numThreads > 0,
           let compilerOutputType = compilerOutputType {
-        let output = (outputFileMap ?? OutputFileMap()).getOutput(
-          inputFile: input.file,
-          outputType: compilerOutputType
-        )
-        primaryOutputs.append(TypedVirtualPath(file: output, type: compilerOutputType))
+        primaryOutputs.append(computePrimaryOutput(for: input,
+                                                   outputType: compilerOutputType,
+                                                   isTopLevel: isTopLevel))
       }
     }
 
     // When not using primary file inputs or multithreading, add a single output.
     if !usesPrimaryFileInputs && numThreads == 0,
         let outputType = compilerOutputType {
-      let existingOutputPath = outputFileMap?.existingOutputForSingleInput(
-          outputType: outputType)
-      let output = existingOutputPath ?? VirtualPath.temporary(.init(moduleName.appendingFileTypeExtension(outputType)))
-      primaryOutputs.append(TypedVirtualPath(file: output, type: outputType))
+      primaryOutputs.append(computePrimaryOutput(
+        for: TypedVirtualPath(file: try! VirtualPath(path: ""),
+                              type: swiftInputFiles[0].type),
+        outputType: outputType, isTopLevel: isTopLevel))
     }
 
     return primaryOutputs
