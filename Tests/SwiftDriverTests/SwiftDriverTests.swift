@@ -394,6 +394,19 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs3[0].commandLine.contains(.flag("-parse-as-library")))
   }
 
+  func testModuleNaming() throws {
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift"]).moduleName, "foo")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out"]).moduleName, "a")
+
+    // This is silly, but necesary for compatibility with the integrated driver.
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized"]).moduleName, "main")
+
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized", "-module-name", "bar"]).moduleName, "bar")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "+++.out"]).moduleName, "main")
+    XCTAssertEqual(try Driver(args: ["swift"]).moduleName, "REPL")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-emit-library", "-o", "libBaz.dylib"]).moduleName, "Baz")
+  }
+
   func testOutputFileMapLoading() throws {
     let contents = """
     {
