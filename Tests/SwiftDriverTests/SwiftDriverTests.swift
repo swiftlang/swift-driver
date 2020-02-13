@@ -494,6 +494,44 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testOutputFileMapResolving() throws {
+    // Create sample OutputFileMap:
+
+    let stringyEntries: [String: [FileType: String]] = [
+      "": [.swiftDeps: "foo.build/master.swiftdeps"],
+      "foo.swift" : [
+        .dependencies: "foo.build/foo.d",
+        .object: "foo.build/foo.swift.o",
+        .swiftModule: "foo.build/foo~partial.swiftmodule",
+        .swiftDeps: "foo.build/foo.swiftdeps"
+      ]
+    ]
+    let resolvedStringyEntries: [String: [FileType: String]] = [
+      "": [.swiftDeps: "/foo_root/foo.build/master.swiftdeps"],
+      "/foo_root/foo.swift" : [
+        .dependencies: "/foo_root/foo.build/foo.d",
+        .object: "/foo_root/foo.build/foo.swift.o",
+        .swiftModule: "/foo_root/foo.build/foo~partial.swiftmodule",
+        .swiftDeps: "/foo_root/foo.build/foo.swiftdeps"
+      ]
+    ]
+    func outputFileMapFromStringyEntries(
+      _ entries: [String: [FileType: String]]
+    ) throws -> OutputFileMap {
+      .init(entries: Dictionary(uniqueKeysWithValues: try entries.map { try (
+        VirtualPath(path: $0.key),
+        $0.value.mapValues(VirtualPath.init(path:))
+      )}))
+    }
+    let sampleOutputFileMap =
+      try outputFileMapFromStringyEntries(stringyEntries)
+    let resolvedOutputFileMap = sampleOutputFileMap
+      .resolveRelativePaths(relativeTo: .init("/foo_root"))
+    let expectedOutputFileMap =
+      try outputFileMapFromStringyEntries(resolvedStringyEntries)
+    XCTAssertEqual(expectedOutputFileMap, resolvedOutputFileMap)
+  }
+
   func testResponseFileExpansion() throws {
     try withTemporaryDirectory { path in
       let diags = DiagnosticsEngine()
