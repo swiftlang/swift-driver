@@ -52,9 +52,6 @@ do {
   exit(EXIT_FAILURE)
 } catch let diagnosticData as DiagnosticData {
   diagnosticsEngine.emit(.error(diagnosticData))
-} catch let driverError as Driver.Error {
-  print("error: \(driverError.localizedDescription)")
-  exit(EXIT_FAILURE)
 } catch {
   print("error: \(error)")
   exit(EXIT_FAILURE)

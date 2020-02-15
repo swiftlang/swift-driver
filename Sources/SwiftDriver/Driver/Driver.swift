@@ -41,21 +41,21 @@ public enum ModuleOutput: Equatable {
 
 /// The Swift driver.
 public struct Driver {
-  public enum Error: Swift.Error, LocalizedError {
+  public enum Error: Swift.Error, DiagnosticData {
     case invalidDriverName(String)
     case invalidInput(String)
     case noJobsPassedToDriverFromEmptyInputFileList
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
 
-    public var errorDescription: String? {
+    public var description: String {
       switch self {
       case .invalidDriverName(let driverName):
-        return "invalid drive name: \(driverName)"
+        return "invalid driver name: \(driverName)"
       case .invalidInput(let input):
         return "invalid input: \(input)"
       case .noJobsPassedToDriverFromEmptyInputFileList:
-        return "no input files were passed and no subsequent jobs were generated for the driver"
+        return "no input files"
       case .relativeFrontendPath(let path):
         // TODO: where is this error thrown
         return "relative frontend path: \(path)"
@@ -589,7 +589,7 @@ extension Driver {
     switch driverName {
     case "swift":
       return .interactive
-    case "swiftc", "swift-driver":
+    case "swiftc":
       return .batch
     case "swift-autolink-extract":
       return .autolinkExtract
