@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import Foundation
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable, Hashable {
@@ -56,7 +57,7 @@ public struct Job: Codable, Equatable, Hashable {
 
   /// The outputs produced by the job.
   public var outputs: [TypedVirtualPath]
-  
+
   /// Any extra environment variables which should be set while running the job.
   public var extraEnvironment: [String: String]
 
@@ -86,6 +87,29 @@ public struct Job: Codable, Equatable, Hashable {
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
     self.supportsResponseFiles = supportsResponseFiles
+  }
+}
+
+extension Job {
+  public enum InputError: Error, Equatable, DiagnosticData {
+    case inputUnexpectedlyModified(TypedVirtualPath)
+
+    public var description: String {
+      switch self {
+      case .inputUnexpectedlyModified(let input):
+        return "input file '\(input.file.name)' was modified during the build"
+      }
+    }
+  }
+
+  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date]) throws {
+    for input in inputs {
+      if case .absolute(let absolutePath) = input.file,
+        let recordedModificationTime = recordedInputModificationDates[input],
+        try localFileSystem.getFileInfo(absolutePath).modTime != recordedModificationTime {
+        throw InputError.inputUnexpectedlyModified(input)
+      }
+    }
   }
 }
 

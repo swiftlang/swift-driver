@@ -63,7 +63,7 @@ extension OptionTable {
         let rightPadding = String(
           repeating: " ",
           count: maxDisplayNameLength - displayName.count)
-        
+
         print("  \(displayName)\(rightPadding) \(helpText)")
       } else {
         print("  \(displayName)")

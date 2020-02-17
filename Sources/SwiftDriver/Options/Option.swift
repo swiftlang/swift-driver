@@ -12,7 +12,7 @@
 /// Attributes that describe where and how the option is used.
 public struct OptionAttributes: OptionSet, Hashable {
   public let rawValue: UInt
-  
+
   public init(rawValue: UInt) {
     self.rawValue = rawValue
   }

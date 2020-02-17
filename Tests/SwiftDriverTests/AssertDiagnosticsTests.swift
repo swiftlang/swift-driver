@@ -22,7 +22,7 @@ import SwiftDriver
 class AssertDiagnosticsTests: FailableTestCase {
   func testAssertNoDiagnostics() {
     assertNoDiagnostics { _ in }
-    
+
     assertFails {
       assertNoDiagnostics { diags in
         diags.emit(error: "something happened")
@@ -33,7 +33,7 @@ class AssertDiagnosticsTests: FailableTestCase {
         diags.emit(warning: "hello")
       }
     }
-    
+
     // Unexpected warnings/notes/remarks are okay
     assertNoDiagnostics { diags in
       diags.emit(note: "hello")
@@ -42,7 +42,7 @@ class AssertDiagnosticsTests: FailableTestCase {
       diags.emit(remark: "hello")
     }
   }
-  
+
   func testAssertDiagnostics() {
     assertDiagnostics { diags, match in
       diags.emit(error: "yankees won again")
@@ -52,14 +52,14 @@ class AssertDiagnosticsTests: FailableTestCase {
       match.expect(.error("won"))
       diags.emit(error: "yankees won again")
     }
-    
+
     assertFails(times: 2) {
       assertDiagnostics { diags, match in
         match.expect(.error("lost"))
         diags.emit(error: "yankees won again")
       }
     }
-    
+
     assertFails(times: 2) {
       assertDiagnostics { diags, match in
         diags.emit(error: "yankees won again")
@@ -73,7 +73,7 @@ class AssertDiagnosticsTests: FailableTestCase {
         match.expect(.error("won"))
       }
     }
-    
+
     // We should get two assertion failures: one for expecting the warning, one
     // for emitting the error.
     assertFails(times: 2) {
@@ -82,7 +82,7 @@ class AssertDiagnosticsTests: FailableTestCase {
         diags.emit(.error("yankees won again"))
       }
     }
-    
+
     // We should get one assertion failure for the unexpected error. An
     // unexpected note is okay.
     assertFails(times: 1) {
@@ -91,7 +91,7 @@ class AssertDiagnosticsTests: FailableTestCase {
         diags.emit(note: "investigate their star's doctor")
       }
     }
-    
+
     // ...unless we tighten things up.
     assertFails(times: 2) {
       assertDiagnostics { diags, match in
@@ -100,7 +100,7 @@ class AssertDiagnosticsTests: FailableTestCase {
         match.forbidUnexpected(.note)
       }
     }
-    
+
     // ...or loosen them.
     assertDiagnostics { diags, match in
       diags.emit(error: "yankees won again")
@@ -108,27 +108,27 @@ class AssertDiagnosticsTests: FailableTestCase {
       match.permitUnexpected(.error)
     }
   }
-  
+
   func testAssertDriverDiagosotics() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "test.swift")
-    
+
     try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
       driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
       verify.expect(.error("this mode does not support emitting modules"))
     }
-    
+
     try assertFails {
       try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
         verify.expect(.error("this mode does not support emitting modules"))
       }
     }
-    
+
     try assertFails {
       try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
         driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
       }
     }
-    
+
     try assertFails(times: 2) {
       try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
         driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
@@ -145,7 +145,7 @@ class AssertDiagnosticsTests: FailableTestCase {
 /// if they fail too often or not often enough.
 class FailableTestCase: XCTestCase {
   fileprivate var anticipatedFailures = 0
-  
+
   func assertFails(
     times: Int = 1,
     _ message: String = "",
@@ -155,7 +155,7 @@ class FailableTestCase: XCTestCase {
   ) rethrows {
     var outer = anticipatedFailures
     anticipatedFailures = times
-    
+
     defer {
       if anticipatedFailures > 0 {
         recordFailure(
@@ -166,15 +166,15 @@ class FailableTestCase: XCTestCase {
       }
       anticipatedFailures = outer
     }
-    
+
     try body()
   }
-  
+
   override func setUp() {
     super.setUp()
     anticipatedFailures = 0
   }
-  
+
   override func recordFailure(
     withDescription description: String,
     inFile filePath: String, atLine lineNumber: Int,
@@ -184,7 +184,7 @@ class FailableTestCase: XCTestCase {
       anticipatedFailures -= 1
       return
     }
-    
+
     super.recordFailure(
       withDescription: description,
       inFile: filePath, atLine: lineNumber,

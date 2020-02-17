@@ -119,7 +119,7 @@ public final class JobExecutor {
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
-    
+
     /// The environment variables.
     let env: [String: String]
 
@@ -138,6 +138,9 @@ public final class JobExecutor {
     /// If true, always use response files to pass command line arguments.
     let forceResponseFiles: Bool
 
+    /// The last time each input file was modified, recorded at the start of the build.
+    public let recordedInputModificationDates: [TypedVirtualPath: Date]
+
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
@@ -145,7 +148,8 @@ public final class JobExecutor {
       executorDelegate: JobExecutorDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
-      forceResponseFiles: Bool
+      forceResponseFiles: Bool,
+      recordedInputModificationDates: [TypedVirtualPath: Date]
     ) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
@@ -154,6 +158,7 @@ public final class JobExecutor {
       self.jobQueue = jobQueue
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
+      self.recordedInputModificationDates = recordedInputModificationDates
     }
   }
 
@@ -175,13 +180,17 @@ public final class JobExecutor {
   /// If true, always use response files to pass command line arguments.
   let forceResponseFiles: Bool
 
+  /// The last time each input file was modified, recorded at the start of the build.
+  public let recordedInputModificationDates: [TypedVirtualPath: Date]
+
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
     executorDelegate: JobExecutorDelegate,
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
-    forceResponseFiles: Bool = false
+    forceResponseFiles: Bool = false,
+    recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) {
     self.jobs = jobs
     self.argsResolver = resolver
@@ -189,6 +198,7 @@ public final class JobExecutor {
     self.numParallelJobs = numParallelJobs ?? 1
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
+    self.recordedInputModificationDates = recordedInputModificationDates
   }
 
   /// Execute all jobs.
@@ -227,7 +237,8 @@ public final class JobExecutor {
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
       processSet: processSet,
-      forceResponseFiles: forceResponseFiles
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates
     )
   }
 }
@@ -381,6 +392,8 @@ class ExecuteJobRule: LLBuildRule {
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  forceResponseFiles: context.forceResponseFiles)
+
+      try job.verifyInputsNotModified(since: context.recordedInputModificationDates)
 
       let process = try context.executorDelegate.launchProcess(
         for: job, arguments: arguments, env: env

@@ -17,14 +17,14 @@ extension Driver {
   mutating func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath) throws -> Job {
     var inputs = [TypedVirtualPath]()
     var outputs = [TypedVirtualPath]()
-    
+
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
 
     commandLine.appendFlag("-frontend")
-    
+
     try addCommonFrontendOptions(
       commandLine: &commandLine, bridgingHeaderHandling: .parsed)
-    
+
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
     // TODO: Should this just be pch output with extension changed?
@@ -52,7 +52,7 @@ extension Driver {
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
     commandLine.appendFlag(.emitPch)
-    
+
     if parsedOptions.hasArgument(.pchOutputDir) {
       try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
     } else {
@@ -60,7 +60,7 @@ extension Driver {
       commandLine.appendPath(output.file)
     }
     outputs.append(output)
-    
+
     return Job(
       kind: .generatePCH,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),

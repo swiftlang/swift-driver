@@ -246,3 +246,18 @@ extension FileType {
     }
   }
 }
+
+extension FileType {
+  var isTextual: Bool {
+    switch self {
+    case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
+         .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
+         .optimizationRecord, .swiftInterface:
+      return true
+    case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
+         .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
+         .pcm, .swiftDeps, .remap, .indexData:
+      return false
+    }
+  }
+}

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import TSCBasic
+import TSCUtility
 
 import SwiftDriver
 
@@ -182,28 +183,90 @@ final class JobExecutorTests: XCTestCase {
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }
-  
+
   func testSwiftDriverExecOverride() throws {
     var env = ProcessEnv.vars
     let envVarName = "SWIFT_DRIVER_SWIFT_EXEC"
     let dummyPath = "/some/garbage/path/fnord"
-    
+
     // DarwinToolchain
     env.removeValue(forKey: envVarName)
     let normalSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(normalSwiftPath.basenameWithoutExt, "swift")
-    
+
     env[envVarName] = dummyPath
     let overriddenSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(overriddenSwiftPath, AbsolutePath(dummyPath))
-    
+
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
     let unixSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(unixSwiftPath.basenameWithoutExt, "swift")
-    
+
     env[envVarName] = dummyPath
     let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
     XCTAssertEqual(unixOverriddenSwiftPath, AbsolutePath(dummyPath))
   }
+
+  func testInputModifiedDuringSingleJobBuild() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "let foo = 1"
+      }
+
+      var driver = try Driver(args: ["swift", main.pathString])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].requiresInPlaceExecution)
+      let resolver = try ArgsResolver()
+
+      // Change the file
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "let foo = 1"
+      }
+
+      let delegate = JobCollectingDelegate()
+      delegate.useStubProcess = true
+      XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver,
+                                          executorDelegate: delegate)) {
+        XCTAssertEqual($0 as? Job.InputError,
+                       .inputUnexpectedlyModified(TypedVirtualPath(file: .absolute(main), type: .swift)))
+      }
+
+    }
+  }
+
+  func testInputModifiedDuringMultiJobBuild() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "let foo = 1"
+      }
+      let other = path.appending(component: "other.swift")
+      try localFileSystem.writeFileContents(other) {
+        $0 <<< "let bar = 2"
+      }
+
+      var driver = try Driver(args: ["swiftc", main.pathString, other.pathString])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count > 1)
+      let resolver = try ArgsResolver()
+
+      // Change the file
+      try localFileSystem.writeFileContents(other) {
+        $0 <<< "let bar = 3"
+      }
+
+      let delegate = JobCollectingDelegate()
+      delegate.useStubProcess = true
+      XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver,
+                                          executorDelegate: delegate)) {
+        // FIXME: The JobExecutor needs a way of emitting diagnostics or
+        // propagating errors through llbuild.
+        XCTAssertEqual($0 as? Diagnostics, .fatalError)
+      }
+
+    }
+  }
+
 }

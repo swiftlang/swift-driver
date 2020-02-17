@@ -70,7 +70,7 @@ extension DriverKind {
       return "Swift Module Wrapper"
     }
   }
-  
+
   public var seeAlsoHelpMessage: String? {
     switch self {
     case .interactive:

@@ -29,16 +29,16 @@ func makeDriverSymlinks(
 ) throws -> (swift: AbsolutePath, swiftc: AbsolutePath) {
   let binDir = bundleRoot()
   let driver = binDir.appending(component: "swift-driver")
-  
+
   let tempBinDir = tempDir.appending(components: "bin")
   try makeDirectories(tempBinDir)
-  
+
   let swift = tempBinDir.appending(component: "swift")
   try createSymlink(swift, pointingAt: driver, relative: false)
-  
+
   let swiftc = tempBinDir.appending(components: "swiftc")
   try createSymlink(swiftc, pointingAt: driver, relative: false)
-  
+
   // If we've been given a build dir, link in its lib folder so we can find its
   // resource directory.
   if let swiftBuildDir = swiftBuildDir {
@@ -91,7 +91,7 @@ final class IntegrationTests: IntegrationTestCase {
     }
   #endif
   }
-  
+
   // These next few tests run lit test suites from a Swift working copy using
   // swift-driver in front of that working copy's Swift compiler. To enable
   // these tests, you must:
@@ -110,19 +110,19 @@ final class IntegrationTests: IntegrationTestCase {
   // If you don't set SWIFT_DRIVER_LIT_DIR, the tests will simply pass without
   // doing anything. If you do set it to something nonexistent or incorrect,
   // they will fail.
-  
+
   func testLitDriverTests() throws {
     try runLitTests(suite: "test", "Driver")
   }
-  
+
   func testLitDriverValidationTests() throws {
     try runLitTests(suite: "validation-test", "Driver")
   }
-  
+
   func testLitInterpreterTests() throws {
     try runLitTests(suite: "test", "Interpreter")
   }
-  
+
   func testLitStdlibTests() throws {
     try runLitTests(suite: "test", "stdlib")
   }
@@ -136,7 +136,7 @@ final class IntegrationTests: IntegrationTestCase {
         print("Skipping lit tests because SWIFT_DRIVER_LIT_DIR is not set")
         return
       }
-      
+
       // SWIFT_DRIVER_LIT_DIR may be relative or absolute. If it's
       // relative, it's relative to the parent directory of the package. If
       // you've cloned this package into a Swift compiler working directory,
@@ -146,16 +146,16 @@ final class IntegrationTests: IntegrationTestCase {
         litConfigPathString,
         relativeTo: packageDirectory.parentDirectory
       )
-      
+
       /// The site config file to use.
       let litConfigFile = litConfigDir.appending(component: "lit.site.cfg")
 
       /// The e.g. swift-macosx-x86_64 directory.
       let swiftBuildDir = litConfigDir.parentDirectory
-      
+
       /// The path to the real frontend we should use.
       let frontendFile = swiftBuildDir.appending(components: "bin", "swift")
-      
+
       /// The root directory, where build/, llvm/, and swift/ live.
       let swiftRootDir = swiftBuildDir.parentDirectory.parentDirectory.parentDirectory
 
@@ -174,7 +174,7 @@ final class IntegrationTests: IntegrationTestCase {
           return
         }
       }
-      
+
       // Make dummy swift and swiftc files with an appropriately-positioned
       // resource directory.
       let (swift: swift, swiftc: swiftc) =
@@ -186,15 +186,15 @@ final class IntegrationTests: IntegrationTestCase {
         "--param", "swift_site_config=\(litConfigFile.pathString)",
         testDir.pathString
       ]
-      
+
       let extraEnv = [
         "SWIFT": swift.pathString,
         "SWIFTC": swiftc.pathString,
         "SWIFT_DRIVER_SWIFT_EXEC": frontendFile.pathString
       ]
-      
+
       printCommand(args: args, extraEnv: extraEnv)
-      
+
       let process = TSCBasic.Process(
         arguments: args,
         environment: ProcessEnv.vars.merging(extraEnv) { $1 },

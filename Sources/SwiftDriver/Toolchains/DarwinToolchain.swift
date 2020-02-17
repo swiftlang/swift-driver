@@ -19,11 +19,11 @@ public final class DarwinToolchain: Toolchain {
 
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
-  
+
   public init(env: [String: String]) {
     self.env = env
   }
-  
+
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     // Check the cache

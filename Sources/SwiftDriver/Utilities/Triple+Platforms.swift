@@ -21,17 +21,17 @@
 public enum DarwinPlatform: Hashable {
   /// macOS, corresponding to the `macosx`, `macos`, and `darwin` OS names.
   case macOS
-  
+
   /// iOS, corresponding to the `ios` and `iphoneos` OS names. This does not
   /// match tvOS.
   case iOS(Environment)
-  
+
   /// tvOS, corresponding to the `tvos` OS name.
   case tvOS(Environment)
-  
+
   /// watchOS, corresponding to the `watchos` OS name.
   case watchOS(Environment)
-  
+
   /// The most general form of environment information attached to a
   /// `DarwinPlatform`.
   ///
@@ -45,7 +45,7 @@ public enum DarwinPlatform: Hashable {
     case device
     case simulator
   }
-  
+
   /// Returns the same platform, but with the environment replaced by
   /// `environment`. Returns `nil` if `environment` is not valid
   /// for `self`.
@@ -62,7 +62,7 @@ public enum DarwinPlatform: Hashable {
       return .watchOS(environment)
     }
   }
-  
+
   /// The platform name, i.e. the name clang uses to identify this platform in its
   /// resource directory.
   public var platformName: String {
@@ -83,7 +83,7 @@ public enum DarwinPlatform: Hashable {
       return "watchsimulator"
     }
   }
-  
+
   /// The name used to identify this platform in compiler_rt file names.
   public var libraryNameSuffix: String {
     switch self {
@@ -112,7 +112,7 @@ extension Triple {
     // switch to only checking the -environment field.
     return environment == .simulator || arch == .x86 || arch == .x86_64
   }
-  
+
   /// Returns the OS version equivalent for the given platform, converting and
   /// defaulting various representations.
   ///
@@ -137,7 +137,7 @@ extension Triple {
       return _watchOSVersion
     }
   }
-  
+
   /// Returns the `DarwinPlatform` for this triple, or `nil` if it is a non-Darwin
   /// platform.
   ///
@@ -159,7 +159,7 @@ extension Triple {
       return nil
     }
   }
-  
+
   /// The platform name, i.e. the name clang uses to identify this target in its
   /// resource directory.
   ///
@@ -175,7 +175,7 @@ extension Triple {
         fatalError("unsupported darwin platform kind?")
       }
       return conflatingDarwin ? "darwin" : darwinPlatform.platformName
-      
+
     case .linux:
       return environment == .android ? "android" : "linux"
     case .freeBSD:
@@ -220,10 +220,10 @@ extension Triple {
     public let iOS: Triple.Version?
     public let tvOS: Triple.Version?
     public let watchOS: Triple.Version?
-    
+
     // TODO: We should have linux, windows, etc.
     public let nonDarwin: Bool
-    
+
     /// Describes the availability of a feature that is supported on multiple platforms,
     /// but is tied to a particular version.
     ///
@@ -245,7 +245,7 @@ extension Triple {
       self.watchOS = watchOS
       self.nonDarwin = nonDarwin
     }
-    
+
     /// Describes the availability of a feature that is supported on multiple platforms,
     /// but is tied to a particular version.
     ///
@@ -263,7 +263,7 @@ extension Triple {
       self.init(macOS: macOS, iOS: iOS, tvOS: iOS, watchOS: watchOS,
                 nonDarwin: nonDarwin)
     }
-    
+
     /// Returns the version when the feature was introduced on the specified Darwin
     /// platform, or `nil` if the feature has not been introduced there.
     public subscript(darwinPlatform: DarwinPlatform) -> Triple.Version? {
@@ -279,7 +279,7 @@ extension Triple {
       }
     }
   }
-  
+
   /// Checks whether the triple supports the specified feature, i.e., the feature
   /// has been introduced by the OS and version indicated by the triple.
   public func supports(_ feature: FeatureAvailability) -> Bool {
@@ -289,7 +289,7 @@ extension Triple {
     guard let introducedVersion = feature[darwinPlatform] else {
       return false
     }
-    
+
     return version(for: darwinPlatform) >= introducedVersion
   }
 }
@@ -305,7 +305,7 @@ extension Triple.FeatureAvailability {
     iOS: Triple.Version(12, 2, 0),
     watchOS: Triple.Version(5, 2, 0)
   )
-  
+
   /// Linking `libarclite` is unnecessary for triples supporting this feature.
   static let compatibleObjCRuntime = Self(
     macOS: Triple.Version(10, 11, 0),

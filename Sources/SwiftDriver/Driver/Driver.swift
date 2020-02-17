@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import TSCUtility
+import Foundation
 
 /// How should the Swift module output be handled?
 public enum ModuleOutput: Equatable {
@@ -46,7 +47,7 @@ public struct Driver {
     case subcommandPassedToDriver
     case relativeFrontendPath(String)
   }
-  
+
   /// The set of environment variables that are visible to the driver and
   /// processes it launches. This is a hook for testing; in actual use
   /// it should be identical to the real environment.
@@ -78,6 +79,9 @@ public struct Driver {
 
   /// The set of input files
   public let inputFiles: [TypedVirtualPath]
+
+  /// The last time each input file was modified, recorded at the start of the build.
+  public let recordedInputModificationDates: [TypedVirtualPath: Date]
 
   /// The mapping from input files to output files for each kind.
   internal let outputFileMap: OutputFileMap?
@@ -246,14 +250,28 @@ public struct Driver {
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
     self.inputFiles = inputFiles
+    self.recordedInputModificationDates = .init(uniqueKeysWithValues:
+      Set(inputFiles).compactMap {
+        if case .absolute(let absolutePath) = $0.file,
+          let modTime = try? localFileSystem.getFileInfo(absolutePath).modTime {
+          return ($0, modTime)
+        }
+        return nil
+    })
 
+    let outputFileMap: OutputFileMap?
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
       let path = try AbsolutePath(validating: outputFileMapArg)
-      self.outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
+      outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
+    } else {
+      outputFileMap = nil
     }
-    else {
-      self.outputFileMap = nil
+
+    if let workingDirectory = self.workingDirectory {
+      self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
+    } else {
+      self.outputFileMap = outputFileMap
     }
 
     // Determine the compilation mode.
@@ -441,7 +459,7 @@ extension Driver {
     var isEscaping = false
     // Indicates if we are currently parsing quoted text.
     var quoted = false
-    
+
     for char in line {
       // Backslash escapes to the next character.
       if char == #"\"#, !isEscaping {
@@ -480,7 +498,7 @@ extension Driver {
     return content.split { $0 == "\n" || $0 == "\r\n" }
            .flatMap { tokenizeResponseFileLine($0) }
   }
-  
+
   /// Recursively expands the response files.
   /// - Parameter visitedResponseFiles: Set containing visited response files to detect recursive parsing.
   private static func expandResponseFiles(
@@ -605,7 +623,7 @@ extension Driver {
       return
     }
 
-    if jobs.contains(where: { $0.requiresInPlaceExecution }) {
+    if jobs.contains(where: { $0.requiresInPlaceExecution }) || jobs.count == 1 {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
     }
@@ -619,7 +637,8 @@ extension Driver {
         executorDelegate: executorDelegate,
         numParallelJobs: numParallelJobs,
         processSet: processSet,
-        forceResponseFiles: forceResponseFiles
+        forceResponseFiles: forceResponseFiles,
+        recordedInputModificationDates: recordedInputModificationDates
     )
     try jobExecutor.execute(env: env)
   }
@@ -644,6 +663,8 @@ extension Driver {
     for (envVar, value) in job.extraEnvironment {
       try ProcessEnv.setVar(envVar, value: value)
     }
+
+    try job.verifyInputsNotModified(since: self.recordedInputModificationDates)
 
     return try exec(path: arguments[0], args: arguments)
   }
@@ -1148,12 +1169,12 @@ extension Driver {
   private static func baseNameWithoutExtension(_ path: String, hasExtension: inout Bool) -> String {
     if let absolute = try? AbsolutePath(validating: path) {
       hasExtension = absolute.extension != nil
-      return absolute.basenameWithoutAllExts
+      return absolute.basenameWithoutExt
     }
 
     if let relative = try? RelativePath(validating: path) {
       hasExtension = relative.extension != nil
-      return relative.basenameWithoutAllExts
+      return relative.basenameWithoutExt
     }
 
     hasExtension = false
@@ -1251,7 +1272,7 @@ extension Driver {
       // This value will fail the isSwiftIdentifier test below.
       moduleName = ""
     }
-    
+
     func fallbackOrDiagnose(_ error: Diagnostic.Message) {
       // FIXME: Current driver notes that this is a "fallback module name".
       if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
@@ -1330,7 +1351,7 @@ extension Driver {
         sdkPath = try? toolchain.defaultSDKPath()?.pathString
       }
     }
-    
+
     // An empty string explicitly clears the SDK.
     if sdkPath == "" {
       sdkPath = nil
@@ -1445,7 +1466,7 @@ extension Driver {
   #else
   static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
   #endif
-  
+
   static func computeToolchain(
     _ explicitTarget: Triple?,
     diagnosticsEngine: DiagnosticsEngine,

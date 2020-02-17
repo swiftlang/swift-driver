@@ -116,9 +116,9 @@ extension DarwinToolchain {
     targetTriple: Triple
   ) {
     // FIXME: Properly handle deployment targets.
-    
+
     let flag: String
-    
+
     switch targetTriple.darwinPlatform! {
     case .iOS(.device):
       flag = "-iphoneos_version_min"
@@ -135,11 +135,11 @@ extension DarwinToolchain {
     case .watchOS(.simulator):
       flag = "-watchos_simulator_version_min"
     }
-    
+
     commandLine.appendFlag(flag)
     commandLine.appendFlag(targetTriple.version().description)
   }
-  
+
   private func addArgsToLinkARCLite(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
@@ -215,7 +215,7 @@ extension DarwinToolchain {
         commandLine.appendFlag(.F)
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
-      
+
       // Linking sanitizers will add rpaths, which might negatively interact when
       // other rpaths are involved, so we should make sure we add the rpaths after
       // all user-specified rpaths.
