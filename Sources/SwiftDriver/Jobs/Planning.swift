@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
+
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput
   case emitPCMWrongInputFiles
@@ -94,8 +96,13 @@ extension Driver {
         if let partitions = partitions, let partitionIdx = partitions.assignment[input] {
           // We have a partitioning for batch mode. If this input file isn't the first
           // file in the partition, skip it: it's been accounted for already.
-          if partitions.partitions[partitionIdx].first! != input {
+          let partition = partitions.partitions[partitionIdx]
+          if partition.first! != input {
             continue
+          }
+
+          if parsedOptions.hasArgument(.driverShowJobLifecycle) {
+            stdoutStream.write("Forming batch job from \(partition.count) constituents\n")
           }
 
           primaryInputs = partitions.partitions[partitionIdx]
@@ -368,9 +375,15 @@ extension Driver {
   /// Compute the partitions we'll use for batch mode.
   private func batchPartitions(_ info: BatchModeInfo) -> BatchPartitions? {
     let swiftInputFiles = inputFiles.filter { inputFile in
-      inputFile.type.isPartOfSwiftCompilation
+      inputFile.isBatchable(singleDependenciesFileInput: singleDependenciesFileInput)
     }
     let numPartitions = numberOfBatchPartitions(info, swiftInputFiles: swiftInputFiles)
+
+    if (parsedOptions.hasArgument(.driverShowJobLifecycle)) {
+      stdoutStream.write("Found \(swiftInputFiles) batchable jobs\n")
+      stdoutStream.write("Forming into \(numPartitions) batches\n")
+      stdoutStream.flush()
+    }
 
     // If there is only one partition, don't bother.
     if numPartitions == 1 { return nil }
@@ -402,5 +415,17 @@ extension Driver {
     }
 
     return BatchPartitions(assignment: assignment, partitions: partitions)
+  }
+}
+
+private extension TypedVirtualPath {
+  func isBatchable(singleDependenciesFileInput: TypedVirtualPath?) -> Bool {
+    guard type.isPartOfSwiftCompilation else { return false }
+
+    if let singleDependenciesFileInput = singleDependenciesFileInput {
+      return self != singleDependenciesFileInput
+    }
+
+    return true
   }
 }

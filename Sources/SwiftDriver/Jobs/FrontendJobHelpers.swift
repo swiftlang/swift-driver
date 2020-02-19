@@ -242,11 +242,23 @@ extension Driver {
             finalOutputPath: moduleDocOutputPath,
             input: input,
             flag: "-emit-module-doc-path")
-        addOutputOfType(
+        if let singleDependenciesFileInput = singleDependenciesFileInput {
+          if input == singleDependenciesFileInput.file {
+            addOutputOfType(
+              outputType: .dependencies,
+              finalOutputPath: dependenciesFilePath,
+              input: input,
+              flag: "-emit-dependencies-path")
+          } else {
+            // FIXME: create empty dummy file
+          }
+        } else {
+          addOutputOfType(
             outputType: .dependencies,
             finalOutputPath: dependenciesFilePath,
             input: input,
             flag: "-emit-dependencies-path")
+        }
       }
 
       addOutputOfType(

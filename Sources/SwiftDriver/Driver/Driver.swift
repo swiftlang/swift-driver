@@ -129,6 +129,9 @@ public struct Driver {
   /// The path to the pch for the imported Objective-C header.
   public let bridgingPrecompiledHeader: VirtualPath?
 
+  /// Single dependencies file, input.
+  public let singleDependenciesFileInput: TypedVirtualPath?
+
   /// Path to the dependencies file.
   public let dependenciesFilePath: VirtualPath?
 
@@ -318,6 +321,8 @@ public struct Driver {
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
       targetTriple: targetTriple)
+
+    self.singleDependenciesFileInput = Self.computeSingleDependenciesInput(&parsedOptions, inputFiles: inputFiles)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
@@ -1583,5 +1588,18 @@ extension Driver {
     }
 
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(.swiftDocumentation))
+  }
+
+  static func computeSingleDependenciesInput(_ parsedOptions: inout ParsedOptions,
+                                             inputFiles: [TypedVirtualPath]) -> TypedVirtualPath? {
+    guard parsedOptions.hasArgument(.emitDependencies) else { return nil }
+
+    let hasOnlyOneDependenciesFile = parsedOptions.hasFlag(positive: .enableOnlyOneDependencyFile,
+                                                           negative: .disableOnlyOneDependencyFile,
+                                                           default: true)
+
+    guard hasOnlyOneDependenciesFile else { return nil }
+
+    return inputFiles.first { $0.type.isPartOfSwiftCompilation }
   }
 }
