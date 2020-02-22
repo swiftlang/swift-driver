@@ -922,18 +922,32 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testBatchModeCompiles() throws {
-    var driver1 = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "foo2.swift", "bar2.swift", "foo3.swift", "bar3.swift", "foo4.swift", "bar4.swift", "foo5.swift", "bar5.swift", "wibble.swift", "-module-name", "Test", "-enable-batch-mode", "-driver-batch-count", "3"])
-    let plannedJobs = try driver1.planBuild()
-    XCTAssertEqual(plannedJobs.count, 4)
-    XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-    XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo1.o")))
-    XCTAssertEqual(plannedJobs[1].outputs.count, 4)
-    XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary(RelativePath("foo3.o")))
-    XCTAssertEqual(plannedJobs[2].outputs.count, 3)
-    XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.temporary(RelativePath("foo5.o")))
-    XCTAssertTrue(plannedJobs[3].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
-    XCTAssertEqual(plannedJobs[3].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
+    do {
+      var driver1 = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "foo2.swift", "bar2.swift", "foo3.swift", "bar3.swift", "foo4.swift", "bar4.swift", "foo5.swift", "bar5.swift", "wibble.swift", "-module-name", "Test", "-enable-batch-mode", "-driver-batch-count", "3"])
+      let plannedJobs = try driver1.planBuild()
+      XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo1.o")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary(RelativePath("foo3.o")))
+      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.temporary(RelativePath("foo5.o")))
+      XCTAssertTrue(plannedJobs[3].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
+      XCTAssertEqual(plannedJobs[3].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
+    }
+
+    // Test 1 partition results in 1 job
+    do {
+      var driver = try Driver(args: ["swiftc", "-toolchain-stdlib-rpath", "-module-cache-path", "/tmp/clang-module-cache", "-swift-version", "4", "-Xfrontend", "-ignore-module-source-info", "-module-name", "batch", "-enable-batch-mode", "-j", "1", "-c", "main.swift", "lib.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      var count = 0
+      for arg in plannedJobs[0].commandLine where arg == .flag("-primary-file") {
+        count += 1
+      }
+      XCTAssertEqual(count, 2)
+    }
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {

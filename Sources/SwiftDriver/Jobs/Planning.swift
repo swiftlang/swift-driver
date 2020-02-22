@@ -372,8 +372,14 @@ extension Driver {
     }
     let numPartitions = numberOfBatchPartitions(info, swiftInputFiles: swiftInputFiles)
 
-    // If there is only one partition, don't bother.
-    if numPartitions == 1 { return nil }
+    // If there is only one partition, fast path.
+    if numPartitions == 1 {
+      var assignment = [TypedVirtualPath: Int]()
+      for input in swiftInputFiles {
+        assignment[input] = 0
+      }
+      return BatchPartitions(assignment: assignment, partitions: [swiftInputFiles])
+    }
 
     // Map each input file to a partition index. Ensure that we evenly
     // distribute the remainder.
