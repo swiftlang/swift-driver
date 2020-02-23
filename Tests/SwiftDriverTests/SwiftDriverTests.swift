@@ -1001,7 +1001,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testMergeModulesOnly() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-disable-only-one-dependency-file", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs.count, 3)
@@ -1646,6 +1646,102 @@ final class SwiftDriverTests: XCTestCase {
        XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("module.modulemap")))
        XCTAssertEqual(plannedJobs[0].outputs.count, 1)
        XCTAssertEqual(plannedJobs[0].outputs[0].file, .relative(RelativePath("Test.pcm")))
+    }
+  }
+
+  func testOnlyOneDependencyFile() throws {
+    // With -disable-only-one-dependency-file
+    do {
+      try withTemporaryDirectory { dir in
+        let main = AbsolutePath("main.d", relativeTo: dir)
+        let a = AbsolutePath("A.d", relativeTo: dir)
+        let b = AbsolutePath("B.d", relativeTo: dir)
+        let contents = """
+        {
+        "main.swift": {
+        "dependencies": "\(main.pathString)"
+        },
+        "A.swift": {
+        "dependencies": "\(a.pathString)"
+        },
+        "B.swift": {
+        "dependencies": "\(b.pathString)"
+        }
+        }
+        """
+        let ofm = AbsolutePath("ofm.json", relativeTo: dir)
+        try localFileSystem.writeFileContents(ofm) { $0 <<< contents }
+
+        var driver = try Driver(args: ["swiftc", "-disable-only-one-dependency-file", "-emit-dependencies", "-emit-dependencies-path", dir.pathString, "main.swift", "A.swift", "B.swift", "-output-file-map", ofm.pathString])
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 4)
+
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+        XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+        XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(main))
+
+        XCTAssertEqual(plannedJobs[1].kind, .compile)
+        XCTAssertEqual(plannedJobs[1].outputs.count, 2)
+        XCTAssertEqual(plannedJobs[1].outputs[1].file, .absolute(a))
+
+        XCTAssertEqual(plannedJobs[2].kind, .compile)
+        XCTAssertEqual(plannedJobs[2].outputs.count, 2)
+        XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(b))
+
+        XCTAssertEqual(plannedJobs[3].kind, .link)
+
+        // Check no dummy files
+        XCTAssertFalse(localFileSystem.isFile(main))
+        XCTAssertFalse(localFileSystem.isFile(a))
+        XCTAssertFalse(localFileSystem.isFile(b))
+      }
+    }
+
+    // With -enable-only-one-dependency-file
+    do {
+      try withTemporaryDirectory { dir in
+        let main = AbsolutePath("main.d", relativeTo: dir)
+        let a = AbsolutePath("A.d", relativeTo: dir)
+        let b = AbsolutePath("B.d", relativeTo: dir)
+        let contents = """
+        {
+        "main.swift": {
+        "dependencies": "\(main.pathString)"
+        },
+        "A.swift": {
+        "dependencies": "\(a.pathString)"
+        },
+        "B.swift": {
+        "dependencies": "\(b.pathString)"
+        }
+        }
+        """
+        let ofm = AbsolutePath("ofm.json", relativeTo: dir)
+        try localFileSystem.writeFileContents(ofm) { $0 <<< contents }
+
+        var driver = try Driver(args: ["swiftc", "-enable-only-one-dependency-file", "-emit-dependencies", "-emit-dependencies-path", dir.pathString, "main.swift", "A.swift", "B.swift", "-output-file-map", ofm.pathString])
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 4)
+
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+        XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+        XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(main))
+
+        XCTAssertEqual(plannedJobs[1].kind, .compile)
+        XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+
+        XCTAssertEqual(plannedJobs[2].kind, .compile)
+        XCTAssertEqual(plannedJobs[2].outputs.count, 1)
+
+        XCTAssertEqual(plannedJobs[3].kind, .link)
+
+        // Check dummy files
+        XCTAssertFalse(localFileSystem.isFile(main))
+        XCTAssertTrue(localFileSystem.isFile(a))
+        XCTAssertTrue(localFileSystem.isFile(b))
+      }
     }
   }
 }

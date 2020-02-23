@@ -200,30 +200,37 @@ extension Driver {
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {
     var outputs: [TypedVirtualPath] = []
 
+    /// Compute output path for output of a particular type.
+    func computeOutputOfType(outputType: FileType, finalOutputPath: VirtualPath?, input: VirtualPath?) -> VirtualPath? {
+      // If there is no final output, there's nothing to do.
+      guard let finalOutputPath = finalOutputPath else { return nil }
+
+      // If the whole of the compiler output is this type, there's nothing to
+      // do.
+      if outputType == compilerOutputType { return nil }
+
+      // Compute the output path based on the input path (if there is one), or
+      // use the final output.
+      if let input = input {
+        return (outputFileMap ?? OutputFileMap())
+          .getOutput(inputFile: input, outputType: outputType)
+      } else {
+        return finalOutputPath
+      }
+    }
+
     /// Add output of a particular type, if needed.
     func addOutputOfType(
         outputType: FileType, finalOutputPath: VirtualPath?,
         input: VirtualPath?, flag: String
     ) {
-      // If there is no final output, there's nothing to do.
-      guard let finalOutputPath = finalOutputPath else { return }
-
-      // If the whole of the compiler output is this type, there's nothing to
-      // do.
-      if outputType == compilerOutputType { return }
+      // Skip creating output if there is no path.
+      guard let outputPath = computeOutputOfType(outputType: outputType,
+                                                 finalOutputPath: finalOutputPath,
+                                                 input: input) else { return }
 
       // Add the appropriate flag.
       commandLine.appendFlag(flag)
-
-      // Compute the output path based on the input path (if there is one), or
-      // use the final output.
-      let outputPath: VirtualPath
-      if let input = input {
-        outputPath = (outputFileMap ?? OutputFileMap())
-          .getOutput(inputFile: input, outputType: outputType)
-      } else {
-        outputPath = finalOutputPath
-      }
 
       commandLine.append(.path(outputPath))
       outputs.append(TypedVirtualPath(file: outputPath, type: outputType))
@@ -249,8 +256,12 @@ extension Driver {
               finalOutputPath: dependenciesFilePath,
               input: input,
               flag: "-emit-dependencies-path")
-          } else {
-            // FIXME: create empty dummy file
+            // FIXME: This should probably support relative paths
+          } else if let path = computeOutputOfType(outputType: .dependencies,
+                                                   finalOutputPath: dependenciesFilePath,
+                                                   input: input)?.absolutePath {
+            // Create empty dummy dependencies file.
+            try? localFileSystem.writeFileContents(path, bytes: ByteString())
           }
         } else {
           addOutputOfType(
