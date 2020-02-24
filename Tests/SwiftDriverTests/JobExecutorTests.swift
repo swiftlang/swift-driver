@@ -81,7 +81,7 @@ final class JobExecutorTests: XCTestCase {
 
       let compileFoo = Job(
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: try toolchain.getToolPath(.swiftCompiler),
         commandLine: [
           "-frontend",
           "-c",
@@ -104,7 +104,7 @@ final class JobExecutorTests: XCTestCase {
 
       let compileMain = Job(
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: try toolchain.getToolPath(.swiftCompiler),
         commandLine: [
           "-frontend",
           "-c",
@@ -127,16 +127,16 @@ final class JobExecutorTests: XCTestCase {
 
       let link = Job(
         kind: .link,
-        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
+        tool: try toolchain.getToolPath(.dynamicLinker),
         commandLine: [
           .path(.temporary(RelativePath("foo.o"))),
           .path(.temporary(RelativePath("main.o"))),
-          .path(.absolute(try toolchain.clangRT.get())),
+          .path(try toolchain.clangRT.get()),
           "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
           "-lobjc", "-lSystem", "-arch", "x86_64",
-          "-force_load", .path(.absolute(try toolchain.compatibility50.get())),
-          "-force_load", .path(.absolute(try toolchain.compatibilityDynamicReplacements.get())),
-          "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
+          "-force_load", .path(try toolchain.compatibility50.get()),
+          "-force_load", .path(try toolchain.compatibilityDynamicReplacements.get()),
+          "-L", .path(try toolchain.resourcesDirectory.get()),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
           .path(.relative(RelativePath("main"))),
@@ -196,7 +196,7 @@ final class JobExecutorTests: XCTestCase {
 
     env[envVarName] = dummyPath
     let overriddenSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
-    XCTAssertEqual(overriddenSwiftPath, AbsolutePath(dummyPath))
+    XCTAssertEqual(overriddenSwiftPath, .absolute(AbsolutePath(dummyPath)))
 
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
@@ -205,7 +205,7 @@ final class JobExecutorTests: XCTestCase {
 
     env[envVarName] = dummyPath
     let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
-    XCTAssertEqual(unixOverriddenSwiftPath, AbsolutePath(dummyPath))
+    XCTAssertEqual(unixOverriddenSwiftPath, .absolute(AbsolutePath(dummyPath)))
   }
 
   func testInputModifiedDuringSingleJobBuild() throws {

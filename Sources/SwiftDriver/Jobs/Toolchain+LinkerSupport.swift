@@ -18,13 +18,12 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions,
     isShared: Bool
-  ) throws -> AbsolutePath {
-    // FIXME: This almost certainly won't be an absolute path in practice...
-    let resourceDirBase: AbsolutePath
+  ) throws -> VirtualPath {
+    let resourceDirBase: VirtualPath
     if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-      resourceDirBase = try AbsolutePath(validating: resourceDir.asSingle)
+      resourceDirBase = try VirtualPath(path: resourceDir.asSingle)
     } else if let sdk = parsedOptions.getLastArgument(.sdk),
-      let sdkPath = try? AbsolutePath(validating: sdk.asSingle) {
+      let sdkPath = try? VirtualPath(path: sdk.asSingle) {
       resourceDirBase = sdkPath
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
@@ -40,7 +39,7 @@ extension Toolchain {
   func clangLibraryPath(
     for triple: Triple,
     parsedOptions: inout ParsedOptions
-  ) throws -> AbsolutePath {
+  ) throws -> VirtualPath {
     return try computeResourceDirPath(for: triple,
                                       parsedOptions: &parsedOptions,
                                       isShared: true)
@@ -54,14 +53,14 @@ extension Toolchain {
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
     isShared: Bool
-  ) throws -> [AbsolutePath] {
+  ) throws -> [VirtualPath] {
     var result = [try computeResourceDirPath(
       for: triple,
       parsedOptions: &parsedOptions,
       isShared: isShared)]
 
     if let path = sdkPath {
-      result.append(AbsolutePath(path).appending(RelativePath("usr/lib/swift")))
+      result.append(try VirtualPath(path: path).appending(components: "usr", "lib", "swift"))
     }
 
     return result
@@ -245,12 +244,12 @@ extension DarwinToolchain {
       }
     }
 
-    func paths(runtimeLibraryPaths: [AbsolutePath]) -> [AbsolutePath] {
+    func paths(runtimeLibraryPaths: [VirtualPath]) -> [VirtualPath] {
       switch self {
       case .toolchain:
         return runtimeLibraryPaths
       case .os:
-        return [AbsolutePath("/usr/lib/swift")]
+        return [.absolute(AbsolutePath("/usr/lib/swift"))]
       case .none:
         return []
       }

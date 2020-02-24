@@ -12,7 +12,7 @@
 import TSCBasic
 
 extension DarwinToolchain {
-  private func findARCLiteLibPath() throws -> AbsolutePath? {
+  private func findARCLiteLibPath() throws -> VirtualPath? {
     let path = try getToolPath(.swiftCompiler)
       .parentDirectory // 'swift'
       .parentDirectory // 'bin'
@@ -179,7 +179,7 @@ extension DarwinToolchain {
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetTriple: Triple
-  ) throws -> AbsolutePath {
+  ) throws -> VirtualPath {
 
     // FIXME: If we used Clang as a linker instead of going straight to ld,
     // we wouldn't have to replicate a bunch of Clang's logic here.
@@ -198,7 +198,7 @@ extension DarwinToolchain {
         parsedOptions: &parsedOptions)
       .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
     if localFileSystem.exists(compilerRTPath) {
-      commandLine.append(.path(.absolute(compilerRTPath)))
+      commandLine.append(.path(compilerRTPath))
     }
 
     // Set up for linking.

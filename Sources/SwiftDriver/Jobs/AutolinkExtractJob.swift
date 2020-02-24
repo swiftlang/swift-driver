@@ -30,7 +30,7 @@ extension Driver {
 
     return Job(
       kind: .autolinkExtract,
-      tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
+      tool: try toolchain.getToolPath(.swiftAutolinkExtract),
       commandLine: commandLine,
       inputs: inputs,
       outputs: [.init(file: output, type: .autolink)],

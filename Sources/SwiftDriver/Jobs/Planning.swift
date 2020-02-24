@@ -175,7 +175,7 @@ extension Driver {
       try commandLine.appendLast(.sdk, from: &parsedOptions)
       try commandLine.appendLast(.resourceDir, from: &parsedOptions)
       return Job(kind: .printTargetInfo,
-                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+                 tool: try toolchain.getToolPath(.swiftCompiler),
                  commandLine: commandLine,
                  inputs: [],
                  outputs: [],
@@ -184,7 +184,7 @@ extension Driver {
 
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
       return Job(kind: .versionRequest,
-                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+                 tool: try toolchain.getToolPath(.swiftCompiler),
                  commandLine: [.flag("--version")],
                  inputs: [],
                  outputs: [],

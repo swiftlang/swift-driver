@@ -16,7 +16,7 @@ public final class GenericUnixToolchain: Toolchain {
   public let env: [String: String]
 
   /// Doubles as path cache and point for overriding normal lookup
-  private var toolPaths = [Tool: AbsolutePath]()
+  private var toolPaths = [Tool: VirtualPath]()
 
   public init(env: [String: String]) {
     self.env = env
@@ -31,7 +31,7 @@ public final class GenericUnixToolchain: Toolchain {
   }
 
   /// Retrieve the absolute path for a given tool.
-  public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
+  public func getToolPath(_ tool: Tool) throws -> VirtualPath {
     // Check the cache
     if let toolPath = toolPaths[tool] {
       return toolPath
@@ -42,7 +42,7 @@ public final class GenericUnixToolchain: Toolchain {
     return path
   }
 
-  private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
+  private func lookupToolPath(_ tool: Tool) throws -> VirtualPath {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift")
@@ -64,7 +64,7 @@ public final class GenericUnixToolchain: Toolchain {
     }
   }
 
-  public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
+  public func overrideToolPath(_ tool: Tool, path: VirtualPath) {
     toolPaths[tool] = path
   }
 

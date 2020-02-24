@@ -18,14 +18,14 @@ public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
 
   /// Doubles as path cache and point for overriding normal lookup
-  private var toolPaths = [Tool: AbsolutePath]()
+  private var toolPaths = [Tool: VirtualPath]()
 
   public init(env: [String: String]) {
     self.env = env
   }
 
   /// Retrieve the absolute path for a given tool.
-  public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
+  public func getToolPath(_ tool: Tool) throws -> VirtualPath {
     // Check the cache
     if let toolPath = toolPaths[tool] {
       return toolPath
@@ -36,7 +36,7 @@ public final class DarwinToolchain: Toolchain {
     return path
   }
 
-  private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
+  private func lookupToolPath(_ tool: Tool) throws -> VirtualPath {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift")
@@ -55,7 +55,7 @@ public final class DarwinToolchain: Toolchain {
         arguments: ["xcrun", "-toolchain", "default", "-f", "clang"],
         environment: env
       ).spm_chomp()
-      return AbsolutePath(result)
+      return .absolute(AbsolutePath(result))
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .lldb:
@@ -65,7 +65,7 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
+  public func overrideToolPath(_ tool: Tool, path: VirtualPath) {
     toolPaths[tool] = path
   }
 
@@ -83,10 +83,10 @@ public final class DarwinToolchain: Toolchain {
     sdk.appending(RelativePath("usr/lib/swift"))
   }
 
-  public var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
+  public var resourcesDirectory: Result<VirtualPath, Swift.Error> {
     // FIXME: This will need to take -resource-dir and target triple into account.
     return Result {
-      try getToolPath(.swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
+      try getToolPath(.swiftCompiler).appending(components: "..", "..", "lib", "swift", "macosx")
     }
   }
 
@@ -98,16 +98,16 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  public var compatibility50: Result<AbsolutePath, Error> {
+  public var compatibility50: Result<VirtualPath, Error> {
     resourcesDirectory.map{ $0.appending(component: "libswiftCompatibility50.a") }
   }
 
-  public var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
+  public var compatibilityDynamicReplacements: Result<VirtualPath, Error> {
     resourcesDirectory.map{ $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
   }
 
-  public var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map{ $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
+  public var clangRT: Result<VirtualPath, Error> {
+    resourcesDirectory.map{ $0.appending(components: "..", "clang", "lib", "darwin", "libclang_rt.osx.a") }
   }
 
   public func defaultSDKPath() throws -> AbsolutePath? {

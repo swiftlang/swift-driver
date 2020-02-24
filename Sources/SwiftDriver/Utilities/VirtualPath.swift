@@ -80,6 +80,36 @@ public enum VirtualPath: Hashable {
     }
   }
 
+  /// Normalized string representation. This string is never empty.
+  /// - Precondition: self is not `standardInput` or `standardOutput`
+  public var pathString: String {
+    switch self {
+    case .relative(let path):
+      return path.pathString
+    case .absolute(let path):
+      return path.pathString
+    case .standardInput, .standardOutput:
+      preconditionFailure("standardInput and standardOutput do not have a pathString")
+    case .temporary(let path):
+      return path.pathString
+    }
+  }
+
+  /// Parent directory, uses .. for relative paths.
+  /// - Precondition: self is not `standardInput` or `standardOutput`
+  public var parentDirectory: VirtualPath {
+    switch self {
+    case .absolute(let path):
+      return .absolute(path.parentDirectory)
+    case .relative(let path):
+      return .relative(path.appending(component: ".."))
+    case .temporary(let path):
+      return .temporary(path.appending(component: ".."))
+    case .standardInput, .standardOutput:
+      preconditionFailure("standardInput and standardOutput do not have a parentDirectory")
+    }
+  }
+
   /// Retrieve the basename of the path without the extension.
   public var basenameWithoutExt: String {
     switch self {
@@ -100,10 +130,29 @@ public enum VirtualPath: Hashable {
     case .absolute(let path):
       return .absolute(path.appending(component: component))
     case .relative(let path):
-      // FIXME: TSCBasic should probably have RelativePath.appending(component:)
-      return .relative(RelativePath(path.pathString + "/" + component))
+      return .relative(path.appending(component: component))
     case .temporary(let path):
-      return .temporary(RelativePath(path.pathString + "/" + component))
+      return .temporary(path.appending(component: component))
+    case .standardInput, .standardOutput:
+      assertionFailure("Can't append path component to standard in/out")
+      return self
+    }
+  }
+
+  /// Returns the virtual path with additional literal components appended.
+  ///
+  /// This should not be used with `.standardInput` or `.standardOutput`.
+  public func appending(components: String...) -> VirtualPath {
+    // Need to copy implemations here because swift doesn't support forwarding variadic arguments
+    switch self {
+    case .absolute(let path):
+      return .absolute(components.reduce(path, { path, name in
+          path.appending(component: name)
+      }))
+    case .relative(let path):
+      return .relative(RelativePath(path.pathString + "/" + components.joined(separator: "/")))
+    case .temporary(let path):
+      return .temporary(RelativePath(path.pathString + "/" + components.joined(separator: "/")))
     case .standardInput, .standardOutput:
       assertionFailure("Can't append path component to standard in/out")
       return self
@@ -191,5 +240,73 @@ extension VirtualPath {
     }
 
     return try VirtualPath(path: pathString.appendingFileTypeExtension(fileType))
+  }
+}
+
+// FIXME: These belong in TSCBasic
+extension RelativePath {
+  /// Returns the relative path with an additional literal component appended.
+  ///
+  /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
+  public func appending(component name: String) -> RelativePath {
+      assert(!name.contains("/"), "\(name) is invalid path component")
+
+      switch name {
+      case "", ".":
+          return self
+      default:
+        return RelativePath(pathString + "/" + name)
+      }
+  }
+
+  /// Returns the absolute path with additional literal components appended.
+  public func appending(components names: String...) -> RelativePath {
+    return RelativePath(pathString + "/" + names.joined(separator: "/"))
+  }
+}
+
+enum FileSystemError: Swift.Error {
+  case noCurrentWorkingDirectory
+  case cannotResolveTempPath(RelativePath)
+  case cannotResolveStandardInput
+  case cannotResolveStandardOutput
+}
+
+extension TSCBasic.FileSystem {
+  private func resolvingVirtualPath<T>(
+    _ path: VirtualPath,
+    apply f: (AbsolutePath) throws -> T
+  ) throws -> T {
+    switch path {
+    case let .absolute(absPath):
+      return try f(absPath)
+    case let .relative(relPath):
+      guard let cwd = currentWorkingDirectory else {
+        throw FileSystemError.noCurrentWorkingDirectory
+      }
+      return try f(.init(cwd, relPath))
+    case let .temporary(relPath):
+      throw FileSystemError.cannotResolveTempPath(relPath)
+    case .standardInput:
+      throw FileSystemError.cannotResolveStandardInput
+    case .standardOutput:
+      throw FileSystemError.cannotResolveStandardOutput
+    }
+  }
+
+  func exists(_ path: VirtualPath) -> Bool {
+    do {
+      return try resolvingVirtualPath(path, apply: exists)
+    } catch {
+      return false
+    }
+  }
+
+  func isFile(_ path: VirtualPath) -> Bool {
+    do {
+      return try resolvingVirtualPath(path, apply: isFile)
+    } catch {
+      return false
+    }
   }
 }

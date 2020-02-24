@@ -51,7 +51,7 @@ extension GenericUnixToolchain {
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetTriple: Triple
-  ) throws -> AbsolutePath {
+  ) throws -> VirtualPath {
     switch linkerOutputType {
     case .dynamicLibrary:
       // Same options as an executable, just with '-shared'
@@ -105,7 +105,7 @@ extension GenericUnixToolchain {
 
         // If there is a clang in the toolchain folder, use that instead.
         if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
-          clangPath = tool
+          clangPath = .absolute(tool)
         }
 
         // Look for binutils in the toolchain folder.
@@ -189,7 +189,7 @@ extension GenericUnixToolchain {
       // Link the standard library. In two paths, we do this using a .lnk file
       // if we're going that route, we'll set `linkFilePath` to the path to that
       // file.
-      var linkFilePath: AbsolutePath? = try computeResourceDirPath(
+      var linkFilePath: VirtualPath? = try computeResourceDirPath(
         for: targetTriple,
         parsedOptions: &parsedOptions,
         isShared: false

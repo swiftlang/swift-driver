@@ -29,7 +29,7 @@ extension Driver {
       let lldbArg = "--repl=\(commandLine.joinedArguments)"
       return Job(
         kind: .repl,
-        tool: .absolute(try toolchain.getToolPath(.lldb)),
+        tool: try toolchain.getToolPath(.lldb),
         commandLine: [Job.ArgTemplate.flag(lldbArg)],
         inputs: [],
         outputs: [],
@@ -41,7 +41,7 @@ extension Driver {
       commandLine.appendFlags("-module-name", moduleName)
       return Job(
         kind: .repl,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: try toolchain.getToolPath(.swiftCompiler),
         commandLine: commandLine,
         inputs: [],
         outputs: [],

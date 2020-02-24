@@ -32,11 +32,11 @@ public protocol Toolchain {
 
   var searchPaths: [AbsolutePath] { get }
 
-  /// Retrieve the absolute path to a particular tool.
-  func getToolPath(_ tool: Tool) throws -> AbsolutePath
+  /// Retrieve the path to a particular tool.
+  func getToolPath(_ tool: Tool) throws -> VirtualPath
 
-  /// Set an absolute path to be used for a particular tool.
-  func overrideToolPath(_ tool: Tool, path: AbsolutePath)
+  /// Set a path to be used for a particular tool.
+  func overrideToolPath(_ tool: Tool, path: VirtualPath)
 
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
@@ -57,7 +57,7 @@ public protocol Toolchain {
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetTriple: Triple
-  ) throws -> AbsolutePath
+  ) throws -> VirtualPath
 
   func runtimeLibraryName(
     for sanitizer: Sanitizer,
@@ -123,23 +123,23 @@ extension Toolchain {
   /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
-  func lookup(executable: String) throws -> AbsolutePath {
+  func lookup(executable: String) throws -> VirtualPath {
     if let overrideString = envVar(forExecutable: executable) {
-      return try AbsolutePath(validating: overrideString)
+      return try VirtualPath(path: overrideString)
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
-      return path
+      return .absolute(path)
     } else if let path = try? xcrunFind(executable: executable) {
       return path
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
-      return path
+      return .absolute(path)
     } else if fallbackToExecutableDefaultPath {
-      return AbsolutePath("/usr/bin/" + executable)
+      return .absolute(AbsolutePath("/usr/bin/" + executable))
     } else {
       throw ToolchainError.unableToFind(tool: executable)
     }
   }
 
-  private func xcrunFind(executable: String) throws -> AbsolutePath {
+  private func xcrunFind(executable: String) throws -> VirtualPath {
     let xcrun = "xcrun"
     guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
       throw ToolchainError.unableToFind(tool: xcrun)
@@ -149,7 +149,7 @@ extension Toolchain {
       arguments: [xcrun, "-sdk", "macosx", "--find", executable],
       environment: env
     ).spm_chomp()
-    return AbsolutePath(path)
+    return .absolute(AbsolutePath(path))
   }
 }
 

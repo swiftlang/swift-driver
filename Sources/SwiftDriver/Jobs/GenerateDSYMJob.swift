@@ -24,7 +24,7 @@ extension Driver {
 
     return Job(
       kind: .generateDSYM,
-      tool: .absolute(try toolchain.getToolPath(.dsymutil)),
+      tool: try toolchain.getToolPath(.dsymutil),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
