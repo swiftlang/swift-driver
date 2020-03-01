@@ -148,6 +148,9 @@ public final class JobExecutor {
     /// The last time each input file was modified, recorded at the start of the build.
     public let recordedInputModificationDates: [TypedVirtualPath: Date]
 
+    /// The diagnostics engine to use when reporting errors.
+    let diagnosticsEngine: DiagnosticsEngine
+
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
@@ -157,7 +160,8 @@ public final class JobExecutor {
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
-      recordedInputModificationDates: [TypedVirtualPath: Date]
+      recordedInputModificationDates: [TypedVirtualPath: Date],
+      diagnosticsEngine: DiagnosticsEngine
     ) {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
@@ -168,6 +172,7 @@ public final class JobExecutor {
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
       self.recordedInputModificationDates = recordedInputModificationDates
+      self.diagnosticsEngine = diagnosticsEngine
     }
   }
 
@@ -192,10 +197,14 @@ public final class JobExecutor {
   /// The last time each input file was modified, recorded at the start of the build.
   public let recordedInputModificationDates: [TypedVirtualPath: Date]
 
+  /// The diagnostics engine to use when reporting errors.
+  let diagnosticsEngine: DiagnosticsEngine
+
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
     executorDelegate: JobExecutorDelegate,
+    diagnosticsEngine: DiagnosticsEngine,
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
@@ -204,6 +213,7 @@ public final class JobExecutor {
     self.jobs = jobs
     self.argsResolver = resolver
     self.executorDelegate = executorDelegate
+    self.diagnosticsEngine = diagnosticsEngine
     self.numParallelJobs = numParallelJobs ?? 1
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
@@ -248,7 +258,8 @@ public final class JobExecutor {
       jobQueue: jobQueue,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates
+      recordedInputModificationDates: recordedInputModificationDates,
+      diagnosticsEngine: diagnosticsEngine
     )
   }
 }
@@ -429,6 +440,9 @@ class ExecuteJobRule: LLBuildRule {
 
       value = .jobExecution(success: success)
     } catch {
+      if error is DiagnosticData {
+        context.diagnosticsEngine.emit(error)
+      }
       context.delegateQueue.async {
         let result = ProcessResult(
           arguments: [],
