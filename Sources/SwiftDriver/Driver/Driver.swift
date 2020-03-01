@@ -610,8 +610,6 @@ extension Driver {
       return .batch
     case "swift-autolink-extract":
       return .autolinkExtract
-    case "swift-indent":
-      return .indent
     default:
       throw Error.invalidDriverName(driverName)
     }
