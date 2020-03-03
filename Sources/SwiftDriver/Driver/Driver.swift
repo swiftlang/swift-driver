@@ -41,11 +41,28 @@ public enum ModuleOutput: Equatable {
 
 /// The Swift driver.
 public struct Driver {
-  enum Error: Swift.Error {
+  public enum Error: Swift.Error, DiagnosticData {
     case invalidDriverName(String)
     case invalidInput(String)
-    case subcommandPassedToDriver
+    case noJobsPassedToDriverFromEmptyInputFileList
     case relativeFrontendPath(String)
+    case subcommandPassedToDriver
+
+    public var description: String {
+      switch self {
+      case .invalidDriverName(let driverName):
+        return "invalid driver name: \(driverName)"
+      case .invalidInput(let input):
+        return "invalid input: \(input)"
+      case .noJobsPassedToDriverFromEmptyInputFileList:
+        return "no input files"
+      case .relativeFrontendPath(let path):
+        // TODO: where is this error thrown
+        return "relative frontend path: \(path)"
+      case .subcommandPassedToDriver:
+        return "subcommand passed to driver"
+      }
+    }
   }
 
   /// The set of environment variables that are visible to the driver and
@@ -604,7 +621,12 @@ extension Driver {
       try printVersion(outputStream: &stderrStream)
     }
 
-    if jobs.isEmpty { return }
+    guard !jobs.isEmpty else {
+      guard !inputFiles.isEmpty else {
+        throw Error.noJobsPassedToDriverFromEmptyInputFileList
+      }
+      return
+    }
 
     let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
 
