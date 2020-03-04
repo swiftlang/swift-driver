@@ -252,17 +252,15 @@ public struct Driver {
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
-        if case .absolute(let absolutePath) = $0.file,
-          let modTime = try? localFileSystem.getFileInfo(absolutePath).modTime {
-          return ($0, modTime)
-        }
-        return nil
+        guard let modTime = try? localFileSystem
+          .getFileInfo($0.file).modTime else { return nil }
+        return ($0, modTime)
     })
 
     let outputFileMap: OutputFileMap?
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
-      let path = try AbsolutePath(validating: outputFileMapArg)
+      let path = try VirtualPath(path: outputFileMapArg)
       outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
     } else {
       outputFileMap = nil
@@ -837,16 +835,8 @@ extension Driver {
       }
 
       // Resolve the input file.
-      let file: VirtualPath
-      let fileExtension: String
-      if let absolute = try? AbsolutePath(validating: input) {
-        file = .absolute(absolute)
-        fileExtension = absolute.extension ?? ""
-      } else {
-        let relative = try RelativePath(validating: input)
-        fileExtension = relative.extension ?? ""
-        file = .relative(relative)
-      }
+      let file = try VirtualPath(path: input)
+      let fileExtension = file.extension ?? ""
 
       // Determine the type of the input file based on its extension.
       // If we don't recognize the extension, treat it as an object file.
