@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 /// Utilities for manipulating a list of command line arguments, including
 /// constructing one from a set of ParsedOptions.

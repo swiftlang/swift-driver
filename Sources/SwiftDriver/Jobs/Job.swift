@@ -30,6 +30,7 @@ public struct Job: Codable, Equatable, Hashable {
     case verifyDebugInfo = "verify-debug-info"
     case printTargetInfo = "print-target-info"
     case versionRequest = "version-request"
+    case help
   }
 
   public enum ArgTemplate: Equatable, Hashable {

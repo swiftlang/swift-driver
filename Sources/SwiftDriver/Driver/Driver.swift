@@ -12,6 +12,7 @@
 import TSCBasic
 import TSCUtility
 import Foundation
+import SwiftOptions
 
 /// How should the Swift module output be handled?
 public enum ModuleOutput: Equatable {
@@ -610,11 +611,6 @@ extension Driver {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
       return try exec(path: toolchain.getToolPath(.swiftCompiler).pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
-    }
-
-    if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
-      optionTable.printHelp(driverKind: driverKind, includeHidden: parsedOptions.contains(.helpHidden))
-      return
     }
 
     if parsedOptions.hasArgument(.v) {
