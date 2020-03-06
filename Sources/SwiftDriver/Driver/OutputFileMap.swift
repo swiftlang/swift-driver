@@ -68,7 +68,7 @@ public struct OutputFileMap: Equatable {
 
   /// Load the output file map at the given path.
   public static func load(
-    file: AbsolutePath,
+    file: VirtualPath,
     diagnosticEngine: DiagnosticsEngine
   ) throws -> OutputFileMap {
     // Load and decode the file.

@@ -198,6 +198,28 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
   }
 
+  func testRecordedInputModificationDates() throws {
+    try withTemporaryDirectory { path in
+      guard let cwd = localFileSystem
+        .currentWorkingDirectory else { fatalError() }
+      let main = path.appending(component: "main.swift")
+      let util = path.appending(component: "util.swift")
+      let utilRelative = util.relative(to: cwd)
+      try localFileSystem.writeFileContents(main) { $0 <<< "print(hi)" }
+      try localFileSystem.writeFileContents(util) { $0 <<< "let hi = \"hi\"" }
+
+      let mainMDate = try localFileSystem.getFileInfo(main).modTime
+      let utilMDate = try localFileSystem.getFileInfo(util).modTime
+      let driver = try Driver(args: [
+        "swiftc", main.pathString, utilRelative.pathString,
+      ])
+      XCTAssertEqual(driver.recordedInputModificationDates, [
+        .init(file: .absolute(main), type: .swift) : mainMDate,
+        .init(file: .relative(utilRelative), type: .swift) : utilMDate,
+      ])
+    }
+  }
+
   func testPrimaryOutputKinds() throws {
     let driver1 = try Driver(args: ["swiftc", "foo.swift", "-emit-module"])
     XCTAssertEqual(driver1.compilerOutputType, .swiftModule)
@@ -444,7 +466,7 @@ final class SwiftDriverTests: XCTestCase {
     try withTemporaryFile { file in
       try assertNoDiagnostics { diags in
         try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
-        let outputFileMap = try OutputFileMap.load(file: file.path, diagnosticEngine: diags)
+        let outputFileMap = try OutputFileMap.load(file: .absolute(file.path), diagnosticEngine: diags)
 
         let object = try outputFileMap.getOutput(inputFile: .init(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
         XCTAssertEqual(object.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
@@ -480,7 +502,7 @@ final class SwiftDriverTests: XCTestCase {
       try sampleOutputFileMap.store(file: file.path, diagnosticEngine: DiagnosticsEngine())
       let contentsForDebugging = try localFileSystem.readFileContents(file.path).cString
       _ = contentsForDebugging
-      let recoveredOutputFileMap = try OutputFileMap.load(file: file.path, diagnosticEngine: DiagnosticsEngine())
+      let recoveredOutputFileMap = try OutputFileMap.load(file: .absolute(file.path), diagnosticEngine: DiagnosticsEngine())
       XCTAssertEqual(sampleOutputFileMap, recoveredOutputFileMap)
     }
   }
@@ -521,6 +543,38 @@ final class SwiftDriverTests: XCTestCase {
     let expectedOutputFileMap =
       try outputFileMapFromStringyEntries(resolvedStringyEntries)
     XCTAssertEqual(expectedOutputFileMap, resolvedOutputFileMap)
+  }
+
+  func testOutputFileMapRelativePathArg() throws {
+    try withTemporaryDirectory { path in
+      guard let cwd = localFileSystem
+        .currentWorkingDirectory else { fatalError() }
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      try localFileSystem.writeFileContents(outputFileMap) {
+        $0 <<< """
+        {
+          "": {
+            "swift-dependencies": "build/master.swiftdeps"
+          },
+          "main.swift": {
+            "object": "build/main.o",
+            "dependencies": "build/main.o.d"
+          },
+          "util.swift": {
+            "object": "build/util.o",
+            "dependencies": "build/util.o.d"
+          }
+        }
+        """
+      }
+      let outputFileMapRelative = outputFileMap.relative(to: cwd).pathString
+      // FIXME: Needs a better way to check that outputFileMap correctly loaded
+      XCTAssertNoThrow(try Driver(args: [
+        "swiftc",
+        "--output-file-map", outputFileMapRelative,
+        "main.swift", "util.swift",
+      ]))
+    }
   }
 
   func testResponseFileExpansion() throws {
