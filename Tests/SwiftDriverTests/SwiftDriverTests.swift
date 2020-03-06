@@ -582,16 +582,19 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
+      let notAFilePath = path.appending(component: "nonexistent.rsp")
       try localFileSystem.writeFileContents(fooPath) {
         $0 <<< "hello\nbye\nbye\\ to\\ you\n@\(barPath.pathString)"
       }
       try localFileSystem.writeFileContents(barPath) {
-        $0 <<< "from\nbar\n@\(fooPath.pathString)"
+        $0 <<< "from\nbar\n@\(fooPath.pathString)\n@\(notAFilePath.pathString)"
       }
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
-      XCTAssertEqual(diags.diagnostics.count, 1)
+      XCTAssertEqual(diags.diagnostics.count, 2)
       XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
+      // FIXME: Error message about nonexistent response file could be improved
+      XCTAssertEqual(diags.diagnostics[1].description, "noEntry")
     }
   }
 
@@ -610,7 +613,6 @@ final class SwiftDriverTests: XCTestCase {
         // this is another comment
         but this is \\\\\a command
         @\#(barPath.pathString)
-        @NotAFile
         -flag="quoted string with a \"quote\" inside" -another-flag
         """#
         <<< "\nthis  line\thas        lots \t  of    whitespace"
@@ -634,7 +636,7 @@ final class SwiftDriverTests: XCTestCase {
         $0 <<< "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
       }
       let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], diagnosticsEngine: diags)
-      XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
+      XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
       let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], diagnosticsEngine: diags)
       XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","the end"])
     }
@@ -682,6 +684,67 @@ final class SwiftDriverTests: XCTestCase {
       let resolver = try ArgsResolver()
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
       XCTAssertFalse(resolvedArgs.map { $0.hasPrefix("@") }.reduce(false){ $0 || $1 })
+    }
+  }
+
+  func testResponseFileExpansionIgnoresForwarded() throws {
+    try withTemporaryDirectory { path in
+      try assertNoDiagnostics { diags in
+        let forwardedRsp = path.appending(component: "foo.rsp")
+        let barPath = path.appending(component: "bar.rsp")
+        let nonexisting = path.appending(component: "nonexiting.rsp")
+        try localFileSystem.writeFileContents(forwardedRsp) {
+          $0 <<< "should_not_appear_in_args"
+        }
+        try localFileSystem.writeFileContents(barPath) {
+          $0 <<< """
+          -Xcc @\(forwardedRsp.pathString)
+          -Xclang-linker @\(forwardedRsp.pathString)
+          -Xcc @\(nonexisting.pathString)
+          -Xclang-linker @\(nonexisting.pathString)
+          """
+        }
+        let args = try Driver.expandResponseFiles([
+          "swift", "compiler",
+          "-Xlinker", "@\(nonexisting.pathString)",
+          "-Xfrontend", "@\(forwardedRsp.pathString)",
+          "@\(barPath.pathString)",
+        ], diagnosticsEngine: diags)
+        XCTAssertEqual(args, [
+          "swift", "compiler",
+          "-Xlinker", "@\(nonexisting.pathString)",
+          "-Xfrontend", "@\(forwardedRsp.pathString)",
+          "-Xcc", "@\(forwardedRsp.pathString)",
+          "-Xclang-linker", "@\(forwardedRsp.pathString)",
+          "-Xcc", "@\(nonexisting.pathString)",
+          "-Xclang-linker", "@\(nonexisting.pathString)",
+        ])
+      }
+    }
+  }
+
+  func testResponseFile() throws {
+    try withTemporaryDirectory { path in
+      guard let cwd = localFileSystem
+        .currentWorkingDirectory else { fatalError() }
+      let responseFile1 = path.appending(component: "fileList1.rsp")
+      let responseFile2 = path.appending(component: "fileList2.rsp")
+      try localFileSystem.writeFileContents(responseFile1) {
+        $0 <<< "from1stList.swift"
+      }
+      try localFileSystem.writeFileContents(responseFile2) {
+        $0 <<< "from2ndList.swift"
+      }
+      let responseFile2Relative = responseFile2.relative(to: cwd)
+      let driver = try Driver(args: [
+        "swiftc",
+        "@\(responseFile1.pathString)",
+        "@\(responseFile2Relative)",
+      ])
+      XCTAssertEqual(driver.inputFiles, [
+        .init(file: .relative(.init("from1stList.swift")), type: .swift),
+        .init(file: .relative(.init("from2ndList.swift")), type: .swift),
+      ])
     }
   }
 

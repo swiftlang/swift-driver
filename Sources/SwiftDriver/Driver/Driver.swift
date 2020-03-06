@@ -524,13 +524,22 @@ extension Driver {
   private static func expandResponseFiles(
     _ args: [String],
     diagnosticsEngine: DiagnosticsEngine,
-    visitedResponseFiles: inout Set<AbsolutePath>
+    visitedResponseFiles: inout Set<VirtualPath>
   ) throws -> [String] {
     var result: [String] = []
-
+    var skipNext = false
+    // FIXME: This is very fragile
+    let forwardingOptions: Set<String> = Set([
+      Option.Xcc, .XclangLinker, .Xfrontend, .Xlinker, .Xllvm,
+    ].map { $0.spelling })
     // Go through each arg and add arguments from response files.
     for arg in args {
-      if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
+      defer { skipNext = forwardingOptions.contains(arg) }
+      if !skipNext, arg.first == "@" {
+        guard let responseFile = diagnosticsEngine
+          .wrap({ try VirtualPath(path: String(arg.dropFirst())) }) else {
+            continue
+        }
         // Guard against infinite parsing loop.
         guard visitedResponseFiles.insert(responseFile).inserted else {
           diagnosticsEngine.emit(.warn_recursive_response_file(responseFile))
@@ -540,7 +549,11 @@ extension Driver {
           visitedResponseFiles.remove(responseFile)
         }
 
-        let contents = try localFileSystem.readFileContents(responseFile).cString
+        guard let contents = diagnosticsEngine.wrap({
+          try localFileSystem.readFileContents(responseFile).cString
+        }) else {
+          continue
+        }
         let lines = tokenizeResponseFile(contents)
         result.append(contentsOf: try expandResponseFiles(lines, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles))
       } else {
@@ -556,7 +569,7 @@ extension Driver {
     _ args: [String],
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> [String] {
-    var visitedResponseFiles = Set<AbsolutePath>()
+    var visitedResponseFiles = Set<VirtualPath>()
     return try expandResponseFiles(args, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles)
   }
 }
@@ -714,7 +727,7 @@ extension Driver {
 }
 
 extension Diagnostic.Message {
-  static func warn_recursive_response_file(_ path: AbsolutePath) -> Diagnostic.Message {
+  static func warn_recursive_response_file(_ path: VirtualPath) -> Diagnostic.Message {
     .warning("response file '\(path)' is recursively expanded")
   }
 
