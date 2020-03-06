@@ -58,7 +58,8 @@ public protocol Toolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple
+    targetTriple: Triple,
+    targetVariantTriple: Triple?
   ) throws -> AbsolutePath
 
   func runtimeLibraryName(

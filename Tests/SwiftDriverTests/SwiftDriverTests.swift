@@ -683,6 +683,29 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // macOS catalyst target
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-ios13.0-macabi"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("x86_64")))
+      XCTAssertTrue(cmd.contains(.flag("-maccatalyst_version_min")))
+      XCTAssertTrue(cmd.contains(.flag("13.0.0")))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    do {
       // Xlinker flags
       var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
@@ -1193,6 +1216,64 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver3.targetTriple.triple, "x86_64-unknown-watchos12")
   }
 
+  func testTargetVariant() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios13.0-macabi", "-target-variant", "x86_64-apple-macosx10.14", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-ios13.0-macabi")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target-variant")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-library", "-target", "x86_64-apple-ios13.0-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-module-name", "foo", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-ios13.0-macabi")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target-variant")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-maccatalyst_version_min")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("13.0.0")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-macosx_version_min")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("10.14.0")))
+    }
+
+    // Test -target-variant is passed to generate pch job
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.0-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-ios13.0-macabi")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target-variant")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-target")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("x86_64-apple-ios13.0-macabi")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-target-variant")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .link)
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-maccatalyst_version_min")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("13.0.0")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-macosx_version_min")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("10.14.0")))
+    }
+  }
+
   func testDSYMGeneration() throws {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
@@ -1369,15 +1450,30 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPrintTargetInfo() throws {
-    var driver = try Driver(args: ["swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz"])
-    let plannedJobs = try driver.planBuild()
-    XCTAssertTrue(plannedJobs.count == 1)
-    let job = plannedJobs[0]
-    XCTAssertEqual(job.kind, .printTargetInfo)
-    XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
-    XCTAssertTrue(job.commandLine.contains(.flag("-target")))
-    XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
-    XCTAssertTrue(job.commandLine.contains(.flag("-resource-dir")))
+    do {
+      var driver = try Driver(args: ["swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.kind, .printTargetInfo)
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-target")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-apple-ios13.0-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-sdk", "bar", "-resource-dir", "baz"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.kind, .printTargetInfo)
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-target")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-target-variant")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-resource-dir")))
+    }
   }
 
   func testPCHGeneration() throws {

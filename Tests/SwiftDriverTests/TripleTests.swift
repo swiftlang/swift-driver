@@ -995,10 +995,10 @@ final class TripleTests: XCTestCase {
     nonDarwin: true
   )
 
-  func assertDarwinPlatformCorrect(
+  func assertDarwinPlatformCorrect<T: Equatable>(
     _ triple: Triple,
-    case match: (DarwinPlatform) -> DarwinPlatform.Environment?,
-    environment: DarwinPlatform.Environment,
+    case match: (DarwinPlatform) -> T?,
+    environment: T,
     macOSVersion: Triple.Version?,
     iOSVersion: Triple.Version?,
     watchOSVersion: Triple.Version?,
@@ -1055,10 +1055,10 @@ final class TripleTests: XCTestCase {
     func iOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
       if case .iOS(let env) = platform { return env } else { return nil }
     }
-    func tvOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
+    func tvOS(_ platform: DarwinPlatform) -> DarwinPlatform.EnvironmentWithoutCatalyst? {
       if case .tvOS(let env) = platform { return env } else { return nil }
     }
-    func watchOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
+    func watchOS(_ platform: DarwinPlatform) -> DarwinPlatform.EnvironmentWithoutCatalyst? {
       if case .watchOS(let env) = platform { return env } else { return nil }
     }
 
@@ -1116,7 +1116,7 @@ final class TripleTests: XCTestCase {
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(iOS3,
                                 case: iOS,
-                                environment: .simulator, // FIXME: macCatalyst
+                                environment: .catalyst,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(60, 0, 0),
                                 watchOSVersion: nil,

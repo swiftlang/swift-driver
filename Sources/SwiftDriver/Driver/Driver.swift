@@ -77,6 +77,9 @@ public struct Driver {
   /// The target triple.
   public let targetTriple: Triple
 
+  /// The variant target triple.
+  public let targetVariantTriple: Triple?
+
   /// The toolchain to use for resolution.
   public let toolchain: Toolchain
 
@@ -238,6 +241,7 @@ public struct Driver {
         Triple($0, normalizing: true)
       }
     (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env)
+    self.targetVariantTriple = self.parsedOptions.getLastArgument(.targetVariant).map { Triple($0.asSingle, normalizing: true) }
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {

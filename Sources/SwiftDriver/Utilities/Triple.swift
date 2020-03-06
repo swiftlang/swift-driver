@@ -1227,7 +1227,7 @@ extension Triple {
     }
   }
 
-  public enum Environment: String, CaseIterable {
+  public enum Environment: String, CaseIterable, Equatable {
     case eabihf
     case eabi
     case elfv1
@@ -1625,6 +1625,39 @@ extension Triple {
     default:
       fatalError("unexpected OS for Darwin triple")
     }
+  }
+}
+
+// MARK: - Catalyst
+
+extension Triple {
+  var isMacCatalyst: Bool {
+    return self.isiOS && !self.isTvOS && environment == .macabi
+  }
+
+  func isValidForZipperingWithTriple(_ variant: Triple) -> Bool {
+    guard archName == variant.archName,
+      arch == variant.arch,
+      subArch == variant.subArch,
+      vendor == variant.vendor else {
+        return false
+    }
+
+    // Allow a macOS target and an iOS-macabi target variant
+    // This is typically the case when zippering a library originally
+    // developed for macOS.
+    if self.isMacOSX && variant.isMacCatalyst {
+      return true
+    }
+
+    // Allow an iOS-macabi target and a macOS target variant. This would
+    // be the case when zippering a library originally developed for
+    // iOS.
+    if variant.isMacOSX && isMacCatalyst {
+      return true
+    }
+
+    return false
   }
 }
 

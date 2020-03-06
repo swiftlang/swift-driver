@@ -172,6 +172,7 @@ extension Driver {
       var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
                                             .flag("-print-target-info")]
       try commandLine.appendLast(.target, from: &parsedOptions)
+      try commandLine.appendLast(.targetVariant, from: &parsedOptions)
       try commandLine.appendLast(.sdk, from: &parsedOptions)
       try commandLine.appendLast(.resourceDir, from: &parsedOptions)
       return Job(kind: .printTargetInfo,
