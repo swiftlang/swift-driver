@@ -261,10 +261,9 @@ extension Driver {
               finalOutputPath: dependenciesFilePath,
               input: input,
               flag: "-emit-dependencies-path")
-            // FIXME: This should probably support relative paths
           } else if let path = computeOutputOfType(outputType: .dependencies,
                                                    finalOutputPath: dependenciesFilePath,
-                                                   input: input)?.absolutePath {
+                                                   input: input) {
             // Create empty dummy dependencies file.
             try? localFileSystem.writeFileContents(path, bytes: ByteString())
           }
