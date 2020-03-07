@@ -712,8 +712,8 @@ final class TripleTests: XCTestCase {
   func testNormalizeSpecialCases() {
     // Various real-world funky triples.  The value returned by GCC's config.sub
     // is given in the comment.
-//    assertNormalizesEqual("i386-mingw32",
-//              "i386-unknown-windows-gnu") // i386-pc-mingw32
+    assertNormalizesEqual("i386-mingw32",
+              "i386-unknown-windows-gnu") // i386-pc-mingw32
     assertNormalizesEqual("x86_64-linux-gnu",
               "x86_64-unknown-linux-gnu") // x86_64-pc-linux-gnu
     assertNormalizesEqual("i486-linux-gnu",
@@ -731,37 +731,37 @@ final class TripleTests: XCTestCase {
   }
 
   func testNormalizeWindows() {
-//    assertNormalizesEqual("i686-pc-win32", "i686-pc-windows-msvc")
-//    assertNormalizesEqual("i686-win32", "i686-unknown-windows-msvc")
-//    assertNormalizesEqual("i686-pc-mingw32", "i686-pc-windows-gnu")
-//    assertNormalizesEqual("i686-mingw32", "i686-unknown-windows-gnu")
-//    assertNormalizesEqual("i686-pc-mingw32-w64", "i686-pc-windows-gnu")
-//    assertNormalizesEqual("i686-mingw32-w64", "i686-unknown-windows-gnu")
-//    assertNormalizesEqual("i686-pc-cygwin", "i686-pc-windows-cygnus")
-//    assertNormalizesEqual("i686-cygwin", "i686-unknown-windows-cygnus")
-//
-//    assertNormalizesEqual("x86_64-pc-win32", "x86_64-pc-windows-msvc")
-//    assertNormalizesEqual("x86_64-win32", "x86_64-unknown-windows-msvc")
-//    assertNormalizesEqual("x86_64-pc-mingw32", "x86_64-pc-windows-gnu")
-//    assertNormalizesEqual("x86_64-mingw32", "x86_64-unknown-windows-gnu")
-//    assertNormalizesEqual("x86_64-pc-mingw32-w64",
-//              "x86_64-pc-windows-gnu")
-//    assertNormalizesEqual("x86_64-mingw32-w64",
-//              "x86_64-unknown-windows-gnu")
-//
-//    assertNormalizesEqual("i686-pc-win32-elf", "i686-pc-windows-elf")
-//    assertNormalizesEqual("i686-win32-elf", "i686-unknown-windows-elf")
-//    assertNormalizesEqual("i686-pc-win32-macho", "i686-pc-windows-macho")
-//    assertNormalizesEqual("i686-win32-macho",
-//              "i686-unknown-windows-macho")
-//
-//    assertNormalizesEqual("x86_64-pc-win32-elf", "x86_64-pc-windows-elf")
-//    assertNormalizesEqual("x86_64-win32-elf",
-//              "x86_64-unknown-windows-elf")
-//    assertNormalizesEqual("x86_64-pc-win32-macho",
-//              "x86_64-pc-windows-macho")
-//    assertNormalizesEqual("x86_64-win32-macho",
-//              "x86_64-unknown-windows-macho")
+    assertNormalizesEqual("i686-pc-win32", "i686-pc-windows-msvc")
+    assertNormalizesEqual("i686-win32", "i686-unknown-windows-msvc")
+    assertNormalizesEqual("i686-pc-mingw32", "i686-pc-windows-gnu")
+    assertNormalizesEqual("i686-mingw32", "i686-unknown-windows-gnu")
+    assertNormalizesEqual("i686-pc-mingw32-w64", "i686-pc-windows-gnu")
+    assertNormalizesEqual("i686-mingw32-w64", "i686-unknown-windows-gnu")
+    assertNormalizesEqual("i686-pc-cygwin", "i686-pc-windows-cygnus")
+    assertNormalizesEqual("i686-cygwin", "i686-unknown-windows-cygnus")
+
+    assertNormalizesEqual("x86_64-pc-win32", "x86_64-pc-windows-msvc")
+    assertNormalizesEqual("x86_64-win32", "x86_64-unknown-windows-msvc")
+    assertNormalizesEqual("x86_64-pc-mingw32", "x86_64-pc-windows-gnu")
+    assertNormalizesEqual("x86_64-mingw32", "x86_64-unknown-windows-gnu")
+    assertNormalizesEqual("x86_64-pc-mingw32-w64",
+              "x86_64-pc-windows-gnu")
+    assertNormalizesEqual("x86_64-mingw32-w64",
+              "x86_64-unknown-windows-gnu")
+
+    assertNormalizesEqual("i686-pc-win32-elf", "i686-pc-windows-elf")
+    assertNormalizesEqual("i686-win32-elf", "i686-unknown-windows-elf")
+    assertNormalizesEqual("i686-pc-win32-macho", "i686-pc-windows-macho")
+    assertNormalizesEqual("i686-win32-macho",
+              "i686-unknown-windows-macho")
+
+    assertNormalizesEqual("x86_64-pc-win32-elf", "x86_64-pc-windows-elf")
+    assertNormalizesEqual("x86_64-win32-elf",
+              "x86_64-unknown-windows-elf")
+    assertNormalizesEqual("x86_64-pc-win32-macho",
+              "x86_64-pc-windows-macho")
+    assertNormalizesEqual("x86_64-win32-macho",
+              "x86_64-unknown-windows-macho")
 
     assertNormalizesEqual("i686-pc-windows-cygnus",
               "i686-pc-windows-cygnus")
@@ -770,8 +770,8 @@ final class TripleTests: XCTestCase {
               "i686-pc-windows-itanium")
     assertNormalizesEqual("i686-pc-windows-msvc", "i686-pc-windows-msvc")
 
-//    assertNormalizesEqual("i686-pc-windows-elf-elf",
-//              "i686-pc-windows-elf")
+    assertNormalizesEqual("i686-pc-windows-elf-elf",
+              "i686-pc-windows-elf")
   }
 
   func testNormalizeARM() {
@@ -792,8 +792,8 @@ final class TripleTests: XCTestCase {
     assertNormalizesEqual("armv7eb-netbsd-eabihf",
               "armv7eb-unknown-netbsd-eabihf")
 
-//    assertNormalizesEqual("armv7-suse-linux-gnueabi",
-//              "armv7-suse-linux-gnueabihf")
+    assertNormalizesEqual("armv7-suse-linux-gnueabi",
+              "armv7-suse-linux-gnueabihf")
 
     var T: Triple
     T = Triple("armv6--netbsd-eabi")
@@ -815,9 +815,9 @@ final class TripleTests: XCTestCase {
     T = Triple("i386-apple-darwin9")
     XCTAssertTrue(T.os?.isMacOSX)
     XCTAssertFalse(T.os?.isiOS)
-//    XCTAssertFalse(T.isArch16Bit())
-//    XCTAssertTrue(T.isArch32Bit())
-//    XCTAssertFalse(T.isArch64Bit())
+    XCTAssertFalse(T.arch?.is16Bit)
+    XCTAssertTrue(T.arch?.is32Bit)
+    XCTAssertFalse(T.arch?.is64Bit)
     V = T._macOSVersion
     XCTAssertEqual(V?.major, 10)
     XCTAssertEqual(V?.minor, 5)
@@ -830,9 +830,9 @@ final class TripleTests: XCTestCase {
     T = Triple("x86_64-apple-darwin9")
     XCTAssertTrue(T.os?.isMacOSX)
     XCTAssertFalse(T.os?.isiOS)
-//    XCTAssertFalse(T.isArch16Bit())
-//    XCTAssertFalse(T.isArch32Bit())
-//    XCTAssertTrue(T.isArch64Bit())
+    XCTAssertFalse(T.arch?.is16Bit)
+    XCTAssertFalse(T.arch?.is32Bit)
+    XCTAssertTrue(T.arch?.is64Bit)
     V = T._macOSVersion
     XCTAssertEqual(V?.major, 10)
     XCTAssertEqual(V?.minor, 5)
@@ -845,9 +845,9 @@ final class TripleTests: XCTestCase {
     T = Triple("x86_64-apple-macosx")
     XCTAssertTrue(T.os?.isMacOSX)
     XCTAssertFalse(T.os?.isiOS)
-//    XCTAssertFalse(T.isArch16Bit())
-//    XCTAssertFalse(T.isArch32Bit())
-//    XCTAssertTrue(T.isArch64Bit())
+    XCTAssertFalse(T.arch?.is16Bit)
+    XCTAssertFalse(T.arch?.is32Bit)
+    XCTAssertTrue(T.arch?.is64Bit)
     V = T._macOSVersion
     XCTAssertEqual(V?.major, 10)
     XCTAssertEqual(V?.minor, 4)
@@ -860,9 +860,9 @@ final class TripleTests: XCTestCase {
     T = Triple("x86_64-apple-macosx10.7")
     XCTAssertTrue(T.os?.isMacOSX)
     XCTAssertFalse(T.os?.isiOS)
-//    XCTAssertFalse(T.isArch16Bit())
-//    XCTAssertFalse(T.isArch32Bit())
-//    XCTAssertTrue(T.isArch64Bit())
+    XCTAssertFalse(T.arch?.is16Bit)
+    XCTAssertFalse(T.arch?.is32Bit)
+    XCTAssertTrue(T.arch?.is64Bit)
     V = T._macOSVersion
     XCTAssertEqual(V?.major, 10)
     XCTAssertEqual(V?.minor, 7)
@@ -970,8 +970,8 @@ final class TripleTests: XCTestCase {
 //    let GNUWindowsNormalized = Triple("i686-pc-windows-gnu-elf", normalizing: true)
 //    XCTAssertEqual(.elf, GNUWindowsNormalized.objectFormat)
 
-//    let CygnusNormalised = Triple("i686-pc-windows-cygnus-elf", normalizing: true)
-//    XCTAssertEqual(.elf, CygnusNormalised.objectFormat)
+//    let CygnusNormalized = Triple("i686-pc-windows-cygnus-elf", normalizing: true)
+//    XCTAssertEqual(.elf, CygnusNormalized.objectFormat)
 
     let CygwinNormalized = Triple("i686-pc-cygwin-elf", normalizing: true)
     XCTAssertEqual(.elf, CygwinNormalized.objectFormat)
@@ -995,10 +995,10 @@ final class TripleTests: XCTestCase {
     nonDarwin: true
   )
 
-  func assertDarwinPlatformCorrect(
+  func assertDarwinPlatformCorrect<T: Equatable>(
     _ triple: Triple,
-    case match: (DarwinPlatform) -> DarwinPlatform.Environment?,
-    environment: DarwinPlatform.Environment,
+    case match: (DarwinPlatform) -> T?,
+    environment: T,
     macOSVersion: Triple.Version?,
     iOSVersion: Triple.Version?,
     watchOSVersion: Triple.Version?,
@@ -1055,10 +1055,10 @@ final class TripleTests: XCTestCase {
     func iOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
       if case .iOS(let env) = platform { return env } else { return nil }
     }
-    func tvOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
+    func tvOS(_ platform: DarwinPlatform) -> DarwinPlatform.EnvironmentWithoutCatalyst? {
       if case .tvOS(let env) = platform { return env } else { return nil }
     }
-    func watchOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
+    func watchOS(_ platform: DarwinPlatform) -> DarwinPlatform.EnvironmentWithoutCatalyst? {
       if case .watchOS(let env) = platform { return env } else { return nil }
     }
 
@@ -1116,7 +1116,7 @@ final class TripleTests: XCTestCase {
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(iOS3,
                                 case: iOS,
-                                environment: .simulator, // FIXME: macCatalyst
+                                environment: .catalyst,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(60, 0, 0),
                                 watchOSVersion: nil,

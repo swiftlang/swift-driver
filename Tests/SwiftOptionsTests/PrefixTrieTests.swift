@@ -1,5 +1,5 @@
 import XCTest
-import SwiftDriver
+import SwiftOptions
 
 final class PrefixTrieTests: XCTestCase {
   func testSimpleTrie() {

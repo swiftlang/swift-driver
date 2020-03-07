@@ -179,6 +179,7 @@ extension Driver {
       var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
                                             .flag("-print-target-info")]
       try commandLine.appendLast(.target, from: &parsedOptions)
+      try commandLine.appendLast(.targetVariant, from: &parsedOptions)
       try commandLine.appendLast(.sdk, from: &parsedOptions)
       try commandLine.appendLast(.resourceDir, from: &parsedOptions)
       return Job(kind: .printTargetInfo,
@@ -193,6 +194,19 @@ extension Driver {
       return Job(kind: .versionRequest,
                  tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
                  commandLine: [.flag("--version")],
+                 inputs: [],
+                 outputs: [],
+                 requiresInPlaceExecution: true)
+    }
+
+    if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
+      var commandLine: [Job.ArgTemplate] = [.flag("-tool=\(driverKind.rawValue)")]
+      if parsedOptions.contains(.helpHidden) {
+        commandLine.append(.flag("-show-hidden"))
+      }
+      return Job(kind: .help,
+                 tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
+                 commandLine: commandLine,
                  inputs: [],
                  outputs: [],
                  requiresInPlaceExecution: true)
@@ -385,8 +399,14 @@ extension Driver {
       stdoutStream.flush()
     }
 
-    // If there is only one partition, don't bother.
-    if numPartitions == 1 { return nil }
+    // If there is only one partition, fast path.
+    if numPartitions == 1 {
+      var assignment = [TypedVirtualPath: Int]()
+      for input in swiftInputFiles {
+        assignment[input] = 0
+      }
+      return BatchPartitions(assignment: assignment, partitions: [swiftInputFiles])
+    }
 
     // Map each input file to a partition index. Ensure that we evenly
     // distribute the remainder.

@@ -11,12 +11,13 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import Foundation
+import SwiftOptions
 
 // FIXME: rename to something like IncrementalCompilationInitialState
 public struct IncrementalCompilation {
   public let showIncrementalBuildDecisions: Bool
   public let enableIncrementalBuild: Bool
-  public let buildRecordPath: AbsolutePath?
+  public let buildRecordPath: VirtualPath?
   public let outputBuildRecordForModuleOnlyBuild: Bool
   public let argsHash: String
   public let lastBuildTime: Date
@@ -118,14 +119,14 @@ public struct IncrementalCompilation {
     outputFileMap: OutputFileMap?,
     compilerOutputType: FileType?,
     diagnosticEngine: DiagnosticsEngine?
-  ) -> AbsolutePath? {
+  ) -> VirtualPath? {
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     guard let ofm = outputFileMap else {
       diagnosticEngine.map { $0.emit(.warning_incremental_requires_output_file_map) }
       return nil
     }
-    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)?.absolutePath
+    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)
       else {
         diagnosticEngine.map { $0.emit(.warning_incremental_requires_build_record_entry) }
         return nil
@@ -134,7 +135,7 @@ public struct IncrementalCompilation {
     // '~moduleonly'. So that module-only mode doesn't mess up build-record
     // file for full compilation.
     return compilerOutputType == .swiftModule
-      ? AbsolutePath(partialBuildRecordPath.pathString + "~moduleonly")
+      ? partialBuildRecordPath.appendingToBaseName("~moduleonly")
       : partialBuildRecordPath
   }
 

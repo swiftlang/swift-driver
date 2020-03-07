@@ -27,10 +27,10 @@ public enum DarwinPlatform: Hashable {
   case iOS(Environment)
 
   /// tvOS, corresponding to the `tvos` OS name.
-  case tvOS(Environment)
+  case tvOS(EnvironmentWithoutCatalyst)
 
   /// watchOS, corresponding to the `watchos` OS name.
-  case watchOS(Environment)
+  case watchOS(EnvironmentWithoutCatalyst)
 
   /// The most general form of environment information attached to a
   /// `DarwinPlatform`.
@@ -39,9 +39,23 @@ public enum DarwinPlatform: Hashable {
   /// Not all platforms support all values of environment. This type is a superset of
   /// all the environments available on any case.
   public enum Environment: Hashable {
-    // FIXME: iOS should also have a state for macCatalyst. We should
-    // probably have an EnvironmentWithoutCatalyst type for tvOS and
-    // watchOS to use and mechanisms to convert between them.
+    case device
+    case simulator
+    case catalyst
+
+    var withoutCatalyst: EnvironmentWithoutCatalyst? {
+      switch self {
+      case .device:
+        return .device
+      case .simulator:
+        return .simulator
+      case .catalyst:
+        return nil
+      }
+    }
+  }
+
+  public enum EnvironmentWithoutCatalyst: Hashable {
     case device
     case simulator
   }
@@ -57,9 +71,11 @@ public enum DarwinPlatform: Hashable {
     case .iOS:
       return .iOS(environment)
     case .tvOS:
-      return .tvOS(environment)
+      guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
+      return .tvOS(withoutCatalyst)
     case .watchOS:
-      return .watchOS(environment)
+    guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
+      return .watchOS(withoutCatalyst)
     }
   }
 
@@ -73,6 +89,8 @@ public enum DarwinPlatform: Hashable {
       return "iphoneos"
     case .iOS(.simulator):
       return "iphonesimulator"
+    case .iOS(.catalyst):
+      return "maccatalyst"
     case .tvOS(.device):
       return "appletvos"
     case .tvOS(.simulator):
@@ -93,6 +111,8 @@ public enum DarwinPlatform: Hashable {
       return "ios"
     case .iOS(.simulator):
       return "iossim"
+    case .iOS(.catalyst):
+        return "osx"
     case .tvOS(.device):
       return "tvos"
     case .tvOS(.simulator):
@@ -143,14 +163,20 @@ extension Triple {
   ///
   /// - SeeAlso: DarwinPlatform
   public var darwinPlatform: DarwinPlatform? {
-    func makeEnvironment() -> DarwinPlatform.Environment {
+    func makeEnvironment() -> DarwinPlatform.EnvironmentWithoutCatalyst {
       _isSimulatorEnvironment ? .simulator : .device
     }
     switch os {
     case .darwin, .macosx:
       return .macOS
     case .ios:
-      return .iOS(makeEnvironment())
+      if isMacCatalyst {
+        return .iOS(.catalyst)
+      } else if _isSimulatorEnvironment {
+        return .iOS(.simulator)
+      } else {
+        return .iOS(.device)
+      }
     case .watchos:
       return .watchOS(makeEnvironment())
     case .tvos:

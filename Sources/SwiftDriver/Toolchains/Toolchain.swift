@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 import TSCBasic
+import SwiftOptions
 
 public enum Tool {
   case swiftCompiler
@@ -21,6 +22,7 @@ public enum Tool {
   case dsymutil
   case lldb
   case dwarfdump
+  case swiftHelp
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers
@@ -56,7 +58,8 @@ public protocol Toolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple
+    targetTriple: Triple,
+    targetVariantTriple: Triple?
   ) throws -> AbsolutePath
 
   func runtimeLibraryName(

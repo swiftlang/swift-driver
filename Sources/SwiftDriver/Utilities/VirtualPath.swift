@@ -109,6 +109,23 @@ public enum VirtualPath: Hashable {
       return self
     }
   }
+
+  /// Returns the virtual path with an additional suffix appended to base name.
+  ///
+  /// This should not be used with `.standardInput` or `.standardOutput`.
+  public func appendingToBaseName(_ suffix: String) -> VirtualPath {
+    switch self {
+    case let .absolute(path):
+      return .absolute(AbsolutePath(path.pathString + suffix))
+    case let .relative(path):
+      return .relative(RelativePath(path.pathString + suffix))
+    case let .temporary(path):
+      return .temporary(RelativePath(path.pathString + suffix))
+    case .standardInput, .standardOutput:
+      assertionFailure("Can't append path component to standard in/out")
+      return self
+    }
+  }
 }
 
 extension VirtualPath: Codable {
@@ -191,5 +208,43 @@ extension VirtualPath {
     }
 
     return try VirtualPath(path: pathString.appendingFileTypeExtension(fileType))
+  }
+}
+
+enum FileSystemError: Swift.Error {
+  case noCurrentWorkingDirectory
+  case cannotResolveTempPath(RelativePath)
+  case cannotResolveStandardInput
+  case cannotResolveStandardOutput
+}
+
+extension TSCBasic.FileSystem {
+  private func resolvingVirtualPath<T>(
+    _ path: VirtualPath,
+    apply f: (AbsolutePath) throws -> T
+  ) throws -> T {
+    switch path {
+    case let .absolute(absPath):
+      return try f(absPath)
+    case let .relative(relPath):
+      guard let cwd = currentWorkingDirectory else {
+        throw FileSystemError.noCurrentWorkingDirectory
+      }
+      return try f(.init(cwd, relPath))
+    case let .temporary(relPath):
+      throw FileSystemError.cannotResolveTempPath(relPath)
+    case .standardInput:
+      throw FileSystemError.cannotResolveStandardInput
+    case .standardOutput:
+      throw FileSystemError.cannotResolveStandardOutput
+    }
+  }
+
+  func readFileContents(_ path: VirtualPath) throws -> ByteString {
+    try resolvingVirtualPath(path, apply: readFileContents)
+  }
+
+  func getFileInfo(_ path: VirtualPath) throws -> TSCBasic.FileInfo {
+    try resolvingVirtualPath(path, apply: getFileInfo)
   }
 }

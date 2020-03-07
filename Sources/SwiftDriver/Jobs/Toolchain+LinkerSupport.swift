@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 extension Toolchain {
   // MARK: - Path computation
@@ -37,6 +38,11 @@ extension Toolchain {
     return resourceDirBase.appending(components: triple.platformName() ?? "")
   }
 
+  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: AbsolutePath) -> AbsolutePath? {
+    guard triple.isMacCatalyst else { return nil }
+    return primaryPath.parentDirectory.appending(component: "macosx")
+  }
+
   func clangLibraryPath(
     for triple: Triple,
     parsedOptions: inout ParsedOptions
@@ -55,13 +61,25 @@ extension Toolchain {
     sdkPath: String?,
     isShared: Bool
   ) throws -> [AbsolutePath] {
-    var result = [try computeResourceDirPath(
+    let resourceDirPath = try computeResourceDirPath(
       for: triple,
       parsedOptions: &parsedOptions,
-      isShared: isShared)]
+      isShared: isShared)
+    var result = [resourceDirPath]
+
+    let secondaryResourceDir = computeSecondaryResourceDirPath(for: triple, primaryPath: resourceDirPath)
+    if let path = secondaryResourceDir {
+      result.append(path)
+    }
 
     if let path = sdkPath {
-      result.append(AbsolutePath(path).appending(RelativePath("usr/lib/swift")))
+      let sdkPath = AbsolutePath(path)
+      // If we added the secondary resource dir, we also need the iOSSupport directory.
+      if secondaryResourceDir != nil {
+        result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
+      }
+
+      result.append(sdkPath.appending(RelativePath("usr/lib/swift")))
     }
 
     return result

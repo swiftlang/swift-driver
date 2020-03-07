@@ -130,7 +130,7 @@ public extension InputInfoMap {
     argsHash: String,
     lastBuildTime: Date,
     inputFiles: [TypedVirtualPath],
-    buildRecordPath: AbsolutePath,
+    buildRecordPath: VirtualPath,
     showIncrementalBuildDecisions: Bool,
     diagnosticEngine: DiagnosticsEngine
   ) -> Self? {

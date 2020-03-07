@@ -17,17 +17,17 @@ public struct OptionAttributes: OptionSet, Hashable {
     self.rawValue = rawValue
   }
 
-  static let helpHidden                    = OptionAttributes(rawValue: 0x1)
-  static let frontend                      = OptionAttributes(rawValue: 0x2)
-  static let noDriver                      = OptionAttributes(rawValue: 0x4)
-  static let noInteractive                 = OptionAttributes(rawValue: 0x8)
-  static let noBatch                       = OptionAttributes(rawValue: 0x10)
-  static let doesNotAffectIncrementalBuild = OptionAttributes(rawValue: 0x20)
-  static let autolinkExtract               = OptionAttributes(rawValue: 0x40)
-  static let moduleWrap                    = OptionAttributes(rawValue: 0x80)
-  static let indent                        = OptionAttributes(rawValue: 0x100)
-  static let argumentIsPath                = OptionAttributes(rawValue: 0x200)
-  static let moduleInterface               = OptionAttributes(rawValue: 0x400)
+  public static let helpHidden                    = OptionAttributes(rawValue: 0x1)
+  public static let frontend                      = OptionAttributes(rawValue: 0x2)
+  public static let noDriver                      = OptionAttributes(rawValue: 0x4)
+  public static let noInteractive                 = OptionAttributes(rawValue: 0x8)
+  public static let noBatch                       = OptionAttributes(rawValue: 0x10)
+  public static let doesNotAffectIncrementalBuild = OptionAttributes(rawValue: 0x20)
+  public static let autolinkExtract               = OptionAttributes(rawValue: 0x40)
+  public static let moduleWrap                    = OptionAttributes(rawValue: 0x80)
+  public static let indent                        = OptionAttributes(rawValue: 0x100)
+  public static let argumentIsPath                = OptionAttributes(rawValue: 0x200)
+  public static let moduleInterface               = OptionAttributes(rawValue: 0x400)
 }
 
 /// Describes a command-line option.
