@@ -12,6 +12,7 @@
 import TSCBasic
 import TSCUtility
 import Foundation
+import SwiftOptions
 
 /// How should the Swift module output be handled?
 public enum ModuleOutput: Equatable {
@@ -41,11 +42,28 @@ public enum ModuleOutput: Equatable {
 
 /// The Swift driver.
 public struct Driver {
-  enum Error: Swift.Error {
+  public enum Error: Swift.Error, DiagnosticData {
     case invalidDriverName(String)
     case invalidInput(String)
-    case subcommandPassedToDriver
+    case noJobsPassedToDriverFromEmptyInputFileList
     case relativeFrontendPath(String)
+    case subcommandPassedToDriver
+
+    public var description: String {
+      switch self {
+      case .invalidDriverName(let driverName):
+        return "invalid driver name: \(driverName)"
+      case .invalidInput(let input):
+        return "invalid input: \(input)"
+      case .noJobsPassedToDriverFromEmptyInputFileList:
+        return "no input files"
+      case .relativeFrontendPath(let path):
+        // TODO: where is this error thrown
+        return "relative frontend path: \(path)"
+      case .subcommandPassedToDriver:
+        return "subcommand passed to driver"
+      }
+    }
   }
 
   /// The set of environment variables that are visible to the driver and
@@ -58,6 +76,9 @@ public struct Driver {
 
   /// The target triple.
   public let targetTriple: Triple
+
+  /// The variant target triple.
+  public let targetVariantTriple: Triple?
 
   /// The toolchain to use for resolution.
   public let toolchain: Toolchain
@@ -220,6 +241,7 @@ public struct Driver {
         Triple($0, normalizing: true)
       }
     (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env)
+    self.targetVariantTriple = self.parsedOptions.getLastArgument(.targetVariant).map { Triple($0.asSingle, normalizing: true) }
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
@@ -252,17 +274,15 @@ public struct Driver {
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
-        if case .absolute(let absolutePath) = $0.file,
-          let modTime = try? localFileSystem.getFileInfo(absolutePath).modTime {
-          return ($0, modTime)
-        }
-        return nil
+        guard let modTime = try? localFileSystem
+          .getFileInfo($0.file).modTime else { return nil }
+        return ($0, modTime)
     })
 
     let outputFileMap: OutputFileMap?
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
-      let path = try AbsolutePath(validating: outputFileMapArg)
+      let path = try VirtualPath(path: outputFileMapArg)
       outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
     } else {
       outputFileMap = nil
@@ -595,16 +615,16 @@ extension Driver {
       return try exec(path: toolchain.getToolPath(.swiftCompiler).pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
     }
 
-    if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
-      optionTable.printHelp(driverKind: driverKind, includeHidden: parsedOptions.contains(.helpHidden))
-      return
-    }
-
     if parsedOptions.hasArgument(.v) {
       try printVersion(outputStream: &stderrStream)
     }
 
-    if jobs.isEmpty { return }
+    guard !jobs.isEmpty else {
+      guard !inputFiles.isEmpty else {
+        throw Error.noJobsPassedToDriverFromEmptyInputFileList
+      }
+      return
+    }
 
     let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
 
@@ -837,16 +857,8 @@ extension Driver {
       }
 
       // Resolve the input file.
-      let file: VirtualPath
-      let fileExtension: String
-      if let absolute = try? AbsolutePath(validating: input) {
-        file = .absolute(absolute)
-        fileExtension = absolute.extension ?? ""
-      } else {
-        let relative = try RelativePath(validating: input)
-        fileExtension = relative.extension ?? ""
-        file = .relative(relative)
-      }
+      let file = try VirtualPath(path: input)
+      let fileExtension = file.extension ?? ""
 
       // Determine the type of the input file based on its extension.
       // If we don't recognize the extension, treat it as an object file.

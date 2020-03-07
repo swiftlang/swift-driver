@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 //
 import TSCBasic
+import SwiftOptions
 
 extension Toolchain {
   func addPathEnvironmentVariableIfNeeded(

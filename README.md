@@ -102,7 +102,7 @@ $ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --prod
 Then, run `makeOptions` and redirect the output to overwrite `Options.swift`:
 
 ```
-$ .build/path/to/makeOptions > Sources/SwiftDriver/Options/Options.swift
+$ .build/path/to/makeOptions > Sources/SwiftOptions/Options.swift
 ```
 
 ### Development Plan

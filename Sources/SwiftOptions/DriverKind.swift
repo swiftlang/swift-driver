@@ -11,16 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 /// Describes which mode the driver is in.
-public enum DriverKind {
-  case interactive
-  case batch
-  case moduleWrap
-  case frontend
-  case autolinkExtract
-  case indent
+public enum DriverKind: String {
+  case interactive = "swift"
+  case batch = "swiftc"
+  case moduleWrap = "swift-modulewrap"
+  case frontend = "swift-frontend"
+  case autolinkExtract = "swift-autolink-extract"
+  case indent = "swift-indent"
 
   /// Returns true if driver kind is Swift compiler.
-  var isSwiftCompiler: Bool {
+  public var isSwiftCompiler: Bool {
     return self == .interactive || self == .batch
   }
 }

@@ -158,6 +158,23 @@ public enum VirtualPath: Hashable {
       return self
     }
   }
+
+  /// Returns the virtual path with an additional suffix appended to base name.
+  ///
+  /// This should not be used with `.standardInput` or `.standardOutput`.
+  public func appendingToBaseName(_ suffix: String) -> VirtualPath {
+    switch self {
+    case let .absolute(path):
+      return .absolute(AbsolutePath(path.pathString + suffix))
+    case let .relative(path):
+      return .relative(RelativePath(path.pathString + suffix))
+    case let .temporary(path):
+      return .temporary(RelativePath(path.pathString + suffix))
+    case .standardInput, .standardOutput:
+      assertionFailure("Can't append path component to standard in/out")
+      return self
+    }
+  }
 }
 
 extension VirtualPath: Codable {
@@ -308,5 +325,13 @@ extension TSCBasic.FileSystem {
     } catch {
       return false
     }
+  }
+
+  func readFileContents(_ path: VirtualPath) throws -> ByteString {
+    try resolvingVirtualPath(path, apply: readFileContents)
+  }
+
+  func getFileInfo(_ path: VirtualPath) throws -> TSCBasic.FileInfo {
+    try resolvingVirtualPath(path, apply: getFileInfo)
   }
 }

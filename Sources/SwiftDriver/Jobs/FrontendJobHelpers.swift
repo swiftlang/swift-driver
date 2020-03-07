@@ -54,6 +54,11 @@ extension Driver {
       }
     }
 
+    if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
+      commandLine.appendFlag(.targetVariant)
+      commandLine.appendFlag(Triple(variant, normalizing: true).triple)
+    }
+
     // Enable address top-byte ignored in the ARM64 backend.
     if (targetTriple.arch == .aarch64) {
       commandLine.appendFlag(.Xllvm)

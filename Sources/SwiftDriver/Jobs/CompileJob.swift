@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 extension Driver {
   /// Add the appropriate compile mode option to the command line for a compile job.
@@ -77,13 +78,7 @@ extension Driver {
     }
 
     // Collect the set of input files that are part of the Swift compilation.
-    let swiftInputFiles: [TypedVirtualPath] = inputFiles.compactMap { inputFile in
-      if inputFile.type.isPartOfSwiftCompilation {
-        return inputFile
-      }
-
-      return nil
-    }
+    let swiftInputFiles: [TypedVirtualPath] = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
 
     // If we will be passing primary files via -primary-file, form a set of primary input files so
     // we can check more quickly.

@@ -18,7 +18,7 @@ public struct ParsedOption {
     case multiple([String])
 
     /// Retrieve the single-string argument.
-    var asSingle: String {
+    public var asSingle: String {
       switch self {
       case .single(let result):
         return result
@@ -29,7 +29,7 @@ public struct ParsedOption {
     }
 
     /// Retrieve multiple string arguments.
-    var asMultiple: [String] {
+    public var asMultiple: [String] {
       switch self {
       case .multiple(let result):
         return result
@@ -48,6 +48,12 @@ public struct ParsedOption {
 
   /// The index in the command line where this argument appeared.
   public let index: Int
+
+  public init(option: Option, argument: Argument, index: Int) {
+    self.option = option
+    self.argument = argument
+    self.index = index
+  }
 }
 
 extension ParsedOption: CustomStringConvertible {

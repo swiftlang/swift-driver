@@ -105,14 +105,53 @@ public struct Triple {
       parser.rematch(&parsedOS, at: 2)
       parser.rematch(&parsedEnv, at: 3)
 
-      // TODO: This normalization logic is a little less robust than LLVM's.
-      // In particular, it doesn't correct Windows triples as well as
-      // llvm::Triple::normalize() does.
+      let isCygwin = parser.componentsIndicateCygwin
+      let isMinGW32 = parser.componentsIndicateMinGW32
+
+      if
+      let parsedEnv = parsedEnv,
+      parsedEnv.value.environment == .android,
+      parsedEnv.substring.hasPrefix("androideabi") {
+        let androidVersion = parsedEnv.substring.dropFirst("androideabi".count)
+
+        parser.components[3] = "android\(androidVersion)"
+      }
+
+      // SUSE uses "gnueabi" to mean "gnueabihf"
+      if parsedVendor?.value == .suse && parsedEnv?.value.environment == .gnueabi {
+        parser.components[3] = "gnueabihf"
+      }
+
+      if parsedOS?.value == .win32 {
+        parser.components.resize(toCount: 4, paddingWith: "")
+        parser.components[2] = "windows"
+        if parsedEnv?.value.environment == nil {
+          if let objectFormat = parsedEnv?.value.objectFormat, objectFormat != .coff {
+            parser.components[3] = Substring(objectFormat.name)
+          } else {
+            parser.components[3] = "msvc"
+          }
+        }
+      } else if isMinGW32 {
+        parser.components.resize(toCount: 4, paddingWith: "")
+        parser.components[2] = "windows"
+        parser.components[3] = "gnu"
+      } else if isCygwin {
+        parser.components.resize(toCount: 4, paddingWith: "")
+        parser.components[2] = "windows"
+        parser.components[3] = "cygnus"
+      }
+
+      if isMinGW32 || isCygwin || (parsedOS?.value == .win32 && parsedEnv?.value.environment != nil) {
+        if let objectFormat = parsedEnv?.value.objectFormat, objectFormat != .coff {
+          parser.components.resize(toCount: 5, paddingWith: "")
+          parser.components[4] = Substring(objectFormat.name)
+        }
+      }
 
       // Now that we've parsed everything, we construct a normalized form of the
       // triple string.
-      triple = parser.components.map { $0 == "" ? "unknown" : $0 }
-          .joined(separator: "-")
+      triple = parser.components.map({ $0.isEmpty ? "unknown" : $0 }).joined(separator: "-")
     }
     else {
       triple = string
@@ -141,6 +180,14 @@ public struct Triple {
 
 fileprivate protocol TripleComponent {
   static func parse(_ component: Substring) -> Self?
+
+  static func valueIsValid(_ value: Substring) -> Bool
+}
+
+extension TripleComponent {
+  static func valueIsValid(_ value: Substring) -> Bool {
+    parse(value) != nil
+  }
 }
 
 fileprivate struct ParsedComponent<Value: TripleComponent> {
@@ -178,6 +225,14 @@ fileprivate struct TripleParser {
   var components: [Substring]
   var isMatched: Set<Int> = []
 
+  var componentsIndicateCygwin: Bool {
+    components.count > 2 ? components[2].hasPrefix("cygwin") : false
+  }
+
+  var componentsIndicateMinGW32: Bool {
+    components.count > 2 ? components[2].hasPrefix("mingw") : false
+  }
+
   init(_ string: String, allowMore: Bool) {
     components = string.split(
       separator: "-", maxSplits: allowMore ? Int.max : 3,
@@ -214,11 +269,11 @@ fileprivate struct TripleParser {
                  "Lost the parsed component somehow?")
 
     for i in unmatchedIndices {
-      guard let parsed = ParsedComponent(components[i], as: Value.self) else {
+      guard Value.valueIsValid(components[i]) else {
         continue
       }
 
-      value = parsed
+      value = ParsedComponent(components[i], as: Value.self)
       shiftComponent(at: i, to: correctIndex)
       isMatched.insert(correctIndex)
 
@@ -1120,6 +1175,10 @@ extension Triple {
         return nil
       }
     }
+
+    fileprivate static func valueIsValid(_ value: Substring) -> Bool {
+      parse(value) != nil || value.hasPrefix("cygwin") || value.hasPrefix("mingw")
+    }
   }
 }
 
@@ -1168,7 +1227,7 @@ extension Triple {
     }
   }
 
-  public enum Environment: String, CaseIterable {
+  public enum Environment: String, CaseIterable, Equatable {
     case eabihf
     case eabi
     case elfv1
@@ -1359,6 +1418,16 @@ extension Triple {
         case .wasm32: fallthrough
         case .wasm64:
           return .wasm
+      }
+    }
+
+    var name: String {
+      switch self {
+        case .coff:   return "coff"
+        case .elf:    return "elf"
+        case .macho:  return "macho"
+        case .wasm:   return "wasm"
+        case .xcoff:  return "xcoff"
       }
     }
   }
@@ -1555,6 +1624,51 @@ extension Triple {
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
+    }
+  }
+}
+
+// MARK: - Catalyst
+
+extension Triple {
+  var isMacCatalyst: Bool {
+    return self.isiOS && !self.isTvOS && environment == .macabi
+  }
+
+  func isValidForZipperingWithTriple(_ variant: Triple) -> Bool {
+    guard archName == variant.archName,
+      arch == variant.arch,
+      subArch == variant.subArch,
+      vendor == variant.vendor else {
+        return false
+    }
+
+    // Allow a macOS target and an iOS-macabi target variant
+    // This is typically the case when zippering a library originally
+    // developed for macOS.
+    if self.isMacOSX && variant.isMacCatalyst {
+      return true
+    }
+
+    // Allow an iOS-macabi target and a macOS target variant. This would
+    // be the case when zippering a library originally developed for
+    // iOS.
+    if variant.isMacOSX && isMacCatalyst {
+      return true
+    }
+
+    return false
+  }
+}
+
+fileprivate extension Array {
+
+  mutating func resize(toCount desiredCount: Int, paddingWith element: Element) {
+
+    if desiredCount > count {
+      append(contentsOf: repeatElement(element, count: desiredCount - count))
+    } else if desiredCount < count {
+      removeLast(count - desiredCount)
     }
   }
 }
