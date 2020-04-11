@@ -276,7 +276,7 @@ extension RelativePath {
       }
   }
 
-  /// Returns the absolute path with additional literal components appended.
+  /// Returns the relative path with additional literal components appended.
   public func appending(components names: String...) -> RelativePath {
     return RelativePath(pathString + "/" + names.joined(separator: "/"))
   }
@@ -311,19 +311,33 @@ extension TSCBasic.FileSystem {
     }
   }
 
+  /// Resolve provided `VirtualPath` to a `AbsolutePath` and check if it exists.
+  /// - Precondition: path is `AbsolutePath` or `RelativePath`
   func exists(_ path: VirtualPath) -> Bool {
-    do {
-      return try resolvingVirtualPath(path, apply: exists)
-    } catch {
-      return false
+    switch path {
+    case .absolute, .relative:
+      do {
+        return try resolvingVirtualPath(path, apply: exists)
+      } catch {
+        return false
+      }
+    case .standardInput, .standardOutput, .temporary:
+      preconditionFailure("Unsupported path type passed to \(#function)")
     }
   }
 
+  /// Resolve provided `VirtualPath` to a `AbsolutePath` and check if it is a file.
+  /// - Precondition: path is `AbsolutePath` or `RelativePath`
   func isFile(_ path: VirtualPath) -> Bool {
-    do {
-      return try resolvingVirtualPath(path, apply: isFile)
-    } catch {
-      return false
+    switch path {
+    case .absolute, .relative:
+      do {
+        return try resolvingVirtualPath(path, apply: isFile)
+      } catch {
+        return false
+      }
+    case .standardInput, .standardOutput, .temporary:
+      preconditionFailure("Unsupported path type passed to \(#function)")
     }
   }
 
