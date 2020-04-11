@@ -19,12 +19,12 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions,
     isShared: Bool
-  ) throws -> VirtualPath {
-    let resourceDirBase: VirtualPath
+  ) throws -> FileSystemPath {
+    let resourceDirBase: FileSystemPath
     if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-      resourceDirBase = try VirtualPath(path: resourceDir.asSingle)
+      resourceDirBase = try FileSystemPath(path: resourceDir.asSingle)
     } else if let sdk = parsedOptions.getLastArgument(.sdk),
-      let sdkPath = try? VirtualPath(path: sdk.asSingle) {
+      let sdkPath = try? FileSystemPath(path: sdk.asSingle) {
       resourceDirBase = sdkPath
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
@@ -37,7 +37,7 @@ extension Toolchain {
     return resourceDirBase.appending(components: triple.platformName() ?? "")
   }
 
-  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: VirtualPath) -> VirtualPath? {
+  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: FileSystemPath) -> FileSystemPath? {
     guard triple.isMacCatalyst else { return nil }
     return primaryPath.parentDirectory.appending(component: "macosx")
   }
@@ -45,7 +45,7 @@ extension Toolchain {
   func clangLibraryPath(
     for triple: Triple,
     parsedOptions: inout ParsedOptions
-  ) throws -> VirtualPath {
+  ) throws -> FileSystemPath {
     return try computeResourceDirPath(for: triple,
                                       parsedOptions: &parsedOptions,
                                       isShared: true)
@@ -59,7 +59,7 @@ extension Toolchain {
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
     isShared: Bool
-  ) throws -> [VirtualPath] {
+  ) throws -> [FileSystemPath] {
     let resourceDirPath = try computeResourceDirPath(
       for: triple,
       parsedOptions: &parsedOptions,
@@ -72,13 +72,13 @@ extension Toolchain {
     }
 
     if let path = sdkPath {
-      let sdkPath = try VirtualPath(path: path)
+      let sdkPath = try FileSystemPath(path: path)
       // If we added the secondary resource dir, we also need the iOSSupport directory.
       if secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
       }
 
-      result.append(try VirtualPath(path: path).appending(components: "usr", "lib", "swift"))
+      result.append(try FileSystemPath(path: path).appending(components: "usr", "lib", "swift"))
     }
 
     return result
@@ -262,7 +262,7 @@ extension DarwinToolchain {
       }
     }
 
-    func paths(runtimeLibraryPaths: [VirtualPath]) -> [VirtualPath] {
+    func paths(runtimeLibraryPaths: [FileSystemPath]) -> [FileSystemPath] {
       switch self {
       case .toolchain:
         return runtimeLibraryPaths

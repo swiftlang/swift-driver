@@ -23,11 +23,10 @@ public struct DOTJobGraphSerializer {
   }
 
   /// Gets the name of the tool that's being invoked from a job
-  func findToolName(_ path: VirtualPath) -> String {
+  func findToolName(_ path: FileSystemPath) -> String {
     switch path {
     case .absolute(let abs): return abs.components.last!
     case .relative(let rel): return rel.components.last!
-    default: fatalError("no tool for kind \(path)")
     }
   }
 

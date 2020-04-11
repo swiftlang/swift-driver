@@ -251,7 +251,7 @@ public struct Driver {
         self.swiftCompilerPrefixArgs = []
       } else {
         let frontendPath = frontendCommandLine.removeFirst()
-        self.toolchain.overrideToolPath(.swiftCompiler, path: try VirtualPath(path: frontendPath))
+        self.toolchain.overrideToolPath(.swiftCompiler, path: try FileSystemPath(path: frontendPath))
         self.swiftCompilerPrefixArgs = frontendCommandLine
       }
     } else {

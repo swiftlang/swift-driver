@@ -46,6 +46,11 @@ extension Array where Element == Job.ArgTemplate {
     append(.path(path))
   }
 
+  /// Append a FileSystemPath to the command line arguments.
+  mutating func appendPath(_ path: FileSystemPath) {
+    append(.path(path.virtualPath))
+  }
+
   /// Append an absolute path to the command line arguments.
   mutating func appendPath(_ path: AbsolutePath) {
     append(.path(.absolute(path)))

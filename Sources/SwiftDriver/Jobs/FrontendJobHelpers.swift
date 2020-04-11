@@ -153,7 +153,7 @@ extension Driver {
       commandLine.appendFlag(.Xcc)
       commandLine.appendFlag(.workingDirectory)
       commandLine.appendFlag(.Xcc)
-      commandLine.appendPath(.absolute(workingDirectory))
+      commandLine.appendPath(workingDirectory)
     }
 
     // -g implies -enable-anonymous-context-mangled-names, because the extra

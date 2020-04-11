@@ -53,7 +53,7 @@ extension GenericUnixToolchain {
     sanitizers: Set<Sanitizer>,
     targetTriple: Triple,
     targetVariantTriple: Triple?
-  ) throws -> VirtualPath {
+  ) throws -> FileSystemPath {
     switch linkerOutputType {
     case .dynamicLibrary:
       // Same options as an executable, just with '-shared'
@@ -191,7 +191,7 @@ extension GenericUnixToolchain {
       // Link the standard library. In two paths, we do this using a .lnk file
       // if we're going that route, we'll set `linkFilePath` to the path to that
       // file.
-      var linkFilePath: VirtualPath? = try computeResourceDirPath(
+      var linkFilePath: FileSystemPath? = try computeResourceDirPath(
         for: targetTriple,
         parsedOptions: &parsedOptions,
         isShared: false

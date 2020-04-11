@@ -38,7 +38,7 @@ public struct ArgsResolver {
   }
 
   public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> ([String], usingResponseFile: Bool) {
-    let tool = try resolve(.path(job.tool))
+    let tool = try resolve(.path(job.tool.virtualPath))
     var arguments = [tool] + (try job.commandLine.map { try resolve($0) })
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
                                                            forceResponseFiles: forceResponseFiles)

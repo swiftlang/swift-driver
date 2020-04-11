@@ -35,10 +35,10 @@ public protocol Toolchain {
   var searchPaths: [AbsolutePath] { get }
 
   /// Retrieve the path to a particular tool.
-  func getToolPath(_ tool: Tool) throws -> VirtualPath
+  func getToolPath(_ tool: Tool) throws -> FileSystemPath
 
   /// Set a path to be used for a particular tool.
-  func overrideToolPath(_ tool: Tool, path: VirtualPath)
+  func overrideToolPath(_ tool: Tool, path: FileSystemPath)
 
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath() throws -> AbsolutePath?
@@ -60,7 +60,7 @@ public protocol Toolchain {
     sanitizers: Set<Sanitizer>,
     targetTriple: Triple,
     targetVariantTriple: Triple?
-  ) throws -> VirtualPath
+  ) throws -> FileSystemPath
 
   func runtimeLibraryName(
     for sanitizer: Sanitizer,
@@ -126,9 +126,9 @@ extension Toolchain {
   /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
-  func lookup(executable: String) throws -> VirtualPath {
+  func lookup(executable: String) throws -> FileSystemPath {
     if let overrideString = envVar(forExecutable: executable) {
-      return try VirtualPath(path: overrideString)
+      return try FileSystemPath(path: overrideString)
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
       return .absolute(path)
     } else if let path = try? xcrunFind(executable: executable) {
@@ -142,7 +142,7 @@ extension Toolchain {
     }
   }
 
-  private func xcrunFind(executable: String) throws -> VirtualPath {
+  private func xcrunFind(executable: String) throws -> FileSystemPath {
     let xcrun = "xcrun"
     guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
       throw ToolchainError.unableToFind(tool: xcrun)

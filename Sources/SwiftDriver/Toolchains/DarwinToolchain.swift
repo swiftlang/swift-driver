@@ -18,14 +18,14 @@ public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
 
   /// Doubles as path cache and point for overriding normal lookup
-  private var toolPaths = [Tool: VirtualPath]()
+  private var toolPaths = [Tool: FileSystemPath]()
 
   public init(env: [String: String]) {
     self.env = env
   }
 
   /// Retrieve the absolute path for a given tool.
-  public func getToolPath(_ tool: Tool) throws -> VirtualPath {
+  public func getToolPath(_ tool: Tool) throws -> FileSystemPath {
     // Check the cache
     if let toolPath = toolPaths[tool] {
       return toolPath
@@ -36,7 +36,7 @@ public final class DarwinToolchain: Toolchain {
     return path
   }
 
-  private func lookupToolPath(_ tool: Tool) throws -> VirtualPath {
+  private func lookupToolPath(_ tool: Tool) throws -> FileSystemPath {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift")
@@ -67,7 +67,7 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  public func overrideToolPath(_ tool: Tool, path: VirtualPath) {
+  public func overrideToolPath(_ tool: Tool, path: FileSystemPath) {
     toolPaths[tool] = path
   }
 
@@ -85,7 +85,7 @@ public final class DarwinToolchain: Toolchain {
     sdk.appending(RelativePath("usr/lib/swift"))
   }
 
-  public var resourcesDirectory: Result<VirtualPath, Swift.Error> {
+  public var resourcesDirectory: Result<FileSystemPath, Swift.Error> {
     // FIXME: This will need to take -resource-dir and target triple into account.
     return Result {
       try getToolPath(.swiftCompiler).appending(components: "..", "..", "lib", "swift", "macosx")
@@ -100,15 +100,15 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  public var compatibility50: Result<VirtualPath, Error> {
+  public var compatibility50: Result<FileSystemPath, Error> {
     resourcesDirectory.map{ $0.appending(component: "libswiftCompatibility50.a") }
   }
 
-  public var compatibilityDynamicReplacements: Result<VirtualPath, Error> {
+  public var compatibilityDynamicReplacements: Result<FileSystemPath, Error> {
     resourcesDirectory.map{ $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
   }
 
-  public var clangRT: Result<VirtualPath, Error> {
+  public var clangRT: Result<FileSystemPath, Error> {
     resourcesDirectory.map{ $0.appending(components: "..", "clang", "lib", "darwin", "libclang_rt.osx.a") }
   }
 

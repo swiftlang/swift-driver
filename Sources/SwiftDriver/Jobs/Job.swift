@@ -34,7 +34,7 @@ public struct Job: Codable, Equatable, Hashable {
   }
 
   public enum ArgTemplate: Equatable, Hashable {
-    /// Represents a command-line flag that is substitued as-is.
+    /// Represents a command-line flag that is substituted as-is.
     case flag(String)
 
     /// Represents a virtual path on disk.
@@ -42,7 +42,7 @@ public struct Job: Codable, Equatable, Hashable {
   }
 
   /// The tool to invoke.
-  public var tool: VirtualPath
+  public var tool: FileSystemPath
 
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
@@ -70,7 +70,7 @@ public struct Job: Codable, Equatable, Hashable {
 
   public init(
     kind: Kind,
-    tool: VirtualPath,
+    tool: FileSystemPath,
     commandLine: [ArgTemplate],
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
