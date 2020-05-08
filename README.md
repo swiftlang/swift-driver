@@ -11,7 +11,7 @@ The `swift-driver` project is a new implementation of the Swift compiler driver 
 
 ## Getting Started
 
-Use the Swift package manager to build `swift-driver`:
+The preferred way to build `swift-driver` is to use the Swift package manager:
 
 ```
 $ swift build
@@ -31,6 +31,26 @@ SWIFT_EXEC=$SOME_PATH/swiftc swift build
 ```
 
 Similarly, one can use the new Swift driver within Xcode by adding a custom build setting (usually at the project level) named `SWIFT_EXEC` that refers to `$SOME_PATH/swiftc`.
+
+## Building with CMake
+
+`swift-driver` can also be built with CMake, which is suggested for
+environments where the Swift Package Manager is not yet
+available. Doing so requires several dependencies to be built first,
+all with CMake:
+
+* (Non-Apple platforms only) [swift-corelibs-foundation](https://github.com/apple/swift-corelibs-foundation)
+* [llbuild](https://github.com/apple/swift-llbuild) configure CMake with `-DLLBUILD_SUPPORT_BINDINGS="Swift"` when building
+  ```
+  cmake -B <llbuild-build-dir> -G Ninja <llbuild-source-dir> -DLLBUILD_SUPPORT_BINDINGS="Swift"
+  ```
+* [Yams](https://github.com/jpsim/Yams)
+
+Once those dependencies have built, build `swift-driver` itself:
+```
+cmake -B <swift-driver-build-dir> -G Ninja <swift-driver-source-dir> -DTSC_DIR=<swift-tools-support-core-build-dir>/cmake/modules -DLLBuild_DIR=<llbuild-build-dir>/cmake/modules -DYams_DIR=<yamls-build-dir>/cmake/modules
+cmake --build <swift-driver-build-dir>
+```
 
 ## Developing `swift-driver`
 
