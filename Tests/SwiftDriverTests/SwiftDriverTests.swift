@@ -830,6 +830,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
+    // FIXME: This test will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux)
     do {
       // linux target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
@@ -857,7 +860,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-static")))
     }
+    #endif
 
+    // FIXME: This test will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux)
     do {
       // static linux linking
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
@@ -886,6 +893,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
+    #endif
   }
 
   func testSanitizerArgs() throws {
