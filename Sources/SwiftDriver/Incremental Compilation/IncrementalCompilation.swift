@@ -146,7 +146,7 @@ public struct IncrementalCompilation {
       .map {$0.option.spelling}
       .sorted()
       .joined()
-    return SHA256(hashInput).digestString()
+    return SHA256().hash(hashInput).hexadecimalRepresentation
   }
 }
 

@@ -423,6 +423,7 @@ class ExecuteJobRule: LLBuildRule {
       context.delegateQueue.async {
         let result = ProcessResult(
           arguments: [],
+          environment: env,
           exitStatus: .terminated(code: 1),
           output: Result.success([]),
           stderrOutput: Result.success([])
