@@ -15,8 +15,11 @@ add_library(SwiftOptions
   OptionParsing.swift
   Options.swift
   PrefixTrie.swift)
+
 target_link_libraries(SwiftOptions PUBLIC
   TSCBasic)
+
+set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftOptions)
 
 # NOTE: workaround for CMake not setting up include flags yet
 set_target_properties(SwiftOptions PROPERTIES
