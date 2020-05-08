@@ -68,3 +68,10 @@ target_link_libraries(SwiftDriver PUBLIC
   llbuildSwift
   CYaml
   Yams)
+
+set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriver)
+
+# NOTE: workaround for CMake not setting up include flags yet
+set_target_properties(SwiftDriver PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
