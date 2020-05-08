@@ -256,7 +256,7 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
     case ExecuteAllJobsRule.ruleName:
       return ExecuteAllJobsRule(key)
     case ExecuteJobRule.ruleName:
-      return ExecuteJobRule(key)
+      return ExecuteJobRule(key, context: context)
     default:
       fatalError("Unknown rule \(rule)")
     }
@@ -336,18 +336,18 @@ class ExecuteJobRule: LLBuildRule {
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
 
   private let key: RuleKey
+  private let context: JobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key) {
+  init(_ key: Key, context: JobExecutor.Context) {
     self.key = RuleKey(key)
+    self.context = context
     super.init()
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    let context = engine.jobExecutorContext
-
     for (idx, input) in key.job.inputs.enumerated() {
       if let producingJob = context.producerMap[input.file] {
         let key = ExecuteJobRule.RuleKey(job: producingJob)
@@ -375,14 +375,13 @@ class ExecuteJobRule: LLBuildRule {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
 
-    let context = engine.jobExecutorContext
     context.jobQueue.addOperation {
       self.executeJob(engine)
     }
   }
 
   private func executeJob(_ engine: LLTaskBuildEngine) {
-    let context = engine.jobExecutorContext
+    let context = self.context
     let resolver = context.argsResolver
     let job = key.job
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
@@ -438,10 +437,3 @@ class ExecuteJobRule: LLBuildRule {
 }
 
 extension Job: LLBuildValue { }
-
-extension LLTaskBuildEngine {
-  /// Returns the job executor context.
-  var jobExecutorContext: JobExecutor.Context {
-    return (delegate as! JobExecutorBuildDelegate).context
-  }
-}
