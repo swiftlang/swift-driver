@@ -111,10 +111,18 @@ final class DiagnosticVerifier {
   // Access to `actual` and `expected` must be synchronized on `queue`. (Even
   // reads should be, although we only enforce writes.)
   fileprivate var actual: [Diagnostic] = [] {
-    didSet { dispatchPrecondition(condition: .onQueue(queue!)) }
+    didSet {
+      if #available(macOS 10.12, *) {
+        dispatchPrecondition(condition: .onQueue(queue!))
+      }
+    }
   }
   fileprivate var expected: [Expectation] = [] {
-     didSet { dispatchPrecondition(condition: .onQueue(queue!)) }
+    didSet {
+      if #available(macOS 10.12, *) {
+        dispatchPrecondition(condition: .onQueue(queue!))
+      }
+    }
   }
 
   // Access to `permitted` is not synchronized because it is only used from the
