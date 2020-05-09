@@ -185,10 +185,14 @@ class FailableTestCase: XCTestCase {
       return
     }
 
-    super.recordFailure(
-      withDescription: description,
-      inFile: filePath, atLine: lineNumber,
-      expected: expected
-    )
+    if #available(macOS 10.13, *) {
+      super.recordFailure(
+        withDescription: description,
+        inFile: filePath, atLine: lineNumber,
+        expected: expected
+      )
+    } else {
+      fatalError(description, line: UInt(lineNumber))
+    }
   }
 }
