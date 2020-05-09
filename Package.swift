@@ -1,5 +1,6 @@
 // swift-tools-version:5.1
 import PackageDescription
+import class Foundation.ProcessInfo
 
 let package = Package(
   name: "swift-driver",
@@ -19,11 +20,6 @@ let package = Package(
     .library(
       name: "SwiftOptions",
       targets: ["SwiftOptions"]),
-  ],
-  dependencies: [
-    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
-    .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
-    .package(url: "https://github.com/jpsim/Yams.git", .branch("master")),
   ],
   targets: [
     /// The driver library.
@@ -59,3 +55,17 @@ let package = Package(
   ],
   cxxLanguageStandard: .cxx14
 )
+
+if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+  package.dependencies += [
+    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+    .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+    .package(url: "https://github.com/jpsim/Yams.git", .branch("master")),
+    ]
+} else {
+    package.dependencies += [
+        .package(path: "../swift-tools-support-core"),
+        .package(path: "../yams"),
+        .package(path: "../llbuild"),
+    ]
+}
