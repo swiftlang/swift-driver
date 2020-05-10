@@ -375,12 +375,10 @@ class ExecuteJobRule: LLBuildRule {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
 
-    context.jobQueue.addOperation {
-      self.executeJob(engine)
-    }
+    engine.taskIsComplete(self.executeJob(engine))
   }
 
-  private func executeJob(_ engine: LLTaskBuildEngine) {
+  private func executeJob(_ engine: LLTaskBuildEngine) -> DriverBuildValue {
     let context = self.context
     let resolver = context.argsResolver
     let job = key.job
@@ -432,7 +430,7 @@ class ExecuteJobRule: LLBuildRule {
       value = .jobExecution(success: false)
     }
 
-    engine.taskIsComplete(value)
+    return value
   }
 }
 
