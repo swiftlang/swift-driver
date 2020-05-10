@@ -1190,16 +1190,9 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift", "-deprecated-integrated-repl"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
-      let replJob = plannedJobs.first!
-      XCTAssertTrue(replJob.tool.name.contains("swift"))
-      XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssertTrue(replJob.commandLine.count >= 2)
-      XCTAssertEqual(replJob.commandLine[0], .flag("-frontend"))
-      XCTAssertEqual(replJob.commandLine[1], .flag("-repl"))
-      XCTAssert(replJob.commandLine.contains(.flag("-module-name")))
+      XCTAssertThrowsError(try Driver(args: ["swift", "-deprecated-integrated-repl"])) {
+        XCTAssertEqual($0 as? Driver.Error, Driver.Error.integratedReplRemoved)
+      }
     }
 
     do {
