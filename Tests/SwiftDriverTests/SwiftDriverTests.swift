@@ -1576,6 +1576,14 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual($0 as? Driver.Error, Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
       }
     }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-educational-notes", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-educational-notes")))
+    }
   }
 
   func testPCHGeneration() throws {

@@ -141,6 +141,7 @@ extension Driver {
     try commandLine.appendLast(.enableFineGrainedDependencies, from: &parsedOptions)
     try commandLine.appendLast(.fineGrainedDependencyIncludeIntrafile, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
+    try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendAllArguments(.debugPrefixMap, from: &parsedOptions)
