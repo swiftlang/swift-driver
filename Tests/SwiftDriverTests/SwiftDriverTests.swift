@@ -1545,6 +1545,39 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDiagnosticOptions() throws {
+    do {
+      var driver = try Driver(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-warnings-as-errors")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "-suppress-warnings", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-suppress-warnings")))
+    }
+
+    do {
+      XCTAssertThrowsError(try Driver(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "-suppress-warnings", "foo.swift"])) {
+        XCTAssertEqual($0 as? Driver.Error, Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+      }
+    }
+  }
+
   func testPCHGeneration() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "foo.swift"])

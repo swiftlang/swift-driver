@@ -49,6 +49,7 @@ public struct Driver {
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
     case integratedReplRemoved
+    case conflictingOptions(Option, Option)
 
     public var description: String {
       switch self {
@@ -65,6 +66,8 @@ public struct Driver {
         return "subcommand passed to driver"
       case .integratedReplRemoved:
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
+      case .conflictingOptions(let one, let two):
+        return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
       }
     }
   }
@@ -306,6 +309,8 @@ public struct Driver {
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
+
+    try Self.validateWarningControlArgs(&parsedOptions)
 
     // Compute debug information output.
     (self.debugInfoLevel, self.debugInfoFormat, shouldVerifyDebugInfo: self.shouldVerifyDebugInfo) =
@@ -1454,6 +1459,16 @@ extension Diagnostic.Message {
 
   static var error_bridging_header_module_interface: Diagnostic.Message {
     .error("using bridging headers with module interfaces is unsupported")
+  }
+}
+
+// MARK: Miscellaneous Argument Validation
+extension Driver {
+  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions) throws {
+    if parsedOptions.hasArgument(.suppressWarnings) &&
+        parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
+      throw Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)
+    }
   }
 }
 

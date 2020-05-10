@@ -118,7 +118,7 @@ extension Driver {
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
-    try commandLine.appendLast(.warningsAsErrors, from: &parsedOptions)
+    try commandLine.appendLast(.warningsAsErrors, .noWarningsAsErrors, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeCoverageEQ, from: &parsedOptions)
     try commandLine.appendLast(.static, from: &parsedOptions)
     try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
