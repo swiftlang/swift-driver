@@ -196,7 +196,7 @@ extension Driver {
       }
     }
 
-    // Repl Jobs may include -module-name depending on the selected REPL (LLDB or integrated).
+    // Repl Jobs shouldn't include -module-name.
     if compilerMode != .repl {
       commandLine.appendFlags("-module-name", moduleName)
     }
