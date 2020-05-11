@@ -12,7 +12,7 @@
 import SwiftOptions
 import ArgumentParser
 
-extension DriverKind: ExpressibleByArgument, Decodable {}
+extension DriverKind: ExpressibleByArgument {}
 
 struct SwiftHelp: ParsableCommand {
   @ArgumentParser.Option(name: .customLong("tool", withSingleDash: true),

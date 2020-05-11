@@ -5,9 +5,21 @@
         "package": "swift-argument-parser",
         "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {
+<<<<<<< HEAD
           "branch": null,
           "revision": "15351c1cd009eba0b6e438bfef55ea9847a8dc4a",
           "version": "0.3.0"
+=======
+<<<<<<< HEAD
+          "branch": "master",
+          "revision": "15351c1cd009eba0b6e438bfef55ea9847a8dc4a",
+          "version": null
+=======
+          "branch": null,
+          "revision": "223d62adc52d51669ae2ee19bdb8b7d9fd6fcd9c",
+          "version": "0.0.6"
+>>>>>>> Add swift-argument-parser to the cmake build
+>>>>>>> Add swift-argument-parser to the cmake build
         }
       },
       {

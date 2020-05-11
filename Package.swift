@@ -74,8 +74,13 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
     .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+<<<<<<< HEAD
     .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "4.0.0")),
     .package(url: "https://github.com/apple/swift-argument-parser.git", .exact("0.3.0"))
+=======
+    .package(url: "https://github.com/jpsim/Yams.git", .branch("master")),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", .exact("0.0.6"))
+>>>>>>> Add swift-argument-parser to the cmake build
     ]
 } else {
     package.dependencies += [

@@ -44,11 +44,12 @@ all with CMake:
   ```
   cmake -B <llbuild-build-dir> -G Ninja <llbuild-source-dir> -DLLBUILD_SUPPORT_BINDINGS="Swift"
   ```
+* [swift-argument-parser](https://github.com/apple/swift-argument-parser)
 * [Yams](https://github.com/jpsim/Yams)
 
 Once those dependencies have built, build `swift-driver` itself:
 ```
-cmake -B <swift-driver-build-dir> -G Ninja <swift-driver-source-dir> -DTSC_DIR=<swift-tools-support-core-build-dir>/cmake/modules -DLLBuild_DIR=<llbuild-build-dir>/cmake/modules -DYams_DIR=<yamls-build-dir>/cmake/modules
+cmake -B <swift-driver-build-dir> -G Ninja <swift-driver-source-dir> -DTSC_DIR=<swift-tools-support-core-build-dir>/cmake/modules -DLLBuild_DIR=<llbuild-build-dir>/cmake/modules -DYams_DIR=<yamls-build-dir>/cmake/modules -DArgumentParser_DIR=<swift-argument-parser-build-dir>
 cmake --build <swift-driver-build-dir>
 ```
 
