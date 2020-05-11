@@ -10,42 +10,24 @@
 //
 //===----------------------------------------------------------------------===//
 import SwiftOptions
-import TSCBasic
-import TSCLibc
-import TSCUtility
+import ArgumentParser
 
-extension DriverKind: StringEnumArgument {
-  public static var completion: ShellCompletion { .none }
+extension DriverKind: ExpressibleByArgument, Decodable {}
+
+struct SwiftHelp: ParsableCommand {
+  @ArgumentParser.Option(name: .customLong("tool", withSingleDash: true),
+                         default: .interactive,
+                         help: "The tool to list options of")
+  var tool: DriverKind
+
+  @Flag(name: .customLong("show-hidden", withSingleDash: true),
+        help: "List hidden (unsupported) options")
+  var showHidden: Bool
+
+  func run() throws {
+    let driverOptionTable = OptionTable()
+    driverOptionTable.printHelp(driverKind: tool, includeHidden: showHidden)
+  }
 }
 
-struct Options {
-  var driverKind: DriverKind = .interactive
-  var showHidden: Bool = false
-}
-
-let driverOptionTable = OptionTable()
-let parser = ArgumentParser(commandName: "swift help",
-                            usage: " ",
-                            overview: "Swift help tool",
-                            seeAlso: nil)
-let binder = ArgumentBinder<Options>()
-binder.bind(option: parser.add(option: "-show-hidden",
-                               usage: "List hidden (unsupported) options"),
-            to: { $0.showHidden = $1 })
-binder.bind(option: parser.add(option: "-tool", kind: DriverKind.self,
-                               usage: "The tool to list options of"),
-            to: { $0.driverKind = $1 })
-
-do {
-  let parseResult = try parser.parse(Array(CommandLine.arguments.dropFirst()))
-  var options = Options()
-  try binder.fill(parseResult: parseResult, into: &options)
-
-  // Print the option table.
-  driverOptionTable.printHelp(driverKind: options.driverKind,
-                              includeHidden: options.showHidden)
-} catch {
-  stderrStream <<< "error: " <<< error.localizedDescription
-  stderrStream.flush()
-  exit(EXIT_FAILURE)
-}
+SwiftHelp.main()
