@@ -64,7 +64,6 @@ add_library(SwiftDriver
 target_link_libraries(SwiftDriver PUBLIC
   TSCBasic
   SwiftOptions
-  LLBuild
   llbuildSwift
   CYaml
   Yams)
