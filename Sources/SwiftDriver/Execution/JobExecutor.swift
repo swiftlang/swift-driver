@@ -256,7 +256,7 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
     case ExecuteAllJobsRule.ruleName:
       return ExecuteAllJobsRule(key)
     case ExecuteJobRule.ruleName:
-      return ExecuteJobRule(key)
+      return ExecuteJobRule(key, context: context)
     default:
       fatalError("Unknown rule \(rule)")
     }
@@ -336,18 +336,18 @@ class ExecuteJobRule: LLBuildRule {
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
 
   private let key: RuleKey
+  private let context: JobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key) {
+  init(_ key: Key, context: JobExecutor.Context) {
     self.key = RuleKey(key)
+    self.context = context
     super.init()
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    let context = engine.jobExecutorContext
-
     for (idx, input) in key.job.inputs.enumerated() {
       if let producingJob = context.producerMap[input.file] {
         let key = ExecuteJobRule.RuleKey(job: producingJob)
@@ -375,14 +375,11 @@ class ExecuteJobRule: LLBuildRule {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
 
-    let context = engine.jobExecutorContext
-    context.jobQueue.addOperation {
-      self.executeJob(engine)
-    }
+    engine.taskIsComplete(self.executeJob(engine))
   }
 
-  private func executeJob(_ engine: LLTaskBuildEngine) {
-    let context = engine.jobExecutorContext
+  private func executeJob(_ engine: LLTaskBuildEngine) -> DriverBuildValue {
+    let context = self.context
     let resolver = context.argsResolver
     let job = key.job
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
@@ -423,6 +420,7 @@ class ExecuteJobRule: LLBuildRule {
       context.delegateQueue.async {
         let result = ProcessResult(
           arguments: [],
+          environment: env,
           exitStatus: .terminated(code: 1),
           output: Result.success([]),
           stderrOutput: Result.success([])
@@ -432,15 +430,8 @@ class ExecuteJobRule: LLBuildRule {
       value = .jobExecution(success: false)
     }
 
-    engine.taskIsComplete(value)
+    return value
   }
 }
 
 extension Job: LLBuildValue { }
-
-extension LLTaskBuildEngine {
-  /// Returns the job executor context.
-  var jobExecutorContext: JobExecutor.Context {
-    return (delegate as! JobExecutorBuildDelegate).context
-  }
-}

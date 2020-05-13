@@ -111,10 +111,6 @@ public class LLTaskBuildEngine {
         self.engine = engine
     }
 
-    var delegate: LLBuildEngineDelegate {
-      return (engine.engine.delegate as! LLBuildEngine.Delegate).delegate
-    }
-
     public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) {
         let encodedKey = RuleKey(
             rule: T.BuildRule.ruleName, data: key.toKey().data).toKey()

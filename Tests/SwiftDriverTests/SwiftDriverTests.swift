@@ -830,6 +830,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
+    // FIXME: This test will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux)
     do {
       // linux target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
@@ -857,7 +860,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-static")))
     }
+    #endif
 
+    // FIXME: This test will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux)
     do {
       // static linux linking
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
@@ -886,6 +893,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
+    #endif
   }
 
   func testSanitizerArgs() throws {
@@ -1182,16 +1190,9 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift", "-deprecated-integrated-repl"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
-      let replJob = plannedJobs.first!
-      XCTAssertTrue(replJob.tool.name.contains("swift"))
-      XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssertTrue(replJob.commandLine.count >= 2)
-      XCTAssertEqual(replJob.commandLine[0], .flag("-frontend"))
-      XCTAssertEqual(replJob.commandLine[1], .flag("-repl"))
-      XCTAssert(replJob.commandLine.contains(.flag("-module-name")))
+      XCTAssertThrowsError(try Driver(args: ["swift", "-deprecated-integrated-repl"])) {
+        XCTAssertEqual($0 as? Driver.Error, Driver.Error.integratedReplRemoved)
+      }
     }
 
     do {

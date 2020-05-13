@@ -28,6 +28,7 @@ class JobCollectingDelegate: JobExecutorDelegate {
     func waitUntilExit() throws -> ProcessResult {
       return ProcessResult(
         arguments: [],
+        environment: [:],
         exitStatus: .terminated(code: 0),
         output: Result.success(ByteString("test").contents),
         stderrOutput: Result.success([])

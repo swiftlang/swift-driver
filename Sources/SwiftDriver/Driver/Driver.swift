@@ -42,12 +42,13 @@ public enum ModuleOutput: Equatable {
 
 /// The Swift driver.
 public struct Driver {
-  public enum Error: Swift.Error, DiagnosticData {
+  public enum Error: Swift.Error, Equatable, DiagnosticData {
     case invalidDriverName(String)
     case invalidInput(String)
     case noJobsPassedToDriverFromEmptyInputFileList
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
+    case integratedReplRemoved
 
     public var description: String {
       switch self {
@@ -62,6 +63,8 @@ public struct Driver {
         return "relative frontend path: \(path)"
       case .subcommandPassedToDriver:
         return "subcommand passed to driver"
+      case .integratedReplRemoved:
+        return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       }
     }
   }
@@ -298,7 +301,7 @@ public struct Driver {
     }
 
     // Determine the compilation mode.
-    self.compilerMode = Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Figure out the primary outputs from the driver.
     (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
@@ -764,15 +767,18 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     driverKind: DriverKind,
     diagnosticsEngine: DiagnosticsEngine
-  ) -> CompilerMode {
+  ) throws -> CompilerMode {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
       case .emitPch, .emitImportedModules:
         return .singleCompile
 
-      case .repl, .deprecatedIntegratedRepl, .lldbRepl:
+      case .repl, .lldbRepl:
         return .repl
+
+      case .deprecatedIntegratedRepl:
+        throw Error.integratedReplRemoved
 
       case .emitPcm:
         return .compilePCM

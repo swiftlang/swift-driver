@@ -30,7 +30,11 @@ public struct ParsableMessage {
 
   public func toJSON() throws -> Data {
     let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    if #available(macOS 10.13, *) {
+      encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    } else {
+      encoder.outputFormatting = [.prettyPrinted]
+    }
     return try encoder.encode(self)
   }
 }

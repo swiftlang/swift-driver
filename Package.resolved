@@ -6,7 +6,7 @@
         "repositoryURL": "https://github.com/apple/swift-llbuild.git",
         "state": {
           "branch": "master",
-          "revision": "0e6f22ce5469209567be9aad8a330852d473d3aa",
+          "revision": "cb4877c57af9c515f4801e096e06f9e07946dac6",
           "version": null
         }
       },
@@ -15,7 +15,7 @@
         "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
         "state": {
           "branch": "master",
-          "revision": "8aad8045e68d399bd41976bb6ae56ef2b89cc515",
+          "revision": "cceb98211e1ec5ac116466549d4c6eac3aec506e",
           "version": null
         }
       },
@@ -24,7 +24,7 @@
         "repositoryURL": "https://github.com/jpsim/Yams.git",
         "state": {
           "branch": "master",
-          "revision": "fbc979b7feb4c32e2aa1087f958d826d3cf8472f",
+          "revision": "89bfc6c2db9b1aaedd7b5907fa38491cabde5057",
           "version": null
         }
       }
