@@ -97,7 +97,7 @@ extension Driver {
           // We have a partitioning for batch mode. If this input file isn't the first
           // file in the partition, skip it: it's been accounted for already.
           let partition = partitions.partitions[partitionIdx]
-          if partition.first! != input {
+          if partition[0] != input {
             continue
           }
 
@@ -394,7 +394,7 @@ extension Driver {
     let numPartitions = numberOfBatchPartitions(info, swiftInputFiles: swiftInputFiles)
 
     if (parsedOptions.hasArgument(.driverShowJobLifecycle)) {
-      stdoutStream.write("Found \(swiftInputFiles) batchable jobs\n")
+      stdoutStream.write("Found \(swiftInputFiles.count) batchable jobs\n")
       stdoutStream.write("Forming into \(numPartitions) batches\n")
       stdoutStream.flush()
     }

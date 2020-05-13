@@ -1042,20 +1042,35 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testMultiThreadedWholeModuleOptimizationCompiles() throws {
-    var driver1 = try Driver(args: [
-      "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift",
-      "-module-name", "Test", "-num-threads", "4"
-    ])
-    let plannedJobs = try driver1.planBuild()
-    XCTAssertEqual(plannedJobs.count, 2)
-    XCTAssertEqual(plannedJobs[0].kind, .compile)
-    XCTAssertEqual(plannedJobs[0].outputs.count, 3)
-    XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
-    XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
-    XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
-    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+    do {
+      var driver1 = try Driver(args: [
+        "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift",
+        "-module-name", "Test", "-num-threads", "4"
+      ])
+      let plannedJobs = try driver1.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
+      XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+      XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
-    XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+    }
+
+    // emit-module
+    do {
+      var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
+      XCTAssertEqual(plannedJobs[0].inputs[1].file, VirtualPath.relative(RelativePath("multi-threaded.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("test.swiftmodule")))
+    }
   }
 
   func testWholeModuleOptimizationOutputFileMap() throws {
@@ -1145,6 +1160,18 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
     }
 
+    do {
+      // -o specified
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "/tmp/test.swiftmodule", "input.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("input.swiftmodule")))
+      XCTAssertEqual(plannedJobs[1].kind, .mergeModule)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("input.swiftmodule")))
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(AbsolutePath("/tmp/test.swiftmodule")))
+    }
   }
 
   func testRepl() throws {
@@ -1542,6 +1569,47 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("-target-variant")))
       XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
       XCTAssertTrue(job.commandLine.contains(.flag("-resource-dir")))
+    }
+  }
+
+  func testDiagnosticOptions() throws {
+    do {
+      var driver = try Driver(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-warnings-as-errors")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "-suppress-warnings", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-suppress-warnings")))
+    }
+
+    do {
+      XCTAssertThrowsError(try Driver(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "-suppress-warnings", "foo.swift"])) {
+        XCTAssertEqual($0 as? Driver.Error, Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+      }
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-educational-notes", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-educational-notes")))
     }
   }
 

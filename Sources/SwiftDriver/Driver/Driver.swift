@@ -49,6 +49,7 @@ public struct Driver {
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
     case integratedReplRemoved
+    case conflictingOptions(Option, Option)
 
     public var description: String {
       switch self {
@@ -65,6 +66,8 @@ public struct Driver {
         return "subcommand passed to driver"
       case .integratedReplRemoved:
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
+      case .conflictingOptions(let one, let two):
+        return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
       }
     }
   }
@@ -309,6 +312,8 @@ public struct Driver {
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
+
+    try Self.validateWarningControlArgs(&parsedOptions)
 
     // Compute debug information output.
     (self.debugInfoLevel, self.debugInfoFormat, shouldVerifyDebugInfo: self.shouldVerifyDebugInfo) =
@@ -651,7 +656,9 @@ extension Driver {
       return
     }
 
-    if jobs.contains(where: { $0.requiresInPlaceExecution }) || jobs.count == 1 {
+    if jobs.contains(where: { $0.requiresInPlaceExecution })
+      // Only one job and no cleanup required
+      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
     }
@@ -907,7 +914,7 @@ extension Driver {
       case .emitObject, .c:
         compilerOutputType = .object
 
-      case .emitAssembly:
+      case .emitAssembly, .S:
         compilerOutputType = .assembly
 
       case .emitSil:
@@ -1459,6 +1466,16 @@ extension Diagnostic.Message {
 
   static var error_bridging_header_module_interface: Diagnostic.Message {
     .error("using bridging headers with module interfaces is unsupported")
+  }
+}
+
+// MARK: Miscellaneous Argument Validation
+extension Driver {
+  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions) throws {
+    if parsedOptions.hasArgument(.suppressWarnings) &&
+        parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
+      throw Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)
+    }
   }
 }
 

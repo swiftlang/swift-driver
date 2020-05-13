@@ -260,4 +260,18 @@ extension FileType {
       return false
     }
   }
+
+  /// Returns true if the type is produced in the compiler after the LLVM passes.
+  /// For those types the compiler produces multiple output files in multi-threaded compilation.
+  var isAfterLLVM: Bool {
+    switch self {
+    case .assembly, .llvmIR, .llvmBitcode, .object:
+      return true
+    case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
+         .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
+         .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
+         .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch:
+      return false
+    }
+  }
 }
