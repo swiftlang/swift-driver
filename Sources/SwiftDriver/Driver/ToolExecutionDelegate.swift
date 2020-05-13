@@ -90,8 +90,8 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
     // FIXME: Do we need to do error handling here? Can this even fail?
     guard let json = try? message.toJSON() else { return }
 
-    stdoutStream <<< json.count <<< "\n"
-    stdoutStream <<< String(data: json, encoding: .utf8)! <<< "\n"
-    stdoutStream.flush()
+    stderrStream <<< json.count <<< "\n"
+    stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
+    stderrStream.flush()
   }
 }

@@ -651,7 +651,9 @@ extension Driver {
       return
     }
 
-    if jobs.contains(where: { $0.requiresInPlaceExecution }) || jobs.count == 1 {
+    if jobs.contains(where: { $0.requiresInPlaceExecution })
+      // Only one job and no cleanup required
+      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
     }
@@ -907,7 +909,7 @@ extension Driver {
       case .emitObject, .c:
         compilerOutputType = .object
 
-      case .emitAssembly:
+      case .emitAssembly, .S:
         compilerOutputType = .assembly
 
       case .emitSil:

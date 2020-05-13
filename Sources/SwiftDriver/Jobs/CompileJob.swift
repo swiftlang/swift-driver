@@ -105,7 +105,7 @@ extension Driver {
       // If there is a primary output or we are doing multithreaded compiles,
       // add an output for the input.
       if let compilerOutputType = compilerOutputType,
-        isPrimary || (isMultithreaded && compilerOutputType.isAfterLLVM) {
+        isPrimary || (!usesPrimaryFileInputs && isMultithreaded && compilerOutputType.isAfterLLVM) {
         primaryOutputs.append(computePrimaryOutput(for: input,
                                                    outputType: compilerOutputType,
                                                    isTopLevel: isTopLevel))
