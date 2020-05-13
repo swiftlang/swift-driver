@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
+
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput
   case emitPCMWrongInputFiles
@@ -94,8 +96,13 @@ extension Driver {
         if let partitions = partitions, let partitionIdx = partitions.assignment[input] {
           // We have a partitioning for batch mode. If this input file isn't the first
           // file in the partition, skip it: it's been accounted for already.
-          if partitions.partitions[partitionIdx].first! != input {
+          let partition = partitions.partitions[partitionIdx]
+          if partition[0] != input {
             continue
+          }
+
+          if parsedOptions.hasArgument(.driverShowJobLifecycle) {
+            stdoutStream.write("Forming batch job from \(partition.count) constituents\n")
           }
 
           primaryInputs = partitions.partitions[partitionIdx]
@@ -385,6 +392,12 @@ extension Driver {
       inputFile.type.isPartOfSwiftCompilation
     }
     let numPartitions = numberOfBatchPartitions(info, swiftInputFiles: swiftInputFiles)
+
+    if (parsedOptions.hasArgument(.driverShowJobLifecycle)) {
+      stdoutStream.write("Found \(swiftInputFiles.count) batchable jobs\n")
+      stdoutStream.write("Forming into \(numPartitions) batches\n")
+      stdoutStream.flush()
+    }
 
     // If there is only one partition, fast path.
     if numPartitions == 1 {
