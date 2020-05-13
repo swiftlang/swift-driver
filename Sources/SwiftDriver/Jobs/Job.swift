@@ -16,6 +16,7 @@ import Foundation
 public struct Job: Codable, Equatable, Hashable {
   public enum Kind: String, Codable {
     case compile
+    case backend
     case mergeModule = "merge-module"
     case link
     case generateDSYM = "generate-dsym"

@@ -80,6 +80,18 @@ public enum VirtualPath: Hashable {
     }
   }
 
+  /// Retrieve the basename of the path.
+  public var basename: String {
+    switch self {
+    case .absolute(let path):
+      return path.basename
+    case .relative(let path), .temporary(let path):
+      return path.basename
+    case .standardInput, .standardOutput:
+      return ""
+    }
+  }
+
   /// Retrieve the basename of the path without the extension.
   public var basenameWithoutExt: String {
     switch self {

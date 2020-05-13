@@ -147,6 +147,9 @@ public struct Driver {
   /// The name of the Swift module being built.
   public let moduleName: String
 
+  /// Was the module name picked by the driver instead of the user.
+  public let moduleNameIsFallback: Bool
+
   /// The path of the SDK.
   public let sdkPath: String?
 
@@ -317,7 +320,7 @@ public struct Driver {
       Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
-    (self.moduleOutput, self.moduleName) = try Self.computeModuleInfo(
+    (self.moduleOutput, self.moduleName, self.moduleNameIsFallback) = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
 
@@ -644,6 +647,13 @@ extension Driver {
       return
     }
 
+    if parsedOptions.contains(.driverPrintBindings) {
+      for job in jobs {
+        try printBindings(job)
+      }
+      return
+    }
+
     if parsedOptions.contains(.driverPrintGraphviz) {
       var serializer = DOTJobGraphSerializer(jobs: jobs)
       serializer.writeDOT(to: &stdoutStream)
@@ -715,6 +725,21 @@ extension Driver {
       }
     }
     print(result)
+  }
+
+  private func printBindings(_ job: Job) throws {
+    try stdoutStream <<< #"# ""# <<< toolchain.hostTargetTriple().triple
+    stdoutStream <<< #"" - ""# <<< job.tool.basename
+    stdoutStream <<< #"", inputs: ["#
+    stdoutStream <<< job.inputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
+
+    stdoutStream <<< "], output: {"
+
+    stdoutStream <<< job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", ")
+
+    stdoutStream <<< "}"
+    stdoutStream <<< "\n"
+    stdoutStream.flush()
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
@@ -972,6 +997,16 @@ extension Driver {
       linkerOutputType = .executable
     }
 
+    // warn if -embed-bitcode is set and the output type is not an object
+    if parsedOptions.hasArgument(.embedBitcode) && compilerOutputType != .object {
+      diagnosticsEngine.emit(.warn_ignore_embed_bitcode)
+      parsedOptions.eraseArgument(.embedBitcode)
+    }
+    if parsedOptions.hasArgument(.embedBitcodeMarker) && compilerOutputType != .object {
+      diagnosticsEngine.emit(.warn_ignore_embed_bitcode_marker)
+      parsedOptions.eraseArgument(.embedBitcodeMarker)
+    }
+
     return (compilerOutputType, linkerOutputType)
   }
 }
@@ -984,6 +1019,14 @@ extension Diagnostic.Message {
       use '\(driverKind.usage) input-filename'
       """
     )
+  }
+
+  static var warn_ignore_embed_bitcode: Diagnostic.Message {
+    .warning("ignoring -embed-bitcode since no object file is being generated")
+  }
+
+  static var warn_ignore_embed_bitcode_marker: Diagnostic.Message {
+    .warning("ignoring -embed-bitcode-marker since no object file is being generated")
   }
 }
 
@@ -1240,7 +1283,7 @@ extension Driver {
     linkerOutputType: LinkOutputType?,
     debugInfoLevel: DebugInfoLevel?,
     diagnosticsEngine: DiagnosticsEngine
-  ) throws -> (ModuleOutput?, String) {
+  ) throws -> (ModuleOutput?, String, Bool) {
     // Figure out what kind of module we will output.
     enum ModuleOutputKind {
       case topLevel
@@ -1276,6 +1319,7 @@ extension Driver {
 
     // Determine the name of the module.
     var moduleName: String
+    var moduleNameIsFallback = false
     if let arg = parsedOptions.getLastArgument(.moduleName) {
       moduleName = arg.asSingle
     } else if compilerMode == .repl {
@@ -1299,7 +1343,7 @@ extension Driver {
     }
 
     func fallbackOrDiagnose(_ error: Diagnostic.Message) {
-      // FIXME: Current driver notes that this is a "fallback module name".
+      moduleNameIsFallback = true
       if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
         moduleName = "main"
       }
@@ -1317,7 +1361,7 @@ extension Driver {
 
     // If we're not emiting a module, we're done.
     if moduleOutputKind == nil {
-      return (nil, moduleName)
+      return (nil, moduleName, moduleNameIsFallback)
     }
 
     // Determine the module file to output.
@@ -1343,9 +1387,9 @@ extension Driver {
 
     switch moduleOutputKind! {
     case .topLevel:
-      return (.topLevel(moduleOutputPath), moduleName)
+      return (.topLevel(moduleOutputPath), moduleName, moduleNameIsFallback)
     case .auxiliary:
-      return (.auxiliary(moduleOutputPath), moduleName)
+      return (.auxiliary(moduleOutputPath), moduleName, moduleNameIsFallback)
     }
   }
 }

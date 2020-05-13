@@ -1699,7 +1699,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-c", "-embed-bitcode", "-import-objc-header", "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.count, 3)
 
       XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
@@ -1716,7 +1716,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
-      // FIXME: Verify llvm-bc as output
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("foo.bc")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .backend)
     }
 
     do {
@@ -1870,6 +1873,327 @@ final class SwiftDriverTests: XCTestCase {
        XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("module.modulemap")))
        XCTAssertEqual(plannedJobs[0].outputs.count, 1)
        XCTAssertEqual(plannedJobs[0].outputs[0].file, .relative(RelativePath("Test.pcm")))
+    }
+  }
+
+  func testEmbedBitcode() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-embed-bitcode", "embed-bitcode.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .backend)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("embed-bitcode.o")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .link)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("embed-bitcode")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-embed-bitcode", "main.swift", "hi.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 5)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("main.swift")))
+      XCTAssertEqual(plannedJobs[0].inputs[1].file, .relative(RelativePath("hi.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("main.bc")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .relative(RelativePath("main.swift")))
+      XCTAssertEqual(plannedJobs[1].inputs[1].file, .relative(RelativePath("hi.swift")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("hi.bc")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .backend)
+      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].inputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertEqual(plannedJobs[2].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .temporary(RelativePath("main.o")))
+
+      XCTAssertEqual(plannedJobs[3].kind, .backend)
+      XCTAssertEqual(plannedJobs[3].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[3].inputs[0].file, .temporary(RelativePath("hi.bc")))
+      XCTAssertEqual(plannedJobs[3].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[3].outputs[0].file, .temporary(RelativePath("hi.o")))
+
+      XCTAssertEqual(plannedJobs[4].kind, .link)
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-embed-bitcode", "-c", "-emit-module", "embed-bitcode.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, .temporary(RelativePath("embed-bitcode.swiftmodule")))
+      XCTAssertEqual(plannedJobs[0].outputs[2].file, .temporary(RelativePath("embed-bitcode.swiftdoc")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .backend)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
+      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].inputs[0].file, .temporary(RelativePath("embed-bitcode.swiftmodule")))
+      XCTAssertEqual(plannedJobs[2].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("main.swiftmodule")))
+      XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("main.swiftdoc")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-embed-bitcode", "-wmo", "embed-bitcode.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("main.bc")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .backend)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("main.o")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .link)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("embed-bitcode")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-embed-bitcode", "-c", "-parse-as-library", "-emit-module",  "embed-bitcode.swift", "empty.swift", "-module-name", "ABC"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 5)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("empty.bc")))
+
+      XCTAssertEqual(plannedJobs[2].kind, .backend)
+      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertEqual(plannedJobs[2].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
+
+      XCTAssertEqual(plannedJobs[3].kind, .backend)
+      XCTAssertEqual(plannedJobs[3].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[3].inputs[0].file, .temporary(RelativePath("empty.bc")))
+      XCTAssertEqual(plannedJobs[3].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[3].outputs[0].file, .relative(RelativePath("empty.o")))
+
+      XCTAssertEqual(plannedJobs[4].kind, .mergeModule)
+      XCTAssertEqual(plannedJobs[4].inputs.count, 2)
+      XCTAssertEqual(plannedJobs[4].inputs[0].file, .temporary(RelativePath("embed-bitcode.swiftmodule")))
+      XCTAssertEqual(plannedJobs[4].inputs[1].file, .temporary(RelativePath("empty.swiftmodule")))
+      XCTAssertEqual(plannedJobs[4].outputs.count, 2)
+      XCTAssertEqual(plannedJobs[4].outputs[0].file, .relative(RelativePath("ABC.swiftmodule")))
+      XCTAssertEqual(plannedJobs[4].outputs[1].file, .relative(RelativePath("ABC.swiftdoc")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-embed-bitcode", "-c", "-parse-as-library", "-emit-module", "-whole-module-optimization", "embed-bitcode.swift", "-parse-stdlib", "-module-name", "Swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("Swift.bc")))
+
+      XCTAssertEqual(plannedJobs[1].kind, .backend)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("Swift.bc")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("Swift.o")))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-module", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-module-path", "a.swiftmodule",  "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-sib", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-sibgen", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-sil", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-silgen", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-ir", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-bc", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-assembly", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-module", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-module-path", "a.swiftmodule",  "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-sib", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-sibgen", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-sil", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-silgen", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-ir", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-bc", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode-marker", "-emit-assembly", "embed-bitcode.swift"]) { driver, verify in
+      verify.expect(.warning("ignoring -embed-bitcode-marker since no object file is being generated"))
+      let plannedJobs = try driver.planBuild()
+
+      for job in plannedJobs {
+        XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
     }
   }
 }

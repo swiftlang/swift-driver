@@ -64,6 +64,8 @@ extension Driver {
       jobs.append(try emitModuleJob())
     }
 
+    var backendJobs = [Job]()
+
     let partitions: BatchPartitions?
     switch compilerMode {
     case .batchCompile(let batchInfo):
@@ -73,12 +75,24 @@ extension Driver {
       fatalError("compiler mode \(compilerMode) is handled elsewhere")
 
     case .singleCompile:
-      // Create a single compile job for all of the files, none of which
-      // are primary.
-      var jobOutputs: [TypedVirtualPath] = []
-      let job = try compileJob(primaryInputs: [], outputType: compilerOutputType, allOutputs: &jobOutputs)
-      jobs.append(job)
-      addJobOutputs(jobOutputs)
+      if parsedOptions.hasArgument(.embedBitcode),
+        inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
+        var jobOutputs: [TypedVirtualPath] = []
+        let job = try compileJob(primaryInputs: [], outputType: .llvmBitcode, allOutputs: &jobOutputs)
+        jobs.append(job)
+        for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
+          let job = try backendJob(input: input, allOutputs: &jobOutputs)
+          backendJobs.append(job)
+        }
+        addJobOutputs(jobOutputs)
+      } else {
+        // Create a single compile job for all of the files, none of which
+        // are primary.
+        var jobOutputs: [TypedVirtualPath] = []
+        let job = try compileJob(primaryInputs: [], outputType: compilerOutputType, allOutputs: &jobOutputs)
+        jobs.append(job)
+        addJobOutputs(jobOutputs)
+      }
 
       partitions = nil
 
@@ -110,10 +124,21 @@ extension Driver {
           primaryInputs = [input]
         }
 
-        var jobOutputs: [TypedVirtualPath] = []
-        let job = try compileJob(primaryInputs: primaryInputs, outputType: compilerOutputType, allOutputs: &jobOutputs)
-        jobs.append(job)
-        addJobOutputs(jobOutputs)
+        if parsedOptions.hasArgument(.embedBitcode) {
+          var jobOutputs: [TypedVirtualPath] = []
+          let job = try compileJob(primaryInputs: primaryInputs, outputType: .llvmBitcode, allOutputs: &jobOutputs)
+          jobs.append(job)
+          for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
+            let job = try backendJob(input: input, allOutputs: &jobOutputs)
+            backendJobs.append(job)
+          }
+          addJobOutputs(jobOutputs)
+        } else {
+          var jobOutputs: [TypedVirtualPath] = []
+          let job = try compileJob(primaryInputs: primaryInputs, outputType: compilerOutputType, allOutputs: &jobOutputs)
+          jobs.append(job)
+          addJobOutputs(jobOutputs)
+        }
 
       case .object, .autolink:
         if linkerOutputType != nil {
@@ -140,6 +165,8 @@ extension Driver {
         diagnosticEngine.emit(.error_unexpected_input_file(input.file))
       }
     }
+
+    jobs.append(contentsOf: backendJobs)
 
     // Plan the merge-module job, if there are module inputs.
     if moduleOutput != nil && !moduleInputs.isEmpty && compilerMode.usesPrimaryFileInputs {
