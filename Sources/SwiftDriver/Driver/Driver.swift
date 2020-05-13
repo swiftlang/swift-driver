@@ -963,6 +963,9 @@ extension Driver {
       case .interpret:
         compilerOutputType = nil
 
+      case .scanDependencies:
+        compilerOutputType = .jsonDependencies
+
       default:
         fatalError("unhandled output mode option \(outputOption)")
       }

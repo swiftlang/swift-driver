@@ -1613,6 +1613,30 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testScanDependenciesOption() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-scan-dependencies", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-scan-dependencies")))
+    }
+
+    // Test .d output
+    do {
+      var driver = try Driver(args: ["swiftc", "-scan-dependencies",
+                                     "-emit-dependencies", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      print("")
+      print(job.commandLine)
+      XCTAssertTrue(job.commandLine.contains(.flag("-scan-dependencies")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-emit-dependencies-path")))
+      XCTAssertTrue(job.commandLine.contains(.path(.temporary(RelativePath("foo.d")))))
+    }
+  }
+
   func testPCHGeneration() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
