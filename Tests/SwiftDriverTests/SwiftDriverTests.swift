@@ -1110,13 +1110,13 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs.count, 3)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .relative(RelativePath("foo.swiftmodule")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("foo.swiftmodule")))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .temporary(RelativePath("foo.d")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertEqual(plannedJobs[1].outputs.count, 3)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("bar.swiftmodule")))
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("bar.swiftmodule")))
       XCTAssertEqual(plannedJobs[1].outputs[1].file, .temporary(RelativePath("bar.swiftdoc")))
       XCTAssertEqual(plannedJobs[1].outputs[2].file, .temporary(RelativePath("bar.d")))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
@@ -1160,6 +1160,18 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
     }
 
+    do {
+      // -o specified
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "/tmp/test.swiftmodule", "input.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("input.swiftmodule")))
+      XCTAssertEqual(plannedJobs[1].kind, .mergeModule)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("input.swiftmodule")))
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(AbsolutePath("/tmp/test.swiftmodule")))
+    }
   }
 
   func testRepl() throws {

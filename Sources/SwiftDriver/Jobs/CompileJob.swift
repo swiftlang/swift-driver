@@ -70,8 +70,7 @@ extension Driver {
     case .object:
       isTopLevel = (linkerOutputType == nil)
     case .swiftModule:
-      // The user has requested a module, so treat it as a top-level output
-      isTopLevel = parsedOptions.hasArgument(.emitModule, .emitModulePath)
+      isTopLevel = compilerMode.isSingleCompilation && moduleOutput?.isTopLevel ?? false
     case .swift, .sib, .image, .dSYM, .dependencies, .autolink,
          .swiftDocumentation, .swiftInterface,
          .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
