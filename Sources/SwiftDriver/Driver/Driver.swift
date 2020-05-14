@@ -77,6 +77,9 @@ public struct Driver {
   /// it should be identical to the real environment.
   public let env: [String: String]
 
+  /// The file system which we should interact with.
+  public let fileSystem: FileSystem
+
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
 
@@ -226,9 +229,11 @@ public struct Driver {
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
-    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
+    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+    fileSystem: FileSystem = localFileSystem
   ) throws {
     self.env = env
+    self.fileSystem = fileSystem
 
     self.diagnosticEngine = diagnosticsEngine
 
@@ -236,7 +241,7 @@ public struct Driver {
       throw Error.subcommandPassedToDriver
     }
 
-    var args = try Self.expandResponseFiles(args, diagnosticsEngine: self.diagnosticEngine)[...]
+    var args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)[...]
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
@@ -246,7 +251,7 @@ public struct Driver {
       .map {
         Triple($0, normalizing: true)
       }
-    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env)
+    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env, fileSystem: fileSystem)
     self.targetVariantTriple = self.parsedOptions.getLastArgument(.targetVariant).map { Triple($0.asSingle, normalizing: true) }
 
     // Find the Swift compiler executable.
@@ -266,7 +271,7 @@ public struct Driver {
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
-      let cwd = localFileSystem.currentWorkingDirectory
+      let cwd = fileSystem.currentWorkingDirectory
       return try cwd.map{ AbsolutePath(workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
     }
 
@@ -280,7 +285,7 @@ public struct Driver {
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
-        guard let modTime = try? localFileSystem
+        guard let modTime = try? fileSystem
           .getFileInfo($0.file).modTime else { return nil }
         return ($0, modTime)
     })
@@ -289,7 +294,7 @@ public struct Driver {
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
       let path = try VirtualPath(path: outputFileMapArg)
-      outputFileMap = try .load(file: path, diagnosticEngine: diagnosticEngine)
+        outputFileMap = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
     } else {
       outputFileMap = nil
     }
@@ -327,13 +332,14 @@ public struct Driver {
       compilerMode: compilerMode,
       outputFileMap: self.outputFileMap,
       compilerOutputType: self.compilerOutputType,
-      moduleOutput: self.moduleOutput,
+        moduleOutput: self.moduleOutput,
+      fileSystem: fileSystem,
       inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine,
       actualSwiftVersion: try? toolchain.swiftCompilerVersion()
     )
 
-    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, diagnosticsEngine: diagnosticEngine, env: env)
+    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, fileSystem: fileSystem, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
@@ -531,6 +537,7 @@ extension Driver {
   /// - Parameter visitedResponseFiles: Set containing visited response files to detect recursive parsing.
   private static func expandResponseFiles(
     _ args: [String],
+    fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
     visitedResponseFiles: inout Set<AbsolutePath>
   ) throws -> [String] {
@@ -548,9 +555,9 @@ extension Driver {
           visitedResponseFiles.remove(responseFile)
         }
 
-        let contents = try localFileSystem.readFileContents(responseFile).cString
+        let contents = try fileSystem.readFileContents(responseFile).cString
         let lines = tokenizeResponseFile(contents)
-        result.append(contentsOf: try expandResponseFiles(lines, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles))
+        result.append(contentsOf: try expandResponseFiles(lines, fileSystem: fileSystem, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles))
       } else {
         result.append(arg)
       }
@@ -562,10 +569,11 @@ extension Driver {
   /// Expand response files in the input arguments and return a new argument list.
   public static func expandResponseFiles(
     _ args: [String],
+    fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> [String] {
     var visitedResponseFiles = Set<AbsolutePath>()
-    return try expandResponseFiles(args, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles)
+    return try expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles)
   }
 }
 
@@ -573,13 +581,11 @@ extension Driver {
   /// Determine the driver kind based on the command-line arguments, consuming the arguments
   /// conveying this information.
   public static func determineDriverKind(
-    args: inout ArraySlice<String>,
-    cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+    args: inout ArraySlice<String>
   ) throws -> DriverKind {
     // Get the basename of the driver executable.
     let execRelPath = args.removeFirst()
-    let execPath = try cwd.map{ AbsolutePath(execRelPath, relativeTo: $0) } ?? AbsolutePath(validating: execRelPath)
-    var driverName = execPath.basename
+    var driverName = try VirtualPath(path: execRelPath).basenameWithoutExt
 
     // Determine driver kind based on the first argument.
     let driverModeOption = "--driver-mode="
@@ -670,7 +676,7 @@ extension Driver {
         forceResponseFiles: forceResponseFiles,
         recordedInputModificationDates: recordedInputModificationDates
     )
-    try jobExecutor.execute(env: env)
+    try jobExecutor.execute(env: env, fileSystem: fileSystem)
   }
 
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
@@ -694,7 +700,7 @@ extension Driver {
       try ProcessEnv.setVar(envVar, value: value)
     }
 
-    try job.verifyInputsNotModified(since: self.recordedInputModificationDates)
+    try job.verifyInputsNotModified(since: self.recordedInputModificationDates, fileSystem: fileSystem)
 
     return try exec(path: arguments[0], args: arguments)
   }
@@ -1357,6 +1363,7 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode,
     toolchain: Toolchain,
+    fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String]
   ) -> String? {
@@ -1392,14 +1399,14 @@ extension Driver {
       // FIXME: TSC should provide a better utility for this.
       if let absPath = try? AbsolutePath(validating: sdkPath) {
         path = absPath
-      } else if let cwd = localFileSystem.currentWorkingDirectory {
+      } else if let cwd = fileSystem.currentWorkingDirectory {
         path = AbsolutePath(sdkPath, relativeTo: cwd)
       } else {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
         return sdkPath
       }
 
-      if !localFileSystem.exists(path) {
+      if !fileSystem.exists(path) {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
       }
       // .. else check if SDK is too old (we need target triple to diagnose that).
@@ -1505,11 +1512,12 @@ extension Driver {
   static func computeToolchain(
     _ explicitTarget: Triple?,
     diagnosticsEngine: DiagnosticsEngine,
-    env: [String: String]
+    env: [String: String],
+    fileSystem: FileSystem
   ) throws -> (Toolchain, Triple) {
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
-    let toolchain = toolchainType.init(env: env)
+    let toolchain = toolchainType.init(env: env, fileSystem: fileSystem)
     return (toolchain, try explicitTarget ?? toolchain.hostTargetTriple())
   }
 }

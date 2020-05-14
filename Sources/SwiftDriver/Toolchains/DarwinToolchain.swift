@@ -20,8 +20,12 @@ public final class DarwinToolchain: Toolchain {
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
-  public init(env: [String: String]) {
+  /// The file system to use for any file operations.
+  public let fileSystem: FileSystem
+
+  public init(env: [String: String], fileSystem: FileSystem = localFileSystem) {
     self.env = env
+    self.fileSystem = fileSystem
   }
 
   /// Retrieve the absolute path for a given tool.

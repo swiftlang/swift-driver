@@ -129,6 +129,7 @@ public extension InputInfoMap {
   static func populateOutOfDateMap(
     argsHash: String,
     lastBuildTime: Date,
+    fileSystem: FileSystem,
     inputFiles: [TypedVirtualPath],
     buildRecordPath: VirtualPath,
     showIncrementalBuildDecisions: Bool,
@@ -136,7 +137,7 @@ public extension InputInfoMap {
   ) -> Self? {
     let contents: String
     do {
-      contents = try localFileSystem.readFileContents(buildRecordPath).cString
+      contents = try fileSystem.readFileContents(buildRecordPath).cString
       return try Self(contents: contents)
     }
     catch {

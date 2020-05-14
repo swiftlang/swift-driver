@@ -207,7 +207,7 @@ extension GenericUnixToolchain {
       }
 
       if let linkFile = linkFilePath {
-        guard localFileSystem.isFile(linkFile) else {
+        guard fileSystem.isFile(linkFile) else {
           fatalError("\(linkFile.pathString) not found")
         }
         commandLine.appendFlag("@\(linkFile.pathString)")

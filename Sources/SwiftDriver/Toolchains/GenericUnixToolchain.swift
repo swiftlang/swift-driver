@@ -15,11 +15,15 @@ import TSCBasic
 public final class GenericUnixToolchain: Toolchain {
   public let env: [String: String]
 
+  /// The file system to use for queries.
+  public let fileSystem: FileSystem
+
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
-  public init(env: [String: String]) {
+  public init(env: [String: String], fileSystem: FileSystem = localFileSystem) {
     self.env = env
+    self.fileSystem = fileSystem
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {

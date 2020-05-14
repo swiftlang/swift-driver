@@ -12,6 +12,8 @@
 import TSCBasic
 import Foundation
 
+public typealias FileSystem = TSCBasic.FileSystem
+
 /// Mapping of input file paths to specific output files.
 public struct OutputFileMap: Equatable {
   /// The known mapping from input file to specific output files.
@@ -68,11 +70,12 @@ public struct OutputFileMap: Equatable {
 
   /// Load the output file map at the given path.
   public static func load(
+    fileSystem: FileSystem,
     file: VirtualPath,
     diagnosticEngine: DiagnosticsEngine
   ) throws -> OutputFileMap {
     // Load and decode the file.
-    let contents = try localFileSystem.readFileContents(file)
+    let contents = try fileSystem.readFileContents(file)
     let result = try JSONDecoder().decode(OutputFileMapJSON.self, from: Data(contents.contents))
 
     // Convert the loaded entries into virual output file map.
@@ -84,6 +87,7 @@ public struct OutputFileMap: Equatable {
 
   /// Store the output file map at the given path.
   public func store(
+    fileSystem: FileSystem,
     file: AbsolutePath,
     diagnosticEngine: DiagnosticsEngine
   ) throws {
@@ -98,7 +102,7 @@ public struct OutputFileMap: Equatable {
   #endif
 
     let contents = try encoder.encode(OutputFileMapJSON.fromVirtualOutputFileMap(entries).entries)
-    try localFileSystem.writeFileContents(file, bytes: ByteString(contents))
+    try fileSystem.writeFileContents(file, bytes: ByteString(contents))
   }
 }
 

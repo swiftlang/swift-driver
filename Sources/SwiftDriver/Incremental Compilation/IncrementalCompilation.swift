@@ -29,6 +29,7 @@ public struct IncrementalCompilation {
        outputFileMap: OutputFileMap?,
        compilerOutputType: FileType?,
        moduleOutput: ModuleOutput?,
+       fileSystem: FileSystem,
        inputFiles: [TypedVirtualPath],
        diagnosticEngine: DiagnosticsEngine,
        actualSwiftVersion: String?
@@ -63,6 +64,7 @@ public struct IncrementalCompilation {
       let outOfDateMap = InputInfoMap.populateOutOfDateMap(
         argsHash: argsHash,
         lastBuildTime: lastBuildTime,
+        fileSystem: fileSystem,
         inputFiles: inputFiles,
         buildRecordPath: buRP,
         showIncrementalBuildDecisions: showIncrementalBuildDecisions,
