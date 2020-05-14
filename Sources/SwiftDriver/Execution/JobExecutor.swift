@@ -20,14 +20,18 @@ public struct ArgsResolver {
   /// The map of virtual path to the actual path.
   public var pathMapping: [VirtualPath: AbsolutePath]
 
+  /// The file system used by the resolver.
+  private let fileSystem: FileSystem
+
   /// Path to the directory that will contain the temporary files.
   private let temporaryDirectory: AbsolutePath
 
-  public init() throws {
+  public init(fileSystem: FileSystem = localFileSystem) throws {
     self.pathMapping = [:]
+    self.fileSystem = fileSystem
     self.temporaryDirectory = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
       // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
-      try localFileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
+      try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
       return path
     }
   }
@@ -75,7 +79,7 @@ public struct ArgsResolver {
              "Platform does not support response files for job: \(job)")
       // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
       let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
-      try localFileSystem.writeFileContents(responseFilePath) {
+      try fileSystem.writeFileContents(responseFilePath) {
         $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n")
       }
       resolvedArguments = [resolvedArguments[0], "@\(responseFilePath.pathString)"]
@@ -123,6 +127,9 @@ public final class JobExecutor {
     /// The environment variables.
     let env: [String: String]
 
+    /// The file system.
+    let fileSystem: FileSystem
+
     /// The job executor delegate.
     let executorDelegate: JobExecutorDelegate
 
@@ -144,6 +151,7 @@ public final class JobExecutor {
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
+      fileSystem: FileSystem,
       producerMap: [VirtualPath: Job],
       executorDelegate: JobExecutorDelegate,
       jobQueue: OperationQueue,
@@ -154,6 +162,7 @@ public final class JobExecutor {
       self.producerMap = producerMap
       self.argsResolver = argsResolver
       self.env = env
+      self.fileSystem = fileSystem
       self.executorDelegate = executorDelegate
       self.jobQueue = jobQueue
       self.processSet = processSet
@@ -202,8 +211,8 @@ public final class JobExecutor {
   }
 
   /// Execute all jobs.
-  public func execute(env: [String: String]) throws {
-    let context = createContext(jobs, env: env)
+  public func execute(env: [String: String], fileSystem: FileSystem) throws {
+    let context = createContext(jobs, env: env, fileSystem: fileSystem)
 
     let delegate = JobExecutorBuildDelegate(context)
     let engine = LLBuildEngine(delegate: delegate)
@@ -217,7 +226,7 @@ public final class JobExecutor {
   }
 
   /// Create the context required during the execution.
-  func createContext(_ jobs: [Job], env: [String: String]) -> Context {
+  func createContext(_ jobs: [Job], env: [String: String], fileSystem: FileSystem) -> Context {
     var producerMap: [VirtualPath: Job] = [:]
     for job in jobs {
       for output in job.outputs {
@@ -233,6 +242,7 @@ public final class JobExecutor {
     return Context(
       argsResolver: argsResolver,
       env: env,
+      fileSystem: fileSystem,
       producerMap: producerMap,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
@@ -254,7 +264,7 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
   func lookupRule(rule: String, key: Key) -> Rule {
     switch rule {
     case ExecuteAllJobsRule.ruleName:
-      return ExecuteAllJobsRule(key)
+      return ExecuteAllJobsRule(key, fileSystem: context.fileSystem)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key, context: context)
     default:
@@ -295,9 +305,9 @@ class ExecuteAllJobsRule: LLBuildRule {
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key) {
+  init(_ key: Key, fileSystem: FileSystem) {
     self.key = RuleKey(key)
-    super.init()
+    super.init(fileSystem: fileSystem)
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
@@ -344,7 +354,7 @@ class ExecuteJobRule: LLBuildRule {
   init(_ key: Key, context: JobExecutor.Context) {
     self.key = RuleKey(key)
     self.context = context
-    super.init()
+    super.init(fileSystem: context.fileSystem)
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
@@ -392,7 +402,7 @@ class ExecuteJobRule: LLBuildRule {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  forceResponseFiles: context.forceResponseFiles)
 
-      try job.verifyInputsNotModified(since: context.recordedInputModificationDates)
+      try job.verifyInputsNotModified(since: context.recordedInputModificationDates, fileSystem: engine.fileSystem)
 
       let process = try context.executorDelegate.launchProcess(
         for: job, arguments: arguments, env: env

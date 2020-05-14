@@ -151,7 +151,7 @@ final class JobExecutorTests: XCTestCase {
 
       let delegate = JobCollectingDelegate()
       let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
-      try executor.execute(env: toolchain.env)
+      try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
@@ -180,7 +180,7 @@ final class JobExecutorTests: XCTestCase {
       jobs: [job], resolver: try ArgsResolver(),
       executorDelegate: delegate
     )
-    try executor.execute(env: ProcessEnv.vars)
+    try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
   }

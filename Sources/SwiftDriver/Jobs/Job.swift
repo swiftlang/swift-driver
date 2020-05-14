@@ -103,11 +103,11 @@ extension Job {
     }
   }
 
-  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date]) throws {
+  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date], fileSystem: FileSystem) throws {
     for input in inputs {
       if case .absolute(let absolutePath) = input.file,
         let recordedModificationTime = recordedInputModificationDates[input],
-        try localFileSystem.getFileInfo(absolutePath).modTime != recordedModificationTime {
+        try fileSystem.getFileInfo(absolutePath).modTime != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }
     }

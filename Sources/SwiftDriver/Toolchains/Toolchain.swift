@@ -28,9 +28,11 @@ public enum Tool {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
-  init(env: [String: String])
+  init(env: [String: String], fileSystem: FileSystem)
 
   var env: [String: String] { get }
+
+  var fileSystem: FileSystem { get }
 
   var searchPaths: [AbsolutePath] { get }
 
@@ -77,7 +79,7 @@ public protocol Toolchain {
 
 extension Toolchain {
   public var searchPaths: [AbsolutePath] {
-    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
   }
 
   public func swiftCompilerVersion() throws -> String {

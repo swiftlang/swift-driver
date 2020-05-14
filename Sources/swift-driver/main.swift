@@ -42,7 +42,7 @@ do {
 
   var driver = try Driver(args: arguments, diagnosticsEngine: diagnosticsEngine)
   let jobs = try driver.planBuild()
-  let resolver = try ArgsResolver()
+  let resolver = try ArgsResolver(fileSystem: driver.fileSystem)
   try driver.run(jobs: jobs, resolver: resolver, processSet: processSet)
 
   if driver.diagnosticEngine.hasErrors {
