@@ -15,21 +15,7 @@ import SwiftDriver
 
 final class IncrementalCompilationTests: XCTestCase {
   func testInputInfoMapReading() throws {
-     let contents = """
-    version: "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
-    options: "abbbfbcaf36b93e58efaadd8271ff142"
-    build_time: [1570318779, 32358000]
-    inputs:
-      "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift": !dirty [1570318778, 0]
-      "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift": [1570083660, 0]
-      "/Volumes/gazorp.swift": !private [0,0]
-"""
-
-    let inputInfoMap = try! InputInfoMap(contents: contents)
-    //    print(inputInfoMap.buildTime)
-    //    inputInfoMap.inputs.forEach {
-    //    print($0.key, $0.value)
-    //    }
+    let inputInfoMap = try! InputInfoMap(contents: Inputs.inputInfoMap)
     XCTAssertEqual(inputInfoMap.swiftVersion,
       "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(inputInfoMap.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
@@ -48,6 +34,35 @@ final class IncrementalCompilationTests: XCTestCase {
               InputInfo(status: .needsNonCascadingBuild,
                         previousModTime:  Date(legacyDriverSecsAndNanos: [0, 0]))
           ])
+  }
+
+  func testReadSourceFileDependencyGraph() throws {
+    let graph = try SourceFileDependencyGraph(contents: Inputs.fineGrainedSourceFileDependencyGraph)
+
+    graph.verify()
+
+    var found = false
+    graph.forEachNode { node in
+      guard node.sequenceNumber == 10 else { return }
+      found = true
+      XCTAssertEqual(node.key.kind, .nominal)
+      XCTAssertEqual(node.key.aspect, .interface)
+      XCTAssertEqual(node.key.context, "5hello3FooV")
+      XCTAssertTrue(node.key.name.isEmpty)
+      XCTAssertEqual(node.fingerprint, "8daabb8cdf69d8e8702b4788be12efd6")
+      XCTAssertTrue(node.isProvides)
+
+      graph.forEachDefDependedUpon(by: node) { def in
+        XCTAssertTrue(def.sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber)
+        XCTAssertEqual(def.key.kind, .sourceFileProvide)
+        XCTAssertEqual(def.key.aspect, .interface)
+        XCTAssertTrue(def.key.context.isEmpty)
+        XCTAssertTrue(def.key.name.hasSuffix("/hello.swiftdeps"))
+        XCTAssertEqual(def.fingerprint, "85188db3503106210367dbcb7f5d1524")
+        XCTAssertTrue(def.isProvides)
+      }
+    }
+    XCTAssertTrue(found)
   }
 }
 
