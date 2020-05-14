@@ -87,6 +87,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Text-based dylib (TBD) file.
   case tbd
 
+  /// JSON-based Module Dependency Scanner output
+  case jsonDependencies = "dependencies.json"
+
   /// Module trace file.
   ///
   /// Module traces are used by Apple's internal build infrastructure. Apple
@@ -138,6 +141,9 @@ extension FileType: CustomStringConvertible {
     case .swiftDeps:
       return "swift-dependencies"
 
+    case .jsonDependencies:
+      return "json-dependencies"
+
     case .importedModules:
       return "imported-modules"
 
@@ -166,7 +172,8 @@ extension FileType {
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
-         .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface, .swiftSourceInfoFile:
+         .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface,
+         .swiftSourceInfoFile, .jsonDependencies:
       return false
     }
   }
@@ -233,6 +240,8 @@ extension FileType {
       return "objc-header"
     case .swiftDeps:
       return "swift-dependencies"
+    case .jsonDependencies:
+      return "json-dependencies"
     case .importedModules:
       return "imported-modules"
     case .moduleTrace:
@@ -252,7 +261,7 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
-         .optimizationRecord, .swiftInterface:
+         .optimizationRecord, .swiftInterface, .jsonDependencies:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -270,7 +279,7 @@ extension FileType {
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
          .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
-         .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch:
+         .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch, .jsonDependencies:
       return false
     }
   }

@@ -65,7 +65,7 @@ extension Driver {
     let isTopLevel: Bool
 
     switch compilerOutputType {
-    case .assembly, .sil, .raw_sil, .llvmIR, .ast:
+    case .assembly, .sil, .raw_sil, .llvmIR, .ast, .jsonDependencies:
       isTopLevel = true
     case .object:
       isTopLevel = (linkerOutputType == nil)
@@ -242,6 +242,8 @@ extension FileType {
       return .typecheck
     case .remap:
       return .updateCode
+    case .jsonDependencies:
+      return .scanDependencies
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
