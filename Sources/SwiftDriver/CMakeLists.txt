@@ -22,6 +22,7 @@ add_library(SwiftDriver
   "Incremental Compilation/IncrementalCompilation.swift"
   "Incremental Compilation/InputIInfoMap.swift"
   "Incremental Compilation/InputInfo.swift"
+  "Incremental Compilation/SourceFileDependencyGraph.swift"
 
   Jobs/AutolinkExtractJob.swift
   Jobs/CommandLineArguments.swift

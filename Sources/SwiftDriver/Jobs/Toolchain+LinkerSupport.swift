@@ -113,7 +113,7 @@ extension Toolchain {
       for: targetTriple,
       parsedOptions: &parsedOptions
     ).appending(component: runtimeName)
-    return localFileSystem.exists(path)
+    return fileSystem.exists(path)
   }
 }
 

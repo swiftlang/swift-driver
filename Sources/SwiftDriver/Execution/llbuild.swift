@@ -106,9 +106,11 @@ public final class LLBuildEngine {
 public class LLTaskBuildEngine {
 
     let engine: TaskBuildEngine
+    let fileSystem: FileSystem
 
-    init(_ engine: TaskBuildEngine) {
+    init(_ engine: TaskBuildEngine, fileSystem: FileSystem) {
         self.engine = engine
+        self.fileSystem = fileSystem
     }
 
     public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) {
@@ -132,7 +134,10 @@ open class LLBuildRule: Rule, Task {
         fatalError("subclass responsibility")
     }
 
-    public init() {
+    let fileSystem: FileSystem
+
+    public init(fileSystem: FileSystem) {
+      self.fileSystem = fileSystem
     }
 
     public func createTask() -> Task {
@@ -140,15 +145,15 @@ open class LLBuildRule: Rule, Task {
     }
 
     public func start(_ engine: TaskBuildEngine) {
-        self.start(LLTaskBuildEngine(engine))
+        self.start(LLTaskBuildEngine(engine, fileSystem: fileSystem))
     }
 
     public func provideValue(_ engine: TaskBuildEngine, inputID: Int, value: Value) {
-        self.provideValue(LLTaskBuildEngine(engine), inputID: inputID, value: value)
+        self.provideValue(LLTaskBuildEngine(engine, fileSystem: fileSystem), inputID: inputID, value: value)
     }
 
     public func inputsAvailable(_ engine: TaskBuildEngine) {
-        self.inputsAvailable(LLTaskBuildEngine(engine))
+        self.inputsAvailable(LLTaskBuildEngine(engine, fileSystem: fileSystem))
     }
 
     // MARK:-

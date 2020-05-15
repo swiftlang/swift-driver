@@ -18,6 +18,7 @@ extension IncrementalCompilationTests {
     // to regenerate.
     static let __allTests__IncrementalCompilationTests = [
         ("testInputInfoMapReading", testInputInfoMapReading),
+        ("testReadSourceFileDependencyGraph", testReadSourceFileDependencyGraph),
     ]
 }
 

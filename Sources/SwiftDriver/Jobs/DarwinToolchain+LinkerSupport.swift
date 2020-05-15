@@ -19,7 +19,7 @@ extension DarwinToolchain {
       .parentDirectory // 'bin'
       .appending(components: "lib", "arc")
 
-    if localFileSystem.exists(path) { return path }
+    if fileSystem.exists(path) { return path }
 
     // If we don't have a 'lib/arc/' directory, find the "arclite" library
     // relative to the Clang in the active Xcode.
@@ -216,7 +216,7 @@ extension DarwinToolchain {
         for: targetTriple,
         parsedOptions: &parsedOptions)
       .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
-    if localFileSystem.exists(compilerRTPath) {
+    if fileSystem.exists(compilerRTPath) {
       commandLine.append(.path(.absolute(compilerRTPath)))
     }
 

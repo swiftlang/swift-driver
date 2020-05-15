@@ -59,7 +59,7 @@ extension Driver {
   /// Is this compile job top-level
   func isTopLevelOutput(type: FileType?) -> Bool {
     switch type {
-    case .assembly, .sil, .raw_sil, .llvmIR, .ast:
+    case .assembly, .sil, .raw_sil, .llvmIR, .ast, .jsonDependencies:
       return true
     case .object:
       return (linkerOutputType == nil)
@@ -248,6 +248,8 @@ extension FileType {
       return .typecheck
     case .remap:
       return .updateCode
+    case .jsonDependencies:
+      return .scanDependencies
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
