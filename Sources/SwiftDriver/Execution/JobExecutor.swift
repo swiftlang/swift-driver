@@ -118,8 +118,11 @@ public final class JobExecutor {
   /// The context required during job execution.
   struct Context {
 
-    /// This contains mapping from an output to the job that produces that output.
-    let producerMap: [VirtualPath: Job]
+    /// This contains mapping from an output to the index(in the jobs array) of the job that produces that output.
+    let producerMap: [VirtualPath: Int]
+
+    /// All the jobs being executed.
+    let jobs: [Job]
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
@@ -152,7 +155,8 @@ public final class JobExecutor {
       argsResolver: ArgsResolver,
       env: [String: String],
       fileSystem: FileSystem,
-      producerMap: [VirtualPath: Job],
+      producerMap: [VirtualPath: Int],
+      jobs: [Job],
       executorDelegate: JobExecutorDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
@@ -160,6 +164,7 @@ public final class JobExecutor {
       recordedInputModificationDates: [TypedVirtualPath: Date]
     ) {
       self.producerMap = producerMap
+      self.jobs = jobs
       self.argsResolver = argsResolver
       self.env = env
       self.fileSystem = fileSystem
@@ -217,7 +222,7 @@ public final class JobExecutor {
     let delegate = JobExecutorBuildDelegate(context)
     let engine = LLBuildEngine(delegate: delegate)
 
-    let result = try engine.build(key: ExecuteAllJobsRule.RuleKey(jobs: jobs))
+    let result = try engine.build(key: ExecuteAllJobsRule.RuleKey())
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {
@@ -227,11 +232,11 @@ public final class JobExecutor {
 
   /// Create the context required during the execution.
   func createContext(_ jobs: [Job], env: [String: String], fileSystem: FileSystem) -> Context {
-    var producerMap: [VirtualPath: Job] = [:]
-    for job in jobs {
+    var producerMap: [VirtualPath: Int] = [:]
+    for (index, job) in jobs.enumerated() {
       for output in job.outputs {
         assert(!producerMap.keys.contains(output.file), "multiple producers for output \(output): \(job) \(producerMap[output.file]!)")
-        producerMap[output.file] = job
+        producerMap[output.file] = index
       }
     }
 
@@ -244,6 +249,7 @@ public final class JobExecutor {
       env: env,
       fileSystem: fileSystem,
       producerMap: producerMap,
+      jobs: jobs,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
       processSet: processSet,
@@ -264,7 +270,7 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
   func lookupRule(rule: String, key: Key) -> Rule {
     switch rule {
     case ExecuteAllJobsRule.ruleName:
-      return ExecuteAllJobsRule(key, fileSystem: context.fileSystem)
+      return ExecuteAllJobsRule(key, jobs: context.jobs, fileSystem: context.fileSystem)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key, context: context)
     default:
@@ -294,26 +300,26 @@ class ExecuteAllJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteAllJobsRule
-
-    let jobs: [Job]
   }
 
   override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
 
   private let key: RuleKey
+  private let jobs: [Job]
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key, fileSystem: FileSystem) {
+  init(_ key: Key, jobs: [Job], fileSystem: FileSystem) {
     self.key = RuleKey(key)
+    self.jobs = jobs
     super.init(fileSystem: fileSystem)
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    for (idx, job) in key.jobs.enumerated() {
-        let key = ExecuteJobRule.RuleKey(job: job)
-        engine.taskNeedsInput(key, inputID: idx)
+    for index in jobs.indices {
+      let key = ExecuteJobRule.RuleKey(index: index)
+      engine.taskNeedsInput(key, inputID: index)
     }
   }
 
@@ -340,7 +346,7 @@ class ExecuteJobRule: LLBuildRule {
     typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteJobRule
 
-    let job: Job
+    let index: Int
   }
 
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
@@ -358,9 +364,9 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    for (idx, input) in key.job.inputs.enumerated() {
-      if let producingJob = context.producerMap[input.file] {
-        let key = ExecuteJobRule.RuleKey(job: producingJob)
+    for (idx, input) in context.jobs[key.index].inputs.enumerated() {
+      if let producingJobIndex = context.producerMap[input.file] {
+        let key = ExecuteJobRule.RuleKey(index: producingJobIndex)
         engine.taskNeedsInput(key, inputID: idx)
       }
     }
@@ -393,7 +399,7 @@ class ExecuteJobRule: LLBuildRule {
   private func executeJob(_ engine: LLTaskBuildEngine) {
     let context = self.context
     let resolver = context.argsResolver
-    let job = key.job
+    let job = context.jobs[key.index]
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
