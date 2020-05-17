@@ -58,21 +58,21 @@ final class SwiftDriverTests: XCTestCase {
     func assertArgs(
       _ args: String...,
       parseTo driverKind: DriverKind,
-      leaving remainingArgs: ArraySlice<String>,
+      leaving remainingArgs: [String],
       file: StaticString = #file, line: UInt = #line
     ) throws {
-      var slice = args[...]
-      let result = try Driver.determineDriverKind(args: &slice)
+      var args = args
+      let result = try Driver.determineDriverKind(args: &args)
 
       XCTAssertEqual(result, driverKind, file: file, line: line)
-      XCTAssertEqual(slice, remainingArgs, file: file, line: line)
+      XCTAssertEqual(args, remainingArgs, file: file, line: line)
     }
     func assertArgsThrow(
       _ args: String...,
       file: StaticString = #file, line: UInt = #line
     ) throws {
-      var slice = args[...]
-      XCTAssertThrowsError(try Driver.determineDriverKind(args: &slice))
+      var args = args
+      XCTAssertThrowsError(try Driver.determineDriverKind(args: &args))
     }
 
     try assertArgs("swift", parseTo: .interactive, leaving: [])
