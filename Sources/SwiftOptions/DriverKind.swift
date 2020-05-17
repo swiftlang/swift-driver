@@ -17,7 +17,6 @@ public enum DriverKind: String {
   case moduleWrap = "swift-modulewrap"
   case frontend = "swift-frontend"
   case autolinkExtract = "swift-autolink-extract"
-  case indent = "swift-indent"
 
   /// Returns true if driver kind is Swift compiler.
   public var isSwiftCompiler: Bool {
@@ -41,9 +40,6 @@ extension DriverKind {
     case .frontend:
       return ["swift", "-frontend"]
 
-    case .indent:
-      return ["swift-indent"]
-
     case .interactive:
       return ["swift"]
 
@@ -59,9 +55,6 @@ extension DriverKind {
 
     case .frontend:
       return "Swift frontend"
-
-    case .indent:
-      return "Swift Format Tool"
 
     case .batch, .interactive:
       return "Swift compiler"

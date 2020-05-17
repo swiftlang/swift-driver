@@ -142,9 +142,6 @@ extension Option {
     case .frontend:
       return attributes.contains(.frontend)
 
-    case .indent:
-      return attributes.contains(.indent)
-
     case .interactive:
       return !attributes.contains(.noInteractive)
 

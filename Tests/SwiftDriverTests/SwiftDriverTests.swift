@@ -86,7 +86,6 @@ final class SwiftDriverTests: XCTestCase {
 
     try assertArgs("swiftc", "--driver-mode=swift", parseTo: .interactive, leaving: [])
     try assertArgs("swiftc", "--driver-mode=swift-autolink-extract", parseTo: .autolinkExtract, leaving: [])
-    try assertArgs("swiftc", "--driver-mode=swift-indent", parseTo: .indent, leaving: [])
     try assertArgs("swift", "--driver-mode=swift-autolink-extract", parseTo: .autolinkExtract, leaving: [])
 
     try assertArgs("swift", "-zelda", parseTo: .interactive, leaving: ["-zelda"])
