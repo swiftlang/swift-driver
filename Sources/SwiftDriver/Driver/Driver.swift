@@ -669,6 +669,7 @@ extension Driver {
     let jobExecutor = JobExecutor(
         jobs: jobs, resolver: resolver,
         executorDelegate: executorDelegate,
+        diagnosticsEngine: diagnosticEngine,
         numParallelJobs: numParallelJobs,
         processSet: processSet,
         forceResponseFiles: forceResponseFiles,

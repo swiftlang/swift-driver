@@ -150,7 +150,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let delegate = JobCollectingDelegate()
-      let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate)
+      let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
@@ -178,7 +178,8 @@ final class JobExecutorTests: XCTestCase {
     delegate.useStubProcess = true
     let executor = JobExecutor(
       jobs: [job], resolver: try ArgsResolver(),
-      executorDelegate: delegate
+      executorDelegate: delegate,
+      diagnosticsEngine: DiagnosticsEngine()
     )
     try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
 
@@ -247,27 +248,24 @@ final class JobExecutorTests: XCTestCase {
       try localFileSystem.writeFileContents(other) {
         $0 <<< "let bar = 2"
       }
+      try assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString]) {driver, verifier in
+        let jobs = try driver.planBuild()
+        XCTAssertTrue(jobs.count > 1)
+        let resolver = try ArgsResolver()
 
-      var driver = try Driver(args: ["swiftc", main.pathString, other.pathString])
-      let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count > 1)
-      let resolver = try ArgsResolver()
+        // Change the file
+        try localFileSystem.writeFileContents(other) {
+          $0 <<< "let bar = 3"
+        }
 
-      // Change the file
-      try localFileSystem.writeFileContents(other) {
-        $0 <<< "let bar = 3"
+        let delegate = JobCollectingDelegate()
+        delegate.useStubProcess = true
+
+        // FIXME: It's unfortunate we diagnose this twice, once for each job which uses the input.
+        verifier.expect(.error("input file '\(other.description)' was modified during the build"))
+        verifier.expect(.error("input file '\(other.description)' was modified during the build"))
+        XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver, executorDelegate: delegate))
       }
-
-      let delegate = JobCollectingDelegate()
-      delegate.useStubProcess = true
-      XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver,
-                                          executorDelegate: delegate)) {
-        // FIXME: The JobExecutor needs a way of emitting diagnostics or
-        // propagating errors through llbuild.
-        XCTAssertEqual($0 as? Diagnostics, .fatalError)
-      }
-
     }
   }
-
 }
