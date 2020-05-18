@@ -69,7 +69,7 @@ extension Driver {
          .swiftDocumentation, .swiftInterface,
          .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
          .objcHeader, .swiftDeps, .remap, .importedModules, .tbd, .moduleTrace,
-         .indexData, .optimizationRecord, .pcm, .pch, nil:
+         .indexData, .optimizationRecord, .pcm, .pch, .clangModuleMap, nil:
       return false
     }
   }
@@ -253,7 +253,7 @@ extension FileType {
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
-         .optimizationRecord, .swiftInterface, .swiftSourceInfoFile:
+         .optimizationRecord, .swiftInterface, .swiftSourceInfoFile, .clangModuleMap:
       fatalError("Output type can never be a primary output")
     }
   }

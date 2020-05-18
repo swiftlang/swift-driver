@@ -110,6 +110,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// Clang precompiled header
   case pch
+
+  /// Clang Module Map
+  case clangModuleMap = "modulemap"
 }
 
 extension FileType: CustomStringConvertible {
@@ -117,7 +120,7 @@ extension FileType: CustomStringConvertible {
     switch self {
     case .swift, .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
-         .remap, .tbd, .pcm, .pch:
+         .remap, .tbd, .pcm, .pch, .clangModuleMap:
       return rawValue
 
     case .ast:
@@ -173,7 +176,7 @@ extension FileType {
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface,
-         .swiftSourceInfoFile, .jsonDependencies:
+         .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap:
       return false
     }
   }
@@ -216,6 +219,8 @@ extension FileType {
       return "swiftinterface"
     case .swiftSourceInfoFile:
       return "swiftsourceinfo"
+    case .clangModuleMap:
+      return "modulemap"
     case .assembly:
       return "assembly"
     case .remap:
@@ -261,7 +266,7 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
-         .optimizationRecord, .swiftInterface, .jsonDependencies:
+         .optimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -279,7 +284,8 @@ extension FileType {
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
          .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
-         .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch, .jsonDependencies:
+         .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch, .jsonDependencies,
+         .clangModuleMap:
       return false
     }
   }
