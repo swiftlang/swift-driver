@@ -85,7 +85,7 @@ on the command line:
 ```
 $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   SWIFT_DRIVER_LIT_DIR=/path/to/build/Ninja-ReleaseAssert/swift-.../test-... \
-  swift test --parallel
+  swift test -c release --parallel
 ```
 
 #### Preparing a Linux docker for debug

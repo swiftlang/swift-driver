@@ -241,7 +241,7 @@ public struct Driver {
       throw Error.subcommandPassedToDriver
     }
 
-    var args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)[...]
+    var args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
@@ -508,18 +508,21 @@ extension Driver {
         continue
       } else if char.isWhitespace && !quoted {
         // This is unquoted, unescaped whitespace, start a new token.
-        tokens.append(token)
-        token = ""
+        if !token.isEmpty {
+          tokens.append(token)
+          token = ""
+        }
         continue
       }
 
       token.append(char)
     }
     // Add the final token
-    tokens.append(token)
+    if !token.isEmpty {
+      tokens.append(token)
+    }
 
-    // Filter any empty tokens that might be parsed if there's excessive whitespace.
-    return tokens.filter { !$0.isEmpty }
+    return tokens
   }
 
   /// Tokenize each line of the response file, omitting empty lines.
@@ -581,7 +584,7 @@ extension Driver {
   /// Determine the driver kind based on the command-line arguments, consuming the arguments
   /// conveying this information.
   public static func determineDriverKind(
-    args: inout ArraySlice<String>
+    args: inout [String]
   ) throws -> DriverKind {
     // Get the basename of the driver executable.
     let execRelPath = args.removeFirst()
