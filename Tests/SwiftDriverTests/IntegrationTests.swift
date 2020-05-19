@@ -190,7 +190,8 @@ final class IntegrationTests: IntegrationTestCase {
       let extraEnv = [
         "SWIFT": swift.pathString,
         "SWIFTC": swiftc.pathString,
-        "SWIFT_DRIVER_SWIFT_EXEC": frontendFile.pathString
+        "SWIFT_DRIVER_SWIFT_EXEC": frontendFile.pathString,
+        "LC_ALL": "en_US.UTF-8"
       ]
 
       printCommand(args: args, extraEnv: extraEnv)
