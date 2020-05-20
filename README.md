@@ -151,7 +151,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Immediate mode
 * Features
   * [x] Precompiled bridging headers
-  * [ ] Support embedding of bitcode
+  * [x] Support embedding of bitcode
   * [ ] Incremental compilation
   * [x] Parseable output, as used by SwiftPM
   * [x] Response files

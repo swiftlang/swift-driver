@@ -307,4 +307,13 @@ extension ParsedOptions {
   public mutating func getLast(in group: Option.Group) -> ParsedOption? {
     return groupIndex[group]?.last
   }
+
+  /// Remove argument from parsed options.
+  public mutating func eraseArgument(_ option: Option) {
+    parsedOptions.removeAll { $0.option == option }
+    optionIndex.removeValue(forKey: option.spelling)
+    if let group = option.group {
+      groupIndex[group]?.removeAll { $0.option == option }
+    }
+  }
 }

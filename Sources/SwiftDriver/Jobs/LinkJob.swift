@@ -14,10 +14,9 @@ import TSCBasic
 extension Driver {
 
   /// Compute the output file for an image output.
-  private func outputFileForImage(inputs: [TypedVirtualPath]) -> VirtualPath {
-    // FIXME: The check for __bad__ here, is
-    if inputs.count == 1 && moduleName == "__bad__" && inputs.first!.file != .standardInput {
-      // FIXME: llvm::sys::path::stem(BaseInput);
+  private var outputFileForImage: VirtualPath {
+    if inputFiles.count == 1 && moduleNameIsFallback && inputFiles[0].file != .standardInput {
+      return .relative(RelativePath(inputFiles[0].file.basenameWithoutExt))
     }
 
     let outputName =
@@ -35,7 +34,7 @@ extension Driver {
     if let output = parsedOptions.getLastArgument(.o) {
       outputFile = try VirtualPath(path: output.asSingle)
     } else {
-      outputFile = outputFileForImage(inputs: inputs)
+      outputFile = outputFileForImage
     }
 
     // Defer to the toolchain for platform-specific linking
@@ -58,7 +57,7 @@ extension Driver {
       tool: .absolute(toolPath),
       commandLine: commandLine,
       inputs: inputs,
-      outputs: [.init(file: outputFile, type: .object)]
+      outputs: [.init(file: outputFile, type: .image)]
     )
   }
 }
