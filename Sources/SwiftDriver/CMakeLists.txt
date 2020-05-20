@@ -25,6 +25,7 @@ add_library(SwiftDriver
   "Incremental Compilation/SourceFileDependencyGraph.swift"
 
   Jobs/AutolinkExtractJob.swift
+  Jobs/BackendJob.swift
   Jobs/CommandLineArguments.swift
   Jobs/CompileJob.swift
   Jobs/DarwinToolchain+LinkerSupport.swift
