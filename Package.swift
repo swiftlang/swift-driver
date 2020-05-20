@@ -25,7 +25,7 @@ let package = Package(
     /// The driver library.
     .target(
       name: "SwiftDriver",
-      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "llbuildSwift", "Yams"]),
+      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "Yams"]),
     .testTarget(
       name: "SwiftDriverTests",
       dependencies: ["SwiftDriver", "swift-driver"]),
@@ -56,16 +56,29 @@ let package = Package(
   cxxLanguageStandard: .cxx14
 )
 
+if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+        package.dependencies += [
+            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+        ]
+    } else {
+        // In Swift CI, use a local path to llbuild to interoperate with tools
+        // like `update-checkout`, which control the sources externally.
+        package.dependencies += [
+            .package(path: "../llbuild"),
+        ]
+    }
+    package.targets.first(where: { $0.name == "SwiftDriver" })!.dependencies += ["llbuildSwift"]
+}
+
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
     .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
-    .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
     .package(url: "https://github.com/jpsim/Yams.git", .branch("master")),
     ]
 } else {
     package.dependencies += [
         .package(path: "../swiftpm/swift-tools-support-core"),
         .package(path: "../yams"),
-        .package(path: "../llbuild"),
     ]
 }
