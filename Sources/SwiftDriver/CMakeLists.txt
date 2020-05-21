@@ -7,12 +7,16 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftDriver
+  "Dependency Scanning/ModuleDependencyBuildGeneration.swift"
+  "Dependency Scanning/InterModuleDependencyGraph.swift"
+
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
   Driver/Driver.swift
   Driver/LinkKind.swift
   Driver/OutputFileMap.swift
   Driver/ToolExecutionDelegate.swift
+  Driver/ModuleDependencyScanning.swift
 
   Execution/JobExecutor.swift
   Execution/ParsableOutput.swift

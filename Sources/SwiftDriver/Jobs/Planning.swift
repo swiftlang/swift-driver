@@ -34,6 +34,23 @@ extension Driver {
   private mutating func planStandardCompile() throws -> [Job] {
     var jobs = [Job]()
 
+    // If we've been asked to prebuild module dependencies, prescan the source
+    // files to produce a module dependency graph and turn it into a set
+    // of jobs required to build all dependencies.
+    // For the time being, just prints the jobs' compile commands.
+    if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
+      let moduleDependencyGraph = try computeModuleDependencyGraph()
+      let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
+      if let dependencyGraph = moduleDependencyGraph {
+        let modulePrebuildJobs =
+              try planExplicitModuleDependenciesCompile(dependencyGraph: dependencyGraph)
+        for job in modulePrebuildJobs {
+          try Self.printJob(job, resolver: try ArgsResolver(),
+                            forceResponseFiles: forceResponseFiles)
+        }
+      }
+    }
+
     // Keep track of the various outputs we care about from the jobs we build.
     var linkerInputs: [TypedVirtualPath] = []
     var moduleInputs: [TypedVirtualPath] = []

@@ -50,6 +50,7 @@ public struct Driver {
     case subcommandPassedToDriver
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
+    case malformedModuleDependency(String, String)
 
     public var description: String {
       switch self {
@@ -68,6 +69,8 @@ public struct Driver {
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .conflictingOptions(let one, let two):
         return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
+      case .malformedModuleDependency(let moduleName, let errorDescription):
+        return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
       }
     }
   }
