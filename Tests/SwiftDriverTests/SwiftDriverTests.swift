@@ -2219,6 +2219,26 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
   }
+
+  func testVFSOverlay() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "-vfsoverlay", "overlay.yaml", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssert(plannedJobs[0].commandLine.contains(subsequence: [.flag("-vfsoverlay"), .path(.relative(RelativePath("overlay.yaml")))]))
+    }
+
+    // Verify that the overlays are passed to the frontend in the same order.
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "-vfsoverlay", "overlay1.yaml", "-vfsoverlay", "overlay2.yaml", "-vfsoverlay", "overlay3.yaml", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      print(plannedJobs[0].commandLine)
+      XCTAssert(plannedJobs[0].commandLine.contains(subsequence: [.flag("-vfsoverlay"), .path(.relative(RelativePath("overlay1.yaml"))), .flag("-vfsoverlay"), .path(.relative(RelativePath("overlay2.yaml"))), .flag("-vfsoverlay"), .path(.relative(RelativePath("overlay3.yaml")))]))
+    }
+  }
 }
 
 func assertString(
@@ -2230,4 +2250,27 @@ func assertString(
                 \(String(reflecting: haystack))\
                 \(message.isEmpty ? "" : ": " + message)
                 """, file: file, line: line)
+}
+
+fileprivate extension Array where Element: Equatable {
+  /// Returns true if the receiver contains the given elements as a subsequence
+  /// (i.e., all elements are present, contiguous, and in the same order).
+  ///
+  /// A naïve implementation has been used here rather than a more efficient
+  /// general purpose substring search algorithm since the arrays being tested
+  /// are relatively small.
+  func contains<Elements: Collection>(
+    subsequence: Elements
+  ) -> Bool where Elements.Element == Element {
+    precondition(!subsequence.isEmpty,  "Subsequence may not be empty")
+
+    let subsequenceCount = subsequence.count
+    for index in 0..<(self.count - subsequence.count) {
+      let subsequenceEnd = index + subsequenceCount
+      if self[index..<subsequenceEnd].elementsEqual(subsequence) {
+        return true
+      }
+    }
+    return false
+  }
 }

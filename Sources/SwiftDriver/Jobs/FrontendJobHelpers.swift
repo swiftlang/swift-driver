@@ -82,6 +82,7 @@ extension Driver {
 
     try commandLine.appendAll(.I, from: &parsedOptions)
     try commandLine.appendAll(.F, .Fsystem, from: &parsedOptions)
+    try commandLine.appendAll(.vfsoverlay, from: &parsedOptions)
 
     try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
     try commandLine.appendLast(.autolinkForceLoad, from: &parsedOptions)
