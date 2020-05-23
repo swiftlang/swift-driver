@@ -37,9 +37,9 @@ extension OptionTable {
   /// Throws an error if the command line contains any errors.
   public func parse(_ arguments: [String],
                     for driverKind: DriverKind) throws -> ParsedOptions {
-    var trie = PrefixTrie<String.UTF8View, Option>()
+    var trie = PrefixTrie<Option>()
     for opt in options {
-      trie[opt.spelling.utf8] = opt
+      trie[opt.spelling] = opt
     }
 
     var parsedOptions = ParsedOptions()
@@ -71,7 +71,7 @@ extension OptionTable {
       // match -- if the option is a `.flag`, we'll explicitly check to see if
       // there's an unmatched suffix at the end, and pop an error. Otherwise,
       // we'll treat the unmatched suffix as the argument to the option.
-      guard let option = trie[argument.utf8] else {
+      guard let option = trie[argument] else {
         throw OptionParseError.unknownOption(
           index: index - 1, argument: argument)
       }
