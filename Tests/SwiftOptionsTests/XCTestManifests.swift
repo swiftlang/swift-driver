@@ -6,7 +6,6 @@ extension PrefixTrieTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PrefixTrieTests = [
-        ("testCollectionMatching", testCollectionMatching),
         ("testManyMatchingPrefixes", testManyMatchingPrefixes),
         ("testSimpleTrie", testSimpleTrie),
         ("testUpdating", testUpdating),
