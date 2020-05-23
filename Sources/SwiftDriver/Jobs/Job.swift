@@ -115,6 +115,21 @@ extension Job {
   }
 }
 
+extension Job.Kind {
+  /// Whether this job kind uses the Swift frontend.
+  public var isSwiftFrontend: Bool {
+    switch self {
+    case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
+        .generatePCM, .interpret, .repl, .printTargetInfo,
+        .versionRequest:
+        return true
+
+    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
+        return false
+    }
+
+  }
+}
 // MARK: - Job.ArgTemplate + Codable
 
 extension Job.ArgTemplate: Codable {
