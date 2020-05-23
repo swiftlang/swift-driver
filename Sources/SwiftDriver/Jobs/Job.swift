@@ -167,7 +167,7 @@ extension Job : CustomStringConvertible {
         return "Swift help"
 
     case .backend:
-      return "Embedding bitcode for \(moduleName)"
+      return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.name ?? "")"
     }
   }
 }
