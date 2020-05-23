@@ -81,6 +81,7 @@ final class JobExecutorTests: XCTestCase {
       ]
 
       let compileFoo = Job(
+        moduleName: "main",
         kind: .compile,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
@@ -104,6 +105,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let compileMain = Job(
+        moduleName: "main",
         kind: .compile,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [
@@ -127,6 +129,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let link = Job(
+        moduleName: "main",
         kind: .link,
         tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
         commandLine: [
@@ -167,6 +170,7 @@ final class JobExecutorTests: XCTestCase {
 
   func testStubProcessProtocol() throws {
     let job = Job(
+      moduleName: "main",
       kind: .compile,
       tool: .absolute(AbsolutePath("/usr/bin/swift")),
       commandLine: [.flag("something")],

@@ -23,6 +23,7 @@ extension Driver {
     // Squash important frontend options into a single argument for LLDB.
     let lldbArg = "--repl=\(commandLine.joinedArguments)"
     return Job(
+      moduleName: moduleName,
       kind: .repl,
       tool: .absolute(try toolchain.getToolPath(.lldb)),
       commandLine: [Job.ArgTemplate.flag(lldbArg)],

@@ -69,6 +69,7 @@ extension Driver {
     commandLine.appendPath(moduleOutputPath)
 
     return Job(
+      moduleName: moduleName,
       kind: .emitModule,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

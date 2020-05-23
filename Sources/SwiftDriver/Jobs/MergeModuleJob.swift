@@ -50,6 +50,7 @@ extension Driver {
     commandLine.appendPath(moduleOutput!.outputPath)
 
     return Job(
+      moduleName: moduleName,
       kind: .mergeModule,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

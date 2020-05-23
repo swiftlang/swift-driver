@@ -65,6 +65,7 @@ extension Driver {
     swiftModuleDetails.commandLine?.forEach { commandLine.appendFlag($0) }
 
     return Job(
+      moduleName: moduleName,
       kind: .emitModule,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
@@ -99,6 +100,7 @@ extension Driver {
     clangModuleDetails.commandLine?.forEach { commandLine.appendFlags("-Xcc", $0) }
 
     return Job(
+      moduleName: moduleName,
       kind: .generatePCM,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

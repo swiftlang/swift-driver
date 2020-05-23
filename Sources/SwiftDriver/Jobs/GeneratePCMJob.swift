@@ -53,6 +53,7 @@ extension Driver {
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
     return Job(
+      moduleName: moduleName,
       kind: .generatePCM,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
