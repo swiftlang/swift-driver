@@ -29,6 +29,7 @@ extension Driver {
     commandLine.appendPath(output)
 
     return Job(
+      moduleName: moduleName,
       kind: .autolinkExtract,
       tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
       commandLine: commandLine,

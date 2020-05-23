@@ -205,6 +205,7 @@ extension Driver {
     }
 
     return Job(
+      moduleName: moduleName,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

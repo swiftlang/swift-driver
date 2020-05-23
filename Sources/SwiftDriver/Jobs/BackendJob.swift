@@ -65,6 +65,7 @@ extension Driver {
     allOutputs += outputs
 
     return Job(
+      moduleName: moduleName,
       kind: .backend,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

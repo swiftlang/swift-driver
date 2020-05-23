@@ -41,6 +41,7 @@ extension Driver {
       targetTriple: self.targetTriple)
 
     return Job(
+      moduleName: moduleName,
       kind: .interpret,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

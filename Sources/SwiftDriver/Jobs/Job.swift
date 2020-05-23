@@ -42,6 +42,9 @@ public struct Job: Codable, Equatable, Hashable {
     case path(VirtualPath)
   }
 
+  /// The SWift module this job involves.
+  public var moduleName: String
+
   /// The tool to invoke.
   public var tool: VirtualPath
 
@@ -70,6 +73,7 @@ public struct Job: Codable, Equatable, Hashable {
   public var kind: Kind
 
   public init(
+    moduleName: String,
     kind: Kind,
     tool: VirtualPath,
     commandLine: [ArgTemplate],
@@ -80,6 +84,7 @@ public struct Job: Codable, Equatable, Hashable {
     requiresInPlaceExecution: Bool = false,
     supportsResponseFiles: Bool = false
   ) {
+    self.moduleName = moduleName
     self.kind = kind
     self.tool = tool
     self.commandLine = commandLine
@@ -111,6 +116,58 @@ extension Job {
         try fileSystem.getFileInfo(absolutePath).modTime != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }
+    }
+  }
+}
+
+extension Job : CustomStringConvertible {
+  public var description: String {
+    let moduleName = "hello"
+    switch kind {
+    case .compile:
+        return "Compiling \(moduleName) \(displayInputs.first?.file.name ?? "")"
+
+    case .mergeModule:
+        return "Merging module \(moduleName)"
+
+    case .link:
+        return "Linking \(moduleName)"
+
+    case .generateDSYM:
+        return "Generating dSYM for module \(moduleName)"
+
+    case .autolinkExtract:
+        return "Extracting autolink information for module \(moduleName)"
+
+    case .emitModule:
+        return "Emitting module for \(moduleName)"
+
+    case .generatePCH:
+        return "Compiling bridging header \(displayInputs.first!.file.name)"
+
+    case .generatePCM:
+        return "Compiling Clang module \(displayInputs.first!.file.name)"
+
+    case .interpret:
+        return "Interpreting \(displayInputs.first!.file.name)"
+
+    case .repl:
+        return "Executing Swift REPL"
+
+    case .verifyDebugInfo:
+        return "Verifying debug information for module \(moduleName)"
+
+    case .printTargetInfo:
+        return "Gathering target information for module \(moduleName)"
+
+    case .versionRequest:
+        return "Getting Swift version information"
+
+    case .help:
+        return "Swift help"
+
+    case .backend:
+      return "Embedding bitcode for \(moduleName)"
     }
   }
 }

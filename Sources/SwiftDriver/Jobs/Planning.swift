@@ -226,21 +226,25 @@ extension Driver {
       try commandLine.appendLast(.targetVariant, from: &parsedOptions)
       try commandLine.appendLast(.sdk, from: &parsedOptions)
       try commandLine.appendLast(.resourceDir, from: &parsedOptions)
-      return Job(kind: .printTargetInfo,
-                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-                 commandLine: commandLine,
-                 inputs: [],
-                 outputs: [],
-                 requiresInPlaceExecution: true)
+      return Job(
+        moduleName: moduleName,
+        kind: .printTargetInfo,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        commandLine: commandLine,
+        inputs: [],
+        outputs: [],
+        requiresInPlaceExecution: true)
     }
 
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
-      return Job(kind: .versionRequest,
-                 tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-                 commandLine: [.flag("--version")],
-                 inputs: [],
-                 outputs: [],
-                 requiresInPlaceExecution: true)
+      return Job(
+        moduleName: moduleName,
+        kind: .versionRequest,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        commandLine: [.flag("--version")],
+        inputs: [],
+        outputs: [],
+        requiresInPlaceExecution: true)
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
@@ -248,12 +252,14 @@ extension Driver {
       if parsedOptions.contains(.helpHidden) {
         commandLine.append(.flag("-show-hidden"))
       }
-      return Job(kind: .help,
-                 tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
-                 commandLine: commandLine,
-                 inputs: [],
-                 outputs: [],
-                 requiresInPlaceExecution: true)
+      return Job(
+        moduleName: moduleName,
+        kind: .help,
+        tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
+        commandLine: commandLine,
+        inputs: [],
+        outputs: [],
+        requiresInPlaceExecution: true)
     }
 
     return nil

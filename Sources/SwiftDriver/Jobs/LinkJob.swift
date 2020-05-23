@@ -53,6 +53,7 @@ extension Driver {
 
     // TODO: some, but not all, linkers support response files.
     return Job(
+      moduleName: moduleName,
       kind: .link,
       tool: .absolute(toolPath),
       commandLine: commandLine,
