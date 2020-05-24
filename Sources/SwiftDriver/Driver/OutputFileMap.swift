@@ -93,7 +93,7 @@ public struct OutputFileMap: Equatable {
   ) throws {
     let encoder = JSONEncoder()
 
-  #if os(Linux)
+  #if os(Linux) || os(Android)
     encoder.outputFormatting = [.prettyPrinted]
   #else
     if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
