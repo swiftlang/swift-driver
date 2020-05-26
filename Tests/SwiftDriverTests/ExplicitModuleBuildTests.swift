@@ -53,5 +53,56 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  /// Test generation of explicit module build jobs for dependency modules when the driver
+  /// is invoked with -driver-print-module-dependencies-jobs
+  func testModuleDependencyBuildEndToEnd() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
 
+      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+      let testInputsPath = packageRootPath + "/TestInputs"
+      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
+      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      var driver = try Driver(args: ["swift",
+                                     "-I", cHeadersPath,
+                                     "-I", swiftModuleInterfacesPath,
+                                     "-driver-print-module-dependencies-jobs",
+                                     main.pathString])
+      let jobs = try driver.generateExplicitModuleBuildJobs()
+      XCTAssertEqual(jobs.count, 10)
+      for job in jobs {
+        XCTAssertEqual(job.outputs.count, 1)
+        switch (job.outputs[0].file) {
+          case .relative(RelativePath("A.swiftmodule")):
+            XCTAssertEqual(job.kind, .emitModule)
+          case .relative(RelativePath("E.swiftmodule")):
+            XCTAssertEqual(job.kind, .emitModule)
+          case .relative(RelativePath("G.swiftmodule")):
+            XCTAssertEqual(job.kind, .emitModule)
+          case .relative(RelativePath("A.pcm")):
+            XCTAssertEqual(job.kind, .generatePCM)
+          case .relative(RelativePath("B.pcm")):
+            XCTAssertEqual(job.kind, .generatePCM)
+          case .relative(RelativePath("C.pcm")):
+            XCTAssertEqual(job.kind, .generatePCM)
+          case .relative(RelativePath("G.pcm")):
+            XCTAssertEqual(job.kind, .generatePCM)
+          case .relative(RelativePath("Swift.swiftmodule")):
+            XCTAssertEqual(job.kind, .emitModule)
+          case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
+            XCTAssertEqual(job.kind, .emitModule)
+          case .relative(RelativePath("SwiftShims.pcm")):
+            XCTAssertEqual(job.kind, .generatePCM)
+          default:
+            XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
+        }
+      }
+    }
+  }
 }
