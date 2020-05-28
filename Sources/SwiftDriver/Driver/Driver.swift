@@ -51,6 +51,7 @@ public struct Driver {
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
     case malformedModuleDependency(String, String)
+    case dependencyScanningFailure(Int, String)
 
     public var description: String {
       switch self {
@@ -71,6 +72,8 @@ public struct Driver {
         return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
+      case .dependencyScanningFailure(let code, let error):
+        return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       }
     }
   }
