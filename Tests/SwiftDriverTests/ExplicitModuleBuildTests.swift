@@ -15,11 +15,73 @@ import Foundation
 import TSCBasic
 import XCTest
 
+/// Check that an explicit module build job contains expected inputs and options
+private func checkExplicitModuleBuildJob(job: Job,
+                                         moduleName: String,
+                                         moduleKind: ModuleDependencyId.CodingKeys,
+                                         moduleDependencyGraph: InterModuleDependencyGraph) throws {
+  let moduleId = ModuleDependencyId(name: moduleName, kind: moduleKind)
+  let moduleInfo = moduleDependencyGraph.modules[moduleId]!
+  switch moduleInfo.details {
+    case .swift(let swiftModuleDetails):
+      let moduleInterfacePath =
+        TypedVirtualPath(file: try VirtualPath(path: swiftModuleDetails.moduleInterfacePath!),
+                         type: .swiftInterface)
+      XCTAssertEqual(job.kind, .emitModule)
+      XCTAssertTrue(job.inputs.contains(moduleInterfacePath))
+    case .clang(let clangModuleDetails):
+      let moduleMapPath =
+        TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
+                         type: .clangModuleMap)
+      XCTAssertEqual(job.kind, .generatePCM)
+      XCTAssertTrue(job.inputs.contains(moduleMapPath))
+  }
+  try checkExplicitModuleBuildJobDependencies(job: job, moduleInfo: moduleInfo,
+                                              moduleDependencyGraph: moduleDependencyGraph)
+
+}
+
+/// Checks that the build job for the specified module contains the required options and inputs
+/// to build all of its dependencies explicitly
+private func checkExplicitModuleBuildJobDependencies(job: Job,
+                                                     moduleInfo : ModuleInfo,
+                                                     moduleDependencyGraph: InterModuleDependencyGraph)
+throws {
+  XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+  XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-pcms"))))
+  for dependencyId in moduleInfo.directDependencies {
+    let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
+    switch dependencyInfo.details {
+      case .swift:
+        let swiftDependencyModulePath =
+          TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
+                           type: .swiftModule)
+        XCTAssertTrue(job.inputs.contains(swiftDependencyModulePath))
+        XCTAssertTrue(job.commandLine.contains(
+                        .flag(String("-swift-module-file=\(moduleInfo.modulePath)"))))
+      case .clang(let clangDependencyDetails):
+        let clangDependencyModulePath =
+          TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
+                           type: .pcm)
+        let clangDependencyModuleMapPath =
+          TypedVirtualPath(file: try VirtualPath(path: clangDependencyDetails.moduleMapPath),
+                           type: .pcm)
+        XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
+        XCTAssertTrue(job.inputs.contains(clangDependencyModuleMapPath))
+        XCTAssertTrue(job.commandLine.contains(
+                        .flag(String("-clang-module-file=\(moduleInfo.modulePath)"))))
+        XCTAssertTrue(job.commandLine.contains(
+                        .flag(String("-clang-module-map-file=\(clangDependencyDetails.moduleMapPath)"))))
+    }
+  }
+}
+
 /// Test that for the given JSON module dependency graph, valid jobs are generated
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-driver-print-module-dependencies-jobs", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-driver-print-module-dependencies-jobs",
+                                     "test.swift"])
       let moduleDependencyGraph =
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
@@ -31,21 +93,21 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertEqual(job.outputs.count, 1)
         switch (job.outputs[0].file) {
           case .relative(RelativePath("SwiftShims.pcm")):
-            XCTAssertEqual(job.kind, .generatePCM)
-            XCTAssertEqual(job.inputs.count, 1)
-            XCTAssertTrue(job.inputs[0].file.absolutePath!.pathString.contains("swift/shims/module.modulemap"))
+            try checkExplicitModuleBuildJob(job: job, moduleName: "SwiftShims",
+                                            moduleKind: ModuleDependencyId.CodingKeys.clang,
+                                            moduleDependencyGraph: moduleDependencyGraph)
           case .relative(RelativePath("c_simd.pcm")):
-            XCTAssertEqual(job.kind, .generatePCM)
-            XCTAssertEqual(job.inputs.count, 1)
-            XCTAssertTrue(job.inputs[0].file.absolutePath!.pathString.contains("clang-importer-sdk/usr/include/module.map"))
+            try checkExplicitModuleBuildJob(job: job, moduleName: "c_simd",
+                                            moduleKind: ModuleDependencyId.CodingKeys.clang,
+                                            moduleDependencyGraph: moduleDependencyGraph)
           case .relative(RelativePath("Swift.swiftmodule")):
-            XCTAssertEqual(job.kind, .emitModule)
-            XCTAssertEqual(job.inputs.count, 1)
-            XCTAssertTrue(job.inputs[0].file.absolutePath!.pathString.contains("Swift.swiftmodule/x86_64-apple-macos.swiftinterface"))
+            try checkExplicitModuleBuildJob(job: job, moduleName: "Swift",
+                                            moduleKind: ModuleDependencyId.CodingKeys.swift,
+                                            moduleDependencyGraph: moduleDependencyGraph)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
-            XCTAssertEqual(job.kind, .emitModule)
-            XCTAssertEqual(job.inputs.count, 1)
-            XCTAssertTrue(job.inputs[0].file.absolutePath!.pathString.contains("SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface"))
+            try checkExplicitModuleBuildJob(job: job, moduleName: "SwiftOnoneSupport",
+                                            moduleKind: ModuleDependencyId.CodingKeys.swift,
+                                            moduleDependencyGraph: moduleDependencyGraph)
           default:
             XCTFail("Unexpected module dependency build job output")
         }

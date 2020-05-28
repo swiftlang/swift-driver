@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 extension Option {
   public static let driverPrintGraphviz: Option = Option("-driver-print-graphviz", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Write the job graph as a graphviz file", group: .internalDebug)
-  public static let driverPrebuildModuleDependencies: Option = Option("-driver-prebuild-module-dependencies", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
+  public static let driverExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let driverPrintModuleDependenciesJobs: Option = Option("-driver-print-module-dependencies-jobs", .flag, attributes: [.helpHidden], helpText: "Print commands to explicitly build module dependencies")
 
   public static var extraOptions: [Option] {
     return [
       Option.driverPrintGraphviz,
-      Option.driverPrebuildModuleDependencies,
+      Option.driverExplicitModuleBuild,
       Option.driverPrintModuleDependenciesJobs
     ]
   }

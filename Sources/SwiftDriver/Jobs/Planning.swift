@@ -63,6 +63,11 @@ extension Driver {
       }
     }
 
+    // Precompile module dependencies, if asked.
+    if parsedOptions.contains(.driverExplicitModuleBuild) {
+      jobs.append(contentsOf: try generateExplicitModuleBuildJobs())
+    }
+
     // Precompile the bridging header if needed.
     if let importedObjCHeader = importedObjCHeader,
       let bridgingPrecompiledHeader = bridgingPrecompiledHeader {

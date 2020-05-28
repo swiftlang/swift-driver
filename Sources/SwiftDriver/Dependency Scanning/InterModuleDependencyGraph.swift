@@ -50,6 +50,25 @@ extension ModuleDependencyId: Codable {
         try container.encode(moduleName, forKey: .clang)
     }
   }
+
+  func getName() -> String {
+    switch self {
+      case .swift(let moduleName):
+        return moduleName
+      case .clang(let moduleName):
+        return moduleName
+    }
+  }
+
+  // Used in testing
+  init(name: String, kind: CodingKeys) {
+    switch kind {
+      case .swift:
+        self = .swift(name)
+      case .clang:
+        self = .clang(name)
+    }
+  }
 }
 
 /// Details specific to Swift modules.
