@@ -41,6 +41,17 @@ extension Driver {
     let arguments = [tool] + (try commandLine.map { try resolver.resolve($0) })
     let scanProcess = try Process.launchProcess(arguments: arguments, env: env)
     let result = try scanProcess.waitUntilExit()
+    // Error on dependency scanning failure
+    if (result.exitStatus != .terminated(code: 0)) {
+      var returnCode = 0
+      switch result.exitStatus {
+        case .terminated(let code):
+          returnCode = Int(code)
+        case .signalled(let signal):
+          returnCode = Int(signal)
+      }
+      throw Error.dependencyScanningFailure(returnCode, try result.utf8stderrOutput())
+    }
     guard let outputData = try? Data(result.utf8Output().utf8) else {
       return nil
     }
