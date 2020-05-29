@@ -155,6 +155,10 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine)
     // FIXME: MSVC runtime flags
 
+    if parsedOptions.contains(.driverExplicitModuleBuild) {
+      try addExplicitModuleBuildArguments(commandLine: &commandLine, inputs: &inputs)
+    }
+
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
     }

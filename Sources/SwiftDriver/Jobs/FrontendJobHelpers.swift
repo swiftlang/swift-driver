@@ -304,4 +304,49 @@ extension Driver {
 
     return outputs
   }
+
+  /// Adds the specified module as an explicit module dependency to given
+  /// inputs and comman line arguments of a compile job.
+  func addModuleAsExplicitDependency(moduleInfo: ModuleInfo,
+                                     commandLine: inout [Job.ArgTemplate],
+                                     inputs: inout [TypedVirtualPath]) throws {
+    switch moduleInfo.details {
+      case .swift:
+        let swiftModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
+                                               type: .swiftModule)
+        commandLine.appendFlag("-swift-module-file=\(swiftModulePath.file.description)")
+        inputs.append(swiftModulePath)
+      case .clang(let clangDependencyDetails):
+        let clangModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
+                                               type: .pcm)
+        let clangModuleMapPath = TypedVirtualPath(file: try VirtualPath(path: clangDependencyDetails.moduleMapPath),
+                                                  type: .pcm)
+        commandLine.appendFlag("-clang-module-file=\(clangModulePath.file.description)")
+        commandLine.appendFlag("-clang-module-map-file=\(clangModuleMapPath.file.description)")
+        inputs.append(clangModulePath)
+        inputs.append(clangModuleMapPath)
+    }
+  }
+
+  /// Adds all dependecies required for an explicit module build
+  /// to inputs and comman line arguments of a compile job.
+  func addExplicitModuleBuildArguments(commandLine: inout [Job.ArgTemplate],
+                                       inputs: inout [TypedVirtualPath]) throws {
+    guard let dependencyGraph = interModuleDependencyGraph else {
+      fatalError("Inter Module Dependency Graph does not exist in explicit module build mode.")
+    }
+    // Prohibit the frontend from implicitly building textual modules into binary modules.
+    commandLine.appendFlags("-disable-implicit-swift-modules", "-disable-implicit-pcms")
+
+    // Provide the frontend with a list of explicitly pre-built modules.
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      // Skip the main output module as it is not its own dependency
+      guard moduleId.getName() != dependencyGraph.mainModuleName else {
+        continue
+      }
+
+      try addModuleAsExplicitDependency(moduleInfo: moduleInfo, commandLine: &commandLine,
+                                        inputs: &inputs)
+    }
+  }
 }

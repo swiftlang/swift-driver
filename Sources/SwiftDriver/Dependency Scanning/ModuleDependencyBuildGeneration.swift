@@ -47,7 +47,6 @@ extension Driver {
                                                          moduleName: String,
                                                          dependencyGraph: InterModuleDependencyGraph)
   throws -> Job {
-    // FIXIT: Needs more error handling
     guard case .swift(let swiftModuleDetails) = moduleInfo.details else {
       throw Error.malformedModuleDependency(moduleName, "no `details` object")
     }
@@ -57,7 +56,13 @@ extension Driver {
       TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .swiftModule)
     ]
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    commandLine.appendFlag("-frontend")
+    // First, take the command line options provided in the dependency information
+    swiftModuleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
+
+    if (swiftModuleDetails.commandLine == nil ||
+          !swiftModuleDetails.commandLine!.contains("-frontend")) {
+      commandLine.appendFlag("-frontend")
+    }
 
     try addModuleDependencies(moduleInfo: moduleInfo,
                               dependencyGraph: dependencyGraph,
@@ -72,7 +77,6 @@ extension Driver {
     inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleInterfacePath),
                                    type: .swiftInterface))
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
-    swiftModuleDetails.commandLine?.forEach { commandLine.appendFlag($0) }
 
     return Job(
       moduleName: moduleName,
@@ -101,7 +105,14 @@ extension Driver {
       TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .pcm)
     ]
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    commandLine.appendFlag("-frontend")
+
+    // First, take the command line options provided in the dependency information
+    clangModuleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
+
+    if (clangModuleDetails.commandLine == nil ||
+          !clangModuleDetails.commandLine!.contains("-frontend")) {
+      commandLine.appendFlag("-frontend")
+    }
     commandLine.appendFlags("-emit-pcm", "-module-name", moduleName)
 
     try addModuleDependencies(moduleInfo: moduleInfo,
@@ -115,7 +126,6 @@ extension Driver {
     inputs.append(TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
                                    type: .clangModuleMap))
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
-    clangModuleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
 
     return Job(
       moduleName: moduleName,
@@ -134,29 +144,15 @@ extension Driver {
                                      dependencyGraph: InterModuleDependencyGraph,
                                      inputs: inout [TypedVirtualPath],
                                      commandLine: inout [Job.ArgTemplate]) throws {
-    // These options ensure that the frontend only uses explicitly-specified module dependencies
-    // and the frontend errors if it has to perform any implicit module builds.
+    // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules", "-disable-implicit-pcms")
     for moduleId in moduleInfo.directDependencies {
       guard let dependencyInfo = dependencyGraph.modules[moduleId] else {
         throw Error.missingModuleDependency(moduleId.getName())
       }
-      switch dependencyInfo.details {
-        case .swift:
-          let swiftModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
-                                                 type: .swiftModule)
-          commandLine.appendFlag("-swift-module-file=\(swiftModulePath.file.description)")
-          inputs.append(swiftModulePath)
-        case .clang(let clangDependencyDetails):
-          let clangModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
-                                                 type: .pcm)
-          let clangModuleMapPath = TypedVirtualPath(file: try VirtualPath(path: clangDependencyDetails.moduleMapPath),
-                                                    type: .pcm)
-          commandLine.appendFlag("-clang-module-file=\(clangModulePath.file.description)")
-          commandLine.appendFlag("-clang-module-map-file=\(clangModuleMapPath.file.description)")
-          inputs.append(clangModulePath)
-          inputs.append(clangModuleMapPath)
-      }
+
+      try addModuleAsExplicitDependency(moduleInfo: dependencyInfo, commandLine: &commandLine,
+                                        inputs: &inputs)
     }
   }
 }

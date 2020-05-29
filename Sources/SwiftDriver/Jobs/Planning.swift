@@ -34,17 +34,6 @@ extension Driver {
   private mutating func planStandardCompile() throws -> [Job] {
     var jobs = [Job]()
 
-    // If we've been asked to prebuild module dependencies,
-    // for the time being, just print the jobs' compile commands.
-    if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
-      let modulePrebuildJobs = try generateExplicitModuleBuildJobs()
-      let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
-      for job in modulePrebuildJobs {
-        try Self.printJob(job, resolver: try ArgsResolver(),
-                          forceResponseFiles: forceResponseFiles)
-      }
-    }
-
     // Keep track of the various outputs we care about from the jobs we build.
     var linkerInputs: [TypedVirtualPath] = []
     var moduleInputs: [TypedVirtualPath] = []
@@ -63,9 +52,24 @@ extension Driver {
       }
     }
 
-    // Precompile module dependencies, if asked.
-    if parsedOptions.contains(.driverExplicitModuleBuild) {
-      jobs.append(contentsOf: try generateExplicitModuleBuildJobs())
+    // If asked, add jobs to precompile module dependencies
+    if parsedOptions.contains(.driverExplicitModuleBuild) ||
+        parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
+      let modulePrebuildJobs = try generateExplicitModuleBuildJobs()
+
+      if parsedOptions.contains(.driverExplicitModuleBuild) {
+        jobs.append(contentsOf: modulePrebuildJobs)
+      }
+
+      // If we've been asked to prebuild module dependencies,
+      // for the time being, just print the jobs' compile commands.
+      if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
+        let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
+        for job in modulePrebuildJobs {
+          try Self.printJob(job, resolver: try ArgsResolver(),
+                            forceResponseFiles: forceResponseFiles)
+        }
+      }
     }
 
     // Precompile the bridging header if needed.
@@ -218,13 +222,11 @@ extension Driver {
   /// Prescan the source files to produce a module dependency graph and turn it into a set
   /// of jobs required to build all dependencies.
   public mutating func generateExplicitModuleBuildJobs() throws -> [Job] {
-    let moduleDependencyGraph = try computeModuleDependencyGraph()
-    if let dependencyGraph = moduleDependencyGraph {
-      let modulePrebuildJobs =
-            try planExplicitModuleDependenciesCompile(dependencyGraph: dependencyGraph)
-      return modulePrebuildJobs
+    interModuleDependencyGraph = try computeModuleDependencyGraph()
+    guard let dependencyGraph = interModuleDependencyGraph else {
+      fatalError("Attempting to perform Explicit Module Build job generation, but the Inter Module Dependency Graph does not exist.")
     }
-    return []
+    return try planExplicitModuleDependenciesCompile(dependencyGraph: dependencyGraph)
   }
 
   /// Create a job if needed for simple requests that can be immediately
