@@ -321,8 +321,10 @@ extension Driver {
                                                type: .pcm)
         let clangModuleMapPath = TypedVirtualPath(file: try VirtualPath(path: clangDependencyDetails.moduleMapPath),
                                                   type: .pcm)
-        commandLine.appendFlag("-clang-module-file=\(clangModulePath.file.description)")
-        commandLine.appendFlag("-clang-module-map-file=\(clangModuleMapPath.file.description)")
+        commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+                                "-fmodule-map-file=\(clangModuleMapPath.file.description)")
+        commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+                                "-fmodule-file=\(clangModulePath.file.description)")
         inputs.append(clangModulePath)
         inputs.append(clangModuleMapPath)
     }
@@ -336,7 +338,8 @@ extension Driver {
       fatalError("Inter Module Dependency Graph does not exist in explicit module build mode.")
     }
     // Prohibit the frontend from implicitly building textual modules into binary modules.
-    commandLine.appendFlags("-disable-implicit-swift-modules", "-disable-implicit-pcms")
+    commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
+                            "-fno-implicit-modules")
 
     // Provide the frontend with a list of explicitly pre-built modules.
     for (moduleId, moduleInfo) in dependencyGraph.modules {

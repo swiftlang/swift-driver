@@ -145,7 +145,8 @@ extension Driver {
                                      inputs: inout [TypedVirtualPath],
                                      commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
-    commandLine.appendFlags("-disable-implicit-swift-modules", "-disable-implicit-pcms")
+    commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
+                            "-fno-implicit-modules")
     for moduleId in moduleInfo.directDependencies {
       guard let dependencyInfo = dependencyGraph.modules[moduleId] else {
         throw Error.missingModuleDependency(moduleId.getName())

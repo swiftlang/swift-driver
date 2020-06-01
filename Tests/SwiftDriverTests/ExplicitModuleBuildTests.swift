@@ -47,7 +47,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      moduleDependencyGraph: InterModuleDependencyGraph)
 throws {
   XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
-  XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-pcms"))))
+  XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
   for dependencyId in moduleInfo.directDependencies {
     let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
     switch dependencyInfo.details {
@@ -68,9 +68,9 @@ throws {
         XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
         XCTAssertTrue(job.inputs.contains(clangDependencyModuleMapPath))
         XCTAssertTrue(job.commandLine.contains(
-                        .flag(String("-clang-module-file=\(dependencyInfo.modulePath)"))))
+                        .flag(String("-fmodule-file=\(dependencyInfo.modulePath)"))))
         XCTAssertTrue(job.commandLine.contains(
-                        .flag(String("-clang-module-map-file=\(clangDependencyDetails.moduleMapPath)"))))
+                        .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath)"))))
     }
   }
 }
