@@ -30,7 +30,7 @@ Swift packages can be built with the new Swift driver by overriding `SWIFT_EXEC`
 SWIFT_EXEC=$SOME_PATH/swiftc SWIFT_DRIVER_SWIFT_EXEC=$TOOLCHAIN_PATH/bin/swiftc swift build
 ```
 
-Similarly, one can use the new Swift driver within Xcode by adding a custom build setting (usually at the project level) named `SWIFT_EXEC` that refers to `$SOME_PATH/swiftc` and adding `-driver-use-frontend-path $TOOLCHAIN_PATH/bin/swiftc` to `Other Swift Flags`.
+Similarly, one can use the new Swift driver within Xcode by adding a custom build setting (usually at the project level) named `SWIFT_EXEC` that refers to `$SOME_PATH/swiftc` and adding `-driver-use-frontend-path $TOOLCHAIN_DIR/usr/bin/swiftc` to `Other Swift Flags`.
 
 ## Building with CMake
 
