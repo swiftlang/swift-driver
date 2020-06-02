@@ -62,7 +62,9 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                            type: .swiftModule)
         XCTAssertTrue(job.inputs.contains(swiftDependencyModulePath))
         XCTAssertTrue(job.commandLine.contains(
-                        .flag(String("-swift-module-file=\(dependencyInfo.modulePath)"))))
+                        .flag(String("-swift-module-file"))))
+        XCTAssertTrue(
+          job.commandLine.contains(.path(try VirtualPath(path: dependencyInfo.modulePath))))
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePath =
           TypedVirtualPath(file: try VirtualPath(path: dependencyInfo.modulePath),

@@ -329,8 +329,8 @@ extension Driver {
   }
 
   /// Adds the specified module as an explicit module dependency to given
-  /// inputs and comman line arguments of a compile job.
-  /// Also add transitive dependencies that arise from dependencies of this module.
+  /// inputs and command line arguments of a compile job.
+  /// Also adds transitive dependencies that arise from dependencies of this module.
   func addModuleAsExplicitDependency(moduleInfo: ModuleInfo,
                                      dependencyGraph: InterModuleDependencyGraph,
                                      commandLine: inout [Job.ArgTemplate],
@@ -339,7 +339,8 @@ extension Driver {
       case .swift:
         let swiftModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
                                                type: .swiftModule)
-        commandLine.appendFlag("-swift-module-file=\(swiftModulePath.file.description)")
+        commandLine.appendFlags("-swift-module-file")
+        commandLine.appendPath(swiftModulePath.file)
         inputs.append(swiftModulePath)
       case .clang(let clangDependencyDetails):
         let clangModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
