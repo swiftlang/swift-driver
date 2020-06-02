@@ -16,8 +16,8 @@ import Foundation
 extension Driver {
   /// For the current moduleDependencyGraph, plan the order and generate jobs
   /// for explicitly building all dependency modules.
-  mutating func planExplicitModuleDependenciesCompile(dependencyGraph: InterModuleDependencyGraph)
-  throws -> [Job] {
+  mutating func planExplicitModuleDependenciesCompile(dependencyGraph: InterModuleDependencyGraph
+  ) throws -> [Job] {
     var jobs: [Job] = []
     for (id, moduleInfo) in dependencyGraph.modules {
       // The generation of the main module file will be handled elsewhere in the driver.
@@ -45,8 +45,8 @@ extension Driver {
   /// For a given swift module dependency, generate a build job
   mutating private func genSwiftModuleDependencyBuildJob(moduleInfo: ModuleInfo,
                                                          moduleName: String,
-                                                         dependencyGraph: InterModuleDependencyGraph)
-  throws -> Job {
+                                                         dependencyGraph: InterModuleDependencyGraph
+  ) throws -> Job {
     guard case .swift(let swiftModuleDetails) = moduleInfo.details else {
       throw Error.malformedModuleDependency(moduleName, "no `details` object")
     }
@@ -91,8 +91,8 @@ extension Driver {
   /// For a given clang module dependency, generate a build job
   mutating private func genClangModuleDependencyBuildJob(moduleInfo: ModuleInfo,
                                                          moduleName: String,
-                                                         dependencyGraph: InterModuleDependencyGraph)
-  throws -> Job {
+                                                         dependencyGraph: InterModuleDependencyGraph
+  ) throws -> Job {
     // For clang modules, the Fast Dependency Scanner emits a list of source
     // files (with a .modulemap among them), and a list of compile command
     // options.
@@ -149,11 +149,11 @@ extension Driver {
                             "-fno-implicit-modules")
     for moduleId in moduleInfo.directDependencies {
       guard let dependencyInfo = dependencyGraph.modules[moduleId] else {
-        throw Error.missingModuleDependency(moduleId.getName())
+        throw Error.missingModuleDependency(moduleId.moduleName)
       }
-
-      try addModuleAsExplicitDependency(moduleInfo: dependencyInfo, commandLine: &commandLine,
-                                        inputs: &inputs)
+      try addModuleAsExplicitDependency(moduleInfo: dependencyInfo,
+                                        dependencyGraph: dependencyGraph,
+                                        commandLine: &commandLine, inputs: &inputs)
     }
   }
 }

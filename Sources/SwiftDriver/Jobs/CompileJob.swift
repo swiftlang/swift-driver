@@ -156,7 +156,11 @@ extension Driver {
     // FIXME: MSVC runtime flags
 
     if parsedOptions.contains(.driverExplicitModuleBuild) {
-      try addExplicitModuleBuildArguments(commandLine: &commandLine, inputs: &inputs)
+      guard let dependencyGraph = interModuleDependencyGraph else {
+        fatalError("Inter Module Dependency Graph does not exist in explicit module build mode.")
+      }
+      try addExplicitModuleBuildArguments(dependencyGraph: dependencyGraph,
+                                          commandLine: &commandLine, inputs: &inputs)
     }
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {

@@ -307,7 +307,9 @@ extension Driver {
 
   /// Adds the specified module as an explicit module dependency to given
   /// inputs and comman line arguments of a compile job.
+  /// Also add transitive dependencies that arise from dependencies of this module.
   func addModuleAsExplicitDependency(moduleInfo: ModuleInfo,
+                                     dependencyGraph: InterModuleDependencyGraph,
                                      commandLine: inout [Job.ArgTemplate],
                                      inputs: inout [TypedVirtualPath]) throws {
     switch moduleInfo.details {
@@ -328,15 +330,23 @@ extension Driver {
         inputs.append(clangModulePath)
         inputs.append(clangModuleMapPath)
     }
+    // Add transitive dependencies to the command line as well
+    for transitiveDependencyId in moduleInfo.directDependencies {
+      guard let transitiveDependencyInfo = dependencyGraph.modules[transitiveDependencyId] else {
+        throw Error.missingModuleDependency(transitiveDependencyId.moduleName)
+      }
+      try addModuleAsExplicitDependency(moduleInfo: transitiveDependencyInfo,
+                                        dependencyGraph: dependencyGraph,
+                                        commandLine: &commandLine,
+                                        inputs: &inputs)
+    }
   }
 
   /// Adds all dependecies required for an explicit module build
   /// to inputs and comman line arguments of a compile job.
-  func addExplicitModuleBuildArguments(commandLine: inout [Job.ArgTemplate],
+  func addExplicitModuleBuildArguments(dependencyGraph: InterModuleDependencyGraph,
+                                       commandLine: inout [Job.ArgTemplate],
                                        inputs: inout [TypedVirtualPath]) throws {
-    guard let dependencyGraph = interModuleDependencyGraph else {
-      fatalError("Inter Module Dependency Graph does not exist in explicit module build mode.")
-    }
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
                             "-fno-implicit-modules")
@@ -344,12 +354,11 @@ extension Driver {
     // Provide the frontend with a list of explicitly pre-built modules.
     for (moduleId, moduleInfo) in dependencyGraph.modules {
       // Skip the main output module as it is not its own dependency
-      guard moduleId.getName() != dependencyGraph.mainModuleName else {
+      guard moduleId.moduleName != dependencyGraph.mainModuleName else {
         continue
       }
-
-      try addModuleAsExplicitDependency(moduleInfo: moduleInfo, commandLine: &commandLine,
-                                        inputs: &inputs)
+      try addModuleAsExplicitDependency(moduleInfo: moduleInfo, dependencyGraph: dependencyGraph,
+                                        commandLine: &commandLine, inputs: &inputs)
     }
   }
 }

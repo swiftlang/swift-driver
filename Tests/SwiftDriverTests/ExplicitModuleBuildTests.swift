@@ -20,7 +20,11 @@ private func checkExplicitModuleBuildJob(job: Job,
                                          moduleName: String,
                                          moduleKind: ModuleDependencyId.CodingKeys,
                                          moduleDependencyGraph: InterModuleDependencyGraph) throws {
-  let moduleId = ModuleDependencyId(name: moduleName, kind: moduleKind)
+  var moduleId : ModuleDependencyId
+  switch moduleKind {
+    case .swift: moduleId = .swift(moduleName)
+    case .clang: moduleId = .clang(moduleName)
+  }
   let moduleInfo = moduleDependencyGraph.modules[moduleId]!
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
@@ -36,6 +40,9 @@ private func checkExplicitModuleBuildJob(job: Job,
       XCTAssertEqual(job.kind, .generatePCM)
       XCTAssertTrue(job.inputs.contains(moduleMapPath))
   }
+  // Ensure the frontend was prohibited from doing implicit module builds
+  XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+  XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
   try checkExplicitModuleBuildJobDependencies(job: job, moduleInfo: moduleInfo,
                                               moduleDependencyGraph: moduleDependencyGraph)
 }
@@ -44,10 +51,8 @@ private func checkExplicitModuleBuildJob(job: Job,
 /// to build all of its dependencies explicitly
 private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      moduleInfo : ModuleInfo,
-                                                     moduleDependencyGraph: InterModuleDependencyGraph)
-throws {
-  XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
-  XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
+                                                     moduleDependencyGraph: InterModuleDependencyGraph
+) throws {
   for dependencyId in moduleInfo.directDependencies {
     let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
     switch dependencyInfo.details {
@@ -71,6 +76,14 @@ throws {
                         .flag(String("-fmodule-file=\(dependencyInfo.modulePath)"))))
         XCTAssertTrue(job.commandLine.contains(
                         .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath)"))))
+    }
+
+    // Ensure all transitive dependencies got added as well.
+    for transitiveDependencyId in dependencyInfo.directDependencies {
+      try checkExplicitModuleBuildJobDependencies(job: job,
+                                                  moduleInfo: moduleDependencyGraph.modules[transitiveDependencyId]!,
+                                                  moduleDependencyGraph: moduleDependencyGraph)
+
     }
   }
 }
