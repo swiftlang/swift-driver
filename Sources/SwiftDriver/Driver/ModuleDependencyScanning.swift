@@ -23,6 +23,7 @@ extension Driver {
     let resolver = try ArgsResolver()
     let compilerPath = VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler))
     let tool = try resolver.resolve(.path(compilerPath))
+    var inputs: [TypedVirtualPath] = []
 
     // Aggregate the fast dependency scanner arguments
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -31,7 +32,9 @@ extension Driver {
     if parsedOptions.hasArgument(.parseStdlib) {
        commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
-    try addCommonFrontendOptions(commandLine: &commandLine)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
+                                 bridgingHeaderHandling: .precompiled,
+                                 moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
     // Pass on the input files

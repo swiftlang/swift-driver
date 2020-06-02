@@ -35,10 +35,21 @@ extension Driver {
     /// Use the precompiled bridging header.
     case precompiled
   }
+  /// Whether the driver has already constructed a module dependency graph or is in the process
+  /// of doing so
+  enum ModuleDependencyGraphUse {
+    /// Even though the driver may be in ExplicitModuleBuild mode, the dependency graph has not yet
+    /// been constructed, omit processing module dependencies
+    case dependencyScan
+    /// If the driver is in Explicit Module Build mode, the dependency graph has been computed
+    case computed
+  }
   /// Add frontend options that are common to different frontend invocations.
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
-    bridgingHeaderHandling: BridgingHeaderHandling = .precompiled
+    inputs: inout [TypedVirtualPath],
+    bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
+    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
@@ -52,6 +63,18 @@ extension Driver {
         commandLine.appendFlag(.target)
         commandLine.appendFlag(targetTriple.triple)
       }
+    }
+
+    // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
+    // dependencies.
+    // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
+    if (parsedOptions.contains(.driverExplicitModuleBuild) &&
+          moduleDependencyGraphUse == .computed) {
+      guard let dependencyGraph = interModuleDependencyGraph else {
+        fatalError("Attempting to add Explicit Module job dependencies, but the Inter Module Dependency Graph does not exist.")
+      }
+      try addExplicitModuleBuildArguments(dependencyGraph: dependencyGraph,
+                                          commandLine: &commandLine, inputs: &inputs)
     }
 
     if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {

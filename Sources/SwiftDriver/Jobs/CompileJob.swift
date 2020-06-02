@@ -152,16 +152,8 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
-
-    if parsedOptions.contains(.driverExplicitModuleBuild) {
-      guard let dependencyGraph = interModuleDependencyGraph else {
-        fatalError("Inter Module Dependency Graph does not exist in explicit module build mode.")
-      }
-      try addExplicitModuleBuildArguments(dependencyGraph: dependencyGraph,
-                                          commandLine: &commandLine, inputs: &inputs)
-    }
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)

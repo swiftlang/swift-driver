@@ -27,7 +27,7 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
 
     try commandLine.appendLast(.parseSil, from: &parsedOptions)

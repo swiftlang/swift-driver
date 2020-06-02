@@ -48,7 +48,7 @@ extension Driver {
     commandLine.appendPath(output.file)
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, bridgingHeaderHandling: .ignored)
+      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .ignored)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
