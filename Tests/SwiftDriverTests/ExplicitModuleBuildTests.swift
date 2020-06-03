@@ -153,7 +153,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       XCTAssertTrue(driver.parsedOptions.contains(.driverExplicitModuleBuild))
       let dependencyGraph = driver.interModuleDependencyGraph!
-      XCTAssertEqual(jobs.count, 12)
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
         switch (job.outputs[0].file) {
