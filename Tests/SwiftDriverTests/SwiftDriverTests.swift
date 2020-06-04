@@ -1628,8 +1628,6 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      print("")
-      print(job.commandLine)
       XCTAssertTrue(job.commandLine.contains(.flag("-scan-dependencies")))
       XCTAssertTrue(job.commandLine.contains(.flag("-emit-dependencies-path")))
       XCTAssertTrue(job.commandLine.contains(.path(.temporary(RelativePath("foo.d")))))
