@@ -91,7 +91,7 @@ extension Driver {
     assert(!usesPrimaryFileInputs || !primaryInputs.isEmpty)
     let primaryInputFiles = usesPrimaryFileInputs ? Set(primaryInputs) : Set()
 
-    let isMultithreaded = numThreads > 0
+    let isMultithreaded = numThreads > 1
 
     // Add each of the input files.
     // FIXME: Use/create input file lists and primary input file lists.

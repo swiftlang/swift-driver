@@ -1058,6 +1058,30 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .link)
     }
 
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-num-threads", "0", "-c", "-o", "foo.o",
+      ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("foo.o")))
+      XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-num-threads", "1", "-c", "-o", "foo.o",
+      ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("foo.o")))
+      XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+    }
+
     // emit-module
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
