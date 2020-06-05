@@ -16,7 +16,8 @@ import Foundation
 extension Driver {
   /// For the current moduleDependencyGraph, plan the order and generate jobs
   /// for explicitly building all dependency modules.
-  mutating func planExplicitModuleDependenciesCompile(dependencyGraph: InterModuleDependencyGraph
+  mutating func planExplicitModuleDependenciesCompile(
+    dependencyGraph: InterModuleDependencyGraph
   ) throws -> [Job] {
     var jobs: [Job] = []
     for (id, moduleInfo) in dependencyGraph.modules {
