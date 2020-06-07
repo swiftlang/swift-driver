@@ -1350,13 +1350,7 @@ extension Triple {
 
     fileprivate static func infer(arch: Triple.Arch?, os: Triple.OS?) -> Triple.ObjectFormat {
       switch arch {
-        case nil: fallthrough
-        case .aarch64: fallthrough
-        case .aarch64_32: fallthrough
-        case .arm: fallthrough
-        case .thumb: fallthrough
-        case .x86: fallthrough
-        case .x86_64:
+        case nil, .aarch64, .aarch64_32, .arm, .thumb, .x86, .x86_64:
           if os?.isDarwin ?? false {
             return .macho
           } else if os?.isWindows ?? false {
@@ -1406,8 +1400,7 @@ extension Triple {
         case .xcore:
           return .elf
 
-        case .ppc: fallthrough
-        case .ppc64:
+        case .ppc, .ppc64:
           if os?.isDarwin ?? false {
             return .macho
           } else if os == .aix {
@@ -1415,8 +1408,7 @@ extension Triple {
           }
           return .elf
 
-        case .wasm32: fallthrough
-        case .wasm64:
+        case .wasm32, .wasm64:
           return .wasm
       }
     }

@@ -271,7 +271,6 @@ extension DarwinToolchain {
     case .staticLibrary:
       linkerTool = .staticLinker
       commandLine.appendFlag(.static)
-      break
     }
 
     try addArgsToLinkARCLite(
