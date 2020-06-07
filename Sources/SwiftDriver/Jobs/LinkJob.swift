@@ -15,12 +15,12 @@ extension Driver {
 
   /// Compute the output file for an image output.
   private var outputFileForImage: VirtualPath {
-    if inputFiles.count == 1 && moduleNameIsFallback && inputFiles[0].file != .standardInput {
+    if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
       return .relative(RelativePath(inputFiles[0].file.basenameWithoutExt))
     }
 
     let outputName =
-      toolchain.makeLinkerOutputFilename(moduleName: moduleName,
+      toolchain.makeLinkerOutputFilename(moduleName: moduleOutputInfo.name,
                                          type: linkerOutputType!)
     return .relative(RelativePath(outputName))
   }
@@ -53,7 +53,7 @@ extension Driver {
 
     // TODO: some, but not all, linkers support response files.
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .link,
       tool: .absolute(toolPath),
       commandLine: commandLine,

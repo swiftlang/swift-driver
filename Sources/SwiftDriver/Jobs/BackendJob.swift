@@ -50,7 +50,7 @@ extension Driver {
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
 
     commandLine.appendFlag(.moduleName)
-    commandLine.appendFlag(moduleName)
+    commandLine.appendFlag(moduleOutputInfo.name)
 
     // Add the output file argument if necessary.
     if let compilerOutputType = compilerOutputType {
@@ -65,7 +65,7 @@ extension Driver {
     allOutputs += outputs
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .backend,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

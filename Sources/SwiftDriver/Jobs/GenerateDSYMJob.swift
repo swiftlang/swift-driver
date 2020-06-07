@@ -23,7 +23,7 @@ extension Driver {
     commandLine.appendPath(outputPath)
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .generateDSYM,
       tool: .absolute(try toolchain.getToolPath(.dsymutil)),
       commandLine: commandLine,

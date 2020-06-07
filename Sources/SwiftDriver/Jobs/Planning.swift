@@ -168,7 +168,7 @@ extension Driver {
         }
 
       case .swiftModule, .swiftDocumentation:
-        if moduleOutput != nil && linkerOutputType == nil {
+        if moduleOutputInfo.output != nil && linkerOutputType == nil {
           // When generating a .swiftmodule as a top-level output (as opposed
           // to, for example, linking an image), treat .swiftmodule files as
           // inputs to a MergeModule action.
@@ -189,7 +189,7 @@ extension Driver {
     jobs.append(contentsOf: backendJobs)
 
     // Plan the merge-module job, if there are module inputs.
-    if moduleOutput != nil && !moduleInputs.isEmpty && compilerMode.usesPrimaryFileInputs {
+    if moduleOutputInfo.output != nil && !moduleInputs.isEmpty && compilerMode.usesPrimaryFileInputs {
       jobs.append(try mergeModuleJob(inputs: moduleInputs))
     }
 
@@ -240,7 +240,7 @@ extension Driver {
       try commandLine.appendLast(.sdk, from: &parsedOptions)
       try commandLine.appendLast(.resourceDir, from: &parsedOptions)
       return Job(
-        moduleName: moduleName,
+        moduleName: moduleOutputInfo.name,
         kind: .printTargetInfo,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: commandLine,
@@ -251,7 +251,7 @@ extension Driver {
 
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
       return Job(
-        moduleName: moduleName,
+        moduleName: moduleOutputInfo.name,
         kind: .versionRequest,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [.flag("--version")],
@@ -266,7 +266,7 @@ extension Driver {
         commandLine.append(.flag("-show-hidden"))
       }
       return Job(
-        moduleName: moduleName,
+        moduleName: moduleOutputInfo.name,
         kind: .help,
         tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
         commandLine: commandLine,

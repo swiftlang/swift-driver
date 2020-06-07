@@ -22,14 +22,14 @@ extension Driver {
     }
 
     var commandLine = [Job.ArgTemplate]()
-    let output = VirtualPath.temporary(RelativePath("\(moduleName).autolink"))
+    let output = VirtualPath.temporary(RelativePath("\(moduleOutputInfo.name).autolink"))
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })
     commandLine.appendFlag(.o)
     commandLine.appendPath(output)
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .autolinkExtract,
       tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
       commandLine: commandLine,

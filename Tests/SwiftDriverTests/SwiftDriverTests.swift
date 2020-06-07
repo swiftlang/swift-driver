@@ -347,37 +347,37 @@ final class SwiftDriverTests: XCTestCase {
 
   func testModuleSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift") { driver in
-      XCTAssertNil(driver.moduleOutput)
-      XCTAssertEqual(driver.moduleName, "foo")
+      XCTAssertNil(driver.moduleOutputInfo.output)
+      XCTAssertEqual(driver.moduleOutputInfo.name, "foo")
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g") { driver in
-      XCTAssertEqual(driver.moduleOutput, ModuleOutput.auxiliary(VirtualPath.temporary(RelativePath("foo.swiftmodule"))))
-      XCTAssertEqual(driver.moduleName, "foo")
+      XCTAssertEqual(driver.moduleOutputInfo.output, .auxiliary(VirtualPath.temporary(RelativePath("foo.swiftmodule"))))
+      XCTAssertEqual(driver.moduleOutputInfo.name, "foo")
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g") { driver in
-      XCTAssertEqual(driver.moduleOutput, ModuleOutput.auxiliary( VirtualPath.temporary(RelativePath("wibble.swiftmodule"))))
-      XCTAssertEqual(driver.moduleName, "wibble")
+      XCTAssertEqual(driver.moduleOutputInfo.output, .auxiliary( VirtualPath.temporary(RelativePath("wibble.swiftmodule"))))
+      XCTAssertEqual(driver.moduleOutputInfo.name, "wibble")
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "-emit-module", "foo.swift", "-module-name", "wibble", "bar.swift") { driver in
-      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "wibble.swiftmodule")))
-      XCTAssertEqual(driver.moduleName, "wibble")
+      XCTAssertEqual(driver.moduleOutputInfo.output, .topLevel(try VirtualPath(path: "wibble.swiftmodule")))
+      XCTAssertEqual(driver.moduleOutputInfo.name, "wibble")
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift") { driver in
-      XCTAssertNil(driver.moduleOutput)
-      XCTAssertEqual(driver.moduleName, "main")
+      XCTAssertNil(driver.moduleOutputInfo.output)
+      XCTAssertEqual(driver.moduleOutputInfo.name, "main")
     }
 
     try assertNoDriverDiagnostics(args: "swift", "-repl") { driver in
-      XCTAssertNil(driver.moduleOutput)
-      XCTAssertEqual(driver.moduleName, "REPL")
+      XCTAssertNil(driver.moduleOutputInfo.output)
+      XCTAssertEqual(driver.moduleOutputInfo.name, "REPL")
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so") { driver in
-      XCTAssertEqual(driver.moduleName, "Wibble")
+      XCTAssertEqual(driver.moduleOutputInfo.name, "Wibble")
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
@@ -385,15 +385,15 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "some/dir/libFoo.so", "-module-name", "MyModule") { driver in
-      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "some/dir/MyModule.swiftmodule")))
+      XCTAssertEqual(driver.moduleOutputInfo.output, .topLevel(try VirtualPath(path: "some/dir/MyModule.swiftmodule")))
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "/", "-module-name", "MyModule") { driver in
-      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "/MyModule.swiftmodule")))
+      XCTAssertEqual(driver.moduleOutputInfo.output, .topLevel(try VirtualPath(path: "/MyModule.swiftmodule")))
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "../../some/other/dir/libFoo.so", "-module-name", "MyModule") { driver in
-      XCTAssertEqual(driver.moduleOutput, ModuleOutput.topLevel(try VirtualPath(path: "../../some/other/dir/MyModule.swiftmodule")))
+      XCTAssertEqual(driver.moduleOutputInfo.output, .topLevel(try VirtualPath(path: "../../some/other/dir/MyModule.swiftmodule")))
     }
   }
 
@@ -435,16 +435,16 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testModuleNaming() throws {
-    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift"]).moduleName, "foo")
-    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out"]).moduleName, "a")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift"]).moduleOutputInfo.name, "foo")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out"]).moduleOutputInfo.name, "a")
 
     // This is silly, but necesary for compatibility with the integrated driver.
-    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized"]).moduleName, "main")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized"]).moduleOutputInfo.name, "main")
 
-    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized", "-module-name", "bar"]).moduleName, "bar")
-    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "+++.out"]).moduleName, "main")
-    XCTAssertEqual(try Driver(args: ["swift"]).moduleName, "REPL")
-    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-emit-library", "-o", "libBaz.dylib"]).moduleName, "Baz")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized", "-module-name", "bar"]).moduleOutputInfo.name, "bar")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "+++.out"]).moduleOutputInfo.name, "main")
+    XCTAssertEqual(try Driver(args: ["swift"]).moduleOutputInfo.name, "REPL")
+    XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-emit-library", "-o", "libBaz.dylib"]).moduleOutputInfo.name, "Baz")
   }
 
   func testOutputFileMapLoading() throws {

@@ -223,7 +223,7 @@ extension Driver {
 
     // Repl Jobs shouldn't include -module-name.
     if compilerMode != .repl {
-      commandLine.appendFlags("-module-name", moduleName)
+      commandLine.appendFlags("-module-name", moduleOutputInfo.name)
     }
   }
 
@@ -264,7 +264,7 @@ extension Driver {
       if !forceEmitModuleInSingleInvocation {
         addOutputOfType(
             outputType: .swiftModule,
-            finalOutputPath: moduleOutput?.outputPath,
+            finalOutputPath: moduleOutputInfo.output?.outputPath,
             input: input,
             flag: "-emit-module-path")
         addOutputOfType(
