@@ -34,7 +34,7 @@ extension Driver {
 
     if isTopLevel {
       if let baseOutput = parsedOptions.getLastArgument(.o)?.asSingle,
-         let baseOutputPath = try? VirtualPath(path: baseOutput){
+         let baseOutputPath = try? VirtualPath(path: baseOutput) {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
       } else if compilerOutputType?.isTextual == true {
         return TypedVirtualPath(file: .standardOutput, type: outputType)

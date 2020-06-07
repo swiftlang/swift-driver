@@ -22,17 +22,17 @@ public struct SourceFileDependencyGraph: Codable {
      implementation: allNodes[SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber])
   }
 
-  public func forEachNode(_ doIt: (Node)->Void) {
+  public func forEachNode(_ doIt: (Node) -> Void) {
     allNodes.forEach(doIt)
   }
 
-  public func forEachDefDependedUpon(by node: Node, _ doIt: (Node)->Void) {
+  public func forEachDefDependedUpon(by node: Node, _ doIt: (Node) -> Void) {
     for sequenceNumber in node.defsIDependUpon {
       doIt(allNodes[sequenceNumber])
     }
   }
 
-  public func forEachArc(_ doIt: (Node, Node)->Void) {
+  public func forEachArc(_ doIt: (Node, Node) -> Void) {
     forEachNode { useNode in
       forEachDefDependedUpon(by: useNode) { defNode in
         doIt(defNode, useNode)

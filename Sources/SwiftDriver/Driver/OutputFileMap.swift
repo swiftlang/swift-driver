@@ -63,7 +63,7 @@ public struct OutputFileMap: Equatable {
       }
       return (resolvedKey, resolvedValue)
     }
-    return OutputFileMap(entries: .init(resolvedKeyValues, uniquingKeysWith: { _,_ in
+    return OutputFileMap(entries: .init(resolvedKeyValues, uniquingKeysWith: { _, _ in
       fatalError("Paths collided after resolving")
     }))
   }
