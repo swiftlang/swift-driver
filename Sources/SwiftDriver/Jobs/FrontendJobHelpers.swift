@@ -60,7 +60,7 @@ extension Driver {
     }
 
     // Enable address top-byte ignored in the ARM64 backend.
-    if (targetTriple.arch == .aarch64) {
+    if targetTriple.arch == .aarch64 {
       commandLine.appendFlag(.Xllvm)
       commandLine.appendFlag("-aarch64-use-tbi")
     }

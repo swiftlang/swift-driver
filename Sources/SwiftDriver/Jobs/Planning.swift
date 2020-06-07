@@ -443,7 +443,7 @@ extension Driver {
     }
     let numPartitions = numberOfBatchPartitions(info, swiftInputFiles: swiftInputFiles)
 
-    if (parsedOptions.hasArgument(.driverShowJobLifecycle)) {
+    if parsedOptions.hasArgument(.driverShowJobLifecycle) {
       stdoutStream.write("Found \(swiftInputFiles.count) batchable jobs\n")
       stdoutStream.write("Forming into \(numPartitions) batches\n")
       stdoutStream.flush()

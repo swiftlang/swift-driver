@@ -53,7 +53,7 @@ public struct OutputFileMap: Equatable {
     let resolvedKeyValues: [(VirtualPath, [FileType : VirtualPath])] = entries.map {
       let resolvedKey: VirtualPath
       // Special case for single dependency record, leave it as is
-      if ($0.key == .relative(.init(""))) {
+      if $0.key == .relative(.init("")) {
         resolvedKey = $0.key
       } else {
         resolvedKey = $0.key.resolvedRelativePath(base: absPath)

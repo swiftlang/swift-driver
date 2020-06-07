@@ -42,7 +42,7 @@ extension Driver {
     }
 
     let baseName: String
-    if (!compilerMode.usesPrimaryFileInputs && numThreads == 0) {
+    if !compilerMode.usesPrimaryFileInputs && numThreads == 0 {
       baseName = moduleName
     } else {
       baseName = input.file.basenameWithoutExt
