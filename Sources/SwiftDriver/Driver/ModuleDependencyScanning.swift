@@ -13,13 +13,12 @@ import Foundation
 import TSCBasic
 
 extension Driver {
+  // TODO: Instead of directly invoking the frontend,
+  // treat this as any other `Job`.
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// complete dependency graph including all Swift and C module files and
   /// source files.
-  // TODO: Instead of directly invoking the frontend,
-  // treat this as any other `Job`.
-  mutating func computeModuleDependencyGraph() throws
-      -> InterModuleDependencyGraph? {
+  mutating func computeModuleDependencyGraph() throws -> InterModuleDependencyGraph? {
     // Grab the swift compiler
     let resolver = try ArgsResolver()
     let compilerPath = VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler))
