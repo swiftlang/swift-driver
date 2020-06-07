@@ -313,23 +313,23 @@ final class SwiftDriverTests: XCTestCase {
 
   func testDebugSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module") { driver in
-      XCTAssertNil(driver.debugInfoLevel)
-      XCTAssertEqual(driver.debugInfoFormat, .dwarf)
+      XCTAssertNil(driver.debugInfo.level)
+      XCTAssertEqual(driver.debugInfo.format, .dwarf)
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g") { driver in
-      XCTAssertEqual(driver.debugInfoLevel, .astTypes)
-      XCTAssertEqual(driver.debugInfoFormat, .dwarf)
+      XCTAssertEqual(driver.debugInfo.level, .astTypes)
+      XCTAssertEqual(driver.debugInfo.format, .dwarf)
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "-g", "foo.swift", "-gline-tables-only") { driver in
-      XCTAssertEqual(driver.debugInfoLevel, .lineTables)
-      XCTAssertEqual(driver.debugInfoFormat, .dwarf)
+      XCTAssertEqual(driver.debugInfo.level, .lineTables)
+      XCTAssertEqual(driver.debugInfo.format, .dwarf)
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview") { driver in
-      XCTAssertEqual(driver.debugInfoLevel, .astTypes)
-      XCTAssertEqual(driver.debugInfoFormat, .codeView)
+      XCTAssertEqual(driver.debugInfo.level, .astTypes)
+      XCTAssertEqual(driver.debugInfo.format, .codeView)
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-debug-info-format=dwarf") {

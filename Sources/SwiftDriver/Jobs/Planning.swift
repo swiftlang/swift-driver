@@ -208,10 +208,10 @@ extension Driver {
     }
 
     // If we should generate a dSYM, do so.
-    if let linkJob = link, targetTriple.isDarwin, debugInfoLevel != nil {
+    if let linkJob = link, targetTriple.isDarwin, debugInfo.level != nil {
       let dsymJob = try generateDSYMJob(inputs: linkJob.outputs)
       jobs.append(dsymJob)
-      if shouldVerifyDebugInfo {
+      if debugInfo.shouldVerify {
         jobs.append(try verifyDebugInfoJob(inputs: dsymJob.outputs))
       }
     }

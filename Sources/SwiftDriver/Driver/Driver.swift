@@ -142,14 +142,11 @@ public struct Driver {
   /// The specified maximum number of parallel jobs to execute.
   public let numParallelJobs: Int?
 
-  /// The level of debug information to produce.
-  public let debugInfoLevel: DebugInfoLevel?
-
   /// The set of sanitizers that were requested
   public let enabledSanitizers: Set<Sanitizer>
 
-  /// The debug info format to use.
-  public let debugInfoFormat: DebugInfoFormat
+  /// The debug information to produce.
+  public let debugInfo: DebugInfo
 
   /// The form that the module output will take, e.g., top-level vs. auxiliary, and the path at which the module should be emitted.
   /// `nil` if no module should be emitted.
@@ -199,9 +196,6 @@ public struct Driver {
 
   /// Path to the optimization record.
   public let optimizationRecordPath: VirtualPath?
-
-  /// Whether 'dwarfdump' should be used to verify debug info.
-  public let shouldVerifyDebugInfo: Bool
 
   /// If the driver should force emit module in a single invocation.
   ///
@@ -337,13 +331,12 @@ public struct Driver {
     try Self.validateWarningControlArgs(&parsedOptions)
 
     // Compute debug information output.
-    (self.debugInfoLevel, self.debugInfoFormat, shouldVerifyDebugInfo: self.shouldVerifyDebugInfo) =
-      Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     (self.moduleOutput, self.moduleName, self.moduleNameIsFallback) = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
-      debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
+      debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine)
 
     // Determine the state for incremental compilation
     self.incrementalCompilation = IncrementalCompilation(
@@ -1116,11 +1109,11 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat, shouldVerifyDebugInfo: Bool) {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
     // Determine the debug level.
-    let level: DebugInfoLevel?
+    let level: DebugInfo.Level?
     if let levelOption = parsedOptions.getLast(in: .g), levelOption.option != .gnone {
       switch levelOption.option {
       case .g:
@@ -1145,9 +1138,9 @@ extension Driver {
     }
 
     // Determine the debug info format.
-    let format: DebugInfoFormat
+    let format: DebugInfo.Format
     if let formatArg = parsedOptions.getLastArgument(.debugInfoFormat) {
-      if let parsedFormat = DebugInfoFormat(rawValue: formatArg.asSingle) {
+      if let parsedFormat = DebugInfo.Format(rawValue: formatArg.asSingle) {
         format = parsedFormat
       } else {
         diagnosticsEngine.emit(.error_invalid_arg_value(arg: .debugInfoFormat, value: formatArg.asSingle))
@@ -1167,7 +1160,7 @@ extension Driver {
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
     }
 
-    return (level, format, shouldVerifyDebugInfo: shouldVerify)
+    return DebugInfo(format: format, level: level, shouldVerify: shouldVerify)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
@@ -1308,7 +1301,7 @@ extension Driver {
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     linkerOutputType: LinkOutputType?,
-    debugInfoLevel: DebugInfoLevel?,
+    debugInfoLevel: DebugInfo.Level?,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> (ModuleOutput?, String, Bool) {
     // Figure out what kind of module we will output.
