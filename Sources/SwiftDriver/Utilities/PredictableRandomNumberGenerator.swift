@@ -38,10 +38,10 @@ public struct PredictableRandomNumberGenerator: RandomNumberGenerator {
     defer {
       let t = state.1 &<< 17
       state.2 ^= state.0
-      state.3 ^= state.1;
-      state.1 ^= state.2;
-      state.0 ^= state.3;
-      state.2 ^= t;
+      state.3 ^= state.1
+      state.1 ^= state.2
+      state.0 ^= state.3
+      state.2 ^= t
       state.3 = state.3.rotateLeft(45)
     }
     return (state.1 &* 5).rotateLeft(7) &* 9

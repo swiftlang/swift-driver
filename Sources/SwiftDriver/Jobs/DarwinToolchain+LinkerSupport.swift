@@ -68,10 +68,10 @@ extension DarwinToolchain {
     isShared: Bool
   ) throws {
     // Sanitizer runtime libraries requires C++.
-    commandLine.appendFlag("-lc++");
+    commandLine.appendFlag("-lc++")
     // Add explicit dependency on -lc++abi, as -lc++ doesn't re-export
     // all RTTI-related symbols that are used.
-    commandLine.appendFlag("-lc++abi");
+    commandLine.appendFlag("-lc++abi")
 
     let sanitizerName = try runtimeLibraryName(
       for: sanitizer,
@@ -271,7 +271,6 @@ extension DarwinToolchain {
     case .staticLibrary:
       linkerTool = .staticLinker
       commandLine.appendFlag(.static)
-      break
     }
 
     try addArgsToLinkARCLite(

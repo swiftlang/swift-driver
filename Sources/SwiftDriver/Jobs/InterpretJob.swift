@@ -45,7 +45,7 @@ extension Driver {
       kind: .interpret,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
-      inputs:inputs,
+      inputs: inputs,
       outputs: [],
       extraEnvironment: extraEnvironment,
       requiresInPlaceExecution: true,

@@ -51,7 +51,7 @@ public struct ToolExecutionDelegate: JobExecutorDelegate {
         inputs: job.displayInputs.map{ $0.file.name },
         outputs: outputs,
         commandExecutable: arguments[0],
-        commandArguments: arguments[1...].map{ String($0) }
+        commandArguments: arguments[1...].map { String($0) }
       )
 
       let message = ParsableMessage(name: job.kind.rawValue, kind: .began(beganMessage))

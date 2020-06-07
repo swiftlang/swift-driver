@@ -27,7 +27,7 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   // The lower bound for ARG_MAX on a POSIX system
   let lowerBound = Int(_POSIX_ARG_MAX)
   // This the same baseline used by xargs.
-  let baseline = 128 * 1024;
+  let baseline = 128 * 1024
 
   var effectiveArgMax = max(min(baseline, upperBound), lowerBound)
   // Conservatively assume environment variables consume half the space.

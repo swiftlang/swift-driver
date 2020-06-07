@@ -76,7 +76,7 @@ public extension InputInfoMap {
     var buildTime: Date?
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
-      guard let k = key.string else {throw SimpleErrors.sectionNameNotString}
+      guard let k = key.string else { throw SimpleErrors.sectionNameNotString }
       switch k {
       case "version": swiftVersion = value.string
       case "options": argsHash = value.string
@@ -92,15 +92,15 @@ public extension InputInfoMap {
   private init(argsHash: String?, swiftVersion: String?, buildTime: Date?,
                inputInfos: [VirtualPath: InputInfo]?)
     throws {
-      guard let a = argsHash else {throw SimpleErrors.noArgsHash}
-      guard let s = swiftVersion else {throw SimpleErrors.noVersion}
-      guard let b = buildTime else {throw SimpleErrors.noBuildTime }
-      guard let i = inputInfos else {throw SimpleErrors.noInputInfos }
-      self.init( argsHash: a, swiftVersion: s, buildTime: b, inputInfos: i)
+      guard let a = argsHash else { throw SimpleErrors.noArgsHash }
+      guard let s = swiftVersion else { throw SimpleErrors.noVersion }
+      guard let b = buildTime else { throw SimpleErrors.noBuildTime }
+      guard let i = inputInfos else { throw SimpleErrors.noInputInfos }
+      self.init(argsHash: a, swiftVersion: s, buildTime: b, inputInfos: i)
   }
 
   static private func decodeDate(_ node: Yams.Node) throws -> Date {
-    guard let vals = node.sequence else {throw SimpleErrors.dateValuesNotSequence}
+    guard let vals = node.sequence else { throw SimpleErrors.dateValuesNotSequence }
     guard vals.count == 2 else {throw SimpleErrors.dateValuesNotDuo}
     guard let secs = vals[0].int, let ns = vals[1].int
     else {throw SimpleErrors.dateValuesNotInts}
@@ -108,16 +108,16 @@ public extension InputInfoMap {
   }
 
   static private func decodeInputInfos(_ node: Yams.Node) throws -> [VirtualPath: InputInfo] {
-    guard let map = node.mapping else {throw SimpleErrors.inputInfosNotAMap}
+    guard let map = node.mapping else { throw SimpleErrors.inputInfosNotAMap }
     return try Dictionary(uniqueKeysWithValues:
       map.map {
         keyNode, valueNode in
-        guard let path = keyNode.string else {throw SimpleErrors.inputNotString}
+        guard let path = keyNode.string else { throw SimpleErrors.inputNotString }
         return try (
           VirtualPath(path: path),
           InputInfo(tag: valueNode.tag.description, previousModTime: decodeDate(valueNode))
         )
-    }
+      }
     )
   }
 }
