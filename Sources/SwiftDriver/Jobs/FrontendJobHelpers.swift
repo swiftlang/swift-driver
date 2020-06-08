@@ -35,10 +35,21 @@ extension Driver {
     /// Use the precompiled bridging header.
     case precompiled
   }
+  /// Whether the driver has already constructed a module dependency graph or is in the process
+  /// of doing so
+  enum ModuleDependencyGraphUse {
+    /// Even though the driver may be in ExplicitModuleBuild mode, the dependency graph has not yet
+    /// been constructed, omit processing module dependencies
+    case dependencyScan
+    /// If the driver is in Explicit Module Build mode, the dependency graph has been computed
+    case computed
+  }
   /// Add frontend options that are common to different frontend invocations.
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
-    bridgingHeaderHandling: BridgingHeaderHandling = .precompiled
+    inputs: inout [TypedVirtualPath],
+    bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
+    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
@@ -52,6 +63,18 @@ extension Driver {
         commandLine.appendFlag(.target)
         commandLine.appendFlag(targetTriple.triple)
       }
+    }
+
+    // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
+    // dependencies.
+    // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
+    if (parsedOptions.contains(.driverExplicitModuleBuild) &&
+          moduleDependencyGraphUse == .computed) {
+      guard let dependencyGraph = interModuleDependencyGraph else {
+        fatalError("Attempting to add Explicit Module job dependencies, but the Inter Module Dependency Graph does not exist.")
+      }
+      try addExplicitModuleBuildArguments(dependencyGraph: dependencyGraph,
+                                          commandLine: &commandLine, inputs: &inputs)
     }
 
     if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
@@ -303,5 +326,63 @@ extension Driver {
     }
 
     return outputs
+  }
+
+  /// Adds the specified module as an explicit module dependency to given
+  /// inputs and command line arguments of a compile job.
+  /// Also adds transitive dependencies that arise from dependencies of this module.
+  func addModuleAsExplicitDependency(moduleInfo: ModuleInfo,
+                                     dependencyGraph: InterModuleDependencyGraph,
+                                     commandLine: inout [Job.ArgTemplate],
+                                     inputs: inout [TypedVirtualPath]) throws {
+    switch moduleInfo.details {
+      case .swift:
+        let swiftModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
+                                               type: .swiftModule)
+        commandLine.appendFlags("-swift-module-file")
+        commandLine.appendPath(swiftModulePath.file)
+        inputs.append(swiftModulePath)
+      case .clang(let clangDependencyDetails):
+        let clangModulePath = TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath),
+                                               type: .pcm)
+        let clangModuleMapPath = TypedVirtualPath(file: try VirtualPath(path: clangDependencyDetails.moduleMapPath),
+                                                  type: .pcm)
+        commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+                                "-fmodule-map-file=\(clangModuleMapPath.file.description)")
+        commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+                                "-fmodule-file=\(clangModulePath.file.description)")
+        inputs.append(clangModulePath)
+        inputs.append(clangModuleMapPath)
+    }
+    // Add transitive dependencies to the command line as well
+    for transitiveDependencyId in moduleInfo.directDependencies {
+      guard let transitiveDependencyInfo = dependencyGraph.modules[transitiveDependencyId] else {
+        throw Error.missingModuleDependency(transitiveDependencyId.moduleName)
+      }
+      try addModuleAsExplicitDependency(moduleInfo: transitiveDependencyInfo,
+                                        dependencyGraph: dependencyGraph,
+                                        commandLine: &commandLine,
+                                        inputs: &inputs)
+    }
+  }
+
+  /// Adds all dependecies required for an explicit module build
+  /// to inputs and comman line arguments of a compile job.
+  func addExplicitModuleBuildArguments(dependencyGraph: InterModuleDependencyGraph,
+                                       commandLine: inout [Job.ArgTemplate],
+                                       inputs: inout [TypedVirtualPath]) throws {
+    // Prohibit the frontend from implicitly building textual modules into binary modules.
+    commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
+                            "-fno-implicit-modules")
+
+    // Provide the frontend with a list of explicitly pre-built modules.
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      // Skip the main output module as it is not its own dependency
+      guard moduleId.moduleName != dependencyGraph.mainModuleName else {
+        continue
+      }
+      try addModuleAsExplicitDependency(moduleInfo: moduleInfo, dependencyGraph: dependencyGraph,
+                                        commandLine: &commandLine, inputs: &inputs)
+    }
   }
 }

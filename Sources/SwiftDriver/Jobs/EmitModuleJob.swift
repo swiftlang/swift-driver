@@ -60,7 +60,7 @@ extension Driver {
       inputs.append(input)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)

@@ -16,8 +16,9 @@ import Foundation
 extension Driver {
   /// For the current moduleDependencyGraph, plan the order and generate jobs
   /// for explicitly building all dependency modules.
-  mutating func planExplicitModuleDependenciesCompile(dependencyGraph: InterModuleDependencyGraph)
-  throws -> [Job] {
+  mutating func planExplicitModuleDependenciesCompile(
+    dependencyGraph: InterModuleDependencyGraph
+  ) throws -> [Job] {
     var jobs: [Job] = []
     for (id, moduleInfo) in dependencyGraph.modules {
       // The generation of the main module file will be handled elsewhere in the driver.
@@ -26,14 +27,17 @@ extension Driver {
       }
       switch id {
         case .swift(let moduleName):
-          let swiftModuleBuildJob = try genSwiftModuleDependencyBuildJob(moduleInfo: moduleInfo,
-                                                                         moduleName: moduleName)
+          let swiftModuleBuildJob =
+            try genSwiftModuleDependencyBuildJob(moduleInfo: moduleInfo,
+                                                 moduleName: moduleName,
+                                                 dependencyGraph: dependencyGraph)
           jobs.append(swiftModuleBuildJob)
         case .clang(let moduleName):
-          let clangModuleBuildJob = try genClangModuleDependencyBuildJob(moduleInfo: moduleInfo,
-                                                                         moduleName: moduleName)
+          let clangModuleBuildJob =
+            try genClangModuleDependencyBuildJob(moduleInfo: moduleInfo,
+                                                 moduleName: moduleName,
+                                                 dependencyGraph: dependencyGraph)
           jobs.append(clangModuleBuildJob)
-
       }
     }
     return jobs
@@ -41,8 +45,9 @@ extension Driver {
 
   /// For a given swift module dependency, generate a build job
   mutating private func genSwiftModuleDependencyBuildJob(moduleInfo: ModuleInfo,
-                                                         moduleName: String) throws -> Job {
-    // FIXIT: Needs more error handling
+                                                         moduleName: String,
+                                                         dependencyGraph: InterModuleDependencyGraph
+  ) throws -> Job {
     guard case .swift(let swiftModuleDetails) = moduleInfo.details else {
       throw Error.malformedModuleDependency(moduleName, "no `details` object")
     }
@@ -52,7 +57,18 @@ extension Driver {
       TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .swiftModule)
     ]
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    commandLine.appendFlag("-frontend")
+    // First, take the command line options provided in the dependency information
+    swiftModuleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
+
+    if (swiftModuleDetails.commandLine == nil ||
+          !swiftModuleDetails.commandLine!.contains("-frontend")) {
+      commandLine.appendFlag("-frontend")
+    }
+
+    try addModuleDependencies(moduleInfo: moduleInfo,
+                              dependencyGraph: dependencyGraph,
+                              inputs: &inputs,
+                              commandLine: &commandLine)
 
     // Build the .swiftinterfaces file using a list of command line options specified in the
     // `details` field.
@@ -62,7 +78,6 @@ extension Driver {
     inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleInterfacePath),
                                    type: .swiftInterface))
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
-    swiftModuleDetails.commandLine?.forEach { commandLine.appendFlag($0) }
 
     return Job(
       moduleName: moduleName,
@@ -76,7 +91,9 @@ extension Driver {
 
   /// For a given clang module dependency, generate a build job
   mutating private func genClangModuleDependencyBuildJob(moduleInfo: ModuleInfo,
-                                                         moduleName: String) throws -> Job {
+                                                         moduleName: String,
+                                                         dependencyGraph: InterModuleDependencyGraph
+  ) throws -> Job {
     // For clang modules, the Fast Dependency Scanner emits a list of source
     // files (with a .modulemap among them), and a list of compile command
     // options.
@@ -89,15 +106,27 @@ extension Driver {
       TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .pcm)
     ]
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    commandLine.appendFlag("-frontend")
+
+    // First, take the command line options provided in the dependency information
+    clangModuleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
+
+    if (clangModuleDetails.commandLine == nil ||
+          !clangModuleDetails.commandLine!.contains("-frontend")) {
+      commandLine.appendFlag("-frontend")
+    }
     commandLine.appendFlags("-emit-pcm", "-module-name", moduleName)
 
+    try addModuleDependencies(moduleInfo: moduleInfo,
+                              dependencyGraph: dependencyGraph,
+                              inputs: &inputs,
+                              commandLine: &commandLine)
+
     // The only required input is the .modulemap for this module.
-    commandLine.append(Job.ArgTemplate.path(try VirtualPath(path: clangModuleDetails.moduleMapPath)))
+    commandLine.append(Job.ArgTemplate.path(
+                        try VirtualPath(path: clangModuleDetails.moduleMapPath)))
     inputs.append(TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
                                    type: .clangModuleMap))
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
-    clangModuleDetails.commandLine?.forEach { commandLine.appendFlags("-Xcc", $0) }
 
     return Job(
       moduleName: moduleName,
@@ -107,5 +136,25 @@ extension Driver {
       inputs: inputs,
       outputs: outputs
     )
+  }
+
+
+  /// For the specified module, update its command line flags and inputs
+  /// to use explicitly-built module dependencies.
+  private func addModuleDependencies(moduleInfo: ModuleInfo,
+                                     dependencyGraph: InterModuleDependencyGraph,
+                                     inputs: inout [TypedVirtualPath],
+                                     commandLine: inout [Job.ArgTemplate]) throws {
+    // Prohibit the frontend from implicitly building textual modules into binary modules.
+    commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
+                            "-fno-implicit-modules")
+    for moduleId in moduleInfo.directDependencies {
+      guard let dependencyInfo = dependencyGraph.modules[moduleId] else {
+        throw Error.missingModuleDependency(moduleId.moduleName)
+      }
+      try addModuleAsExplicitDependency(moduleInfo: dependencyInfo,
+                                        dependencyGraph: dependencyGraph,
+                                        commandLine: &commandLine, inputs: &inputs)
+    }
   }
 }

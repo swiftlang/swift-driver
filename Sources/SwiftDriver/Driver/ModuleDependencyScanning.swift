@@ -23,6 +23,7 @@ extension Driver {
     let resolver = try ArgsResolver()
     let compilerPath = VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler))
     let tool = try resolver.resolve(.path(compilerPath))
+    var inputs: [TypedVirtualPath] = []
 
     // Aggregate the fast dependency scanner arguments
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -31,7 +32,9 @@ extension Driver {
     if parsedOptions.hasArgument(.parseStdlib) {
        commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
-    try addCommonFrontendOptions(commandLine: &commandLine)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
+                                 bridgingHeaderHandling: .precompiled,
+                                 moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
     // Pass on the input files
@@ -41,6 +44,17 @@ extension Driver {
     let arguments = [tool] + (try commandLine.map { try resolver.resolve($0) })
     let scanProcess = try Process.launchProcess(arguments: arguments, env: env)
     let result = try scanProcess.waitUntilExit()
+    // Error on dependency scanning failure
+    if (result.exitStatus != .terminated(code: 0)) {
+      var returnCode = 0
+      switch result.exitStatus {
+        case .terminated(let code):
+          returnCode = Int(code)
+        case .signalled(let signal):
+          returnCode = Int(signal)
+      }
+      throw Error.dependencyScanningFailure(returnCode, try result.utf8stderrOutput())
+    }
     guard let outputData = try? Data(result.utf8Output().utf8) else {
       return nil
     }

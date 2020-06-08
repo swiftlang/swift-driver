@@ -41,7 +41,7 @@ extension Driver {
     commandLine.appendFlag(.disableDiagnosticPasses)
     commandLine.appendFlag(.disableSilPerfOptzns)
 
-    try addCommonFrontendOptions(commandLine: &commandLine)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)

@@ -50,7 +50,10 @@ public struct Driver {
     case subcommandPassedToDriver
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
+    // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
+    case missingModuleDependency(String)
+    case dependencyScanningFailure(Int, String)
 
     public var description: String {
       switch self {
@@ -69,8 +72,13 @@ public struct Driver {
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .conflictingOptions(let one, let two):
         return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
+      // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
+      case .missingModuleDependency(let moduleName):
+        return "Missing Module Dependency Info: \(moduleName)"
+      case .dependencyScanningFailure(let code, let error):
+        return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       }
     }
   }
@@ -199,6 +207,11 @@ public struct Driver {
   ///
   /// This will force the driver to first emit the module and then run compile jobs.
   public var forceEmitModuleInSingleInvocation: Bool = false
+
+  /// The module dependency graph, which is populated during the planning phase
+  /// only when all modules will be prebuilt and treated as explicit by the
+  /// various compilation jobs.
+  var interModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
