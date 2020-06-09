@@ -122,8 +122,8 @@ extension Driver {
                               commandLine: &commandLine)
 
     // The only required input is the .modulemap for this module.
-    commandLine.append(Job.ArgTemplate.path(
-                        try VirtualPath(path: clangModuleDetails.moduleMapPath)))
+    // Command line options in the dependency scanner output will include the required modulemap,
+    // so here we must only add it to the list of inputs.
     inputs.append(TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
                                    type: .clangModuleMap))
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
