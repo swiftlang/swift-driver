@@ -12,11 +12,11 @@
 import Foundation
 
 
-enum ModuleDependencyId: Hashable {
+public enum ModuleDependencyId: Hashable {
   case swift(String)
   case clang(String)
 
-  var moduleName: String {
+  public var moduleName: String {
     switch self {
       case .swift(let name): return name
       case .clang(let name): return name
@@ -30,7 +30,7 @@ extension ModuleDependencyId: Codable {
     case clang
   }
 
-  init(from decoder: Decoder) throws {
+  public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     do {
       let moduleName =  try container.decode(String.self, forKey: .swift)
@@ -41,7 +41,7 @@ extension ModuleDependencyId: Codable {
     }
   }
 
-  func encode(to encoder: Encoder) throws {
+  public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     switch self {
       case .swift(let moduleName):
@@ -53,47 +53,47 @@ extension ModuleDependencyId: Codable {
 }
 
 /// Details specific to Swift modules.
-struct SwiftModuleDetails: Codable {
+public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
-  var moduleInterfacePath: String?
+  public var moduleInterfacePath: String?
 
   /// The bridging header, if any.
-  var bridgingHeaderPath: String?
+  public var bridgingHeaderPath: String?
 
   /// The source files referenced by the bridging header.
-  var bridgingSourceFiles: [String]? = []
+  public var bridgingSourceFiles: [String]? = []
 
   /// Options to the compile command
-  var commandLine: [String]? = []
+  public var commandLine: [String]? = []
 }
 
 /// Details specific to Clang modules.
-struct ClangModuleDetails: Codable {
+public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
-  var moduleMapPath: String
+  public var moduleMapPath: String
 
   /// clang-generated context hash
-  var contextHash: String?
+  public var contextHash: String?
 
   /// Options to the compile command
-  var commandLine: [String]? = []
+  public var commandLine: [String]? = []
 }
 
-struct ModuleInfo: Codable {
+public struct ModuleInfo: Codable {
   /// The path for the module.
-  var modulePath: String
+  public var modulePath: String
 
   /// The source files used to build this module.
-  var sourceFiles: [String] = []
+  public var sourceFiles: [String] = []
 
   /// The set of direct module dependencies of this module.
-  var directDependencies: [ModuleDependencyId] = []
+  public var directDependencies: [ModuleDependencyId] = []
 
   /// Specific details of a particular kind of module.
-  var details: Details
+  public var details: Details
 
   /// Specific details of a particular kind of module.
-  enum Details {
+  public enum Details {
     /// Swift modules may be built from a module interface, and may have
     /// a bridging header.
     case swift(SwiftModuleDetails)
@@ -109,7 +109,7 @@ extension ModuleInfo.Details: Codable {
     case clang
   }
 
-  init(from decoder: Decoder) throws {
+  public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     do {
       let details = try container.decode(SwiftModuleDetails.self, forKey: .swift)
@@ -120,7 +120,7 @@ extension ModuleInfo.Details: Codable {
     }
   }
 
-  func encode(to encoder: Encoder) throws {
+  public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     switch self {
       case .swift(let details):
@@ -133,13 +133,13 @@ extension ModuleInfo.Details: Codable {
 
 /// Describes the complete set of dependencies for a Swift module, including
 /// all of the Swift and C modules and source files it depends on.
-struct InterModuleDependencyGraph: Codable {
+public struct InterModuleDependencyGraph: Codable {
   /// The name of the main module.
-  var mainModuleName: String
+  public var mainModuleName: String
 
   /// The complete set of modules discovered
-  var modules: [ModuleDependencyId: ModuleInfo] = [:]
+  public var modules: [ModuleDependencyId: ModuleInfo] = [:]
 
   /// Information about the main module.
-  var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }
+  public var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }
 }
