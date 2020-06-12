@@ -14,6 +14,7 @@ add_library(SwiftDriver
   Driver/DebugInfo.swift
   Driver/Driver.swift
   Driver/LinkKind.swift
+  Driver/ModuleOutputInfo.swift
   Driver/OutputFileMap.swift
   Driver/ToolExecutionDelegate.swift
   Driver/ModuleDependencyScanning.swift
