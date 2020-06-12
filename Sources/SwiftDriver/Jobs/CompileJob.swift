@@ -43,7 +43,7 @@ extension Driver {
 
     let baseName: String
     if !compilerMode.usesPrimaryFileInputs && numThreads == 0 {
-      baseName = moduleName
+      baseName = moduleOutputInfo.name
     } else {
       baseName = input.file.basenameWithoutExt
     }
@@ -64,7 +64,7 @@ extension Driver {
     case .object:
       return (linkerOutputType == nil)
     case .swiftModule:
-      return compilerMode.isSingleCompilation && moduleOutput?.isTopLevel ?? false
+      return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
     case .swift, .sib, .image, .dSYM, .dependencies, .autolink,
          .swiftDocumentation, .swiftInterface,
          .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
@@ -201,11 +201,11 @@ extension Driver {
 
     // If we're creating emit module job, order the compile jobs after that.
     if shouldCreateEmitModuleJob {
-      inputs.append(TypedVirtualPath(file: moduleOutput!.outputPath, type: .swiftModule))
+      inputs.append(TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule))
     }
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

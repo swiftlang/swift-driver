@@ -1,4 +1,4 @@
-//===--------------- main.swift - Swift Debug Information Kind ------------===//
+//===--------------- DebugInfo.swift - Swift Debug Information ------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -9,29 +9,44 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-/// Describes the format used for debug information.
-public enum DebugInfoFormat: String {
-  case dwarf
-  case codeView = "codeview"
-}
 
-public enum DebugInfoLevel {
-  /// Line tables only (no type information).
-  case lineTables
+/// The debug information produced by the driver.
+public struct DebugInfo {
 
-  /// Line tables with AST type references
-  case astTypes
+  /// Describes the format used for debug information.
+  public enum Format: String {
+    case dwarf
+    case codeView = "codeview"
+  }
 
-  /// Line tables with AST type references and DWARF types
-  case dwarfTypes
+  /// Describes the level of debug information.
+  public enum Level {
+    /// Line tables only (no type information).
+    case lineTables
 
-  public var requiresModule: Bool {
-    switch self {
-    case .lineTables:
-      return false
+    /// Line tables with AST type references
+    case astTypes
 
-    case .astTypes, .dwarfTypes:
-      return true
+    /// Line tables with AST type references and DWARF types
+    case dwarfTypes
+
+    public var requiresModule: Bool {
+      switch self {
+      case .lineTables:
+        return false
+
+      case .astTypes, .dwarfTypes:
+        return true
+      }
     }
   }
+
+  // The format of debug information.
+  public let format: Format
+
+  /// The level of debug information.
+  public let level: Level?
+
+  /// Whether 'dwarfdump' should be used to verify debug info.
+  public let shouldVerify: Bool
 }

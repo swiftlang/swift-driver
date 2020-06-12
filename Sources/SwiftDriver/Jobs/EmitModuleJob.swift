@@ -35,7 +35,7 @@ extension Driver {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
       if parsedOptions.getLastArgument(.emitDependenciesPath) == nil {
-        path = try moduleOutput!.outputPath.replacingExtension(with: .dependencies)
+        path = try moduleOutputInfo.output!.outputPath.replacingExtension(with: .dependencies)
       }
       addSupplementalOutput(path: path, flag: "-emit-dependencies-path", type: .dependencies)
     }
@@ -43,7 +43,7 @@ extension Driver {
 
   /// Form a job that emits a single module
   mutating func emitModuleJob() throws -> Job {
-    let moduleOutputPath = moduleOutput!.outputPath
+    let moduleOutputPath = moduleOutputInfo.output!.outputPath
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = [
@@ -69,7 +69,7 @@ extension Driver {
     commandLine.appendPath(moduleOutputPath)
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .emitModule,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
@@ -82,6 +82,6 @@ extension Driver {
   var shouldCreateEmitModuleJob: Bool {
     return forceEmitModuleInSingleInvocation
       && compilerOutputType != .swiftModule
-      && moduleOutput != nil
+      && moduleOutputInfo.output != nil
   }
 }

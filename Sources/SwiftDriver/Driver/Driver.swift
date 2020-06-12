@@ -14,32 +14,6 @@ import TSCUtility
 import Foundation
 import SwiftOptions
 
-/// How should the Swift module output be handled?
-public enum ModuleOutput: Equatable {
-  /// The Swift module is a top-level output.
-  case topLevel(VirtualPath)
-
-  /// The Swift module is an auxiliary output.
-  case auxiliary(VirtualPath)
-
-  public var outputPath: VirtualPath {
-    switch self {
-    case .topLevel(let path):
-      return path
-
-    case .auxiliary(let path):
-      return path
-    }
-  }
-
-  public var isTopLevel: Bool {
-    switch self {
-    case .topLevel: return true
-    default: return false
-    }
-  }
-}
-
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
@@ -142,27 +116,17 @@ public struct Driver {
   /// The specified maximum number of parallel jobs to execute.
   public let numParallelJobs: Int?
 
-  /// The level of debug information to produce.
-  public let debugInfoLevel: DebugInfoLevel?
-
   /// The set of sanitizers that were requested
   public let enabledSanitizers: Set<Sanitizer>
 
-  /// The debug info format to use.
-  public let debugInfoFormat: DebugInfoFormat
+  /// The debug information to produce.
+  public let debugInfo: DebugInfo
 
-  /// The form that the module output will take, e.g., top-level vs. auxiliary, and the path at which the module should be emitted.
-  /// `nil` if no module should be emitted.
-  public let moduleOutput: ModuleOutput?
+  // The information about the module to produce.
+  public let moduleOutputInfo: ModuleOutputInfo
 
   /// Code & data for incremental compilation
   public let incrementalCompilation: IncrementalCompilation
-
-  /// The name of the Swift module being built.
-  public let moduleName: String
-
-  /// Was the module name picked by the driver instead of the user.
-  public let moduleNameIsFallback: Bool
 
   /// The path of the SDK.
   public let sdkPath: String?
@@ -199,9 +163,6 @@ public struct Driver {
 
   /// Path to the optimization record.
   public let optimizationRecordPath: VirtualPath?
-
-  /// Whether 'dwarfdump' should be used to verify debug info.
-  public let shouldVerifyDebugInfo: Bool
 
   /// If the driver should force emit module in a single invocation.
   ///
@@ -337,13 +298,12 @@ public struct Driver {
     try Self.validateWarningControlArgs(&parsedOptions)
 
     // Compute debug information output.
-    (self.debugInfoLevel, self.debugInfoFormat, shouldVerifyDebugInfo: self.shouldVerifyDebugInfo) =
-      Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
-    (self.moduleOutput, self.moduleName, self.moduleNameIsFallback) = try Self.computeModuleInfo(
+    self.moduleOutputInfo = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
-      debugInfoLevel: debugInfoLevel, diagnosticsEngine: diagnosticEngine)
+      debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine)
 
     // Determine the state for incremental compilation
     self.incrementalCompilation = IncrementalCompilation(
@@ -351,7 +311,7 @@ public struct Driver {
       compilerMode: compilerMode,
       outputFileMap: self.outputFileMap,
       compilerOutputType: self.compilerOutputType,
-        moduleOutput: self.moduleOutput,
+      moduleOutput: self.moduleOutputInfo.output,
       fileSystem: fileSystem,
       inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine,
@@ -379,21 +339,21 @@ public struct Driver {
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies,
         outputPath: .emitReferenceDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics,
         outputPath: .serializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     // FIXME: -fixits-output-path
     self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader,
@@ -401,34 +361,34 @@ public struct Driver {
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace,
         outputPath: .emitLoadedModuleTracePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.tbdPath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .tbd, isOutput: .emitTbd,
         outputPath: .emitTbdPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(
-        &parsedOptions, moduleOutputPath: self.moduleOutput?.outputPath,
+        &parsedOptions, moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface,
         outputPath: .emitModuleInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
     self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .optimizationRecord,
         isOutput: .saveOptimizationRecord,
@@ -436,7 +396,7 @@ public struct Driver {
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleName)
+        moduleName: moduleOutputInfo.name)
   }
 }
 
@@ -1116,11 +1076,11 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> (DebugInfoLevel?, DebugInfoFormat, shouldVerifyDebugInfo: Bool) {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
     // Determine the debug level.
-    let level: DebugInfoLevel?
+    let level: DebugInfo.Level?
     if let levelOption = parsedOptions.getLast(in: .g), levelOption.option != .gnone {
       switch levelOption.option {
       case .g:
@@ -1145,9 +1105,9 @@ extension Driver {
     }
 
     // Determine the debug info format.
-    let format: DebugInfoFormat
+    let format: DebugInfo.Format
     if let formatArg = parsedOptions.getLastArgument(.debugInfoFormat) {
-      if let parsedFormat = DebugInfoFormat(rawValue: formatArg.asSingle) {
+      if let parsedFormat = DebugInfo.Format(rawValue: formatArg.asSingle) {
         format = parsedFormat
       } else {
         diagnosticsEngine.emit(.error_invalid_arg_value(arg: .debugInfoFormat, value: formatArg.asSingle))
@@ -1167,7 +1127,7 @@ extension Driver {
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
     }
 
-    return (level, format, shouldVerifyDebugInfo: shouldVerify)
+    return DebugInfo(format: format, level: level, shouldVerify: shouldVerify)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
@@ -1308,9 +1268,9 @@ extension Driver {
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     linkerOutputType: LinkOutputType?,
-    debugInfoLevel: DebugInfoLevel?,
+    debugInfoLevel: DebugInfo.Level?,
     diagnosticsEngine: DiagnosticsEngine
-  ) throws -> (ModuleOutput?, String, Bool) {
+  ) throws -> ModuleOutputInfo {
     // Figure out what kind of module we will output.
     enum ModuleOutputKind {
       case topLevel
@@ -1388,7 +1348,7 @@ extension Driver {
 
     // If we're not emiting a module, we're done.
     if moduleOutputKind == nil {
-      return (nil, moduleName, moduleNameIsFallback)
+      return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback)
     }
 
     // Determine the module file to output.
@@ -1414,9 +1374,9 @@ extension Driver {
 
     switch moduleOutputKind! {
     case .topLevel:
-      return (.topLevel(moduleOutputPath), moduleName, moduleNameIsFallback)
+      return ModuleOutputInfo(output: .topLevel(moduleOutputPath), name: moduleName, nameIsFallback: moduleNameIsFallback)
     case .auxiliary:
-      return (.auxiliary(moduleOutputPath), moduleName, moduleNameIsFallback)
+      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath), name: moduleName, nameIsFallback: moduleNameIsFallback)
     }
   }
 }

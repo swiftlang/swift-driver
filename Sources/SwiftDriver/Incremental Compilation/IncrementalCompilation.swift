@@ -28,7 +28,7 @@ public struct IncrementalCompilation {
        compilerMode: CompilerMode,
        outputFileMap: OutputFileMap?,
        compilerOutputType: FileType?,
-       moduleOutput: ModuleOutput?,
+       moduleOutput: ModuleOutputInfo.ModuleOutput?,
        fileSystem: FileSystem,
        inputFiles: [TypedVirtualPath],
        diagnosticEngine: DiagnosticsEngine,

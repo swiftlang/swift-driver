@@ -21,7 +21,7 @@ extension Driver {
     commandLine.appendPath(input.file)
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .verifyDebugInfo,
       tool: .absolute(try toolchain.getToolPath(.dwarfdump)),
       commandLine: commandLine,

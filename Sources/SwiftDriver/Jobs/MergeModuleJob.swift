@@ -15,7 +15,7 @@ extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = [
-      TypedVirtualPath(file: moduleOutput!.outputPath, type: .swiftModule)
+      TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule)
     ]
 
     commandLine.appendFlags("-frontend", "-merge-modules", "-emit-module")
@@ -47,10 +47,10 @@ extension Driver {
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
 
     commandLine.appendFlag(.o)
-    commandLine.appendPath(moduleOutput!.outputPath)
+    commandLine.appendPath(moduleOutputInfo.output!.outputPath)
 
     return Job(
-      moduleName: moduleName,
+      moduleName: moduleOutputInfo.name,
       kind: .mergeModule,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
