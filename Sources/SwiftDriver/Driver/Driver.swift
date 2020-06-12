@@ -26,6 +26,7 @@ public struct Driver {
     case conflictingOptions(Option, Option)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
+    case missingPCMArguments(String)
     case missingModuleDependency(String)
     case dependencyScanningFailure(Int, String)
 
@@ -49,6 +50,8 @@ public struct Driver {
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
+      case .missingPCMArguments(let moduleName):
+        return "Missing extraPcmArgs to build Clang module: \(moduleName)"
       case .missingModuleDependency(let moduleName):
         return "Missing Module Dependency Info: \(moduleName)"
       case .dependencyScanningFailure(let code, let error):
@@ -169,10 +172,10 @@ public struct Driver {
   /// This will force the driver to first emit the module and then run compile jobs.
   public var forceEmitModuleInSingleInvocation: Bool = false
 
-  /// The module dependency graph, which is populated during the planning phase
-  /// only when all modules will be prebuilt and treated as explicit by the
-  /// various compilation jobs.
-  public var interModuleDependencyGraph: InterModuleDependencyGraph? = nil
+  /// Handler for constructing module build jobs using Explicit Module Builds.
+  /// Constructed during the planning phase only when all modules will be prebuilt and treated
+  /// as explicit by the various compilation jobs.
+  public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
 
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
