@@ -168,7 +168,7 @@ extension Driver {
     try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
-    try commandLine.appendAllArguments(.debugPrefixMap, from: &parsedOptions)
+    try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
 
     if let workingDirectory = workingDirectory {

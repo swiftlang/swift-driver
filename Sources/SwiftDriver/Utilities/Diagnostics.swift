@@ -24,6 +24,10 @@ extension Diagnostic.Message {
     .error("option '\(option.spelling)' is missing a required argument (\(requiredArg.spelling))")
   }
 
+  static func error_opt_invalid_mapping(option: Option, value: String) -> Diagnostic.Message {
+    .error("values for '\(option.spelling)' must be in the format original=remapped not '\(value)'")
+  }
+
   static func error_invalid_arg_value(arg: Option, value: String) -> Diagnostic.Message {
     .error("invalid value '\(value)' in '\(arg.spelling)'")
   }
