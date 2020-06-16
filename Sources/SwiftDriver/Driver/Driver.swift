@@ -172,7 +172,7 @@ public struct Driver {
   /// The module dependency graph, which is populated during the planning phase
   /// only when all modules will be prebuilt and treated as explicit by the
   /// various compilation jobs.
-  var interModuleDependencyGraph: InterModuleDependencyGraph? = nil
+  public var interModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
