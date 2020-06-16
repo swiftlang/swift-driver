@@ -296,6 +296,7 @@ public struct Driver {
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     try Self.validateWarningControlArgs(&parsedOptions)
+    Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
     self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
@@ -1510,6 +1511,16 @@ extension Driver {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
       throw Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)
+    }
+  }
+
+  private static func validateCoverageArgs(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) {
+    for coveragePrefixMap in parsedOptions.arguments(for: .coveragePrefixMap) {
+      let value = coveragePrefixMap.argument.asSingle
+      let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+      if parts.count != 2 {
+        diagnosticsEngine.emit(.error_opt_invalid_mapping(option: coveragePrefixMap.option, value: value))
+      }
     }
   }
 }
