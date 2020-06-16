@@ -327,6 +327,19 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(driver.debugInfo.format, .dwarf)
     }
 
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo=bar=baz", "-debug-prefix-map", "qux=") { driver in
+        let jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-prefix-map")))
+        XCTAssertTrue(jobs[0].commandLine.contains(.flag("foo=bar=baz")))
+        XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-prefix-map")))
+        XCTAssertTrue(jobs[0].commandLine.contains(.flag("qux=")))
+    }
+
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo", "-debug-prefix-map", "bar") {
+        $1.expect(.error("values for '-debug-prefix-map' must be in the format original=remapped not 'foo'"))
+        $1.expect(.error("values for '-debug-prefix-map' must be in the format original=remapped not 'bar'"))
+    }
+
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview") { driver in
       XCTAssertEqual(driver.debugInfo.level, .astTypes)
       XCTAssertEqual(driver.debugInfo.format, .codeView)

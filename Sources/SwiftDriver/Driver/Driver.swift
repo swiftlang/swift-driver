@@ -1079,6 +1079,14 @@ extension Driver {
   private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
+    for debugPrefixMap in parsedOptions.arguments(for: .debugPrefixMap) {
+      let value = debugPrefixMap.argument.asSingle
+      let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+      if parts.count != 2 {
+        diagnosticsEngine.emit(.error_opt_invalid_mapping(option: debugPrefixMap.option, value: value))
+      }
+    }
+
     // Determine the debug level.
     let level: DebugInfo.Level?
     if let levelOption = parsedOptions.getLast(in: .g), levelOption.option != .gnone {
