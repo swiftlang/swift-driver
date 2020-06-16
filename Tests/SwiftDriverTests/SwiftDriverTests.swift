@@ -358,6 +358,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testCoverageSettings() throws {
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-coverage-prefix-map", "foo=bar=baz", "-coverage-prefix-map", "qux=") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-coverage-prefix-map")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("foo=bar=baz")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-coverage-prefix-map")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("qux=")))
+    }
+
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-coverage-prefix-map", "foo", "-coverage-prefix-map", "bar") {
+      $1.expect(.error("values for '-coverage-prefix-map' must be in the format original=remapped not 'foo'"))
+      $1.expect(.error("values for '-coverage-prefix-map' must be in the format original=remapped not 'bar'"))
+    }
+  }
+
   func testModuleSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift") { driver in
       XCTAssertNil(driver.moduleOutputInfo.output)
