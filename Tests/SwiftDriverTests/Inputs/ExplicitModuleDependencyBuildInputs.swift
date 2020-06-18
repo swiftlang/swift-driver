@@ -39,6 +39,12 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.15"
+              ]
             }
           }
         },
@@ -116,6 +122,12 @@ enum ModuleDependenciesInputs {
                 "-enforce-exclusivity=unchecked",
                 "-module-name",
                 "Swift"
+              ],
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.15"
               ]
             }
           }
@@ -170,6 +182,12 @@ enum ModuleDependenciesInputs {
                 "-enforce-exclusivity=unchecked",
                 "-module-name",
                 "SwiftOnoneSupport"
+              ],
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.15"
               ]
             }
           }

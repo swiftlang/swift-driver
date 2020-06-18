@@ -65,6 +65,11 @@ public struct SwiftModuleDetails: Codable {
 
   /// Options to the compile command
   public var commandLine: [String]? = []
+
+  /// To build a PCM to be used by this Swift module, we need to append these
+  /// arguments to the generic PCM build arguments reported from the dependency
+  /// graph.
+  public var extraPcmArgs: [String]? = []
 }
 
 /// Details specific to Clang modules.
