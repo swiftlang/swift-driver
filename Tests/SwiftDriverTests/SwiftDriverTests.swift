@@ -903,6 +903,110 @@ final class SwiftDriverTests: XCTestCase {
     #endif
   }
 
+  func testCompatibilityLibs() throws {
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+    try withTemporaryDirectory { path in
+      let path5_0Mac = path.appending(components: "macosx", "libswiftCompatibility50.a")
+      let path5_1Mac = path.appending(components: "macosx", "libswiftCompatibility51.a")
+      let pathDynamicReplacementsMac = path.appending(components: "macosx", "libswiftCompatibilityDynamicReplacements.a")
+      let path5_0iOS = path.appending(components: "iphoneos", "libswiftCompatibility50.a")
+      let path5_1iOS = path.appending(components: "iphoneos", "libswiftCompatibility51.a")
+      let pathDynamicReplacementsiOS = path.appending(components: "iphoneos", "libswiftCompatibilityDynamicReplacements.a")
+
+      for compatibilityLibPath in [path5_0Mac, path5_1Mac,
+                                   pathDynamicReplacementsMac, path5_0iOS,
+                                   path5_1iOS, pathDynamicReplacementsiOS] {
+        try localFileSystem.writeFileContents(compatibilityLibPath) { $0 <<< "Empty" }
+      }
+      let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test", "-resource-dir", path.pathString]
+
+      do {
+        var driver = try Driver(args: commonArgs + ["-target", "x86_64-apple-macosx10.14"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+      }
+
+      do {
+        var driver = try Driver(args: commonArgs + ["-target", "x86_64-apple-macosx10.15.1"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+      }
+
+      do {
+        var driver = try Driver(args: commonArgs + ["-target", "x86_64-apple-macosx10.15.4"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+      }
+
+      do {
+        var driver = try Driver(args: commonArgs + ["-target", "x86_64-apple-macosx10.15.4", "-runtime-compatibility-version", "5.0"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+      }
+
+      do {
+        var driver = try Driver(args: commonArgs + ["-target", "arm64-apple-ios13.0"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0iOS))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1iOS))]))
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsiOS))]))
+      }
+
+      do {
+        var driver = try Driver(args: commonArgs + ["-target", "arm64-apple-ios12.0"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0iOS))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1iOS))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsiOS))]))
+      }
+    }
+  }
+
   func testSanitizerArgs() throws {
   // FIXME: This doesn't work on Linux.
   #if os(macOS)

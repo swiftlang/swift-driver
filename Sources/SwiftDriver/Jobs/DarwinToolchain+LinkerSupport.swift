@@ -258,7 +258,9 @@ extension DarwinToolchain {
         to: &commandLine,
         parsedOptions: &parsedOptions,
         sdkPath: sdkPath,
-        targetTriple: targetTriple
+        targetTriple: targetTriple,
+        linkerOutputType: linkerOutputType,
+        fileSystem: fileSystem
       )
 
       // These custom arguments should be right before the object file at the
