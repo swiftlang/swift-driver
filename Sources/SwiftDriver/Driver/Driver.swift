@@ -24,11 +24,12 @@ public struct Driver {
     case subcommandPassedToDriver
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
+    case failedToReadJobOutput
+    case jobFailedWithNonzeroExitCode(Int, String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
     case missingModuleDependency(String)
-    case dependencyScanningFailure(Int, String)
 
     public var description: String {
       switch self {
@@ -54,8 +55,10 @@ public struct Driver {
         return "Missing extraPcmArgs to build Clang module: \(moduleName)"
       case .missingModuleDependency(let moduleName):
         return "Missing Module Dependency Info: \(moduleName)"
-      case .dependencyScanningFailure(let code, let error):
-        return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
+      case .jobFailedWithNonzeroExitCode(let code, let error):
+        return "job returned with non-zero exit status: \(code), \(error)"
+      case .failedToReadJobOutput:
+        return "failed to read output of job"
       }
     }
   }
@@ -695,6 +698,38 @@ extension Driver {
     try job.verifyInputsNotModified(since: self.recordedInputModificationDates, fileSystem: fileSystem)
 
     return try exec(path: arguments[0], args: arguments)
+  }
+
+  // FIXME: These jobs should be delegated to library clients somehow.
+  func execute<T: Decodable>(job: Job,
+                             capturingJSONOutputAs outputType: T.Type,
+                             resolver: ArgsResolver,
+                             forceResponseFiles: Bool) throws -> T {
+    let arguments: [String] =
+      try resolver.resolveArgumentList(for: job,
+                                       forceResponseFiles: forceResponseFiles)
+
+    var childEnv = env
+    childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
+
+    let process = try Process.launchProcess(arguments: arguments, env: childEnv)
+    let result = try process.waitUntilExit()
+
+    if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
+      let returnCode: Int
+      switch result.exitStatus {
+      case .terminated(let code):
+        returnCode = Int(code)
+      case .signalled(let signal):
+        returnCode = Int(signal)
+      }
+      throw Error.jobFailedWithNonzeroExitCode(returnCode, try result.utf8stderrOutput())
+    }
+    guard let outputData = try? Data(result.utf8Output().utf8) else {
+      throw Error.failedToReadJobOutput
+    }
+
+    return try JSONDecoder().decode(outputType, from: outputData)
   }
 
   public static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {

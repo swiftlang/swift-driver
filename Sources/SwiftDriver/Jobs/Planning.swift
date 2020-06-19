@@ -222,10 +222,13 @@ extension Driver {
   /// Prescan the source files to produce a module dependency graph and turn it into a set
   /// of jobs required to build all dependencies.
   public mutating func generateExplicitModuleBuildJobs() throws -> [Job] {
-    let interModuleDependencyGraph = try computeModuleDependencyGraph()
-    guard let dependencyGraph = interModuleDependencyGraph else {
-      fatalError("Attempting to perform Explicit Module Build job generation, but the Inter Module Dependency Graph does not exist.")
-    }
+    let dependencyScannerJob = try dependencyScanningJob()
+    let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
+    let resolver = try ArgsResolver(fileSystem: self.fileSystem)
+    let dependencyGraph = try self.execute(job: dependencyScannerJob,
+                                           capturingJSONOutputAs: InterModuleDependencyGraph.self,
+                                           resolver: resolver,
+                                           forceResponseFiles: forceResponseFiles)
     explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
                                                                 toolchain: toolchain)
     return try explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()

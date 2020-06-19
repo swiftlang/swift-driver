@@ -13,16 +13,10 @@ import Foundation
 import TSCBasic
 
 extension Driver {
-  // TODO: Instead of directly invoking the frontend,
-  // treat this as any other `Job`.
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// complete dependency graph including all Swift and C module files and
   /// source files.
-  mutating func computeModuleDependencyGraph() throws -> InterModuleDependencyGraph? {
-    // Grab the swift compiler
-    let resolver = try ArgsResolver(fileSystem: self.fileSystem)
-    let compilerPath = VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler))
-    let tool = try resolver.resolve(.path(compilerPath))
+  mutating func dependencyScanningJob() throws -> Job {
     var inputs: [TypedVirtualPath] = []
 
     // Aggregate the fast dependency scanner arguments
@@ -40,24 +34,13 @@ extension Driver {
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file)})
 
-    // Execute dependency scanner and decode its output
-    let arguments = [tool] + (try commandLine.map { try resolver.resolve($0) })
-    let scanProcess = try Process.launchProcess(arguments: arguments, env: env)
-    let result = try scanProcess.waitUntilExit()
-    // Error on dependency scanning failure
-    if result.exitStatus != .terminated(code: EXIT_SUCCESS) {
-      let returnCode: Int
-      switch result.exitStatus {
-        case .terminated(let code):
-          returnCode = Int(code)
-        case .signalled(let signal):
-          returnCode = Int(signal)
-      }
-      throw Error.dependencyScanningFailure(returnCode, try result.utf8stderrOutput())
-    }
-    guard let outputData = try? Data(result.utf8Output().utf8) else {
-      return nil
-    }
-    return try JSONDecoder().decode(InterModuleDependencyGraph.self, from: outputData)
+    return Job(moduleName: moduleOutputInfo.name,
+               kind: .scanDependencies,
+               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               commandLine: commandLine,
+               displayInputs: inputs,
+               inputs: inputs,
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
+               supportsResponseFiles: true)
   }
 }
