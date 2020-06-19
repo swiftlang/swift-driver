@@ -143,13 +143,13 @@ extension Job : CustomStringConvertible {
         return "Emitting module for \(moduleName)"
 
     case .generatePCH:
-        return "Compiling bridging header \(displayInputs.first!.file.name)"
+        return "Compiling bridging header \(displayInputs.first?.file.name ?? "")"
 
     case .generatePCM:
-        return "Compiling Clang module \(displayInputs.first!.file.name)"
+        return "Compiling Clang module \(displayInputs.first?.file.name ?? "")"
 
     case .interpret:
-        return "Interpreting \(displayInputs.first!.file.name)"
+        return "Interpreting \(displayInputs.first?.file.name ?? "")"
 
     case .repl:
         return "Executing Swift REPL"
