@@ -655,7 +655,7 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
       let interpretJob = jobs[0]
-      let resolver = try ArgsResolver()
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
       XCTAssertTrue(resolvedArgs.count == 2)
       XCTAssertEqual(resolvedArgs[1].first, "@")
@@ -671,7 +671,7 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
       let interpretJob = jobs[0]
-      let resolver = try ArgsResolver()
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: true)
       XCTAssertTrue(resolvedArgs.count == 2)
       XCTAssertEqual(resolvedArgs[1].first, "@")
@@ -686,7 +686,7 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
       let interpretJob = jobs[0]
-      let resolver = try ArgsResolver()
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
       XCTAssertFalse(resolvedArgs.map { $0.hasPrefix("@") }.reduce(false){ $0 || $1 })
     }

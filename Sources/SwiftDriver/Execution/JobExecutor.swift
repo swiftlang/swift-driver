@@ -26,7 +26,7 @@ public struct ArgsResolver {
   /// Path to the directory that will contain the temporary files.
   private let temporaryDirectory: AbsolutePath
 
-  public init(fileSystem: FileSystem = localFileSystem) throws {
+  public init(fileSystem: FileSystem) throws {
     self.pathMapping = [:]
     self.fileSystem = fileSystem
     self.temporaryDirectory = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
