@@ -78,7 +78,7 @@ extension Toolchain {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
       }
 
-      result.append(try VirtualPath(path: path).appending(components: "usr", "lib", "swift"))
+      result.append(sdkPath.appending(components: "usr", "lib", "swift"))
     }
 
     return result
