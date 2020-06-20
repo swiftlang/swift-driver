@@ -437,7 +437,18 @@ class ExecuteJobRule: LLBuildRule {
       }
 
       let result = try process.waitUntilExit()
-      let success = result.exitStatus == .terminated(code: 0)
+      let success = result.exitStatus == .terminated(code: EXIT_SUCCESS)
+
+      if !success {
+        switch result.exitStatus {
+        case let .terminated(code):
+          if !job.kind.isCompile || code != EXIT_FAILURE {
+            context.diagnosticsEngine.emit(.error_command_failed(kind: job.kind, code: code))
+          }
+        case let .signalled(signal):
+          context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
+        }
+      }
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
@@ -453,7 +464,7 @@ class ExecuteJobRule: LLBuildRule {
         let result = ProcessResult(
           arguments: [],
           environment: env,
-          exitStatus: .terminated(code: 1),
+          exitStatus: .terminated(code: EXIT_FAILURE),
           output: Result.success([]),
           stderrOutput: Result.success([])
         )
@@ -467,3 +478,13 @@ class ExecuteJobRule: LLBuildRule {
 }
 
 extension Job: LLBuildValue { }
+
+private extension Diagnostic.Message {
+  static func error_command_failed(kind: Job.Kind, code: Int32) -> Diagnostic.Message {
+    .error("\(kind.rawValue) command failed with exit code \(code) (use -v to see invocation)")
+  }
+
+  static func error_command_signalled(kind: Job.Kind, signal: Int32) -> Diagnostic.Message {
+    .error("\(kind.rawValue) command failed due to signal \(signal) (use -v to see invocation)")
+  }
+}

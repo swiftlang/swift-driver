@@ -203,7 +203,7 @@ final class IntegrationTests: IntegrationTestCase {
       )
       try process.launch()
       let result = try process.waitUntilExit()
-      XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+      XCTAssertEqual(result.exitStatus, .terminated(code: EXIT_SUCCESS))
     }
   #endif
   }
