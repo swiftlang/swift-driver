@@ -184,7 +184,19 @@ extension Job.Kind {
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
         return false
     }
+  }
 
+  /// Whether this job kind is a compile job.
+  public var isCompile: Bool {
+    switch self {
+    case .compile:
+      return true
+    case .backend, .mergeModule, .emitModule, .generatePCH,
+         .generatePCM, .interpret, .repl, .printTargetInfo,
+         .versionRequest, .autolinkExtract, .generateDSYM,
+         .help, .link, .verifyDebugInfo:
+      return false
+    }
   }
 }
 // MARK: - Job.ArgTemplate + Codable

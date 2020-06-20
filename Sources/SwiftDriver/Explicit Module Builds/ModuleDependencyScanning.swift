@@ -45,8 +45,8 @@ extension Driver {
     let scanProcess = try Process.launchProcess(arguments: arguments, env: env)
     let result = try scanProcess.waitUntilExit()
     // Error on dependency scanning failure
-    if (result.exitStatus != .terminated(code: 0)) {
-      var returnCode = 0
+    if result.exitStatus != .terminated(code: EXIT_SUCCESS) {
+      let returnCode: Int
       switch result.exitStatus {
         case .terminated(let code):
           returnCode = Int(code)

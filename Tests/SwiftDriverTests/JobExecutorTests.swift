@@ -29,7 +29,7 @@ class JobCollectingDelegate: JobExecutorDelegate {
       return ProcessResult(
         arguments: [],
         environment: [:],
-        exitStatus: .terminated(code: 0),
+        exitStatus: .terminated(code: EXIT_SUCCESS),
         output: Result.success(ByteString("test").contents),
         stderrOutput: Result.success([])
       )
