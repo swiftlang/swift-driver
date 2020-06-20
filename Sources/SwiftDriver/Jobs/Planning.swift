@@ -66,7 +66,7 @@ extension Driver {
       if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
         let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
         for job in modulePrebuildJobs {
-          try Self.printJob(job, resolver: try ArgsResolver(),
+          try Self.printJob(job, resolver: try ArgsResolver(fileSystem: self.fileSystem),
                             forceResponseFiles: forceResponseFiles)
         }
       }

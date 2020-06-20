@@ -20,7 +20,7 @@ extension Driver {
   /// source files.
   mutating func computeModuleDependencyGraph() throws -> InterModuleDependencyGraph? {
     // Grab the swift compiler
-    let resolver = try ArgsResolver()
+    let resolver = try ArgsResolver(fileSystem: self.fileSystem)
     let compilerPath = VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler))
     let tool = try resolver.resolve(.path(compilerPath))
     var inputs: [TypedVirtualPath] = []

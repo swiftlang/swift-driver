@@ -73,7 +73,7 @@ final class JobExecutorTests: XCTestCase {
 
       let exec = path.appending(component: "main")
 
-      var resolver = try ArgsResolver()
+      var resolver = try ArgsResolver(fileSystem: localFileSystem)
       resolver.pathMapping = [
         .relative(RelativePath("foo.swift")): foo,
         .relative(RelativePath("main.swift")): main,
@@ -181,7 +181,7 @@ final class JobExecutorTests: XCTestCase {
     let delegate = JobCollectingDelegate()
     delegate.useStubProcess = true
     let executor = JobExecutor(
-      jobs: [job], resolver: try ArgsResolver(),
+      jobs: [job], resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
       diagnosticsEngine: DiagnosticsEngine()
     )
@@ -224,7 +224,7 @@ final class JobExecutorTests: XCTestCase {
       var driver = try Driver(args: ["swift", main.pathString])
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].requiresInPlaceExecution)
-      let resolver = try ArgsResolver()
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
       // Change the file
       try localFileSystem.writeFileContents(main) {
@@ -255,7 +255,7 @@ final class JobExecutorTests: XCTestCase {
       try assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString]) {driver, verifier in
         let jobs = try driver.planBuild()
         XCTAssertTrue(jobs.count > 1)
-        let resolver = try ArgsResolver()
+        let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
         // Change the file
         try localFileSystem.writeFileContents(other) {
