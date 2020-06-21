@@ -1374,7 +1374,10 @@ extension Driver {
     } else if moduleOutputKind == .topLevel {
       // FIXME: Logic to infer from primary outputs, etc.
       let moduleFilename = moduleName.appendingFileTypeExtension(.swiftModule)
-      if let outputArg = parsedOptions.getLastArgument(.o)?.asSingle, let lastSeparatorIndex = outputArg.lastIndex(of: "/") {
+      if let outputArg = parsedOptions.getLastArgument(.o)?.asSingle, compilerOutputType == .swiftModule {
+        // If the module is the primary output, match -o exactly if present.
+        moduleOutputPath = try .init(path: outputArg)
+      } else if let outputArg = parsedOptions.getLastArgument(.o)?.asSingle, let lastSeparatorIndex = outputArg.lastIndex(of: "/") {
         // Put the module next to the top-level output.
         moduleOutputPath = try .init(path: outputArg[outputArg.startIndex...lastSeparatorIndex] + moduleFilename)
       } else {
