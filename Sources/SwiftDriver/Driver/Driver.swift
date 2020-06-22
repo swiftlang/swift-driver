@@ -24,6 +24,7 @@ public struct Driver {
     case subcommandPassedToDriver
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
+    case unableToLoadOutputFileMap(String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -56,6 +57,8 @@ public struct Driver {
         return "Missing Module Dependency Info: \(moduleName)"
       case .dependencyScanningFailure(let code, let error):
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
+      case .unableToLoadOutputFileMap(let path):
+        return "unable to load output file map '\(path)': no such file or directory"
       }
     }
   }
@@ -276,8 +279,12 @@ public struct Driver {
     let outputFileMap: OutputFileMap?
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
-      let path = try VirtualPath(path: outputFileMapArg)
+      do {
+        let path = try VirtualPath(path: outputFileMapArg)
         outputFileMap = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
+      } catch {
+        throw Error.unableToLoadOutputFileMap(outputFileMapArg)
+      }
     } else {
       outputFileMap = nil
     }
