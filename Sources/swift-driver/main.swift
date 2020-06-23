@@ -52,6 +52,7 @@ do {
   exit(EXIT_FAILURE)
 } catch let diagnosticData as DiagnosticData {
   diagnosticsEngine.emit(.error(diagnosticData))
+  exit(EXIT_FAILURE)
 } catch {
   print("error: \(error)")
   exit(EXIT_FAILURE)
