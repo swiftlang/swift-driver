@@ -170,6 +170,9 @@ public struct Driver {
   /// Path to the optimization record.
   public let optimizationRecordPath: VirtualPath?
 
+  /// Path to the Swift module source information file.
+  public let moduleSourceInfoPath: VirtualPath?
+
   /// If the driver should force emit module in a single invocation.
   ///
   /// This will force the driver to first emit the module and then run compile jobs.
@@ -404,6 +407,14 @@ public struct Driver {
         &parsedOptions, type: .optimizationRecord,
         isOutput: .saveOptimizationRecord,
         outputPath: .saveOptimizationRecordPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.moduleSourceInfoPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftSourceInfoFile,
+        isOutput: .emitModuleSourceInfo,
+        outputPath: .emitModuleSourceInfoPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
