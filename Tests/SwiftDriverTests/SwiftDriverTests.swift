@@ -2373,7 +2373,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSwiftHelpOverride() throws {
-    var driver = try Driver(args: ["swiftc", "-help"], env: ["SWIFT_DRIVER_SWIFT_HELP_EXEC" : "/usr/bin/nonexistent-swift-help"])
+    var driver = try Driver(
+      args: ["swiftc", "-help"],
+      env: [
+        "SWIFT_DRIVER_SWIFT_HELP_EXEC" : "/usr/bin/nonexistent-swift-help",
+        "SWIFT_DRIVER_CLANG_EXEC" : "/usr/bin/clang"
+      ])
     let jobs = try driver.planBuild()
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
