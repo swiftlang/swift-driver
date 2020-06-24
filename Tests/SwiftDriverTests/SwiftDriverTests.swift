@@ -2373,6 +2373,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSwiftHelpOverride() throws {
+    // FIXME: On Linux, we might not have any Clang in the path. We need a
+    // better override.
+    #if os(macOS)
     var driver = try Driver(
       args: ["swiftc", "-help"],
       env: [
@@ -2382,6 +2385,7 @@ final class SwiftDriverTests: XCTestCase {
     let jobs = try driver.planBuild()
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
+    #endif
   }
 }
 
