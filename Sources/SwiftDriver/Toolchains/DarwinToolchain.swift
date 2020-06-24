@@ -43,7 +43,7 @@ public final class DarwinToolchain: Toolchain {
   private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(executable: "swift")
+      return try lookup(executable: "swift-frontend")
 
     case .dynamicLinker:
       return try lookup(executable: "ld")

@@ -140,6 +140,9 @@ extension Toolchain {
       return path
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
       return path
+    } else if executable == "swift-frontend" {
+      // Temporary shim: fall back to looking for "swift" before failing.
+      return try lookup(executable: "swift")
     } else if fallbackToExecutableDefaultPath {
       return AbsolutePath("/usr/bin/" + executable)
     } else {
