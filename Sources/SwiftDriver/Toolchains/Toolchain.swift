@@ -114,7 +114,10 @@ extension Toolchain {
 
   /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
   private func envVarName(for toolName: String) -> String {
-    return "SWIFT_DRIVER_\(toolName.uppercased())_EXEC"
+    let lookupName = toolName
+      .replacingOccurrences(of: "-", with: "_")
+      .uppercased()
+    return "SWIFT_DRIVER_\(lookupName)_EXEC"
   }
 
   /// Use this property only for testing purposes, for example,
@@ -158,6 +161,6 @@ extension Toolchain {
   }
 }
 
-fileprivate enum ToolchainError: Swift.Error {
+public enum ToolchainError: Swift.Error {
   case unableToFind(tool: String)
 }
