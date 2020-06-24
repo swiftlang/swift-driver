@@ -2371,6 +2371,22 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(subsequence: [.flag("-vfsoverlay"), .path(.relative(RelativePath("overlay1.yaml"))), .flag("-vfsoverlay"), .path(.relative(RelativePath("overlay2.yaml"))), .flag("-vfsoverlay"), .path(.relative(RelativePath("overlay3.yaml")))]))
     }
   }
+
+  func testSwiftHelpOverride() throws {
+    // FIXME: On Linux, we might not have any Clang in the path. We need a
+    // better override.
+    #if os(macOS)
+    var driver = try Driver(
+      args: ["swiftc", "-help"],
+      env: [
+        "SWIFT_DRIVER_SWIFT_HELP_EXEC" : "/usr/bin/nonexistent-swift-help",
+        "SWIFT_DRIVER_CLANG_EXEC" : "/usr/bin/clang"
+      ])
+    let jobs = try driver.planBuild()
+    XCTAssert(jobs.count == 1)
+    XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
+    #endif
+  }
 }
 
 func assertString(
