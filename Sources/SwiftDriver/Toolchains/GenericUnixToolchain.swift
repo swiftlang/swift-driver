@@ -49,7 +49,7 @@ public final class GenericUnixToolchain: Toolchain {
   private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(executable: "swift")
+      return try lookup(executable: "swift-frontend")
     case .staticLinker:
       return try lookup(executable: "ar")
     case .dynamicLinker:
