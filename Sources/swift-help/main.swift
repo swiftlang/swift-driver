@@ -16,13 +16,12 @@ extension DriverKind: ExpressibleByArgument {}
 
 struct SwiftHelp: ParsableCommand {
   @ArgumentParser.Option(name: .customLong("tool", withSingleDash: true),
-                         default: .interactive,
                          help: "The tool to list options of")
-  var tool: DriverKind
+  var tool: DriverKind = .interactive
 
   @Flag(name: .customLong("show-hidden", withSingleDash: true),
         help: "List hidden (unsupported) options")
-  var showHidden: Bool
+  var showHidden: Bool = false
 
   func run() throws {
     let driverOptionTable = OptionTable()
@@ -30,4 +29,5 @@ struct SwiftHelp: ParsableCommand {
   }
 }
 
+// SwiftPM executables don't support @main.
 SwiftHelp.main()
