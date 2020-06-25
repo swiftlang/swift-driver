@@ -33,3 +33,22 @@ public struct SwiftModuleArtifactInfo: Codable {
     self.sourceInfoPath = sourceInfoPath
   }
 }
+
+/// Describes a given Clang module's pre-built module artifacts:
+/// - Clang Module (name)
+/// - Clang Module (PCM) Path
+/// - Clang Module Map Path
+public struct ClangModuleArtifactInfo {
+  /// The module's name
+  public let moduleName: String
+  /// The path for the module's .pcm file
+  public let modulePath: String
+  /// The path for this module's .modulemap file
+  public let moduleMapPath: String
+
+  init(name: String, modulePath: String, moduleMapPath: String) {
+    self.moduleName = name
+    self.modulePath = modulePath
+    self.moduleMapPath = moduleMapPath
+  }
+}

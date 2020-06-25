@@ -11,7 +11,7 @@ add_library(SwiftDriver
   "Explicit Module Builds/ExplicitModuleBuildHandler.swift"   
   "Explicit Module Builds/InterModuleDependencyGraph.swift"
   "Explicit Module Builds/ModuleDependencyScanning.swift"
-  "Explicit Module Builds/SwiftModuleArtifacts.swift"
+  "Explicit Module Builds/ModuleArtifacts.swift"
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
