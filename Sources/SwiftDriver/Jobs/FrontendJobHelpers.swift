@@ -270,6 +270,11 @@ extension Driver {
             input: input,
             flag: "-emit-module-doc-path")
         addOutputOfType(
+            outputType: .swiftSourceInfoFile,
+            finalOutputPath: moduleSourceInfoPath,
+            input: input,
+            flag: "-emit-module-source-info")
+        addOutputOfType(
             outputType: .dependencies,
             finalOutputPath: dependenciesFilePath,
             input: input,

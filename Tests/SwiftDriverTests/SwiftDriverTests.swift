@@ -2387,6 +2387,17 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
     #endif
   }
+  
+  func testSourceInfoFileEmitOption() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module-source-info", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = plannedJobs[0]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-emit-module-source-info")))
+      XCTAssertEqual(compileJob.outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
+      XCTAssertEqual(compileJob.outputs[1].file, VirtualPath.temporary(RelativePath("foo.swiftsourceinfo")))
+    }
+  }
 }
 
 func assertString(
