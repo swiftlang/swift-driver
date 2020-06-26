@@ -25,6 +25,33 @@ public enum Tool {
   case swiftHelp
 }
 
+/// Describes information about the target as provided by the Swift frontend.
+struct FrontendTargetInfo: Codable {
+  struct Target: Codable {
+    /// The target triple
+    let triple: Triple
+
+    /// The target triple without any version information.
+    let unversionedTriple: Triple
+
+    /// The triple used for module names.
+    let moduleTriple: Triple
+
+    /// Whether the Swift libraries need to be referenced in their system
+    /// location (/usr/lib/swift) via rpath .
+    let librariesRequireRPath: Bool
+  }
+
+  struct Paths: Codable {
+    let runtimeLibraryPaths: [String]
+    let runtimeLibraryImportPaths: [String]
+    let runtimeResourcePath: String
+  }
+
+  let target: Target
+  let targetVariant: Target?
+}
+
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
@@ -89,13 +116,42 @@ extension Toolchain {
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
 
+  /// Retrieve information about the target from
+  func getFrontendTargetInfo(target: Triple?, targetVariant: Triple?) throws
+      -> FrontendTargetInfo {
+    // Print information for the given target.
+    var args = [
+      try getToolPath(.swiftCompiler).pathString,
+      "-print-target-info",
+    ]
+
+    // If we were given a target, include it. Otherwise, let the frontend
+    // tell us the host target.
+    if let target = target {
+      args += [
+        "-target", target.triple
+      ]
+    }
+
+    // If there is a target variant, include that too.
+    if let targetVariant = targetVariant {
+      args += [
+        "-target-variant",
+        targetVariant.triple
+      ]
+    }
+
+    let resultString = try Process.checkNonZeroExit(arguments: args)
+    guard let resultData = resultString.data(using: .utf8) else {
+      throw Driver.Error.malformedSwiftTargetInfo(resultString)
+    }
+    return try JSONDecoder().decode(FrontendTargetInfo.self, from: resultData)
+  }
+
   /// Returns the target triple string for the current host.
   public func hostTargetTriple() throws -> Triple {
-    let triple = try Process.checkNonZeroExit(
-      args: getToolPath(.clang).pathString, "-print-target-triple",
-      environment: env
-    ).spm_chomp()
-    return Triple(triple)
+    return try getFrontendTargetInfo(target: nil, targetVariant: nil)
+      .target.triple
   }
 
   /// Returns the `executablePath`'s directory.
@@ -157,7 +213,7 @@ extension Toolchain {
     }
 
     let path = try Process.checkNonZeroExit(
-      arguments: [xcrun, "-sdk", "macosx", "--find", executable],
+      arguments: [xcrun, "--find", executable],
       environment: env
     ).spm_chomp()
     return AbsolutePath(path)

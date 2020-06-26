@@ -1406,7 +1406,7 @@ final class SwiftDriverTests: XCTestCase {
 
     let expectedDefaultContents: String
     #if os(macOS)
-    expectedDefaultContents = "x86_64-apple-darwin"
+    expectedDefaultContents = "x86_64-apple-"
     #elseif os(Linux)
     expectedDefaultContents = "-unknown-linux"
     #else
@@ -1582,19 +1582,19 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(output,
     """
     digraph Jobs {
-      "compile (swiftc)" [style=bold];
+      "compile (swift)" [style=bold];
       "test.swift" [fontsize=12];
-      "test.swift" -> "compile (swiftc)" [color=blue];
+      "test.swift" -> "compile (swift)" [color=blue];
       "test.o" [fontsize=12];
-      "compile (swiftc)" -> "test.o" [color=green];
+      "compile (swift)" -> "test.o" [color=green];
       "test.swiftmodule" [fontsize=12];
-      "compile (swiftc)" -> "test.swiftmodule" [color=green];
+      "compile (swift)" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
-      "compile (swiftc)" -> "test.swiftdoc" [color=green];
-      "mergeModule (swiftc)" [style=bold];
-      "test.swiftmodule" -> "mergeModule (swiftc)" [color=blue];
-      "mergeModule (swiftc)" -> "test.swiftmodule" [color=green];
-      "mergeModule (swiftc)" -> "test.swiftdoc" [color=green];
+      "compile (swift)" -> "test.swiftdoc" [color=green];
+      "mergeModule (swift)" [style=bold];
+      "test.swiftmodule" -> "mergeModule (swift)" [color=blue];
+      "mergeModule (swift)" -> "test.swiftmodule" [color=green];
+      "mergeModule (swift)" -> "test.swiftdoc" [color=green];
       "link (\(dynamicLinker))" [style=bold];
       "test.o" -> "link (\(dynamicLinker))" [color=blue];
       "test" [fontsize=12];
@@ -2375,17 +2375,12 @@ final class SwiftDriverTests: XCTestCase {
   func testSwiftHelpOverride() throws {
     // FIXME: On Linux, we might not have any Clang in the path. We need a
     // better override.
-    #if os(macOS)
-    var driver = try Driver(
-      args: ["swiftc", "-help"],
-      env: [
-        "SWIFT_DRIVER_SWIFT_HELP_EXEC" : "/usr/bin/nonexistent-swift-help",
-        "SWIFT_DRIVER_CLANG_EXEC" : "/usr/bin/clang"
-      ])
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = "/usr/bin/nonexistent-swift-help"
+    var driver = try Driver(args: ["swiftc", "-help"], env: env)
     let jobs = try driver.planBuild()
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
-    #endif
   }
 }
 
