@@ -29,6 +29,38 @@ public protocol DriverExecutor {
   ) throws
 }
 
+enum JobExecutionError: Error {
+  case jobFailedWithNonzeroExitCode(Int, String)
+  case failedToReadJobOutput
+}
+
+extension DriverExecutor {
+  func execute<T: Decodable>(job: Job,
+                             capturingJSONOutputAs outputType: T.Type,
+                             forceResponseFiles: Bool,
+                             recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> T {
+    let result = try execute(job: job,
+                             forceResponseFiles: forceResponseFiles,
+                             recordedInputModificationDates: recordedInputModificationDates)
+
+    if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
+      let returnCode: Int
+      switch result.exitStatus {
+      case .terminated(let code):
+        returnCode = Int(code)
+      case .signalled(let signal):
+        returnCode = Int(signal)
+      }
+      throw JobExecutionError.jobFailedWithNonzeroExitCode(returnCode, try result.utf8stderrOutput())
+    }
+    guard let outputData = try? Data(result.utf8Output().utf8) else {
+      throw JobExecutionError.failedToReadJobOutput
+    }
+
+    return try JSONDecoder().decode(outputType, from: outputData)
+  }
+}
+
 public protocol JobExecutionDelegate {
   /// Called when a job starts executing.
   func jobStarted(job: Job, arguments: [String], pid: Int)
