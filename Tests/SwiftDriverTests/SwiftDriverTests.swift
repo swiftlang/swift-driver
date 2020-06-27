@@ -1582,19 +1582,19 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(output,
     """
     digraph Jobs {
-      "compile (swift)" [style=bold];
+      "compile (swiftc)" [style=bold];
       "test.swift" [fontsize=12];
-      "test.swift" -> "compile (swift)" [color=blue];
+      "test.swift" -> "compile (swiftc)" [color=blue];
       "test.o" [fontsize=12];
-      "compile (swift)" -> "test.o" [color=green];
+      "compile (swiftc)" -> "test.o" [color=green];
       "test.swiftmodule" [fontsize=12];
-      "compile (swift)" -> "test.swiftmodule" [color=green];
+      "compile (swiftc)" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
-      "compile (swift)" -> "test.swiftdoc" [color=green];
-      "mergeModule (swift)" [style=bold];
-      "test.swiftmodule" -> "mergeModule (swift)" [color=blue];
-      "mergeModule (swift)" -> "test.swiftmodule" [color=green];
-      "mergeModule (swift)" -> "test.swiftdoc" [color=green];
+      "compile (swiftc)" -> "test.swiftdoc" [color=green];
+      "mergeModule (swiftc)" [style=bold];
+      "test.swiftmodule" -> "mergeModule (swiftc)" [color=blue];
+      "mergeModule (swiftc)" -> "test.swiftmodule" [color=green];
+      "mergeModule (swiftc)" -> "test.swiftdoc" [color=green];
       "link (\(dynamicLinker))" [style=bold];
       "test.o" -> "link (\(dynamicLinker))" [color=blue];
       "test" [fontsize=12];
