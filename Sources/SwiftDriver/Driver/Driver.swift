@@ -253,7 +253,7 @@ public struct Driver {
       .map {
         Triple($0, normalizing: true)
       }
-    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env, fileSystem: fileSystem)
+    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env, executor: self.executor, fileSystem: fileSystem)
     self.targetVariantTriple = self.parsedOptions.getLastArgument(.targetVariant).map { Triple($0.asSingle, normalizing: true) }
 
     // Find the Swift compiler executable.
@@ -747,7 +747,7 @@ extension Driver {
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
-    outputStream.write(try Process.checkNonZeroExit(args: toolchain.getToolPath(.swiftCompiler).pathString, "--version"))
+    outputStream.write(try executor.checkNonZeroExit(args: toolchain.getToolPath(.swiftCompiler).pathString, "--version", environment: env))
     outputStream.flush()
   }
 }
@@ -1579,11 +1579,12 @@ extension Driver {
     _ explicitTarget: Triple?,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String],
+    executor: DriverExecutor,
     fileSystem: FileSystem
   ) throws -> (Toolchain, Triple) {
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
-    let toolchain = toolchainType.init(env: env, fileSystem: fileSystem)
+    let toolchain = toolchainType.init(env: env, executor: executor, fileSystem: fileSystem)
     return (toolchain, try explicitTarget ?? toolchain.hostTargetTriple())
   }
 }

@@ -55,13 +55,15 @@ struct FrontendTargetInfo: Codable {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
-  init(env: [String: String], fileSystem: FileSystem)
+  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem)
 
   var env: [String: String] { get }
 
   var fileSystem: FileSystem { get }
 
   var searchPaths: [AbsolutePath] { get }
+
+  var executor: DriverExecutor { get }
 
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
@@ -110,7 +112,7 @@ extension Toolchain {
   }
 
   public func swiftCompilerVersion() throws -> String {
-    try Process.checkNonZeroExit(
+    try executor.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version",
       environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
@@ -212,8 +214,8 @@ extension Toolchain {
       throw ToolchainError.unableToFind(tool: xcrun)
     }
 
-    let path = try Process.checkNonZeroExit(
-      arguments: [xcrun, "--find", executable],
+    let path = try executor.checkNonZeroExit(
+      args: xcrun, "--find", executable,
       environment: env
     ).spm_chomp()
     return AbsolutePath(path)
