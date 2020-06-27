@@ -20,7 +20,9 @@ add_library(SwiftDriver
   Driver/OutputFileMap.swift
   Driver/ToolExecutionDelegate.swift
 
-  Execution/JobExecutor.swift
+  Execution/ArgsResolver.swift
+  Execution/MultiJobExecutor.swift
+  Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
   Execution/llbuild.swift
