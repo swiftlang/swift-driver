@@ -19,7 +19,7 @@ public protocol DriverExecutor {
   func execute(job: Job,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
-
+  
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
                delegate: JobExecutionDelegate,
@@ -27,7 +27,7 @@ public protocol DriverExecutor {
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws
-
+  
   /// Launch a process with the given command line and report the result.
   @discardableResult
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
@@ -46,7 +46,7 @@ extension DriverExecutor {
     let result = try execute(job: job,
                              forceResponseFiles: forceResponseFiles,
                              recordedInputModificationDates: recordedInputModificationDates)
-
+    
     if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
       let returnCode: Int
       switch result.exitStatus {
@@ -60,7 +60,7 @@ extension DriverExecutor {
     guard let outputData = try? Data(result.utf8Output().utf8) else {
       throw JobExecutionError.failedToReadJobOutput
     }
-
+    
     return try JSONDecoder().decode(outputType, from: outputData)
   }
 }
@@ -68,7 +68,7 @@ extension DriverExecutor {
 public protocol JobExecutionDelegate {
   /// Called when a job starts executing.
   func jobStarted(job: Job, arguments: [String], pid: Int)
-
+  
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
 }
@@ -79,7 +79,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
   let fileSystem: FileSystem
   let resolver: ArgsResolver
   let env: [String: String]
-
+  
   public init(diagnosticsEngine: DiagnosticsEngine,
               processSet: ProcessSet,
               fileSystem: FileSystem,
@@ -90,53 +90,51 @@ public final class SwiftDriverExecutor: DriverExecutor {
     self.env = env
     self.resolver = try ArgsResolver(fileSystem: fileSystem)
   }
-
+  
   public func execute(job: Job,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                forceResponseFiles: forceResponseFiles)
-
+    
     try job.verifyInputsNotModified(since: recordedInputModificationDates,
                                     fileSystem: fileSystem)
-
+    
     if job.requiresInPlaceExecution {
       for (envVar, value) in job.extraEnvironment {
         try ProcessEnv.setVar(envVar, value: value)
       }
-
+      
       try exec(path: arguments[0], args: arguments)
       fatalError("unreachable, exec always throws on failure")
     } else {
       var childEnv = env
       childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
-
+      
       let process = try Process.launchProcess(arguments: arguments, env: childEnv)
       return try process.waitUntilExit()
     }
   }
-
+  
   public func execute(jobs: [Job],
-               delegate: JobExecutionDelegate,
-               numParallelJobs: Int = 1,
-               forceResponseFiles: Bool = false,
-               recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
+                      delegate: JobExecutionDelegate,
+                      numParallelJobs: Int = 1,
+                      forceResponseFiles: Bool = false,
+                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) throws {
     let llbuildExecutor = MultiJobExecutor(jobs: jobs,
-                                      resolver: resolver,
-                                      executorDelegate: delegate,
-                                      diagnosticsEngine: diagnosticsEngine,
-                                      numParallelJobs: numParallelJobs,
-                                      processSet: processSet,
-                                      forceResponseFiles: forceResponseFiles,
-                                      recordedInputModificationDates: recordedInputModificationDates)
+                                           resolver: resolver,
+                                           executorDelegate: delegate,
+                                           diagnosticsEngine: diagnosticsEngine,
+                                           numParallelJobs: numParallelJobs,
+                                           processSet: processSet,
+                                           forceResponseFiles: forceResponseFiles,
+                                           recordedInputModificationDates: recordedInputModificationDates)
     try llbuildExecutor.execute(env: env, fileSystem: fileSystem)
   }
-
+  
   @discardableResult
   public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
     return try Process.checkNonZeroExit(arguments: args, environment: environment)
   }
 }
-
-
