@@ -21,8 +21,12 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
   }
 }
 
-class JobCollectingDelegate: JobExecutorDelegate {
+class JobCollectingDelegate: JobExecutionDelegate {
   struct StubProcess: ProcessProtocol {
+    static func launchProcess(arguments: [String], env: [String : String]) throws -> StubProcess {
+      return .init()
+    }
+
     var processID: TSCBasic.Process.ProcessID { .init(-1) }
 
     func waitUntilExit() throws -> ProcessResult {
@@ -38,7 +42,6 @@ class JobCollectingDelegate: JobExecutorDelegate {
 
   var started: [Job] = []
   var finished: [(Job, ProcessResult)] = []
-  var useStubProcess = false
 
   func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     finished.append((job, result))
@@ -46,13 +49,6 @@ class JobCollectingDelegate: JobExecutorDelegate {
 
   func jobStarted(job: Job, arguments: [String], pid: Int) {
     started.append(job)
-  }
-
-  func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol {
-    if useStubProcess {
-      return StubProcess()
-    }
-    return try TSCBasic.Process.launchProcess(arguments: arguments, env: env)
   }
 }
 
@@ -179,11 +175,11 @@ final class JobExecutorTests: XCTestCase {
     )
 
     let delegate = JobCollectingDelegate()
-    delegate.useStubProcess = true
     let executor = JobExecutor(
       jobs: [job], resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
-      diagnosticsEngine: DiagnosticsEngine()
+      diagnosticsEngine: DiagnosticsEngine(),
+      processType: JobCollectingDelegate.StubProcess.self
     )
     try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
 
@@ -224,17 +220,13 @@ final class JobExecutorTests: XCTestCase {
       var driver = try Driver(args: ["swift", main.pathString])
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].requiresInPlaceExecution)
-      let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
       // Change the file
       try localFileSystem.writeFileContents(main) {
         $0 <<< "let foo = 1"
       }
 
-      let delegate = JobCollectingDelegate()
-      delegate.useStubProcess = true
-      XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver,
-                                          executorDelegate: delegate)) {
+      XCTAssertThrowsError(try driver.run(jobs: jobs)) {
         XCTAssertEqual($0 as? Job.InputError,
                        .inputUnexpectedlyModified(TypedVirtualPath(file: .absolute(main), type: .swift)))
       }
@@ -255,20 +247,16 @@ final class JobExecutorTests: XCTestCase {
       try assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString]) {driver, verifier in
         let jobs = try driver.planBuild()
         XCTAssertTrue(jobs.count > 1)
-        let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
         // Change the file
         try localFileSystem.writeFileContents(other) {
           $0 <<< "let bar = 3"
         }
 
-        let delegate = JobCollectingDelegate()
-        delegate.useStubProcess = true
-
         // FIXME: It's unfortunate we diagnose this twice, once for each job which uses the input.
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
-        XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver, executorDelegate: delegate))
+        XCTAssertThrowsError(try driver.run(jobs: jobs))
       }
     }
   }

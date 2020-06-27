@@ -40,10 +40,15 @@ do {
     try exec(path: subcommandPath?.pathString ?? "", args: Array(arguments.dropFirst()))
   }
 
-  var driver = try Driver(args: arguments, diagnosticsEngine: diagnosticsEngine)
+  let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
+                                         processSet: processSet,
+                                         fileSystem: localFileSystem,
+                                         env: ProcessEnv.vars)
+  var driver = try Driver(args: arguments,
+                          diagnosticsEngine: diagnosticsEngine,
+                          executor: executor)
   let jobs = try driver.planBuild()
-  let resolver = try ArgsResolver(fileSystem: driver.fileSystem)
-  try driver.run(jobs: jobs, resolver: resolver, processSet: processSet)
+  try driver.run(jobs: jobs)
 
   if driver.diagnosticEngine.hasErrors {
     exit(EXIT_FAILURE)

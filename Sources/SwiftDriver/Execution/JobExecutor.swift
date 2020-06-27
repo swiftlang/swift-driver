@@ -15,25 +15,6 @@ import enum TSCUtility.Diagnostics
 import Foundation
 import Dispatch
 
-public protocol JobExecutorDelegate {
-  /// Called when a job starts executing.
-  func jobStarted(job: Job, arguments: [String], pid: Int)
-
-  /// Called when a job finished.
-  func jobFinished(job: Job, result: ProcessResult, pid: Int)
-
-  /// Launch the process for given command line.
-  ///
-  /// This will be called on the execution queue.
-  func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol
-}
-
-extension JobExecutorDelegate {
-  public func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol {
-    return try Process.launchProcess(arguments: arguments, env: env)
-  }
-}
-
 public final class JobExecutor {
 
   /// The context required during job execution.
@@ -55,7 +36,7 @@ public final class JobExecutor {
     let fileSystem: FileSystem
 
     /// The job executor delegate.
-    let executorDelegate: JobExecutorDelegate
+    let executorDelegate: JobExecutionDelegate
 
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
@@ -75,18 +56,22 @@ public final class JobExecutor {
     /// The diagnostics engine to use when reporting errors.
     let diagnosticsEngine: DiagnosticsEngine
 
+    /// The type to use when launching new processes. This mostly serves as an override for testing.
+    let processType: ProcessProtocol.Type
+
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
       fileSystem: FileSystem,
       producerMap: [VirtualPath: Int],
       jobs: [Job],
-      executorDelegate: JobExecutorDelegate,
+      executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
       recordedInputModificationDates: [TypedVirtualPath: Date],
-      diagnosticsEngine: DiagnosticsEngine
+      diagnosticsEngine: DiagnosticsEngine,
+      processType: ProcessProtocol.Type = Process.self
     ) {
       self.producerMap = producerMap
       self.jobs = jobs
@@ -99,6 +84,7 @@ public final class JobExecutor {
       self.forceResponseFiles = forceResponseFiles
       self.recordedInputModificationDates = recordedInputModificationDates
       self.diagnosticsEngine = diagnosticsEngine
+      self.processType = processType
     }
   }
 
@@ -109,7 +95,7 @@ public final class JobExecutor {
   let argsResolver: ArgsResolver
 
   /// The job executor delegate.
-  let executorDelegate: JobExecutorDelegate
+  let executorDelegate: JobExecutionDelegate
 
   /// The number of jobs to run in parallel.
   let numParallelJobs: Int
@@ -126,15 +112,19 @@ public final class JobExecutor {
   /// The diagnostics engine to use when reporting errors.
   let diagnosticsEngine: DiagnosticsEngine
 
+  /// The type to use when launching new processes. This mostly serves as an override for testing.
+  let processType: ProcessProtocol.Type
+
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate,
+    executorDelegate: JobExecutionDelegate,
     diagnosticsEngine: DiagnosticsEngine,
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
-    recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
+    recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
+    processType: ProcessProtocol.Type = Process.self
   ) {
     self.jobs = jobs
     self.argsResolver = resolver
@@ -144,6 +134,7 @@ public final class JobExecutor {
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
     self.recordedInputModificationDates = recordedInputModificationDates
+    self.processType = processType
   }
 
   /// Execute all jobs.
@@ -186,7 +177,8 @@ public final class JobExecutor {
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates,
-      diagnosticsEngine: diagnosticsEngine
+      diagnosticsEngine: diagnosticsEngine,
+      processType: processType
     )
   }
 }
@@ -342,8 +334,8 @@ class ExecuteJobRule: LLBuildRule {
 
       try job.verifyInputsNotModified(since: context.recordedInputModificationDates, fileSystem: engine.fileSystem)
 
-      let process = try context.executorDelegate.launchProcess(
-        for: job, arguments: arguments, env: env
+      let process = try context.processType.launchProcess(
+        arguments: arguments, env: env
       )
       pid = Int(process.processID)
 

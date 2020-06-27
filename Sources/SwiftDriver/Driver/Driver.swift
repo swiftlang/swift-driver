@@ -77,6 +77,9 @@ public struct Driver {
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
 
+  /// The executor the driver uses to run jobs.
+  public let executor: DriverExecutor
+
   /// The target triple.
   public let targetTriple: Triple
 
@@ -218,16 +221,23 @@ public struct Driver {
   ///   in production, you should use the default argument, which copies the current environment.
   /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
   ///   emitted. The default argument prints diagnostics to stderr.
+  /// - Parameter executor: Used by the driver to exeute jobs. The default argument
+  /// is present to streamline testing, it shouldn't be used in production.
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-    fileSystem: FileSystem = localFileSystem
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor? = nil
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
 
     self.diagnosticEngine = diagnosticsEngine
+    self.executor = try executor ?? SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
+                                                        processSet: ProcessSet(),
+                                                        fileSystem: fileSystem,
+                                                        env: env)
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -624,10 +634,7 @@ extension Driver {
 
   /// Run the driver.
   public mutating func run(
-    jobs: [Job],
-    resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate? = nil,
-    processSet: ProcessSet? = nil
+    jobs: [Job]
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
@@ -650,7 +657,10 @@ extension Driver {
     // If we're only supposed to print the jobs, do so now.
     if parsedOptions.contains(.driverPrintJobs) {
       for job in jobs {
-        try Self.printJob(job, resolver: resolver, forceResponseFiles: forceResponseFiles)
+        // FIXME: We shouldn't be constructing an ArgsResolver here.
+        try Self.printJob(job,
+                          resolver: try ArgsResolver(fileSystem: fileSystem),
+                          forceResponseFiles: forceResponseFiles)
       }
       return
     }
@@ -673,23 +683,21 @@ extension Driver {
       // Only one job and no cleanup required
       || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
-      return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
+      try executor.execute(job: jobs[0],
+                           forceResponseFiles: forceResponseFiles,
+                           recordedInputModificationDates: recordedInputModificationDates)
+      return
     }
 
     // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = executorDelegate ?? createToolExecutionDelegate()
+    let executorDelegate = createToolExecutionDelegate()
 
-    // Start up an executor and perform the build.
-    let jobExecutor = JobExecutor(
-        jobs: jobs, resolver: resolver,
-        executorDelegate: executorDelegate,
-        diagnosticsEngine: diagnosticEngine,
-        numParallelJobs: numParallelJobs,
-        processSet: processSet,
-        forceResponseFiles: forceResponseFiles,
-        recordedInputModificationDates: recordedInputModificationDates
-    )
-    try jobExecutor.execute(env: env, fileSystem: fileSystem)
+    // Perform the build
+    try executor.execute(jobs: jobs,
+                         delegate: executorDelegate,
+                         numParallelJobs: numParallelJobs ?? 1,
+                         forceResponseFiles: forceResponseFiles,
+                         recordedInputModificationDates: recordedInputModificationDates)
   }
 
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
