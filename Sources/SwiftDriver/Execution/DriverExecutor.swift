@@ -86,7 +86,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
                forceResponseFiles: Bool = false,
                recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) throws {
-    let llbuildExecutor = JobExecutor(jobs: jobs,
+    let llbuildExecutor = MultiJobExecutor(jobs: jobs,
                                       resolver: resolver,
                                       executorDelegate: delegate,
                                       diagnosticsEngine: diagnosticsEngine,

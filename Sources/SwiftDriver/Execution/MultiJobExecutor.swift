@@ -15,7 +15,7 @@ import enum TSCUtility.Diagnostics
 import Foundation
 import Dispatch
 
-public final class JobExecutor {
+public final class MultiJobExecutor {
 
   /// The context required during job execution.
   struct Context {
@@ -185,9 +185,9 @@ public final class JobExecutor {
 
 struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
 
-  let context: JobExecutor.Context
+  let context: MultiJobExecutor.Context
 
-  init(_ context: JobExecutor.Context) {
+  init(_ context: MultiJobExecutor.Context) {
     self.context = context
   }
 
@@ -276,12 +276,12 @@ class ExecuteJobRule: LLBuildRule {
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
 
   private let key: RuleKey
-  private let context: JobExecutor.Context
+  private let context: MultiJobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key, context: JobExecutor.Context) {
+  init(_ key: Key, context: MultiJobExecutor.Context) {
     self.key = RuleKey(key)
     self.context = context
     super.init(fileSystem: context.fileSystem)
