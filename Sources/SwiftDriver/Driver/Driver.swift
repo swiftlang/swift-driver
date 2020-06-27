@@ -221,7 +221,7 @@ public struct Driver {
   ///   in production, you should use the default argument, which copies the current environment.
   /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
   ///   emitted. The default argument prints diagnostics to stderr.
-  /// - Parameter executor: Used by the driver to exeute jobs. The default argument
+  /// - Parameter executor: Used by the driver to execute jobs. The default argument
   /// is present to streamline testing, it shouldn't be used in production.
   public init(
     args: [String],
