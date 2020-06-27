@@ -713,19 +713,6 @@ extension Driver {
     return ToolExecutionDelegate(mode: mode)
   }
 
-  /// Execute a single job in-place.
-  private func executeJobInPlace(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
-    let arguments: [String] = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
-
-    for (envVar, value) in job.extraEnvironment {
-      try ProcessEnv.setVar(envVar, value: value)
-    }
-
-    try job.verifyInputsNotModified(since: self.recordedInputModificationDates, fileSystem: fileSystem)
-
-    return try exec(path: arguments[0], args: arguments)
-  }
-
   public static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
     let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
     var result = args.joined(separator: " ")
