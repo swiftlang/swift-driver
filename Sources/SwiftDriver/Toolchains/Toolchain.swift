@@ -119,35 +119,12 @@ extension Toolchain {
   }
 
   /// Retrieve information about the target from
-  func getFrontendTargetInfo(target: Triple?, targetVariant: Triple?) throws
-      -> FrontendTargetInfo {
+  func getFrontendTargetInfo(target: Triple?, targetVariant: Triple?) throws -> FrontendTargetInfo {
     // Print information for the given target.
-    var args = [
-      try getToolPath(.swiftCompiler).pathString,
-      "-print-target-info",
-    ]
-
-    // If we were given a target, include it. Otherwise, let the frontend
-    // tell us the host target.
-    if let target = target {
-      args += [
-        "-target", target.triple
-      ]
-    }
-
-    // If there is a target variant, include that too.
-    if let targetVariant = targetVariant {
-      args += [
-        "-target-variant",
-        targetVariant.triple
-      ]
-    }
-
-    let resultString = try Process.checkNonZeroExit(arguments: args)
-    guard let resultData = resultString.data(using: .utf8) else {
-      throw Driver.Error.malformedSwiftTargetInfo(resultString)
-    }
-    return try JSONDecoder().decode(FrontendTargetInfo.self, from: resultData)
+    return try executor.execute(job: printTargetInfoJob(target: target, targetVariant: targetVariant),
+                                capturingJSONOutputAs: FrontendTargetInfo.self,
+                                forceResponseFiles: false,
+                                recordedInputModificationDates: [:])
   }
 
   /// Returns the target triple string for the current host.

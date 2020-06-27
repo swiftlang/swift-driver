@@ -30,7 +30,6 @@ public struct Driver {
     case missingPCMArguments(String)
     case missingModuleDependency(String)
     case dependencyScanningFailure(Int, String)
-    case malformedSwiftTargetInfo(String)
 
     public var description: String {
       switch self {
@@ -60,8 +59,6 @@ public struct Driver {
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       case .unableToLoadOutputFileMap(let path):
         return "unable to load output file map '\(path)': no such file or directory"
-      case .malformedSwiftTargetInfo(let string):
-        return "malformed swift -print-target-info result: '\(string)'"
       }
     }
   }

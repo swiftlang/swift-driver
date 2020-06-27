@@ -48,6 +48,7 @@ add_library(SwiftDriver
   Jobs/LinkJob.swift
   Jobs/MergeModuleJob.swift
   Jobs/Planning.swift
+  Jobs/PrintTargetInfoJob.swift
   Jobs/ReplJob.swift
   Jobs/Toolchain+InterpreterSupport.swift
   Jobs/Toolchain+LinkerSupport.swift
