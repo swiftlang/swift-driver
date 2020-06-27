@@ -1406,7 +1406,7 @@ final class SwiftDriverTests: XCTestCase {
 
     let expectedDefaultContents: String
     #if os(macOS)
-    expectedDefaultContents = "x86_64-apple-darwin"
+    expectedDefaultContents = "x86_64-apple-"
     #elseif os(Linux)
     expectedDefaultContents = "-unknown-linux"
     #else
@@ -2375,17 +2375,12 @@ final class SwiftDriverTests: XCTestCase {
   func testSwiftHelpOverride() throws {
     // FIXME: On Linux, we might not have any Clang in the path. We need a
     // better override.
-    #if os(macOS)
-    var driver = try Driver(
-      args: ["swiftc", "-help"],
-      env: [
-        "SWIFT_DRIVER_SWIFT_HELP_EXEC" : "/usr/bin/nonexistent-swift-help",
-        "SWIFT_DRIVER_CLANG_EXEC" : "/usr/bin/clang"
-      ])
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = "/usr/bin/nonexistent-swift-help"
+    var driver = try Driver(args: ["swiftc", "-help"], env: env)
     let jobs = try driver.planBuild()
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
-    #endif
   }
   
   func testSourceInfoFileEmitOption() throws {

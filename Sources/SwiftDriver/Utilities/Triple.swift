@@ -176,6 +176,17 @@ public struct Triple {
   }
 }
 
+extension Triple: Codable {
+  public init(from decoder: Decoder) throws {
+    self.init(try decoder.singleValueContainer().decode(String.self))
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    try container.encode(triple)
+  }
+}
+
 // MARK: - Triple component parsing
 
 fileprivate protocol TripleComponent {
