@@ -87,6 +87,6 @@ public struct ArgsResolver {
 
   /// Remove the temporary directory from disk.
   public func removeTemporaryDirectory() throws {
-    _ = try FileManager.default.removeItem(atPath: temporaryDirectory.pathString)
+    try fileSystem.removeFileTree(temporaryDirectory)
   }
 }
