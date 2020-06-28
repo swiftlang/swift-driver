@@ -680,7 +680,10 @@ extension Driver {
       // Only one job and no cleanup required
       || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
-      try executor.execute(job: jobs[0],
+      var job = jobs[0]
+      // Require in-place execution for all single job plans.
+      job.requiresInPlaceExecution = true
+      try executor.execute(job: job,
                            forceResponseFiles: forceResponseFiles,
                            recordedInputModificationDates: recordedInputModificationDates)
       return
