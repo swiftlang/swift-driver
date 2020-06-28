@@ -218,6 +218,8 @@ public struct Driver {
   ///   in production, you should use the default argument, which copies the current environment.
   /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
   ///   emitted. The default argument prints diagnostics to stderr.
+  /// - Parameter outputFileMap: Explicitly passed output file map object. Note that
+  /// the -output-file-map command-line argument wins, if present.
   /// - Parameter executor: Used by the driver to execute jobs. The default argument
   /// is present to streamline testing, it shouldn't be used in production.
   public init(
@@ -225,6 +227,7 @@ public struct Driver {
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
+    outputFileMap: OutputFileMap? = nil,
     executor: DriverExecutor? = nil
   ) throws {
     self.env = env
@@ -289,23 +292,25 @@ public struct Driver {
         return ($0, modTime)
     })
 
-    let outputFileMap: OutputFileMap?
+    let outputFileMap_: OutputFileMap?
     // Initialize an empty output file map, which will be populated when we start creating jobs.
     if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
       do {
         let path = try VirtualPath(path: outputFileMapArg)
-        outputFileMap = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
+        outputFileMap_ = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
       } catch {
         throw Error.unableToLoadOutputFileMap(outputFileMapArg)
       }
+    } else if let outputFileMap = outputFileMap {
+        outputFileMap_ = outputFileMap
     } else {
-      outputFileMap = nil
+        outputFileMap_ = nil
     }
 
     if let workingDirectory = self.workingDirectory {
-      self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
+      self.outputFileMap = outputFileMap_?.resolveRelativePaths(relativeTo: workingDirectory)
     } else {
-      self.outputFileMap = outputFileMap
+      self.outputFileMap = outputFileMap_
     }
 
     // Determine the compilation mode.
