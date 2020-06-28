@@ -10,6 +10,46 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Swift versions are major.minor.
+struct SwiftVersion {
+  var major: Int
+  var minor: Int
+
+  init?(string: String) {
+    let components = string.split(
+          separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+          .compactMap { Int($0)}
+    guard components.count == 2 else { return nil }
+
+    self.major = components[0]
+    self.minor = components[1]
+  }
+}
+
+extension SwiftVersion: CustomStringConvertible {
+  var description: String { "\(major).\(minor)" }
+}
+
+extension SwiftVersion: Codable {
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    try container.encode(description)
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    let string = try container.decode(String.self)
+
+    guard let version = SwiftVersion(string: string) else {
+        throw DecodingError.dataCorrupted(.init(
+            codingPath: decoder.codingPath,
+            debugDescription: "Invalid Swift version string \(string)"))
+    }
+
+    self = version
+  }
+}
+
 /// Describes information about the target as provided by the Swift frontend.
 struct FrontendTargetInfo: Codable {
   struct Target: Codable {
@@ -21,6 +61,10 @@ struct FrontendTargetInfo: Codable {
 
     /// The triple used for module names.
     let moduleTriple: Triple
+
+    /// The version of the Swift runtime that is present in the runtime
+    /// environment of the target.
+    let swiftRuntimeCompatibilityVersion: SwiftVersion?
 
     /// Whether the Swift libraries need to be referenced in their system
     /// location (/usr/lib/swift) via rpath .
