@@ -77,14 +77,19 @@ public struct Driver {
   /// The executor the driver uses to run jobs.
   public let executor: DriverExecutor
 
-  /// The target triple.
-  public let targetTriple: Triple
-
-  /// The variant target triple.
-  public let targetVariantTriple: Triple?
-
   /// The toolchain to use for resolution.
   public let toolchain: Toolchain
+
+  /// Information about the target, as reported by the Swift frontend.
+  let frontendTargetInfo: FrontendTargetInfo
+
+  /// The target triple.
+  public var targetTriple: Triple { frontendTargetInfo.target.triple }
+
+  /// The variant target triple.
+  public var targetVariantTriple: Triple? {
+    frontendTargetInfo.targetVariant?.triple
+  }
 
   /// The kind of driver.
   public let driverKind: DriverKind
@@ -250,8 +255,19 @@ public struct Driver {
       .map {
         Triple($0, normalizing: true)
       }
-    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env, executor: self.executor, fileSystem: fileSystem)
-    self.targetVariantTriple = self.parsedOptions.getLastArgument(.targetVariant).map { Triple($0.asSingle, normalizing: true) }
+    let explicitTargetVariant = (self.parsedOptions.getLastArgument(.target)?.asSingle)
+      .map {
+        Triple($0, normalizing: true)
+      }
+    (self.toolchain, self.frontendTargetInfo) = try Self.computeToolchain(
+      explicitTarget, explicitTargetVariant: explicitTargetVariant,
+      sdkPath: /*FIXME:*/ nil, resourceDirPath: /*FIXME:*/nil,
+      diagnosticsEngine: diagnosticEngine, env: env, executor: self.executor,
+      fileSystem: fileSystem)
+
+    // Local variable to alias the target triple, because self.targetTriple
+    // is not available until the end of this initializer.
+    let targetTriple = self.frontendTargetInfo.target.triple
 
     // Find the Swift compiler executable.
     if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
@@ -342,7 +358,8 @@ public struct Driver {
       actualSwiftVersion: try? toolchain.swiftCompilerVersion()
     )
 
-    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, fileSystem: fileSystem, diagnosticsEngine: diagnosticEngine, env: env)
+    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, targetTriple: targetTriple,
+        fileSystem: fileSystem, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
@@ -728,8 +745,8 @@ extension Driver {
     print(result)
   }
 
-  private func printBindings(_ job: Job) throws {
-    try stdoutStream <<< #"# ""# <<< toolchain.hostTargetTriple().triple
+  private func printBindings(_ job: Job) {
+    stdoutStream <<< #"# ""# <<< targetTriple.triple
     stdoutStream <<< #"" - ""# <<< job.tool.basename
     stdoutStream <<< #"", inputs: ["#
     stdoutStream <<< job.inputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
@@ -1416,6 +1433,7 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode,
     toolchain: Toolchain,
+    targetTriple: Triple,
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String]
@@ -1427,8 +1445,7 @@ extension Driver {
     } else if let SDKROOT = env["SDKROOT"] {
       sdkPath = SDKROOT
     } else if compilerMode == .immediate || compilerMode == .repl {
-      let triple = try? toolchain.hostTargetTriple()
-      if triple?.isMacOSX == true {
+      if targetTriple.isMacOSX == true {
         // In immediate modes, use the SDK provided by xcrun.
         // This will prefer the SDK alongside the Swift found by "xcrun swift".
         // We don't do this in compilation modes because defaulting to the
@@ -1574,15 +1591,28 @@ extension Driver {
 
   static func computeToolchain(
     _ explicitTarget: Triple?,
+    explicitTargetVariant: Triple?,
+    sdkPath: VirtualPath? = nil,
+    resourceDirPath: VirtualPath?,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String],
     executor: DriverExecutor,
     fileSystem: FileSystem
-  ) throws -> (Toolchain, Triple) {
+  ) throws -> (Toolchain, FrontendTargetInfo) {
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
     let toolchain = toolchainType.init(env: env, executor: executor, fileSystem: fileSystem)
-    return (toolchain, try explicitTarget ?? toolchain.hostTargetTriple())
+
+    let info = try executor.execute(
+        job: toolchain.printTargetInfoJob(
+          target: explicitTarget, targetVariant: explicitTargetVariant,
+          sdkPath: sdkPath, resourceDirPath: resourceDirPath
+        ),
+        capturingJSONOutputAs: FrontendTargetInfo.self,
+        forceResponseFiles: false,
+        recordedInputModificationDates: [:])
+
+    return (toolchain, info)
   }
 }
 

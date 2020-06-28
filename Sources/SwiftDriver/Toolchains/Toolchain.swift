@@ -118,21 +118,6 @@ extension Toolchain {
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
 
-  /// Retrieve information about the target from
-  func getFrontendTargetInfo(target: Triple?, targetVariant: Triple?) throws -> FrontendTargetInfo {
-    // Print information for the given target.
-    return try executor.execute(job: printTargetInfoJob(target: target, targetVariant: targetVariant),
-                                capturingJSONOutputAs: FrontendTargetInfo.self,
-                                forceResponseFiles: false,
-                                recordedInputModificationDates: [:])
-  }
-
-  /// Returns the target triple string for the current host.
-  public func hostTargetTriple() throws -> Triple {
-    return try getFrontendTargetInfo(target: nil, targetVariant: nil)
-      .target.triple
-  }
-
   /// Returns the `executablePath`'s directory.
   public var executableDir: AbsolutePath {
     guard let path = Bundle.main.executablePath else {
