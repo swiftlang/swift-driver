@@ -23,7 +23,7 @@ import Glibc
 #endif
 
 /// Delegate for printing execution information on the command-line.
-public struct ToolExecutionDelegate: JobExecutorDelegate {
+public struct ToolExecutionDelegate: JobExecutionDelegate {
   public enum Mode {
     case verbose
     case parsableOutput

@@ -30,7 +30,6 @@ public struct Driver {
     case missingPCMArguments(String)
     case missingModuleDependency(String)
     case dependencyScanningFailure(Int, String)
-    case malformedSwiftTargetInfo(String)
 
     public var description: String {
       switch self {
@@ -60,8 +59,6 @@ public struct Driver {
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       case .unableToLoadOutputFileMap(let path):
         return "unable to load output file map '\(path)': no such file or directory"
-      case .malformedSwiftTargetInfo(let string):
-        return "malformed swift -print-target-info result: '\(string)'"
       }
     }
   }
@@ -76,6 +73,9 @@ public struct Driver {
 
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
+
+  /// The executor the driver uses to run jobs.
+  public let executor: DriverExecutor
 
   /// The target triple.
   public let targetTriple: Triple
@@ -218,16 +218,23 @@ public struct Driver {
   ///   in production, you should use the default argument, which copies the current environment.
   /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
   ///   emitted. The default argument prints diagnostics to stderr.
+  /// - Parameter executor: Used by the driver to execute jobs. The default argument
+  /// is present to streamline testing, it shouldn't be used in production.
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-    fileSystem: FileSystem = localFileSystem
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor? = nil
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
 
     self.diagnosticEngine = diagnosticsEngine
+    self.executor = try executor ?? SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
+                                                        processSet: ProcessSet(),
+                                                        fileSystem: fileSystem,
+                                                        env: env)
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -243,7 +250,7 @@ public struct Driver {
       .map {
         Triple($0, normalizing: true)
       }
-    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env, fileSystem: fileSystem)
+    (self.toolchain, self.targetTriple) = try Self.computeToolchain(explicitTarget, diagnosticsEngine: diagnosticEngine, env: env, executor: self.executor, fileSystem: fileSystem)
     self.targetVariantTriple = self.parsedOptions.getLastArgument(.targetVariant).map { Triple($0.asSingle, normalizing: true) }
 
     // Find the Swift compiler executable.
@@ -624,10 +631,7 @@ extension Driver {
 
   /// Run the driver.
   public mutating func run(
-    jobs: [Job],
-    resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate? = nil,
-    processSet: ProcessSet? = nil
+    jobs: [Job]
   ) throws {
     // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
     guard driverKind.isSwiftCompiler else {
@@ -650,7 +654,10 @@ extension Driver {
     // If we're only supposed to print the jobs, do so now.
     if parsedOptions.contains(.driverPrintJobs) {
       for job in jobs {
-        try Self.printJob(job, resolver: resolver, forceResponseFiles: forceResponseFiles)
+        // FIXME: We shouldn't be constructing an ArgsResolver here.
+        try Self.printJob(job,
+                          resolver: try ArgsResolver(fileSystem: fileSystem),
+                          forceResponseFiles: forceResponseFiles)
       }
       return
     }
@@ -673,23 +680,21 @@ extension Driver {
       // Only one job and no cleanup required
       || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
-      return try executeJobInPlace(jobs[0], resolver: resolver, forceResponseFiles: forceResponseFiles)
+      try executor.execute(job: jobs[0],
+                           forceResponseFiles: forceResponseFiles,
+                           recordedInputModificationDates: recordedInputModificationDates)
+      return
     }
 
     // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = executorDelegate ?? createToolExecutionDelegate()
+    let executorDelegate = createToolExecutionDelegate()
 
-    // Start up an executor and perform the build.
-    let jobExecutor = JobExecutor(
-        jobs: jobs, resolver: resolver,
-        executorDelegate: executorDelegate,
-        diagnosticsEngine: diagnosticEngine,
-        numParallelJobs: numParallelJobs,
-        processSet: processSet,
-        forceResponseFiles: forceResponseFiles,
-        recordedInputModificationDates: recordedInputModificationDates
-    )
-    try jobExecutor.execute(env: env, fileSystem: fileSystem)
+    // Perform the build
+    try executor.execute(jobs: jobs,
+                         delegate: executorDelegate,
+                         numParallelJobs: numParallelJobs ?? 1,
+                         forceResponseFiles: forceResponseFiles,
+                         recordedInputModificationDates: recordedInputModificationDates)
   }
 
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
@@ -703,19 +708,6 @@ extension Driver {
     }
 
     return ToolExecutionDelegate(mode: mode)
-  }
-
-  /// Execute a single job in-place.
-  private func executeJobInPlace(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
-    let arguments: [String] = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
-
-    for (envVar, value) in job.extraEnvironment {
-      try ProcessEnv.setVar(envVar, value: value)
-    }
-
-    try job.verifyInputsNotModified(since: self.recordedInputModificationDates, fileSystem: fileSystem)
-
-    return try exec(path: arguments[0], args: arguments)
   }
 
   public static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
@@ -752,7 +744,7 @@ extension Driver {
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
-    outputStream.write(try Process.checkNonZeroExit(args: toolchain.getToolPath(.swiftCompiler).pathString, "--version"))
+    outputStream.write(try executor.checkNonZeroExit(args: toolchain.getToolPath(.swiftCompiler).pathString, "--version", environment: env))
     outputStream.flush()
   }
 }
@@ -1584,11 +1576,12 @@ extension Driver {
     _ explicitTarget: Triple?,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String],
+    executor: DriverExecutor,
     fileSystem: FileSystem
   ) throws -> (Toolchain, Triple) {
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
-    let toolchain = toolchainType.init(env: env, fileSystem: fileSystem)
+    let toolchain = toolchainType.init(env: env, executor: executor, fileSystem: fileSystem)
     return (toolchain, try explicitTarget ?? toolchain.hostTargetTriple())
   }
 }

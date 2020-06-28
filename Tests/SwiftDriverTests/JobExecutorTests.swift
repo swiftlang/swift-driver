@@ -21,8 +21,12 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
   }
 }
 
-class JobCollectingDelegate: JobExecutorDelegate {
+class JobCollectingDelegate: JobExecutionDelegate {
   struct StubProcess: ProcessProtocol {
+    static func launchProcess(arguments: [String], env: [String : String]) throws -> StubProcess {
+      return .init()
+    }
+
     var processID: TSCBasic.Process.ProcessID { .init(-1) }
 
     func waitUntilExit() throws -> ProcessResult {
@@ -38,7 +42,6 @@ class JobCollectingDelegate: JobExecutorDelegate {
 
   var started: [Job] = []
   var finished: [(Job, ProcessResult)] = []
-  var useStubProcess = false
 
   func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     finished.append((job, result))
@@ -47,19 +50,16 @@ class JobCollectingDelegate: JobExecutorDelegate {
   func jobStarted(job: Job, arguments: [String], pid: Int) {
     started.append(job)
   }
-
-  func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol {
-    if useStubProcess {
-      return StubProcess()
-    }
-    return try TSCBasic.Process.launchProcess(arguments: arguments, env: env)
-  }
 }
 
 final class JobExecutorTests: XCTestCase {
   func testDarwinBasic() throws {
 #if os(macOS)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars)
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
     try withTemporaryDirectory { path in
       let foo = path.appending(component: "foo.swift")
       let main = path.appending(component: "main.swift")
@@ -153,7 +153,7 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let delegate = JobCollectingDelegate()
-      let executor = JobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
+      let executor = MultiJobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
@@ -179,11 +179,11 @@ final class JobExecutorTests: XCTestCase {
     )
 
     let delegate = JobCollectingDelegate()
-    delegate.useStubProcess = true
-    let executor = JobExecutor(
+    let executor = MultiJobExecutor(
       jobs: [job], resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
-      diagnosticsEngine: DiagnosticsEngine()
+      diagnosticsEngine: DiagnosticsEngine(),
+      processType: JobCollectingDelegate.StubProcess.self
     )
     try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
 
@@ -194,23 +194,27 @@ final class JobExecutorTests: XCTestCase {
     var env = ProcessEnv.vars
     let envVarName = "SWIFT_DRIVER_SWIFT_EXEC"
     let dummyPath = "/some/garbage/path/fnord"
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: env)
 
     // DarwinToolchain
     env.removeValue(forKey: envVarName)
-    let normalSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
+    let normalSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
     XCTAssertEqual(normalSwiftPath.basenameWithoutExt, "swift")
 
     env[envVarName] = dummyPath
-    let overriddenSwiftPath = try DarwinToolchain(env: env).getToolPath(.swiftCompiler)
+    let overriddenSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
     XCTAssertEqual(overriddenSwiftPath, AbsolutePath(dummyPath))
 
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
-    let unixSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
+    let unixSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
     XCTAssertEqual(unixSwiftPath.basenameWithoutExt, "swift")
 
     env[envVarName] = dummyPath
-    let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env).getToolPath(.swiftCompiler)
+    let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
     XCTAssertEqual(unixOverriddenSwiftPath, AbsolutePath(dummyPath))
   }
 
@@ -224,17 +228,13 @@ final class JobExecutorTests: XCTestCase {
       var driver = try Driver(args: ["swift", main.pathString])
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].requiresInPlaceExecution)
-      let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
       // Change the file
       try localFileSystem.writeFileContents(main) {
         $0 <<< "let foo = 1"
       }
 
-      let delegate = JobCollectingDelegate()
-      delegate.useStubProcess = true
-      XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver,
-                                          executorDelegate: delegate)) {
+      XCTAssertThrowsError(try driver.run(jobs: jobs)) {
         XCTAssertEqual($0 as? Job.InputError,
                        .inputUnexpectedlyModified(TypedVirtualPath(file: .absolute(main), type: .swift)))
       }
@@ -255,20 +255,16 @@ final class JobExecutorTests: XCTestCase {
       try assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString]) {driver, verifier in
         let jobs = try driver.planBuild()
         XCTAssertTrue(jobs.count > 1)
-        let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
         // Change the file
         try localFileSystem.writeFileContents(other) {
           $0 <<< "let bar = 3"
         }
 
-        let delegate = JobCollectingDelegate()
-        delegate.useStubProcess = true
-
         // FIXME: It's unfortunate we diagnose this twice, once for each job which uses the input.
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
-        XCTAssertThrowsError(try driver.run(jobs: jobs, resolver: resolver, executorDelegate: delegate))
+        XCTAssertThrowsError(try driver.run(jobs: jobs))
       }
     }
   }

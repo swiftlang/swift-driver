@@ -90,6 +90,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// JSON-based Module Dependency Scanner output
   case jsonDependencies = "dependencies.json"
 
+  /// JSON-based -print-target-info output
+  case jsonTargetInfo = "targetInfo.json"
+
   /// Module trace file.
   ///
   /// Module traces are used by Apple's internal build infrastructure. Apple
@@ -147,6 +150,9 @@ extension FileType: CustomStringConvertible {
     case .jsonDependencies:
       return "json-dependencies"
 
+    case .jsonTargetInfo:
+      return "json-target-info"
+
     case .importedModules:
       return "imported-modules"
 
@@ -176,7 +182,7 @@ extension FileType {
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface,
-         .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap:
+         .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap, .jsonTargetInfo:
       return false
     }
   }
@@ -247,6 +253,8 @@ extension FileType {
       return "swift-dependencies"
     case .jsonDependencies:
       return "json-dependencies"
+    case .jsonTargetInfo:
+      return "json-target-info"
     case .importedModules:
       return "imported-modules"
     case .moduleTrace:
@@ -266,7 +274,7 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
-         .optimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap:
+         .optimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap, .jsonTargetInfo:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -285,7 +293,7 @@ extension FileType {
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
          .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
          .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch, .jsonDependencies,
-         .clangModuleMap:
+         .clangModuleMap, .jsonTargetInfo:
       return false
     }
   }

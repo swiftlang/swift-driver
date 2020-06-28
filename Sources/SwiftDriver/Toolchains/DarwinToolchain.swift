@@ -20,11 +20,15 @@ public final class DarwinToolchain: Toolchain {
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
+  /// The executor used to run processes used to find tools and retrieve target info.
+  public let executor: DriverExecutor
+
   /// The file system to use for any file operations.
   public let fileSystem: FileSystem
 
-  public init(env: [String: String], fileSystem: FileSystem = localFileSystem) {
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
     self.env = env
+    self.executor = executor
     self.fileSystem = fileSystem
   }
 
@@ -55,8 +59,8 @@ public final class DarwinToolchain: Toolchain {
       return try lookup(executable: "dsymutil")
 
     case .clang:
-      let result = try Process.checkNonZeroExit(
-        arguments: ["xcrun", "-toolchain", "default", "-f", "clang"],
+      let result = try executor.checkNonZeroExit(
+        args: "xcrun", "-toolchain", "default", "-f", "clang",
         environment: env
       ).spm_chomp()
       return AbsolutePath(result)
@@ -77,8 +81,8 @@ public final class DarwinToolchain: Toolchain {
 
   /// SDK path.
   public lazy var sdk: Result<AbsolutePath, Swift.Error> = Result {
-    let result = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"],
+    let result = try executor.checkNonZeroExit(
+      args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
       environment: env
     ).spm_chomp()
     return AbsolutePath(result)
@@ -117,8 +121,8 @@ public final class DarwinToolchain: Toolchain {
   }
 
   public func defaultSDKPath() throws -> AbsolutePath? {
-    let result = try Process.checkNonZeroExit(
-      arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"],
+    let result = try executor.checkNonZeroExit(
+      args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
       environment: env
     ).spm_chomp()
     return AbsolutePath(result)

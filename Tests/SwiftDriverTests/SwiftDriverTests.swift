@@ -1610,25 +1610,33 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testToolchainUtilities() throws {
-    let darwinToolchain = DarwinToolchain(env: ProcessEnv.vars)
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    let darwinToolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
     let darwinSwiftVersion = try darwinToolchain.swiftCompilerVersion()
-    let unixToolchain =  GenericUnixToolchain(env: ProcessEnv.vars)
+    let unixToolchain =  GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
     let unixSwiftVersion = try unixToolchain.swiftCompilerVersion()
     assertString(darwinSwiftVersion, contains: "Swift version ")
     assertString(unixSwiftVersion, contains: "Swift version ")
   }
 
-  func testToolchainClangPath() {
+  func testToolchainClangPath() throws {
     // Overriding the swift executable to a specific location breaks this.
     guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil else {
       return
     }
     // TODO: remove this conditional check once DarwinToolchain does not requires xcrun to look for clang.
     var toolchain: Toolchain
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
     #if os(macOS)
-    toolchain = DarwinToolchain(env: ProcessEnv.vars)
+    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
     #else
-    toolchain = GenericUnixToolchain(env: ProcessEnv.vars)
+    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
     #endif
 
     XCTAssertEqual(

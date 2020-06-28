@@ -253,8 +253,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-working-directory", path.pathString,
                                      main.pathString])
       let jobs = try driver.planBuild()
-      let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      try driver.run(jobs: jobs, resolver: resolver, processSet: ProcessSet())
+      try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif

@@ -20,7 +20,9 @@ add_library(SwiftDriver
   Driver/OutputFileMap.swift
   Driver/ToolExecutionDelegate.swift
 
-  Execution/JobExecutor.swift
+  Execution/ArgsResolver.swift
+  Execution/MultiJobExecutor.swift
+  Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
   Execution/llbuild.swift
@@ -46,6 +48,7 @@ add_library(SwiftDriver
   Jobs/LinkJob.swift
   Jobs/MergeModuleJob.swift
   Jobs/Planning.swift
+  Jobs/PrintTargetInfoJob.swift
   Jobs/ReplJob.swift
   Jobs/Toolchain+InterpreterSupport.swift
   Jobs/Toolchain+LinkerSupport.swift

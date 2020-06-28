@@ -55,13 +55,15 @@ struct FrontendTargetInfo: Codable {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
-  init(env: [String: String], fileSystem: FileSystem)
+  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem)
 
   var env: [String: String] { get }
 
   var fileSystem: FileSystem { get }
 
   var searchPaths: [AbsolutePath] { get }
+
+  var executor: DriverExecutor { get }
 
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
@@ -110,42 +112,19 @@ extension Toolchain {
   }
 
   public func swiftCompilerVersion() throws -> String {
-    try Process.checkNonZeroExit(
+    try executor.checkNonZeroExit(
       args: getToolPath(.swiftCompiler).pathString, "-version",
       environment: env
     ).split(separator: "\n").first.map(String.init) ?? ""
   }
 
   /// Retrieve information about the target from
-  func getFrontendTargetInfo(target: Triple?, targetVariant: Triple?) throws
-      -> FrontendTargetInfo {
+  func getFrontendTargetInfo(target: Triple?, targetVariant: Triple?) throws -> FrontendTargetInfo {
     // Print information for the given target.
-    var args = [
-      try getToolPath(.swiftCompiler).pathString,
-      "-print-target-info",
-    ]
-
-    // If we were given a target, include it. Otherwise, let the frontend
-    // tell us the host target.
-    if let target = target {
-      args += [
-        "-target", target.triple
-      ]
-    }
-
-    // If there is a target variant, include that too.
-    if let targetVariant = targetVariant {
-      args += [
-        "-target-variant",
-        targetVariant.triple
-      ]
-    }
-
-    let resultString = try Process.checkNonZeroExit(arguments: args)
-    guard let resultData = resultString.data(using: .utf8) else {
-      throw Driver.Error.malformedSwiftTargetInfo(resultString)
-    }
-    return try JSONDecoder().decode(FrontendTargetInfo.self, from: resultData)
+    return try executor.execute(job: printTargetInfoJob(target: target, targetVariant: targetVariant),
+                                capturingJSONOutputAs: FrontendTargetInfo.self,
+                                forceResponseFiles: false,
+                                recordedInputModificationDates: [:])
   }
 
   /// Returns the target triple string for the current host.
@@ -212,8 +191,8 @@ extension Toolchain {
       throw ToolchainError.unableToFind(tool: xcrun)
     }
 
-    let path = try Process.checkNonZeroExit(
-      arguments: [xcrun, "--find", executable],
+    let path = try executor.checkNonZeroExit(
+      args: xcrun, "--find", executable,
       environment: env
     ).spm_chomp()
     return AbsolutePath(path)

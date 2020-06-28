@@ -24,13 +24,18 @@ public protocol ProcessProtocol {
   /// Wait for the process to finish execution.
   @discardableResult
   func waitUntilExit() throws -> ProcessResult
+
+  static func launchProcess(
+    arguments: [String],
+    env: [String: String]
+  ) throws -> Self
 }
 
 extension Process: ProcessProtocol {
   public static func launchProcess(
     arguments: [String],
     env: [String: String]
-  ) throws -> ProcessProtocol {
+  ) throws -> Process {
     let process = Process(arguments: arguments, environment: env)
     try process.launch()
     return process

@@ -31,6 +31,7 @@ public struct Job: Codable, Equatable, Hashable {
     case verifyDebugInfo = "verify-debug-info"
     case printTargetInfo = "print-target-info"
     case versionRequest = "version-request"
+    case scanDependencies = "scan-dependencies"
     case help
   }
 
@@ -168,6 +169,9 @@ extension Job : CustomStringConvertible {
 
     case .backend:
       return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.name ?? "")"
+
+    case .scanDependencies:
+      return "Scanning dependencies for module \(moduleName)"
     }
   }
 }
@@ -178,7 +182,7 @@ extension Job.Kind {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
         .generatePCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest:
+        .versionRequest, .scanDependencies:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
@@ -194,7 +198,7 @@ extension Job.Kind {
     case .backend, .mergeModule, .emitModule, .generatePCH,
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
-         .help, .link, .verifyDebugInfo:
+         .help, .link, .verifyDebugInfo, .scanDependencies:
       return false
     }
   }

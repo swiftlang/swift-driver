@@ -15,105 +15,7 @@ import enum TSCUtility.Diagnostics
 import Foundation
 import Dispatch
 
-/// Resolver for a job's argument template.
-public struct ArgsResolver {
-  /// The map of virtual path to the actual path.
-  public var pathMapping: [VirtualPath: AbsolutePath]
-
-  /// The file system used by the resolver.
-  private let fileSystem: FileSystem
-
-  /// Path to the directory that will contain the temporary files.
-  private let temporaryDirectory: AbsolutePath
-
-  public init(fileSystem: FileSystem) throws {
-    self.pathMapping = [:]
-    self.fileSystem = fileSystem
-    self.temporaryDirectory = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
-      // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
-      try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
-      return path
-    }
-  }
-
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> [String] {
-    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
-    return arguments
-  }
-
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> ([String], usingResponseFile: Bool) {
-    let tool = try resolve(.path(job.tool))
-    var arguments = [tool] + (try job.commandLine.map { try resolve($0) })
-    let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
-                                                           forceResponseFiles: forceResponseFiles)
-    return (arguments, usingResponseFile)
-  }
-
-  /// Resolve the given argument.
-  public func resolve(_ arg: Job.ArgTemplate) throws -> String {
-    switch arg {
-    case .flag(let flag):
-      return flag
-
-    case .path(let path):
-      // Return the path from the temporary directory if this is a temporary file.
-      if path.isTemporary {
-        let actualPath = temporaryDirectory.appending(component: path.name)
-        return actualPath.pathString
-      }
-
-      // If there was a path mapping, use it.
-      if let actualPath = pathMapping[path] {
-        return actualPath.pathString
-      }
-
-      // Otherwise, return the path.
-      return path.name
-    }
-  }
-
-  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], forceResponseFiles: Bool) throws -> Bool {
-    if forceResponseFiles ||
-      (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {
-      assert(!forceResponseFiles || job.supportsResponseFiles,
-             "Platform does not support response files for job: \(job)")
-      // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
-      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
-      try fileSystem.writeFileContents(responseFilePath) {
-        $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n")
-      }
-      resolvedArguments = [resolvedArguments[0], "@\(responseFilePath.pathString)"]
-      return true
-    }
-    return false
-  }
-
-  /// Remove the temporary directory from disk.
-  public func removeTemporaryDirectory() throws {
-    _ = try FileManager.default.removeItem(atPath: temporaryDirectory.pathString)
-  }
-}
-
-public protocol JobExecutorDelegate {
-  /// Called when a job starts executing.
-  func jobStarted(job: Job, arguments: [String], pid: Int)
-
-  /// Called when a job finished.
-  func jobFinished(job: Job, result: ProcessResult, pid: Int)
-
-  /// Launch the process for given command line.
-  ///
-  /// This will be called on the execution queue.
-  func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol
-}
-
-extension JobExecutorDelegate {
-  public func launchProcess(for job: Job, arguments: [String], env: [String: String]) throws -> ProcessProtocol {
-    return try Process.launchProcess(arguments: arguments, env: env)
-  }
-}
-
-public final class JobExecutor {
+public final class MultiJobExecutor {
 
   /// The context required during job execution.
   struct Context {
@@ -134,7 +36,7 @@ public final class JobExecutor {
     let fileSystem: FileSystem
 
     /// The job executor delegate.
-    let executorDelegate: JobExecutorDelegate
+    let executorDelegate: JobExecutionDelegate
 
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
@@ -154,18 +56,22 @@ public final class JobExecutor {
     /// The diagnostics engine to use when reporting errors.
     let diagnosticsEngine: DiagnosticsEngine
 
+    /// The type to use when launching new processes. This mostly serves as an override for testing.
+    let processType: ProcessProtocol.Type
+
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
       fileSystem: FileSystem,
       producerMap: [VirtualPath: Int],
       jobs: [Job],
-      executorDelegate: JobExecutorDelegate,
+      executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
       recordedInputModificationDates: [TypedVirtualPath: Date],
-      diagnosticsEngine: DiagnosticsEngine
+      diagnosticsEngine: DiagnosticsEngine,
+      processType: ProcessProtocol.Type = Process.self
     ) {
       self.producerMap = producerMap
       self.jobs = jobs
@@ -178,6 +84,7 @@ public final class JobExecutor {
       self.forceResponseFiles = forceResponseFiles
       self.recordedInputModificationDates = recordedInputModificationDates
       self.diagnosticsEngine = diagnosticsEngine
+      self.processType = processType
     }
   }
 
@@ -188,7 +95,7 @@ public final class JobExecutor {
   let argsResolver: ArgsResolver
 
   /// The job executor delegate.
-  let executorDelegate: JobExecutorDelegate
+  let executorDelegate: JobExecutionDelegate
 
   /// The number of jobs to run in parallel.
   let numParallelJobs: Int
@@ -205,15 +112,19 @@ public final class JobExecutor {
   /// The diagnostics engine to use when reporting errors.
   let diagnosticsEngine: DiagnosticsEngine
 
+  /// The type to use when launching new processes. This mostly serves as an override for testing.
+  let processType: ProcessProtocol.Type
+
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
-    executorDelegate: JobExecutorDelegate,
+    executorDelegate: JobExecutionDelegate,
     diagnosticsEngine: DiagnosticsEngine,
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
-    recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
+    recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
+    processType: ProcessProtocol.Type = Process.self
   ) {
     self.jobs = jobs
     self.argsResolver = resolver
@@ -223,6 +134,7 @@ public final class JobExecutor {
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
     self.recordedInputModificationDates = recordedInputModificationDates
+    self.processType = processType
   }
 
   /// Execute all jobs.
@@ -265,16 +177,17 @@ public final class JobExecutor {
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates,
-      diagnosticsEngine: diagnosticsEngine
+      diagnosticsEngine: diagnosticsEngine,
+      processType: processType
     )
   }
 }
 
 struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
 
-  let context: JobExecutor.Context
+  let context: MultiJobExecutor.Context
 
-  init(_ context: JobExecutor.Context) {
+  init(_ context: MultiJobExecutor.Context) {
     self.context = context
   }
 
@@ -363,12 +276,12 @@ class ExecuteJobRule: LLBuildRule {
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
 
   private let key: RuleKey
-  private let context: JobExecutor.Context
+  private let context: MultiJobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key, context: JobExecutor.Context) {
+  init(_ key: Key, context: MultiJobExecutor.Context) {
     self.key = RuleKey(key)
     self.context = context
     super.init(fileSystem: context.fileSystem)
@@ -421,8 +334,8 @@ class ExecuteJobRule: LLBuildRule {
 
       try job.verifyInputsNotModified(since: context.recordedInputModificationDates, fileSystem: engine.fileSystem)
 
-      let process = try context.executorDelegate.launchProcess(
-        for: job, arguments: arguments, env: env
+      let process = try context.processType.launchProcess(
+        arguments: arguments, env: env
       )
       pid = Int(process.processID)
 
