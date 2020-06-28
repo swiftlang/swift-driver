@@ -21,15 +21,22 @@ public struct ArgsResolver {
   private let fileSystem: FileSystem
 
   /// Path to the directory that will contain the temporary files.
-  private let temporaryDirectory: AbsolutePath
+  // FIXME: We probably need a dedicated type for this...
+  private let temporaryDirectory: VirtualPath
 
-  public init(fileSystem: FileSystem) throws {
+  public init(fileSystem: FileSystem, temporaryDirectory: VirtualPath? = nil) throws {
     self.pathMapping = [:]
     self.fileSystem = fileSystem
-    self.temporaryDirectory = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
-      // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
-      try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
-      return path
+
+    if let temporaryDirectory = temporaryDirectory {
+      self.temporaryDirectory = temporaryDirectory
+    } else {
+      let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
+        // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
+        try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
+        return path
+      }
+      self.temporaryDirectory = .absolute(tmpDir)
     }
   }
 
@@ -56,7 +63,7 @@ public struct ArgsResolver {
       // Return the path from the temporary directory if this is a temporary file.
       if path.isTemporary {
         let actualPath = temporaryDirectory.appending(component: path.name)
-        return actualPath.pathString
+        return actualPath.name
       }
 
       // If there was a path mapping, use it.
@@ -76,10 +83,15 @@ public struct ArgsResolver {
              "Platform does not support response files for job: \(job)")
       // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
       let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
-      try fileSystem.writeFileContents(responseFilePath) {
-        $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n")
+
+      // FIXME: Need a way to support this for distributed build systems...
+      if let absPath = responseFilePath.absolutePath {
+        try fileSystem.writeFileContents(absPath) {
+          $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n")
+        }
+        resolvedArguments = [resolvedArguments[0], "@\(absPath.pathString)"]
       }
-      resolvedArguments = [resolvedArguments[0], "@\(responseFilePath.pathString)"]
+
       return true
     }
     return false
@@ -87,6 +99,9 @@ public struct ArgsResolver {
 
   /// Remove the temporary directory from disk.
   public func removeTemporaryDirectory() throws {
-    try fileSystem.removeFileTree(temporaryDirectory)
+    // Only try to remove if we have an absolute path.
+    if let absPath = temporaryDirectory.absolutePath {
+      try fileSystem.removeFileTree(absPath)
+    }
   }
 }
