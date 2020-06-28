@@ -25,33 +25,6 @@ public enum Tool {
   case swiftHelp
 }
 
-/// Describes information about the target as provided by the Swift frontend.
-struct FrontendTargetInfo: Codable {
-  struct Target: Codable {
-    /// The target triple
-    let triple: Triple
-
-    /// The target triple without any version information.
-    let unversionedTriple: Triple
-
-    /// The triple used for module names.
-    let moduleTriple: Triple
-
-    /// Whether the Swift libraries need to be referenced in their system
-    /// location (/usr/lib/swift) via rpath .
-    let librariesRequireRPath: Bool
-  }
-
-  struct Paths: Codable {
-    let runtimeLibraryPaths: [String]
-    let runtimeLibraryImportPaths: [String]
-    let runtimeResourcePath: String
-  }
-
-  let target: Target
-  let targetVariant: Target?
-}
-
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
