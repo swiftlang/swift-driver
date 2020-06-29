@@ -251,28 +251,10 @@ public struct Driver {
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
 
-    (self.toolchain, self.frontendTargetInfo) = try Self.computeToolchain(
-      &self.parsedOptions, diagnosticsEngine: diagnosticEngine, env: env,
-      executor: self.executor, fileSystem: fileSystem)
-
-    // Local variable to alias the target triple, because self.targetTriple
-    // is not available until the end of this initializer.
-    let targetTriple = self.frontendTargetInfo.target.triple
-
-    // Find the Swift compiler executable.
-    if let frontendPath = self.parsedOptions.getLastArgument(.driverUseFrontendPath) {
-      var frontendCommandLine = frontendPath.asSingle.split(separator: ";").map { String($0) }
-      if frontendCommandLine.isEmpty {
-        self.diagnosticEngine.emit(.error_no_swift_frontend)
-        self.swiftCompilerPrefixArgs = []
-      } else {
-        let frontendPath = frontendCommandLine.removeFirst()
-        self.toolchain.overrideToolPath(.swiftCompiler, path: try AbsolutePath(validating: frontendPath))
-        self.swiftCompilerPrefixArgs = frontendCommandLine
-      }
-    } else {
-      self.swiftCompilerPrefixArgs = []
-    }
+    (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
+        try Self.computeToolchain(
+          &self.parsedOptions, diagnosticsEngine: diagnosticEngine, env: env,
+          executor: self.executor, fileSystem: fileSystem)
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
@@ -348,6 +330,9 @@ public struct Driver {
       actualSwiftVersion: try? toolchain.swiftCompilerVersion()
     )
 
+    // Local variable to alias the target triple, because self.targetTriple
+    // is not available until the end of this initializer.
+    let targetTriple = self.frontendTargetInfo.target.triple
     self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, targetTriple: targetTriple,
         fileSystem: fileSystem, diagnosticsEngine: diagnosticEngine, env: env)
 
@@ -1588,7 +1573,7 @@ extension Driver {
     env: [String: String],
     executor: DriverExecutor,
     fileSystem: FileSystem
-  ) throws -> (Toolchain, FrontendTargetInfo) {
+  ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
         Triple($0, normalizing: true)
@@ -1606,6 +1591,25 @@ extension Driver {
           defaultToolchainType
     let toolchain = toolchainType.init(env: env, executor: executor, fileSystem: fileSystem)
 
+    // Find the Swift compiler executable.
+    let swiftCompilerPrefixArgs: [String]
+    if let frontendPath = parsedOptions.getLastArgument(.driverUseFrontendPath){
+      var frontendCommandLine =
+        frontendPath.asSingle.split(separator: ";").map { String($0) }
+      if frontendCommandLine.isEmpty {
+        diagnosticsEngine.emit(.error_no_swift_frontend)
+        swiftCompilerPrefixArgs = []
+      } else {
+        let frontendPath = frontendCommandLine.removeFirst()
+        toolchain.overrideToolPath(
+          .swiftCompiler, path: try AbsolutePath(validating: frontendPath))
+        swiftCompilerPrefixArgs = frontendCommandLine
+      }
+    } else {
+      swiftCompilerPrefixArgs = []
+    }
+
+    // Query the frontend to for target information.
     var info = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
@@ -1629,7 +1633,7 @@ extension Driver {
       }
     }
 
-    return (toolchain, info)
+    return (toolchain, info, swiftCompilerPrefixArgs)
   }
 }
 
