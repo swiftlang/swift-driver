@@ -47,8 +47,7 @@ extension Driver {
       outputFile: outputFile,
       sdkPath: sdkPath,
       sanitizers: enabledSanitizers,
-      targetTriple: targetTriple,
-      targetVariantTriple: targetVariantTriple
+      targetInfo: frontendTargetInfo
     )
 
     // TODO: some, but not all, linkers support response files.

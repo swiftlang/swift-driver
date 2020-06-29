@@ -121,82 +121,26 @@ extension Toolchain {
 // MARK: - Common argument routines
 
 extension DarwinToolchain {
-  func getSwiftRuntimeCompatibilityVersion(for targetTriple: Triple) -> (Int, Int)? {
-    // FIXME: Add arm64e to Triple.swift
-    if targetTriple.archName == "arm64e" {
-      return (5, 3)
-    }
-
-    if targetTriple.isMacOSX {
-      let macOSVersion = targetTriple.version(for: .macOS)
-      switch (macOSVersion.major, macOSVersion.minor, macOSVersion.micro) {
-      case (10, ...14, _):
-        return (5, 0)
-      case (10, ...15, ...3):
-        return (5, 1)
-      case (10, ...15, _):
-        return (5, 2)
-      default:
-        break
-      }
-    } else if targetTriple.isiOS { // includes tvOS
-      let iOSVersion = targetTriple.version(for: .iOS(.device))
-      switch (iOSVersion.major, iOSVersion.minor, iOSVersion.micro) {
-      case (...12, _, _):
-        return (5, 0)
-      case (13, ...3, _):
-        return (5, 1)
-      case (13, _, _):
-        return (5, 2)
-      default:
-        break
-      }
-    } else if targetTriple.isWatchOS {
-      let watchOSVersion = targetTriple.version(for: .watchOS(.device))
-      switch (watchOSVersion.major, watchOSVersion.minor, watchOSVersion.micro) {
-      case (...5, _, _):
-        return (5, 0)
-      case (6, ...1, _):
-        return (5, 1)
-      case (6, _, _):
-        return (5, 2)
-      default:
-        break
-      }
-    }
-    return nil
-  }
-
   func addArgsToLinkStdlib(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
-    targetTriple: Triple,
+    targetInfo: FrontendTargetInfo,
     linkerOutputType: LinkOutputType,
     fileSystem: FileSystem
   ) throws {
+    let targetTriple = targetInfo.target.triple
+
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
-    var runtimeCompatibilityVersion: (Int, Int)? = nil
+    let runtimeCompatibilityVersion: (Int, Int)? =
+          targetInfo.target.swiftRuntimeCompatibilityVersion.map {
+            ($0.major, $0.minor)
+          }
+
     let resourceDirPath = try computeResourceDirPath(for: targetTriple,
                                                      parsedOptions: &parsedOptions,
                                                      isShared: true)
-    if let version = parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle {
-      switch version {
-      case "5.0":
-        runtimeCompatibilityVersion = (5, 0)
-      case "5.1":
-        runtimeCompatibilityVersion = (5, 1)
-      case "none":
-        runtimeCompatibilityVersion = nil
-      default:
-        // TODO: diagnose unknown runtime compatibility version?
-        break
-      }
-    } else if linkerOutputType == .executable {
-      runtimeCompatibilityVersion = getSwiftRuntimeCompatibilityVersion(for: targetTriple)
-    }
-
     func addArgsForBackDeployLib(_ libName: String) {
       let backDeployLibPath = resourceDirPath.appending(component: libName)
       if fileSystem.exists(backDeployLibPath) {
@@ -237,7 +181,7 @@ extension DarwinToolchain {
 
     let rpaths = StdlibRpathRule(
       parsedOptions: &parsedOptions,
-      targetTriple: targetTriple
+      targetInfo: targetInfo
     )
     for path in rpaths.paths(runtimeLibraryPaths: runtimePaths) {
       commandLine.appendFlag("-rpath")
@@ -259,8 +203,8 @@ extension DarwinToolchain {
     /// Do not add any rpaths at all.
     case none
 
-    /// Determines the appropriate rule for the
-    init(parsedOptions: inout ParsedOptions, targetTriple: Triple) {
+    /// Determines the appropriate rule for the given set of options.
+    init(parsedOptions: inout ParsedOptions, targetInfo: FrontendTargetInfo) {
       if parsedOptions.hasFlag(
         positive: .toolchainStdlibRpath,
         negative: .noToolchainStdlibRpath,
@@ -275,7 +219,7 @@ extension DarwinToolchain {
         // stdlibs will be able to link to the stdlib bundled in that toolchain.
         self = .toolchain
       }
-      else if targetTriple.supports(.swiftInTheOS) ||
+      else if !targetInfo.target.librariesRequireRPath ||
         parsedOptions.hasArgument(.noStdlibRpath) {
         // If targeting an OS with Swift in /usr/lib/swift, the LC_ID_DYLIB
         // install_name the stdlib will be an absolute path like

@@ -196,8 +196,7 @@ extension DarwinToolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple,
-    targetVariantTriple: Triple?
+    targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
 
     // FIXME: If we used Clang as a linker instead of going straight to ld,
@@ -209,6 +208,7 @@ extension DarwinToolchain {
     //
     // Note: Normally we'd just add this unconditionally, but it's valid to build
     // Swift and use it as a linker without building compiler_rt.
+    let targetTriple = targetInfo.target.triple
     let darwinPlatformSuffix =
         targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
     let compilerRTPath =
@@ -258,7 +258,7 @@ extension DarwinToolchain {
         to: &commandLine,
         parsedOptions: &parsedOptions,
         sdkPath: sdkPath,
-        targetTriple: targetTriple,
+        targetInfo: targetInfo,
         linkerOutputType: linkerOutputType,
         fileSystem: fileSystem
       )
@@ -280,6 +280,7 @@ extension DarwinToolchain {
       parsedOptions: &parsedOptions,
       targetTriple: targetTriple
     )
+    let targetVariantTriple = targetInfo.targetVariant?.triple
     addDeploymentTargetArgs(
       to: &commandLine,
       targetTriple: targetTriple,
