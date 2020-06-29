@@ -1583,8 +1583,13 @@ extension Driver {
         Triple($0, normalizing: true)
       }
 
-    // FIXME: Compute these.
-    let resourceDirPath: VirtualPath? = nil
+    // Determine the resource directory.
+    let resourceDirPath: VirtualPath?
+    if let resourceDirArg = parsedOptions.getLastArgument(.resourceDir) {
+      resourceDirPath = try VirtualPath(path: resourceDirArg.asSingle)
+    } else {
+      resourceDirPath = nil
+    }
 
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
