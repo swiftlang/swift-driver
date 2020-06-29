@@ -181,7 +181,7 @@ extension DarwinToolchain {
 
     let rpaths = StdlibRpathRule(
       parsedOptions: &parsedOptions,
-      targetTriple: targetTriple
+      targetInfo: targetInfo
     )
     for path in rpaths.paths(runtimeLibraryPaths: runtimePaths) {
       commandLine.appendFlag("-rpath")
@@ -203,8 +203,8 @@ extension DarwinToolchain {
     /// Do not add any rpaths at all.
     case none
 
-    /// Determines the appropriate rule for the
-    init(parsedOptions: inout ParsedOptions, targetTriple: Triple) {
+    /// Determines the appropriate rule for the given set of options.
+    init(parsedOptions: inout ParsedOptions, targetInfo: FrontendTargetInfo) {
       if parsedOptions.hasFlag(
         positive: .toolchainStdlibRpath,
         negative: .noToolchainStdlibRpath,
@@ -219,7 +219,7 @@ extension DarwinToolchain {
         // stdlibs will be able to link to the stdlib bundled in that toolchain.
         self = .toolchain
       }
-      else if targetTriple.supports(.swiftInTheOS) ||
+      else if !targetInfo.target.librariesRequireRPath ||
         parsedOptions.hasArgument(.noStdlibRpath) {
         // If targeting an OS with Swift in /usr/lib/swift, the LC_ID_DYLIB
         // install_name the stdlib will be an absolute path like

@@ -321,17 +321,6 @@ extension Triple {
 }
 
 extension Triple.FeatureAvailability {
-  /// A Swift runtime is guaranteed to be available at `/usr/lib/swift` in triples
-  /// supporting this feature. More specifically, there is no need to include a
-  /// `/usr/lib/swift` rpath if this feature is supported.
-  static let swiftInTheOS = Self(
-    // macOS 10.14.4 contains a copy of Swift, but the linker will still use an
-    // rpath-based install name until 10.15.
-    macOS: Triple.Version(10, 15, 0),
-    iOS: Triple.Version(12, 2, 0),
-    watchOS: Triple.Version(5, 2, 0)
-  )
-
   /// Linking `libarclite` is unnecessary for triples supporting this feature.
   static let compatibleObjCRuntime = Self(
     macOS: Triple.Version(10, 11, 0),

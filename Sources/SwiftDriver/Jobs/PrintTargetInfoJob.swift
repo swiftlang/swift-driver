@@ -67,7 +67,7 @@ public struct FrontendTargetInfo: Codable {
     var swiftRuntimeCompatibilityVersion: SwiftVersion?
 
     /// Whether the Swift libraries need to be referenced in their system
-    /// location (/usr/lib/swift) via rpath .
+    /// location (/usr/lib/swift) via rpath.
     let librariesRequireRPath: Bool
   }
 
