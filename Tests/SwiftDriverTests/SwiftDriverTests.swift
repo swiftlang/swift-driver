@@ -1406,7 +1406,7 @@ final class SwiftDriverTests: XCTestCase {
 
     let expectedDefaultContents: String
     #if os(macOS)
-    expectedDefaultContents = "x86_64-apple-"
+    expectedDefaultContents = "x86_64-apple-macosx"
     #elseif os(Linux)
     expectedDefaultContents = "-unknown-linux"
     #else
@@ -2387,7 +2387,10 @@ final class SwiftDriverTests: XCTestCase {
     // better override.
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = "/usr/bin/nonexistent-swift-help"
-    var driver = try Driver(args: ["swiftc", "-help"], env: env)
+    env["SWIFT_DRIVER_CLANG_EXEC"] = "/usr/bin/clang"
+    var driver = try Driver(
+      args: ["swiftc", "-help"],
+      env: env)
     let jobs = try driver.planBuild()
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
