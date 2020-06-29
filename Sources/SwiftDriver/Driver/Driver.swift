@@ -251,19 +251,9 @@ public struct Driver {
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
 
-    let explicitTarget = (self.parsedOptions.getLastArgument(.target)?.asSingle)
-      .map {
-        Triple($0, normalizing: true)
-      }
-    let explicitTargetVariant = (self.parsedOptions.getLastArgument(.target)?.asSingle)
-      .map {
-        Triple($0, normalizing: true)
-      }
     (self.toolchain, self.frontendTargetInfo) = try Self.computeToolchain(
-      explicitTarget, explicitTargetVariant: explicitTargetVariant,
-      sdkPath: /*FIXME:*/ nil, resourceDirPath: /*FIXME:*/nil,
-      diagnosticsEngine: diagnosticEngine, env: env, executor: self.executor,
-      fileSystem: fileSystem)
+      &self.parsedOptions, diagnosticsEngine: diagnosticEngine, env: env,
+      executor: self.executor, fileSystem: fileSystem)
 
     // Local variable to alias the target triple, because self.targetTriple
     // is not available until the end of this initializer.
@@ -681,7 +671,7 @@ extension Driver {
 
     if parsedOptions.contains(.driverPrintBindings) {
       for job in jobs {
-        try printBindings(job)
+        printBindings(job)
       }
       return
     }
@@ -1590,20 +1580,30 @@ extension Driver {
   #endif
 
   static func computeToolchain(
-    _ explicitTarget: Triple?,
-    explicitTargetVariant: Triple?,
-    sdkPath: VirtualPath? = nil,
-    resourceDirPath: VirtualPath?,
+    _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String],
     executor: DriverExecutor,
     fileSystem: FileSystem
   ) throws -> (Toolchain, FrontendTargetInfo) {
+    let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
+      .map {
+        Triple($0, normalizing: true)
+      }
+    let explicitTargetVariant = (parsedOptions.getLastArgument(.targetVariant)?.asSingle)
+      .map {
+        Triple($0, normalizing: true)
+      }
+
+    // FIXME: Compute these.
+    let sdkPath: VirtualPath? = nil
+    let resourceDirPath: VirtualPath? = nil
+
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
     let toolchain = toolchainType.init(env: env, executor: executor, fileSystem: fileSystem)
 
-    let info = try executor.execute(
+    var info = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
           sdkPath: sdkPath, resourceDirPath: resourceDirPath
@@ -1611,6 +1611,20 @@ extension Driver {
         capturingJSONOutputAs: FrontendTargetInfo.self,
         forceResponseFiles: false,
         recordedInputModificationDates: [:])
+
+    // Parse the runtime compatibility version. If present, it will override
+    // what is reported by the frontend.
+    if let versionString =
+        parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle {
+      if let version = SwiftVersion(string: versionString) {
+        info.target.swiftRuntimeCompatibilityVersion = version
+        info.targetVariant?.swiftRuntimeCompatibilityVersion = version
+      } else {
+        diagnosticsEngine.emit(
+          .error_invalid_arg_value(
+            arg: .runtimeCompatibilityVersion, value: versionString))
+      }
+    }
 
     return (toolchain, info)
   }

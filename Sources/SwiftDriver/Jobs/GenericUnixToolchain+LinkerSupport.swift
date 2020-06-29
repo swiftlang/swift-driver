@@ -51,9 +51,9 @@ extension GenericUnixToolchain {
     outputFile: VirtualPath,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
-    targetTriple: Triple,
-    targetVariantTriple: Triple?
+    targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
+    let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
       // Same options as an executable, just with '-shared'

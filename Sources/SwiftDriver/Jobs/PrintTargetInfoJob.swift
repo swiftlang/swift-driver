@@ -51,7 +51,7 @@ extension SwiftVersion: Codable {
 }
 
 /// Describes information about the target as provided by the Swift frontend.
-struct FrontendTargetInfo: Codable {
+public struct FrontendTargetInfo: Codable {
   struct Target: Codable {
     /// The target triple
     let triple: Triple
@@ -64,7 +64,7 @@ struct FrontendTargetInfo: Codable {
 
     /// The version of the Swift runtime that is present in the runtime
     /// environment of the target.
-    let swiftRuntimeCompatibilityVersion: SwiftVersion?
+    var swiftRuntimeCompatibilityVersion: SwiftVersion?
 
     /// Whether the Swift libraries need to be referenced in their system
     /// location (/usr/lib/swift) via rpath .
@@ -77,8 +77,9 @@ struct FrontendTargetInfo: Codable {
     let runtimeResourcePath: String
   }
 
-  let target: Target
-  let targetVariant: Target?
+  var target: Target
+  var targetVariant: Target?
+  let paths: Paths
 }
 
 extension Toolchain {

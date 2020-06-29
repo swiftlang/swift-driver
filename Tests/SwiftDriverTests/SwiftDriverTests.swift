@@ -1417,10 +1417,12 @@ final class SwiftDriverTests: XCTestCase {
               "Default triple \(driver1.targetTriple) contains \(expectedDefaultContents)")
 
     let driver2 = try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-watchos12", "foo.swift", "-module-name", "Foo"])
-    XCTAssertEqual(driver2.targetTriple.triple, "x86_64-apple-watchos12")
+    XCTAssertEqual(
+      driver2.targetTriple.triple, "x86_64-apple-watchos12-simulator")
 
     let driver3 = try Driver(args: ["swiftc", "-c", "-target", "x86_64-watchos12", "foo.swift", "-module-name", "Foo"])
-    XCTAssertEqual(driver3.targetTriple.triple, "x86_64-unknown-watchos12")
+    XCTAssertEqual(
+      driver3.targetTriple.triple, "x86_64-unknown-watchos12-simulator")
   }
 
   func testTargetVariant() throws {
