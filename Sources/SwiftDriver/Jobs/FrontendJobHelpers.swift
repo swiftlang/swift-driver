@@ -178,6 +178,11 @@ extension Driver {
       commandLine.appendPath(.absolute(workingDirectory))
     }
 
+    // Resource directory.
+    commandLine.appendFlag(.resourceDir)
+    commandLine.appendPath(
+      try AbsolutePath(validating: frontendTargetInfo.paths.runtimeResourcePath))
+
     // -g implies -enable-anonymous-context-mangled-names, because the extra
     // metadata aids debugging.
     if parsedOptions.getLast(in: .g) != nil {

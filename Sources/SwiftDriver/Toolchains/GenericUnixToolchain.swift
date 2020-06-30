@@ -78,7 +78,7 @@ public final class GenericUnixToolchain: Toolchain {
     toolPaths[tool] = path
   }
 
-  public func defaultSDKPath() throws -> AbsolutePath? {
+  public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     return nil
   }
 

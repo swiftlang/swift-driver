@@ -72,6 +72,8 @@ public struct FrontendTargetInfo: Codable {
   }
 
   struct Paths: Codable {
+    /// The path to the SDK, if provided.
+    let sdkPath: String?
     let runtimeLibraryPaths: [String]
     let runtimeLibraryImportPaths: [String]
     let runtimeResourcePath: String

@@ -45,7 +45,7 @@ public protocol Toolchain {
   func overrideToolPath(_ tool: Tool, path: AbsolutePath)
 
   /// Returns path of the default SDK, if there is one.
-  func defaultSDKPath() throws -> AbsolutePath?
+  func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath?
 
   /// When the compiler invocation should be stored in debug information.
   var shouldStoreInvocationInDebugInfo: Bool { get }

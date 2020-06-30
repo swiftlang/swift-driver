@@ -143,7 +143,9 @@ public struct Driver {
   public let incrementalCompilation: IncrementalCompilation
 
   /// The path of the SDK.
-  public let sdkPath: String?
+  public var sdkPath: String? {
+    frontendTargetInfo.paths.sdkPath
+  }
 
   /// The path to the imported Objective-C header.
   public let importedObjCHeader: VirtualPath?
@@ -251,9 +253,14 @@ public struct Driver {
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
 
+    // Determine the compilation mode.
+    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+
+    // Build the toolchain and determine target information.
     (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
         try Self.computeToolchain(
-          &self.parsedOptions, diagnosticsEngine: diagnosticEngine, env: env,
+          &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+          compilerMode: self.compilerMode, env: env,
           executor: self.executor, fileSystem: fileSystem)
 
     // Compute the working directory.
@@ -296,9 +303,6 @@ public struct Driver {
       self.outputFileMap = outputFileMap
     }
 
-    // Determine the compilation mode.
-    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
-
     // Figure out the primary outputs from the driver.
     (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
@@ -333,8 +337,6 @@ public struct Driver {
     // Local variable to alias the target triple, because self.targetTriple
     // is not available until the end of this initializer.
     let targetTriple = self.frontendTargetInfo.target.triple
-    self.sdkPath = Self.computeSDKPath(&parsedOptions, compilerMode: compilerMode, toolchain: toolchain, targetTriple: targetTriple,
-        fileSystem: fileSystem, diagnosticsEngine: diagnosticEngine, env: env)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
@@ -1411,11 +1413,11 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode,
     toolchain: Toolchain,
-    targetTriple: Triple,
+    targetTriple: Triple?,
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String]
-  ) -> String? {
+  ) -> VirtualPath? {
     var sdkPath: String?
 
     if let arg = parsedOptions.getLastArgument(.sdk) {
@@ -1423,13 +1425,8 @@ extension Driver {
     } else if let SDKROOT = env["SDKROOT"] {
       sdkPath = SDKROOT
     } else if compilerMode == .immediate || compilerMode == .repl {
-      if targetTriple.isMacOSX == true {
-        // In immediate modes, use the SDK provided by xcrun.
-        // This will prefer the SDK alongside the Swift found by "xcrun swift".
-        // We don't do this in compilation modes because defaulting to the
-        // latest SDK may not be intended.
-        sdkPath = try? toolchain.defaultSDKPath()?.pathString
-      }
+      // In immediate modes, query the toolchain for a default SDK.
+      sdkPath = try? toolchain.defaultSDKPath(targetTriple)?.pathString
     }
 
     // An empty string explicitly clears the SDK.
@@ -1451,16 +1448,18 @@ extension Driver {
         path = AbsolutePath(sdkPath, relativeTo: cwd)
       } else {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
-        return sdkPath
+        return nil
       }
 
       if !fileSystem.exists(path) {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
       }
       // .. else check if SDK is too old (we need target triple to diagnose that).
+
+      return .absolute(path)
     }
 
-    return sdkPath
+    return nil
   }
 }
 
@@ -1570,6 +1569,7 @@ extension Driver {
   static func computeToolchain(
     _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
+    compilerMode: CompilerMode,
     env: [String: String],
     executor: DriverExecutor,
     fileSystem: FileSystem
@@ -1583,9 +1583,13 @@ extension Driver {
         Triple($0, normalizing: true)
       }
 
-    // FIXME: Compute these.
-    let sdkPath: VirtualPath? = nil
-    let resourceDirPath: VirtualPath? = nil
+    // Determine the resource directory.
+    let resourceDirPath: VirtualPath?
+    if let resourceDirArg = parsedOptions.getLastArgument(.resourceDir) {
+      resourceDirPath = try VirtualPath(path: resourceDirArg.asSingle)
+    } else {
+      resourceDirPath = nil
+    }
 
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
@@ -1608,6 +1612,12 @@ extension Driver {
     } else {
       swiftCompilerPrefixArgs = []
     }
+
+    // Find the SDK, if any.
+    let sdkPath: VirtualPath? = Self.computeSDKPath(
+      &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
+      targetTriple: explicitTarget, fileSystem: fileSystem,
+      diagnosticsEngine: diagnosticsEngine, env: env)
 
     // Query the frontend to for target information.
     var info = try executor.execute(

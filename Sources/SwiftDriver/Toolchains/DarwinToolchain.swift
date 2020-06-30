@@ -120,12 +120,23 @@ public final class DarwinToolchain: Toolchain {
     resourcesDirectory.map { $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
   }
 
-  public func defaultSDKPath() throws -> AbsolutePath? {
-    let result = try executor.checkNonZeroExit(
-      args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
-      environment: env
-    ).spm_chomp()
-    return AbsolutePath(result)
+  public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
+    let hostIsMacOS: Bool
+    #if os(macOS)
+    hostIsMacOS = true
+    #else
+    hostIsMacOS = false
+    #endif
+
+    if target?.isMacOSX == true || hostIsMacOS {
+      let result = try executor.checkNonZeroExit(
+        args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
+        environment: env
+      ).spm_chomp()
+      return AbsolutePath(result)
+    }
+
+    return nil
   }
 
   public var shouldStoreInvocationInDebugInfo: Bool {
