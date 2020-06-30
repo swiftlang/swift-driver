@@ -1578,7 +1578,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testDOTFileEmission() throws {
     var driver = try Driver(args: [
-      "swiftc", "-emit-executable", "test.swift", "-emit-module"
+      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info"
     ])
     let plannedJobs = try driver.planBuild()
 
