@@ -93,6 +93,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// JSON-based -print-target-info output
   case jsonTargetInfo = "targetInfo.json"
 
+  /// JSON-based binary Swift module artifact description
+  case jsonSwiftArtifacts = "artifacts.json"
+
   /// Module trace file.
   ///
   /// Module traces are used by Apple's internal build infrastructure. Apple
@@ -153,6 +156,9 @@ extension FileType: CustomStringConvertible {
     case .jsonTargetInfo:
       return "json-target-info"
 
+    case .jsonSwiftArtifacts:
+      return "json-module-artifacts"
+
     case .importedModules:
       return "imported-modules"
 
@@ -182,7 +188,8 @@ extension FileType {
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface,
-         .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap, .jsonTargetInfo:
+         .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap, .jsonTargetInfo,
+         .jsonSwiftArtifacts:
       return false
     }
   }
@@ -255,6 +262,8 @@ extension FileType {
       return "json-dependencies"
     case .jsonTargetInfo:
       return "json-target-info"
+    case .jsonSwiftArtifacts:
+      return "json-module-artifacts"
     case .importedModules:
       return "imported-modules"
     case .moduleTrace:
@@ -274,7 +283,8 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
-         .optimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap, .jsonTargetInfo:
+         .optimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap, .jsonTargetInfo,
+         .jsonSwiftArtifacts:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -293,7 +303,7 @@ extension FileType {
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
          .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
          .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch, .jsonDependencies,
-         .clangModuleMap, .jsonTargetInfo:
+         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts:
       return false
     }
   }

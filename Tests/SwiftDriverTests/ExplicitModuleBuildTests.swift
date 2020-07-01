@@ -59,14 +59,23 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
     switch dependencyInfo.details {
       case .swift:
-        let swiftDependencyModulePath =
-          TypedVirtualPath(file: try VirtualPath(path: dependencyInfo.modulePath),
-                           type: .swiftModule)
-        XCTAssertTrue(job.inputs.contains(swiftDependencyModulePath))
-        XCTAssertTrue(job.commandLine.contains(
-                        .flag(String("-swift-module-file"))))
-        XCTAssertTrue(
-          job.commandLine.contains(.path(try VirtualPath(path: dependencyInfo.modulePath))))
+        // Load the dependency JSON and verify this dependency was encoded correctly
+        let explicitDepsFlag =
+          SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
+        XCTAssert(job.commandLine.contains(explicitDepsFlag))
+        let jsonDepsPathIndex = job.commandLine.firstIndex(of: explicitDepsFlag)
+        let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
+        guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
+          XCTFail("No JSON dependency file path found.")
+          return
+        }
+        let contents =
+          try localFileSystem.readFileContents(jsonDepsPath.absolutePath!)
+        let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
+                                                      from: Data(contents.contents))
+        let dependencyArtifacts =
+          dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
+        XCTAssertEqual(dependencyArtifacts!.modulePath, dependencyInfo.modulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
@@ -113,7 +122,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
-                                                                         toolchain: driver.toolchain)
+                                                                         toolchain: driver.toolchain,
+                                                                         fileSystem: localFileSystem)
       let modulePrebuildJobs =
         try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
@@ -257,5 +267,35 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif
+  }
+
+  func testExplicitSwiftModuleMap() throws {
+    let jsonExample : String = """
+    [
+      {
+        "moduleName": "A",
+        "modulePath": "A.swiftmodule",
+        "docPath": "A.swiftdoc",
+        "sourceInfoPath": "A.swiftsourceinfo"
+      },
+      {
+        "moduleName": "B",
+        "modulePath": "B.swiftmodule",
+        "docPath": "B.swiftdoc",
+        "sourceInfoPath": "B.swiftsourceinfo"
+      }
+    ]
+    """
+    let moduleMap = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
+                                             from: jsonExample.data(using: .utf8)!)
+    XCTAssertEqual(moduleMap.count, 2)
+    XCTAssertEqual(moduleMap[0].moduleName, "A")
+    XCTAssertEqual(moduleMap[0].modulePath, "A.swiftmodule")
+    XCTAssertEqual(moduleMap[0].docPath, "A.swiftdoc")
+    XCTAssertEqual(moduleMap[0].sourceInfoPath, "A.swiftsourceinfo")
+    XCTAssertEqual(moduleMap[1].moduleName, "B")
+    XCTAssertEqual(moduleMap[1].modulePath, "B.swiftmodule")
+    XCTAssertEqual(moduleMap[1].docPath, "B.swiftdoc")
+    XCTAssertEqual(moduleMap[1].sourceInfoPath, "B.swiftsourceinfo")
   }
 }
