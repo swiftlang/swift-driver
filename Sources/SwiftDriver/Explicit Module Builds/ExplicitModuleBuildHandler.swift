@@ -288,7 +288,7 @@ public struct ExplicitModuleBuildHandler {
                                               swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
     for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies {
-      guard !addedDependenciesSet.contains(dependencyId) else {
+      guard addedDependenciesSet.insert(dependencyId).inserted else {
         continue
       }
       switch dependencyId {
@@ -305,7 +305,6 @@ public struct ExplicitModuleBuildHandler {
                                        clangDependencyArtifacts: &clangDependencyArtifacts,
                                        swiftDependencyArtifacts: &swiftDependencyArtifacts)
       }
-      addedDependenciesSet.insert(dependencyId)
     }
   }
 
