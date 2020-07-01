@@ -24,10 +24,10 @@ ln -s /path/to/built/swift-driver $SOME_PATH/swift
 ln -s /path/to/built/swift-driver $SOME_PATH/swiftc
 ```
 
-Swift packages can be built with the new Swift driver by overriding `SWIFT_EXEC` to refer to the `swiftc` symbolic link created above and `SWIFT_DRIVER_SWIFT_EXEC` to refer to the original `swiftc`, e.g.,
+Swift packages can be built with the new Swift driver by overriding `SWIFT_EXEC` to refer to the `swiftc` symbolic link created above and `SWIFT_DRIVER_SWIFT_FRONTEND_EXEC` to refer to the original `swift-frontend`, e.g.,
 
 ```
-SWIFT_EXEC=$SOME_PATH/swiftc SWIFT_DRIVER_SWIFT_EXEC=$TOOLCHAIN_PATH/bin/swiftc swift build
+SWIFT_EXEC=$SOME_PATH/swiftc SWIFT_DRIVER_SWIFT_FRONTEND_EXEC=$TOOLCHAIN_PATH/bin/swift-frontend swift build
 ```
 
 Similarly, one can use the new Swift driver within Xcode by adding a custom build setting (usually at the project level) named `SWIFT_EXEC` that refers to `$SOME_PATH/swiftc` and adding `-driver-use-frontend-path $TOOLCHAIN_DIR/usr/bin/swiftc` to `Other Swift Flags`.
