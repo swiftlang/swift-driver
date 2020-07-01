@@ -241,7 +241,9 @@ public struct ExplicitModuleBuildHandler {
                             "-fno-implicit-modules")
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
+    var alreadyAddedDependencies = Set<ModuleDependencyId>()
     try addModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
+                              addedDependenciesSet: &alreadyAddedDependencies,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
 
@@ -281,22 +283,29 @@ public struct ExplicitModuleBuildHandler {
   /// Add a specific module dependency as an input and a corresponding command
   /// line flag. Dispatches to clang and swift-specific variants.
   mutating private func addModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
+                                              addedDependenciesSet: inout Set<ModuleDependencyId>,
                                               clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                               swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
     for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies {
+      guard !addedDependenciesSet.contains(dependencyId) else {
+        continue
+      }
       switch dependencyId {
         case .swift:
           try addSwiftModuleDependency(moduleId: moduleId, dependencyId: dependencyId,
                                        pcmArgs: pcmArgs,
+                                       addedDependenciesSet: &addedDependenciesSet,
                                        clangDependencyArtifacts: &clangDependencyArtifacts,
                                        swiftDependencyArtifacts: &swiftDependencyArtifacts)
         case .clang:
           try addClangModuleDependency(moduleId: moduleId, dependencyId: dependencyId,
                                        pcmArgs: pcmArgs,
+                                       addedDependenciesSet: &addedDependenciesSet,
                                        clangDependencyArtifacts: &clangDependencyArtifacts,
                                        swiftDependencyArtifacts: &swiftDependencyArtifacts)
       }
+      addedDependenciesSet.insert(dependencyId)
     }
   }
 
@@ -307,6 +316,7 @@ public struct ExplicitModuleBuildHandler {
   mutating private func addSwiftModuleDependency(moduleId: ModuleDependencyId,
                                                  dependencyId: ModuleDependencyId,
                                                  pcmArgs: [String],
+                                                 addedDependenciesSet: inout Set<ModuleDependencyId>,
                                                  clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                                  swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
@@ -329,6 +339,7 @@ public struct ExplicitModuleBuildHandler {
 
     // Process all transitive dependencies as direct
     try addModuleDependencies(moduleId: dependencyId, pcmArgs: pcmArgs,
+                              addedDependenciesSet: &addedDependenciesSet,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
   }
@@ -340,6 +351,7 @@ public struct ExplicitModuleBuildHandler {
   mutating private func addClangModuleDependency(moduleId: ModuleDependencyId,
                                                  dependencyId: ModuleDependencyId,
                                                  pcmArgs: [String],
+                                                 addedDependenciesSet: inout Set<ModuleDependencyId>,
                                                  clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                                  swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
@@ -363,6 +375,7 @@ public struct ExplicitModuleBuildHandler {
 
     // Process all transitive dependencies as direct
     try addModuleDependencies(moduleId: dependencyId, pcmArgs: pcmArgs,
+                              addedDependenciesSet: &addedDependenciesSet,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
   }
