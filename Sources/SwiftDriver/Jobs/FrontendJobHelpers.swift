@@ -278,7 +278,7 @@ extension Driver {
             outputType: .swiftSourceInfoFile,
             finalOutputPath: moduleSourceInfoPath,
             input: input,
-            flag: "-emit-module-source-info")
+            flag: "-emit-module-source-info-path")
         addOutputOfType(
             outputType: .dependencies,
             finalOutputPath: dependenciesFilePath,
