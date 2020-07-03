@@ -31,6 +31,9 @@ public protocol DriverExecutor {
   /// Launch a process with the given command line and report the result.
   @discardableResult
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
+
+  /// Returns a textual description of the job as it would be run by the executor.
+  func description(of job: Job, forceResponseFiles: Bool) throws -> String
 }
 
 enum JobExecutionError: Error {
@@ -136,5 +139,23 @@ public final class SwiftDriverExecutor: DriverExecutor {
   @discardableResult
   public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
     return try Process.checkNonZeroExit(arguments: args, environment: environment)
+  }
+
+  public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
+    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    var result = args.joined(separator: " ")
+
+    if usedResponseFile {
+      // Print the response file arguments as a comment.
+      result += " # \(job.commandLine.joinedArguments)"
+    }
+
+    if !job.extraEnvironment.isEmpty {
+      result += " #"
+      for (envVar, val) in job.extraEnvironment {
+        result += " \(envVar)=\(val)"
+      }
+    }
+    return result
   }
 }
