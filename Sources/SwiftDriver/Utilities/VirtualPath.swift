@@ -107,10 +107,9 @@ public enum VirtualPath: Hashable {
     case .absolute(let path):
       return .absolute(path.appending(component: component))
     case .relative(let path):
-      // FIXME: TSCBasic should probably have RelativePath.appending(component:)
-      return .relative(RelativePath(path.pathString + "/" + component))
+      return .relative(path.appending(component: component))
     case .temporary(let path):
-      return .temporary(RelativePath(path.pathString + "/" + component))
+      return .temporary(path.appending(component: component))
     case .standardInput, .standardOutput:
       assertionFailure("Can't append path component to standard in/out")
       return self
