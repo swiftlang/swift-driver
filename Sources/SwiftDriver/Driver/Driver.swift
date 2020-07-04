@@ -191,7 +191,7 @@ public struct Driver {
   /// Handler for constructing module build jobs using Explicit Module Builds.
   /// Constructed during the planning phase only when all modules will be prebuilt and treated
   /// as explicit by the various compilation jobs.
-  public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
+  @_spi(Testing) public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
 
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
