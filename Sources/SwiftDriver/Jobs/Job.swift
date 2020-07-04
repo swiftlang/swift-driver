@@ -123,10 +123,9 @@ extension Job {
 
 extension Job : CustomStringConvertible {
   public var description: String {
-    let moduleName = "hello"
     switch kind {
     case .compile:
-        return "Compiling \(moduleName) \(displayInputs.first?.file.name ?? "")"
+        return "Compiling \(moduleName) \(displayInputs.first?.file.basename ?? "")"
 
     case .mergeModule:
         return "Merging module \(moduleName)"
@@ -144,10 +143,10 @@ extension Job : CustomStringConvertible {
         return "Emitting module for \(moduleName)"
 
     case .generatePCH:
-        return "Compiling bridging header \(displayInputs.first?.file.name ?? "")"
+        return "Compiling bridging header \(displayInputs.first?.file.basename ?? "")"
 
     case .generatePCM:
-        return "Compiling Clang module \(displayInputs.first?.file.name ?? "")"
+        return "Compiling Clang module \(displayInputs.first?.file.basename  ?? "")"
 
     case .interpret:
         return "Interpreting \(displayInputs.first?.file.name ?? "")"
@@ -168,7 +167,7 @@ extension Job : CustomStringConvertible {
         return "Swift help"
 
     case .backend:
-      return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.name ?? "")"
+      return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.basename ?? "")"
 
     case .scanDependencies:
       return "Scanning dependencies for module \(moduleName)"
