@@ -133,11 +133,6 @@ extension DarwinToolchain {
 
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
-    let runtimeCompatibilityVersion: (Int, Int)? =
-          targetInfo.target.swiftRuntimeCompatibilityVersion.map {
-            ($0.major, $0.minor)
-          }
-
     let resourceDirPath = try computeResourceDirPath(for: targetTriple,
                                                      parsedOptions: &parsedOptions,
                                                      isShared: true)
@@ -149,18 +144,18 @@ extension DarwinToolchain {
       }
     }
 
-    if let compatibilityVersion = runtimeCompatibilityVersion {
-      if compatibilityVersion <= (5, 0) {
+    if let compatibilityVersion = targetInfo.target.swiftRuntimeCompatibilityVersion {
+      if compatibilityVersion <= .v5_0 {
         // Swift 5.0 compatibility library
         addArgsForBackDeployLib("libswiftCompatibility50.a")
       }
 
-      if compatibilityVersion <= (5, 1) {
+      if compatibilityVersion <= .v5_1 {
         // Swift 5.1 compatibility library
         addArgsForBackDeployLib("libswiftCompatibility51.a")
       }
 
-      if linkerOutputType == .executable && compatibilityVersion <= (5, 0) {
+      if linkerOutputType == .executable && compatibilityVersion <= .v5_0 {
         // Swift 5.0 dynamic replacement compatibility library.
         addArgsForBackDeployLib("libswiftCompatibilityDynamicReplacements.a")
       }
