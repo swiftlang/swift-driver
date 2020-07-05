@@ -432,10 +432,7 @@ private extension InterModuleDependencyGraph {
 
   func swiftModulePCMArgs(of moduleId: ModuleDependencyId) throws -> [String] {
     let moduleDetails = try swiftModuleDetails(of: moduleId)
-    guard let pcmArgs = moduleDetails.extraPcmArgs else {
-      throw Driver.Error.missingPCMArguments(mainModuleName)
-    }
-    return pcmArgs
+    return moduleDetails.extraPcmArgs ?? [ ]
   }
 }
 
