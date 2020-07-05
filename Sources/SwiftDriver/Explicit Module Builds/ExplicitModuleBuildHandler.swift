@@ -319,16 +319,24 @@ public struct ExplicitModuleBuildHandler {
                                                  clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                                  swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
-    // Generate a build job for the dependency module, if not already generated
-    if swiftModuleBuildCache[dependencyId] == nil {
-      try genSwiftModuleBuildJob(moduleId: dependencyId)
-      assert(swiftModuleBuildCache[dependencyId] != nil)
-    }
-
     // Add it as an explicit dependency
     let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
-    let swiftModulePath = TypedVirtualPath(file: try VirtualPath(path: dependencyInfo.modulePath),
-                                           type: .swiftModule)
+
+    let swiftModulePath: TypedVirtualPath
+    if case .swift(let details) = dependencyInfo.details,
+       let compiledModulePath = details.compiledModulePath {
+      // If an already-compiled module is available, use it.
+      swiftModulePath = .init(file: try VirtualPath(path: compiledModulePath),
+                              type: .swiftModule)
+    } else {
+      // Generate a build job for the dependency module, if not already generated
+      if swiftModuleBuildCache[dependencyId] == nil {
+        try genSwiftModuleBuildJob(moduleId: dependencyId)
+        assert(swiftModuleBuildCache[dependencyId] != nil)
+      }
+      swiftModulePath = .init(file: try VirtualPath(path: dependencyInfo.modulePath),
+                              type: .swiftModule)
+    }
 
     // Collect the required information about this module
     // TODO: add .swiftdoc and .swiftsourceinfo for this module.
