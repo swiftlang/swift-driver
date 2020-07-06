@@ -58,7 +58,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
   for dependencyId in moduleInfo.directDependencies {
     let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
     switch dependencyInfo.details {
-      case .swift:
+      case .swift(let swiftDetails):
         // Load the dependency JSON and verify this dependency was encoded correctly
         let explicitDepsFlag =
           SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
@@ -75,7 +75,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                       from: Data(contents.contents))
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
-        XCTAssertEqual(dependencyArtifacts!.modulePath, dependencyInfo.modulePath)
+        XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.compiledModulePath ?? dependencyInfo.modulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
