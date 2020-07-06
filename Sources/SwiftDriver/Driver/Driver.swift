@@ -647,10 +647,7 @@ extension Driver {
     // If we're only supposed to print the jobs, do so now.
     if parsedOptions.contains(.driverPrintJobs) {
       for job in jobs {
-        // FIXME: We shouldn't be constructing an ArgsResolver here.
-        try Self.printJob(job,
-                          resolver: try ArgsResolver(fileSystem: fileSystem),
-                          forceResponseFiles: forceResponseFiles)
+        print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
       }
       return
     }
@@ -704,24 +701,6 @@ extension Driver {
     }
 
     return ToolExecutionDelegate(mode: mode)
-  }
-
-  public static func printJob(_ job: Job, resolver: ArgsResolver, forceResponseFiles: Bool) throws {
-    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
-    var result = args.joined(separator: " ")
-
-    if usedResponseFile {
-      // Print the response file arguments as a comment.
-      result += " # \(job.commandLine.joinedArguments)"
-    }
-
-    if !job.extraEnvironment.isEmpty {
-      result += " #"
-      for (envVar, val) in job.extraEnvironment {
-        result += " \(envVar)=\(val)"
-      }
-    }
-    print(result)
   }
 
   private func printBindings(_ job: Job) {
