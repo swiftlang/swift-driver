@@ -43,7 +43,7 @@ public struct Job: Codable, Equatable, Hashable {
     case path(VirtualPath)
   }
 
-  /// The SWift module this job involves.
+  /// The Swift module this job involves.
   public var moduleName: String
 
   /// The tool to invoke.
