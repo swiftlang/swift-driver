@@ -129,6 +129,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(modulePrebuildJobs.count, 4)
       for job in modulePrebuildJobs {
         XCTAssertEqual(job.outputs.count, 1)
+        XCTAssertFalse(driver.isExplicitMainModuleJob(job: job))
         switch (job.outputs[0].file) {
 
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs)):
@@ -221,6 +222,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             moduleDependencyGraph: dependencyGraph)
           case .temporary(RelativePath("main.o")):
+            XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
               XCTFail("Main module does not have Swift details field")
               return
@@ -230,6 +232,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                         moduleInfo: dependencyGraph.mainModule,
                                                         moduleDependencyGraph: dependencyGraph)
           case .relative(RelativePath("main")):
+            XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             XCTAssertEqual(job.kind, .link)
           default:
             XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
