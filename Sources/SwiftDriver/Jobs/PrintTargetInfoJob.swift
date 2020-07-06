@@ -24,6 +24,22 @@ struct SwiftVersion {
     self.major = components[0]
     self.minor = components[1]
   }
+
+  init(major: Int, minor: Int) {
+    self.major = major
+    self.minor = minor
+  }
+}
+
+extension SwiftVersion {
+  static let v5_0 = SwiftVersion(major: 5, minor: 0)
+  static let v5_1 = SwiftVersion(major: 5, minor: 1)
+}
+
+extension SwiftVersion: Comparable {
+  static func < (lhs: SwiftVersion, rhs: SwiftVersion) -> Bool {
+    (lhs.major, lhs.minor) < (rhs.major, rhs.minor)
+  }
 }
 
 extension SwiftVersion: CustomStringConvertible {
