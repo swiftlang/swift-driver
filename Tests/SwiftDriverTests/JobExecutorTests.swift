@@ -52,6 +52,16 @@ class JobCollectingDelegate: JobExecutionDelegate {
   }
 }
 
+extension DarwinToolchain {
+  var compatibility50: Result<AbsolutePath, Error> {
+    resourcesDirectory.map { $0.appending(component: "libswiftCompatibility50.a") }
+  }
+
+  var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
+    resourcesDirectory.map { $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
+  }
+}
+
 final class JobExecutorTests: XCTestCase {
   func testDarwinBasic() throws {
 #if os(macOS)

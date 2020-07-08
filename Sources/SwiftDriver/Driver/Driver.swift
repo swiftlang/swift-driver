@@ -1601,7 +1601,9 @@ extension Driver {
     var info = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
-          sdkPath: sdkPath, resourceDirPath: resourceDirPath
+          sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+          runtimeCompatibilityVersion:
+            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle
         ),
         capturingJSONOutputAs: FrontendTargetInfo.self,
         forceResponseFiles: false,

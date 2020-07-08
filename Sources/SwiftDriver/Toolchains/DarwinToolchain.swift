@@ -108,14 +108,6 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  public var compatibility50: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { $0.appending(component: "libswiftCompatibility50.a") }
-  }
-
-  public var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
-  }
-
   public var clangRT: Result<AbsolutePath, Error> {
     resourcesDirectory.map { $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
   }
