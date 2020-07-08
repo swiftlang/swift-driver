@@ -331,7 +331,7 @@ public struct Driver {
       fileSystem: fileSystem,
       inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine,
-      actualSwiftVersion: try? toolchain.swiftCompilerVersion()
+      actualSwiftVersion: self.frontendTargetInfo.compilerVersion
     )
 
     // Local variable to alias the target triple, because self.targetTriple

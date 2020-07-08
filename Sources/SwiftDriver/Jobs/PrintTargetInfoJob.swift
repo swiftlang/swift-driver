@@ -95,6 +95,7 @@ public struct FrontendTargetInfo: Codable {
     let runtimeResourcePath: String
   }
 
+  var compilerVersion: String
   var target: Target
   var targetVariant: Target?
   let paths: Paths
