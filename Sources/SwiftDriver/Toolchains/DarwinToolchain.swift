@@ -48,22 +48,14 @@ public final class DarwinToolchain: Toolchain {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
-
     case .dynamicLinker:
       return try lookup(executable: "ld")
-
     case .staticLinker:
       return try lookup(executable: "libtool")
-
     case .dsymutil:
       return try lookup(executable: "dsymutil")
-
     case .clang:
-      let result = try executor.checkNonZeroExit(
-        args: "xcrun", "-toolchain", "default", "-f", "clang",
-        environment: env
-      ).spm_chomp()
-      return AbsolutePath(result)
+      return try lookup(executable: "clang")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .lldb:
