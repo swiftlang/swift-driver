@@ -153,7 +153,7 @@ class FailableTestCase: XCTestCase {
     line: Int = #line,
     during body: () throws -> Void
   ) rethrows {
-    var outer = anticipatedFailures
+    let outer = anticipatedFailures
     anticipatedFailures = times
 
     defer {
