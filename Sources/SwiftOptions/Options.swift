@@ -394,7 +394,6 @@ extension Option {
   public static let silDebugSerialization: Option = Option("-sil-debug-serialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not eliminate functions in Mandatory Inlining/SILCombine dead functions. (for debugging only)")
   public static let silInlineCallerBenefitReductionFactor: Option = Option("-sil-inline-caller-benefit-reduction-factor", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<2>", helpText: "Controls the aggressiveness of performance inlining in -Osize mode by reducing the base benefits of a caller (lower value permits more inlining!)")
   public static let silInlineThreshold: Option = Option("-sil-inline-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<50>", helpText: "Controls the aggressiveness of performance inlining")
-  public static let silMergePartialModules: Option = Option("-sil-merge-partial-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Merge SIL from all partial swiftmodules into the final module")
   public static let silUnrollThreshold: Option = Option("-sil-unroll-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<250>", helpText: "Controls the aggressiveness of loop unrolling")
   public static let silVerifyAll: Option = Option("-sil-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify SIL after each transform")
   public static let silVerifyNone: Option = Option("-sil-verify-none", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable SIL verification")
@@ -867,7 +866,6 @@ extension Option {
       Option.silDebugSerialization,
       Option.silInlineCallerBenefitReductionFactor,
       Option.silInlineThreshold,
-      Option.silMergePartialModules,
       Option.silUnrollThreshold,
       Option.silVerifyAll,
       Option.silVerifyNone,

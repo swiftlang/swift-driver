@@ -33,9 +33,6 @@ extension Driver {
     // serialized ASTs.
     commandLine.appendFlag(.parseAsLibrary)
 
-    // Merge serialized SIL from partial modules.
-    commandLine.appendFlag(.silMergePartialModules)
-
     // Disable SIL optimization passes; we've already optimized the code in each
     // partial mode.
     commandLine.appendFlag(.disableDiagnosticPasses)
