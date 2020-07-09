@@ -53,6 +53,28 @@ class JobCollectingDelegate: JobExecutionDelegate {
 }
 
 extension DarwinToolchain {
+  /// macOS SDK path, for testing only.
+  var sdk: Result<AbsolutePath, Swift.Error> {
+    Result {
+      let result = try executor.checkNonZeroExit(
+        args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
+        environment: env
+      ).spm_chomp()
+      return AbsolutePath(result)
+    }
+  }
+
+  /// macOS resource directory, for testing only.
+  var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
+    return Result {
+      try getToolPath(.swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
+    }
+  }
+
+  var clangRT: Result<AbsolutePath, Error> {
+    resourcesDirectory.map { $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
+  }
+
   var compatibility50: Result<AbsolutePath, Error> {
     resourcesDirectory.map { $0.appending(component: "libswiftCompatibility50.a") }
   }

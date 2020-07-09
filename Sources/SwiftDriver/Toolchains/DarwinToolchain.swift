@@ -79,25 +79,9 @@ public final class DarwinToolchain: Toolchain {
     toolPaths[tool] = path
   }
 
-  /// SDK path.
-  public lazy var sdk: Result<AbsolutePath, Swift.Error> = Result {
-    let result = try executor.checkNonZeroExit(
-      args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
-      environment: env
-    ).spm_chomp()
-    return AbsolutePath(result)
-  }
-
   /// Path to the StdLib inside the SDK.
   public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
     sdk.appending(RelativePath("usr/lib/swift"))
-  }
-
-  public var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
-    // FIXME: This will need to take -resource-dir and target triple into account.
-    return Result {
-      try getToolPath(.swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
-    }
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -106,10 +90,6 @@ public final class DarwinToolchain: Toolchain {
     case .dynamicLibrary: return "lib\(moduleName).dylib"
     case .staticLibrary: return "lib\(moduleName).a"
     }
-  }
-
-  public var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
   }
 
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
