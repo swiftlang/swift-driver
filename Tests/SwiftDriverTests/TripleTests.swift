@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 final class TripleTests: XCTestCase {
   func testBasics() throws {
@@ -910,7 +910,7 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(V?.minor, 3)
     XCTAssertEqual(V?.micro, 0)
     XCTAssertTrue(T._isSimulatorEnvironment)
-//    XCTAssertFalse(T.isMacCatalystEnvironment)
+    XCTAssertFalse(T.isMacCatalyst)
 
     T = Triple("x86_64-apple-ios13.0-macabi")
     XCTAssertTrue(T.os?.isiOS)
@@ -919,8 +919,17 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(V?.minor, 0)
     XCTAssertEqual(V?.micro, 0)
     XCTAssertEqual(T.environment, .macabi)
-//    XCTAssertTrue(T.isMacCatalystEnvironment)
-//    XCTAssertFalse(T._isSimulatorEnvironment)
+    XCTAssertTrue(T.isMacCatalyst)
+    XCTAssertFalse(T._isSimulatorEnvironment)
+
+    T = Triple("x86_64-apple-ios12.0")
+    XCTAssertTrue(T.os?.isiOS)
+    V = T._iOSVersion
+    XCTAssertEqual(V?.major, 12)
+    XCTAssertEqual(V?.minor, 0)
+    XCTAssertEqual(V?.micro, 0)
+    XCTAssertFalse(T._isSimulatorEnvironment)
+    XCTAssertFalse(T.isMacCatalyst)
   }
 
   func testFileFormat() {
@@ -1124,7 +1133,7 @@ final class TripleTests: XCTestCase {
 
     let tvOS1 = Triple("x86_64-apple-tvos13.0-simulator")
     let tvOS2 = Triple("powerpc-apple-tvos50.0") // FIXME: should test with ARM
-    let tvOS3 = Triple("x86_64-apple-tvos60.0")
+    let tvOS3 = Triple("x86_64-apple-tvos60.0-simulator")
 
     assertDarwinPlatformCorrect(tvOS1,
                                 case: tvOS,
@@ -1150,7 +1159,7 @@ final class TripleTests: XCTestCase {
 
     let watchOS1 = Triple("x86_64-apple-watchos6.0-simulator")
     let watchOS2 = Triple("powerpc-apple-watchos50.0") // FIXME: should test with ARM
-    let watchOS3 = Triple("x86_64-apple-watchos60.0")
+    let watchOS3 = Triple("x86_64-apple-watchos60.0-simulator")
 
     assertDarwinPlatformCorrect(watchOS1,
                                 case: watchOS,

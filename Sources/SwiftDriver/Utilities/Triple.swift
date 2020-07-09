@@ -1634,7 +1634,7 @@ extension Triple {
 // MARK: - Catalyst
 
 extension Triple {
-  var isMacCatalyst: Bool {
+  @_spi(Testing) public var isMacCatalyst: Bool {
     return self.isiOS && !self.isTvOS && environment == .macabi
   }
 
