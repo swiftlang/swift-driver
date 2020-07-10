@@ -60,7 +60,7 @@ func assertDiagnostics(
   file: StaticString = #file, line: UInt = #line,
   do body: (DiagnosticsEngine, DiagnosticVerifier) throws -> Void
 ) rethrows {
-  var matcher = DiagnosticVerifier()
+  let matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
 
   let diags = DiagnosticsEngine(handlers: [matcher.emit(_:)])
