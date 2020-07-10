@@ -72,6 +72,8 @@ public final class DarwinToolchain: Toolchain {
       return try lookup(executable: "dwarfdump")
     case .swiftHelp:
       return try lookup(executable: "swift-help")
+    case .jitStub:
+      return try lookup(executable: "jit-stub")
     }
   }
 

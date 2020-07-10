@@ -23,6 +23,7 @@ public enum Tool {
   case lldb
   case dwarfdump
   case swiftHelp
+  case jitStub
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers

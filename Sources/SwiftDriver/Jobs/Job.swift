@@ -33,6 +33,7 @@ public struct Job: Codable, Equatable, Hashable {
     case versionRequest = "version-request"
     case scanDependencies = "scan-dependencies"
     case help
+    case frontendJITBuild = "frontend-jit-build"
 
     case symlink
     case mkdir
@@ -171,6 +172,9 @@ extension Job : CustomStringConvertible {
     case .scanDependencies:
       return "Scanning dependencies for module \(moduleName)"
 
+    case .frontendJITBuild:
+      return "Registering the Frontend for a JIT build"
+
     case .symlink:
       return "Creating symlink to \(displayInputs[0].file.name)"
 
@@ -186,7 +190,7 @@ extension Job.Kind {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
         .generatePCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest, .scanDependencies:
+        .versionRequest, .scanDependencies, .frontendJITBuild:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo,
@@ -204,7 +208,7 @@ extension Job.Kind {
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
-         .symlink, .mkdir:
+         .frontendJITBuild, .symlink, .mkdir:
       return false
     }
   }

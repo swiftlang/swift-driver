@@ -117,6 +117,10 @@ extension Driver {
 
     case .standardCompile:
       partitions = nil
+
+    case .jitCompile:
+      jobs += try generateJITCompileJobs()
+      partitions = nil
     }
 
     for input in inputFiles {
@@ -297,7 +301,7 @@ extension Driver {
     case .immediate:
       return [try interpretJob(inputs: inputFiles)]
 
-    case .standardCompile, .batchCompile, .singleCompile:
+    case .standardCompile, .batchCompile, .singleCompile, .jitCompile:
       return try planStandardCompile()
 
     case .compilePCM:

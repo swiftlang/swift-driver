@@ -29,6 +29,10 @@ public enum CompilerMode: Equatable {
 
   /// Compile a Clang module (.pcm).
   case compilePCM
+
+  /// A compilation that emits a stub JIT executable which connects to a
+  /// Swift frontend process for lazy compilation.
+  case jitCompile
 }
 
 /// Information about batch mode, which is used to determine how to form
@@ -43,7 +47,7 @@ extension CompilerMode {
   /// Whether this compilation mode uses -primary-file to specify its inputs.
   public var usesPrimaryFileInputs: Bool {
     switch self {
-    case .immediate, .repl, .singleCompile, .compilePCM:
+    case .immediate, .repl, .singleCompile, .compilePCM, .jitCompile:
       return false
 
     case .standardCompile, .batchCompile:
@@ -54,7 +58,7 @@ extension CompilerMode {
   /// Whether this compilation mode compiles the whole target in one job.
   public var isSingleCompilation: Bool {
     switch self {
-    case .immediate, .repl, .standardCompile, .batchCompile:
+    case .immediate, .repl, .standardCompile, .batchCompile, .jitCompile:
       return false
 
     case .singleCompile, .compilePCM:
@@ -66,7 +70,7 @@ extension CompilerMode {
   // headers.
   public var supportsBridgingPCH: Bool {
     switch self {
-    case .batchCompile, .singleCompile, .standardCompile, .compilePCM:
+    case .batchCompile, .singleCompile, .standardCompile, .compilePCM, .jitCompile:
       return true
     case .immediate, .repl:
       return false
@@ -89,6 +93,8 @@ extension CompilerMode: CustomStringConvertible {
         return "immediate compilation"
       case .compilePCM:
         return "compile Clang module (.pcm)"
+      case .jitCompile:
+        return "JIT compilation"
       }
   }
 }

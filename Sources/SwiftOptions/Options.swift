@@ -291,6 +291,7 @@ extension Option {
   public static let interpret: Option = Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes)
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to the import search path")
   public static let i: Option = Option("-i", .flag, group: .modes)
+  public static let jitBuild: Option = Option("-jit-build", .flag, attributes: [.helpHidden, .noInteractive], helpText: "JIT compilation mode", group: .modes)
   public static let j: Option = Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel")
   public static let LEQ: Option = Option("-L=", .joined, alias: Option.L, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath])
   public static let lazyAstscopes: Option = Option("-lazy-astscopes", .flag, attributes: [.frontend, .noDriver], helpText: "Build ASTScopes lazily")
@@ -763,6 +764,7 @@ extension Option {
       Option.interpret,
       Option.I,
       Option.i,
+      Option.jitBuild,
       Option.j,
       Option.LEQ,
       Option.lazyAstscopes,

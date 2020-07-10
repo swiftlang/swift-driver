@@ -2437,6 +2437,60 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
     }
   }
+
+  func testJITBuildOption() throws {
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_JIT_STUB_EXEC"] = "/path/to/jit"
+    do {
+      var driver = try Driver(args: ["swiftc", "-jit-build", "foo.swift"], env: env)
+      let jobs = try driver.planBuild()
+      XCTAssertEqual(jobs.count, 3)
+
+      XCTAssertEqual(jobs[0].inputs[0].file, .absolute(AbsolutePath("/path/to/jit")))
+      XCTAssertEqual(jobs[0].outputs[0].file, .relative(RelativePath("foo")))
+
+      // FIXME: Appending to "." is working around a bug in appending(component:)
+      // where the "." doesn't get normalized away.
+      let expectedXOJIT = RelativePath(".").appending(component: ".foo.xojit")
+      XCTAssertTrue(jobs[1].commandLine.contains(.path(.relative(expectedXOJIT))))
+
+      XCTAssertTrue(jobs[2].commandLine.contains(.flag("-frontend")))
+      XCTAssertTrue(jobs[2].commandLine.contains(.flag("-jit-build")))
+      XCTAssertTrue(jobs[2].commandLine.contains(.path(.relative(RelativePath("foo.swift")))))
+    }
+
+    // Test with explicit -o.
+    do {
+      var driver = try Driver(args: ["swiftc", "-jit-build", "foo.swift", "-o", "output/bar"], env: env)
+      let jobs = try driver.planBuild()
+      XCTAssertEqual(jobs.count, 3)
+
+      XCTAssertEqual(jobs[0].inputs[0].file, .absolute(AbsolutePath("/path/to/jit")))
+      XCTAssertEqual(jobs[0].outputs[0].file, .relative(RelativePath("output/bar")))
+
+      XCTAssertTrue(jobs[1].commandLine.contains(.path(.relative(RelativePath("output/.bar.xojit")))))
+    }
+
+    // Test with multiple files.
+    do {
+      var driver = try Driver(args: ["swiftc", "-jit-build", "foo.swift", "bar.swift"], env: env)
+      let jobs = try driver.planBuild()
+      XCTAssertEqual(jobs.count, 3)
+
+      XCTAssertEqual(jobs[0].inputs[0].file, .absolute(AbsolutePath("/path/to/jit")))
+      XCTAssertEqual(jobs[0].outputs[0].file, .relative(RelativePath("main")))
+
+      // FIXME: Appending to "." is working around a bug in appending(component:)
+      // where the "." doesn't get normalized away.
+      let expectedXOJIT = RelativePath(".").appending(component: ".main.xojit")
+      XCTAssertTrue(jobs[1].commandLine.contains(.path(.relative(expectedXOJIT))))
+
+      XCTAssertTrue(jobs[2].commandLine.contains(.flag("-frontend")))
+      XCTAssertTrue(jobs[2].commandLine.contains(.flag("-jit-build")))
+      XCTAssertTrue(jobs[2].commandLine.contains(.path(.relative(RelativePath("foo.swift")))))
+      XCTAssertTrue(jobs[2].commandLine.contains(.path(.relative(RelativePath("bar.swift")))))
+    }
+  }
 }
 
 func assertString(

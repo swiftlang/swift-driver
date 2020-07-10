@@ -786,6 +786,9 @@ extension Driver {
       case .emitPcm:
         return .compilePCM
 
+      case .jitBuild:
+        return .jitCompile
+
       default:
         // Output flag doesn't determine the compiler mode.
         break
@@ -966,6 +969,10 @@ extension Driver {
 
       case .scanDependencies:
         compilerOutputType = .jsonDependencies
+
+      case .jitBuild:
+        compilerOutputType = nil
+        linkerOutputType = .executable
 
       default:
         fatalError("unhandled output mode option \(outputOption)")
