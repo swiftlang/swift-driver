@@ -15,6 +15,8 @@ import SwiftOptions
 /// Utilities for manipulating a list of command line arguments, including
 /// constructing one from a set of ParsedOptions.
 extension Array where Element == Job.ArgTemplate {
+  // TODO: Move these onto CommandInvocation.
+
   /// Append a fixed flag to the command line arguments.
   ///
   /// When possible, use the more semantic forms `appendFlag` or

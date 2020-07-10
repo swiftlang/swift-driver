@@ -35,13 +35,7 @@ public struct Job: Codable, Equatable, Hashable {
     case help
   }
 
-  public enum ArgTemplate: Equatable, Hashable {
-    /// Represents a command-line flag that is substitued as-is.
-    case flag(String)
-
-    /// Represents a virtual path on disk.
-    case path(VirtualPath)
-  }
+  public typealias ArgTemplate = CommandInvocation.ArgTemplate
 
   /// The Swift module this job involves.
   public var moduleName: String
@@ -49,6 +43,8 @@ public struct Job: Codable, Equatable, Hashable {
   /// The tool to invoke.
   public var tool: VirtualPath
 
+  // TODO: Store a CommandInvocation.
+  
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
 
