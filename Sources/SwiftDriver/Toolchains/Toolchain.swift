@@ -76,6 +76,14 @@ public protocol Toolchain {
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
     targetTriple: Triple) throws -> [String: String]
+
+  /// Returns an invocation of the platform's symlink command.
+  func getSymlinkInvocation(
+    from input: VirtualPath, to output: VirtualPath
+  ) throws -> CommandInvocation
+
+  /// Returns an invocation of the platform's mkdir command.
+  func getMkdirInvocation(for path: VirtualPath) throws -> CommandInvocation
 }
 
 extension Toolchain {

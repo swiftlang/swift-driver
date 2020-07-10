@@ -91,4 +91,16 @@ public final class GenericUnixToolchain: Toolchain {
   ) throws -> String {
     return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).a"
   }
+
+  public func getSymlinkInvocation(
+    from input: VirtualPath, to output: VirtualPath
+  ) throws -> CommandInvocation {
+    CommandInvocation(.absolute(try lookup(executable: "ln")),
+                      args: [.flag("-s"), .path(input), .path(output)])
+  }
+
+  public func getMkdirInvocation(for path: VirtualPath) throws -> CommandInvocation {
+    CommandInvocation(.absolute(try lookup(executable: "mkdir")),
+                      args: [.path(path)])
+  }
 }

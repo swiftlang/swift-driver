@@ -155,4 +155,16 @@ public final class DarwinToolchain: Toolchain {
     \(isShared ? "_dynamic.dylib" : ".a")
     """
   }
+
+  public func getSymlinkInvocation(
+    from input: VirtualPath, to output: VirtualPath
+  ) throws -> CommandInvocation {
+    CommandInvocation(.absolute(try lookup(executable: "ln")),
+                      args: [.flag("-s"), .path(input), .path(output)])
+  }
+
+  public func getMkdirInvocation(for path: VirtualPath) throws -> CommandInvocation {
+    CommandInvocation(.absolute(try lookup(executable: "mkdir")),
+                      args: [.path(path)])
+  }
 }

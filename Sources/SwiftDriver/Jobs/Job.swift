@@ -33,6 +33,9 @@ public struct Job: Codable, Equatable, Hashable {
     case versionRequest = "version-request"
     case scanDependencies = "scan-dependencies"
     case help
+
+    case symlink
+    case mkdir
   }
 
   public typealias ArgTemplate = CommandInvocation.ArgTemplate
@@ -167,6 +170,12 @@ extension Job : CustomStringConvertible {
 
     case .scanDependencies:
       return "Scanning dependencies for module \(moduleName)"
+
+    case .symlink:
+      return "Creating symlink to \(displayInputs[0].file.name)"
+
+    case .mkdir:
+      return "Creating directory"
     }
   }
 }
@@ -180,7 +189,8 @@ extension Job.Kind {
         .versionRequest, .scanDependencies:
         return true
 
-    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
+    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo,
+         .symlink, .mkdir:
         return false
     }
   }
@@ -193,7 +203,8 @@ extension Job.Kind {
     case .backend, .mergeModule, .emitModule, .generatePCH,
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
-         .help, .link, .verifyDebugInfo, .scanDependencies:
+         .help, .link, .verifyDebugInfo, .scanDependencies,
+         .symlink, .mkdir:
       return false
     }
   }
