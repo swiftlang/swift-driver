@@ -14,7 +14,12 @@ import TSCBasic
 extension Driver {
 
   /// Compute the output file for an image output.
-  private var outputFileForImage: VirtualPath {
+  mutating func getOutputFileForImage() throws -> VirtualPath {
+    // If the user has specified a path with -o, use that.
+    if let output = parsedOptions.getLastArgument(.o) {
+      return try VirtualPath(path: output.asSingle)
+    }
+
     if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
       return .relative(RelativePath(inputFiles[0].file.basenameWithoutExt))
     }
@@ -29,16 +34,10 @@ extension Driver {
   mutating func linkJob(inputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = []
 
-    // Compute the final output file
-    let outputFile: VirtualPath
-    if let output = parsedOptions.getLastArgument(.o) {
-      outputFile = try VirtualPath(path: output.asSingle)
-    } else {
-      outputFile = outputFileForImage
-    }
+    // Compute the final output file.
+    let outputFile = try getOutputFileForImage()
 
-    // Defer to the toolchain for platform-specific linking
-
+    // Defer to the toolchain for platform-specific linking.
     let toolPath = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions,
