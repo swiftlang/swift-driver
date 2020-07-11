@@ -1617,19 +1617,6 @@ final class SwiftDriverTests: XCTestCase {
     _ = try driverWithEmptySDK.planBuild()
   }
 
-  func testToolchainUtilities() throws {
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
-    let darwinToolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
-    let darwinSwiftVersion = try darwinToolchain.swiftCompilerVersion()
-    let unixToolchain =  GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
-    let unixSwiftVersion = try unixToolchain.swiftCompilerVersion()
-    assertString(darwinSwiftVersion, contains: "Swift version ")
-    assertString(unixSwiftVersion, contains: "Swift version ")
-  }
-
   func testToolchainClangPath() throws {
     // Overriding the swift executable to a specific location breaks this.
     guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil else {

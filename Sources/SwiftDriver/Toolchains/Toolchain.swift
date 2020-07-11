@@ -83,13 +83,6 @@ extension Toolchain {
     getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
   }
 
-  public func swiftCompilerVersion() throws -> String {
-    try executor.checkNonZeroExit(
-      args: getToolPath(.swiftCompiler).pathString, "-version",
-      environment: env
-    ).split(separator: "\n").first.map(String.init) ?? ""
-  }
-
   /// Returns the `executablePath`'s directory.
   public var executableDir: AbsolutePath {
     guard let path = Bundle.main.executablePath else {

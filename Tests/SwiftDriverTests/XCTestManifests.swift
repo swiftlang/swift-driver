@@ -114,7 +114,6 @@ extension SwiftDriverTests {
         ("testTargetTriple", testTargetTriple),
         ("testTargetVariant", testTargetVariant),
         ("testToolchainClangPath", testToolchainClangPath),
-        ("testToolchainUtilities", testToolchainUtilities),
         ("testUsingResponseFiles", testUsingResponseFiles),
         ("testVerifyDebugInfo", testVerifyDebugInfo),
         ("testVersionRequest", testVersionRequest),

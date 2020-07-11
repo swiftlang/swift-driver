@@ -331,7 +331,7 @@ public struct Driver {
       fileSystem: fileSystem,
       inputFiles: inputFiles,
       diagnosticEngine: diagnosticEngine,
-      actualSwiftVersion: try? toolchain.swiftCompilerVersion()
+      actualSwiftVersion: self.frontendTargetInfo.compilerVersion
     )
 
     // Local variable to alias the target triple, because self.targetTriple
@@ -1601,7 +1601,9 @@ extension Driver {
     var info = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
-          sdkPath: sdkPath, resourceDirPath: resourceDirPath
+          sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+          runtimeCompatibilityVersion:
+            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle
         ),
         capturingJSONOutputAs: FrontendTargetInfo.self,
         forceResponseFiles: false,

@@ -31,11 +31,6 @@ struct SwiftVersion {
   }
 }
 
-extension SwiftVersion {
-  static let v5_0 = SwiftVersion(major: 5, minor: 0)
-  static let v5_1 = SwiftVersion(major: 5, minor: 1)
-}
-
 extension SwiftVersion: Comparable {
   static func < (lhs: SwiftVersion, rhs: SwiftVersion) -> Bool {
     (lhs.major, lhs.minor) < (rhs.major, rhs.minor)
@@ -68,6 +63,16 @@ extension SwiftVersion: Codable {
 
 /// Describes information about the target as provided by the Swift frontend.
 public struct FrontendTargetInfo: Codable {
+  struct CompatibilityLibrary: Codable {
+    enum Filter: String, Codable {
+      case all
+      case executable
+    }
+
+    let libraryName: String
+    let filter: Filter
+  }
+
   struct Target: Codable {
     /// The target triple
     let triple: Triple
@@ -82,6 +87,10 @@ public struct FrontendTargetInfo: Codable {
     /// environment of the target.
     var swiftRuntimeCompatibilityVersion: SwiftVersion?
 
+    /// The set of compatibility libraries that one needs to link against
+    /// for this particular target.
+    let compatibilityLibraries: [CompatibilityLibrary]
+
     /// Whether the Swift libraries need to be referenced in their system
     /// location (/usr/lib/swift) via rpath.
     let librariesRequireRPath: Bool
@@ -95,6 +104,7 @@ public struct FrontendTargetInfo: Codable {
     let runtimeResourcePath: String
   }
 
+  var compilerVersion: String
   var target: Target
   var targetVariant: Target?
   let paths: Paths
@@ -105,6 +115,7 @@ extension Toolchain {
                           targetVariant: Triple?,
                           sdkPath: VirtualPath? = nil,
                           resourceDirPath: VirtualPath? = nil,
+                          runtimeCompatibilityVersion: String? = nil,
                           requiresInPlaceExecution: Bool = false) throws -> Job {
     var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
                                           .flag("-print-target-info")]
@@ -125,6 +136,13 @@ extension Toolchain {
 
     if let resourceDirPath = resourceDirPath {
       commandLine += [.flag("-resource-dir"), .path(resourceDirPath)]
+    }
+
+    if let runtimeCompatibilityVersion = runtimeCompatibilityVersion {
+      commandLine += [
+        .flag("-runtime-compatibility-version"),
+        .flag(runtimeCompatibilityVersion)
+      ]
     }
 
     return Job(
