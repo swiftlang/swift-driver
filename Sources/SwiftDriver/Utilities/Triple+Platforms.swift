@@ -112,7 +112,7 @@ public enum DarwinPlatform: Hashable {
     case .iOS(.simulator):
       return "iossim"
     case .iOS(.catalyst):
-        return "osx"
+      return "osx"
     case .tvOS(.device):
       return "tvos"
     case .tvOS(.simulator):
@@ -128,9 +128,7 @@ public enum DarwinPlatform: Hashable {
 extension Triple {
   /// If this is a Darwin device platform, should it be inferred to be a device simulator?
   public var _isSimulatorEnvironment: Bool {
-    // FIXME: transitional, this should eventually stop testing arch, and
-    // switch to only checking the -environment field.
-    return environment == .simulator || arch == .x86 || arch == .x86_64
+    return environment == .simulator
   }
 
   /// Returns the OS version equivalent for the given platform, converting and
