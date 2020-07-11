@@ -28,6 +28,7 @@ public struct OptionAttributes: OptionSet, Hashable {
   public static let indent                        = OptionAttributes(rawValue: 0x100)
   public static let argumentIsPath                = OptionAttributes(rawValue: 0x200)
   public static let moduleInterface               = OptionAttributes(rawValue: 0x400)
+  public static let supplementaryOutput           = OptionAttributes(rawValue: 0x800)
 }
 
 /// Describes a command-line option.
