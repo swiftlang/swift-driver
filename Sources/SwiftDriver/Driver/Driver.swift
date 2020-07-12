@@ -444,11 +444,30 @@ extension Driver {
 
     let execName = try VirtualPath(path: args[0]).basenameWithoutExt
 
-    // If we are not run as 'swift' or there are no program arguments, always invoke as normal.
-    guard execName == "swift", args.count > 1 else { return (.normal(isRepl: false), args) }
+    // If we are not run as 'swift' or 'swiftc' or there are no program arguments, always invoke as normal.
+    guard execName == "swift" || execName == "swiftc", args.count > 1 else {
+      return (.normal(isRepl: false), args)
+    }
 
     // Otherwise, we have a program argument.
     let firstArg = args[1]
+    var updatedArgs = args
+
+    // Check for flags associated with frontend tools.
+    if firstArg == "-frontend" {
+      updatedArgs.replaceSubrange(0...1, with: ["swift-frontend"])
+      return (.subcommand("swift-frontend"), updatedArgs)
+    }
+
+    if firstArg == "-modulewrap" {
+      updatedArgs[0] = "swift-frontend"
+      return (.subcommand("swift-frontend"), updatedArgs)
+    }
+
+    // Only 'swift' supports subcommands.
+    guard execName == "swift" else {
+      return (.normal(isRepl: false), args)
+    }
 
     // If it looks like an option or a path, then invoke in interactive mode with the arguments as given.
     if firstArg.hasPrefix("-") || firstArg.hasPrefix("/") || firstArg.contains(".") {
@@ -456,9 +475,6 @@ extension Driver {
     }
 
     // Otherwise, we should have some sort of subcommand.
-
-    var updatedArgs = args
-
     // If it is the "built-in" 'repl', then use the normal driver.
     if firstArg == "repl" {
         updatedArgs.remove(at: 1)
@@ -594,20 +610,11 @@ extension Driver {
     let execRelPath = args.removeFirst()
     var driverName = try VirtualPath(path: execRelPath).basenameWithoutExt
 
-    // Determine driver kind based on the first argument.
+    // Determine if the driver kind is being overriden.
     let driverModeOption = "--driver-mode="
-    switch args.first {
-    case "-frontend"?:
-      args.removeFirst()
-      return .frontend
-    case "-modulewrap"?:
-      args.removeFirst()
-      return .moduleWrap
-    case let firstArg? where firstArg.hasPrefix(driverModeOption):
+    if let firstArg = args.first, firstArg.hasPrefix(driverModeOption) {
       args.removeFirst()
       driverName = String(firstArg.dropFirst(driverModeOption.count))
-    default:
-      break
     }
 
     switch driverName {
@@ -615,8 +622,6 @@ extension Driver {
       return .interactive
     case "swiftc":
       return .batch
-    case "swift-autolink-extract":
-      return .autolinkExtract
     default:
       throw Error.invalidDriverName(driverName)
     }
@@ -626,11 +631,6 @@ extension Driver {
   public mutating func run(
     jobs: [Job]
   ) throws {
-    // We just need to invoke the corresponding tool if the kind isn't Swift compiler.
-    guard driverKind.isSwiftCompiler else {
-      return try exec(path: toolchain.getToolPath(.swiftCompiler).pathString, args: driverKind.usageArgs + parsedOptions.commandLine)
-    }
-
     if parsedOptions.hasArgument(.v) {
       try printVersion(outputStream: &stderrStream)
     }

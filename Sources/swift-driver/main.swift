@@ -37,7 +37,7 @@ do {
     }
 
     // Execute the subcommand.
-    try exec(path: subcommandPath?.pathString ?? "", args: Array(arguments.dropFirst()))
+    try exec(path: subcommandPath?.pathString ?? "", args: arguments)
   }
 
   let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,

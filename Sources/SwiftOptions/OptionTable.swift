@@ -28,7 +28,7 @@ extension OptionTable {
   /// Print help information to the terminal.
   public func printHelp(driverKind: DriverKind, includeHidden: Bool) {
     print("""
-      OVERVIEW: \(driverKind.title)
+      OVERVIEW: Swift compiler
 
       USAGE: \(driverKind.usage)
 

@@ -42,6 +42,14 @@ final class SwiftDriverTests: XCTestCase {
     let driver6 = try Driver.invocationRunMode(forArgs: ["swift", "foo", "bar"])
     XCTAssertEqual(driver6.mode, .subcommand("swift-foo"))
     XCTAssertEqual(driver6.args, ["swift-foo", "bar"])
+
+    let driver7 = try Driver.invocationRunMode(forArgs: ["swift", "-frontend", "foo", "bar"])
+    XCTAssertEqual(driver7.mode, .subcommand("swift-frontend"))
+    XCTAssertEqual(driver7.args, ["swift-frontend", "foo", "bar"])
+
+    let driver8 = try Driver.invocationRunMode(forArgs: ["swift", "-modulewrap", "foo", "bar"])
+    XCTAssertEqual(driver8.mode, .subcommand("swift-frontend"))
+    XCTAssertEqual(driver8.args, ["swift-frontend", "-modulewrap", "foo", "bar"])
   }
 
   func testSubcommandsHandling() throws {
@@ -79,21 +87,10 @@ final class SwiftDriverTests: XCTestCase {
     try assertArgs("/path/to/swift", parseTo: .interactive, leaving: [])
     try assertArgs("swiftc", parseTo: .batch, leaving: [])
     try assertArgs(".build/debug/swiftc", parseTo: .batch, leaving: [])
-    try assertArgs("swiftc", "-frontend", parseTo: .frontend, leaving: [])
-    try assertArgs("swiftc", "-modulewrap", parseTo: .moduleWrap, leaving: [])
-    try assertArgs("/path/to/swiftc", "-modulewrap",
-                   parseTo: .moduleWrap, leaving: [])
-
     try assertArgs("swiftc", "--driver-mode=swift", parseTo: .interactive, leaving: [])
-    try assertArgs("swiftc", "--driver-mode=swift-autolink-extract", parseTo: .autolinkExtract, leaving: [])
-    try assertArgs("swift", "--driver-mode=swift-autolink-extract", parseTo: .autolinkExtract, leaving: [])
-
     try assertArgs("swift", "-zelda", parseTo: .interactive, leaving: ["-zelda"])
-    try assertArgs("/path/to/swiftc", "-modulewrap", "savannah",
-                   parseTo: .moduleWrap, leaving: ["savannah"])
     try assertArgs("swiftc", "--driver-mode=swift", "swiftc",
                    parseTo: .interactive, leaving: ["swiftc"])
-
     try assertArgsThrow("driver")
     try assertArgsThrow("swiftc", "--driver-mode=blah")
     try assertArgsThrow("swiftc", "--driver-mode=")
@@ -1619,7 +1616,8 @@ final class SwiftDriverTests: XCTestCase {
 
   func testToolchainClangPath() throws {
     // Overriding the swift executable to a specific location breaks this.
-    guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil else {
+    guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil,
+          ProcessEnv.vars["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"] == nil else {
       return
     }
     // TODO: remove this conditional check once DarwinToolchain does not requires xcrun to look for clang.

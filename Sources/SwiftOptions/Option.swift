@@ -133,20 +133,10 @@ extension Option {
   /// Whether this option is accepted by a driver of the given kind.
   public func isAccepted(by driverKind: DriverKind) -> Bool {
     switch driverKind {
-    case .autolinkExtract:
-      return attributes.contains(.autolinkExtract)
-
     case .batch:
       return !attributes.contains(.noBatch)
-
-    case .frontend:
-      return attributes.contains(.frontend)
-
     case .interactive:
       return !attributes.contains(.noInteractive)
-
-    case .moduleWrap:
-      return attributes.contains(.moduleWrap)
     }
   }
 }
