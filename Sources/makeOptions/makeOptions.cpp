@@ -58,6 +58,7 @@ enum SwiftFlags {
   SwiftIndentOption = (1 << 11),
   ArgumentIsPath = (1 << 12),
   ModuleInterfaceOption = (1 << 13),
+  SupplementaryOutput = (1 << 14),
 };
 
 static std::set<std::string> swiftKeywords = { "internal", "static" };
@@ -316,6 +317,7 @@ int makeOptions_main() {
         else
           emitFlagIf(ArgumentIsPath, ".argumentIsPath");
         emitFlagIf(ModuleInterfaceOption, ".moduleInterface");
+        emitFlagIf(SupplementaryOutput, ".supplementaryOutput");
         out << "]";
       }
 
