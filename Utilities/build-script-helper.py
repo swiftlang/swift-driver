@@ -108,7 +108,7 @@ def handle_invocation(swift_exec, args):
   if args.action == 'build':
     swiftpm('build', swift_exec, swiftpm_args, env)
   elif args.action == 'test':
-    env['SWIFT_DRIVER_SWIFT_EXEC'] = '%sc' % (swift_exec)
+    env['SWIFT_DRIVER_SWIFT_FRONTEND_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
     if should_test_parallel():
       test_args += ['--parallel']
