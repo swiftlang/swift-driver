@@ -14,53 +14,15 @@
 public enum DriverKind: String {
   case interactive = "swift"
   case batch = "swiftc"
-  case moduleWrap = "swift-modulewrap"
-  case frontend = "swift-frontend"
-  case autolinkExtract = "swift-autolink-extract"
-
-  /// Returns true if driver kind is Swift compiler.
-  public var isSwiftCompiler: Bool {
-    return self == .interactive || self == .batch
-  }
 }
 
 extension DriverKind {
   public var usage: String {
-    usageArgs.joined(separator: " ")
-  }
-
-  public var usageArgs: [String] {
     switch self {
-    case .autolinkExtract:
-      return ["swift-autolink-extract"]
-
-    case .batch:
-      return ["swiftc"]
-
-    case .frontend:
-      return ["swift", "-frontend"]
-
     case .interactive:
-      return ["swift"]
-
-    case .moduleWrap:
-      return ["swift-modulewrap"]
-    }
-  }
-
-  public var title: String {
-    switch self {
-    case .autolinkExtract:
-      return "Swift Autolink Extract"
-
-    case .frontend:
-      return "Swift frontend"
-
-    case .batch, .interactive:
-      return "Swift compiler"
-
-    case .moduleWrap:
-      return "Swift Module Wrapper"
+      return "swift"
+    case .batch:
+      return "swiftc"
     }
   }
 
@@ -76,8 +38,6 @@ extension DriverKind {
              """
     case .batch:
       return "SEE ALSO: swift build, swift run, swift package, swift test"
-    default:
-      return nil
     }
   }
 }
