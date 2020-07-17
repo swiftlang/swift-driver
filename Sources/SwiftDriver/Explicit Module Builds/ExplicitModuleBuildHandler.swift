@@ -13,9 +13,13 @@ import TSCBasic
 import TSCUtility
 import Foundation
 
+public typealias ExternalDependencyArtifactMap =
+    [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)]
+
 /// In Explicit Module Build mode, this handler is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
+
 @_spi(Testing) public struct ExplicitModuleBuildHandler {
   /// The module dependency graph.
   public var dependencyGraph: InterModuleDependencyGraph
@@ -30,6 +34,9 @@ import Foundation
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
+  /// A collection of external dependency modules, and their binary module file paths and dependency graph.
+  private let externalDependencyArtifactMap: ExternalDependencyArtifactMap
+
   /// The file system which we should interact with.
   /// FIXME: Our end goal is to not have any direct filesystem manipulation in here, but  that's dependent on getting the
   /// dependency scanner/dependency job generation  moved into a Job.
@@ -42,9 +49,11 @@ import Foundation
   private let temporaryDirectory: AbsolutePath
 
   public init(dependencyGraph: InterModuleDependencyGraph, toolchain: Toolchain,
-              fileSystem: FileSystem) throws {
+              fileSystem: FileSystem,
+              externalDependencyArtifactMap: ExternalDependencyArtifactMap) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
+    self.externalDependencyArtifactMap = externalDependencyArtifactMap
     self.fileSystem = fileSystem
     self.temporaryDirectory = try determineTempDirectory()
   }
@@ -457,4 +466,10 @@ private extension InterModuleDependencyGraph {
   }
 }
 
-
+// To keep the ExplicitModuleBuildHandler an implementation detail, provide an API
+// to access the dependency graph
+extension Driver {
+  public var interModuleDependencyGraph: InterModuleDependencyGraph? {
+    return explicitModuleBuildHandler?.dependencyGraph
+  }
+}

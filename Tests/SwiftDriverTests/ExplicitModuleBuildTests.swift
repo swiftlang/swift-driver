@@ -133,7 +133,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
                                                                          toolchain: driver.toolchain,
-                                                                         fileSystem: localFileSystem)
+                                                                         fileSystem: localFileSystem,
+                                                                         externalDependencyArtifactMap: [:])
       let modulePrebuildJobs =
         try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
