@@ -57,6 +57,9 @@ public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
   public var moduleInterfacePath: String?
 
+  /// The paths of potentially ready-to-use compiled modules for the interface.
+  var compiledModuleCandidates: [String]?
+
   /// The path to the already-compiled module.
   public var compiledModulePath: String?
 
