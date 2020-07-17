@@ -150,7 +150,7 @@ def main():
   args.toolchain = os.path.abspath(args.toolchain)
 
   if args.toolchain:
-    swift_exec = os.path.join(args.toolchain, 'bin', 'swift')
+    swift_exec = os.path.join(args.toolchain, 'bin', 'swift-frontend')
   else:
     swift_exec = 'swift'
 
