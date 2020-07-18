@@ -232,16 +232,13 @@ public struct Driver {
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
-    executor: DriverExecutor? = nil
+    executor: DriverExecutor
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
 
     self.diagnosticEngine = diagnosticsEngine
-    self.executor = try executor ?? SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
-                                                        processSet: ProcessSet(),
-                                                        fileSystem: fileSystem,
-                                                        env: env)
+    self.executor = executor
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
