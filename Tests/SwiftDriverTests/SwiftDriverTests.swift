@@ -1101,6 +1101,27 @@ final class SwiftDriverTests: XCTestCase {
       let linkCmd = linkJob.commandLine
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address,undefined")))
     }
+
+    do {
+      // linux scudo hardened allocator
+      var driver = try Driver(
+        args: commonArgs + [
+          "-target", "x86_64-unknown-linux",
+          "-sanitize=scudo"
+        ]
+      )
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=scudo")))
+
+      let linkJob = plannedJobs[3]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=scudo")))
+    }
     #endif
   #endif
   }

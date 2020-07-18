@@ -27,6 +27,9 @@ public enum Sanitizer: String, Hashable {
   ///         it's distributed exactly the same as the sanitizers.
   case fuzzer
 
+  /// Scudo hardened allocator
+  case scudo
+
   /// The name inside the `compiler_rt` library path (e.g. libclang_rt.{name}.a)
   var libraryName: String {
     switch self {
@@ -34,6 +37,7 @@ public enum Sanitizer: String, Hashable {
     case .thread: return "tsan"
     case .undefinedBehavior: return "ubsan"
     case .fuzzer: return "fuzzer"
+    case .scudo: return "scudo"
     }
   }
 }
