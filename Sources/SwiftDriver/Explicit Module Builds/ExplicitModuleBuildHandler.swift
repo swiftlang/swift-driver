@@ -16,9 +16,8 @@ import Foundation
 /// In Explicit Module Build mode, this handler is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
-public struct ExplicitModuleBuildHandler {
+@_spi(Testing) public struct ExplicitModuleBuildHandler {
   /// The module dependency graph.
-  /// FIXME: The dependency graph is public for the sake of unit tests only.
   public var dependencyGraph: InterModuleDependencyGraph
 
   /// Cache Clang modules for which a build job has already been constructed with a given
@@ -26,7 +25,7 @@ public struct ExplicitModuleBuildHandler {
   private var clangTargetModuleBuildCache = ClangModuleBuildJobCache()
 
   /// Cache Swift modules for which a build job has already been constructed.
-  private var swiftModuleBuildCache: [ModuleDependencyId: Job] = [:]
+  @_spi(Testing) public var swiftModuleBuildCache: [ModuleDependencyId: Job] = [:]
 
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain

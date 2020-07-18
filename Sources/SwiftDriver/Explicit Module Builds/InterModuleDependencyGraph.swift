@@ -12,7 +12,7 @@
 import Foundation
 
 
-public enum ModuleDependencyId: Hashable {
+@_spi(Testing) public enum ModuleDependencyId: Hashable {
   case swift(String)
   case clang(String)
 
@@ -53,7 +53,7 @@ extension ModuleDependencyId: Codable {
 }
 
 /// Details specific to Swift modules.
-public struct SwiftModuleDetails: Codable {
+@_spi(Testing) public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
   public var moduleInterfacePath: String?
 
@@ -79,7 +79,7 @@ public struct SwiftModuleDetails: Codable {
 }
 
 /// Details specific to Clang modules.
-public struct ClangModuleDetails: Codable {
+@_spi(Testing) public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
   public var moduleMapPath: String
 
@@ -90,7 +90,7 @@ public struct ClangModuleDetails: Codable {
   public var commandLine: [String]? = []
 }
 
-public struct ModuleInfo: Codable {
+@_spi(Testing) public struct ModuleInfo: Codable {
   /// The path for the module.
   public var modulePath: String
 
@@ -144,7 +144,7 @@ extension ModuleInfo.Details: Codable {
 
 /// Describes the complete set of dependencies for a Swift module, including
 /// all of the Swift and C modules and source files it depends on.
-public struct InterModuleDependencyGraph: Codable {
+@_spi(Testing) public struct InterModuleDependencyGraph: Codable {
   /// The name of the main module.
   public var mainModuleName: String
 
