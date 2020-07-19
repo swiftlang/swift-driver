@@ -1198,6 +1198,19 @@ extension Driver {
       )
     }
 
+    // Scudo can only be run with ubsan.
+    if set.contains(.scudo) {
+      let allowedSanitizers: Set<Sanitizer> = [.scudo, .undefinedBehavior]
+      for forbiddenSanitizer in set.subtracting(allowedSanitizers) {
+        diagnosticEngine.emit(
+          .error_argument_not_allowed_with(
+            arg: "-sanitize=scudo",
+            other: "-sanitize=\(forbiddenSanitizer.rawValue)"
+          )
+        )
+      }
+    }
+
     return set
   }
 
