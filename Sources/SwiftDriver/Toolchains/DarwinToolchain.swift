@@ -121,26 +121,34 @@ public final class DarwinToolchain: Toolchain {
     """
   }
 
-  enum ToolchainValidationError: Error, DiagnosticData {
+  public enum ToolchainValidationError: Error, DiagnosticData {
     case osVersionBelowMinimumDeploymentTarget(String)
     case iOSVersionAboveMaximumDeploymentTarget(Int)
+    case unsupportedTargetVariant(variant: Triple)
 
-    var description: String {
+    public var description: String {
       switch self {
       case .osVersionBelowMinimumDeploymentTarget(let target):
         return "Swift requires a minimum deployment target of \(target)"
       case .iOSVersionAboveMaximumDeploymentTarget(let version):
         return "iOS \(version) does not support 32-bit programs"
+      case .unsupportedTargetVariant(variant: let variant):
+        return "unsupported '\(variant.isiOS ? "-target" : "-target-variant")' value '\(variant)'; use 'ios-macabi' instead"
       }
     }
   }
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
-                           targetTriple: Triple) throws {
+                           targetTriple: Triple,
+                           targetVariantTriple: Triple?) throws {
     // TODO: Validating arclite library path when link-objc-runtime.
 
     // Validating apple platforms deployment targets.
     try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple)
+    if let targetVariantTriple = targetVariantTriple,
+       !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
+      throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
+    }
 
     // TODO: Validating darwin unsupported -static-stdlib argument.
     // TODO: If a C++ standard library is specified, it has to be libc++.
