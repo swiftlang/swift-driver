@@ -112,7 +112,7 @@ final class IntegrationTests: IntegrationTestCase {
   // they will fail.
 
   func testLitDriverTests() throws {
-    try runLitTests(suite: "test", "Driver", "macabi-environment.swift")
+    try runLitTests(suite: "test", "Driver")
   }
 
   func testLitDriverValidationTests() throws {
