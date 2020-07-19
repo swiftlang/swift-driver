@@ -645,7 +645,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testUsingResponseFiles() throws {
-    let manyArgs = (1...500_000).map { "-DTEST_\($0)" }
+    let manyArgs = (1...20000).map { "-DTEST_\($0)" }
     // Needs response file
     do {
       var driver = try Driver(args: ["swift"] + manyArgs + ["foo.swift"])
@@ -659,7 +659,7 @@ final class SwiftDriverTests: XCTestCase {
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
       XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
-      XCTAssertTrue(contents.contains("-D\nTEST_500000"))
+      XCTAssertTrue(contents.contains("-D\nTEST_20000"))
       XCTAssertTrue(contents.contains("-D\nTEST_1"))
     }
     // Forced response file
