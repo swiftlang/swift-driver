@@ -109,7 +109,10 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   case indexData
 
   /// Optimization record.
-  case optimizationRecord = "opt.yaml"
+  case yamlOptimizationRecord = "opt.yaml"
+
+  /// Bitstream optimization record.
+  case bitstreamOptimizationRecord = "opt.bitstream"
 
   /// Clang compiler module file
   case pcm
@@ -168,8 +171,11 @@ extension FileType: CustomStringConvertible {
     case .indexData:
       return "index-data"
 
-    case .optimizationRecord:
-      return "opt-record"
+    case .yamlOptimizationRecord:
+      return "yaml-opt-record"
+
+    case .bitstreamOptimizationRecord:
+      return "bitstream-opt-record"
 
     case .diagnostics:
       return "diagnostics"
@@ -187,7 +193,7 @@ extension FileType {
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
-         .swiftDeps, .moduleTrace, .tbd, .optimizationRecord, .swiftInterface,
+         .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
          .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap, .jsonTargetInfo,
          .jsonSwiftArtifacts:
       return false
@@ -270,8 +276,10 @@ extension FileType {
       return "module-trace"
     case .indexData:
       return "index-data"
-    case .optimizationRecord:
-      return "opt-record"
+    case .yamlOptimizationRecord:
+      return "yaml-opt-record"
+    case .bitstreamOptimizationRecord:
+      return "bitstream-opt-record"
     case .diagnostics:
       return "diagnostics"
     }
@@ -283,12 +291,12 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
-         .optimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap, .jsonTargetInfo,
+         .yamlOptimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap, .jsonTargetInfo,
          .jsonSwiftArtifacts:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
-         .pcm, .swiftDeps, .remap, .indexData:
+         .pcm, .swiftDeps, .remap, .indexData, .bitstreamOptimizationRecord:
       return false
     }
   }
@@ -302,8 +310,8 @@ extension FileType {
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
          .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
-         .tbd, .moduleTrace, .indexData, .optimizationRecord, .pcm, .pch, .jsonDependencies,
-         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts:
+         .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
+         .pcm, .pch, .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts:
       return false
     }
   }

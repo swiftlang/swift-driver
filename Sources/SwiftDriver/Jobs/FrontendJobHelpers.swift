@@ -290,7 +290,7 @@ extension Driver {
       }
 
       addOutputOfType(
-          outputType: .optimizationRecord,
+          outputType: .yamlOptimizationRecord,
           finalOutputPath: optimizationRecordPath,
           input: input,
           flag: "-save-optimization-record-path")
