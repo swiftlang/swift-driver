@@ -309,6 +309,7 @@ public struct Driver {
 
     try Self.validateWarningControlArgs(&parsedOptions)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    try toolchain.validateArgs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple)
 
     // Compute debug information output.
     self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
