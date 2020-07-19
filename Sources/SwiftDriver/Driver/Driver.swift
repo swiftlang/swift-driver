@@ -349,21 +349,21 @@ public struct Driver {
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .dependencies, isOutput: .emitDependencies,
+        &parsedOptions, type: .dependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .swiftDeps, isOutput: .emitReferenceDependencies,
+        &parsedOptions, type: .swiftDeps, isOutputOptions: [.emitReferenceDependencies],
         outputPath: .emitReferenceDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .diagnostics, isOutput: .serializeDiagnostics,
+        &parsedOptions, type: .diagnostics, isOutputOptions: [.serializeDiagnostics],
         outputPath: .serializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -371,21 +371,21 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
     // FIXME: -fixits-output-path
     self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .objcHeader, isOutput: .emitObjcHeader,
+        &parsedOptions, type: .objcHeader, isOutputOptions: [.emitObjcHeader],
         outputPath: .emitObjcHeaderPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .moduleTrace, isOutput: .emitLoadedModuleTrace,
+        &parsedOptions, type: .moduleTrace, isOutputOptions: [.emitLoadedModuleTrace],
         outputPath: .emitLoadedModuleTracePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.tbdPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .tbd, isOutput: .emitTbd,
+        &parsedOptions, type: .tbd, isOutputOptions: [.emitTbd],
         outputPath: .emitTbdPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -405,15 +405,28 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .swiftInterface, isOutput: .emitModuleInterface,
+        &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
         outputPath: .emitModuleInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+
+    var optimizationRecordFileType = FileType.yamlOptimizationRecord
+    if let argument = parsedOptions.getLastArgument(.saveOptimizationRecordEQ)?.asSingle {
+      switch argument {
+      case "yaml":
+        optimizationRecordFileType = .yamlOptimizationRecord
+      case "bitstream":
+        optimizationRecordFileType = .bitstreamOptimizationRecord
+      default:
+        // Don't report an error here, it will be emitted by the frontend.
+        break
+      }
+    }
     self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .optimizationRecord,
-        isOutput: .saveOptimizationRecord,
+        &parsedOptions, type: optimizationRecordFileType,
+        isOutputOptions: [.saveOptimizationRecord, .saveOptimizationRecordEQ],
         outputPath: .saveOptimizationRecordPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -1643,7 +1656,7 @@ extension Driver {
   static func computeSupplementaryOutputPath(
     _ parsedOptions: inout ParsedOptions,
     type: FileType,
-    isOutput: Option?,
+    isOutputOptions: [Option],
     outputPath: Option,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
@@ -1653,15 +1666,15 @@ extension Driver {
   ) throws -> VirtualPath? {
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
-      // Consume the isOutput argument
-      if let isOutput = isOutput {
+      for isOutput in isOutputOptions {
+        // Consume the isOutput argument
         _ = parsedOptions.hasArgument(isOutput)
       }
       return try VirtualPath(path: outputPathArg.asSingle)
     }
 
-    // If the output option was not provided, don't produce this output at all.
-    guard let isOutput = isOutput, parsedOptions.hasArgument(isOutput) else {
+    // If no output option was provided, don't produce this output at all.
+    guard isOutputOptions.contains(where: { parsedOptions.hasArgument($0) }) else {
       return nil
     }
 
@@ -1682,7 +1695,7 @@ extension Driver {
         return path
       }
 
-      return try path.replacingExtension(with: type)
+      return path.parentDirectory.appending(component: "\(moduleName).\(type.rawValue)")
     }
 
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))

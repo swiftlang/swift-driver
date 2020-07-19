@@ -69,9 +69,8 @@ extension Driver {
          .swiftDocumentation, .swiftInterface,
          .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
          .objcHeader, .swiftDeps, .remap, .importedModules, .tbd, .moduleTrace,
-
-         .indexData, .optimizationRecord, .pcm, .pch, .clangModuleMap,
-         .jsonTargetInfo, .jsonSwiftArtifacts, nil:
+         .indexData, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
+         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, nil:
       return false
     }
   }
@@ -143,6 +142,16 @@ extension Driver {
                                           outputType: outputType,
                                           commandLine: &commandLine)
     outputs += primaryOutputs
+
+    // FIXME: optimization record arguments are added before supplementary outputs
+    // for compatibility with the integrated driver's test suite. We should adjust the tests
+    // so we can organize this better.
+    // -save-optimization-record and -save-optimization-record= have different meanings.
+    // In this case, we specifically want to pass the EQ variant to the frontend
+    // to control the output type of optimization remarks (YAML or bitstream).
+    try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
+    try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
+
     outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs)
 
     // Forward migrator flags.
@@ -258,8 +267,8 @@ extension FileType {
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
-         .optimizationRecord, .swiftInterface, .swiftSourceInfoFile, .clangModuleMap,
-         .jsonSwiftArtifacts:
+         .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
+         .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts:
       fatalError("Output type can never be a primary output")
     }
   }

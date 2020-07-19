@@ -99,6 +99,21 @@ public enum VirtualPath: Hashable {
     }
   }
 
+  /// Retrieve the path to the parent directory.
+  public var parentDirectory: VirtualPath {
+    switch self {
+    case .absolute(let path):
+      return .absolute(path.parentDirectory)
+    case .relative(let path):
+      return .relative(RelativePath(path.dirname))
+    case .temporary(let path):
+      return .temporary(RelativePath(path.dirname))
+    case .standardInput, .standardOutput:
+      assertionFailure("Can't get directory of stdin/stdout")
+      return self
+    }
+  }
+
   /// Returns the virtual path with an additional literal component appended.
   ///
   /// This should not be used with `.standardInput` or `.standardOutput`.
