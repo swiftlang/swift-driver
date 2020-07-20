@@ -1009,7 +1009,7 @@ final class SwiftDriverTests: XCTestCase {
   #if os(macOS)
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
-      "-emit-executable", "-target", "x86_64-apple-macosx",
+      "-emit-executable", "-target", "x86_64-apple-macosx10.9",
       "-module-name", "Test"
     ]
     do {
@@ -1504,6 +1504,41 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("13.0.0")))
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("-macosx_version_min")))
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("10.14.0")))
+    }
+  }
+
+  func testDarwinToolchainArgumentValidation() throws {
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios6.0",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("iOS 7") = error else {
+        XCTFail()
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.4",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("OS X 10.9") = error else {
+        XCTFail()
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.0",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.iOSVersionAboveMaximumDeploymentTarget(12) = error else {
+        XCTFail()
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios13.0",
+                                           "-target-variant", "x86_64-apple-macosx10.14",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.unsupportedTargetVariant(variant: _) = error else {
+        XCTFail()
+        return
+      }
     }
   }
 

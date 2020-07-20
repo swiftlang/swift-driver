@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
@@ -118,5 +119,63 @@ public final class DarwinToolchain: Toolchain {
     \(targetTriple.darwinPlatform!.libraryNameSuffix)\
     \(isShared ? "_dynamic.dylib" : ".a")
     """
+  }
+
+  public enum ToolchainValidationError: Error, DiagnosticData {
+    case osVersionBelowMinimumDeploymentTarget(String)
+    case iOSVersionAboveMaximumDeploymentTarget(Int)
+    case unsupportedTargetVariant(variant: Triple)
+
+    public var description: String {
+      switch self {
+      case .osVersionBelowMinimumDeploymentTarget(let target):
+        return "Swift requires a minimum deployment target of \(target)"
+      case .iOSVersionAboveMaximumDeploymentTarget(let version):
+        return "iOS \(version) does not support 32-bit programs"
+      case .unsupportedTargetVariant(variant: let variant):
+        return "unsupported '\(variant.isiOS ? "-target" : "-target-variant")' value '\(variant)'; use 'ios-macabi' instead"
+      }
+    }
+  }
+
+  public func validateArgs(_ parsedOptions: inout ParsedOptions,
+                           targetTriple: Triple,
+                           targetVariantTriple: Triple?) throws {
+    // TODO: Validating arclite library path when link-objc-runtime.
+
+    // Validating apple platforms deployment targets.
+    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple)
+    if let targetVariantTriple = targetVariantTriple,
+       !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
+      throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
+    }
+
+    // TODO: Validating darwin unsupported -static-stdlib argument.
+    // TODO: If a C++ standard library is specified, it has to be libc++.
+  }
+
+  func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
+                                targetTriple: Triple) throws {
+    // Check minimum supported OS versions.
+    if targetTriple.isMacOSX,
+       targetTriple.version(for: .macOS) < Triple.Version(10, 9, 0) {
+      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("OS X 10.9")
+    }
+    // tvOS triples are also iOS, so check it first.
+    else if targetTriple.isTvOS,
+            targetTriple.version(for: .tvOS(.device)) < Triple.Version(9, 0, 0) {
+      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("tvOS 9.0")
+    } else if targetTriple.isiOS {
+      if targetTriple.version(for: .iOS(.device)) < Triple.Version(7, 0, 0) {
+        throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("iOS 7")
+      }
+      if targetTriple.arch?.is32Bit == true,
+         targetTriple.version(for: .iOS(.device)) >= Triple.Version(11, 0, 0) {
+        throw ToolchainValidationError.iOSVersionAboveMaximumDeploymentTarget(targetTriple.version(for: .iOS(.device)).major)
+      }
+    } else if targetTriple.isWatchOS,
+              targetTriple.version(for: .watchOS(.device)) < Triple.Version(2, 0, 0) {
+      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("watchOS 2.0")
+    }
   }
 }
