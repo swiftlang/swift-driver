@@ -14,12 +14,14 @@ import Foundation
 
 public enum ModuleDependencyId: Hashable {
   case swift(String)
+  case swiftPlaceholder(String)
   case clang(String)
 
-  public var moduleName: String {
+  var moduleName: String {
     switch self {
-      case .swift(let name): return name
-      case .clang(let name): return name
+    case .swift(let name): return name
+    case .swiftPlaceholder(let name): return name
+    case .clang(let name): return name
     }
   }
 }
@@ -27,6 +29,7 @@ public enum ModuleDependencyId: Hashable {
 extension ModuleDependencyId: Codable {
   enum CodingKeys: CodingKey {
     case swift
+    case swiftPlaceholder
     case clang
   }
 
@@ -36,8 +39,13 @@ extension ModuleDependencyId: Codable {
       let moduleName =  try container.decode(String.self, forKey: .swift)
       self = .swift(moduleName)
     } catch {
-      let moduleName =  try container.decode(String.self, forKey: .clang)
-      self = .clang(moduleName)
+      do {
+        let moduleName =  try container.decode(String.self, forKey: .swiftPlaceholder)
+        self = .swiftPlaceholder(moduleName)
+      } catch {
+        let moduleName =  try container.decode(String.self, forKey: .clang)
+        self = .clang(moduleName)
+      }
     }
   }
 
@@ -46,10 +54,19 @@ extension ModuleDependencyId: Codable {
     switch self {
       case .swift(let moduleName):
         try container.encode(moduleName, forKey: .swift)
+      case .swiftPlaceholder(let moduleName):
+        try container.encode(moduleName, forKey: .swift)
       case .clang(let moduleName):
         try container.encode(moduleName, forKey: .clang)
     }
   }
+}
+
+/// Bridging header
+public struct BridgingHeader: Codable {
+  var path: String
+  var sourceFiles: [String]
+  var moduleDependencies: [String]
 }
 
 /// Details specific to Swift modules.
@@ -75,7 +92,16 @@ public struct SwiftModuleDetails: Codable {
   /// To build a PCM to be used by this Swift module, we need to append these
   /// arguments to the generic PCM build arguments reported from the dependency
   /// graph.
-  public var extraPcmArgs: [String]? = []
+  var extraPcmArgs: [String]?
+}
+
+/// Details specific to Swift external modules.
+public struct swiftPlaceholderModuleDetails: Codable {
+  /// The path to the .swiftModuleDoc file.
+  var moduleDocPath: String?
+
+  /// The path to the .swiftSourceInfo file.
+  var moduleSourceInfoPath: String?
 }
 
 /// Details specific to Clang modules.
@@ -95,10 +121,10 @@ public struct ModuleInfo: Codable {
   public var modulePath: String
 
   /// The source files used to build this module.
-  public var sourceFiles: [String] = []
+  public var sourceFiles: [String]? = []
 
   /// The set of direct module dependencies of this module.
-  public var directDependencies: [ModuleDependencyId] = []
+  public var directDependencies: [ModuleDependencyId]? = []
 
   /// Specific details of a particular kind of module.
   public var details: Details
@@ -109,6 +135,10 @@ public struct ModuleInfo: Codable {
     /// a bridging header.
     case swift(SwiftModuleDetails)
 
+    /// Swift external modules carry additional details that specify their
+    /// module doc path and source info paths.
+    case swiftPlaceholder(swiftPlaceholderModuleDetails)
+
     /// Clang modules are built from a module map file.
     case clang(ClangModuleDetails)
   }
@@ -117,6 +147,7 @@ public struct ModuleInfo: Codable {
 extension ModuleInfo.Details: Codable {
   enum CodingKeys: CodingKey {
     case swift
+    case swiftPlaceholder
     case clang
   }
 
@@ -126,8 +157,13 @@ extension ModuleInfo.Details: Codable {
       let details = try container.decode(SwiftModuleDetails.self, forKey: .swift)
       self = .swift(details)
     } catch {
-      let details = try container.decode(ClangModuleDetails.self, forKey: .clang)
-      self = .clang(details)
+      do {
+        let details = try container.decode(swiftPlaceholderModuleDetails.self, forKey: .swiftPlaceholder)
+        self = .swiftPlaceholder(details)
+      } catch {
+        let details = try container.decode(ClangModuleDetails.self, forKey: .clang)
+        self = .clang(details)
+      }
     }
   }
 
@@ -136,6 +172,8 @@ extension ModuleInfo.Details: Codable {
     switch self {
       case .swift(let details):
         try container.encode(details, forKey: .swift)
+      case .swiftPlaceholder(let details):
+        try container.encode(details, forKey: .swiftPlaceholder)
       case .clang(let details):
         try container.encode(details, forKey: .clang)
     }
