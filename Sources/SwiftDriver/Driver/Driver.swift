@@ -194,7 +194,7 @@ public struct Driver {
   @_spi(Testing) public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
 
   /// A collection describing external dependencies for the current main module that may be invisible to
-  /// the driver itself, but visible to its clients (e.g. build systems like SwiftPM). Along with the external dependenceis'
+  /// the driver itself, but visible to its clients (e.g. build systems like SwiftPM). Along with the external dependencies'
   /// module dependency graphs.
   internal var externalDependencyArtifactMap: ExternalDependencyArtifactMap? = nil
 

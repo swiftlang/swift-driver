@@ -13,13 +13,13 @@ import TSCBasic
 import TSCUtility
 import Foundation
 
+/// A map from a module identifier to a pair consisting of a path to its .swiftmodule file and its module dependency graph.
 public typealias ExternalDependencyArtifactMap =
     [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)]
 
 /// In Explicit Module Build mode, this handler is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
-
 @_spi(Testing) public struct ExplicitModuleBuildHandler {
   /// The module dependency graph.
   public var dependencyGraph: InterModuleDependencyGraph
@@ -119,11 +119,25 @@ public typealias ExternalDependencyArtifactMap =
   /// - Generate Job: S1
   ///
   mutating public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
+    // Resolve placeholder dependencies in the dependency graph, if any.
+    try resolvePlaceholderDependencies()
+
+    // Compute jobs for all main module dependencies
     var mainModuleInputs: [TypedVirtualPath] = []
     var mainModuleCommandLine: [Job.ArgTemplate] = []
     try resolveMainModuleDependencies(inputs: &mainModuleInputs,
                                       commandLine: &mainModuleCommandLine)
     return Array(swiftModuleBuildCache.values) + clangTargetModuleBuildCache.allJobs
+  }
+
+  /// TODO: Explain
+  mutating public func resolvePlaceholderDependencies() throws {
+    print("Hello, World")
+    for moduleId in dependencyGraph.modules.keys {
+      if case .swiftPlaceholder(let moduleName) = moduleId {
+        print(moduleName)
+      }
+    }
   }
 
   /// Resolve all module dependencies of the main module and add them to the lists of
@@ -306,7 +320,7 @@ public typealias ExternalDependencyArtifactMap =
                                               clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                               swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
-    for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies {
+    for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies! {
       guard addedDependenciesSet.insert(dependencyId).inserted else {
         continue
       }
@@ -323,6 +337,8 @@ public typealias ExternalDependencyArtifactMap =
                                        addedDependenciesSet: &addedDependenciesSet,
                                        clangDependencyArtifacts: &clangDependencyArtifacts,
                                        swiftDependencyArtifacts: &swiftDependencyArtifacts)
+        case .swiftPlaceholder:
+          fatalError("Unresolved placeholder dependencies at planning stage.")
       }
     }
   }
