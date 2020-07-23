@@ -91,7 +91,7 @@ def should_test_parallel():
   return True
 
 
-def handle_invocation(swift_exec, args):
+def handle_invocation(swift_exec, swift_frontend_exec, args):
   swiftpm_args = get_swiftpm_options(args)
 
   env = os.environ
@@ -108,7 +108,8 @@ def handle_invocation(swift_exec, args):
   if args.action == 'build':
     swiftpm('build', swift_exec, swiftpm_args, env)
   elif args.action == 'test':
-    env['SWIFT_DRIVER_SWIFT_FRONTEND_EXEC'] = '%sc' % (swift_exec)
+    env['SWIFT_DRIVER_SWIFT_FRONTEND_EXEC'] = '%s' % (swift_frontend_exec)
+    env['SWIFT_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
     if should_test_parallel():
       test_args += ['--parallel']
@@ -150,11 +151,13 @@ def main():
   args.toolchain = os.path.abspath(args.toolchain)
 
   if args.toolchain:
-    swift_exec = os.path.join(args.toolchain, 'bin', 'swift-frontend')
+    swift_exec = os.path.join(args.toolchain, 'bin', 'swift')
+    swift_frontend_exec = os.path.join(args.toolchain, 'bin', 'swift-frontend')
   else:
     swift_exec = 'swift'
+    swift_frontend_exec = 'swift-frontend'
 
-  handle_invocation(swift_exec, args)
+  handle_invocation(swift_exec, swift_frontend_exec, args)
 
 if __name__ == '__main__':
   main()
