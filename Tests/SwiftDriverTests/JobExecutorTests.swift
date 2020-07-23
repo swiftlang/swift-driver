@@ -43,13 +43,25 @@ class JobCollectingDelegate: JobExecutionDelegate {
   var started: [Job] = []
   var finished: [(Job, ProcessResult)] = []
 
-  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job] {
     finished.append((job, result))
+    return []
   }
 
   func jobStarted(job: Job, arguments: [String], pid: Int) {
     started.append(job)
   }
+}
+
+class JobDiscoveryDelegate: JobExecutionDelegate {
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job] {
+    guard !job.moduleName.hasSuffix("-new") else { return [] }
+    var newJob = job
+    newJob.moduleName = job.moduleName + "-new"
+    return [newJob]
+  }
+
+  func jobStarted(job: Job, arguments: [String], pid: Int) {}
 }
 
 extension DarwinToolchain {
@@ -198,6 +210,29 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertFalse(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be removed from the temporary directory")
     }
 #endif
+  }
+
+  func testJobDiscovery() throws {
+    try withTemporaryDirectory { path in
+      let foo = path.appending(component: "foo.swift")
+      try localFileSystem.writeFileContents(foo) {
+        $0 <<< "let foo = 5"
+      }
+
+      let collector = JobCollectingDelegate()
+      let discoverer = JobDiscoveryDelegate()
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      var driver = try Driver(args: ["swiftc", foo.pathString], executor: executor)
+      let jobs = try driver.planBuild()
+
+      try executor.execute(jobs: jobs, delegates: [collector, discoverer])
+
+      XCTAssertEqual(collector.finished.count, 4)
+      XCTAssertEqual(collector.finished.filter { $0.0.moduleName.hasSuffix("-new") }.count, 2)
+    }
   }
 
   func testStubProcessProtocol() throws {
