@@ -22,7 +22,7 @@ public protocol DriverExecutor {
   
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
-               delegate: JobExecutionDelegate,
+               delegates: [JobExecutionDelegate],
                numParallelJobs: Int,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
@@ -120,14 +120,14 @@ public final class SwiftDriverExecutor: DriverExecutor {
   }
   
   public func execute(jobs: [Job],
-                      delegate: JobExecutionDelegate,
+                      delegates: [JobExecutionDelegate],
                       numParallelJobs: Int = 1,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) throws {
     let llbuildExecutor = MultiJobExecutor(jobs: jobs,
                                            resolver: resolver,
-                                           executorDelegate: delegate,
+                                           executorDelegates: delegates,
                                            diagnosticsEngine: diagnosticsEngine,
                                            numParallelJobs: numParallelJobs,
                                            processSet: processSet,

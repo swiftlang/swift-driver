@@ -697,7 +697,7 @@ extension Driver {
 
     // Perform the build
     try executor.execute(jobs: jobs,
-                         delegate: executorDelegate,
+                         delegates: [executorDelegate],
                          numParallelJobs: numParallelJobs ?? 1,
                          forceResponseFiles: forceResponseFiles,
                          recordedInputModificationDates: recordedInputModificationDates)

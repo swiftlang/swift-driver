@@ -36,7 +36,7 @@ public final class MultiJobExecutor {
     let fileSystem: FileSystem
 
     /// The job executor delegate.
-    let executorDelegate: JobExecutionDelegate
+    let executorDelegates: [JobExecutionDelegate]
 
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
@@ -65,7 +65,7 @@ public final class MultiJobExecutor {
       fileSystem: FileSystem,
       producerMap: [VirtualPath: Int],
       jobs: [Job],
-      executorDelegate: JobExecutionDelegate,
+      executorDelegates: [JobExecutionDelegate],
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
@@ -78,7 +78,7 @@ public final class MultiJobExecutor {
       self.argsResolver = argsResolver
       self.env = env
       self.fileSystem = fileSystem
-      self.executorDelegate = executorDelegate
+      self.executorDelegates = executorDelegates
       self.jobQueue = jobQueue
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
@@ -94,8 +94,8 @@ public final class MultiJobExecutor {
   /// The argument resolver.
   let argsResolver: ArgsResolver
 
-  /// The job executor delegate.
-  let executorDelegate: JobExecutionDelegate
+  /// The job executor delegates.
+  let executorDelegates: [JobExecutionDelegate]
 
   /// The number of jobs to run in parallel.
   let numParallelJobs: Int
@@ -118,7 +118,7 @@ public final class MultiJobExecutor {
   public init(
     jobs: [Job],
     resolver: ArgsResolver,
-    executorDelegate: JobExecutionDelegate,
+    executorDelegates: [JobExecutionDelegate],
     diagnosticsEngine: DiagnosticsEngine,
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
@@ -128,7 +128,7 @@ public final class MultiJobExecutor {
   ) {
     self.jobs = jobs
     self.argsResolver = resolver
-    self.executorDelegate = executorDelegate
+    self.executorDelegates = executorDelegates
     self.diagnosticsEngine = diagnosticsEngine
     self.numParallelJobs = numParallelJobs ?? 1
     self.processSet = processSet
@@ -172,7 +172,7 @@ public final class MultiJobExecutor {
       fileSystem: fileSystem,
       producerMap: producerMap,
       jobs: jobs,
-      executorDelegate: executorDelegate,
+      executorDelegates: executorDelegates,
       jobQueue: jobQueue,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
@@ -346,7 +346,7 @@ class ExecuteJobRule: LLBuildRule {
 
       // Inform the delegate.
       context.delegateQueue.async {
-        context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
+        context.executorDelegates.forEach { $0.jobStarted(job: job, arguments: arguments, pid: pid) }
       }
 
       let result = try process.waitUntilExit()
@@ -365,7 +365,7 @@ class ExecuteJobRule: LLBuildRule {
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
-        context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
+        context.executorDelegates.forEach { $0.jobFinished(job: job, result: result, pid: pid) }
       }
 
       value = .jobExecution(success: success)
@@ -381,7 +381,7 @@ class ExecuteJobRule: LLBuildRule {
           output: Result.success([]),
           stderrOutput: Result.success([])
         )
-        context.executorDelegate.jobFinished(job: job, result: result, pid: 0)
+        context.executorDelegates.forEach{ $0.jobFinished(job: job, result: result, pid: 0) }
       }
       value = .jobExecution(success: false)
     }
