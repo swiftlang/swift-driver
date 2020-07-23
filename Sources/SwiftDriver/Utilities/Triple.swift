@@ -1560,7 +1560,7 @@ extension Triple {
         version.minor = 4
       }
 
-      if version.major != 10 {
+      if version.major != 10 && version.major != 11 {
         return nil
       }
 
