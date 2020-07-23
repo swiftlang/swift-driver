@@ -704,8 +704,8 @@ extension Driver {
                          recordedInputModificationDates: recordedInputModificationDates)
   }
 
-  public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
-    var mode: ToolExecutionDelegate.Mode = .regular
+  public mutating func createToolExecutionDelegate() -> TextualOutputExecutionDelegate {
+    var mode: TextualOutputExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
     if parsedOptions.contains(.parseableOutput) {
@@ -714,7 +714,7 @@ extension Driver {
       mode = .verbose
     }
 
-    return ToolExecutionDelegate(mode: mode)
+    return TextualOutputExecutionDelegate(mode: mode)
   }
 
   private func printBindings(_ job: Job) {

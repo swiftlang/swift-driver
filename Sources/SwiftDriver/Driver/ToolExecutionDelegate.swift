@@ -22,8 +22,32 @@ import Glibc
 #error("Missing libc or equivalent")
 #endif
 
+/// A delegate which forwards execution updates to multiple child delegates and
+/// collects discovered jobs.
+public struct ForwardingExecutionDelegate: JobExecutionDelegate {
+  var delegates: [JobExecutionDelegate]
+
+  public init(delegates: [JobExecutionDelegate]) {
+    self.delegates = delegates
+  }
+
+  public func jobStarted(job: Job, arguments: [String], pid: Int) {
+    delegates.forEach {
+      $0.jobStarted(job: job, arguments: arguments, pid: pid)
+    }
+  }
+
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job] {
+    var discoveredJobs: [Job] = []
+    delegates.forEach {
+      discoveredJobs.append(contentsOf: $0.jobFinished(job: job, result: result, pid: pid))
+    }
+    return discoveredJobs
+  }
+}
+
 /// Delegate for printing execution information on the command-line.
-public struct ToolExecutionDelegate: JobExecutionDelegate {
+public struct TextualOutputExecutionDelegate: JobExecutionDelegate {
   public enum Mode {
     case verbose
     case parsableOutput
@@ -59,7 +83,7 @@ public struct ToolExecutionDelegate: JobExecutionDelegate {
     }
   }
 
-  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job] {
     switch mode {
     case .regular, .verbose:
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
@@ -84,6 +108,7 @@ public struct ToolExecutionDelegate: JobExecutionDelegate {
       }
       emit(message)
     }
+    return []
   }
 
   private func emit(_ message: ParsableMessage) {

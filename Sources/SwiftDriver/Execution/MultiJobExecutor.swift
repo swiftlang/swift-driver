@@ -18,13 +18,13 @@ import Dispatch
 public final class MultiJobExecutor {
 
   /// The context required during job execution.
-  struct Context {
+  final class Context {
 
     /// This contains mapping from an output to the index(in the jobs array) of the job that produces that output.
     let producerMap: [VirtualPath: Int]
 
     /// All the jobs being executed.
-    let jobs: [Job]
+    var jobs: [Job]
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
@@ -94,7 +94,7 @@ public final class MultiJobExecutor {
   /// The argument resolver.
   let argsResolver: ArgsResolver
 
-  /// The job executor delegate.
+  /// The job executor delegates.
   let executorDelegate: JobExecutionDelegate
 
   /// The number of jobs to run in parallel.
@@ -194,7 +194,7 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
   func lookupRule(rule: String, key: Key) -> Rule {
     switch rule {
     case ExecuteAllJobsRule.ruleName:
-      return ExecuteAllJobsRule(key, jobs: context.jobs, fileSystem: context.fileSystem)
+      return ExecuteAllJobsRule(key, context: context)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key, context: context)
     default:
@@ -215,8 +215,11 @@ struct DriverBuildValue: LLBuildValue {
   /// The kind of build value.
   var kind: Kind
 
-  static func jobExecution(success: Bool) -> DriverBuildValue {
-    return .init(success: success, kind: .jobExecution)
+  /// Newly discovered jobs.
+  var discoveredJobs: [Job]
+
+  static func jobExecution(success: Bool, discoveredJobs: [Job]) -> DriverBuildValue {
+    return .init(success: success, kind: .jobExecution, discoveredJobs: discoveredJobs)
   }
 }
 
@@ -229,19 +232,19 @@ class ExecuteAllJobsRule: LLBuildRule {
   override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
 
   private let key: RuleKey
-  private let jobs: [Job]
+  private var context: MultiJobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key, jobs: [Job], fileSystem: FileSystem) {
+  init(_ key: Key, context: MultiJobExecutor.Context) {
     self.key = RuleKey(key)
-    self.jobs = jobs
-    super.init(fileSystem: fileSystem)
+    self.context = context
+    super.init(fileSystem: context.fileSystem)
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    for index in jobs.indices {
+    for index in context.jobs.indices {
       let key = ExecuteJobRule.RuleKey(index: index)
       engine.taskNeedsInput(key, inputID: index)
     }
@@ -255,13 +258,18 @@ class ExecuteAllJobsRule: LLBuildRule {
     do {
       let buildValue = try DriverBuildValue(value)
       allInputsSucceeded = allInputsSucceeded && buildValue.success
+      for job in buildValue.discoveredJobs {
+        context.jobs.append(job)
+        let index = context.jobs.count - 1
+        engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: index), inputID: index)
+      }
     } catch {
       allInputsSucceeded = false
     }
   }
 
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-    engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
+    engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded, discoveredJobs: []))
   }
 }
 
@@ -312,7 +320,7 @@ class ExecuteJobRule: LLBuildRule {
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
     // Return early any of the input failed.
     guard allInputsSucceeded else {
-      return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
+      return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false, discoveredJobs: []))
     }
 
     context.jobQueue.addOperation {
@@ -364,11 +372,12 @@ class ExecuteJobRule: LLBuildRule {
       }
 
       // Inform the delegate about job finishing.
-      context.delegateQueue.async {
-        context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
+      var discoveredJobs: [Job] = []
+      context.delegateQueue.sync {
+        discoveredJobs = context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
 
-      value = .jobExecution(success: success)
+      value = .jobExecution(success: success, discoveredJobs: discoveredJobs)
     } catch {
       if error is DiagnosticData {
         context.diagnosticsEngine.emit(error)
@@ -381,9 +390,9 @@ class ExecuteJobRule: LLBuildRule {
           output: Result.success([]),
           stderrOutput: Result.success([])
         )
-        context.executorDelegate.jobFinished(job: job, result: result, pid: 0)
+        _ = context.executorDelegate.jobFinished(job: job, result: result, pid: 0)
       }
-      value = .jobExecution(success: false)
+      value = .jobExecution(success: false, discoveredJobs: [])
     }
 
     engine.taskIsComplete(value)
