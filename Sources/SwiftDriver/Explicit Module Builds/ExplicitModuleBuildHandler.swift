@@ -35,7 +35,7 @@ public typealias ExternalDependencyArtifactMap =
   private let toolchain: Toolchain
 
   /// A collection of external dependency modules, and their binary module file paths and dependency graph.
-  private let externalDependencyArtifactMap: ExternalDependencyArtifactMap
+  internal let externalDependencyArtifactMap: ExternalDependencyArtifactMap
 
   /// The file system which we should interact with.
   /// FIXME: Our end goal is to not have any direct filesystem manipulation in here, but  that's dependent on getting the
@@ -120,24 +120,17 @@ public typealias ExternalDependencyArtifactMap =
   ///
   mutating public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
     // Resolve placeholder dependencies in the dependency graph, if any.
-    try resolvePlaceholderDependencies()
+    if (!externalDependencyArtifactMap.isEmpty) {
+      try resolvePlaceholderDependencies()
+    }
 
     // Compute jobs for all main module dependencies
     var mainModuleInputs: [TypedVirtualPath] = []
     var mainModuleCommandLine: [Job.ArgTemplate] = []
     try resolveMainModuleDependencies(inputs: &mainModuleInputs,
                                       commandLine: &mainModuleCommandLine)
-    return Array(swiftModuleBuildCache.values) + clangTargetModuleBuildCache.allJobs
-  }
 
-  /// TODO: Explain
-  mutating public func resolvePlaceholderDependencies() throws {
-    print("Hello, World")
-    for moduleId in dependencyGraph.modules.keys {
-      if case .swiftPlaceholder(let moduleName) = moduleId {
-        print(moduleName)
-      }
-    }
+    return Array(swiftModuleBuildCache.values) + clangTargetModuleBuildCache.allJobs
   }
 
   /// Resolve all module dependencies of the main module and add them to the lists of
@@ -338,7 +331,7 @@ public typealias ExternalDependencyArtifactMap =
                                        clangDependencyArtifacts: &clangDependencyArtifacts,
                                        swiftDependencyArtifacts: &swiftDependencyArtifacts)
         case .swiftPlaceholder:
-          fatalError("Unresolved placeholder dependencies at planning stage.")
+          fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
       }
     }
   }
@@ -359,7 +352,7 @@ public typealias ExternalDependencyArtifactMap =
 
     let swiftModulePath: TypedVirtualPath
     if case .swift(let details) = dependencyInfo.details,
-       let compiledModulePath = details.compiledModulePath {
+       let compiledModulePath = details.explicitCompiledModulePath {
       // If an already-compiled module is available, use it.
       swiftModulePath = .init(file: try VirtualPath(path: compiledModulePath),
                               type: .swiftModule)

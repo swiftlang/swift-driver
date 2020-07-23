@@ -50,6 +50,8 @@ private func checkExplicitModuleBuildJob(job: Job,
                          type: .clangModuleMap)
       XCTAssertEqual(job.kind, .generatePCM)
       XCTAssertTrue(job.inputs.contains(moduleMapPath))
+    case .swiftPlaceholder(_):
+      XCTFail("Placeholder dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
   XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
@@ -65,7 +67,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      moduleInfo : ModuleInfo,
                                                      moduleDependencyGraph: InterModuleDependencyGraph
 ) throws {
-  for dependencyId in moduleInfo.directDependencies {
+  for dependencyId in moduleInfo.directDependencies! {
     let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
     switch dependencyInfo.details {
       case .swift(let swiftDetails):
@@ -85,7 +87,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                       from: Data(contents.contents))
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
-        XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.compiledModulePath ?? dependencyInfo.modulePath)
+        XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.explicitCompiledModulePath ?? dependencyInfo.modulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
@@ -101,10 +103,12 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                         .flag(String("-fmodule-file=\(clangDependencyModulePathString)"))))
         XCTAssertTrue(job.commandLine.contains(
                         .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath)"))))
+      case .swiftPlaceholder(_):
+        XCTFail("Placeholder dependency found.")
     }
 
     // Ensure all transitive dependencies got added as well.
-    for transitiveDependencyId in dependencyInfo.directDependencies {
+    for transitiveDependencyId in dependencyInfo.directDependencies! {
       try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
                                                   moduleInfo: moduleDependencyGraph.modules[transitiveDependencyId]!,
                                                   moduleDependencyGraph: moduleDependencyGraph)

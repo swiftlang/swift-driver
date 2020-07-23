@@ -17,7 +17,7 @@ public enum ModuleDependencyId: Hashable {
   case swiftPlaceholder(String)
   case clang(String)
 
-  var moduleName: String {
+  public var moduleName: String {
     switch self {
     case .swift(let name): return name
     case .swiftPlaceholder(let name): return name
@@ -77,8 +77,9 @@ public struct SwiftModuleDetails: Codable {
   /// The paths of potentially ready-to-use compiled modules for the interface.
   public var compiledModuleCandidates: [String]?
 
-  /// The path to the already-compiled module.
-  public var compiledModulePath: String?
+  /// The path to the already-compiled module that must be used instead of
+  /// generating a job to build this module.
+  public var explicitCompiledModulePath: String?
 
   /// The bridging header, if any.
   public var bridgingHeaderPath: String?
@@ -92,7 +93,7 @@ public struct SwiftModuleDetails: Codable {
   /// To build a PCM to be used by this Swift module, we need to append these
   /// arguments to the generic PCM build arguments reported from the dependency
   /// graph.
-  var extraPcmArgs: [String]?
+  public var extraPcmArgs: [String]?
 }
 
 /// Details specific to Swift external modules.

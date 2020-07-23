@@ -54,7 +54,7 @@ extension Driver {
                supportsResponseFiles: true)
   }
 
-  /// Serialize a map of placeholder
+  /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
   func serializeExternalDependencyArtifacts(externalDependencyArtifactMap: ExternalDependencyArtifactMap)
   throws -> AbsolutePath {
     let temporaryDirectory = try determineTempDirectory()
