@@ -129,7 +129,7 @@ public typealias ExternalDependencyArtifactMap =
     var mainModuleCommandLine: [Job.ArgTemplate] = []
     try resolveMainModuleDependencies(inputs: &mainModuleInputs,
                                       commandLine: &mainModuleCommandLine)
-
+    
     return Array(swiftModuleBuildCache.values) + clangTargetModuleBuildCache.allJobs
   }
 

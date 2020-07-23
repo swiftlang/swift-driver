@@ -78,7 +78,10 @@ public struct SwiftModuleDetails: Codable {
   public var compiledModuleCandidates: [String]?
 
   /// The path to the already-compiled module that must be used instead of
-  /// generating a job to build this module.
+  /// generating a job to build this module. In standard compilation, the dependency scanner
+  /// may discover compiled module candidates to be used instead of re-compiling from interface.
+  /// In contrast, this explicitCompiledModulePath is only to be used for precompiled modules
+  /// external dependencies in Explicit Module Build mode
   public var explicitCompiledModulePath: String?
 
   /// The bridging header, if any.

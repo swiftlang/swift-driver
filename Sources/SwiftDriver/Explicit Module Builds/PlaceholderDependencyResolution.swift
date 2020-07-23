@@ -64,9 +64,15 @@ extension ExplicitModuleBuildHandler {
   mutating public func resolvePlaceholderDependency(placeholderModulePath: AbsolutePath,
                                                     placeholderDependencyGraph: InterModuleDependencyGraph)
   throws {
-    // For every other module in the placeholder dependency graph, generate a new module info
+    // For every Swift module in the placeholder dependency graph, generate a new module info
     // containing only the pre-compiled module path, and insert it into the current module's
     // dependency graph, replacing equivalent (non pre-built) modules, if necessary.
+    //
+    // For every Clang module in the placeholder dependency graph, because PCM modules file names
+    // encode the specific pcmArguments of their dependees, we cannot use pre-built files here
+    // because we do not always know which target they corrspond to, nor do we have a way to map
+    // from a certain target to a specific pcm file. Because of this, all PCM dependencies, direct
+    // and transitive, have to be built for all modules.
     for (moduleId, moduleInfo) in placeholderDependencyGraph.modules {
       switch moduleId {
         case .swift(_):
@@ -75,7 +81,6 @@ extension ExplicitModuleBuildHandler {
           // If this module is any other swift module, then the compiled module path is
           // a part of the details field.
           // Otherwise (for most other dependencies), it is the modulePath of the moduleInfo node.
-          // FIXME: Will the `else` case ever happen?
           let compiledModulePath : String
           if moduleId.moduleName == placeholderDependencyGraph.mainModuleName {
             compiledModulePath = placeholderModulePath.description
@@ -88,19 +93,12 @@ extension ExplicitModuleBuildHandler {
 
           let swiftDetails =
             SwiftModuleDetails(compiledModulePath: compiledModulePath)
-          print("For module: \(moduleId.moduleName) set the path to:\n\(compiledModulePath)")
           let newInfo = ModuleInfo(modulePath: moduleInfo.modulePath.description,
                                    sourceFiles: nil,
                                    directDependencies: moduleInfo.directDependencies,
                                    details: ModuleInfo.Details.swift(swiftDetails))
           try insertOrReplaceModule(moduleId: moduleId, moduleInfo: newInfo)
-          print("New Info: \(newInfo)")
         case .clang(_):
-          // Because PCM modules file names encode the specific pcmArguments of their dependees,
-          // we cannot use pre-built files here because we do not always know which target
-          // they corrspond to, nor do we have a way to map from a certain target to a specific
-          // pcm file. Because of this, all PCM dependencies, direct and transitive, have to be
-          // built for all modules.
           if dependencyGraph.modules[moduleId] == nil {
             dependencyGraph.modules[moduleId] = moduleInfo
           }

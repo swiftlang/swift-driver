@@ -166,6 +166,79 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testModuleDependencyWithExternalCommandGeneration() throws {
+    do {
+      // Construct a faux external dependency input for module B
+      let inputDependencyGraph =
+            try JSONDecoder().decode(
+              InterModuleDependencyGraph.self,
+              from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
+      var targetDependencyMap :[ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)] = [:]
+      targetDependencyMap[ModuleDependencyId.swiftPlaceholder("B")] =
+        (AbsolutePath("/Somewhere/B.swiftmodule"), inputDependencyGraph)
+
+      // Construct a module dependency graph that will contain .swiftPlaceholder("B")
+      let moduleDependencyGraph =
+            try JSONDecoder().decode(
+              InterModuleDependencyGraph.self,
+              from: ModuleDependenciesInputs.fastDependencyScannerPlaceholderOutput.data(using: .utf8)!)
+
+      // Construct the driver with explicit external dependency input
+      var commandLine = ["swiftc", "-driver-print-module-dependencies-jobs",
+                         "test.swift", "-module-name", "A", "-g"]
+      commandLine.append("-experimental-explicit-module-build")
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      var driver = try Driver(args: commandLine, executor: executor,
+                              externalModuleDependencies: targetDependencyMap)
+
+
+      // Plan explicit dependency jobs, resolving placeholders to actual dependencies.
+      driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
+                                                                         toolchain: driver.toolchain,
+                                                                         fileSystem: localFileSystem,
+                                                                         externalDependencyArtifactMap: targetDependencyMap)
+      let modulePrebuildJobs =
+        try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+
+      // Verify that the dependency graph contains only 1 module to be built.
+      for (moduleId, _) in driver.interModuleDependencyGraph!.modules {
+        switch moduleId {
+          case .swift(_):
+            continue
+          case .clang(_):
+            continue
+          case .swiftPlaceholder(_):
+            XCTFail("Placeholder dependency found.")
+        }
+      }
+
+      // After module resolution all the dependencies are already satisfied.
+      XCTAssertEqual(modulePrebuildJobs.count, 0)
+      let mainModuleJob = try driver.emitModuleJob()
+      XCTAssertEqual(mainModuleJob.inputs.count, 5)
+      for input in mainModuleJob.inputs {
+        switch (input.file) {
+          case .relative(RelativePath("M/Swift.swiftmodule")):
+            continue
+          case .relative(RelativePath("S/SwiftOnoneSupport.swiftmodule")):
+            continue
+          case .relative(RelativePath("test.swift")):
+            continue
+          case .absolute(AbsolutePath("/Somewhere/B.swiftmodule")):
+            continue
+          case .absolute(let filePath):
+            XCTAssertEqual(filePath.basename, "A-dependencies.json")
+            continue
+          default:
+            XCTFail("Unexpected module input: \(input.file)")
+        }
+      }
+    }
+  }
+
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -experimental-explicit-module-build
   func testExplicitModuleBuildJobs() throws {

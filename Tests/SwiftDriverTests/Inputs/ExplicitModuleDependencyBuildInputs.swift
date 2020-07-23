@@ -242,4 +242,192 @@ enum ModuleDependenciesInputs {
     }
     """
   }
+
+  static var fastDependencyScannerPlaceholderOutput: String {
+    """
+    {
+      "mainModuleName": "A",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+            "main.swift",
+            "A.swift"
+          ],
+          "directDependencies": [
+            {
+              "swiftPlaceholder": "B"
+            },
+            {
+              "swift": "Swift"
+            },
+            {
+              "swift": "SwiftOnoneSupport"
+            }
+          ],
+          "details": {
+            "swift": {
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.10",
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "swiftPlaceholder": "B"
+        },
+        {
+          "modulePath": "/Volumes/Data/Current/Driver/ExplicitPMTest/.build/x86_64-apple-macosx/debug/B.swiftmodule",
+          "details": {
+            "swiftPlaceholder": {
+            }
+          }
+        },
+        {
+          "swift": "Swift"
+        },
+        {
+          "modulePath": "Swift.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies": [
+          ],
+          "details": {
+            "swift": {
+              "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
+              "contextHash": "30OCBGKPNG64V",
+              "commandLine": [
+                "-frontend",
+                "-compile-module-from-interface",
+                "-target",
+                "x86_64-apple-macosx10.10",
+                "-swift-version",
+                "5",
+                "-module-name",
+                "Swift"
+              ],
+              "compiledModuleCandidates": [
+              ],
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.9",
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "swift": "SwiftOnoneSupport"
+        },
+        {
+          "modulePath": "SwiftOnoneSupport.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies": [
+            {
+              "swift": "Swift"
+            }
+          ],
+          "details": {
+            "swift": {
+              "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
+              "contextHash": "3GKS4RKE3GDZA",
+              "commandLine": [
+                "-frontend",
+                "-compile-module-from-interface",
+                "-target",
+                "x86_64-apple-macosx10.10",
+                "-swift-version",
+                "5",
+                "-module-name",
+                "SwiftOnoneSupport"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
+  static var bPlaceHolderInput: String {
+    """
+    {
+      "mainModuleName": "B",
+      "modules": [
+        {
+          "swift": "B"
+        },
+        {
+          "modulePath": "B.swiftmodule",
+          "sourceFiles": [
+            "/B/B.swift"
+          ],
+          "directDependencies": [
+            {
+              "swift": "Swift"
+            },
+            {
+              "swift": "SwiftOnoneSupport"
+            }
+          ],
+          "details": {
+            "swift": {
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.10",
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "swift" : "Swift"
+        },
+        {
+          "modulePath" : "Swift.swiftmodule",
+          "directDependencies" : [
+          ],
+          "details" : {
+            "swift" : {
+              "explicitCompiledModulePath" : "M/Swift.swiftmodule"
+            }
+          }
+        },
+        {
+          "swift" : "SwiftOnoneSupport"
+        },
+        {
+          "modulePath" : "SwiftOnoneSupport.swiftmodule",
+          "directDependencies" : [
+            {
+              "swift" : "Swift"
+            }
+          ],
+          "details" : {
+            "swift" : {
+              "explicitCompiledModulePath" : "S/SwiftOnoneSupport.swiftmodule"
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
 }
+
+
