@@ -226,9 +226,9 @@ final class JobExecutorTests: XCTestCase {
                                              fileSystem: localFileSystem,
                                              env: ProcessEnv.vars)
       var driver = try Driver(args: ["swiftc", foo.pathString], executor: executor)
-      let jobs = try driver.planBuild()
+      let plan = try driver.planBuild()
 
-      try executor.execute(jobs: jobs, delegates: [collector, discoverer])
+      try executor.execute(jobs: plan.jobs, delegates: [collector, discoverer])
 
       XCTAssertEqual(collector.finished.count, 4)
       XCTAssertEqual(collector.finished.filter { $0.0.moduleName.hasSuffix("-new") }.count, 2)
@@ -293,15 +293,15 @@ final class JobExecutorTests: XCTestCase {
       }
 
       var driver = try Driver(args: ["swift", main.pathString])
-      let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].requiresInPlaceExecution)
+      let plan = try driver.planBuild()
+      XCTAssertTrue(plan.jobs.count == 1 && plan.jobs[0].requiresInPlaceExecution)
 
       // Change the file
       try localFileSystem.writeFileContents(main) {
         $0 <<< "let foo = 1"
       }
 
-      XCTAssertThrowsError(try driver.run(jobs: jobs)) {
+      XCTAssertThrowsError(try driver.run(buildPlan: plan)) {
         XCTAssertEqual($0 as? Job.InputError,
                        .inputUnexpectedlyModified(TypedVirtualPath(file: .absolute(main), type: .swift)))
       }
@@ -320,8 +320,8 @@ final class JobExecutorTests: XCTestCase {
         $0 <<< "let bar = 2"
       }
       try assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString]) {driver, verifier in
-        let jobs = try driver.planBuild()
-        XCTAssertTrue(jobs.count > 1)
+        let plan = try driver.planBuild()
+        XCTAssertTrue(plan.jobs.count > 1)
 
         // Change the file
         try localFileSystem.writeFileContents(other) {
@@ -331,7 +331,7 @@ final class JobExecutorTests: XCTestCase {
         // FIXME: It's unfortunate we diagnose this twice, once for each job which uses the input.
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
-        XCTAssertThrowsError(try driver.run(jobs: jobs))
+        XCTAssertThrowsError(try driver.run(buildPlan: plan))
       }
     }
   }

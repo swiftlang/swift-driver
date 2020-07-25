@@ -47,8 +47,8 @@ do {
   var driver = try Driver(args: arguments,
                           diagnosticsEngine: diagnosticsEngine,
                           executor: executor)
-  let jobs = try driver.planBuild()
-  try driver.run(jobs: jobs)
+  let plan = try driver.planBuild()
+  try driver.run(buildPlan: plan)
 
   if driver.diagnosticEngine.hasErrors {
     exit(EXIT_FAILURE)

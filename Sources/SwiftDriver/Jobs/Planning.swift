@@ -279,33 +279,44 @@ extension Driver {
     return nil
   }
 
+  public struct BuildPlan {
+    public var jobs: [Job]
+    public var jobExecutionDelegates: [JobExecutionDelegate]
+  }
+
   /// Plan a build by producing a set of jobs to complete the build.
-  public mutating func planBuild() throws -> [Job] {
+  public mutating func planBuild() throws -> BuildPlan {
+    func planJobs() throws -> [Job] {
+      if let job = try immediateForwardingJob() {
+        return [job]
+      }
 
-    if let job = try immediateForwardingJob() {
-      return [job]
+      // Plan the build.
+      switch compilerMode {
+      case .repl:
+        if !inputFiles.isEmpty {
+          throw PlanningError.replReceivedInput
+        }
+        return [try replJob()]
+
+      case .immediate:
+        return [try interpretJob(inputs: inputFiles)]
+
+      case .standardCompile, .batchCompile, .singleCompile:
+        return try planStandardCompile()
+
+      case .compilePCM:
+        if inputFiles.count != 1 {
+          throw PlanningError.emitPCMWrongInputFiles
+        }
+        return [try generatePCMJob(input: inputFiles.first!)]
+      }
+
     }
 
-    // Plan the build.
-    switch compilerMode {
-    case .repl:
-      if !inputFiles.isEmpty {
-        throw PlanningError.replReceivedInput
-      }
-      return [try replJob()]
+    let jobs = try planJobs()
 
-    case .immediate:
-      return [try interpretJob(inputs: inputFiles)]
-
-    case .standardCompile, .batchCompile, .singleCompile:
-      return try planStandardCompile()
-
-    case .compilePCM:
-      if inputFiles.count != 1 {
-        throw PlanningError.emitPCMWrongInputFiles
-      }
-      return [try generatePCMJob(input: inputFiles.first!)]
-    }
+    return BuildPlan(jobs: jobs, jobExecutionDelegates: [createToolExecutionDelegate()])
   }
 }
 

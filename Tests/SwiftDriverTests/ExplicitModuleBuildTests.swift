@@ -173,7 +173,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-experimental-explicit-module-build",
                                      main.pathString])
 
-      let jobs = try driver.planBuild()
+      let jobs = try driver.planBuild().jobs
       // Figure out which Triples to use.
       let dependencyGraph = driver.explicitModuleBuildHandler!.dependencyGraph
       guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
@@ -265,8 +265,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-experimental-explicit-module-build",
                                      "-working-directory", path.pathString,
                                      main.pathString])
-      let jobs = try driver.planBuild()
-      try driver.run(jobs: jobs)
+      let plan = try driver.planBuild()
+      try driver.run(buildPlan: plan)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif

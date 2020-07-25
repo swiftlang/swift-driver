@@ -642,11 +642,13 @@ extension Driver {
 
   /// Run the driver.
   public mutating func run(
-    jobs: [Job]
+    buildPlan: BuildPlan
   ) throws {
     if parsedOptions.hasArgument(.v) {
       try printVersion(outputStream: &stderrStream)
     }
+
+    let jobs = buildPlan.jobs
 
     guard !jobs.isEmpty else {
       guard !inputFiles.isEmpty else {
@@ -692,12 +694,9 @@ extension Driver {
       return
     }
 
-    // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = createToolExecutionDelegate()
-
     // Perform the build
-    try executor.execute(jobs: jobs,
-                         delegates: [executorDelegate],
+    try executor.execute(jobs: buildPlan.jobs,
+                         delegates: buildPlan.jobExecutionDelegates,
                          numParallelJobs: numParallelJobs ?? 1,
                          forceResponseFiles: forceResponseFiles,
                          recordedInputModificationDates: recordedInputModificationDates)
