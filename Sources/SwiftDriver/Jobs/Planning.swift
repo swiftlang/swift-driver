@@ -316,7 +316,7 @@ extension Driver {
 
     let jobs = try planJobs()
 
-    return BuildPlan(jobs: jobs, jobExecutionDelegates: [createToolExecutionDelegate()])
+    return BuildPlan(jobs: jobs, jobExecutionDelegates: [createTextualOutputExecutionDelegate()])
   }
 }
 

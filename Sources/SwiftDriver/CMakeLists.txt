@@ -19,7 +19,7 @@ add_library(SwiftDriver
   Driver/LinkKind.swift
   Driver/ModuleOutputInfo.swift
   Driver/OutputFileMap.swift
-  Driver/ToolExecutionDelegate.swift
+  Driver/TextualOutputJobExecutionDelegate.swift
 
   Execution/ArgsResolver.swift
   Execution/MultiJobExecutor.swift
