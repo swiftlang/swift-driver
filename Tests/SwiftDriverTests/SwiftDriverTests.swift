@@ -840,7 +840,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // linux target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().jobs
 
       XCTAssertEqual(plannedJobs.count, 4)
 
@@ -872,7 +872,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // static linux linking
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().jobs
 
       XCTAssertEqual(plannedJobs.count, 4)
 
@@ -1088,7 +1088,7 @@ final class SwiftDriverTests: XCTestCase {
           "-sanitize=address", "-sanitize=undefined"
         ]
       )
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().jobs
 
       XCTAssertEqual(plannedJobs.count, 4)
 
