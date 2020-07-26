@@ -1540,6 +1540,23 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
+    
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.argumentNotSupportedForPlatform("-static-stdlib", "Apple") = error else {
+        XCTFail()
+        return
+      }
+    }
+    
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-experimental-cxx-stdlib", "libstdc++",
+                                           "foo.swift"])) { error in
+        guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
+        XCTFail()
+        return
+      }
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "-c", "-link-objc-runtime", "foo.swift")
   }
 
   func testDSYMGeneration() throws {

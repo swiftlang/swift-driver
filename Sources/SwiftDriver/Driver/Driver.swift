@@ -311,7 +311,8 @@ public struct Driver {
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
-                               targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple)
+                               targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
+                               diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
     self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
