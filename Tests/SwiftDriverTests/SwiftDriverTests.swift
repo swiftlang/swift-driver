@@ -1543,7 +1543,7 @@ final class SwiftDriverTests: XCTestCase {
     
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib",
                                            "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.argumentNotSupportedForPlatform("-static-stdlib", "Apple") = error else {
+      guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-stdlib") = error else {
         XCTFail()
         return
       }
