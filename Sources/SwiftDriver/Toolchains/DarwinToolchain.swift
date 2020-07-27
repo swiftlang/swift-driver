@@ -159,7 +159,7 @@ public final class DarwinToolchain: Toolchain {
       throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
     }
     // Validating darwin unsupported -static-stdlib argument.
-    if parsedOptions.hasArgument(.staticStdlib) && targetTriple.isDarwin {
+    if parsedOptions.hasArgument(.staticStdlib) {
         throw ToolchainValidationError.argumentNotSupported("-static-stdlib")
     }
     // If a C++ standard library is specified, it has to be libc++.

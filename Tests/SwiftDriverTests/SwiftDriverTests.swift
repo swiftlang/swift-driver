@@ -1541,7 +1541,7 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
     
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib",
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib", "-target", "x86_64-apple-macosx10.14",
                                            "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-stdlib") = error else {
         XCTFail()
@@ -1549,14 +1549,14 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
     
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-experimental-cxx-stdlib", "libstdc++",
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
                                            "foo.swift"])) { error in
         guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
         XCTFail()
         return
       }
     }
-    try assertNoDriverDiagnostics(args: "swiftc", "-c", "-link-objc-runtime", "foo.swift")
+    try assertNoDriverDiagnostics(args: "swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-link-objc-runtime", "foo.swift")
   }
 
   func testDSYMGeneration() throws {
