@@ -147,6 +147,10 @@ enum ModuleDependenciesInputs {
           "details": {
             "swift": {
               "moduleInterfacePath": "/Volumes/Compiler/build/Ninja-RelWithDebInfoAssert/swift-macosx-x86_64/lib/swift/macosx/SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
+              "compiledModuleCandidates": [
+                "/dummy/path1/SwiftOnoneSupport.swiftmodule",
+                "/dummy/path2/SwiftOnoneSupport.swiftmodule"
+              ],
               "contextHash": "1PC0P8MX6CFZA",
               "commandLine": [
                 "-compile-module-from-interface",
