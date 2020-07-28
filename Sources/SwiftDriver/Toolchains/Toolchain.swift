@@ -56,7 +56,7 @@ public protocol Toolchain {
   /// Perform platform-specific argument validation.
   func validateArgs(_ parsedOptions: inout ParsedOptions,
                     targetTriple: Triple,
-                    targetVariantTriple: Triple?) throws
+                    targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) throws
 
   /// Adds platform-specific linker flags to the provided command line
   func addPlatformSpecificLinkerArgs(
@@ -155,7 +155,7 @@ extension Toolchain {
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple,
-                           targetVariantTriple: Triple?) {}
+                           targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) {}
 }
 
 public enum ToolchainError: Swift.Error {

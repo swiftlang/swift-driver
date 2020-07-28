@@ -13,7 +13,7 @@ import TSCBasic
 import SwiftOptions
 
 extension DarwinToolchain {
-  private func findARCLiteLibPath() throws -> AbsolutePath? {
+  internal func findARCLiteLibPath() throws -> AbsolutePath? {
     let path = try getToolPath(.swiftCompiler)
       .parentDirectory // 'swift'
       .parentDirectory // 'bin'

@@ -123,8 +123,10 @@ public final class DarwinToolchain: Toolchain {
 
   public enum ToolchainValidationError: Error, DiagnosticData {
     case osVersionBelowMinimumDeploymentTarget(String)
+    case argumentNotSupported(String)
     case iOSVersionAboveMaximumDeploymentTarget(Int)
     case unsupportedTargetVariant(variant: Triple)
+    case darwinOnlySupportsLibCxx
 
     public var description: String {
       switch self {
@@ -134,24 +136,38 @@ public final class DarwinToolchain: Toolchain {
         return "iOS \(version) does not support 32-bit programs"
       case .unsupportedTargetVariant(variant: let variant):
         return "unsupported '\(variant.isiOS ? "-target" : "-target-variant")' value '\(variant)'; use 'ios-macabi' instead"
+      case .argumentNotSupported(let argument):
+        return "\(argument) is no longer supported for Apple platforms"
+      case .darwinOnlySupportsLibCxx:
+        return "The only C++ standard library supported on Apple platforms is libc++"
       }
     }
   }
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple,
-                           targetVariantTriple: Triple?) throws {
-    // TODO: Validating arclite library path when link-objc-runtime.
-
+                           targetVariantTriple: Triple?,
+                           diagnosticsEngine: DiagnosticsEngine) throws {
+    // Validating arclite library path when link-objc-runtime.
+    validateLinkObjcRuntimeARCLiteLib(&parsedOptions,
+                                      targetTriple: targetTriple,
+                                      diagnosticsEngine: diagnosticsEngine)
     // Validating apple platforms deployment targets.
     try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple)
     if let targetVariantTriple = targetVariantTriple,
        !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
       throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
     }
-
-    // TODO: Validating darwin unsupported -static-stdlib argument.
-    // TODO: If a C++ standard library is specified, it has to be libc++.
+    // Validating darwin unsupported -static-stdlib argument.
+    if parsedOptions.hasArgument(.staticStdlib) {
+        throw ToolchainValidationError.argumentNotSupported("-static-stdlib")
+    }
+    // If a C++ standard library is specified, it has to be libc++.
+    if let cxxLib = parsedOptions.getLastArgument(.experimentalCxxStdlib) {
+        if cxxLib.asSingle != "libc++" {
+            throw ToolchainValidationError.darwinOnlySupportsLibCxx
+        }
+    }
   }
 
   func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
@@ -178,4 +194,24 @@ public final class DarwinToolchain: Toolchain {
       throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("watchOS 2.0")
     }
   }
+    
+  func validateLinkObjcRuntimeARCLiteLib(_ parsedOptions: inout ParsedOptions,
+                                           targetTriple: Triple,
+                                           diagnosticsEngine: DiagnosticsEngine) {
+    if parsedOptions.hasFlag(positive: .linkObjcRuntime, negative: .noLinkObjcRuntime, default: targetTriple.supports(.compatibleObjCRuntime)) {
+        guard let _ = try? findARCLiteLibPath() else {
+            diagnosticsEngine.emit(.warn_arclite_not_found_when_link_objc_runtime)
+            return
+        }
+    }
+  }
+}
+
+extension Diagnostic.Message {
+    static var warn_arclite_not_found_when_link_objc_runtime: Diagnostic.Message {
+      .warning(
+        "unable to find Objective-C runtime support library 'arclite'; " +
+        "pass '-no-link-objc-runtime' to silence this warning"
+      )
+    }
 }
