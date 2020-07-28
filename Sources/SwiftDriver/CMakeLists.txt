@@ -59,6 +59,8 @@ add_library(SwiftDriver
   Toolchains/GenericUnixToolchain.swift
   Toolchains/Toolchain.swift
 
+  Utilities/Bits.swift
+  Utilities/Bitstream.swift
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
