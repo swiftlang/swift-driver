@@ -70,12 +70,12 @@ private extension Bits.Cursor {
   enum BitcodeError: Swift.Error {
     case vbrOverflow
   }
-  
+
   mutating func readVBR(_ width: Int) throws -> UInt64 {
     precondition(width > 1)
     let testBit = UInt64(1 << (width &- 1))
     let mask = testBit &- 1
-    
+
     var result: UInt64 = 0
     var offset: UInt64 = 0
     var next: UInt64
@@ -85,16 +85,9 @@ private extension Bits.Cursor {
       offset += UInt64(width &- 1)
       if offset > 64 { throw BitcodeError.vbrOverflow }
     } while next & testBit != 0
-    
+
     return result
   }
-}
-
-protocol BitstreamVisitor {
-  func visit(record: BitcodeElement.Record) throws
-
-  func visitSubblock(id: UInt64) throws -> Bool
-  func exitSubblock() throws
 }
 
 private struct BitstreamReader {
@@ -106,7 +99,7 @@ private struct BitstreamReader {
       indirect case array(Operand)
       case char6
       case blob
-      
+
       var isPayload: Bool {
         switch self {
         case .array, .blob: return true
@@ -114,10 +107,10 @@ private struct BitstreamReader {
         }
       }
     }
-    
+
     var operands: [Operand] = []
   }
-  
+
   enum Error: Swift.Error {
     case invalidAbbrev
     case nestedBlockInBlockInfo
@@ -127,21 +120,21 @@ private struct BitstreamReader {
     case noSuchAbbrev(blockID: UInt64, abbrevID: Int)
     case missingEndBlock(blockID: UInt64)
   }
-  
+
   var cursor: Bits.Cursor
   var blockInfo: [UInt64: BlockInfo] = [:]
   var globalAbbrevs: [UInt64: [Abbrev]] = [:]
-  
+
   init(buffer: Data) {
     cursor = Bits.Cursor(buffer: buffer)
   }
-  
+
   mutating func readAbbrevOp() throws -> Abbrev.Operand {
     let isLiteralFlag = try cursor.read(1)
     if isLiteralFlag == 1 {
       return .literal(try cursor.readVBR(8))
     }
-    
+
     switch try cursor.read(3) {
     case 0:
       throw Error.invalidAbbrev
@@ -161,14 +154,14 @@ private struct BitstreamReader {
       fatalError()
     }
   }
-  
+
   mutating func readAbbrev(numOps: Int) throws -> Abbrev {
     guard numOps > 0 else { throw Error.invalidAbbrev }
-    
+
     var operands: [Abbrev.Operand] = []
     for i in 0..<numOps {
       operands.append(try readAbbrevOp())
-      
+
       if case .array = operands.last! {
         guard i == numOps - 2 else { throw Error.invalidAbbrev }
         break
@@ -176,10 +169,10 @@ private struct BitstreamReader {
         guard i == numOps - 1 else { throw Error.invalidAbbrev }
       }
     }
-    
+
     return Abbrev(operands: operands)
   }
-  
+
   mutating func readSingleAbbreviatedRecordOperand(_ operand: Abbrev.Operand) throws -> UInt64 {
     switch operand {
     case .char6:
@@ -208,18 +201,18 @@ private struct BitstreamReader {
       fatalError()
     }
   }
-  
+
   mutating func readAbbreviatedRecord(_ abbrev: Abbrev) throws -> BitcodeElement.Record {
     let code = try readSingleAbbreviatedRecordOperand(abbrev.operands.first!)
-    
+
     let lastOperand = abbrev.operands.last!
     let lastRegularOperandIndex: Int = abbrev.operands.endIndex - (lastOperand.isPayload ? 1 : 0)
-    
+
     var fields = [UInt64]()
     for op in abbrev.operands[1..<lastRegularOperandIndex] {
       fields.append(try readSingleAbbreviatedRecordOperand(op))
     }
-    
+
     let payload: BitcodeElement.Record.Payload
     if !lastOperand.isPayload {
       payload = .none
@@ -245,10 +238,10 @@ private struct BitstreamReader {
         fatalError()
       }
     }
-    
+
     return .init(id: code, fields: fields, payload: payload)
   }
-  
+
   mutating func readBlockInfoBlock(abbrevWidth: Int) throws {
     var currentBlockID: UInt64?
     while true {
@@ -257,10 +250,10 @@ private struct BitstreamReader {
         try cursor.advance(toBitAlignment: 32)
         // FIXME: check expected length
         return
-        
+
       case 1: // ENTER_BLOCK
         throw Error.nestedBlockInBlockInfo
-        
+
       case 2: // DEFINE_ABBREV
         guard let blockID = currentBlockID else {
           throw Error.missingSETBID
@@ -268,7 +261,7 @@ private struct BitstreamReader {
         let numOps = Int(try cursor.readVBR(5))
         if globalAbbrevs[blockID] == nil { globalAbbrevs[blockID] = [] }
         globalAbbrevs[blockID]!.append(try readAbbrev(numOps: numOps))
-        
+
       case 3: // UNABBREV_RECORD
         let code = try cursor.readVBR(6)
         let numOps = try cursor.readVBR(6)
@@ -276,7 +269,7 @@ private struct BitstreamReader {
         for _ in 0..<numOps {
           operands.append(try cursor.readVBR(6))
         }
-        
+
         switch code {
         case 1:
           guard operands.count == 1 else { throw Error.invalidBlockInfoRecord(recordID: code) }
@@ -299,13 +292,13 @@ private struct BitstreamReader {
         default:
           throw Error.invalidBlockInfoRecord(recordID: code)
         }
-        
+
       case let abbrevID:
         throw Error.noSuchAbbrev(blockID: 0, abbrevID: Int(abbrevID))
       }
     }
   }
-  
+
   mutating func readBlock(id: UInt64, abbrevWidth: Int, abbrevInfo: [Abbrev]) throws -> [BitcodeElement] {
     var abbrevInfo = abbrevInfo
     var elements = [BitcodeElement]()
@@ -334,11 +327,11 @@ private struct BitstreamReader {
             id: blockID, abbrevWidth: newAbbrevWidth, abbrevInfo: globalAbbrevs[blockID] ?? [])
           elements.append(.block(.init(id: blockID, elements: innerElements)))
         }
-        
+
       case 2: // DEFINE_ABBREV
         let numOps = Int(try cursor.readVBR(5))
         abbrevInfo.append(try readAbbrev(numOps: numOps))
-        
+
       case 3: // UNABBREV_RECORD
         let code = try cursor.readVBR(6)
         let numOps = try cursor.readVBR(6)
@@ -355,13 +348,13 @@ private struct BitstreamReader {
         elements.append(.record(try readAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4])))
       }
     }
-    
+
     guard id == Self.fakeTopLevelBlockID else {
       throw Error.missingEndBlock(blockID: id)
     }
     return elements
   }
-  
+
   static let fakeTopLevelBlockID: UInt64 = ~0
 }
 

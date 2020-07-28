@@ -36,33 +36,101 @@ final class IncrementalCompilationTests: XCTestCase {
           ])
   }
 
-  func testReadSourceFileDependencyGraph() throws {
-    let graph = try SourceFileDependencyGraph(contents: Inputs.fineGrainedSourceFileDependencyGraph)
-
+  func testReadBinarySourceFileDependencyGraph() throws {
+    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+    let testInputPath = packageRootPath + "/TestInputs/Incremental/main.swiftdeps"
+    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
+    let graph = try SourceFileDependencyGraph(data: data)
+    XCTAssertEqual(graph.majorVersion, 1)
+    XCTAssertEqual(graph.minorVersion, 0)
+    XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
     graph.verify()
-
-    var found = false
+    var saw0 = false
+    var saw1 = false
+    var saw2 = false
     graph.forEachNode { node in
-      guard node.sequenceNumber == 10 else { return }
-      found = true
-      XCTAssertEqual(node.key.kind, .nominal)
-      XCTAssertEqual(node.key.aspect, .interface)
-      XCTAssertEqual(node.key.context, "5hello3FooV")
-      XCTAssertTrue(node.key.name.isEmpty)
-      XCTAssertEqual(node.fingerprint, "8daabb8cdf69d8e8702b4788be12efd6")
-      XCTAssertTrue(node.isProvides)
-
-      graph.forEachDefDependedUpon(by: node) { def in
-        XCTAssertTrue(def.sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber)
-        XCTAssertEqual(def.key.kind, .sourceFileProvide)
-        XCTAssertEqual(def.key.aspect, .interface)
-        XCTAssertTrue(def.key.context.isEmpty)
-        XCTAssertTrue(def.key.name.hasSuffix("/hello.swiftdeps"))
-        XCTAssertEqual(def.fingerprint, "85188db3503106210367dbcb7f5d1524")
-        XCTAssertTrue(def.isProvides)
+      switch node.sequenceNumber {
+      case 0:
+        saw0 = true
+        XCTAssertEqual(node.key.kind, .sourceFileProvide)
+        XCTAssertEqual(node.key.aspect, .interface)
+        XCTAssertEqual(node.key.context, "")
+        XCTAssertEqual(node.key.name, "main.swiftdeps")
+        XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
+        XCTAssertEqual(node.defsIDependUpon, [2])
+        XCTAssertTrue(node.isProvides)
+      case 1:
+        saw1 = true
+        XCTAssertEqual(node.key.kind, .sourceFileProvide)
+        XCTAssertEqual(node.key.aspect, .implementation)
+        XCTAssertEqual(node.key.context, "")
+        XCTAssertEqual(node.key.name, "main.swiftdeps")
+        XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
+        XCTAssertEqual(node.defsIDependUpon, [])
+        XCTAssertTrue(node.isProvides)
+      case 2:
+        saw2 = true
+        XCTAssertEqual(node.key.kind, .topLevel)
+        XCTAssertEqual(node.key.aspect, .interface)
+        XCTAssertEqual(node.key.context, "")
+        XCTAssertEqual(node.key.name, "a")
+        XCTAssertNil(node.fingerprint)
+        XCTAssertEqual(node.defsIDependUpon, [])
+        XCTAssertFalse(node.isProvides)
+      default:
+        XCTFail()
       }
     }
-    XCTAssertTrue(found)
+    XCTAssertTrue(saw0)
+    XCTAssertTrue(saw1)
+    XCTAssertTrue(saw2)
+  }
+
+  func testReadComplexSourceFileDependencyGraph() throws {
+    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+    let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftdeps"
+    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
+    let graph = try SourceFileDependencyGraph(data: data)
+    XCTAssertEqual(graph.majorVersion, 1)
+    XCTAssertEqual(graph.minorVersion, 0)
+    XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
+    graph.verify()
+
+    // Check that a node chosen at random appears as expected.
+    var foundNode = false
+    graph.forEachNode { node in
+      if node.sequenceNumber == 25 {
+        XCTAssertFalse(foundNode)
+        foundNode = true
+        XCTAssertEqual(node.key.kind, .member)
+        XCTAssertEqual(node.key.aspect, .interface)
+        XCTAssertEqual(node.key.context, "5hello1BV")
+        XCTAssertEqual(node.key.name, "init")
+        XCTAssertEqual(node.defsIDependUpon, [])
+        XCTAssertFalse(node.isProvides)
+      }
+    }
+    XCTAssertTrue(foundNode)
+    
+    // Check that an edge chosen at random appears as expected.
+    var foundEdge = false
+    graph.forEachArc { defNode, useNode in
+      if defNode.sequenceNumber == 0 && useNode.sequenceNumber == 10 {
+        XCTAssertFalse(foundEdge)
+        foundEdge = true
+        XCTAssertEqual(defNode.key.kind, .sourceFileProvide)
+        XCTAssertEqual(defNode.key.name, "/Users/owenvoorhees/Desktop/hello.swiftdeps")
+        XCTAssertEqual(defNode.fingerprint, "38b457b424090ac2e595be0e5f7e3b5b")
+
+        XCTAssertEqual(useNode.key.kind, .potentialMember)
+        XCTAssertEqual(useNode.key.name, "")
+        XCTAssertEqual(useNode.key.context, "5hello1AC")
+        XCTAssertEqual(useNode.fingerprint, "b83bbc0b4b0432dbfabff6556a3a901f")
+      }
+    }
+    XCTAssertTrue(foundEdge)
   }
 }
 

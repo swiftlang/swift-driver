@@ -9,12 +9,15 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-@_implementationOnly import Yams
+import Foundation
 
-public struct SourceFileDependencyGraph: Codable {
+public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
   public static let sourceFileProvidesImplementationSequenceNumber: Int = 1
 
+  public var majorVersion: UInt64
+  public var minorVersion: UInt64
+  public var compilerVersionString: String
   private var allNodes: [Node]
 
   public var sourceFileNodePair: (interface: Node, implementation: Node) {
@@ -47,20 +50,14 @@ public struct SourceFileDependencyGraph: Codable {
     }
     return true
   }
-
-  public init(contents: String) throws {
-    let decoder = YAMLDecoder()
-    self = try decoder.decode(Self.self, from: contents)
-    assert(verify())
-  }
 }
 
-public enum DeclAspect: String, Codable {
+public enum DeclAspect: UInt64 {
   case interface, implementation
 }
 
-public struct DependencyKey: Codable {
-  public enum Kind: String, Codable {
+public struct DependencyKey {
+  public enum Kind: UInt64 {
     case topLevel
     case nominal
     case potentialMember
@@ -88,9 +85,8 @@ public struct DependencyKey: Codable {
   }
 }
 
-
 extension SourceFileDependencyGraph {
-  public struct Node: Codable {
+  public struct Node {
     public var key: DependencyKey
     public var fingerprint: String?
     public var sequenceNumber: Int
