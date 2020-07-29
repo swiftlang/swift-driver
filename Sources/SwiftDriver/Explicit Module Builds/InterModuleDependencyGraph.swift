@@ -72,31 +72,31 @@ public struct BridgingHeader: Codable {
 /// Details specific to Swift modules.
 public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
-  public var moduleInterfacePath: String?
+  @_spi(Testing) public var moduleInterfacePath: String?
 
   /// The paths of potentially ready-to-use compiled modules for the interface.
-  public var compiledModuleCandidates: [String]?
+  @_spi(Testing) public var compiledModuleCandidates: [String]?
 
   /// The path to the already-compiled module that must be used instead of
   /// generating a job to build this module. In standard compilation, the dependency scanner
   /// may discover compiled module candidates to be used instead of re-compiling from interface.
   /// In contrast, this explicitCompiledModulePath is only to be used for precompiled modules
   /// external dependencies in Explicit Module Build mode
-  public var explicitCompiledModulePath: String?
+  @_spi(Testing) public var explicitCompiledModulePath: String?
 
   /// The bridging header, if any.
-  public var bridgingHeaderPath: String?
+  var bridgingHeaderPath: String?
 
   /// The source files referenced by the bridging header.
-  public var bridgingSourceFiles: [String]? = []
+  var bridgingSourceFiles: [String]? = []
 
   /// Options to the compile command
-  public var commandLine: [String]? = []
+  var commandLine: [String]? = []
 
   /// To build a PCM to be used by this Swift module, we need to append these
   /// arguments to the generic PCM build arguments reported from the dependency
   /// graph.
-  public var extraPcmArgs: [String]?
+  @_spi(Testing) public var extraPcmArgs: [String]?
 }
 
 /// Details specific to Swift external modules.
@@ -111,13 +111,13 @@ public struct swiftPlaceholderModuleDetails: Codable {
 /// Details specific to Clang modules.
 public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
-  public var moduleMapPath: String
+  @_spi(Testing) public var moduleMapPath: String
 
   /// clang-generated context hash
-  public var contextHash: String?
+  var contextHash: String?
 
   /// Options to the compile command
-  public var commandLine: [String]? = []
+  var commandLine: [String]? = []
 }
 
 public struct ModuleInfo: Codable {
