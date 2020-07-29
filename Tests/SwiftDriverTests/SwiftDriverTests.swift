@@ -711,6 +711,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("x86_64")))
       XCTAssertTrue(cmd.contains(.flag("-macosx_version_min")))
       XCTAssertTrue(cmd.contains(.flag("10.15.0")))
+      XCTAssertTrue(cmd.contains(where: { $0.hasSuffix("libclang_rt.osx.a") }))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -734,6 +735,32 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("arm64")))
       XCTAssertTrue(cmd.contains(.flag("-iphoneos_version_min")))
       XCTAssertTrue(cmd.contains(.flag("10.0.0")))
+      XCTAssertTrue(cmd.contains(where: { $0.hasSuffix("libclang_rt.ios.a") }))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    do {
+      // iOS simulator target
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "arm64-apple-ios14.0-simulator"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("arm64")))
+      XCTAssertTrue(cmd.contains(.flag("-ios_simulator_version_min")))
+      XCTAssertTrue(cmd.contains(.flag("14.0.0")))
+      XCTAssertTrue(cmd.contains(where: { $0.hasSuffix("libclang_rt.iossim.a") }))
+      XCTAssertFalse(cmd.contains(where: { $0.hasSuffix("libclang_rt.ios.a") }))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -757,6 +784,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("x86_64")))
       XCTAssertTrue(cmd.contains(.flag("-maccatalyst_version_min")))
       XCTAssertTrue(cmd.contains(.flag("13.0.0")))
+      XCTAssertTrue(cmd.contains(where: { $0.hasSuffix("libclang_rt.osx.a") }))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -859,6 +887,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-shared")))
       XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
       XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertFalse(cmd.contains(where: { $0.hasSuffix("libclang_rt.osx.a") }))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.so"))
 
       XCTAssertFalse(cmd.contains(.flag("-dylib")))

@@ -41,6 +41,15 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Represents a virtual path on disk.
     case path(VirtualPath)
+
+    public func hasSuffix(_ suffix: String) -> Bool {
+      switch self {
+      case .flag(let string):
+        return string.hasSuffix(suffix)
+      case .path(let virtualPath):
+        return virtualPath.basename == suffix
+      }
+    }
   }
 
   /// The Swift module this job involves.
