@@ -5,7 +5,7 @@ import class Foundation.ProcessInfo
 let package = Package(
   name: "swift-driver",
   platforms: [
-    .macOS(.v10_10),
+    .macOS(.v10_13),
   ],
   products: [
     .executable(
