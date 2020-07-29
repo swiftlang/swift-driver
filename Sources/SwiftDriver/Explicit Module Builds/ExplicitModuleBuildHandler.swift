@@ -157,6 +157,17 @@ import Foundation
     inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleInterfacePath),
                                    type: .swiftInterface))
 
+    // Add precompiled module candidates, if present
+    if let compiledCandidateList = moduleDetails.compiledModuleCandidates {
+      for compiledCandidate in compiledCandidateList {
+        commandLine.appendFlag("-candidate-module-file")
+        let compiledCandidatePath = try VirtualPath(path: compiledCandidate)
+        commandLine.appendPath(compiledCandidatePath)
+        inputs.append(TypedVirtualPath(file: compiledCandidatePath,
+                                       type: .swiftModule))
+      }
+    }
+
     swiftModuleBuildCache[moduleId] = Job(
       moduleName: moduleId.moduleName,
       kind: .emitModule,

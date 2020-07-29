@@ -58,7 +58,7 @@ extension ModuleDependencyId: Codable {
   public var moduleInterfacePath: String?
 
   /// The paths of potentially ready-to-use compiled modules for the interface.
-  var compiledModuleCandidates: [String]?
+  public var compiledModuleCandidates: [String]?
 
   /// The path to the already-compiled module.
   public var compiledModulePath: String?

@@ -29,6 +29,16 @@ private func checkExplicitModuleBuildJob(job: Job,
                          type: .swiftInterface)
       XCTAssertEqual(job.kind, .emitModule)
       XCTAssertTrue(job.inputs.contains(moduleInterfacePath))
+      if let compiledCandidateList = swiftModuleDetails.compiledModuleCandidates {
+        for compiledCandidate in compiledCandidateList {
+          let candidatePath = try VirtualPath(path: compiledCandidate)
+          let typedCandidatePath = TypedVirtualPath(file: candidatePath,
+                                                    type: .swiftModule)
+          XCTAssertTrue(job.inputs.contains(typedCandidatePath))
+          XCTAssertTrue(job.commandLine.contains(.path(candidatePath)))
+        }
+        XCTAssertTrue(job.commandLine.filter {$0 == .flag("-candidate-module-file")}.count == compiledCandidateList.count)
+      }
     case .clang(let clangModuleDetails):
       guard case .swift(let mainModuleSwiftDetails) = moduleDependencyGraph.mainModule.details else {
         XCTFail("Main module does not have Swift details field")
