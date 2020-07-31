@@ -274,7 +274,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", swiftModuleInterfacesPath,
                                      "-experimental-explicit-module-build",
                                      "-working-directory", path.pathString,
-                                     main.pathString])
+                                     main.pathString],
+                              env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)

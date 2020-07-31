@@ -234,7 +234,9 @@ final class JobExecutorTests: XCTestCase {
     // DarwinToolchain
     env.removeValue(forKey: envVarName)
     let normalSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
-    XCTAssertEqual(normalSwiftPath.basenameWithoutExt, "swift-frontend")
+    // Match Toolchain temporary shim of a fallback to looking for "swift" before failing.
+    XCTAssertTrue(normalSwiftPath.basenameWithoutExt == "swift-frontend" ||
+                  normalSwiftPath.basenameWithoutExt == "swift")
 
     env[envVarName] = dummyPath
     let overriddenSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
@@ -243,7 +245,8 @@ final class JobExecutorTests: XCTestCase {
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
     let unixSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
-    XCTAssertEqual(unixSwiftPath.basenameWithoutExt, "swift-frontend")
+    XCTAssertTrue(unixSwiftPath.basenameWithoutExt == "swift-frontend" ||
+                  unixSwiftPath.basenameWithoutExt == "swift")
 
     env[envVarName] = dummyPath
     let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)

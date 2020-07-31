@@ -3,6 +3,7 @@
 
 #if swift(>=5.0)
 import Swift
+import SwiftOnoneSupport
 @_exported import G
 public func overlayFuncG() { }
 
