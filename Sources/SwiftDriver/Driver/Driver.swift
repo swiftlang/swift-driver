@@ -140,7 +140,7 @@ public struct Driver {
   public let moduleOutputInfo: ModuleOutputInfo
 
   /// Code & data for incremental compilation
-  public let incrementalCompilation: IncrementalCompilation
+  public let incrementalCompilationState: IncrementalCompilationState
 
   /// The path of the SDK.
   public var sdkPath: String? {
@@ -323,7 +323,7 @@ public struct Driver {
       debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine)
 
     // Determine the state for incremental compilation
-    self.incrementalCompilation = IncrementalCompilation(
+    self.incrementalCompilationState = IncrementalCompilationState(
       &parsedOptions,
       compilerMode: compilerMode,
       outputFileMap: self.outputFileMap,

@@ -28,7 +28,7 @@ add_library(SwiftDriver
   Execution/ProcessProtocol.swift
   Execution/llbuild.swift
 
-  "Incremental Compilation/IncrementalCompilation.swift"
+  "Incremental Compilation/IncrementalCompilationState.swift"
   "Incremental Compilation/InputIInfoMap.swift"
   "Incremental Compilation/InputInfo.swift"
   "Incremental Compilation/SourceFileDependencyGraph.swift"
