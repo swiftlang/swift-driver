@@ -50,6 +50,8 @@ private func checkExplicitModuleBuildJob(job: Job,
                          type: .clangModuleMap)
       XCTAssertEqual(job.kind, .generatePCM)
       XCTAssertTrue(job.inputs.contains(moduleMapPath))
+    case .swiftPlaceholder(_):
+      XCTFail("Placeholder dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
   XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
@@ -65,7 +67,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      moduleInfo : ModuleInfo,
                                                      moduleDependencyGraph: InterModuleDependencyGraph
 ) throws {
-  for dependencyId in moduleInfo.directDependencies {
+  for dependencyId in moduleInfo.directDependencies! {
     let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
     switch dependencyInfo.details {
       case .swift(let swiftDetails):
@@ -85,7 +87,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                       from: Data(contents.contents))
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
-        XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.compiledModulePath ?? dependencyInfo.modulePath)
+        XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.explicitCompiledModulePath ?? dependencyInfo.modulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
@@ -101,10 +103,12 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                         .flag(String("-fmodule-file=\(clangDependencyModulePathString)"))))
         XCTAssertTrue(job.commandLine.contains(
                         .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath)"))))
+      case .swiftPlaceholder(_):
+        XCTFail("Placeholder dependency found.")
     }
 
     // Ensure all transitive dependencies got added as well.
-    for transitiveDependencyId in dependencyInfo.directDependencies {
+    for transitiveDependencyId in dependencyInfo.directDependencies! {
       try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
                                                   moduleInfo: moduleDependencyGraph.modules[transitiveDependencyId]!,
                                                   moduleDependencyGraph: moduleDependencyGraph)
@@ -133,7 +137,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
                                                                          toolchain: driver.toolchain,
-                                                                         fileSystem: localFileSystem)
+                                                                         fileSystem: localFileSystem,
+                                                                         externalDependencyArtifactMap: [:])
       let modulePrebuildJobs =
         try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
@@ -156,6 +161,79 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             moduleDependencyGraph: moduleDependencyGraph)
           default:
             XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
+        }
+      }
+    }
+  }
+
+  func testModuleDependencyWithExternalCommandGeneration() throws {
+    do {
+      // Construct a faux external dependency input for module B
+      let inputDependencyGraph =
+            try JSONDecoder().decode(
+              InterModuleDependencyGraph.self,
+              from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
+      var targetDependencyMap :[ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)] = [:]
+      targetDependencyMap[ModuleDependencyId.swiftPlaceholder("B")] =
+        (AbsolutePath("/Somewhere/B.swiftmodule"), inputDependencyGraph)
+
+      // Construct a module dependency graph that will contain .swiftPlaceholder("B")
+      let moduleDependencyGraph =
+            try JSONDecoder().decode(
+              InterModuleDependencyGraph.self,
+              from: ModuleDependenciesInputs.fastDependencyScannerPlaceholderOutput.data(using: .utf8)!)
+
+      // Construct the driver with explicit external dependency input
+      var commandLine = ["swiftc", "-driver-print-module-dependencies-jobs",
+                         "test.swift", "-module-name", "A", "-g"]
+      commandLine.append("-experimental-explicit-module-build")
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      var driver = try Driver(args: commandLine, executor: executor,
+                              externalModuleDependencies: targetDependencyMap)
+
+
+      // Plan explicit dependency jobs, resolving placeholders to actual dependencies.
+      driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
+                                                                         toolchain: driver.toolchain,
+                                                                         fileSystem: localFileSystem,
+                                                                         externalDependencyArtifactMap: targetDependencyMap)
+      let modulePrebuildJobs =
+        try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+
+      // Verify that the dependency graph contains only 1 module to be built.
+      for (moduleId, _) in driver.interModuleDependencyGraph!.modules {
+        switch moduleId {
+          case .swift(_):
+            continue
+          case .clang(_):
+            continue
+          case .swiftPlaceholder(_):
+            XCTFail("Placeholder dependency found.")
+        }
+      }
+
+      // After module resolution all the dependencies are already satisfied.
+      XCTAssertEqual(modulePrebuildJobs.count, 0)
+      let mainModuleJob = try driver.emitModuleJob()
+      XCTAssertEqual(mainModuleJob.inputs.count, 5)
+      for input in mainModuleJob.inputs {
+        switch (input.file) {
+          case .relative(RelativePath("M/Swift.swiftmodule")):
+            continue
+          case .relative(RelativePath("S/SwiftOnoneSupport.swiftmodule")):
+            continue
+          case .relative(RelativePath("test.swift")):
+            continue
+          case .absolute(AbsolutePath("/Somewhere/B.swiftmodule")):
+            continue
+          case .absolute(let filePath):
+            XCTAssertEqual(filePath.basename, "A-dependencies.json")
+            continue
+          default:
+            XCTFail("Unexpected module input: \(input.file)")
         }
       }
     }

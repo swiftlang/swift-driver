@@ -31,6 +31,15 @@ extension Driver {
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
+    // Pass in external dependencies to be treated as placeholder dependencies by the scanner
+    if let externalDependencyArtifactMap = externalDependencyArtifactMap {
+      let dependencyPlaceholderMapFile =
+        try serializeExternalDependencyArtifacts(externalDependencyArtifactMap:
+                                                  externalDependencyArtifactMap)
+      commandLine.appendFlag("-placeholder-dependency-module-map-file")
+      commandLine.appendPath(dependencyPlaceholderMapFile)
+    }
+
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file)})
 
@@ -43,5 +52,25 @@ extension Driver {
                inputs: inputs,
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
                supportsResponseFiles: true)
+  }
+
+  /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
+  func serializeExternalDependencyArtifacts(externalDependencyArtifactMap: ExternalDependencyArtifactMap)
+  throws -> AbsolutePath {
+    let temporaryDirectory = try determineTempDirectory()
+    let placeholderMapFilePath =
+      temporaryDirectory.appending(component: "\(moduleOutputInfo.name)-placeholder-modules.json")
+
+    var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
+    for (moduleId, dependencyInfo) in externalDependencyArtifactMap {
+      placeholderArtifacts.append(
+          SwiftModuleArtifactInfo(name: moduleId.moduleName,
+                                  modulePath: dependencyInfo.0.description))
+    }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted]
+    let contents = try encoder.encode(placeholderArtifacts)
+    try fileSystem.writeFileContents(placeholderMapFilePath, bytes: ByteString(contents))
+    return placeholderMapFilePath
   }
 }

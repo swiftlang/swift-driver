@@ -12,14 +12,16 @@
 import Foundation
 
 
-@_spi(Testing) public enum ModuleDependencyId: Hashable {
+public enum ModuleDependencyId: Hashable {
   case swift(String)
+  case swiftPlaceholder(String)
   case clang(String)
 
   public var moduleName: String {
     switch self {
-      case .swift(let name): return name
-      case .clang(let name): return name
+    case .swift(let name): return name
+    case .swiftPlaceholder(let name): return name
+    case .clang(let name): return name
     }
   }
 }
@@ -27,6 +29,7 @@ import Foundation
 extension ModuleDependencyId: Codable {
   enum CodingKeys: CodingKey {
     case swift
+    case swiftPlaceholder
     case clang
   }
 
@@ -36,8 +39,13 @@ extension ModuleDependencyId: Codable {
       let moduleName =  try container.decode(String.self, forKey: .swift)
       self = .swift(moduleName)
     } catch {
-      let moduleName =  try container.decode(String.self, forKey: .clang)
-      self = .clang(moduleName)
+      do {
+        let moduleName =  try container.decode(String.self, forKey: .swiftPlaceholder)
+        self = .swiftPlaceholder(moduleName)
+      } catch {
+        let moduleName =  try container.decode(String.self, forKey: .clang)
+        self = .clang(moduleName)
+      }
     }
   }
 
@@ -46,59 +54,81 @@ extension ModuleDependencyId: Codable {
     switch self {
       case .swift(let moduleName):
         try container.encode(moduleName, forKey: .swift)
+      case .swiftPlaceholder(let moduleName):
+        try container.encode(moduleName, forKey: .swift)
       case .clang(let moduleName):
         try container.encode(moduleName, forKey: .clang)
     }
   }
 }
 
+/// Bridging header
+public struct BridgingHeader: Codable {
+  var path: String
+  var sourceFiles: [String]
+  var moduleDependencies: [String]
+}
+
 /// Details specific to Swift modules.
-@_spi(Testing) public struct SwiftModuleDetails: Codable {
+public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
-  public var moduleInterfacePath: String?
+  @_spi(Testing) public var moduleInterfacePath: String?
 
   /// The paths of potentially ready-to-use compiled modules for the interface.
-  public var compiledModuleCandidates: [String]?
+  @_spi(Testing) public var compiledModuleCandidates: [String]?
 
-  /// The path to the already-compiled module.
-  public var compiledModulePath: String?
+  /// The path to the already-compiled module that must be used instead of
+  /// generating a job to build this module. In standard compilation, the dependency scanner
+  /// may discover compiled module candidates to be used instead of re-compiling from interface.
+  /// In contrast, this explicitCompiledModulePath is only to be used for precompiled modules
+  /// external dependencies in Explicit Module Build mode
+  @_spi(Testing) public var explicitCompiledModulePath: String?
 
   /// The bridging header, if any.
-  public var bridgingHeaderPath: String?
+  var bridgingHeaderPath: String?
 
   /// The source files referenced by the bridging header.
-  public var bridgingSourceFiles: [String]? = []
+  var bridgingSourceFiles: [String]? = []
 
   /// Options to the compile command
-  public var commandLine: [String]? = []
+  var commandLine: [String]? = []
 
   /// To build a PCM to be used by this Swift module, we need to append these
   /// arguments to the generic PCM build arguments reported from the dependency
   /// graph.
-  public var extraPcmArgs: [String]? = []
+  @_spi(Testing) public var extraPcmArgs: [String]?
+}
+
+/// Details specific to Swift external modules.
+public struct swiftPlaceholderModuleDetails: Codable {
+  /// The path to the .swiftModuleDoc file.
+  var moduleDocPath: String?
+
+  /// The path to the .swiftSourceInfo file.
+  var moduleSourceInfoPath: String?
 }
 
 /// Details specific to Clang modules.
-@_spi(Testing) public struct ClangModuleDetails: Codable {
+public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
-  public var moduleMapPath: String
+  @_spi(Testing) public var moduleMapPath: String
 
   /// clang-generated context hash
-  public var contextHash: String?
+  var contextHash: String?
 
   /// Options to the compile command
-  public var commandLine: [String]? = []
+  var commandLine: [String]? = []
 }
 
-@_spi(Testing) public struct ModuleInfo: Codable {
+public struct ModuleInfo: Codable {
   /// The path for the module.
   public var modulePath: String
 
   /// The source files used to build this module.
-  public var sourceFiles: [String] = []
+  public var sourceFiles: [String]? = []
 
   /// The set of direct module dependencies of this module.
-  public var directDependencies: [ModuleDependencyId] = []
+  public var directDependencies: [ModuleDependencyId]? = []
 
   /// Specific details of a particular kind of module.
   public var details: Details
@@ -109,6 +139,10 @@ extension ModuleDependencyId: Codable {
     /// a bridging header.
     case swift(SwiftModuleDetails)
 
+    /// Swift external modules carry additional details that specify their
+    /// module doc path and source info paths.
+    case swiftPlaceholder(swiftPlaceholderModuleDetails)
+
     /// Clang modules are built from a module map file.
     case clang(ClangModuleDetails)
   }
@@ -117,6 +151,7 @@ extension ModuleDependencyId: Codable {
 extension ModuleInfo.Details: Codable {
   enum CodingKeys: CodingKey {
     case swift
+    case swiftPlaceholder
     case clang
   }
 
@@ -126,8 +161,13 @@ extension ModuleInfo.Details: Codable {
       let details = try container.decode(SwiftModuleDetails.self, forKey: .swift)
       self = .swift(details)
     } catch {
-      let details = try container.decode(ClangModuleDetails.self, forKey: .clang)
-      self = .clang(details)
+      do {
+        let details = try container.decode(swiftPlaceholderModuleDetails.self, forKey: .swiftPlaceholder)
+        self = .swiftPlaceholder(details)
+      } catch {
+        let details = try container.decode(ClangModuleDetails.self, forKey: .clang)
+        self = .clang(details)
+      }
     }
   }
 
@@ -136,6 +176,8 @@ extension ModuleInfo.Details: Codable {
     switch self {
       case .swift(let details):
         try container.encode(details, forKey: .swift)
+      case .swiftPlaceholder(let details):
+        try container.encode(details, forKey: .swiftPlaceholder)
       case .clang(let details):
         try container.encode(details, forKey: .clang)
     }
@@ -144,7 +186,7 @@ extension ModuleInfo.Details: Codable {
 
 /// Describes the complete set of dependencies for a Swift module, including
 /// all of the Swift and C modules and source files it depends on.
-@_spi(Testing) public struct InterModuleDependencyGraph: Codable {
+public struct InterModuleDependencyGraph: Codable {
   /// The name of the main module.
   public var mainModuleName: String
 

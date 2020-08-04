@@ -43,7 +43,7 @@ extension Driver {
   }
 
   /// Form a job that emits a single module
-  mutating func emitModuleJob() throws -> Job {
+  @_spi(Testing) public mutating func emitModuleJob() throws -> Job {
     let moduleOutputPath = moduleOutputInfo.output!.outputPath
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []

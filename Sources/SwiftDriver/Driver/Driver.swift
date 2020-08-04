@@ -30,6 +30,7 @@ public struct Driver {
     case missingPCMArguments(String)
     case missingModuleDependency(String)
     case dependencyScanningFailure(Int, String)
+    case missingExternalDependency(String)
 
     public var description: String {
       switch self {
@@ -59,6 +60,8 @@ public struct Driver {
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       case .unableToLoadOutputFileMap(let path):
         return "unable to load output file map '\(path)': no such file or directory"
+      case .missingExternalDependency(let moduleName):
+        return "Missing External dependency info for module: \(moduleName)"
       }
     }
   }
@@ -193,6 +196,11 @@ public struct Driver {
   /// as explicit by the various compilation jobs.
   @_spi(Testing) public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
 
+  /// A collection describing external dependencies for the current main module that may be invisible to
+  /// the driver itself, but visible to its clients (e.g. build systems like SwiftPM). Along with the external dependencies'
+  /// module dependency graphs.
+  internal var externalDependencyArtifactMap: ExternalDependencyArtifactMap? = nil
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream
@@ -226,13 +234,16 @@ public struct Driver {
   /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
   ///   emitted. The default argument prints diagnostics to stderr.
   /// - Parameter executor: Used by the driver to execute jobs. The default argument
-  /// is present to streamline testing, it shouldn't be used in production.
+  ///   is present to streamline testing, it shouldn't be used in production.
+  /// - Parameter externalModuleDependencies: A collection of external modules that the main module
+  ///   of the current compilation depends on. Explicit Module Build use only.
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
-    executor: DriverExecutor
+    executor: DriverExecutor,
+    externalModuleDependencies: ExternalDependencyArtifactMap? = nil
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
@@ -240,9 +251,12 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
+    self.externalDependencyArtifactMap = externalModuleDependencies
+
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
     }
+
 
     var args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
 

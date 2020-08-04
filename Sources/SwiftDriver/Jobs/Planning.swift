@@ -230,9 +230,11 @@ extension Driver {
                                 forceResponseFiles: forceResponseFiles,
                                 recordedInputModificationDates: recordedInputModificationDates)
 
-    explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
-                                                                toolchain: toolchain,
-                                                                fileSystem: fileSystem)
+    explicitModuleBuildHandler =
+        try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
+                                       toolchain: toolchain,
+                                       fileSystem: fileSystem,
+                                       externalDependencyArtifactMap: externalDependencyArtifactMap ?? [:])
     return try explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
   }
 

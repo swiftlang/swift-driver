@@ -13,6 +13,10 @@ import TSCBasic
 import TSCUtility
 import Foundation
 
+/// A map from a module identifier to a pair consisting of a path to its .swiftmodule file and its module dependency graph.
+public typealias ExternalDependencyArtifactMap =
+    [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)]
+
 /// In Explicit Module Build mode, this handler is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
@@ -30,6 +34,9 @@ import Foundation
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
+  /// A collection of external dependency modules, and their binary module file paths and dependency graph.
+  internal let externalDependencyArtifactMap: ExternalDependencyArtifactMap
+
   /// The file system which we should interact with.
   /// FIXME: Our end goal is to not have any direct filesystem manipulation in here, but  that's dependent on getting the
   /// dependency scanner/dependency job generation  moved into a Job.
@@ -42,9 +49,11 @@ import Foundation
   private let temporaryDirectory: AbsolutePath
 
   public init(dependencyGraph: InterModuleDependencyGraph, toolchain: Toolchain,
-              fileSystem: FileSystem) throws {
+              fileSystem: FileSystem,
+              externalDependencyArtifactMap: ExternalDependencyArtifactMap) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
+    self.externalDependencyArtifactMap = externalDependencyArtifactMap
     self.fileSystem = fileSystem
     self.temporaryDirectory = try determineTempDirectory()
   }
@@ -110,10 +119,17 @@ import Foundation
   /// - Generate Job: S1
   ///
   mutating public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
+    // Resolve placeholder dependencies in the dependency graph, if any.
+    if (!externalDependencyArtifactMap.isEmpty) {
+      try resolvePlaceholderDependencies()
+    }
+
+    // Compute jobs for all main module dependencies
     var mainModuleInputs: [TypedVirtualPath] = []
     var mainModuleCommandLine: [Job.ArgTemplate] = []
     try resolveMainModuleDependencies(inputs: &mainModuleInputs,
                                       commandLine: &mainModuleCommandLine)
+    
     return Array(swiftModuleBuildCache.values) + clangTargetModuleBuildCache.allJobs
   }
 
@@ -297,7 +313,7 @@ import Foundation
                                               clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                               swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
-    for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies {
+    for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies! {
       guard addedDependenciesSet.insert(dependencyId).inserted else {
         continue
       }
@@ -314,6 +330,8 @@ import Foundation
                                        addedDependenciesSet: &addedDependenciesSet,
                                        clangDependencyArtifacts: &clangDependencyArtifacts,
                                        swiftDependencyArtifacts: &swiftDependencyArtifacts)
+        case .swiftPlaceholder:
+          fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
       }
     }
   }
@@ -334,7 +352,7 @@ import Foundation
 
     let swiftModulePath: TypedVirtualPath
     if case .swift(let details) = dependencyInfo.details,
-       let compiledModulePath = details.compiledModulePath {
+       let compiledModulePath = details.explicitCompiledModulePath {
       // If an already-compiled module is available, use it.
       swiftModulePath = .init(file: try VirtualPath(path: compiledModulePath),
                               type: .swiftModule)
@@ -457,4 +475,10 @@ private extension InterModuleDependencyGraph {
   }
 }
 
-
+// To keep the ExplicitModuleBuildHandler an implementation detail, provide an API
+// to access the dependency graph
+extension Driver {
+  public var interModuleDependencyGraph: InterModuleDependencyGraph? {
+    return explicitModuleBuildHandler?.dependencyGraph
+  }
+}
