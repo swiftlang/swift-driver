@@ -186,6 +186,15 @@ extension Driver {
     commandLine.appendPath(
       try AbsolutePath(validating: frontendTargetInfo.paths.runtimeResourcePath))
 
+    if parsedOptions.hasFlag(positive: .staticExecutable,
+                             negative: .noStaticExecutable,
+                             default: false) ||
+       parsedOptions.hasFlag(positive: .staticStdlib,
+                             negative: .noStaticStdlib,
+                             default: false) {
+      commandLine.appendFlag("-use-static-resource-dir")
+    }
+
     // -g implies -enable-anonymous-context-mangled-names, because the extra
     // metadata aids debugging.
     if parsedOptions.getLast(in: .g) != nil {

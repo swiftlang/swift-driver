@@ -116,7 +116,8 @@ extension Toolchain {
                           sdkPath: VirtualPath? = nil,
                           resourceDirPath: VirtualPath? = nil,
                           runtimeCompatibilityVersion: String? = nil,
-                          requiresInPlaceExecution: Bool = false) throws -> Job {
+                          requiresInPlaceExecution: Bool = false,
+                          useStaticResourceDir: Bool = false) throws -> Job {
     var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
                                           .flag("-print-target-info")]
     // If we were given a target, include it. Otherwise, let the frontend
@@ -144,6 +145,10 @@ extension Toolchain {
         .flag(runtimeCompatibilityVersion)
       ]
     }
+
+    if useStaticResourceDir {
+       commandLine += [.flag("-use-static-resource-dir")]
+     }
 
     return Job(
       moduleName: "",
