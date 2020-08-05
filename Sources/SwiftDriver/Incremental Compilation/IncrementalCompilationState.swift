@@ -13,8 +13,7 @@ import TSCBasic
 import Foundation
 import SwiftOptions
 
-// FIXME: rename to something like IncrementalCompilationInitialState
-public struct IncrementalCompilation {
+public struct IncrementalCompilationState {
   public let showIncrementalBuildDecisions: Bool
   public let enableIncrementalBuild: Bool
   public let buildRecordPath: VirtualPath?
