@@ -1,0 +1,347 @@
+# Fine-grained v0
+---
+allNodes:
+  - key:
+      kind:            sourceFileProvide
+      aspect:          interface
+      context:         ''
+      name:            '/Users/owenvoorhees/Desktop/hello.swiftdeps'
+    fingerprint:     38b457b424090ac2e595be0e5f7e3b5b
+    sequenceNumber:  0
+    defsIDependUpon: [ 37, 38 ]
+    isProvides:      true
+  - key:
+      kind:            sourceFileProvide
+      aspect:          implementation
+      context:         ''
+      name:            '/Users/owenvoorhees/Desktop/hello.swiftdeps'
+    fingerprint:     38b457b424090ac2e595be0e5f7e3b5b
+    sequenceNumber:  1
+    defsIDependUpon: [ 2, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 
+                       30, 31, 4, 32, 33, 34, 35, 36, 8, 6, 39, 40 ]
+    isProvides:      true
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            A
+    fingerprint:     b83bbc0b4b0432dbfabff6556a3a901f
+    sequenceNumber:  2
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            topLevel
+      aspect:          implementation
+      context:         ''
+      name:            A
+    fingerprint:     b83bbc0b4b0432dbfabff6556a3a901f
+    sequenceNumber:  3
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            B
+    fingerprint:     a62b4de199ab78fb0835377a93743e55
+    sequenceNumber:  4
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            topLevel
+      aspect:          implementation
+      context:         ''
+      name:            B
+    fingerprint:     a62b4de199ab78fb0835377a93743e55
+    sequenceNumber:  5
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            nominal
+      aspect:          interface
+      context:         5hello1AC
+      name:            ''
+    fingerprint:     b83bbc0b4b0432dbfabff6556a3a901f
+    sequenceNumber:  6
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            nominal
+      aspect:          implementation
+      context:         5hello1AC
+      name:            ''
+    fingerprint:     b83bbc0b4b0432dbfabff6556a3a901f
+    sequenceNumber:  7
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            nominal
+      aspect:          interface
+      context:         5hello1BV
+      name:            ''
+    fingerprint:     a62b4de199ab78fb0835377a93743e55
+    sequenceNumber:  8
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            nominal
+      aspect:          implementation
+      context:         5hello1BV
+      name:            ''
+    fingerprint:     a62b4de199ab78fb0835377a93743e55
+    sequenceNumber:  9
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            potentialMember
+      aspect:          interface
+      context:         5hello1AC
+      name:            ''
+    fingerprint:     b83bbc0b4b0432dbfabff6556a3a901f
+    sequenceNumber:  10
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            potentialMember
+      aspect:          implementation
+      context:         5hello1AC
+      name:            ''
+    fingerprint:     b83bbc0b4b0432dbfabff6556a3a901f
+    sequenceNumber:  11
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            potentialMember
+      aspect:          interface
+      context:         5hello1BV
+      name:            ''
+    fingerprint:     a62b4de199ab78fb0835377a93743e55
+    sequenceNumber:  12
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            potentialMember
+      aspect:          implementation
+      context:         5hello1BV
+      name:            ''
+    fingerprint:     a62b4de199ab78fb0835377a93743e55
+    sequenceNumber:  13
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            dynamicLookup
+      aspect:          interface
+      context:         ''
+      name:            y
+    sequenceNumber:  14
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            dynamicLookup
+      aspect:          implementation
+      context:         ''
+      name:            y
+    sequenceNumber:  15
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            dynamicLookup
+      aspect:          interface
+      context:         ''
+      name:            x
+    sequenceNumber:  16
+    defsIDependUpon: [ 0 ]
+    isProvides:      true
+  - key:
+      kind:            dynamicLookup
+      aspect:          implementation
+      context:         ''
+      name:            x
+    sequenceNumber:  17
+    defsIDependUpon: [  ]
+    isProvides:      true
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1BV
+      name:            y
+    sequenceNumber:  18
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            IntegerLiteralType
+    sequenceNumber:  19
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1AC
+      name:            x
+    sequenceNumber:  20
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         s35_ExpressibleByBuiltinIntegerLiteralP
+      name:            init
+    sequenceNumber:  21
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            Bool
+    sequenceNumber:  22
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1AC
+      name:            Int
+    sequenceNumber:  23
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1AC
+      name:            deinit
+    sequenceNumber:  24
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1BV
+      name:            init
+    sequenceNumber:  25
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1AC
+      name:            Bool
+    sequenceNumber:  26
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            Int
+    sequenceNumber:  27
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            String
+    sequenceNumber:  28
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1BV
+      name:            x
+    sequenceNumber:  29
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1AC
+      name:            init
+    sequenceNumber:  30
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         s35_ExpressibleByBuiltinBooleanLiteralP
+      name:            init
+    sequenceNumber:  31
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1BV
+      name:            doStuff
+    sequenceNumber:  32
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1BV
+      name:            String
+    sequenceNumber:  33
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            member
+      aspect:          interface
+      context:         5hello1AC
+      name:            y
+    sequenceNumber:  34
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            BooleanLiteralType
+    sequenceNumber:  35
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            topLevel
+      aspect:          interface
+      context:         ''
+      name:            FloatLiteralType
+    sequenceNumber:  36
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            externalDepend
+      aspect:          interface
+      context:         ''
+      name:            '/Users/owenvoorhees/Documents/Development/swift-source/build/Ninja-ReleaseAssert/swift-macosx-x86_64/lib/swift/macosx/Swift.swiftmodule/x86_64-apple-macos.swiftmodule'
+    sequenceNumber:  37
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            externalDepend
+      aspect:          interface
+      context:         ''
+      name:            '/Users/owenvoorhees/Documents/Development/swift-source/build/Ninja-ReleaseAssert/swift-macosx-x86_64/lib/swift/macosx/SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftmodule'
+    sequenceNumber:  38
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            nominal
+      aspect:          interface
+      context:         s35_ExpressibleByBuiltinIntegerLiteralP
+      name:            ''
+    sequenceNumber:  39
+    defsIDependUpon: [  ]
+    isProvides:      false
+  - key:
+      kind:            nominal
+      aspect:          interface
+      context:         s35_ExpressibleByBuiltinBooleanLiteralP
+      name:            ''
+    sequenceNumber:  40
+    defsIDependUpon: [  ]
+    isProvides:      false
+...
