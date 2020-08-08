@@ -76,6 +76,7 @@ add_library(SwiftDriver
 
 target_link_libraries(SwiftDriver PUBLIC
   TSCBasic
+  TSCUtility
   SwiftOptions
   llbuildSwift
   CYaml
