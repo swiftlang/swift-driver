@@ -1748,6 +1748,37 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      struct MockExecutor: DriverExecutor {
+        func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
+          return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
+        }
+        func execute(jobs: [Job], delegate: JobExecutionDelegate, numParallelJobs: Int, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
+          fatalError()
+        }
+        func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
+          return try Process.checkNonZeroExit(arguments: args, environment: environment)
+        }
+        func description(of job: Job, forceResponseFiles: Bool) throws -> String {
+          fatalError()
+        }
+      }
+
+      XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
+                                      executor: MockExecutor())) {
+        error in
+        XCTAssertEqual(error as? Driver.Error, .unableToDecodeFrontendTargetInfo)
+      }
+    }
+
+    do {
+      XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
+                                      env: ["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": "/bad/path/to/swift-frontend"])) {
+        error in
+        XCTAssertEqual(error as? Driver.Error, .failedToRetrieveFrontendTargetInfo)
+      }
+    }
+
+    do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-apple-ios13.0-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-sdk", "bar", "-resource-dir", "baz"])
       let plannedJobs = try driver.planBuild()
       XCTAssertTrue(plannedJobs.count == 1)
