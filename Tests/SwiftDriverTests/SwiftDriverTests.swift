@@ -2484,6 +2484,23 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
       XCTAssertEqual(compileJob.outputs[2].file, .temporary(RelativePath("foo.swiftsourceinfo")))
     }
+    // implicit with Project/ Directory
+    do {
+      try withTemporaryDirectory { path in
+        let projectDirPath = path.appending(component: "Project")
+        try localFileSystem.createDirectory(projectDirPath)
+        var driver = try Driver(args: ["swiftc", "-emit-module",
+                                       path.appending(component: "foo.swift").description,
+                                       "-o", path.appending(component: "foo.swiftmodule").description])
+        let plannedJobs = try driver.planBuild()
+        let mergeModuleJob = plannedJobs[1]
+        XCTAssertTrue(mergeModuleJob.commandLine.contains(.flag("-emit-module-source-info-path")))
+        XCTAssertEqual(mergeModuleJob.outputs.count, 3)
+        XCTAssertEqual(mergeModuleJob.outputs[0].file, .absolute(path.appending(component: "foo.swiftmodule")))
+        XCTAssertEqual(mergeModuleJob.outputs[1].file, .absolute(path.appending(component: "foo.swiftdoc")))
+        XCTAssertEqual(mergeModuleJob.outputs[2].file, .absolute(projectDirPath.appending(component: "foo.swiftsourceinfo")))
+      }
+    }
     // avoid implicit swiftsourceinfo
     do {
       var driver = try Driver(args: ["swiftc", "-emit-module", "-avoid-emit-module-source-info", "foo.swift"])
