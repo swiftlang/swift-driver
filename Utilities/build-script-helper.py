@@ -9,6 +9,9 @@ import shutil
 import subprocess
 import sys
 
+driver_tools = ['swift', 'swift-frontend', 'ld', 'libtool', 'clang',
+                'swift-autolink-extract', 'lldb', 'dwarfdump', 'swift-help']
+
 def swiftpm(action, swift_exec, swiftpm_args, env=None):
   cmd = [swift_exec, action] + swiftpm_args
   print(' '.join(cmd))
@@ -91,8 +94,10 @@ def should_test_parallel():
   return True
 
 
-def handle_invocation(swift_exec, swift_frontend_exec, args):
+def handle_invocation(toolchain_bin, args):
   swiftpm_args = get_swiftpm_options(args)
+
+  swift_exec = os.path.join(toolchain_bin, 'swift')
 
   env = os.environ
   # Use local dependencies (i.e. checked out next to swift-driver).
@@ -108,7 +113,8 @@ def handle_invocation(swift_exec, swift_frontend_exec, args):
   if args.action == 'build':
     swiftpm('build', swift_exec, swiftpm_args, env)
   elif args.action == 'test':
-    env['SWIFT_DRIVER_SWIFT_FRONTEND_EXEC'] = '%s' % (swift_frontend_exec)
+    for tool in driver_tools:
+        env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (os.path.join(toolchain_bin, tool))
     env['SWIFT_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
     if should_test_parallel():
@@ -151,13 +157,11 @@ def main():
   args.toolchain = os.path.abspath(args.toolchain)
 
   if args.toolchain:
-    swift_exec = os.path.join(args.toolchain, 'bin', 'swift')
-    swift_frontend_exec = os.path.join(args.toolchain, 'bin', 'swift-frontend')
+    toolchain_bin = os.path.join(args.toolchain, 'bin')
   else:
-    swift_exec = 'swift'
-    swift_frontend_exec = 'swift-frontend'
+    toolchain_bin = ''
 
-  handle_invocation(swift_exec, swift_frontend_exec, args)
+  handle_invocation(toolchain_bin, args)
 
 if __name__ == '__main__':
   main()
