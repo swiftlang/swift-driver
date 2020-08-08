@@ -77,10 +77,12 @@ public struct ToolExecutionDelegate: JobExecutionDelegate {
         let finishedMessage = FinishedMessage(exitStatus: Int(code), pid: pid, output: output)
         message = ParsableMessage(name: job.kind.rawValue, kind: .finished(finishedMessage))
 
+#if !os(Windows)
       case .signalled(let signal):
         let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
         let signalledMessage = SignalledMessage(pid: pid, output: output, errorMessage: errorMessage, signal: Int(signal))
         message = ParsableMessage(name: job.kind.rawValue, kind: .signalled(signalledMessage))
+#endif
       }
       emit(message)
     }
