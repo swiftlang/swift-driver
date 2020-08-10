@@ -100,7 +100,7 @@ public struct SwiftModuleDetails: Codable {
 }
 
 /// Details specific to Swift external modules.
-public struct swiftPlaceholderModuleDetails: Codable {
+public struct SwiftPlaceholderModuleDetails: Codable {
   /// The path to the .swiftModuleDoc file.
   var moduleDocPath: String?
 
@@ -141,7 +141,7 @@ public struct ModuleInfo: Codable {
 
     /// Swift external modules carry additional details that specify their
     /// module doc path and source info paths.
-    case swiftPlaceholder(swiftPlaceholderModuleDetails)
+    case swiftPlaceholder(SwiftPlaceholderModuleDetails)
 
     /// Clang modules are built from a module map file.
     case clang(ClangModuleDetails)
@@ -162,7 +162,7 @@ extension ModuleInfo.Details: Codable {
       self = .swift(details)
     } catch {
       do {
-        let details = try container.decode(swiftPlaceholderModuleDetails.self, forKey: .swiftPlaceholder)
+        let details = try container.decode(SwiftPlaceholderModuleDetails.self, forKey: .swiftPlaceholder)
         self = .swiftPlaceholder(details)
       } catch {
         let details = try container.decode(ClangModuleDetails.self, forKey: .clang)
