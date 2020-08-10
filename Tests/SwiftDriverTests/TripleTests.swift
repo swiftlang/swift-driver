@@ -933,7 +933,9 @@ final class TripleTests: XCTestCase {
   }
 
   func testFileFormat() {
-//    XCTAssertEqual(.elf, Triple("i686-unknown-linux-gnu").objectFormat)
+    XCTAssertEqual(.elf, Triple("i686-unknown-linux-gnu").objectFormat)
+    XCTAssertEqual(.elf, Triple("x86_64-unknown-linux-gnu").objectFormat)
+    XCTAssertEqual(.elf, Triple("x86_64-gnu-linux").objectFormat)
     XCTAssertEqual(.elf, Triple("i686-unknown-freebsd").objectFormat)
     XCTAssertEqual(.elf, Triple("i686-unknown-netbsd").objectFormat)
     XCTAssertEqual(.elf, Triple("i686--win32-elf").objectFormat)
