@@ -89,7 +89,7 @@ public struct FrontendTargetInfo: Codable {
 
     /// The set of compatibility libraries that one needs to link against
     /// for this particular target.
-    let compatibilityLibraries: [CompatibilityLibrary]
+    let compatibilityLibraries: [CompatibilityLibrary]?
 
     /// Whether the Swift libraries need to be referenced in their system
     /// location (/usr/lib/swift) via rpath.
@@ -104,7 +104,7 @@ public struct FrontendTargetInfo: Codable {
     let runtimeResourcePath: String
   }
 
-  var compilerVersion: String
+  var compilerVersion: String?
   var target: Target
   var targetVariant: Target?
   let paths: Paths

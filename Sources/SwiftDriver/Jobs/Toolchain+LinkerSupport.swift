@@ -144,7 +144,7 @@ extension DarwinToolchain {
       }
     }
 
-    for compatibilityLib in targetInfo.target.compatibilityLibraries {
+    targetInfo.target.compatibilityLibraries?.forEach { compatibilityLib in
       let shouldLink: Bool
       switch compatibilityLib.filter {
       case .all:
