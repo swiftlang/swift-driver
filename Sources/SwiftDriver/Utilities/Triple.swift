@@ -1549,9 +1549,16 @@ extension Triple {
         return nil
       }
 
-      version.micro = 0
-      version.minor = version.major - 4
-      version.major = 10
+      if version.major <= 19 {
+        version.micro = 0
+        version.minor = version.major - 4
+        version.major = 10
+      } else {
+        version.micro = 0
+        version.minor = 0
+        // darwin20+ corresponds to macOS 11+.
+        version.major = version.major - 9
+      }
 
     case .macosx:
       // Default to 10.4.
@@ -1560,7 +1567,7 @@ extension Triple {
         version.minor = 4
       }
 
-      if version.major != 10 && version.major != 11 {
+      if version.major < 10 {
         return nil
       }
 
