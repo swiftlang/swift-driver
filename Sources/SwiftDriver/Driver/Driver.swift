@@ -25,6 +25,8 @@ public struct Driver {
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
     case unableToLoadOutputFileMap(String)
+    case unableToDecodeFrontendTargetInfo
+    case failedToRetrieveFrontendTargetInfo
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -49,6 +51,10 @@ public struct Driver {
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .conflictingOptions(let one, let two):
         return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
+      case .unableToDecodeFrontendTargetInfo:
+        return "could not decode frontend target info; compiler driver and frontend executables may be incompatible"
+      case .failedToRetrieveFrontendTargetInfo:
+        return "failed to retrieve frontend target info"
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
@@ -1639,7 +1645,8 @@ extension Driver {
       diagnosticsEngine: diagnosticsEngine, env: env)
 
     // Query the frontend to for target information.
-    var info = try executor.execute(
+    do {
+      var info = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
           sdkPath: sdkPath, resourceDirPath: resourceDirPath,
@@ -1650,21 +1657,27 @@ extension Driver {
         forceResponseFiles: false,
         recordedInputModificationDates: [:])
 
-    // Parse the runtime compatibility version. If present, it will override
-    // what is reported by the frontend.
-    if let versionString =
-        parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle {
-      if let version = SwiftVersion(string: versionString) {
-        info.target.swiftRuntimeCompatibilityVersion = version
-        info.targetVariant?.swiftRuntimeCompatibilityVersion = version
-      } else {
-        diagnosticsEngine.emit(
-          .error_invalid_arg_value(
-            arg: .runtimeCompatibilityVersion, value: versionString))
-      }
-    }
 
-    return (toolchain, info, swiftCompilerPrefixArgs)
+      // Parse the runtime compatibility version. If present, it will override
+      // what is reported by the frontend.
+      if let versionString =
+          parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle {
+        if let version = SwiftVersion(string: versionString) {
+          info.target.swiftRuntimeCompatibilityVersion = version
+          info.targetVariant?.swiftRuntimeCompatibilityVersion = version
+        } else {
+          diagnosticsEngine.emit(
+            .error_invalid_arg_value(
+              arg: .runtimeCompatibilityVersion, value: versionString))
+        }
+      }
+
+      return (toolchain, info, swiftCompilerPrefixArgs)
+    } catch is DecodingError {
+      throw Error.unableToDecodeFrontendTargetInfo
+    } catch {
+      throw Error.failedToRetrieveFrontendTargetInfo
+    }
   }
 }
 
