@@ -322,11 +322,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case .relative(RelativePath("main")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             XCTAssertEqual(job.kind, .link)
-
-          case .temporary(RelativePath("main.autolink")):
-            XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-            XCTAssertEqual(job.kind, .autolinkExtract)
-
           default:
             XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
         }
