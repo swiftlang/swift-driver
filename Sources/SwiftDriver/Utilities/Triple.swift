@@ -167,6 +167,8 @@ public struct Triple {
     if let parsedEnv = parsedEnv {
       self.environment = parsedEnv.value.environment
       self.objectFormat = parsedEnv.value.objectFormat
+        ?? ObjectFormat.infer(arch: parsedArch?.value.arch,
+                              os: parsedOS?.value)
     }
     else {
       self.environment = Environment.infer(archName: parsedArch?.substring)
