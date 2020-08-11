@@ -188,8 +188,10 @@ extension Driver {
     jobs.append(contentsOf: backendJobs)
 
     // Plan the merge-module job, if there are module inputs.
+    var mergeJob: Job?
     if moduleOutputInfo.output != nil && !moduleInputs.isEmpty && compilerMode.usesPrimaryFileInputs {
-      jobs.append(try mergeModuleJob(inputs: moduleInputs))
+      mergeJob = try mergeModuleJob(inputs: moduleInputs)
+      jobs.append(mergeJob!)
     }
 
     // If we need to autolink-extract, do so.
@@ -197,6 +199,20 @@ extension Driver {
     if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {
       linkerInputs.append(contentsOf: autolinkExtractJob.outputs)
       jobs.append(autolinkExtractJob)
+    }
+
+    if let mergeJob = mergeJob, debugInfo.level == .astTypes {
+      if targetTriple.objectFormat != .macho {
+        // Module wrapping is required.
+        let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
+        assert(mergeModuleOutputs.count == 1,
+               "Merge module job should only have one swiftmodule output")
+        let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
+        linkerInputs.append(contentsOf: wrapJob.outputs)
+        jobs.append(wrapJob)
+      } else {
+        linkerInputs.append(contentsOf: mergeJob.outputs)
+      }
     }
 
     // If we should link, do so.

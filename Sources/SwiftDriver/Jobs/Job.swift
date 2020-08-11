@@ -23,6 +23,7 @@ public struct Job: Codable, Equatable, Hashable {
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
     case generatePCH = "generate-pch"
+    case moduleWrap = "module-wrap"
 
     /// Generate a compiled Clang module.
     case generatePCM = "generate-pcm"
@@ -145,6 +146,9 @@ extension Job : CustomStringConvertible {
     case .generatePCH:
         return "Compiling bridging header \(displayInputs.first?.file.basename ?? "")"
 
+    case .moduleWrap:
+      return "Wrapping Swift module \(moduleName)"
+
     case .generatePCM:
         return "Compiling Clang module \(displayInputs.first?.file.basename  ?? "")"
 
@@ -184,7 +188,7 @@ extension Job.Kind {
         .versionRequest, .scanDependencies:
         return true
 
-    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
+    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap:
         return false
     }
   }
@@ -197,7 +201,8 @@ extension Job.Kind {
     case .backend, .mergeModule, .emitModule, .generatePCH,
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
-         .help, .link, .verifyDebugInfo, .scanDependencies:
+         .help, .link, .verifyDebugInfo, .scanDependencies,
+         .moduleWrap:
       return false
     }
   }

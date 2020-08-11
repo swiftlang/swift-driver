@@ -21,6 +21,7 @@ extension ExplicitModuleBuildTests {
         ("testExplicitModuleBuildJobs", testExplicitModuleBuildJobs),
         ("testExplicitSwiftModuleMap", testExplicitSwiftModuleMap),
         ("testModuleDependencyBuildCommandGeneration", testModuleDependencyBuildCommandGeneration),
+        ("testModuleDependencyWithExternalCommandGeneration", testModuleDependencyWithExternalCommandGeneration),
     ]
 }
 
@@ -107,6 +108,7 @@ extension SwiftDriverTests {
         ("testModuleNameFallbacks", testModuleNameFallbacks),
         ("testModuleNaming", testModuleNaming),
         ("testModuleSettings", testModuleSettings),
+        ("testModuleWrapJob", testModuleWrapJob),
         ("testMultiThreadedWholeModuleOptimizationCompiles", testMultiThreadedWholeModuleOptimizationCompiles),
         ("testMultithreading", testMultithreading),
         ("testMultithreadingDiagnostics", testMultithreadingDiagnostics),

@@ -1309,6 +1309,55 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testModuleWrapJob() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 4)
+      // FIXME: There should also be an autolink-extract job. It looks like our
+      // triple parsing code is not detecting the object file format correctly.
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .moduleWrap, .link])
+      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
+      XCTAssertTrue(plannedJobs[2].commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
+      XCTAssertTrue(plannedJobs[1].outputs.contains(plannedJobs[2].inputs.first!))
+      XCTAssertTrue(plannedJobs[3].inputs.contains(plannedJobs[2].outputs.first!))
+    }
+
+    // dsymutil won't be found on other platforms
+    #if os(macOS)
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.15", "-g", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 4)
+      // No module wrapping with Mach-O.
+      // FIXME: There should also be an autolink-extract job. It looks like our
+      // triple parsing code is not detecting the object file format correctly.
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .link, .generateDSYM])
+    }
+    #endif
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      // No merge module/module wrap jobs.
+      // FIXME: There should also be an autolink-extract job. It looks like our
+      // triple parsing code is not detecting the object file format correctly.
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .link])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-gdwarf-types", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      // Merge module, but no module wrapping.
+      // FIXME: There should also be an autolink-extract job. It looks like our
+      // triple parsing code is not detecting the object file format correctly.
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .link])
+    }
+  }
+
   func testRepl() throws {
 
     func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
@@ -1562,7 +1611,7 @@ final class SwiftDriverTests: XCTestCase {
   func testDSYMGeneration() throws {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
-      "-emit-executable", "-module-name", "Test"
+      "-emit-executable", "-module-name", "Test",
     ]
 
     do {
@@ -1595,7 +1644,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(plannedJobs.count, 5)
         XCTAssertEqual(generateDSYMJob.outputs.last?.file, try VirtualPath(path: "Test.dSYM"))
       } else {
-        XCTAssertEqual(plannedJobs.count, 4)
+        XCTAssertEqual(plannedJobs.count, 5)
+        XCTAssertFalse(plannedJobs.map { $0.kind }.contains(.generateDSYM))
       }
 
       XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test"))))
@@ -1641,7 +1691,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(.flag("--quiet")))
         XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test.dSYM"))))
       } else {
-        XCTAssertEqual(plannedJobs.count, 4)
+        XCTAssertEqual(plannedJobs.count, 5)
       }
     }
   }
