@@ -421,13 +421,17 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    let projectDirectory = Self.computeProjectDirectoryPath(
+      moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
+      fileSystem: self.fileSystem)
     self.moduleSourceInfoPath = try Self.computeModuleSourceInfoOutputPath(
         &parsedOptions,
         moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
+        moduleName: moduleOutputInfo.name,
+        projectDirectory: projectDirectory)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
         outputPath: .emitModuleInterfacePath,
@@ -1732,6 +1736,19 @@ extension Driver {
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
   }
 
+  /// Determine if the build system has created a Project/ directory for auxilary outputs.
+  static func computeProjectDirectoryPath(moduleOutputPath: VirtualPath?,
+                                          fileSystem: FileSystem) -> VirtualPath? {
+    let potentialProjectDirectory = moduleOutputPath?
+      .parentDirectory
+      .appending(component: "Project")
+      .absolutePath
+    guard let projectDirectory = potentialProjectDirectory, fileSystem.exists(projectDirectory) else {
+      return nil
+    }
+    return .absolute(projectDirectory)
+  }
+
   /// Determine the output path for a module documentation.
   static func computeModuleDocOutputPath(
     _ parsedOptions: inout ParsedOptions,
@@ -1759,7 +1776,8 @@ extension Driver {
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
-    moduleName: String
+    moduleName: String,
+    projectDirectory: VirtualPath?
   ) throws -> VirtualPath? {
     guard !parsedOptions.hasArgument(.avoidEmitModuleSourceInfo) else { return nil }
     return try computeModuleAuxiliaryOutputPath(&parsedOptions,
@@ -1770,7 +1788,8 @@ extension Driver {
                                                 compilerOutputType: compilerOutputType,
                                                 compilerMode: compilerMode,
                                                 outputFileMap: outputFileMap,
-                                                moduleName: moduleName)
+                                                moduleName: moduleName,
+                                                projectDirectory: projectDirectory)
   }
 
 
@@ -1784,7 +1803,8 @@ extension Driver {
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
-    moduleName: String
+    moduleName: String,
+    projectDirectory: VirtualPath? = nil
   ) throws -> VirtualPath? {
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
@@ -1809,24 +1829,20 @@ extension Driver {
         _ = parsedOptions.hasArgument(isOutput)
       }
 
-      return try moduleOutputPath.replacingExtension(with: type)
+      var parentPath: VirtualPath
+      if let projectDirectory = projectDirectory {
+        // If the build system has created a Project dir for us to include the file, use it.
+        parentPath = projectDirectory
+      } else {
+        parentPath = moduleOutputPath.parentDirectory
+      }
+
+      return try parentPath.appending(component: moduleName).replacingExtension(with: type)
     }
 
     // If the output option was not provided, don't produce this output at all.
     guard let isOutput = isOutput, parsedOptions.hasArgument(isOutput) else {
       return nil
-    }
-
-    // If there is an output argument, derive the name from there.
-    if let outputPathArg = parsedOptions.getLastArgument(.o) {
-      let path = try VirtualPath(path: outputPathArg.asSingle)
-
-      // If the compiler output is of this type, use the argument directly.
-      if type == compilerOutputType {
-        return path
-      }
-
-      return try path.replacingExtension(with: type)
     }
 
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
