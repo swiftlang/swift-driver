@@ -25,12 +25,16 @@ public struct SwiftModuleArtifactInfo: Codable {
   public let docPath: String?
   /// The path for the module's .swiftsourceinfo file
   public let sourceInfoPath: String?
+  /// A flag to indicate whether this module is a framework
+  public let isFramework: Bool
 
-  init(name: String, modulePath: String, docPath: String? = nil, sourceInfoPath: String? = nil) {
+  init(name: String, modulePath: String, docPath: String? = nil,
+       sourceInfoPath: String? = nil, isFramework: Bool = false) {
     self.moduleName = name
     self.modulePath = modulePath
     self.docPath = docPath
     self.sourceInfoPath = sourceInfoPath
+    self.isFramework = isFramework
   }
 }
 

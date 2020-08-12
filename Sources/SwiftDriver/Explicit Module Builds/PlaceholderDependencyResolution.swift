@@ -167,5 +167,6 @@ private extension SwiftModuleDetails {
     self.bridgingSourceFiles = nil
     self.commandLine = nil
     self.extraPcmArgs = extraPcmArgs
+    self.isFramework = false
   }
 }
