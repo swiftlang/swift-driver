@@ -9,8 +9,19 @@ import shutil
 import subprocess
 import sys
 
-driver_tools = ['swift', 'swift-frontend', 'ld', 'libtool', 'clang',
-                'swift-autolink-extract', 'lldb', 'dwarfdump', 'swift-help']
+# Tools constructed as a part of the a development build toolchain
+driver_toolchain_tools = ['swift', 'swift-frontend', 'clang', 'swift-help']
+
+def call_output(cmd, cwd=None, stderr=False, verbose=False):
+    """Calls a subprocess for its return data."""
+    if verbose:
+        print(' '.join(cmd))
+    try:
+        return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True).strip()
+    except Exception as e:
+        if not verbose:
+            print(' '.join(cmd))
+        error(str(e))
 
 def swiftpm(action, swift_exec, swiftpm_args, env=None):
   cmd = [swift_exec, action] + swiftpm_args
@@ -107,13 +118,16 @@ def handle_invocation(toolchain_bin, args):
   if args.ninja_bin:
     env['NINJA_BIN'] = args.ninja_bin
 
+  if args.sysroot:
+    env['SDKROOT'] = args.sysroot
+
   print('Cleaning ' + args.build_path)
   shutil.rmtree(args.build_path, ignore_errors=True)
 
   if args.action == 'build':
     swiftpm('build', swift_exec, swiftpm_args, env)
   elif args.action == 'test':
-    for tool in driver_tools:
+    for tool in driver_toolchain_tools:
         env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (os.path.join(toolchain_bin, tool))
     env['SWIFT_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
@@ -155,6 +169,11 @@ def main():
   args.package_path = os.path.abspath(args.package_path)
   args.build_path = os.path.abspath(args.build_path)
   args.toolchain = os.path.abspath(args.toolchain)
+
+  if platform.system() == 'Darwin':
+    args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], verbose=args.verbose)
+  else:
+    args.sysroot = None
 
   if args.toolchain:
     toolchain_bin = os.path.join(args.toolchain, 'bin')
