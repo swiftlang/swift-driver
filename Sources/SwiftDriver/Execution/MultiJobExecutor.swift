@@ -358,8 +358,10 @@ class ExecuteJobRule: LLBuildRule {
           if !job.kind.isCompile || code != EXIT_FAILURE {
             context.diagnosticsEngine.emit(.error_command_failed(kind: job.kind, code: code))
           }
+#if !os(Windows)
         case let .signalled(signal):
           context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
+#endif
         }
       }
 

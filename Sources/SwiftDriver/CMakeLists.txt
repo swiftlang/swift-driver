@@ -79,6 +79,7 @@ add_library(SwiftDriver
 
 target_link_libraries(SwiftDriver PUBLIC
   TSCBasic
+  TSCUtility
   SwiftOptions
   llbuildSwift
   CYaml
@@ -90,3 +91,9 @@ set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriver)
 set_target_properties(SwiftDriver PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+  install(TARGETS SwiftDriver
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin)
+endif()

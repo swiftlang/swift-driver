@@ -24,3 +24,10 @@ set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftOptions)
 # NOTE: workaround for CMake not setting up include flags yet
 set_target_properties(SwiftOptions PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+  install(TARGETS SwiftOptions
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin)
+endif()

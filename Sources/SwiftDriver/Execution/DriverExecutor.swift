@@ -55,8 +55,10 @@ extension DriverExecutor {
       switch result.exitStatus {
       case .terminated(let code):
         returnCode = Int(code)
+#if !os(Windows)
       case .signalled(let signal):
         returnCode = Int(signal)
+#endif
       }
       throw JobExecutionError.jobFailedWithNonzeroExitCode(returnCode, try result.utf8stderrOutput())
     }
