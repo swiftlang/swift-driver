@@ -10,7 +10,8 @@ import subprocess
 import sys
 
 # Tools constructed as a part of the a development build toolchain
-driver_toolchain_tools = ['swift', 'swift-frontend', 'clang', 'swift-help']
+driver_toolchain_tools = ['swift', 'swift-frontend', 'clang', 'swift-help',
+                          'swift-autolink-extract', 'lldb']
 
 def call_output(cmd, cwd=None, stderr=False, verbose=False):
     """Calls a subprocess for its return data."""
@@ -128,7 +129,9 @@ def handle_invocation(toolchain_bin, args):
     swiftpm('build', swift_exec, swiftpm_args, env)
   elif args.action == 'test':
     for tool in driver_toolchain_tools:
-        env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (os.path.join(toolchain_bin, tool))
+        tool_path = os.path.join(toolchain_bin, tool)
+        if os.path.exists(tool_path):
+            env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (tool_path)
     env['SWIFT_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
     if should_test_parallel():
