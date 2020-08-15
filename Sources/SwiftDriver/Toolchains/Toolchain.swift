@@ -128,6 +128,13 @@ extension Toolchain {
       return path
     } else if let path = try? xcrunFind(executable: executable) {
       return path
+    } else if !["swift-frontend", "swift"].contains(executable),
+              let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
+              parentDirectory != executableDir,
+              let path = lookupExecutablePath(filename: executable, searchPaths: [parentDirectory]) {
+      // If the driver library's client and the frontend are in different directories,
+      // try looking for tools next to the frontend.
+      return path
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
       return path
     } else if executable == "swift-frontend" {
