@@ -230,6 +230,10 @@ extension Driver {
     if compilerMode != .repl {
       commandLine.appendFlags("-module-name", moduleOutputInfo.name)
     }
+
+    try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
+                                                           inputs: &inputs,
+                                                           frontendTargetInfo: frontendTargetInfo)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {

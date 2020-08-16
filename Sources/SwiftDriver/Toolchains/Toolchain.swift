@@ -81,6 +81,12 @@ public protocol Toolchain {
     parsedOptions: inout ParsedOptions,
     sdkPath: String?,
     targetTriple: Triple) throws -> [String: String]
+
+  func addPlatformSpecificCommonFrontendOptions(
+    commandLine: inout [Job.ArgTemplate],
+    inputs: inout [TypedVirtualPath],
+    frontendTargetInfo: FrontendTargetInfo
+  ) throws
 }
 
 extension Toolchain {
@@ -156,6 +162,12 @@ extension Toolchain {
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple,
                            targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) {}
+
+  public func addPlatformSpecificCommonFrontendOptions(
+    commandLine: inout [Job.ArgTemplate],
+    inputs: inout [TypedVirtualPath],
+    frontendTargetInfo: FrontendTargetInfo
+  ) throws {}
 }
 
 public enum ToolchainError: Swift.Error {
