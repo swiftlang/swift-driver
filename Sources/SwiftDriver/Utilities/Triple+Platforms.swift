@@ -102,6 +102,29 @@ public enum DarwinPlatform: Hashable {
     }
   }
 
+  /// The name the linker uses to identify this platform.
+  public var linkerPlatformName: String {
+    switch self {
+    case .macOS:
+      return "macos"
+    case .iOS(.device):
+      return "ios"
+    case .iOS(.simulator):
+      return "ios-simulator"
+    case .iOS(.catalyst):
+      return "mac-catalyst"
+    case .tvOS(.device):
+      return "tvos"
+    case .tvOS(.simulator):
+      return "tvos-simulator"
+    case .watchOS(.device):
+      return "watchos"
+    case .watchOS(.simulator):
+      return "watchos-simulator"
+    }
+  }
+
+
   /// The name used to identify this platform in compiler_rt file names.
   public var libraryNameSuffix: String {
     switch self {
@@ -181,6 +204,53 @@ extension Triple {
       return .tvOS(makeEnvironment())
     default:
       return nil
+    }
+  }
+
+  // The Darwin platform version used for linking.
+  public var darwinLinkerPlatformVersion: Version {
+    precondition(self.isDarwin)
+    switch darwinPlatform! {
+    case .macOS:
+      // The integrated driver falls back to `osVersion` for ivalid macOS
+      // versions, this decision might be worth revisiting.
+      let macVersion = _macOSVersion ?? osVersion
+      // The first deployment of arm64 for macOS is version 11
+      if macVersion.major < 11 && arch == .aarch64 {
+        return Version(11, 0, 0)
+      }
+
+      return macVersion
+    case .iOS(.catalyst):
+      // Mac Catalyst on arm was introduced with an iOS deployment target of
+      // 14.0; the linker doesn't want to see a deployment target before that.
+      if _iOSVersion.major < 14 && arch == .aarch64 {
+        return Version(14, 0, 0)
+      }
+
+      // Mac Catalyst was introduced with an iOS deployment target of 13.0;
+      // the linker doesn't want to see a deployment target before that.
+      if _iOSVersion.major < 13 {
+        return Version(13, 0, 0)
+      }
+
+      return _iOSVersion
+    case .iOS(.device), .iOS(.simulator), .tvOS(_):
+      // The first deployment of arm64 simulators is iOS/tvOS 14.0;
+      // the linker doesn't want to see a deployment target before that.
+      if _isSimulatorEnvironment && _iOSVersion.major < 14 && arch == .aarch64 {
+        return Version(14, 0, 0)
+      }
+
+      return _iOSVersion
+    case .watchOS(_):
+      // The first deployment of arm64 simulators is watchOS 7;
+      // the linker doesn't want to see a deployment target before that.
+      if _isSimulatorEnvironment && osVersion.major < 7 && arch == .aarch64 {
+        return Version(7, 0, 0)
+      }
+
+      return osVersion
     }
   }
 

@@ -137,7 +137,7 @@ public final class DarwinToolchain: Toolchain {
       case .iOSVersionAboveMaximumDeploymentTarget(let version):
         return "iOS \(version) does not support 32-bit programs"
       case .unsupportedTargetVariant(variant: let variant):
-        return "unsupported '\(variant.isiOS ? "-target" : "-target-variant")' value '\(variant)'; use 'ios-macabi' instead"
+        return "unsupported '\(variant.isiOS ? "-target-variant" : "-target")' value '\(variant.triple)'; use 'ios-macabi' instead"
       case .argumentNotSupported(let argument):
         return "\(argument) is no longer supported for Apple platforms"
       case .darwinOnlySupportsLibCxx:
@@ -208,14 +208,14 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  private struct DarwinSDKInfo: Decodable {
-    enum CodingKeys: String, CodingKey {
+  struct DarwinSDKInfo: Decodable {
+    private enum CodingKeys: String, CodingKey {
       case version = "Version"
       case versionMap = "VersionMap"
     }
 
     struct VersionMap: Decodable {
-      enum CodingKeys: String, CodingKey {
+      private enum CodingKeys: String, CodingKey {
         case macOSToCatalystMapping = "macOS_iOSMac"
       }
 
@@ -242,8 +242,8 @@ public final class DarwinToolchain: Toolchain {
       }
     }
 
-    var version: Version
-    var versionMap: VersionMap
+    private var version: Version
+    private var versionMap: VersionMap
 
     init(from decoder: Decoder) throws {
       let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
@@ -272,7 +272,7 @@ public final class DarwinToolchain: Toolchain {
   // SDK info is computed lazily. This should not generally be accessed directly.
   private var _sdkInfo: DarwinSDKInfo? = nil
 
-  private func getTargetSDKInfo(sdkPath: VirtualPath) -> DarwinSDKInfo? {
+  func getTargetSDKInfo(sdkPath: VirtualPath) -> DarwinSDKInfo? {
     if let info = _sdkInfo {
       return info
     } else {
