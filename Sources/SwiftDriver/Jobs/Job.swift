@@ -150,7 +150,7 @@ extension Job : CustomStringConvertible {
       return "Wrapping Swift module \(moduleName)"
 
     case .generatePCM:
-        return "Compiling Clang module \(displayInputs.first?.file.basename  ?? "")"
+        return "Compiling Clang module \(moduleName)"
 
     case .interpret:
         return "Interpreting \(displayInputs.first?.file.name ?? "")"

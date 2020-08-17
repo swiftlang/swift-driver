@@ -49,6 +49,7 @@ private func checkExplicitModuleBuildJob(job: Job,
         TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
                          type: .clangModuleMap)
       XCTAssertEqual(job.kind, .generatePCM)
+      XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
       XCTAssertTrue(job.inputs.contains(moduleMapPath))
     case .swiftPlaceholder(_):
       XCTFail("Placeholder dependency found.")
