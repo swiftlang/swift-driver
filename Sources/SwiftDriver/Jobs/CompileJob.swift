@@ -79,8 +79,9 @@ extension Driver {
   /// corresponding primary set of outputs.
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
                                  inputs: inout [TypedVirtualPath],
+                                 inputOutputMap: inout [TypedVirtualPath: TypedVirtualPath],
                                  outputType: FileType?,
-                                 commandLine: inout [Job.ArgTemplate]) -> [InputOutputPair] {
+                                 commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [TypedVirtualPath] = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
 
@@ -112,7 +113,7 @@ extension Driver {
     let isMultithreaded = numThreads > 0
 
     // Add each of the input files.
-    var primaryOutputs: [InputOutputPair] = []
+    var primaryOutputs: [TypedVirtualPath] = []
     for input in swiftInputFiles {
       inputs.append(input)
 
@@ -135,7 +136,8 @@ extension Driver {
         let output = computePrimaryOutput(for: input,
                                           outputType: outputType,
                                           isTopLevel: isTopLevel)
-        primaryOutputs.append(InputOutputPair(input: input, output: output))
+        primaryOutputs.append(output)
+        inputOutputMap[input] = output
       }
     }
 
@@ -146,7 +148,8 @@ extension Driver {
       let output = computePrimaryOutput(for: input,
                                         outputType: outputType,
                                         isTopLevel: isTopLevel)
-      primaryOutputs.append(InputOutputPair(input: input, output: output))
+      primaryOutputs.append(output)
+      inputOutputMap[input] = output
     }
 
     return primaryOutputs
@@ -158,14 +161,16 @@ extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
+    // Used to map primaryInputs to primaryOutputs
+    var inputOutputMap = [TypedVirtualPath: TypedVirtualPath]()
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
-    let primaryInputOutputPairs = addCompileInputs(primaryInputs: primaryInputs,
-                                                   inputs: &inputs,
-                                                   outputType: outputType,
-                                                   commandLine: &commandLine)
-    let primaryOutputs = primaryInputOutputPairs.map { $0.output }
+    let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs,
+                                          inputs: &inputs,
+                                          inputOutputMap: &inputOutputMap,
+                                          outputType: outputType,
+                                          commandLine: &commandLine)
     outputs += primaryOutputs
 
     // FIXME: optimization record arguments are added before supplementary outputs
@@ -178,7 +183,8 @@ extension Driver {
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
     outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine,
-                                                           primaryInputOutputPairs: primaryInputOutputPairs)
+                                                           primaryInputs: primaryInputs,
+                                                           inputOutputMap: inputOutputMap)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)

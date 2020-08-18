@@ -249,13 +249,14 @@ extension Driver {
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
-                                                        primaryInputOutputPairs: [InputOutputPair]) throws -> [TypedVirtualPath] {
-    var flaggedInputOutputPairs: [(flag: String, InputOutputPair)] = []
+                                                        primaryInputs: [TypedVirtualPath],
+                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath]) throws -> [TypedVirtualPath] {
+    var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
     func addOutputOfType(
         outputType: FileType, finalOutputPath: VirtualPath?,
-        primaryPair: InputOutputPair?, flag: String
+        input: TypedVirtualPath?, flag: String
     ) {
       // If there is no final output, there's nothing to do.
       guard let finalOutputPath = finalOutputPath else { return }
@@ -267,12 +268,12 @@ extension Driver {
       // Compute the output path based on the input path (if there is one), or
       // use the final output.
       let outputPath: VirtualPath
-      if let pair = primaryPair, let input = pair.input {
+      if let input = input {
         if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
           outputPath = outputFileMapPath
-        } else if compilerOutputType != nil {
+        } else if let output = inputOutputMap[input], compilerOutputType != nil {
           // Alongside primary output
-          outputPath = pair.output.file.replacingExtension(with: outputType)
+          outputPath = output.file.replacingExtension(with: outputType)
         } else {
           outputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType)))
         }
@@ -280,112 +281,114 @@ extension Driver {
         outputPath = finalOutputPath
       }
 
-      flaggedInputOutputPairs.append((flag: flag, InputOutputPair(input: primaryPair?.input, output: TypedVirtualPath(file: outputPath, type: outputType))))
+      flaggedInputOutputPairs.append((flag: flag, input: input, output: TypedVirtualPath(file: outputPath, type: outputType)))
     }
 
     /// Add all of the outputs needed for a given input.
-    func addAllOutputsFor(primaryPair: InputOutputPair?) {
+    func addAllOutputsFor(input: TypedVirtualPath?) {
       if !forceEmitModuleInSingleInvocation {
         addOutputOfType(
           outputType: .swiftModule,
           finalOutputPath: moduleOutputInfo.output?.outputPath,
-          primaryPair: primaryPair,
+          input: input,
           flag: "-emit-module-path")
         addOutputOfType(
           outputType: .swiftDocumentation,
           finalOutputPath: moduleDocOutputPath,
-          primaryPair: primaryPair,
+          input: input,
           flag: "-emit-module-doc-path")
         addOutputOfType(
           outputType: .swiftSourceInfoFile,
           finalOutputPath: moduleSourceInfoPath,
-          primaryPair: primaryPair,
+          input: input,
           flag: "-emit-module-source-info-path")
         addOutputOfType(
           outputType: .dependencies,
           finalOutputPath: dependenciesFilePath,
-          primaryPair: primaryPair,
+          input: input,
           flag: "-emit-dependencies-path")
       }
 
       addOutputOfType(
         outputType: .yamlOptimizationRecord,
         finalOutputPath: optimizationRecordPath,
-        primaryPair: primaryPair,
+        input: input,
         flag: "-save-optimization-record-path")
 
       addOutputOfType(
         outputType: .diagnostics,
         finalOutputPath: serializedDiagnosticsFilePath,
-        primaryPair: primaryPair,
+        input: input,
         flag: "-serialize-diagnostics-path")
 
       #if false
       // FIXME: handle -update-code
-      addOutputOfType(outputType: .remap, input: input.file, flag: "-emit-remap-file-path")
+      addOutputOfType(outputType: .remap, input: input, flag: "-emit-remap-file-path")
       #endif
     }
 
     if compilerMode.usesPrimaryFileInputs {
-      for pair in primaryInputOutputPairs {
-        addAllOutputsFor(primaryPair: pair)
+      for input in primaryInputs {
+        addAllOutputsFor(input: input)
       }
     } else {
-      addAllOutputsFor(primaryPair: nil)
+      addAllOutputsFor(input: nil)
 
       // Outputs that only make sense when the whole module is processed
       // together.
       addOutputOfType(
         outputType: .objcHeader,
         finalOutputPath: objcGeneratedHeaderPath,
-        primaryPair: nil,
+        input: nil,
         flag: "-emit-objc-header-path")
 
       addOutputOfType(
         outputType: .swiftInterface,
         finalOutputPath: swiftInterfacePath,
-        primaryPair: nil,
+        input: nil,
         flag: "-emit-module-interface-path")
 
       addOutputOfType(
         outputType: .tbd,
         finalOutputPath: tbdPath,
-        primaryPair: nil,
+        input: nil,
         flag: "-emit-tbd-path")
     }
 
     // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
-    if primaryInputOutputPairs.count * FileType.allCases.count > fileListThreshold {
+    if primaryInputs.count * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath: [FileType: VirtualPath]]()
-      for pair in primaryInputOutputPairs {
-        addEntry(&entries, for: pair)
+      for input in primaryInputs {
+        if let output = inputOutputMap[input] {
+          addEntry(&entries, input: input, output: output)
+        }
       }
-      for output in flaggedInputOutputPairs {
-        addEntry(&entries, for: output.1)
+      for flaggedPair in flaggedInputOutputPairs {
+        addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
       }
       let outputFileMap = OutputFileMap(entries: entries)
       let path = RelativePath(createTemporaryFileName(prefix: "supplementaryOutputs"))
       commandLine.appendFlag(.supplementaryOutputFileMap)
       commandLine.appendPath(.fileList(path, .outputFileMap(outputFileMap)))
     } else {
-      for output in flaggedInputOutputPairs {
+      for flaggedPair in flaggedInputOutputPairs {
         // Add the appropriate flag.
-        commandLine.appendFlag(output.flag)
-        commandLine.appendPath(output.1.output.file)
+        commandLine.appendFlag(flaggedPair.flag)
+        commandLine.appendPath(flaggedPair.output.file)
       }
     }
 
-    return flaggedInputOutputPairs.map { $0.1.output }
+    return flaggedInputOutputPairs.map { $0.output }
   }
 
-  func addEntry(_ entries: inout [VirtualPath: [FileType: VirtualPath]], for pair: InputOutputPair) {
+  func addEntry(_ entries: inout [VirtualPath: [FileType: VirtualPath]], input: TypedVirtualPath?, output: TypedVirtualPath) {
     let entryInput: VirtualPath
-    if let input = pair.input?.file, input != OutputFileMap.singleInputKey {
+    if let input = input?.file, input != OutputFileMap.singleInputKey {
       entryInput = input
     } else {
       entryInput = inputFiles[0].file
     }
-    entries[entryInput, default: [:]][pair.output.type] = pair.output.file
+    entries[entryInput, default: [:]][output.type] = output.file
   }
 
   /// Adds all dependencies required for an explicit module build
