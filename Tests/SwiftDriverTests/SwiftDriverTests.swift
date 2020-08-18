@@ -1359,6 +1359,22 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testRepl() throws {
+    // Do not run this test if no LLDB is found in the toolchain.
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    var toolchain: Toolchain
+    #if os(macOS)
+    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    #else
+    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+    #endif
+    do {
+      _ = try toolchain.getToolPath(.lldb)
+    } catch ToolchainError.unableToFind {
+      return
+    }
 
     func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
       if case .flag(let replString) = arg {
