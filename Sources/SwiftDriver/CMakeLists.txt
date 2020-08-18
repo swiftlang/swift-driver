@@ -67,6 +67,7 @@ add_library(SwiftDriver
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
+  Utilities/FileList.swift
   Utilities/FileType.swift
   Utilities/PredictableRandomNumberGenerator.swift
   Utilities/RelativePathAdditions.swift
