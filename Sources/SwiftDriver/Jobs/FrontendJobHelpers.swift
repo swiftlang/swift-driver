@@ -271,7 +271,7 @@ extension Driver {
       if let input = input {
         if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
           outputPath = outputFileMapPath
-        } else if let output = inputOutputMap[input], compilerOutputType != nil {
+        } else if let output = inputOutputMap[input], output.file != .standardOutput, compilerOutputType != nil {
           // Alongside primary output
           outputPath = output.file.replacingExtension(with: outputType)
         } else {
