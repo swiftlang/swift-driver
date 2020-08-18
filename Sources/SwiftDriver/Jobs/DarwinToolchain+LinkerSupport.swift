@@ -182,6 +182,7 @@ extension DarwinToolchain {
     linkerOutputType: LinkOutputType,
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
+    shouldUseInputFileList: Bool,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
@@ -302,17 +303,40 @@ extension DarwinToolchain {
       commandLine.appendFlag("-application_extension")
     }
 
-    // Add inputs.
-    commandLine.append(contentsOf: inputs.flatMap {
-      (path: TypedVirtualPath) -> [Job.ArgTemplate] in
-      if path.type == .swiftModule {
-        return [.flag("-add_ast_path"), .path(path.file)]
-      } else if path.type == .object {
-        return [.path(path.file)]
-      } else {
-        return []
+    // inputs LinkFileList
+    if shouldUseInputFileList {
+      commandLine.appendFlag(.filelist)
+      let path = RelativePath(createTemporaryFileName(prefix: "inputs", suffix: "LinkFileList"))
+      var inputPaths = [VirtualPath]()
+      var inputModules = [VirtualPath]()
+      for input in inputs {
+        if input.type == .swiftModule {
+          inputPaths.append(input.file)
+          inputModules.append(input.file)
+        } else if input.type == .object {
+          inputPaths.append(input.file)
+        }
       }
-    })
+      commandLine.appendPath(.fileList(path, .list(inputPaths)))
+      for module in inputModules {
+        commandLine.append(.flag("-add_ast_path"))
+        commandLine.append(.path(module))
+      }
+
+      // FIXME: Primary inputs need to check -index-file-path
+    } else {
+      // Add inputs.
+      commandLine.append(contentsOf: inputs.flatMap {
+        (path: TypedVirtualPath) -> [Job.ArgTemplate] in
+        if path.type == .swiftModule {
+          return [.flag("-add_ast_path"), .path(path.file)]
+        } else if path.type == .object {
+          return [.path(path.file)]
+        } else {
+          return []
+        }
+      })
+    }
 
     // Add the output
     commandLine.appendFlag("-o")

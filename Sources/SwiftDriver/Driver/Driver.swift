@@ -20,6 +20,7 @@ public struct Driver {
     case invalidDriverName(String)
     case invalidInput(String)
     case noInputFiles
+    case invalidArgumentValue(String, String)
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
     case integratedReplRemoved
@@ -45,6 +46,8 @@ public struct Driver {
         return "invalid input: \(input)"
       case .noInputFiles:
         return "no input files"
+      case .invalidArgumentValue(let option, let value):
+        return "invalid value '\(value)' in '\(option)'"
       case .relativeFrontendPath(let path):
         // TODO: where is this error thrown
         return "relative frontend path: \(path)"
@@ -132,6 +135,15 @@ public struct Driver {
 
   /// The mapping from input files to output files for each kind.
   internal let outputFileMap: OutputFileMap?
+
+  /// The number of files required before making a file list.
+  internal let fileListThreshold: Int
+
+  /// Should use file lists for inputs (number of inputs exceeds `fileListThreshold`).
+  public let shouldUseInputFileList: Bool
+
+  /// VirtualPath for shared all sources file list. `nil` if unused.
+  public let allSourcesFileList: VirtualPath?
 
   /// The mode in which the compiler will execute.
   public let compilerMode: CompilerMode
@@ -272,7 +284,6 @@ public struct Driver {
       throw Error.subcommandPassedToDriver
     }
 
-
     var args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
 
     self.driverKind = try Self.determineDriverKind(args: &args)
@@ -327,6 +338,16 @@ public struct Driver {
       self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
     } else {
       self.outputFileMap = outputFileMap
+    }
+
+    self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    self.shouldUseInputFileList = inputFiles.count > fileListThreshold
+    if shouldUseInputFileList {
+      let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
+      let path = RelativePath(createTemporaryFileName(prefix: "sources"))
+      self.allSourcesFileList = .fileList(path, .list(swiftInputs.map(\.file)))
+    } else {
+      self.allSourcesFileList = nil
     }
 
     // Figure out the primary outputs from the driver.
@@ -820,6 +841,37 @@ extension Driver {
     }
 
     return value
+  }
+}
+
+extension Driver {
+  private static func computeFileListThreshold(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws -> Int {
+    let hasUseFileLists = parsedOptions.hasArgument(.driverUseFilelists)
+
+    if hasUseFileLists {
+      diagnosticsEngine.emit(.warn_use_filelists_deprecated)
+    }
+
+    if let threshold = parsedOptions.getLastArgument(.driverFilelistThreshold)?.asSingle {
+      if let thresholdInt = Int(threshold) {
+        return thresholdInt
+      } else {
+        throw Error.invalidArgumentValue(Option.driverFilelistThreshold.spelling, threshold)
+      }
+    } else if hasUseFileLists {
+      return 0
+    }
+
+    return 128
+  }
+}
+
+private extension Diagnostic.Message {
+  static var warn_use_filelists_deprecated: Diagnostic.Message {
+    .warning("the option '-driver-use-filelists' is deprecated; use '-driver-filelist-threshold=0' instead")
   }
 }
 
@@ -1803,7 +1855,7 @@ extension Driver {
         return path
       }
 
-      return path.parentDirectory.appending(component: "\(moduleName).\(type.rawValue)")
+      return path.replacingExtension(with: type)
     }
 
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
@@ -1902,15 +1954,12 @@ extension Driver {
         _ = parsedOptions.hasArgument(isOutput)
       }
 
-      var parentPath: VirtualPath
       if let projectDirectory = projectDirectory {
         // If the build system has created a Project dir for us to include the file, use it.
-        parentPath = projectDirectory
-      } else {
-        parentPath = moduleOutputPath.parentDirectory
+        return projectDirectory.appending(component: moduleName.appendingFileTypeExtension(type))
       }
 
-      return try parentPath.appending(component: moduleName).replacingExtension(with: type)
+      return moduleOutputPath.replacingExtension(with: type)
     }
 
     // If the output option was not provided, don't produce this output at all.

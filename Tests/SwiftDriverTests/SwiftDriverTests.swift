@@ -2271,6 +2271,8 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       struct MockExecutor: DriverExecutor {
+        let resolver: ArgsResolver
+        
         func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
@@ -2286,7 +2288,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
-                                      executor: MockExecutor())) {
+                                      executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())))) {
         error in
         XCTAssertEqual(error as? Driver.Error, .unableToDecodeFrontendTargetInfo)
       }

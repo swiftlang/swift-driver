@@ -15,7 +15,7 @@ extension Driver {
   mutating func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
       outputs: inout [TypedVirtualPath]
-  ) throws {
+  ) {
     // Add supplemental outputs.
     func addSupplementalOutput(path: VirtualPath?, flag: String, type: FileType) {
       guard let path = path else { return }
@@ -36,7 +36,7 @@ extension Driver {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
       if parsedOptions.getLastArgument(.emitDependenciesPath) == nil {
-        path = try moduleOutputInfo.output!.outputPath.replacingExtension(with: .dependencies)
+        path = moduleOutputInfo.output!.outputPath.replacingExtension(with: .dependencies)
       }
       addSupplementalOutput(path: path, flag: "-emit-dependencies-path", type: .dependencies)
     }
@@ -64,7 +64,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
-    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
+    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputPath)

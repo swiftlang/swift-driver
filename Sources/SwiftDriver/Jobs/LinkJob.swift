@@ -38,13 +38,13 @@ extension Driver {
     }
 
     // Defer to the toolchain for platform-specific linking
-
     let toolPath = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions,
       linkerOutputType: linkerOutputType!,
       inputs: inputs,
       outputFile: outputFile,
+      shouldUseInputFileList: shouldUseInputFileList,
       sdkPath: sdkPath,
       sanitizers: enabledSanitizers,
       targetInfo: frontendTargetInfo
