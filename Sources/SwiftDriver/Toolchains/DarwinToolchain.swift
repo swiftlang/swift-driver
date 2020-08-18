@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import TSCUtility
+import Foundation
 import SwiftOptions
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
@@ -203,6 +205,100 @@ public final class DarwinToolchain: Toolchain {
             diagnosticsEngine.emit(.warn_arclite_not_found_when_link_objc_runtime)
             return
         }
+    }
+  }
+
+  private struct DarwinSDKInfo: Decodable {
+    enum CodingKeys: String, CodingKey {
+      case version = "Version"
+      case versionMap = "VersionMap"
+    }
+
+    struct VersionMap: Decodable {
+      enum CodingKeys: String, CodingKey {
+        case macOSToCatalystMapping = "macOS_iOSMac"
+      }
+
+      var macOSToCatalystMapping: [Version: Version]
+
+      init(from decoder: Decoder) throws {
+        let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
+
+        let mappingDict = try keyedContainer.decode([String: String].self, forKey: .macOSToCatalystMapping)
+        self.macOSToCatalystMapping = [:]
+        try mappingDict.forEach { key, value in
+          guard let newKey = Version(potentiallyIncompleteVersionString: key) else {
+            throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
+                                                   in: keyedContainer,
+                                                   debugDescription: "Malformed version string")
+          }
+          guard let newValue = Version(potentiallyIncompleteVersionString: value) else {
+            throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
+                                                   in: keyedContainer,
+                                                   debugDescription: "Malformed version string")
+          }
+          self.macOSToCatalystMapping[newKey] = newValue
+        }
+      }
+    }
+
+    var version: Version
+    var versionMap: VersionMap
+
+    init(from decoder: Decoder) throws {
+      let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
+
+      let versionString = try keyedContainer.decode(String.self, forKey: .version)
+      guard let version = Version(potentiallyIncompleteVersionString: versionString) else {
+        throw DecodingError.dataCorruptedError(forKey: .version,
+                                               in: keyedContainer,
+                                               debugDescription: "Malformed version string")
+      }
+      self.version = version
+      self.versionMap = try keyedContainer.decode(VersionMap.self, forKey: .versionMap)
+    }
+
+    func sdkVersion(for triple: Triple) -> Version {
+      if triple.isMacCatalyst {
+        // For the Mac Catalyst environment, we have a macOS SDK with a macOS
+        // SDK version. Map that to the corresponding iOS version number to pass
+        // down to the linker.
+        return versionMap.macOSToCatalystMapping[version.withoutBuildNumbers] ?? Version(0, 0, 0)
+      }
+      return version
+    }
+  }
+
+  // SDK info is computed lazily. This should not generally be accessed directly.
+  private var _sdkInfo: DarwinSDKInfo? = nil
+
+  private func getTargetSDKInfo(sdkPath: VirtualPath) -> DarwinSDKInfo? {
+    if let info = _sdkInfo {
+      return info
+    } else {
+      let sdkSettingsPath = sdkPath.appending(component: "SDKSettings.json")
+      guard let contents = try? fileSystem.readFileContents(sdkSettingsPath) else { return nil }
+      guard let sdkInfo = try? JSONDecoder().decode(DarwinSDKInfo.self,
+                                                    from: Data(contents.contents)) else { return nil }
+      self._sdkInfo = sdkInfo
+      return sdkInfo
+    }
+  }
+
+  public func addPlatformSpecificCommonFrontendOptions(
+    commandLine: inout [Job.ArgTemplate],
+    inputs: inout [TypedVirtualPath],
+    frontendTargetInfo: FrontendTargetInfo
+  ) throws {
+    guard let sdkPath = try frontendTargetInfo.paths.sdkPath.map(VirtualPath.init(path:)),
+          let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
+
+    commandLine.append(.flag("-target-sdk-version"))
+    commandLine.append(.flag(sdkInfo.sdkVersion(for: frontendTargetInfo.target.triple).description))
+
+    if let targetVariantTriple = frontendTargetInfo.targetVariant?.triple {
+      commandLine.append(.flag("-target-variant-sdk-version"))
+      commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).description))
     }
   }
 }

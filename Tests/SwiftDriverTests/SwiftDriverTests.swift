@@ -1608,6 +1608,124 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-link-objc-runtime", "foo.swift")
   }
 
+  // Test cases ported from Driver/macabi-environment.swift
+  func testDarwinSDKVersioning() throws {
+    try withTemporaryDirectory { tmpDir in
+      let sdk1 = tmpDir.appending(component: "MacOSX10.15.versioned.sdk")
+      try localFileSystem.writeFileContents(sdk1.appending(component: "SDKSettings.json")) {
+        $0 <<< """
+        {
+          "Version":"10.15",
+          "VersionMap" : {
+              "macOS_iOSMac" : {
+                  "10.15" : "13.1",
+                  "10.15.1" : "13.2"
+              },
+              "iOSMac_macOS" : {
+                  "13.1" : "10.15",
+                  "13.2" : "10.15.1"
+              }
+          }
+        }
+        """
+      }
+
+      let sdk2 = tmpDir.appending(component: "MacOSX10.15.4.versioned.sdk")
+      try localFileSystem.writeFileContents(sdk2.appending(component: "SDKSettings.json")) {
+        $0 <<< """
+        {
+          "Version":"10.15.4",
+          "VersionMap" : {
+              "macOS_iOSMac" : {
+                  "10.14.4" : "12.4",
+                  "10.14.3" : "12.3",
+                  "10.14.2" : "12.2",
+                  "10.14.1" : "12.1",
+                  "10.15" : "13.0",
+                  "10.14" : "12.0",
+                  "10.14.5" : "12.5",
+                  "10.15.1" : "13.2",
+                  "10.15.4" : "13.4"
+              },
+              "iOSMac_macOS" : {
+                  "13.0" : "10.15",
+                  "12.3" : "10.14.3",
+                  "12.0" : "10.14",
+                  "12.4" : "10.14.4",
+                  "12.1" : "10.14.1",
+                  "12.5" : "10.14.5",
+                  "12.2" : "10.14.2",
+                  "13.2" : "10.15.1",
+                  "13.4" : "10.15.4"
+              }
+          }
+        }
+        """
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-sdk", sdk1.description,
+                                       "foo.swift"])
+        let frontendJobs = try driver.planBuild()
+        XCTAssertEqual(frontendJobs[0].kind, .compile)
+        XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+          .flag("-target-sdk-version"),
+          .flag("10.15.0")
+        ]))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-target-variant", "x86_64-apple-ios13.0-macabi",
+                                       "-sdk", sdk1.description,
+                                       "foo.swift"])
+        let frontendJobs = try driver.planBuild()
+        XCTAssertEqual(frontendJobs[0].kind, .compile)
+        XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+          .flag("-target-sdk-version"),
+          .flag("10.15.0"),
+          .flag("-target-variant-sdk-version"),
+          .flag("13.1.0")
+        ]))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-target-variant", "x86_64-apple-ios13.0-macabi",
+                                       "-sdk", sdk2.description,
+                                       "foo.swift"])
+        let frontendJobs = try driver.planBuild()
+        XCTAssertEqual(frontendJobs[0].kind, .compile)
+        XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+          .flag("-target-sdk-version"),
+          .flag("10.15.4"),
+          .flag("-target-variant-sdk-version"),
+          .flag("13.4.0")
+        ]))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target-variant", "x86_64-apple-macosx10.14",
+                                       "-target", "x86_64-apple-ios13.0-macabi",
+                                       "-sdk", sdk2.description,
+                                       "foo.swift"])
+        let frontendJobs = try driver.planBuild()
+        XCTAssertEqual(frontendJobs[0].kind, .compile)
+        XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+          .flag("-target-sdk-version"),
+          .flag("13.4.0"),
+          .flag("-target-variant-sdk-version"),
+          .flag("10.15.4")
+        ]))
+      }
+    }
+  }
+
   func testDSYMGeneration() throws {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
