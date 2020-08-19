@@ -1,5 +1,4 @@
 // swift-interface-format-version: 1.0
 // swift-module-flags: -module-name E
 import Swift
-import SwiftOnoneSupport
-public func funcE() { }
+public func funcE()

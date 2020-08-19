@@ -205,7 +205,7 @@ public struct Driver {
   /// A collection describing external dependencies for the current main module that may be invisible to
   /// the driver itself, but visible to its clients (e.g. build systems like SwiftPM). Along with the external dependencies'
   /// module dependency graphs.
-  internal var externalDependencyArtifactMap: ExternalDependencyArtifactMap? = nil
+  @_spi(Testing) public var externalDependencyArtifactMap: ExternalDependencyArtifactMap? = nil
 
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
@@ -1004,6 +1004,9 @@ extension Driver {
 
       case .scanDependencies:
         compilerOutputType = .jsonDependencies
+
+      case .scanClangDependencies:
+        compilerOutputType = .jsonClangDependencies
 
       default:
         fatalError("unhandled output mode option \(outputOption)")
