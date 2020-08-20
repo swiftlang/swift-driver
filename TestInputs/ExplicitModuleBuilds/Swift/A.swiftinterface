@@ -1,7 +1,6 @@
 // swift-interface-format-version: 1.0
 // swift-module-flags: -module-name A
 import Swift
-import SwiftOnoneSupport
 @_exported import A
 public func overlayFuncA() { }
 
