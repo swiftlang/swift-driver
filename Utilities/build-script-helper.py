@@ -122,11 +122,11 @@ def handle_invocation(toolchain_bin, args):
   if args.sysroot:
     env['SDKROOT'] = args.sysroot
 
-  print('Cleaning ' + args.build_path)
-  shutil.rmtree(args.build_path, ignore_errors=True)
-
   if args.action == 'build':
     swiftpm('build', swift_exec, swiftpm_args, env)
+  elif args.action == 'clean':
+    print('Cleaning ' + args.build_path)
+    shutil.rmtree(args.build_path, ignore_errors=True)
   elif args.action == 'test':
     for tool in driver_toolchain_tools:
         tool_path = os.path.join(toolchain_bin, tool)
@@ -157,6 +157,9 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true', help='enable verbose output')
 
   subparsers = parser.add_subparsers(title='subcommands', dest='action', metavar='action')
+  clean_parser = subparsers.add_parser('clean', help='clean the package')
+  add_common_args(clean_parser)
+
   build_parser = subparsers.add_parser('build', help='build the package')
   add_common_args(build_parser)
 
