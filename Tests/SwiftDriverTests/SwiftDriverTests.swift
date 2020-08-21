@@ -709,7 +709,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
       XCTAssertTrue(cmd.contains(.flag("x86_64")))
-      XCTAssertTrue(cmd.contains(subsequence: ["-platform_version", "macos", "10.15.0", "0.0.0"]))
+      XCTAssertTrue(cmd.contains(.flag("-macosx_version_min")))
+      XCTAssertTrue(cmd.contains(.flag("10.15.0")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -731,7 +732,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
       XCTAssertTrue(cmd.contains(.flag("arm64")))
-      XCTAssertTrue(cmd.contains(subsequence: ["-platform_version", "ios", "10.0.0", "0.0.0"]))
+      XCTAssertTrue(cmd.contains(.flag("-iphoneos_version_min")))
+      XCTAssertTrue(cmd.contains(.flag("10.0.0")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -753,7 +755,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-arch")))
       XCTAssertTrue(cmd.contains(.flag("x86_64")))
-      XCTAssertTrue(cmd.contains(subsequence: ["-platform_version", "mac-catalyst", "13.0.0", "0.0.0"]))
+      XCTAssertTrue(cmd.contains(.flag("-maccatalyst_version_min")))
       XCTAssertTrue(cmd.contains(.flag("13.0.0")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
@@ -1537,10 +1539,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [
-        "-platform_version", "mac-catalyst", "13.0.0", "0.0.0",
-        "-platform_version", "macos", "10.14.0", "0.0.0"
-      ]))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-maccatalyst_version_min")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("13.0.0")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-macosx_version_min")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("10.14.0")))
     }
 
     // Test -target-variant is passed to generate pch job
@@ -1563,10 +1565,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
 
       XCTAssertEqual(plannedJobs[2].kind, .link)
-      XCTAssertTrue(plannedJobs[2].commandLine.contains(subsequence: [
-        "-platform_version", "mac-catalyst", "13.0.0", "0.0.0",
-        "-platform_version", "macos", "10.14.0", "0.0.0"
-      ]))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-maccatalyst_version_min")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("13.0.0")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-macosx_version_min")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("10.14.0")))
     }
   }
 
@@ -1688,13 +1690,6 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-sdk-version"),
           .flag("10.15.0")
         ]))
-        XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-          .flag("-platform_version"),
-          .flag("macos"),
-          .flag("10.14.0"),
-          .flag("10.15.0"),
-        ]))
       }
 
       do {
@@ -1709,18 +1704,7 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-sdk-version"),
           .flag("10.15.0"),
           .flag("-target-variant-sdk-version"),
-          .flag("13.1.0"),
-        ]))
-        XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-          .flag("-platform_version"),
-          .flag("macos"),
-          .flag("10.14.0"),
-          .flag("10.15.0"),
-          .flag("-platform_version"),
-          .flag("mac-catalyst"),
-          .flag("13.0.0"),
-          .flag("13.1.0"),
+          .flag("13.1.0")
         ]))
       }
 
@@ -1738,17 +1722,6 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-variant-sdk-version"),
           .flag("13.4.0")
         ]))
-        XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-          .flag("-platform_version"),
-          .flag("macos"),
-          .flag("10.14.0"),
-          .flag("10.15.4"),
-          .flag("-platform_version"),
-          .flag("mac-catalyst"),
-          .flag("13.0.0"),
-          .flag("13.4.0"),
-        ]))
       }
 
       do {
@@ -1765,154 +1738,7 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-variant-sdk-version"),
           .flag("10.15.4")
         ]))
-        XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-          .flag("-platform_version"),
-          .flag("mac-catalyst"),
-          .flag("13.0.0"),
-          .flag("13.4.0"),
-          .flag("-platform_version"),
-          .flag("macos"),
-          .flag("10.14.0"),
-          .flag("10.15.4"),
-        ]))
       }
-    }
-  }
-
-  func testDarwinLinkerPlatformVersion() throws {
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macos10.15",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("macos"),
-        .flag("10.15.0"),
-      ]))
-    }
-
-    // Mac gained aarch64 support in v11
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "arm64-apple-macos10.15",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("macos"),
-        .flag("11.0.0"),
-      ]))
-    }
-
-    // Mac Catalyst on x86_64 was introduced in v13.
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-ios12.0-macabi",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("mac-catalyst"),
-        .flag("13.0.0"),
-      ]))
-    }
-
-    // Mac Catalyst on arm was introduced in v14.
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "aarch64-apple-ios12.0-macabi",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("mac-catalyst"),
-        .flag("14.0.0"),
-      ]))
-    }
-
-    // Regular iOS
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "aarch64-apple-ios12.0",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("ios"),
-        .flag("12.0.0"),
-      ]))
-    }
-
-    // Regular tvOS
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "aarch64-apple-tvos12.0",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("tvos"),
-        .flag("12.0.0"),
-      ]))
-    }
-
-    // Regular watchOS
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "aarch64-apple-watchos6.0",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("watchos"),
-        .flag("6.0.0"),
-      ]))
-    }
-
-    // x86_64 iOS simulator
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-ios12.0-simulator",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("ios-simulator"),
-        .flag("12.0.0"),
-      ]))
-    }
-
-    // aarch64 iOS simulator
-    do {
-      var driver = try Driver(args: ["swiftc",
-                                     "-target", "aarch64-apple-ios12.0-simulator",
-                                     "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-
-      XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
-        .flag("-platform_version"),
-        .flag("ios-simulator"),
-        .flag("14.0.0"),
-      ]))
     }
   }
 

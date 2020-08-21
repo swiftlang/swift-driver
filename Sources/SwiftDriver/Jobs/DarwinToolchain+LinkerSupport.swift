@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import SwiftOptions
 
 extension DarwinToolchain {
@@ -113,36 +112,49 @@ extension DarwinToolchain {
     commandLine.appendPath(clangRTPath)
   }
 
-  private func addPlatformVersionArg(to commandLine: inout [Job.ArgTemplate],
-                                     for triple: Triple, sdkPath: VirtualPath?) {
-    assert(triple.isDarwin)
-    let platformName = triple.darwinPlatform!.linkerPlatformName
-    let platformVersion = triple.darwinLinkerPlatformVersion
-    let sdkVersion: Version
-    if let sdkPath = sdkPath,
-       let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) {
-      sdkVersion = sdkInfo.sdkVersion(for: triple)
-    } else {
-      sdkVersion = Version(0, 0, 0)
-    }
-
-    commandLine.append(.flag("-platform_version"))
-    commandLine.append(.flag(platformName))
-    commandLine.append(.flag(platformVersion.description))
-    commandLine.append(.flag(sdkVersion.description))
-  }
-
   private func addDeploymentTargetArgs(
     to commandLine: inout [Job.ArgTemplate],
     targetTriple: Triple,
-    targetVariantTriple: Triple?,
-    sdkPath: VirtualPath?
+    targetVariantTriple: Triple?
   ) {
-    addPlatformVersionArg(to: &commandLine, for: targetTriple, sdkPath: sdkPath)
-    if let variantTriple = targetVariantTriple {
-      assert(targetTriple.isValidForZipperingWithTriple(variantTriple))
-      addPlatformVersionArg(to: &commandLine, for: variantTriple,
-                            sdkPath: sdkPath)
+    // FIXME: Properly handle deployment targets.
+
+    let flag: String
+
+    switch targetTriple.darwinPlatform! {
+    case .iOS(.device):
+      flag = "-iphoneos_version_min"
+    case .iOS(.simulator):
+      flag = "-ios_simulator_version_min"
+    case .iOS(.catalyst):
+      flag = "-maccatalyst_version_min"
+    case .macOS:
+      flag = "-macosx_version_min"
+    case .tvOS(.device):
+      flag = "-tvos_version_min"
+    case .tvOS(.simulator):
+      flag = "-tvos_simulator_version_min"
+    case .watchOS(.device):
+      flag = "-watchos_version_min"
+    case .watchOS(.simulator):
+      flag = "-watchos_simulator_version_min"
+    }
+
+    commandLine.appendFlag(flag)
+    commandLine.appendFlag(targetTriple.version().description)
+
+    if let variant = targetVariantTriple {
+      if targetTriple.isiOS {
+        assert(targetTriple.isValidForZipperingWithTriple(variant))
+        assert(variant.isMacOSX)
+        commandLine.appendFlag("-macosx_version_min")
+        commandLine.appendFlag(variant.version().description)
+      } else {
+        assert(targetTriple.isValidForZipperingWithTriple(variant))
+        assert(variant.isMacCatalyst)
+        commandLine.appendFlag("-maccatalyst_version_min")
+        commandLine.appendFlag(variant.version().description)
+      }
     }
   }
 
@@ -272,8 +284,7 @@ extension DarwinToolchain {
     addDeploymentTargetArgs(
       to: &commandLine,
       targetTriple: targetTriple,
-      targetVariantTriple: targetVariantTriple,
-      sdkPath: try sdkPath.map(VirtualPath.init(path:))
+      targetVariantTriple: targetVariantTriple
     )
     try addProfileGenerationArgs(
       to: &commandLine,
