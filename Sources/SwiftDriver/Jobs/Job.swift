@@ -33,7 +33,6 @@ public struct Job: Codable, Equatable, Hashable {
     case printTargetInfo = "print-target-info"
     case versionRequest = "version-request"
     case scanDependencies = "scan-dependencies"
-    case scanClangDependencies = "scan-clang-dependencies"
     case help
   }
 
@@ -176,9 +175,6 @@ extension Job : CustomStringConvertible {
 
     case .scanDependencies:
       return "Scanning dependencies for module \(moduleName)"
-
-    case .scanClangDependencies:
-      return "Scanning dependencies for Clang module \(moduleName)"
     }
   }
 }
@@ -189,7 +185,7 @@ extension Job.Kind {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
         .generatePCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest, .scanDependencies, .scanClangDependencies:
+        .versionRequest, .scanDependencies:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap:
@@ -206,7 +202,7 @@ extension Job.Kind {
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
-         .moduleWrap, .scanClangDependencies:
+         .moduleWrap:
       return false
     }
   }

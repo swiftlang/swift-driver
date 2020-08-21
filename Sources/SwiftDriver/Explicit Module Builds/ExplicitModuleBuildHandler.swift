@@ -34,6 +34,9 @@ public typealias ExternalDependencyArtifactMap =
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
+  /// A collection of external dependency modules, and their binary module file paths and dependency graph.
+  internal let externalDependencyArtifactMap: ExternalDependencyArtifactMap
+
   /// The file system which we should interact with.
   /// FIXME: Our end goal is to not have any direct filesystem manipulation in here, but  that's dependent on getting the
   /// dependency scanner/dependency job generation  moved into a Job.
@@ -45,11 +48,12 @@ public typealias ExternalDependencyArtifactMap =
   /// dependency scanner/dependency job generation  moved into a Job.
   private let temporaryDirectory: AbsolutePath
 
-  public init(dependencyGraph: InterModuleDependencyGraph,
-              toolchain: Toolchain,
-              fileSystem: FileSystem) throws {
+  public init(dependencyGraph: InterModuleDependencyGraph, toolchain: Toolchain,
+              fileSystem: FileSystem,
+              externalDependencyArtifactMap: ExternalDependencyArtifactMap) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
+    self.externalDependencyArtifactMap = externalDependencyArtifactMap
     self.fileSystem = fileSystem
     self.temporaryDirectory = try determineTempDirectory()
   }
@@ -115,6 +119,11 @@ public typealias ExternalDependencyArtifactMap =
   /// - Generate Job: S1
   ///
   mutating public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
+    // Resolve placeholder dependencies in the dependency graph, if any.
+    if (!externalDependencyArtifactMap.isEmpty) {
+      try resolvePlaceholderDependencies()
+    }
+
     // Compute jobs for all main module dependencies
     var mainModuleInputs: [TypedVirtualPath] = []
     var mainModuleCommandLine: [Job.ArgTemplate] = []
@@ -435,7 +444,7 @@ extension ExplicitModuleBuildHandler {
 
 /// Encapsulates some of the common queries of the ExplicitModuleBuildeHandler with error-checking
 /// on the dependency graph's structure.
-internal extension InterModuleDependencyGraph {
+private extension InterModuleDependencyGraph {
   func moduleInfo(of moduleId: ModuleDependencyId) throws -> ModuleInfo {
     guard let moduleInfo = modules[moduleId] else {
       throw Driver.Error.missingModuleDependency(moduleId.moduleName)
