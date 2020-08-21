@@ -1,8 +1,10 @@
 // swift-interface-format-version: 1.0
-// swift-module-flags: -module-name G -swift-version 5 -target x86_64-apple-macosx10.9
+// swift-module-flags: -module-name G -swift-version 5
+
 #if swift(>=5.0)
-@_exported import G
 import Swift
+import SwiftOnoneSupport
+@_exported import G
 public func overlayFuncG() { }
-let stringG : String = "Build"
+
 #endif

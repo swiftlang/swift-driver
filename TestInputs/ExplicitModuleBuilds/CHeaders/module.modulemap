@@ -27,8 +27,3 @@ module G {
   header "G.h"
   export *
 }
-
-module X {
-  header "X.h"
-  export *
-}

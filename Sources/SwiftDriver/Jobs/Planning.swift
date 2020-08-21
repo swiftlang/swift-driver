@@ -236,35 +236,22 @@ extension Driver {
 
   /// Prescan the source files to produce a module dependency graph and turn it into a set
   /// of jobs required to build all dependencies.
-  /// Preprocess the graph by resolving placeholder dependencies, if any are present and
-  /// by re-scanning all Clang modules against all possible targets they will be built against.
   public mutating func generateExplicitModuleBuildJobs() throws -> [Job] {
-    let dependencyGraph = try generateInterModuleDependencyGraph()
-    explicitModuleBuildHandler =
-        try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
-                                       toolchain: toolchain,
-                                       fileSystem: fileSystem)
-    return try explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
-  }
-
-  private mutating func generateInterModuleDependencyGraph() throws -> InterModuleDependencyGraph {
     let dependencyScannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
 
-    var dependencyGraph =
+    let dependencyGraph =
       try self.executor.execute(job: dependencyScannerJob,
                                 capturingJSONOutputAs: InterModuleDependencyGraph.self,
                                 forceResponseFiles: forceResponseFiles,
                                 recordedInputModificationDates: recordedInputModificationDates)
 
-    // Resolve placeholder dependencies in the dependency graph, if any.
-    if externalDependencyArtifactMap != nil, !externalDependencyArtifactMap!.isEmpty {
-      try dependencyGraph.resolvePlaceholderDependencies(using: externalDependencyArtifactMap!)
-    }
-
-    // Re-scan Clang modules at all the targets they will be built against
-    try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
-    return dependencyGraph
+    explicitModuleBuildHandler =
+        try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
+                                       toolchain: toolchain,
+                                       fileSystem: fileSystem,
+                                       externalDependencyArtifactMap: externalDependencyArtifactMap ?? [:])
+    return try explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
   }
 
   /// Create a job if needed for simple requests that can be immediately

@@ -158,7 +158,6 @@ extension Driver {
     try commandLine.appendLast(.disableParserLookup, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
-    try commandLine.appendLast(.scanClangDependencies, from: &parsedOptions)
     try commandLine.appendLast(.fineGrainedDependencyIncludeIntrafile, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
     try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)

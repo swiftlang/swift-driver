@@ -1,8 +1,8 @@
-//===------ ExplicitModuleDependencyBuildInputs.swift - Test Inputs -------===//
+//===--- ExplicitModuleDependencyBuildInputs.swift - Test Inputs ----------===//
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -39,7 +39,6 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
@@ -124,7 +123,6 @@ enum ModuleDependenciesInputs {
                 "-module-name",
                 "Swift"
               ],
-              "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
@@ -189,7 +187,6 @@ enum ModuleDependenciesInputs {
                 "-module-name",
                 "SwiftOnoneSupport"
               ],
-              "isFramework": true,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
@@ -273,7 +270,6 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
@@ -320,7 +316,6 @@ enum ModuleDependenciesInputs {
               ],
               "compiledModuleCandidates": [
               ],
-              "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
@@ -348,7 +343,6 @@ enum ModuleDependenciesInputs {
             "swift": {
               "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
               "contextHash": "3GKS4RKE3GDZA",
-              "isFramework": false,
               "commandLine": [
                 "-frontend",
                 "-compile-module-from-interface",
@@ -358,14 +352,6 @@ enum ModuleDependenciesInputs {
                 "5",
                 "-module-name",
                 "SwiftOnoneSupport"
-              ],
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
               ]
             }
           }
@@ -398,7 +384,6 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
@@ -419,15 +404,6 @@ enum ModuleDependenciesInputs {
           ],
           "details" : {
             "swift" : {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
               "explicitCompiledModulePath" : "M/Swift.swiftmodule"
             }
           }
@@ -444,15 +420,6 @@ enum ModuleDependenciesInputs {
           ],
           "details" : {
             "swift" : {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
               "explicitCompiledModulePath" : "S/SwiftOnoneSupport.swiftmodule"
             }
           }
@@ -462,4 +429,5 @@ enum ModuleDependenciesInputs {
     """
   }
 }
+
 
