@@ -169,6 +169,8 @@ extension Array where Element == Job.ArgTemplate {
           return string.spm_shellEscaped()
         case .path(let path):
           return path.name.spm_shellEscaped()
+      case .responseFilePath(let path):
+        return "@\(path.name.spm_shellEscaped())"
       }
     }.joined(separator: " ")
   }

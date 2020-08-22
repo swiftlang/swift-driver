@@ -73,6 +73,8 @@ public struct ArgsResolver {
 
       // Otherwise, return the path.
       return path.name
+    case .responseFilePath(let path):
+      return "@\(try resolve(.path(path)))"
     }
   }
 

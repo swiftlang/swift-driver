@@ -161,7 +161,7 @@ extension GenericUnixToolchain {
       let inputFiles: [Job.ArgTemplate] = inputs.map { input in
         // Autolink inputs are handled specially
         if input.type == .autolink {
-          return .flag("@\(input.file.name)")
+          return .responseFilePath(input.file)
         }
         return .path(input.file)
       }
@@ -210,7 +210,7 @@ extension GenericUnixToolchain {
         guard fileSystem.isFile(linkFile) else {
           fatalError("\(linkFile.pathString) not found")
         }
-        commandLine.appendFlag("@\(linkFile.pathString)")
+        commandLine.append(.responseFilePath(.absolute(linkFile)))
       }
 
       // Explicitly pass the target to the linker

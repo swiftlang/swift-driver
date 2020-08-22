@@ -859,6 +859,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-shared")))
       XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
       XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.contains(.responseFilePath(.temporary(RelativePath("Test.autolink")))))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.so"))
 
       XCTAssertFalse(cmd.contains(.flag("-dylib")))

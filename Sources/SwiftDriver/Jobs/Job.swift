@@ -42,6 +42,9 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Represents a virtual path on disk.
     case path(VirtualPath)
+
+    /// Represents a response file path prefixed by '@'.
+    case responseFilePath(VirtualPath)
   }
 
   /// The Swift module this job involves.
@@ -211,7 +214,7 @@ extension Job.Kind {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path
+    case flag, path, responseFilePath
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -222,6 +225,9 @@ extension Job.ArgTemplate: Codable {
       try unkeyedContainer.encode(a1)
     case let .path(a1):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .path)
+      try unkeyedContainer.encode(a1)
+    case let .responseFilePath(a1):
+      var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .responseFilePath)
       try unkeyedContainer.encode(a1)
     }
   }
@@ -240,6 +246,10 @@ extension Job.ArgTemplate: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(VirtualPath.self)
       self = .path(a1)
+    case .responseFilePath:
+      var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+      let a1 = try unkeyedValues.decode(VirtualPath.self)
+      self = .responseFilePath(a1)
     }
   }
 }
