@@ -342,11 +342,15 @@ public typealias ExternalDependencyArtifactMap =
     let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
 
     let swiftModulePath: TypedVirtualPath
+    let isFramework: Bool
     if case .swift(let details) = dependencyInfo.details,
        let compiledModulePath = details.explicitCompiledModulePath {
       // If an already-compiled module is available, use it.
       swiftModulePath = .init(file: try VirtualPath(path: compiledModulePath),
                               type: .swiftModule)
+      // Since this module has already been built, it is no longer relevant
+      // whether it is a framework or not.
+      isFramework = false
     } else {
       // Generate a build job for the dependency module, if not already generated
       if swiftModuleBuildCache[dependencyId] == nil {
@@ -355,13 +359,15 @@ public typealias ExternalDependencyArtifactMap =
       }
       swiftModulePath = .init(file: try VirtualPath(path: dependencyInfo.modulePath),
                               type: .swiftModule)
+      isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework
     }
 
     // Collect the required information about this module
     // TODO: add .swiftdoc and .swiftsourceinfo for this module.
     swiftDependencyArtifacts.append(
       SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                              modulePath: swiftModulePath.file.description))
+                              modulePath: swiftModulePath.file.description,
+                              isFramework: isFramework))
 
     // Process all transitive dependencies as direct
     try addModuleDependencies(moduleId: dependencyId, pcmArgs: pcmArgs,

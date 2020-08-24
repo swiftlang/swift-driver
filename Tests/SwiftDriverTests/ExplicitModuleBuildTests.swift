@@ -90,6 +90,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
         XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.explicitCompiledModulePath ?? dependencyInfo.modulePath)
+        XCTAssertEqual(dependencyArtifacts!.isFramework, swiftDetails.isFramework)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
@@ -391,13 +392,15 @@ final class ExplicitModuleBuildTests: XCTestCase {
         "moduleName": "A",
         "modulePath": "A.swiftmodule",
         "docPath": "A.swiftdoc",
-        "sourceInfoPath": "A.swiftsourceinfo"
+        "sourceInfoPath": "A.swiftsourceinfo",
+        "isFramework": true
       },
       {
         "moduleName": "B",
         "modulePath": "B.swiftmodule",
         "docPath": "B.swiftdoc",
-        "sourceInfoPath": "B.swiftsourceinfo"
+        "sourceInfoPath": "B.swiftsourceinfo",
+        "isFramework": false
       }
     ]
     """
@@ -408,9 +411,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertEqual(moduleMap[0].modulePath, "A.swiftmodule")
     XCTAssertEqual(moduleMap[0].docPath, "A.swiftdoc")
     XCTAssertEqual(moduleMap[0].sourceInfoPath, "A.swiftsourceinfo")
+    XCTAssertEqual(moduleMap[0].isFramework, true)
     XCTAssertEqual(moduleMap[1].moduleName, "B")
     XCTAssertEqual(moduleMap[1].modulePath, "B.swiftmodule")
     XCTAssertEqual(moduleMap[1].docPath, "B.swiftdoc")
     XCTAssertEqual(moduleMap[1].sourceInfoPath, "B.swiftsourceinfo")
+    XCTAssertEqual(moduleMap[1].isFramework, false)
   }
 }
