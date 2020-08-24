@@ -13,7 +13,7 @@ import TSCBasic
 import TSCUtility
 import Foundation
 
-extension ExplicitModuleBuildHandler {
+@_spi(Testing) public extension InterModuleDependencyGraph {
   // Building a Swift module in Explicit Module Build mode requires passing all of its module
   // dependencies as explicit arguments to the build command.
   //
@@ -41,8 +41,9 @@ extension ExplicitModuleBuildHandler {
   // which the driver will then resolve using B's full dependency graph provided by the client.
 
   /// Resolve all placeholder dependencies using external dependency information provided by the client
-  mutating public func resolvePlaceholderDependencies() throws {
-    let placeholderModules = dependencyGraph.modules.keys.filter {
+  mutating func resolvePlaceholderDependencies(using externalDependencyMap: ExternalDependencyArtifactMap)
+  throws {
+    let placeholderModules = modules.keys.filter {
       if case .swiftPlaceholder(_) = $0 {
         return true
       }
@@ -52,17 +53,19 @@ extension ExplicitModuleBuildHandler {
     // Resolve all placeholder modules
     for moduleId in placeholderModules {
       guard let (placeholderModulePath, placeholderDependencyGraph) =
-              externalDependencyArtifactMap[moduleId] else {
+              externalDependencyMap[moduleId] else {
         throw Driver.Error.missingExternalDependency(moduleId.moduleName)
       }
       try resolvePlaceholderDependency(placeholderModulePath: placeholderModulePath,
                                        placeholderDependencyGraph: placeholderDependencyGraph)
     }
   }
+}
 
+fileprivate extension InterModuleDependencyGraph {
   /// Merge a given external module's dependency graph in place of a placeholder dependency
-  mutating public func resolvePlaceholderDependency(placeholderModulePath: AbsolutePath,
-                                                    placeholderDependencyGraph: InterModuleDependencyGraph)
+  mutating func resolvePlaceholderDependency(placeholderModulePath: AbsolutePath,
+                                             placeholderDependencyGraph: InterModuleDependencyGraph)
   throws {
     // For every Swift module in the placeholder dependency graph, generate a new module info
     // containing only the pre-compiled module path, and insert it into the current module's
@@ -91,16 +94,22 @@ extension ExplicitModuleBuildHandler {
             compiledModulePath = moduleInfo.modulePath.description
           }
 
+          // We require the extraPCMArgs of all swift modules in order to
+          // re-scan their clang module dependencies.
+          let extraPCMArgs : [String] =
+                      try placeholderDependencyGraph.swiftModulePCMArgs(of: moduleId)
+
           let swiftDetails =
-            SwiftModuleDetails(compiledModulePath: compiledModulePath)
+            SwiftModuleDetails(compiledModulePath: compiledModulePath,
+                               extraPcmArgs: extraPCMArgs)
           let newInfo = ModuleInfo(modulePath: moduleInfo.modulePath.description,
                                    sourceFiles: nil,
                                    directDependencies: moduleInfo.directDependencies,
                                    details: ModuleInfo.Details.swift(swiftDetails))
           try insertOrReplaceModule(moduleId: moduleId, moduleInfo: newInfo)
         case .clang(_):
-          if dependencyGraph.modules[moduleId] == nil {
-            dependencyGraph.modules[moduleId] = moduleInfo
+          if modules[moduleId] == nil {
+            modules[moduleId] = moduleInfo
           }
         case .swiftPlaceholder(_):
           try insertOrReplaceModule(moduleId: moduleId, moduleInfo: moduleInfo)
@@ -110,31 +119,31 @@ extension ExplicitModuleBuildHandler {
 
   /// Insert a module into the handler's dependency graph. If a module with this identifier already exists,
   /// replace it's module with a moduleInfo that contains a path to an existing prebuilt .swiftmodule
-  mutating public func insertOrReplaceModule(moduleId: ModuleDependencyId,
+  mutating func insertOrReplaceModule(moduleId: ModuleDependencyId,
                                              moduleInfo: ModuleInfo) throws {
     // Check for placeholders to be replaced
-    if dependencyGraph.modules[ModuleDependencyId.swiftPlaceholder(moduleId.moduleName)] != nil {
+    if modules[ModuleDependencyId.swiftPlaceholder(moduleId.moduleName)] != nil {
       try replaceModule(originalId: .swiftPlaceholder(moduleId.moduleName), replacementId: moduleId,
                         replacementInfo: moduleInfo)
     }
     // Check for modules with the same Identifier, and replace if found
-    else if dependencyGraph.modules[moduleId] != nil {
+    else if modules[moduleId] != nil {
       try replaceModule(originalId: moduleId, replacementId: moduleId, replacementInfo: moduleInfo)
     // This module is new to the current dependency graph
     } else {
-      dependencyGraph.modules[moduleId] = moduleInfo
+      modules[moduleId] = moduleInfo
     }
   }
 
   /// Replace a module with a new one. Replace all references to the original module in other modules' dependencies
   /// with the new module.
-  mutating public func replaceModule(originalId: ModuleDependencyId,
+  mutating func replaceModule(originalId: ModuleDependencyId,
                                      replacementId: ModuleDependencyId,
                                      replacementInfo: ModuleInfo) throws {
-    dependencyGraph.modules.removeValue(forKey: originalId)
-    dependencyGraph.modules[replacementId] = replacementInfo
-    for moduleId in dependencyGraph.modules.keys {
-      var moduleInfo = dependencyGraph.modules[moduleId]!
+    modules.removeValue(forKey: originalId)
+    modules[replacementId] = replacementInfo
+    for moduleId in modules.keys {
+      var moduleInfo = modules[moduleId]!
       // Skip over other placeholders, they do not have dependencies
       if case .swiftPlaceholder(_) = moduleId {
         continue
@@ -142,21 +151,21 @@ extension ExplicitModuleBuildHandler {
       if let originalModuleIndex = moduleInfo.directDependencies?.firstIndex(of: originalId) {
         moduleInfo.directDependencies![originalModuleIndex] = replacementId;
       }
-      dependencyGraph.modules[moduleId] = moduleInfo
+      modules[moduleId] = moduleInfo
     }
   }
 }
 
 /// Used for creating new module infos during placeholder dependency resolution
 /// Modules created this way only contain a path to a pre-built module file.
-extension SwiftModuleDetails {
-  public init(compiledModulePath: String) {
+private extension SwiftModuleDetails {
+  init(compiledModulePath: String, extraPcmArgs: [String]) {
     self.moduleInterfacePath = nil
     self.compiledModuleCandidates = nil
     self.explicitCompiledModulePath = compiledModulePath
     self.bridgingHeaderPath = nil
     self.bridgingSourceFiles = nil
     self.commandLine = nil
-    self.extraPcmArgs = nil
+    self.extraPcmArgs = extraPcmArgs
   }
 }

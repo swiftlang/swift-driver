@@ -70,7 +70,7 @@ extension Driver {
          .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
          .objcHeader, .swiftDeps, .remap, .importedModules, .tbd, .moduleTrace,
          .indexData, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, nil:
+         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, nil:
       return false
     }
   }
@@ -262,6 +262,8 @@ extension FileType {
       return .updateCode
     case .jsonDependencies:
       return .scanDependencies
+    case .jsonClangDependencies:
+      return .scanClangDependencies
     case .jsonTargetInfo:
       return .printTargetInfo
 
