@@ -10,7 +10,7 @@ add_library(SwiftDriver
   "Explicit Module Builds/ClangModuleBuildJobCache.swift"
   "Explicit Module Builds/ExplicitModuleBuildHandler.swift"
   "Explicit Module Builds/PlaceholderDependencyResolution.swift"
-  "Explicit Module Builds/ClangVersionedDependencyResolution"
+  "Explicit Module Builds/ClangVersionedDependencyResolution.swift"
   "Explicit Module Builds/InterModuleDependencyGraph.swift"
   "Explicit Module Builds/ModuleDependencyScanning.swift"
   "Explicit Module Builds/ModuleArtifacts.swift"
