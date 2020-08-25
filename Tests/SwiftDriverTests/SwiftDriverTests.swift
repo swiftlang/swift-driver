@@ -2177,6 +2177,39 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
       XCTAssertTrue(job.commandLine.contains(.flag("-resource-dir")))
     }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.kind, .printTargetInfo)
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-target")))
+      XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-stdlib"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.kind, .printTargetInfo)
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-target")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-executable"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      let job = plannedJobs[0]
+      XCTAssertEqual(job.kind, .printTargetInfo)
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-target-info")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-target")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
   }
 
   func testDiagnosticOptions() throws {
@@ -2927,6 +2960,43 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.outputs.count, 2)
       XCTAssertEqual(compileJob.outputs[0].file, .temporary(RelativePath("foo.swiftmodule")))
       XCTAssertEqual(compileJob.outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
+    }
+  }
+
+  func testUseStaticResourceDir() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "x86_64-unknown-linux", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "x86_64-unknown-linux", "-no-static-executable", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "x86_64-unknown-linux", "-no-static-stdlib", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "x86_64-unknown-linux", "-static-executable", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "x86_64-unknown-linux", "-static-stdlib", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
     }
   }
 }
