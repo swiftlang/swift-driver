@@ -88,6 +88,17 @@ $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   swift test -c release --parallel
 ```
 
+#### Testing against `swift` compiler trunk
+`swift-driver` Continuous Integration runs against the most recent Trunk Development snapshot published at [swift.org/download](https://swift.org/download/).
+
+When developing patches that have complex interactions with the underlying `swift` compiler frontend, it may be prudent to ensure that `swift-driver` tests also pass against the current tip-of-trunk `swift`. To do so, create an empty pull request against [github.com/apple/swift](https://github.com/apple/swift) and perform cross-repository testing against your `swift-driver` pull request #, for example:
+```
+Using:
+apple/swift-driver#208
+@swift-ci smoke test
+```
+@swift-ci cross-repository testing facilities are described [here](https://github.com/apple/swift/blob/master/docs/ContinuousIntegration.md#cross-repository-testing).
+
 #### Preparing a Linux docker for debug
 
 When developing on macOS without quick access to a Linux machine, using a Linux Docker is often helpful when debugging.
