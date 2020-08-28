@@ -2,10 +2,17 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
+let macOSPlatform: SupportedPlatform
+if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
+    macOSPlatform = .macOS(deploymentTarget)
+} else {
+    macOSPlatform = .macOS(.v10_10)
+}
+
 let package = Package(
   name: "swift-driver",
   platforms: [
-    .macOS(.v10_10),
+    macOSPlatform,
   ],
   products: [
     .executable(
