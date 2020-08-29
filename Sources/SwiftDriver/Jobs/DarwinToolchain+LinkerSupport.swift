@@ -303,7 +303,16 @@ extension DarwinToolchain {
     }
 
     // Add inputs.
-    commandLine.append(contentsOf: inputs.map { .path($0.file) })
+    commandLine.append(contentsOf: inputs.flatMap {
+      (path: TypedVirtualPath) -> [Job.ArgTemplate] in
+      if path.type == .swiftModule {
+        return [.flag("-add_ast_path"), .path(path.file)]
+      } else if path.type == .object {
+        return [.path(path.file)]
+      } else {
+        return []
+      }
+    })
 
     // Add the output
     commandLine.appendFlag("-o")

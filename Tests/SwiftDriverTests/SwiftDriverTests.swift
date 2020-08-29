@@ -832,6 +832,30 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
+    #if os(macOS)
+    // dsymutil won't be found on Linux.
+    do {
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(5, plannedJobs.count)
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .compile, .mergeModule, .link, .generateDSYM])
+
+      let linkJob = plannedJobs[3]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-o")))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.contains(subsequence: [.flag("-add_ast_path"), .path(.relative(.init("Test.swiftmodule")))]))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+    #endif
+
     // FIXME: This test will fail when run on macOS, because
     // swift-autolink-extract is not present
     #if os(Linux)
