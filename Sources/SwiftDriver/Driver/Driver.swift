@@ -19,7 +19,7 @@ public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
     case invalidDriverName(String)
     case invalidInput(String)
-    case noJobsPassedToDriverFromEmptyInputFileList
+    case noInputFiles
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
     case integratedReplRemoved
@@ -40,7 +40,7 @@ public struct Driver {
         return "invalid driver name: \(driverName)"
       case .invalidInput(let input):
         return "invalid input: \(input)"
-      case .noJobsPassedToDriverFromEmptyInputFileList:
+      case .noInputFiles:
         return "no input files"
       case .relativeFrontendPath(let path):
         // TODO: where is this error thrown
@@ -671,13 +671,6 @@ extension Driver {
   ) throws {
     if parsedOptions.hasArgument(.v) {
       try printVersion(outputStream: &stderrStream)
-    }
-
-    guard !jobs.isEmpty else {
-      guard !inputFiles.isEmpty else {
-        throw Error.noJobsPassedToDriverFromEmptyInputFileList
-      }
-      return
     }
 
     let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
