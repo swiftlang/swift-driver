@@ -75,6 +75,8 @@ public struct ArgsResolver {
       return path.name
     case .responseFilePath(let path):
       return "@\(try resolve(.path(path)))"
+    case let .joinedOptionAndPath(option, path):
+      return option + (try resolve(.path(path)))
     }
   }
 

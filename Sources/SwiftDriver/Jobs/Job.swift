@@ -46,6 +46,9 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Represents a response file path prefixed by '@'.
     case responseFilePath(VirtualPath)
+
+    /// Represents a joined option+path combo.
+    case joinedOptionAndPath(String, VirtualPath)
   }
 
   /// The Swift module this job involves.
@@ -218,7 +221,11 @@ extension Job.Kind {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path, responseFilePath
+    case flag, path, responseFilePath, joinedOptionAndPath
+
+    enum JoinedOptionAndPathCodingKeys: String, CodingKey {
+      case option, path
+    }
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -233,6 +240,12 @@ extension Job.ArgTemplate: Codable {
     case let .responseFilePath(a1):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .responseFilePath)
       try unkeyedContainer.encode(a1)
+    case let .joinedOptionAndPath(option, path):
+      var keyedContainer = container.nestedContainer(
+        keyedBy: CodingKeys.JoinedOptionAndPathCodingKeys.self,
+        forKey: .joinedOptionAndPath)
+      try keyedContainer.encode(option, forKey: .option)
+      try keyedContainer.encode(path, forKey: .path)
     }
   }
 
@@ -254,6 +267,12 @@ extension Job.ArgTemplate: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(VirtualPath.self)
       self = .responseFilePath(a1)
+    case .joinedOptionAndPath:
+      let keyedValues = try values.nestedContainer(
+        keyedBy: CodingKeys.JoinedOptionAndPathCodingKeys.self,
+        forKey: .joinedOptionAndPath)
+      self = .joinedOptionAndPath(try keyedValues.decode(String.self, forKey: .option),
+                                  try keyedValues.decode(VirtualPath.self, forKey: .path))
     }
   }
 }
