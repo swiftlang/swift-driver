@@ -2121,6 +2121,33 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testNoInputs() throws {
+    do {
+      var driver = try Driver(args: ["swift"])
+      XCTAssertNoThrow(try driver.planBuild())
+    }
+    do {
+      var driver = try Driver(args: ["swiftc"])
+      XCTAssertThrowsError(try driver.planBuild()) {
+        XCTAssertEqual($0 as? Driver.Error, .noInputFiles)
+      }
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-v"])
+      XCTAssertNoThrow(try driver.planBuild())
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-v", "-whole-module-optimization"])
+      XCTAssertNoThrow(try driver.planBuild())
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-whole-module-optimization"])
+      XCTAssertThrowsError(try driver.planBuild()) {
+        XCTAssertEqual($0 as? Driver.Error, .noInputFiles)
+      }
+    }
+  }
+
   func testPrintTargetInfo() throws {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz"])

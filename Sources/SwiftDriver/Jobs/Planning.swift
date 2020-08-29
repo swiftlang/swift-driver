@@ -327,6 +327,15 @@ extension Driver {
       return [job]
     }
 
+    // The REPL doesn't require input files, but all other modes do.
+    guard !inputFiles.isEmpty || compilerMode == .repl else {
+      if parsedOptions.hasArgument(.v) {
+        // `swiftc -v` is allowed and prints version information.
+        return []
+      }
+      throw Error.noInputFiles
+    }
+
     // Plan the build.
     switch compilerMode {
     case .repl:
