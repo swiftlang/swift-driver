@@ -166,6 +166,8 @@ extension Driver {
     try commandLine.appendLast(.enableDirectIntramoduleDependencies, .disableDirectIntramoduleDependencies, from: &parsedOptions)
     try commandLine.appendLast(.locale, from: &parsedOptions)
     try commandLine.appendLast(.localizationPath, from: &parsedOptions)
+    try commandLine.appendLast(.requireExplicitAvailability, from: &parsedOptions)
+    try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
