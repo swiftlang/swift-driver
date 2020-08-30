@@ -101,7 +101,7 @@ extension Array where Element == Job.ArgTemplate {
 
     case .joined:
       if option.attributes.contains(.argumentIsPath) {
-        fatalError("Not currently implementable")
+        append(.joinedOptionAndPath(option.spelling, try VirtualPath(path: argument.asSingle)))
       } else {
         appendFlag(option.spelling + argument.asSingle)
       }
@@ -171,6 +171,8 @@ extension Array where Element == Job.ArgTemplate {
           return path.name.spm_shellEscaped()
       case .responseFilePath(let path):
         return "@\(path.name.spm_shellEscaped())"
+      case let .joinedOptionAndPath(option, path):
+        return option.spm_shellEscaped() + path.name.spm_shellEscaped()
       }
     }.joined(separator: " ")
   }

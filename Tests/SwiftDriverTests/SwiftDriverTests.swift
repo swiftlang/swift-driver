@@ -117,6 +117,13 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testJoinedPathOptions() throws {
+    var driver = try Driver(args: ["swiftc", "-c", "-I=/some/dir", "-F=other/relative/dir", "foo.swift"])
+    let jobs = try driver.planBuild()
+    XCTAssertTrue(jobs[0].commandLine.contains(.joinedOptionAndPath("-I=", .absolute(.init("/some/dir")))))
+    XCTAssertTrue(jobs[0].commandLine.contains(.joinedOptionAndPath("-F=", .relative(.init("other/relative/dir")))))
+  }
+
   func testBatchModeDiagnostics() throws {
       try assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode") { driver in
         switch driver.compilerMode {
