@@ -191,11 +191,13 @@ extension ParsedOptions {
   }
 
   public mutating func arguments(for options: Option...) -> [ParsedOption] {
-    return options.flatMap { lookup($0) }
+    return arguments(for: options)
   }
 
   public mutating func arguments(for options: [Option]) -> [ParsedOption] {
-    return options.flatMap { lookup($0) }
+    // The relative ordering of different options is sometimes significant, so
+    // sort the results by their position in the command line.
+    return options.flatMap { lookup($0) }.sorted { $0.index < $1.index }
   }
 
   public mutating func arguments(in group: Option.Group) -> [ParsedOption] {
@@ -203,11 +205,11 @@ extension ParsedOptions {
   }
 
   public mutating func last(for options: Option...) -> ParsedOption? {
-    return arguments(for: options).max { $0.index < $1.index }
+    return last(for: options)
   }
 
   public mutating func last(for options: [Option]) -> ParsedOption? {
-    return arguments(for: options).max { $0.index < $1.index }
+    return arguments(for: options).last
   }
 
   /// Return the last parsed options that matches the given predicate.

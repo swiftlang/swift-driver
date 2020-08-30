@@ -124,6 +124,19 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(jobs[0].commandLine.contains(.joinedOptionAndPath("-F=", .relative(.init("other/relative/dir")))))
   }
 
+  func testRelativeOptionOrdering() throws {
+    var driver = try Driver(args: ["swiftc", "foo.swift",
+                                   "-F", "/path/to/frameworks",
+                                   "-Fsystem", "/path/to/systemframeworks",
+                                   "-F", "/path/to/more/frameworks"])
+    let jobs = try driver.planBuild()
+    XCTAssertEqual(jobs[0].kind, .compile)
+    // The relative ordering of -F and -Fsystem options should be preserved.
+    XCTAssertTrue(jobs[0].commandLine.contains(subsequence: [.flag("-F"), .path(.absolute(.init("/path/to/frameworks"))),
+                                                             .flag("-Fsystem"), .path(.absolute(.init("/path/to/systemframeworks"))),
+                                                             .flag("-F"), .path(.absolute(.init("/path/to/more/frameworks")))]))
+  }
+
   func testBatchModeDiagnostics() throws {
       try assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode") { driver in
         switch driver.compilerMode {
