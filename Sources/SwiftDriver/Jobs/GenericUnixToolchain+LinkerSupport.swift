@@ -158,12 +158,15 @@ extension GenericUnixToolchain {
         )
       commandLine.appendPath(swiftrtPath)
 
-      let inputFiles: [Job.ArgTemplate] = inputs.map { input in
+      let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
         // Autolink inputs are handled specially
         if input.type == .autolink {
           return .responseFilePath(input.file)
+        } else if input.type == .object {
+          return .path(input.file)
+        } else {
+          return nil
         }
-        return .path(input.file)
       }
       commandLine.append(contentsOf: inputFiles)
 
