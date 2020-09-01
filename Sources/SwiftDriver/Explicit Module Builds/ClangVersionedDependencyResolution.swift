@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import TSCBasic
 
 /// A map from a module identifier to a set of module dependency graphs
 /// Used to compute distinct graphs corresponding to different target versions for a given clang module
@@ -31,31 +30,19 @@ internal extension Driver {
     // to all Clang modules, and compute a set of distinct PCMArgs across all paths to a
     // given Clang module in the graph.
     let modulePCMArgsSetMap = try dependencyGraph.computePCMArgSetsForClangModules()
-    let temporaryDirectory = try determineTempDirectory()
-    let batchScanInputList =
-      try modulePCMArgsSetMap.compactMap { (moduleId, pcmArgsSet) throws -> [BatchScanModuleInfo] in
-        var moduleInfos: [BatchScanModuleInfo] = []
-        for pcmArgs in pcmArgsSet {
-          var hasher = Hasher()
-          pcmArgs.forEach { hasher.combine($0) }
-          // Generate a filepath for the output dependency graph
-          let moduleDependencyGraphPath =
-            temporaryDirectory.appending(component: moduleId.moduleName +
-                                          String(hasher.finalize()) +
-                                          "-dependencies.json")
-          let moduleBatchInfo =
-            BatchScanModuleInfo.clang(
-              BatchScanClangModuleInfo(moduleName: moduleId.moduleName,
-                                       pcmArgs: pcmArgs.joined(separator: " "),
-                                       outputPath: moduleDependencyGraphPath.description))
-          moduleInfos.append(moduleBatchInfo)
+    var moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]] = [:]
+    for (moduleId, pcmArgSet) in modulePCMArgsSetMap {
+      for pcmArgs in pcmArgSet {
+        let pcmSpecificDepGraph = try scanClangModule(moduleId: moduleId,
+                                                      pcmArgs: pcmArgs)
+        if moduleVersionedGraphMap[moduleId] != nil {
+          moduleVersionedGraphMap[moduleId]!.append(pcmSpecificDepGraph)
+        } else {
+          moduleVersionedGraphMap[moduleId] = [pcmSpecificDepGraph]
         }
-        return moduleInfos
-      }.reduce([], +)
+      }
+    }
 
-    // Batch scan all clang modules for each discovered unique set of PCMArgs, per module
-    let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]] =
-      try performBatchDependencyScan(moduleInfos: batchScanInputList)
     try dependencyGraph.resolveVersionedClangModules(using: moduleVersionedGraphMap)
   }
 }
