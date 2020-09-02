@@ -25,7 +25,7 @@ extension Diagnostic.Message {
   }
 
   static func error_opt_invalid_mapping(option: Option, value: String) -> Diagnostic.Message {
-    .error("values for '\(option.spelling)' must be in the format original=remapped not '\(value)'")
+    .error("values for '\(option.spelling)' must be in the format 'original=remapped', but '\(value)' was provided")
   }
 
   static func error_invalid_arg_value(arg: Option, value: String) -> Diagnostic.Message {

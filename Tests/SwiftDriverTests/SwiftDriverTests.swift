@@ -333,8 +333,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo", "-debug-prefix-map", "bar") {
-        $1.expect(.error("values for '-debug-prefix-map' must be in the format original=remapped not 'foo'"))
-        $1.expect(.error("values for '-debug-prefix-map' must be in the format original=remapped not 'bar'"))
+        $1.expect(.error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'foo' was provided"))
+        $1.expect(.error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'bar' was provided"))
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview") { driver in
@@ -365,8 +365,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-coverage-prefix-map", "foo", "-coverage-prefix-map", "bar") {
-      $1.expect(.error("values for '-coverage-prefix-map' must be in the format original=remapped not 'foo'"))
-      $1.expect(.error("values for '-coverage-prefix-map' must be in the format original=remapped not 'bar'"))
+      $1.expect(.error("values for '-coverage-prefix-map' must be in the format 'original=remapped', but 'foo' was provided"))
+      $1.expect(.error("values for '-coverage-prefix-map' must be in the format 'original=remapped', but 'bar' was provided"))
     }
   }
 
