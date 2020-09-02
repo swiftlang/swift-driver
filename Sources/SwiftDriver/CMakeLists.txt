@@ -13,7 +13,7 @@ add_library(SwiftDriver
   "Explicit Module Builds/ClangVersionedDependencyResolution.swift"
   "Explicit Module Builds/InterModuleDependencyGraph.swift"
   "Explicit Module Builds/ModuleDependencyScanning.swift"
-  "Explicit Module Builds/SerializableModuleArtifacts.swift"
+  "Explicit Module Builds/ModuleArtifacts.swift"
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift

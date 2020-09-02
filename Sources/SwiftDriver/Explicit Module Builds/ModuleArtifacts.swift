@@ -16,7 +16,7 @@ import Foundation
 /// - Swift Module Path
 /// - Swift Doc Path
 /// - Swift Source Info Path
-@_spi(Testing) public struct SwiftModuleArtifactInfo: Codable {
+public struct SwiftModuleArtifactInfo: Codable {
   /// The module's name
   public let moduleName: String
   /// The path for the module's .swiftmodule file
@@ -42,7 +42,7 @@ import Foundation
 /// - Clang Module (name)
 /// - Clang Module (PCM) Path
 /// - Clang Module Map Path
-@_spi(Testing) public struct ClangModuleArtifactInfo: Codable {
+public struct ClangModuleArtifactInfo {
   /// The module's name
   public let moduleName: String
   /// The path for the module's .pcm file
@@ -54,48 +54,5 @@ import Foundation
     self.moduleName = name
     self.modulePath = modulePath
     self.moduleMapPath = moduleMapPath
-  }
-}
-
-/// Describes a given module's batch dependency scanning input info
-/// - Module Name
-/// - Extra PCM build arguments (for Clang modules only)
-/// - Dependency graph output path
-internal enum BatchScanModuleInfo: Encodable {
-  case swift(BatchScanSwiftModuleInfo)
-  case clang(BatchScanClangModuleInfo)
-}
-
-internal struct BatchScanSwiftModuleInfo: Encodable {
-  var swiftModuleName: String
-  var output: String
-
-  init(moduleName: String, outputPath: String) {
-    self.swiftModuleName = moduleName
-    self.output = outputPath
-  }
-}
-
-internal struct BatchScanClangModuleInfo: Encodable {
-  var clangModuleName: String
-  var arguments: String
-  var output: String
-
-  init(moduleName: String, pcmArgs: String, outputPath: String) {
-    self.clangModuleName = moduleName
-    self.arguments = pcmArgs
-    self.output = outputPath
-  }
-}
-
-internal extension BatchScanModuleInfo {
-  func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
-    switch self {
-      case .swift(let swiftInfo):
-        try container.encode(swiftInfo)
-      case .clang(let clangInfo):
-        try container.encode(clangInfo)
-    }
   }
 }

@@ -51,7 +51,15 @@ extension DriverExecutor {
                              recordedInputModificationDates: recordedInputModificationDates)
     
     if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
-      let returnCode = Self.computeReturnCode(exitStatus: result.exitStatus)
+      let returnCode: Int
+      switch result.exitStatus {
+      case .terminated(let code):
+        returnCode = Int(code)
+#if !os(Windows)
+      case .signalled(let signal):
+        returnCode = Int(signal)
+#endif
+      }
       throw JobExecutionError.jobFailedWithNonzeroExitCode(returnCode, try result.utf8stderrOutput())
     }
     guard let outputData = try? Data(result.utf8Output().utf8) else {
@@ -59,19 +67,6 @@ extension DriverExecutor {
     }
     
     return try JSONDecoder().decode(outputType, from: outputData)
-  }
-
-  static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {
-    var returnCode: Int
-    switch exitStatus {
-      case .terminated(let code):
-        returnCode = Int(code)
-      #if !os(Windows)
-      case .signalled(let signal):
-        returnCode = Int(signal)
-      #endif
-    }
-    return returnCode
   }
 }
 
