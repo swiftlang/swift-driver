@@ -175,6 +175,10 @@ public typealias ExternalDependencyArtifactMap =
       }
     }
 
+    // Set the output path
+    commandLine.appendFlag(.o)
+    commandLine.appendPath(try VirtualPath(path: moduleInfo.modulePath))
+
     swiftModuleBuildCache[moduleId] = Job(
       moduleName: moduleId.moduleName,
       kind: .emitModule,
