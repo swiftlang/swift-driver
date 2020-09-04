@@ -262,9 +262,39 @@ extension Driver {
       try dependencyGraph.resolvePlaceholderDependencies(using: externalDependencyArtifactMap!)
     }
 
-    // Re-scan Clang modules at all the targets they will be built against
+    // Re-scan Clang modules at all the targets they will be built against.
     try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
+
+    // Set dependency modules' paths to be saved in the module cache.
+    try updateDependencyModulesWithModuleCachePath(dependencyGraph: &dependencyGraph)
+
     return dependencyGraph
+  }
+
+  /// Update the given inter-module dependency graph to set module paths to be within the module cache,
+  /// if one is present.
+  private mutating func updateDependencyModulesWithModuleCachePath(dependencyGraph:
+                                                                    inout InterModuleDependencyGraph)
+  throws {
+    let moduleCachePath = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle
+    if moduleCachePath != nil {
+      for (moduleId, moduleInfo) in dependencyGraph.modules {
+        // Output path on the main module is determined by the invocation arguments.
+        guard moduleId.moduleName != dependencyGraph.mainModuleName else {
+          continue
+        }
+        let modulePath = moduleInfo.modulePath
+        // Only update paths on modules which do not already specify a path beyond their module name
+        // and a file extension.
+        if modulePath == moduleId.moduleName + ".swiftmodule" ||
+            modulePath == moduleId.moduleName + ".pcm" {
+          // Use VirtualPath to get the OS-specific path separators right.
+          let modulePathInCache =
+            try VirtualPath(path: moduleCachePath!).appending(component: modulePath).description
+          dependencyGraph.modules[moduleId]!.modulePath = modulePathInCache
+        }
+      }
+    }
   }
 
   /// Create a job if needed for simple requests that can be immediately
