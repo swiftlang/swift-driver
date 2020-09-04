@@ -13,12 +13,14 @@ extension Option {
   public static let driverPrintGraphviz: Option = Option("-driver-print-graphviz", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Write the job graph as a graphviz file", group: .internalDebug)
   public static let driverExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let driverPrintModuleDependenciesJobs: Option = Option("-driver-print-module-dependencies-jobs", .flag, attributes: [.helpHidden], helpText: "Print commands to explicitly build module dependencies")
+  public static let driverWarnUnusedOptions: Option = Option("-driver-warn-unused-options", .flag, attributes: [.helpHidden], helpText: "Emit warnings for any provided options which are unused by the driver.")
 
   public static var extraOptions: [Option] {
     return [
       Option.driverPrintGraphviz,
       Option.driverExplicitModuleBuild,
-      Option.driverPrintModuleDependenciesJobs
+      Option.driverPrintModuleDependenciesJobs,
+      Option.driverWarnUnusedOptions
     ]
   }
 }
