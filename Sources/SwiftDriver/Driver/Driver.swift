@@ -638,6 +638,12 @@ extension Driver {
   }
 }
 
+extension Diagnostic.Message {
+  static func warn_unused_option(_ option: ParsedOption) -> Diagnostic.Message {
+    .warning("Unused option: \(option)")
+  }
+}
+
 extension Driver {
   /// Determine the driver kind based on the command-line arguments, consuming the arguments
   /// conveying this information.
@@ -719,6 +725,13 @@ extension Driver {
                          numParallelJobs: numParallelJobs ?? 1,
                          forceResponseFiles: forceResponseFiles,
                          recordedInputModificationDates: recordedInputModificationDates)
+
+    // If requested, warn for options that weren't used by the driver after the build is finished.
+    if parsedOptions.hasArgument(.driverWarnUnusedOptions) {
+      for option in parsedOptions.unconsumedOptions {
+        diagnosticEngine.emit(.warn_unused_option(option))
+      }
+    }
   }
 
   public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {

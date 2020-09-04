@@ -318,4 +318,8 @@ extension ParsedOptions {
       groupIndex[group]?.removeAll { $0.option == option }
     }
   }
+
+  public var unconsumedOptions: [ParsedOption] {
+    zip(parsedOptions, consumed).filter { !$0.1 }.map(\.0)
+  }
 }
