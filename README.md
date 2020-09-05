@@ -11,6 +11,8 @@ The `swift-driver` project is a new implementation of the Swift compiler driver 
 
 ## Getting Started
 
+**Note:** Currently, swift-driver is only compatible with trunk development snapshots from [swift.org](https://swift.org/download/#snapshots).
+
 The preferred way to build `swift-driver` is to use the Swift package manager:
 
 ```
