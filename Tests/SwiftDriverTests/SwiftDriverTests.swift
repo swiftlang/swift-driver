@@ -1690,6 +1690,22 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testConditionalCompilationArgValidation() throws {
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-DFOO=BAR"])) {
+      XCTAssertEqual($0 as? Driver.Error, .cannotAssignToConditionalCompilationFlag("FOO=BAR"))
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-D-DFOO"])) {
+      XCTAssertEqual($0 as? Driver.Error, .conditionalCompilationFlagHasRedundantPrefix("-DFOO"))
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-Dnot-an-identifier"])) {
+      XCTAssertEqual($0 as? Driver.Error, .conditionalCompilationFlagIsNotValidIdentifier("not-an-identifier"))
+    }
+
+    XCTAssertNoThrow(try Driver(args: ["swiftc", "foo.swift", "-DFOO"]))
+  }
+
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     try withTemporaryDirectory { tmpDir in

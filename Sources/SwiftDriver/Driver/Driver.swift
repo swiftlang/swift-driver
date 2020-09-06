@@ -28,6 +28,9 @@ public struct Driver {
     case unableToDecodeFrontendTargetInfo
     case failedToRetrieveFrontendTargetInfo
     case missingProfilingData(String)
+    case cannotAssignToConditionalCompilationFlag(String)
+    case conditionalCompilationFlagHasRedundantPrefix(String)
+    case conditionalCompilationFlagIsNotValidIdentifier(String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -71,6 +74,12 @@ public struct Driver {
         return "unable to load output file map '\(path)': no such file or directory"
       case .missingExternalDependency(let moduleName):
         return "Missing External dependency info for module: \(moduleName)"
+      case .cannotAssignToConditionalCompilationFlag(let name):
+        return "conditional compilation flags do not have values in Swift; they are either present or absent (rather than '\(name)')"
+      case .conditionalCompilationFlagHasRedundantPrefix(let name):
+        return "invalid argument '-D\(name)'; did you provide a redundant '-D' in your build settings?"
+      case .conditionalCompilationFlagIsNotValidIdentifier(let name):
+        return "conditional compilation flags must be valid Swift identifiers (rather than '\(name)')"
       }
     }
   }
@@ -334,6 +343,7 @@ public struct Driver {
     try Self.validateProfilingArgs(&parsedOptions,
                                    fileSystem: fileSystem,
                                    workingDirectory: workingDirectory)
+    try Self.validateCompilationConditionArgs(&parsedOptions)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
@@ -1586,6 +1596,20 @@ extension Driver {
                                              relativeTo: workingDirectory)) else {
           throw Error.missingProfilingData(profilingData)
         }
+      }
+    }
+  }
+
+  static func validateCompilationConditionArgs(_ parsedOptions: inout ParsedOptions) throws {
+    for arg in parsedOptions.arguments(for: .D).map(\.argument.asSingle) {
+      guard !arg.contains("=") else {
+        throw Error.cannotAssignToConditionalCompilationFlag(arg)
+      }
+      guard !arg.hasPrefix("-D") else {
+        throw Error.conditionalCompilationFlagHasRedundantPrefix(arg)
+      }
+      guard arg.sd_isSwiftIdentifier else {
+        throw Error.conditionalCompilationFlagIsNotValidIdentifier(arg)
       }
     }
   }
