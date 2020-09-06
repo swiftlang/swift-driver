@@ -108,7 +108,7 @@ public final class DarwinToolchain: Toolchain {
 
   public var shouldStoreInvocationInDebugInfo: Bool {
     // This matches the behavior in Clang.
-    !(env["RC_DEBUG_OPTIONS"]?.isEmpty ?? false)
+    !(env["RC_DEBUG_OPTIONS"]?.isEmpty ?? true)
   }
 
   public func runtimeLibraryName(

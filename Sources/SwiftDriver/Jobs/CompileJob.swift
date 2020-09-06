@@ -199,7 +199,7 @@ extension Driver {
       }
     }
 
-    if parsedOptions.contains(.debugInfoStoreInvocation) &&
+    if parsedOptions.contains(.debugInfoStoreInvocation) ||
        toolchain.shouldStoreInvocationInDebugInfo {
       commandLine.appendFlag(.debugInfoStoreInvocation)
     }
