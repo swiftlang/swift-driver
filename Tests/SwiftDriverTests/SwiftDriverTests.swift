@@ -1690,7 +1690,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testConditionalCompilationArgValidation() throws {
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-DFOO=BAR"]) {
-      $1.expect(.error(Driver.Error.cannotAssignToConditionalCompilationFlag("FOO=BAR")))
+      $1.expect(.warning("conditional compilation flags do not have values in Swift; they are either present or absent (rather than 'FOO=BAR')"))
     }
 
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-D-DFOO"]) {
@@ -1706,15 +1706,15 @@ final class SwiftDriverTests: XCTestCase {
 
   func testFrameworkSearchPathArgValidation() throws {
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-F/some/dir/xyz.framework"]) {
-      $1.expect(.error(Driver.Error.frameworkSearchPathIncludesExtension("/some/dir/xyz.framework")))
+      $1.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework"))
     }
 
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-F/some/dir/xyz.framework/"]) {
-      $1.expect(.error(Driver.Error.frameworkSearchPathIncludesExtension("/some/dir/xyz.framework/")))
+      $1.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework/"))
     }
 
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-Fsystem", "/some/dir/xyz.framework"]) {
-      $1.expect(.error(Driver.Error.frameworkSearchPathIncludesExtension("/some/dir/xyz.framework")))
+      $1.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework"))
     }
 
    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-Fsystem", "/some/dir/")
@@ -1723,7 +1723,7 @@ final class SwiftDriverTests: XCTestCase {
   func testMultipleValidationFailures() throws {
     try assertDiagnostics { engine, verifier in
       verifier.expect(.error(Driver.Error.conditionalCompilationFlagIsNotValidIdentifier("not-an-identifier")))
-      verifier.expect(.error(Driver.Error.frameworkSearchPathIncludesExtension("/some/dir/xyz.framework")))
+      verifier.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework"))
       _ = try Driver(args: ["swiftc", "foo.swift", "-Dnot-an-identifier", "-F/some/dir/xyz.framework"], diagnosticsEngine: engine)
     }
   }

@@ -28,10 +28,8 @@ public struct Driver {
     case unableToDecodeFrontendTargetInfo
     case failedToRetrieveFrontendTargetInfo
     case missingProfilingData(String)
-    case cannotAssignToConditionalCompilationFlag(String)
     case conditionalCompilationFlagHasRedundantPrefix(String)
     case conditionalCompilationFlagIsNotValidIdentifier(String)
-    case frameworkSearchPathIncludesExtension(String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -62,14 +60,10 @@ public struct Driver {
         return "failed to retrieve frontend target info"
       case .missingProfilingData(let arg):
         return "no profdata file exists at '\(arg)'"
-      case .cannotAssignToConditionalCompilationFlag(let name):
-        return "conditional compilation flags do not have values in Swift; they are either present or absent (rather than '\(name)')"
       case .conditionalCompilationFlagHasRedundantPrefix(let name):
         return "invalid argument '-D\(name)'; did you provide a redundant '-D' in your build settings?"
       case .conditionalCompilationFlagIsNotValidIdentifier(let name):
         return "conditional compilation flags must be valid Swift identifiers (rather than '\(name)')"
-      case .frameworkSearchPathIncludesExtension(let arg):
-        return "framework search path ends in \".framework\"; add directory containing framework instead: \(arg)"
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
@@ -1575,6 +1569,12 @@ extension Diagnostic.Message {
   static var error_bridging_header_module_interface: Diagnostic.Message {
     .error("using bridging headers with module interfaces is unsupported")
   }
+  static func warning_cannot_assign_to_compilation_condition(name: String) -> Diagnostic.Message {
+    .warning("conditional compilation flags do not have values in Swift; they are either present or absent (rather than '\(name)')")
+  }
+  static func warning_framework_search_path_includes_extension(path: String) -> Diagnostic.Message {
+    .warning("framework search path ends in \".framework\"; add directory containing framework instead: \(path)")
+  }
 }
 
 // MARK: Miscellaneous Argument Validation
@@ -1611,7 +1611,7 @@ extension Driver {
                                                diagnosticEngine: DiagnosticsEngine) {
     for arg in parsedOptions.arguments(for: .D).map(\.argument.asSingle) {
       if arg.contains("=") {
-        diagnosticEngine.emit(Error.cannotAssignToConditionalCompilationFlag(arg))
+        diagnosticEngine.emit(.warning_cannot_assign_to_compilation_condition(name: arg))
       } else if arg.hasPrefix("-D") {
         diagnosticEngine.emit(Error.conditionalCompilationFlagHasRedundantPrefix(arg))
       } else if !arg.sd_isSwiftIdentifier {
@@ -1624,7 +1624,7 @@ extension Driver {
                                               diagnosticEngine: DiagnosticsEngine) {
     for arg in parsedOptions.arguments(for: .F, .Fsystem).map(\.argument.asSingle) {
       if arg.hasSuffix(".framework") || arg.hasSuffix(".framework/") {
-        diagnosticEngine.emit(Error.frameworkSearchPathIncludesExtension(arg))
+        diagnosticEngine.emit(.warning_framework_search_path_includes_extension(path: arg))
       }
     }
   }
