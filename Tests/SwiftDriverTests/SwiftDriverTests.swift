@@ -1664,6 +1664,32 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-link-objc-runtime", "foo.swift")
   }
 
+  func testProfileArgValidation() throws {
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-profile-generate", "-profile-use=profile.profdata"])) {
+      XCTAssertEqual($0 as? Driver.Error, .conflictingOptions(.profileGenerate, .profileUse))
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-profile-use=profile.profdata"])) {
+      XCTAssertEqual($0 as? Driver.Error, .missingProfilingData("profile.profdata"))
+    }
+
+    try withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(path.appending(component: "profile.profdata"), bytes: .init())
+      XCTAssertNoThrow(try Driver(args: ["swiftc", "-working-directory", path.pathString, "foo.swift", "-profile-use=profile.profdata"]))
+    }
+
+    try withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(path.appending(component: "profile.profdata"), bytes: .init())
+      XCTAssertThrowsError(try Driver(args: ["swiftc", "-working-directory", path.pathString, "foo.swift",
+                                             "-profile-use=profile.profdata,profile2.profdata"])) {
+        guard case Driver.Error.missingProfilingData = $0 else {
+          XCTFail()
+          return
+        }
+      }
+    }
+  }
+
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     try withTemporaryDirectory { tmpDir in

@@ -27,6 +27,7 @@ public struct Driver {
     case unableToLoadOutputFileMap(String)
     case unableToDecodeFrontendTargetInfo
     case failedToRetrieveFrontendTargetInfo
+    case missingProfilingData(String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -55,6 +56,8 @@ public struct Driver {
         return "could not decode frontend target info; compiler driver and frontend executables may be incompatible"
       case .failedToRetrieveFrontendTargetInfo:
         return "failed to retrieve frontend target info"
+      case .missingProfilingData(let arg):
+        return "no profdata file exists at '\(arg)'"
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
@@ -328,6 +331,9 @@ public struct Driver {
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     try Self.validateWarningControlArgs(&parsedOptions)
+    try Self.validateProfilingArgs(&parsedOptions,
+                                   fileSystem: fileSystem,
+                                   workingDirectory: workingDirectory)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
@@ -1562,6 +1568,25 @@ extension Driver {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
       throw Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)
+    }
+  }
+
+  static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
+                                    fileSystem: FileSystem,
+                                    workingDirectory: AbsolutePath?) throws {
+    if parsedOptions.hasArgument(.profileGenerate) &&
+        parsedOptions.hasArgument(.profileUse) {
+      throw Error.conflictingOptions(.profileGenerate, .profileUse)
+    }
+
+    if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
+       let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
+      for profilingData in profileArgs {
+        guard fileSystem.exists(AbsolutePath(profilingData,
+                                             relativeTo: workingDirectory)) else {
+          throw Error.missingProfilingData(profilingData)
+        }
+      }
     }
   }
 
