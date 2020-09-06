@@ -31,6 +31,7 @@ public struct Driver {
     case cannotAssignToConditionalCompilationFlag(String)
     case conditionalCompilationFlagHasRedundantPrefix(String)
     case conditionalCompilationFlagIsNotValidIdentifier(String)
+    case frameworkSearchPathIncludesExtension(String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -61,6 +62,14 @@ public struct Driver {
         return "failed to retrieve frontend target info"
       case .missingProfilingData(let arg):
         return "no profdata file exists at '\(arg)'"
+      case .cannotAssignToConditionalCompilationFlag(let name):
+        return "conditional compilation flags do not have values in Swift; they are either present or absent (rather than '\(name)')"
+      case .conditionalCompilationFlagHasRedundantPrefix(let name):
+        return "invalid argument '-D\(name)'; did you provide a redundant '-D' in your build settings?"
+      case .conditionalCompilationFlagIsNotValidIdentifier(let name):
+        return "conditional compilation flags must be valid Swift identifiers (rather than '\(name)')"
+      case .frameworkSearchPathIncludesExtension(let arg):
+        return "framework search path ends in \".framework\"; add directory containing framework instead: \(arg)"
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
@@ -74,12 +83,6 @@ public struct Driver {
         return "unable to load output file map '\(path)': no such file or directory"
       case .missingExternalDependency(let moduleName):
         return "Missing External dependency info for module: \(moduleName)"
-      case .cannotAssignToConditionalCompilationFlag(let name):
-        return "conditional compilation flags do not have values in Swift; they are either present or absent (rather than '\(name)')"
-      case .conditionalCompilationFlagHasRedundantPrefix(let name):
-        return "invalid argument '-D\(name)'; did you provide a redundant '-D' in your build settings?"
-      case .conditionalCompilationFlagIsNotValidIdentifier(let name):
-        return "conditional compilation flags must be valid Swift identifiers (rather than '\(name)')"
       }
     }
   }
@@ -344,6 +347,7 @@ public struct Driver {
                                    fileSystem: fileSystem,
                                    workingDirectory: workingDirectory)
     try Self.validateCompilationConditionArgs(&parsedOptions)
+    try Self.validateFrameworkSearchPathArgs(&parsedOptions)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
@@ -1610,6 +1614,14 @@ extension Driver {
       }
       guard arg.sd_isSwiftIdentifier else {
         throw Error.conditionalCompilationFlagIsNotValidIdentifier(arg)
+      }
+    }
+  }
+
+  static func validateFrameworkSearchPathArgs(_ parsedOptions: inout ParsedOptions) throws {
+    for arg in parsedOptions.arguments(for: .F, .Fsystem).map(\.argument.asSingle) {
+      if arg.hasSuffix(".framework") || arg.hasSuffix(".framework/") {
+        throw Error.frameworkSearchPathIncludesExtension(arg)
       }
     }
   }

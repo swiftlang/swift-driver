@@ -1706,6 +1706,22 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertNoThrow(try Driver(args: ["swiftc", "foo.swift", "-DFOO"]))
   }
 
+  func testFrameworkSearchPathArgValidation() throws {
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-F/some/dir/xyz.framework"])) {
+      XCTAssertEqual($0 as? Driver.Error, .frameworkSearchPathIncludesExtension("/some/dir/xyz.framework"))
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-F/some/dir/xyz.framework/"])) {
+      XCTAssertEqual($0 as? Driver.Error, .frameworkSearchPathIncludesExtension("/some/dir/xyz.framework/"))
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "foo.swift", "-Fsystem", "/some/dir/xyz.framework"])) {
+      XCTAssertEqual($0 as? Driver.Error, .frameworkSearchPathIncludesExtension("/some/dir/xyz.framework"))
+    }
+
+    XCTAssertNoThrow(try Driver(args: ["swiftc", "foo.swift", "-Fsystem", "/some/dir/"]))
+  }
+
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     try withTemporaryDirectory { tmpDir in
