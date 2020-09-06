@@ -342,12 +342,13 @@ public struct Driver {
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
-    try Self.validateWarningControlArgs(&parsedOptions)
-    try Self.validateProfilingArgs(&parsedOptions,
-                                   fileSystem: fileSystem,
-                                   workingDirectory: workingDirectory)
-    try Self.validateCompilationConditionArgs(&parsedOptions)
-    try Self.validateFrameworkSearchPathArgs(&parsedOptions)
+    Self.validateWarningControlArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateProfilingArgs(&parsedOptions,
+                               fileSystem: fileSystem,
+                               workingDirectory: workingDirectory,
+                               diagnosticEngine: diagnosticEngine)
+    Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
@@ -1578,50 +1579,52 @@ extension Diagnostic.Message {
 
 // MARK: Miscellaneous Argument Validation
 extension Driver {
-  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions) throws {
+  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions,
+                                         diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
-      throw Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)
+      diagnosticEngine.emit(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
     }
   }
 
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
-                                    workingDirectory: AbsolutePath?) throws {
+                                    workingDirectory: AbsolutePath?,
+                                    diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.profileGenerate) &&
         parsedOptions.hasArgument(.profileUse) {
-      throw Error.conflictingOptions(.profileGenerate, .profileUse)
+      diagnosticEngine.emit(Error.conflictingOptions(.profileGenerate, .profileUse))
     }
 
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
        let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
       for profilingData in profileArgs {
-        guard fileSystem.exists(AbsolutePath(profilingData,
-                                             relativeTo: workingDirectory)) else {
-          throw Error.missingProfilingData(profilingData)
+        if !fileSystem.exists(AbsolutePath(profilingData,
+                                           relativeTo: workingDirectory)) {
+          diagnosticEngine.emit(Error.missingProfilingData(profilingData))
         }
       }
     }
   }
 
-  static func validateCompilationConditionArgs(_ parsedOptions: inout ParsedOptions) throws {
+  static func validateCompilationConditionArgs(_ parsedOptions: inout ParsedOptions,
+                                               diagnosticEngine: DiagnosticsEngine) {
     for arg in parsedOptions.arguments(for: .D).map(\.argument.asSingle) {
-      guard !arg.contains("=") else {
-        throw Error.cannotAssignToConditionalCompilationFlag(arg)
-      }
-      guard !arg.hasPrefix("-D") else {
-        throw Error.conditionalCompilationFlagHasRedundantPrefix(arg)
-      }
-      guard arg.sd_isSwiftIdentifier else {
-        throw Error.conditionalCompilationFlagIsNotValidIdentifier(arg)
+      if arg.contains("=") {
+        diagnosticEngine.emit(Error.cannotAssignToConditionalCompilationFlag(arg))
+      } else if arg.hasPrefix("-D") {
+        diagnosticEngine.emit(Error.conditionalCompilationFlagHasRedundantPrefix(arg))
+      } else if !arg.sd_isSwiftIdentifier {
+        diagnosticEngine.emit(Error.conditionalCompilationFlagIsNotValidIdentifier(arg))
       }
     }
   }
 
-  static func validateFrameworkSearchPathArgs(_ parsedOptions: inout ParsedOptions) throws {
+  static func validateFrameworkSearchPathArgs(_ parsedOptions: inout ParsedOptions,
+                                              diagnosticEngine: DiagnosticsEngine) {
     for arg in parsedOptions.arguments(for: .F, .Fsystem).map(\.argument.asSingle) {
       if arg.hasSuffix(".framework") || arg.hasSuffix(".framework/") {
-        throw Error.frameworkSearchPathIncludesExtension(arg)
+        diagnosticEngine.emit(Error.frameworkSearchPathIncludesExtension(arg))
       }
     }
   }
