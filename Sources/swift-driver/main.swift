@@ -47,6 +47,10 @@ do {
   var driver = try Driver(args: arguments,
                           diagnosticsEngine: diagnosticsEngine,
                           executor: executor)
+  // FIXME: The following check should be at the end of Driver.init, but current
+  // usage of the DiagnosticVerifier in tests makes this difficult.
+  guard !driver.diagnosticEngine.hasErrors else { throw Diagnostics.fatalError }
+
   let jobs = try driver.planBuild()
   try driver.run(jobs: jobs)
 

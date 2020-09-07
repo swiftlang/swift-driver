@@ -1664,6 +1664,70 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-link-objc-runtime", "foo.swift")
   }
 
+  func testProfileArgValidation() throws {
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-generate", "-profile-use=profile.profdata"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.profileGenerate, .profileUse)))
+      $1.expect(.error(Driver.Error.missingProfilingData("profile.profdata")))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-use=profile.profdata"]) {
+      $1.expect(.error(Driver.Error.missingProfilingData("profile.profdata")))
+    }
+
+    try withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(path.appending(component: "profile.profdata"), bytes: .init())
+      try assertNoDriverDiagnostics(args: "swiftc", "-working-directory", path.pathString, "foo.swift", "-profile-use=profile.profdata")
+    }
+
+    try withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(path.appending(component: "profile.profdata"), bytes: .init())
+      try assertDriverDiagnostics(args: ["swiftc", "-working-directory", path.pathString, "foo.swift",
+                                         "-profile-use=profile.profdata,profile2.profdata"]) {
+        $1.expect(.error(Driver.Error.missingProfilingData(path.appending(component: "profile2.profdata").pathString)))
+      }
+    }
+  }
+
+  func testConditionalCompilationArgValidation() throws {
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-DFOO=BAR"]) {
+      $1.expect(.warning("conditional compilation flags do not have values in Swift; they are either present or absent (rather than 'FOO=BAR')"))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-D-DFOO"]) {
+      $1.expect(.error(Driver.Error.conditionalCompilationFlagHasRedundantPrefix("-DFOO")))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-Dnot-an-identifier"]) {
+      $1.expect(.error(Driver.Error.conditionalCompilationFlagIsNotValidIdentifier("not-an-identifier")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-DFOO")
+  }
+
+  func testFrameworkSearchPathArgValidation() throws {
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-F/some/dir/xyz.framework"]) {
+      $1.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework"))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-F/some/dir/xyz.framework/"]) {
+      $1.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework/"))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-Fsystem", "/some/dir/xyz.framework"]) {
+      $1.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework"))
+    }
+
+   try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-Fsystem", "/some/dir/")
+  }
+
+  func testMultipleValidationFailures() throws {
+    try assertDiagnostics { engine, verifier in
+      verifier.expect(.error(Driver.Error.conditionalCompilationFlagIsNotValidIdentifier("not-an-identifier")))
+      verifier.expect(.warning("framework search path ends in \".framework\"; add directory containing framework instead: /some/dir/xyz.framework"))
+      _ = try Driver(args: ["swiftc", "foo.swift", "-Dnot-an-identifier", "-F/some/dir/xyz.framework"], diagnosticsEngine: engine)
+    }
+  }
+
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     try withTemporaryDirectory { tmpDir in
@@ -2310,8 +2374,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      XCTAssertThrowsError(try Driver(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "-suppress-warnings", "foo.swift"])) {
-        XCTAssertEqual($0 as? Driver.Error, Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+      try assertDriverDiagnostics(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "-suppress-warnings", "foo.swift"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)))
       }
     }
 

@@ -27,6 +27,9 @@ public struct Driver {
     case unableToLoadOutputFileMap(String)
     case unableToDecodeFrontendTargetInfo
     case failedToRetrieveFrontendTargetInfo
+    case missingProfilingData(String)
+    case conditionalCompilationFlagHasRedundantPrefix(String)
+    case conditionalCompilationFlagIsNotValidIdentifier(String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -55,6 +58,12 @@ public struct Driver {
         return "could not decode frontend target info; compiler driver and frontend executables may be incompatible"
       case .failedToRetrieveFrontendTargetInfo:
         return "failed to retrieve frontend target info"
+      case .missingProfilingData(let arg):
+        return "no profdata file exists at '\(arg)'"
+      case .conditionalCompilationFlagHasRedundantPrefix(let name):
+        return "invalid argument '-D\(name)'; did you provide a redundant '-D' in your build settings?"
+      case .conditionalCompilationFlagIsNotValidIdentifier(let name):
+        return "conditional compilation flags must be valid Swift identifiers (rather than '\(name)')"
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
@@ -327,7 +336,13 @@ public struct Driver {
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
-    try Self.validateWarningControlArgs(&parsedOptions)
+    Self.validateWarningControlArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateProfilingArgs(&parsedOptions,
+                               fileSystem: fileSystem,
+                               workingDirectory: workingDirectory,
+                               diagnosticEngine: diagnosticEngine)
+    Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
@@ -1554,14 +1569,63 @@ extension Diagnostic.Message {
   static var error_bridging_header_module_interface: Diagnostic.Message {
     .error("using bridging headers with module interfaces is unsupported")
   }
+  static func warning_cannot_assign_to_compilation_condition(name: String) -> Diagnostic.Message {
+    .warning("conditional compilation flags do not have values in Swift; they are either present or absent (rather than '\(name)')")
+  }
+  static func warning_framework_search_path_includes_extension(path: String) -> Diagnostic.Message {
+    .warning("framework search path ends in \".framework\"; add directory containing framework instead: \(path)")
+  }
 }
 
 // MARK: Miscellaneous Argument Validation
 extension Driver {
-  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions) throws {
+  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions,
+                                         diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
-      throw Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)
+      diagnosticEngine.emit(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+    }
+  }
+
+  static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
+                                    fileSystem: FileSystem,
+                                    workingDirectory: AbsolutePath?,
+                                    diagnosticEngine: DiagnosticsEngine) {
+    if parsedOptions.hasArgument(.profileGenerate) &&
+        parsedOptions.hasArgument(.profileUse) {
+      diagnosticEngine.emit(Error.conflictingOptions(.profileGenerate, .profileUse))
+    }
+
+    if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
+       let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
+      for profilingData in profileArgs {
+        if !fileSystem.exists(AbsolutePath(profilingData,
+                                           relativeTo: workingDirectory)) {
+          diagnosticEngine.emit(Error.missingProfilingData(profilingData))
+        }
+      }
+    }
+  }
+
+  static func validateCompilationConditionArgs(_ parsedOptions: inout ParsedOptions,
+                                               diagnosticEngine: DiagnosticsEngine) {
+    for arg in parsedOptions.arguments(for: .D).map(\.argument.asSingle) {
+      if arg.contains("=") {
+        diagnosticEngine.emit(.warning_cannot_assign_to_compilation_condition(name: arg))
+      } else if arg.hasPrefix("-D") {
+        diagnosticEngine.emit(Error.conditionalCompilationFlagHasRedundantPrefix(arg))
+      } else if !arg.sd_isSwiftIdentifier {
+        diagnosticEngine.emit(Error.conditionalCompilationFlagIsNotValidIdentifier(arg))
+      }
+    }
+  }
+
+  static func validateFrameworkSearchPathArgs(_ parsedOptions: inout ParsedOptions,
+                                              diagnosticEngine: DiagnosticsEngine) {
+    for arg in parsedOptions.arguments(for: .F, .Fsystem).map(\.argument.asSingle) {
+      if arg.hasSuffix(".framework") || arg.hasSuffix(".framework/") {
+        diagnosticEngine.emit(.warning_framework_search_path_includes_extension(path: arg))
+      }
     }
   }
 
