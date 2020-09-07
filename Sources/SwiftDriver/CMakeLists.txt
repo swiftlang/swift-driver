@@ -83,7 +83,8 @@ target_link_libraries(SwiftDriver PUBLIC
   TSCBasic
   TSCUtility
   SwiftOptions
-  llbuildSwift
+  llbuildSwift)
+target_link_libraries(SwiftDriver PRIVATE
   CYaml
   Yams)
 
