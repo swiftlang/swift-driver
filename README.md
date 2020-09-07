@@ -60,7 +60,7 @@ The new Swift driver is a work in progress, and there are numerous places for an
 
 ### Driver Documentation
 
-For a conceptual overview of the driver, see [The Swift Driver, Compilation Model, and Command-Line Experience](https://github.com/apple/swift/blob/master/docs/Driver.md). To learn more about the internals, see [Driver Design & Internals](https://github.com/apple/swift/blob/master/docs/DriverInternals.rst) and [Parseable Driver Output](https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst).
+For a conceptual overview of the driver, see [The Swift Driver, Compilation Model, and Command-Line Experience](https://github.com/apple/swift/blob/master/docs/Driver.md). To learn more about the internals, see [Driver Design & Internals](https://github.com/apple/swift/blob/master/docs/DriverInternals.md) and [Parseable Driver Output](https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.md).
 
 ### Testing
 
