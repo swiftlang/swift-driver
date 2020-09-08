@@ -103,9 +103,9 @@ extension Driver {
     // Handle the CPU and its preferences.
     try commandLine.appendLast(.targetCpu, from: &parsedOptions)
 
-    if let sdkPath = sdkPath {
+    if let sdkPath = frontendTargetInfo.sdkPath?.path {
       commandLine.appendFlag(.sdk)
-      commandLine.append(.path(try .init(path: sdkPath)))
+      commandLine.append(.path(sdkPath))
     }
 
     try commandLine.appendAll(.I, from: &parsedOptions)
@@ -196,8 +196,7 @@ extension Driver {
 
     // Resource directory.
     commandLine.appendFlag(.resourceDir)
-    commandLine.appendPath(
-      try AbsolutePath(validating: frontendTargetInfo.paths.runtimeResourcePath))
+    commandLine.appendPath(frontendTargetInfo.runtimeResourcePath.path)
 
     if parsedOptions.hasFlag(positive: .staticExecutable,
                              negative: .noStaticExecutable,

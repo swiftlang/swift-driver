@@ -290,7 +290,7 @@ import SwiftOptions
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo
   ) throws {
-    guard let sdkPath = try frontendTargetInfo.paths.sdkPath.map(VirtualPath.init(path:)),
+    guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
 
     commandLine.append(.flag("-target-sdk-version"))
