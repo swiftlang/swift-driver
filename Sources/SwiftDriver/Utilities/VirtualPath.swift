@@ -215,6 +215,28 @@ extension VirtualPath: Codable {
   }
 }
 
+/// A wrapper for easier decoding of absolute or relative VirtualPaths from strings.
+struct TextualVirtualPath: Codable {
+  var path: VirtualPath
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    path = try VirtualPath(path: container.decode(String.self))
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    switch path {
+    case .absolute(let path):
+      try container.encode(path.pathString)
+    case .relative(let path):
+      try container.encode(path.pathString)
+    case .temporary, .standardInput, .standardOutput, .fileList:
+      preconditionFailure("Path does not have a round-trippable textual representation")
+    }
+  }
+}
+
 extension VirtualPath: CustomStringConvertible {
   public var description: String {
     switch self {

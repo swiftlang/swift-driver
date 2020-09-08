@@ -173,8 +173,18 @@ public struct Driver {
   public let incrementalCompilationState: IncrementalCompilationState
 
   /// The path of the SDK.
-  public var sdkPath: String? {
-    frontendTargetInfo.paths.sdkPath
+  public var absoluteSDKPath: AbsolutePath? {
+    switch frontendTargetInfo.sdkPath?.path {
+    case .absolute(let path):
+      return path
+    case .relative(let path):
+      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
+      return cwd.map { AbsolutePath($0, path) }
+    case nil:
+      return nil
+    case .standardInput, .standardOutput, .temporary, .fileList:
+      fatalError("Frontend target information will never include a path of this type.")
+    }
   }
 
   /// The path to the imported Objective-C header.

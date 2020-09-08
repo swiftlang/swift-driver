@@ -37,8 +37,8 @@ extension Driver {
     try commandLine.appendLast(.DASHDASH, from: &parsedOptions)
 
     let extraEnvironment = try toolchain.platformSpecificInterpreterEnvironmentVariables(
-      env: self.env, parsedOptions: &parsedOptions, sdkPath: self.sdkPath,
-      targetTriple: self.targetTriple)
+      env: self.env, parsedOptions: &parsedOptions,
+      sdkPath: self.absoluteSDKPath?.pathString, targetTriple: self.targetTriple)
 
     return Job(
       moduleName: moduleOutputInfo.name,
