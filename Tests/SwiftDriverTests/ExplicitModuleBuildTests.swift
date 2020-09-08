@@ -133,6 +133,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-driver-print-module-dependencies-jobs",
+                                     "-module-name", "testModuleDependencyBuildCommandGeneration",
                                      "test.swift"])
       let pcmArgs = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.15"]
       let moduleDependencyGraph =
@@ -250,7 +251,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// is invoked with -experimental-explicit-module-build
   func testExplicitModuleBuildJobs() throws {
     try withTemporaryDirectory { path in
-      let main = path.appending(component: "main.swift")
+      let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import C;"
         $0 <<< "import E;"
@@ -328,7 +329,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
                                             moduleDependencyGraph: dependencyGraph)
-          case .temporary(RelativePath("main.o")):
+          case .temporary(RelativePath("testExplicitModuleBuildJobs.o")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
               XCTFail("Main module does not have Swift details field")
@@ -338,11 +339,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs,
                                                         moduleInfo: dependencyGraph.mainModule,
                                                         moduleDependencyGraph: dependencyGraph)
-          case .relative(RelativePath("main")):
+          case .relative(RelativePath("testExplicitModuleBuildJobs")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             XCTAssertEqual(job.kind, .link)
 
-          case .temporary(RelativePath("main.autolink")):
+          case .temporary(RelativePath("testExplicitModuleBuildJobs.autolink")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             XCTAssertEqual(job.kind, .autolinkExtract)
 
@@ -359,7 +360,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     #if os(macOS)
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
-      let main = path.appending(component: "main.swift")
+      let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import C;"
         $0 <<< "import E;"
