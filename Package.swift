@@ -53,7 +53,7 @@ let package = Package(
     /// The help executable.
     .target(
       name: "swift-help",
-      dependencies: ["SwiftOptions"]),
+      dependencies: ["SwiftOptions", "ArgumentParser"]),
 
     /// The `makeOptions` utility (for importing option definitions).
     .target(
@@ -82,10 +82,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
     .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
     .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "4.0.0")),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", .exact("0.3.0"))
     ]
 } else {
     package.dependencies += [
         .package(path: "../swiftpm/swift-tools-support-core"),
         .package(path: "../yams"),
+        .package(path: "../swift-argument-parser"),
     ]
 }
