@@ -1855,7 +1855,7 @@ extension Driver {
         return path
       }
 
-      return path.replacingExtension(with: type)
+      return path.parentDirectory.appending(component: "\(moduleName).\(type.rawValue)")
     }
 
     return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
@@ -1954,12 +1954,15 @@ extension Driver {
         _ = parsedOptions.hasArgument(isOutput)
       }
 
+      let parentPath: VirtualPath
       if let projectDirectory = projectDirectory {
         // If the build system has created a Project dir for us to include the file, use it.
-        return projectDirectory.appending(component: moduleName.appendingFileTypeExtension(type))
+        parentPath = projectDirectory
+      } else {
+        parentPath = moduleOutputPath.parentDirectory
       }
 
-      return moduleOutputPath.replacingExtension(with: type)
+      return parentPath.appending(component: moduleName).replacingExtension(with: type)
     }
 
     // If the output option was not provided, don't produce this output at all.
