@@ -2271,6 +2271,8 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       struct MockExecutor: DriverExecutor {
+        let resolver: ArgsResolver
+        
         func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
@@ -2286,7 +2288,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
-                                      executor: MockExecutor())) {
+                                      executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())))) {
         error in
         XCTAssertEqual(error as? Driver.Error, .unableToDecodeFrontendTargetInfo)
       }
@@ -3132,6 +3134,158 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
+    }
+  }
+
+  func testFilelist() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"])
+      let plannedJobs = try driver.planBuild()
+
+      let jobA = plannedJobs[0]
+      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
+      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapA) = fileListA else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      let filesA = try XCTUnwrap(mapA.entries[.relative(RelativePath("a.swift"))])
+      XCTAssertTrue(filesA.keys.contains(.swiftModule))
+      XCTAssertTrue(filesA.keys.contains(.swiftDocumentation))
+      XCTAssertTrue(filesA.keys.contains(.swiftSourceInfoFile))
+
+      let jobB = plannedJobs[1]
+      let flagB = jobB.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentB = jobB.commandLine[jobB.commandLine.index(after: flagB)]
+      guard case let .path(.fileList(_, fileListB)) = fileListArgumentB else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapB) = fileListB else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      let filesB = try XCTUnwrap(mapB.entries[.relative(RelativePath("b.swift"))])
+      XCTAssertTrue(filesB.keys.contains(.swiftModule))
+      XCTAssertTrue(filesB.keys.contains(.swiftDocumentation))
+      XCTAssertTrue(filesB.keys.contains(.swiftSourceInfoFile))
+
+      let jobC = plannedJobs[2]
+      let flagC = jobC.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentC = jobC.commandLine[jobC.commandLine.index(after: flagC)]
+      guard case let .path(.fileList(_, fileListC)) = fileListArgumentC else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapC) = fileListC else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      let filesC = try XCTUnwrap(mapC.entries[.relative(RelativePath("c.swift"))])
+      XCTAssertTrue(filesC.keys.contains(.swiftModule))
+      XCTAssertTrue(filesC.keys.contains(.swiftDocumentation))
+      XCTAssertTrue(filesC.keys.contains(.swiftSourceInfoFile))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
+      let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
+      guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .list(inputs) = inputFileList else {
+        XCTFail("FileList wasn't List")
+        return
+      }
+      XCTAssertEqual(inputs, [.relative(RelativePath("a.swift")), .relative(RelativePath("b.swift")), .relative(RelativePath("c.swift"))])
+
+      let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
+      let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
+      guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .list(outputs) = outputFileList else {
+        XCTFail("FileList wasn't List")
+        return
+      }
+      XCTAssertEqual(outputs, [.relative(RelativePath("main.o"))])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
+      let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
+      guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .list(outputs) = outputFileList else {
+        XCTFail("FileList wasn't List")
+        return
+      }
+      XCTAssertEqual(outputs, [.relative(RelativePath("a.o")), .relative(RelativePath("b.o")), .relative(RelativePath("c.o"))])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1", "-embed-bitcode"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
+      let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
+      guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .list(outputs) = outputFileList else {
+        XCTFail("FileList wasn't List")
+        return
+      }
+      XCTAssertEqual(outputs, [.temporary(RelativePath("a.bc")), .temporary(RelativePath("b.bc")), .temporary(RelativePath("c.bc"))])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[3]
+      let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
+      let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
+      guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .list(inputs) = inputFileList else {
+        XCTFail("FileList wasn't List")
+        return
+      }
+      XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[1]
+      let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
+      let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
+      guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .list(inputs) = inputFileList else {
+        XCTFail("FileList wasn't List")
+        return
+      }
+      XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
     }
   }
 }

@@ -248,13 +248,15 @@ extension Driver {
                                                            frontendTargetInfo: frontendTargetInfo)
   }
 
-  mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate], primaryInputs: [TypedVirtualPath]) throws -> [TypedVirtualPath] {
-    var outputs: [TypedVirtualPath] = []
+  mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
+                                                        primaryInputs: [TypedVirtualPath],
+                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath]) throws -> [TypedVirtualPath] {
+    var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
     func addOutputOfType(
         outputType: FileType, finalOutputPath: VirtualPath?,
-        input: VirtualPath?, flag: String
+        input: TypedVirtualPath?, flag: String
     ) {
       // If there is no final output, there's nothing to do.
       guard let finalOutputPath = finalOutputPath else { return }
@@ -263,69 +265,71 @@ extension Driver {
       // do.
       if outputType == compilerOutputType { return }
 
-      // Add the appropriate flag.
-      commandLine.appendFlag(flag)
-
       // Compute the output path based on the input path (if there is one), or
       // use the final output.
       let outputPath: VirtualPath
       if let input = input {
-        outputPath = (outputFileMap ?? OutputFileMap())
-          .getOutput(inputFile: input, outputType: outputType)
+        if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
+          outputPath = outputFileMapPath
+        } else if let output = inputOutputMap[input], output.file != .standardOutput, compilerOutputType != nil {
+          // Alongside primary output
+          outputPath = output.file.replacingExtension(with: outputType)
+        } else {
+          outputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType)))
+        }
       } else {
         outputPath = finalOutputPath
       }
 
-      commandLine.append(.path(outputPath))
-      outputs.append(TypedVirtualPath(file: outputPath, type: outputType))
+      flaggedInputOutputPairs.append((flag: flag, input: input, output: TypedVirtualPath(file: outputPath, type: outputType)))
     }
 
     /// Add all of the outputs needed for a given input.
-    func addAllOutputsFor(input: VirtualPath?) {
+    func addAllOutputsFor(input: TypedVirtualPath?) {
       if !forceEmitModuleInSingleInvocation {
         addOutputOfType(
-            outputType: .swiftModule,
-            finalOutputPath: moduleOutputInfo.output?.outputPath,
-            input: input,
-            flag: "-emit-module-path")
+          outputType: .swiftModule,
+          finalOutputPath: moduleOutputInfo.output?.outputPath,
+          input: input,
+          flag: "-emit-module-path")
         addOutputOfType(
-            outputType: .swiftDocumentation,
-            finalOutputPath: moduleDocOutputPath,
-            input: input,
-            flag: "-emit-module-doc-path")
+          outputType: .swiftDocumentation,
+          finalOutputPath: moduleDocOutputPath,
+          input: input,
+          flag: "-emit-module-doc-path")
         addOutputOfType(
-            outputType: .swiftSourceInfoFile,
-            finalOutputPath: moduleSourceInfoPath,
-            input: input,
-            flag: "-emit-module-source-info-path")
+          outputType: .swiftSourceInfoFile,
+          finalOutputPath: moduleSourceInfoPath,
+          input: input,
+          flag: "-emit-module-source-info-path")
         addOutputOfType(
-            outputType: .dependencies,
-            finalOutputPath: dependenciesFilePath,
-            input: input,
-            flag: "-emit-dependencies-path")
+          outputType: .dependencies,
+          finalOutputPath: dependenciesFilePath,
+          input: input,
+          flag: "-emit-dependencies-path")
       }
 
       addOutputOfType(
-          outputType: .yamlOptimizationRecord,
-          finalOutputPath: optimizationRecordPath,
-          input: input,
-          flag: "-save-optimization-record-path")
+        outputType: .yamlOptimizationRecord,
+        finalOutputPath: optimizationRecordPath,
+        input: input,
+        flag: "-save-optimization-record-path")
 
       addOutputOfType(
-          outputType: .diagnostics,
-          finalOutputPath: serializedDiagnosticsFilePath,
-          input: input,
-          flag: "-serialize-diagnostics-path")
+        outputType: .diagnostics,
+        finalOutputPath: serializedDiagnosticsFilePath,
+        input: input,
+        flag: "-serialize-diagnostics-path")
 
       #if false
       // FIXME: handle -update-code
-      addOutputOfType(outputType: .remap, input: input.file, flag: "-emit-remap-file-path")
+      addOutputOfType(outputType: .remap, input: input, flag: "-emit-remap-file-path")
       #endif
     }
 
     if compilerMode.usesPrimaryFileInputs {
       for input in primaryInputs {
-        addAllOutputsFor(input: input.file)
+        addAllOutputsFor(input: input)
       }
     } else {
       addAllOutputsFor(input: nil)
@@ -333,29 +337,62 @@ extension Driver {
       // Outputs that only make sense when the whole module is processed
       // together.
       addOutputOfType(
-          outputType: .objcHeader,
-          finalOutputPath: objcGeneratedHeaderPath,
-          input: nil,
-          flag: "-emit-objc-header-path")
+        outputType: .objcHeader,
+        finalOutputPath: objcGeneratedHeaderPath,
+        input: nil,
+        flag: "-emit-objc-header-path")
 
       addOutputOfType(
-          outputType: .swiftInterface,
-          finalOutputPath: swiftInterfacePath,
-          input: nil,
-          flag: "-emit-module-interface-path")
+        outputType: .swiftInterface,
+        finalOutputPath: swiftInterfacePath,
+        input: nil,
+        flag: "-emit-module-interface-path")
 
       addOutputOfType(
-          outputType: .tbd,
-          finalOutputPath: tbdPath,
-          input: nil,
-          flag: "-emit-tbd-path")
+        outputType: .tbd,
+        finalOutputPath: tbdPath,
+        input: nil,
+        flag: "-emit-tbd-path")
     }
 
-    return outputs
+    // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
+    if primaryInputs.count * FileType.allCases.count > fileListThreshold {
+      var entries = [VirtualPath: [FileType: VirtualPath]]()
+      for input in primaryInputs {
+        if let output = inputOutputMap[input] {
+          addEntry(&entries, input: input, output: output)
+        }
+      }
+      for flaggedPair in flaggedInputOutputPairs {
+        addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
+      }
+      let outputFileMap = OutputFileMap(entries: entries)
+      let path = RelativePath(createTemporaryFileName(prefix: "supplementaryOutputs"))
+      commandLine.appendFlag(.supplementaryOutputFileMap)
+      commandLine.appendPath(.fileList(path, .outputFileMap(outputFileMap)))
+    } else {
+      for flaggedPair in flaggedInputOutputPairs {
+        // Add the appropriate flag.
+        commandLine.appendFlag(flaggedPair.flag)
+        commandLine.appendPath(flaggedPair.output.file)
+      }
+    }
+
+    return flaggedInputOutputPairs.map { $0.output }
   }
 
-  /// Adds all dependecies required for an explicit module build
-  /// to inputs and comman line arguments of a compile job.
+  func addEntry(_ entries: inout [VirtualPath: [FileType: VirtualPath]], input: TypedVirtualPath?, output: TypedVirtualPath) {
+    let entryInput: VirtualPath
+    if let input = input?.file, input != OutputFileMap.singleInputKey {
+      entryInput = input
+    } else {
+      entryInput = inputFiles[0].file
+    }
+    entries[entryInput, default: [:]][output.type] = output.file
+  }
+
+  /// Adds all dependencies required for an explicit module build
+  /// to inputs and command line arguments of a compile job.
   func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
                                        commandLine: inout [Job.ArgTemplate]) throws {
     guard var handler = explicitModuleBuildHandler else {
@@ -372,4 +409,11 @@ extension Driver {
     }
     return job.moduleName == handler.dependencyGraph.mainModuleName
   }
+}
+
+var id: Int = 0
+// I don't like this as a global function, but it needs to be used by both Driver and Toolchain
+func createTemporaryFileName(prefix: String, suffix: String? = nil) -> String {
+  id += 1
+  return prefix + "-\(id)" + (suffix.map { "." + $0 } ?? "")
 }

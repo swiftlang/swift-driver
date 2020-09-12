@@ -14,6 +14,8 @@ import TSCBasic
 import Foundation
 
 public protocol DriverExecutor {
+  var resolver: ArgsResolver { get }
+
   /// Execute a single job and capture the output.
   @discardableResult
   func execute(job: Job,
@@ -87,7 +89,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
   let diagnosticsEngine: DiagnosticsEngine
   let processSet: ProcessSet
   let fileSystem: FileSystem
-  let resolver: ArgsResolver
+  public let resolver: ArgsResolver
   let env: [String: String]
   
   public init(diagnosticsEngine: DiagnosticsEngine,
@@ -114,13 +116,13 @@ public final class SwiftDriverExecutor: DriverExecutor {
       for (envVar, value) in job.extraEnvironment {
         try ProcessEnv.setVar(envVar, value: value)
       }
-      
+
       try exec(path: arguments[0], args: arguments)
       fatalError("unreachable, exec always throws on failure")
     } else {
       var childEnv = env
       childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
-      
+
       let process = try Process.launchProcess(arguments: arguments, env: childEnv)
       return try process.waitUntilExit()
     }

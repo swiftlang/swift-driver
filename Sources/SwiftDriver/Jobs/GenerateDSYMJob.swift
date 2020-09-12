@@ -14,7 +14,7 @@ extension Driver {
   func generateDSYMJob(inputs: [TypedVirtualPath]) throws -> Job {
     assert(inputs.count == 1)
     let input = inputs[0]
-    let outputPath = try input.file.replacingExtension(with: .dSYM)
+    let outputPath = input.file.replacingExtension(with: .dSYM)
 
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendPath(input.file)
