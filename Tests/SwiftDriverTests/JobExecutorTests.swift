@@ -105,11 +105,11 @@ final class JobExecutorTests: XCTestCase {
 
       let exec = path.appending(component: "main")
 
-      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var resolver = try ArgsResolver(fileSystem: localFileSystem)
       resolver.pathMapping = [
-        .relative(RelativePath("foo.swift")): foo.pathString,
-        .relative(RelativePath("main.swift")): main.pathString,
-        .relative(RelativePath("main")): exec.pathString,
+        .relative(RelativePath("foo.swift")): foo,
+        .relative(RelativePath("main.swift")): main,
+        .relative(RelativePath("main")): exec,
       ]
 
       let compileFoo = Job(

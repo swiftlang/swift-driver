@@ -79,30 +79,12 @@ extension Driver {
   /// corresponding primary set of outputs.
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
                                  inputs: inout [TypedVirtualPath],
-                                 inputOutputMap: inout [TypedVirtualPath: TypedVirtualPath],
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
+    let isTopLevel = isTopLevelOutput(type: outputType)
+
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [TypedVirtualPath] = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
-
-    let useInputFileList: Bool
-    if let allSourcesFileList = allSourcesFileList {
-      useInputFileList = true
-      commandLine.appendFlag(.filelist)
-      commandLine.appendPath(allSourcesFileList)
-    } else {
-      useInputFileList = false
-    }
-
-    let usePrimaryInputFileList = primaryInputs.count > fileListThreshold
-    if usePrimaryInputFileList {
-      // primary file list
-      commandLine.appendFlag(.primaryFilelist)
-      let path = RelativePath(createTemporaryFileName(prefix: "primaryInputs"))
-      commandLine.appendPath(.fileList(path, .list(primaryInputs.map(\.file))))
-    }
-
-    let isTopLevel = isTopLevelOutput(type: outputType)
 
     // If we will be passing primary files via -primary-file, form a set of primary input files so
     // we can check more quickly.
@@ -113,43 +95,34 @@ extension Driver {
     let isMultithreaded = numThreads > 0
 
     // Add each of the input files.
+    // FIXME: Use/create input file lists and primary input file lists.
     var primaryOutputs: [TypedVirtualPath] = []
     for input in swiftInputFiles {
       inputs.append(input)
 
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
-        if !usePrimaryInputFileList {
-          commandLine.appendFlag(.primaryFile)
-          commandLine.appendPath(input.file)
-        }
-      } else {
-        if !useInputFileList {
-          commandLine.appendPath(input.file)
-        }
+        commandLine.appendFlag(.primaryFile)
       }
+      commandLine.append(.path(input.file))
 
       // If there is a primary output or we are doing multithreaded compiles,
       // add an output for the input.
       if let outputType = outputType,
         isPrimary || (!usesPrimaryFileInputs && isMultithreaded && outputType.isAfterLLVM) {
-        let output = computePrimaryOutput(for: input,
-                                          outputType: outputType,
-                                          isTopLevel: isTopLevel)
-        primaryOutputs.append(output)
-        inputOutputMap[input] = output
+        primaryOutputs.append(computePrimaryOutput(for: input,
+                                                   outputType: outputType,
+                                                   isTopLevel: isTopLevel))
       }
     }
 
     // When not using primary file inputs or multithreading, add a single output.
     if let outputType = outputType,
-       !usesPrimaryFileInputs && !(isMultithreaded && outputType.isAfterLLVM) {
-      let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: swiftInputFiles[0].type)
-      let output = computePrimaryOutput(for: input,
-                                        outputType: outputType,
-                                        isTopLevel: isTopLevel)
-      primaryOutputs.append(output)
-      inputOutputMap[input] = output
+      !usesPrimaryFileInputs && !(isMultithreaded && outputType.isAfterLLVM) {
+      primaryOutputs.append(computePrimaryOutput(
+        for: TypedVirtualPath(file: try! VirtualPath(path: ""),
+                              type: swiftInputFiles[0].type),
+        outputType: outputType, isTopLevel: isTopLevel))
     }
 
     return primaryOutputs
@@ -161,14 +134,11 @@ extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
-    // Used to map primaryInputs to primaryOutputs
-    var inputOutputMap = [TypedVirtualPath: TypedVirtualPath]()
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs,
                                           inputs: &inputs,
-                                          inputOutputMap: &inputOutputMap,
                                           outputType: outputType,
                                           commandLine: &commandLine)
     outputs += primaryOutputs
@@ -182,9 +152,7 @@ extension Driver {
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
-    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine,
-                                                           primaryInputs: primaryInputs,
-                                                           inputOutputMap: inputOutputMap)
+    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine, primaryInputs: primaryInputs)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
@@ -211,15 +179,9 @@ extension Driver {
     }
 
     // Add primary outputs.
-    if primaryOutputs.count > fileListThreshold {
-      commandLine.appendFlag(.outputFilelist)
-      let path = RelativePath(createTemporaryFileName(prefix: "outputs"))
-      commandLine.appendPath(.fileList(path, .list(primaryOutputs.map { $0.file })))
-    } else {
-      for primaryOutput in primaryOutputs {
-        commandLine.appendFlag(.o)
-        commandLine.appendPath(primaryOutput.file)
-      }
+    for primaryOutput in primaryOutputs {
+      commandLine.appendFlag(.o)
+      commandLine.append(.path(primaryOutput.file))
     }
 
     try commandLine.appendLast(.embedBitcodeMarker, from: &parsedOptions)

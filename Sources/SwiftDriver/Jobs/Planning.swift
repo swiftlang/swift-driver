@@ -35,9 +35,8 @@ extension Driver {
     var jobs = [Job]()
 
     // Keep track of the various outputs we care about from the jobs we build.
-    var linkerInputs = [TypedVirtualPath]()
-    var moduleInputs = [TypedVirtualPath]()
-    var moduleInputsFromJobOutputs = [TypedVirtualPath]()
+    var linkerInputs: [TypedVirtualPath] = []
+    var moduleInputs: [TypedVirtualPath] = []
     func addJobOutputs(_ jobOutputs: [TypedVirtualPath]) {
       for jobOutput in jobOutputs {
         switch jobOutput.type {
@@ -45,7 +44,7 @@ extension Driver {
           linkerInputs.append(jobOutput)
 
         case .swiftModule:
-          moduleInputsFromJobOutputs.append(jobOutput)
+          moduleInputs.append(jobOutput)
 
         default:
           break
@@ -190,10 +189,9 @@ extension Driver {
 
     // Plan the merge-module job, if there are module inputs.
     var mergeJob: Job?
-    if moduleOutputInfo.output != nil && !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty) && compilerMode.usesPrimaryFileInputs {
-      let mergeModule = try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
-      jobs.append(mergeModule)
-      mergeJob = mergeModule
+    if moduleOutputInfo.output != nil && !moduleInputs.isEmpty && compilerMode.usesPrimaryFileInputs {
+      mergeJob = try mergeModuleJob(inputs: moduleInputs)
+      jobs.append(mergeJob!)
     }
 
     // If we need to autolink-extract, do so.

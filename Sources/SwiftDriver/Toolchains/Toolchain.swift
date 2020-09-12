@@ -65,7 +65,6 @@ public protocol Toolchain {
     linkerOutputType: LinkOutputType,
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
-    shouldUseInputFileList: Bool,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo

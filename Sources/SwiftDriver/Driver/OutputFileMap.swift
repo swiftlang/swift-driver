@@ -15,9 +15,7 @@ import Foundation
 public typealias FileSystem = TSCBasic.FileSystem
 
 /// Mapping of input file paths to specific output files.
-public struct OutputFileMap: Hashable, Codable {
-  static let singleInputKey = VirtualPath.relative(RelativePath(""))
-
+public struct OutputFileMap: Equatable {
   /// The known mapping from input file to specific output files.
   public var entries: [VirtualPath : [FileType : VirtualPath]] = [:]
 
@@ -48,14 +46,14 @@ public struct OutputFileMap: Hashable, Codable {
   }
 
   public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath? {
-    existingOutput(inputFile: Self.singleInputKey, outputType: outputType)
+    try! existingOutput(inputFile: VirtualPath(path: ""), outputType: outputType)
   }
 
   public func resolveRelativePaths(relativeTo absPath: AbsolutePath) -> OutputFileMap {
     let resolvedKeyValues: [(VirtualPath, [FileType : VirtualPath])] = entries.map {
       let resolvedKey: VirtualPath
       // Special case for single dependency record, leave it as is
-      if $0.key == Self.singleInputKey {
+      if $0.key == .relative(.init("")) {
         resolvedKey = $0.key
       } else {
         resolvedKey = $0.key.resolvedRelativePath(base: absPath)
@@ -80,7 +78,7 @@ public struct OutputFileMap: Hashable, Codable {
     let contents = try fileSystem.readFileContents(file)
     let result = try JSONDecoder().decode(OutputFileMapJSON.self, from: Data(contents.contents))
 
-    // Convert the loaded entries into virtual output file map.
+    // Convert the loaded entries into virual output file map.
     var outputFileMap = OutputFileMap()
     outputFileMap.entries = try result.toVirtualOutputFileMap()
 

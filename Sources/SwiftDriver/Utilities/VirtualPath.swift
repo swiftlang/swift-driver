@@ -29,9 +29,6 @@ public enum VirtualPath: Hashable {
   /// A temporary file with the given name.
   case temporary(RelativePath)
 
-  /// A temporary file that holds a list of paths.
-  case fileList(RelativePath, FileList)
-
   /// Form a virtual path which may be either absolute or relative.
   public init(path: String) throws {
     if let absolute = try? AbsolutePath(validating: path) {
@@ -48,10 +45,12 @@ public enum VirtualPath: Hashable {
   /// The extension of this path, for relative or absolute paths.
   public var `extension`: String? {
     switch self {
-    case .relative(let path), .temporary(let path), .fileList(let path, _):
+    case .relative(let path), .temporary(let path):
       return path.extension
+
     case .absolute(let path):
       return path.extension
+
     case .standardInput, .standardOutput:
       return nil
     }
@@ -62,7 +61,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case .relative, .absolute, .standardInput, .standardOutput:
       return false
-    case .temporary, .fileList:
+    case .temporary:
       return true
     }
   }
@@ -71,7 +70,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case let .absolute(absolutePath):
       return absolutePath
-    case .relative, .temporary, .fileList, .standardInput, .standardOutput:
+    case .relative, .temporary, .standardInput, .standardOutput:
       return nil
     }
   }
@@ -81,7 +80,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case .absolute(let path):
       return path.basename
-    case .relative(let path), .temporary(let path), .fileList(let path, _):
+    case .relative(let path), .temporary(let path):
       return path.basename
     case .standardInput, .standardOutput:
       return ""
@@ -93,7 +92,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case .absolute(let path):
       return path.basenameWithoutExt
-    case .relative(let path), .temporary(let path), .fileList(let path, _):
+    case .relative(let path), .temporary(let path):
       return path.basenameWithoutExt
     case .standardInput, .standardOutput:
       return ""
@@ -108,8 +107,6 @@ public enum VirtualPath: Hashable {
     case .relative(let path):
       return .relative(RelativePath(path.dirname))
     case .temporary(let path):
-      return .temporary(RelativePath(path.dirname))
-    case .fileList(let path, _):
       return .temporary(RelativePath(path.dirname))
     case .standardInput, .standardOutput:
       assertionFailure("Can't get directory of stdin/stdout")
@@ -128,8 +125,6 @@ public enum VirtualPath: Hashable {
       return .relative(path.appending(component: component))
     case .temporary(let path):
       return .temporary(path.appending(component: component))
-    case .fileList(let path, let content):
-      return .fileList(path.appending(component: component), content)
     case .standardInput, .standardOutput:
       assertionFailure("Can't append path component to standard in/out")
       return self
@@ -147,8 +142,6 @@ public enum VirtualPath: Hashable {
       return .relative(RelativePath(path.pathString + suffix))
     case let .temporary(path):
       return .temporary(RelativePath(path.pathString + suffix))
-    case let .fileList(path, content):
-      return .fileList(RelativePath(path.pathString + suffix), content)
     case .standardInput, .standardOutput:
       assertionFailure("Can't append path component to standard in/out")
       return self
@@ -158,7 +151,7 @@ public enum VirtualPath: Hashable {
 
 extension VirtualPath: Codable {
   private enum CodingKeys: String, CodingKey {
-    case relative, absolute, standardInput, standardOutput, temporary, fileList
+    case relative, absolute, standardInput, standardOutput, temporary
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -177,10 +170,6 @@ extension VirtualPath: Codable {
     case .temporary(let a1):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .temporary)
       try unkeyedContainer.encode(a1)
-    case .fileList(let path, let fileList):
-      var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .fileList)
-      try unkeyedContainer.encode(path)
-      try unkeyedContainer.encode(fileList)
     }
   }
 
@@ -206,11 +195,6 @@ extension VirtualPath: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(RelativePath.self)
       self = .temporary(a1)
-    case .fileList:
-      var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-      let path = try unkeyedValues.decode(RelativePath.self)
-      let fileList = try unkeyedValues.decode(FileList.self)
-      self = .fileList(path, fileList)
     }
   }
 }
@@ -227,7 +211,7 @@ extension VirtualPath: CustomStringConvertible {
     case .standardInput, .standardOutput:
       return "-"
 
-    case .temporary(let path), .fileList(let path, _):
+    case .temporary(let path):
       return path.pathString
     }
   }
@@ -236,29 +220,15 @@ extension VirtualPath: CustomStringConvertible {
 extension VirtualPath {
   /// Replace the extension of the given path with a new one based on the
   /// specified file type.
-  public func replacingExtension(with fileType: FileType) -> VirtualPath {
-    switch self {
-    case let .absolute(path):
-      return .absolute(AbsolutePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
-    case let .relative(path):
-      return .relative(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
-    case let .temporary(path):
-      return .temporary(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
-    case let .fileList(path, content):
-      return .fileList(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
-    case .standardInput, .standardOutput:
-      return self
-    }
-  }
-}
-
-private extension String {
-  func withoutExt(_ ext: String?) -> String {
-    if let ext = ext {
-      return String(dropLast(ext.count + 1))
+  public func replacingExtension(with fileType: FileType) throws -> VirtualPath {
+    let pathString: String
+    if let ext = self.extension {
+      pathString = String(name.dropLast(ext.count + 1))
     } else {
-      return self
+      pathString = name
     }
+
+    return try VirtualPath(path: pathString.appendingFileTypeExtension(fileType))
   }
 }
 
@@ -282,7 +252,7 @@ extension TSCBasic.FileSystem {
         throw FileSystemError.noCurrentWorkingDirectory
       }
       return try f(.init(cwd, relPath))
-    case let .temporary(relPath), let .fileList(relPath, _):
+    case let .temporary(relPath):
       throw FileSystemError.cannotResolveTempPath(relPath)
     case .standardInput:
       throw FileSystemError.cannotResolveStandardInput
