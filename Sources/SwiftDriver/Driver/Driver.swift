@@ -199,7 +199,7 @@ public struct Driver {
       return cwd.map { AbsolutePath($0, path) }
     case nil:
       return nil
-    case .standardInput, .standardOutput, .temporary, .fileList:
+    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
       fatalError("Frontend target information will never include a path of this type.")
     }
   }

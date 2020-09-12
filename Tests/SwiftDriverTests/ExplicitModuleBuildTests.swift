@@ -84,10 +84,12 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
           XCTFail("No JSON dependency file path found.")
           return
         }
-        let contents =
-          try localFileSystem.readFileContents(jsonDepsPath.absolutePath!)
+        guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
+          XCTFail("Unexpected path type")
+          return
+        }
         let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
-                                                      from: Data(contents.contents))
+                                                      from: contents)
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
         XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.explicitCompiledModulePath ?? dependencyInfo.modulePath)
@@ -142,8 +144,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
-                                                                         toolchain: driver.toolchain,
-                                                                         fileSystem: localFileSystem)
+                                                                         toolchain: driver.toolchain)
       let modulePrebuildJobs =
         try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
@@ -209,8 +210,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try moduleDependencyGraph.resolvePlaceholderDependencies(
         using: (targetModulePathMap, externalModuleInfoMap))
       driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
-                                                                         toolchain: driver.toolchain,
-                                                                         fileSystem: localFileSystem)
+                                                                         toolchain: driver.toolchain)
       let modulePrebuildJobs =
         try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
 
@@ -239,7 +239,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
             continue
           case .absolute(AbsolutePath("/Somewhere/B.swiftmodule")):
             continue
-          case .absolute(let filePath):
+          case .temporaryWithKnownContents(let filePath, _):
             XCTAssertEqual(filePath.basename, "A-dependencies.json")
             continue
           default:
