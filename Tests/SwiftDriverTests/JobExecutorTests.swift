@@ -303,4 +303,18 @@ final class JobExecutorTests: XCTestCase {
       }
     }
   }
+
+  func testTemporaryFileWriting() throws {
+    try withTemporaryDirectory { path in
+      let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
+      let tmpPath = VirtualPath.temporaryWithKnownContents(.init("one.txt"), "hello, world!".data(using: .utf8)!)
+      let resolvedOnce = try resolver.resolve(.path(tmpPath))
+      let readContents = try localFileSystem.readFileContents(.init(validating: resolvedOnce))
+      XCTAssertEqual(readContents, "hello, world!")
+      let resolvedTwice = try resolver.resolve(.path(tmpPath))
+      XCTAssertEqual(resolvedOnce, resolvedTwice)
+      let readContents2 = try localFileSystem.readFileContents(.init(validating: resolvedTwice))
+      XCTAssertEqual(readContents2, readContents)
+    }
+  }
 }
