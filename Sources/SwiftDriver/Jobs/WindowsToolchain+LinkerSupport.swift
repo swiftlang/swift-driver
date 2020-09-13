@@ -93,7 +93,7 @@ extension WindowsToolchain {
           isShared: hasRuntimeArgs
         )
 
-        if hasRuntimeArgs && targetTriple.environment != .android {
+        if hasRuntimeArgs {
           // FIXME: We probably shouldn't be adding an rpath here unless we know
           //        ahead of time the standard library won't be copied.
           for path in runtimePaths {
@@ -110,10 +110,9 @@ extension WindowsToolchain {
           isShared: true
         )
 
-        let swiftrtPath = sharedResourceDirPath
-          .appending(
-            components: "x86_64", "swiftrt.o"
-          )
+        let swiftrtPath = sharedResourceDirPath.appending(
+          components: "windows", targetTriple.archName, "swiftrt.obj"
+        )
         commandLine.appendPath(swiftrtPath)
 
         let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
