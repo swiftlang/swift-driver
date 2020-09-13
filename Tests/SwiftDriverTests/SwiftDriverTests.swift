@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TSCBasic
 import XCTest

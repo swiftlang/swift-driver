@@ -258,8 +258,10 @@ public struct Driver {
   ///   at the beginning.
   /// - Parameter env: The environment variables to use. This is a hook for testing;
   ///   in production, you should use the default argument, which copies the current environment.
-  /// - Parameter diagnosticsHandler: A callback executed when a diagnostic is
-  ///   emitted. The default argument prints diagnostics to stderr.
+  /// - Parameter diagnosticsEngine: The diagnotic engine used by the driver to emit errors
+  ///   and warnings.
+  /// - Parameter fileSystem: The filesystem used by the driver to find resources/SDKs,
+  ///   expand response files, etc. By default this is the local filesystem.
   /// - Parameter executor: Used by the driver to execute jobs. The default argument
   ///   is present to streamline testing, it shouldn't be used in production.
   /// - Parameter externalModuleDependencies: A collection of external modules that the main module
@@ -509,7 +511,7 @@ extension Driver {
   /// Determines whether the given arguments constitute a normal invocation,
   /// or whether they invoke a subcommand.
   ///
-  /// Returns the invocation mode along with the arguments modified for that mode.
+  /// - Returns: the invocation mode along with the arguments modified for that mode.
   public static func invocationRunMode(
     forArgs args: [String]
   ) throws -> (mode: InvocationRunMode, args: [String]) {
@@ -664,7 +666,7 @@ extension Driver {
   }
 
   /// Expand response files in the input arguments and return a new argument list.
-  public static func expandResponseFiles(
+  @_spi(Testing) public static func expandResponseFiles(
     _ args: [String],
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine
@@ -683,7 +685,7 @@ extension Diagnostic.Message {
 extension Driver {
   /// Determine the driver kind based on the command-line arguments, consuming the arguments
   /// conveying this information.
-  public static func determineDriverKind(
+  @_spi(Testing) public static func determineDriverKind(
     args: inout [String]
   ) throws -> DriverKind {
     // Get the basename of the driver executable.
@@ -770,7 +772,7 @@ extension Driver {
     }
   }
 
-  public mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
+  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
