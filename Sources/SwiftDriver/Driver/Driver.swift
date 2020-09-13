@@ -1702,7 +1702,7 @@ extension Triple {
     case .freeBSD, .haiku:
       return GenericUnixToolchain.self
     case .win32:
-      fatalError("Windows target not supported yet")
+      return WindowsToolchain.self
     default:
       diagnosticsEngine.emit(.error_unknown_target(triple))
       throw Diagnostics.fatalError
@@ -1715,7 +1715,7 @@ extension Driver {
   #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
   static let defaultToolchainType: Toolchain.Type = DarwinToolchain.self
   #elseif os(Windows)
-  static let defaultToolchainType: Toolchain.Type = { fatalError("Windows target not supported yet") }()
+  static let defaultToolchainType: Toolchain.Type = WindowsToolchain.self
   #else
   static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
   #endif

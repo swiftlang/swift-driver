@@ -30,6 +30,12 @@ extension Toolchain {
       resourceDirBase = sdkPath
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
+    } else if triple.isWindows,
+      let SDKROOT = env["SDKROOT"],
+      let sdkPath = try? AbsolutePath(validating: SDKROOT) {
+      resourceDirBase = sdkPath
+        .appending(components: "usr", "lib",
+                   isShared ? "swift" : "swift_static")
     } else {
       resourceDirBase = try getToolPath(.swiftCompiler)
         .parentDirectory // remove /swift
@@ -48,6 +54,21 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions
   ) throws -> AbsolutePath {
+    /// Use the one in `VCTools` if exists on Windows.
+    if triple.isWindows,
+      let vctools = env["VCToolsInstallDir"],
+      let root = try? AbsolutePath(validating: vctools) {
+        let archName: String = {
+          switch triple.arch {
+          case .aarch64, .aarch64_32: return "arm64"
+          case .arm: return "arm"
+          case .x86: return "x86"
+          case nil, .x86_64: return "x64"
+          default: fatalError("unknown arch \(triple.archName) on Windows")
+          }
+        }()
+      return root.appending(components: "lib", archName)
+    }
     return try computeResourceDirPath(for: triple,
                                       parsedOptions: &parsedOptions,
                                       isShared: true)
@@ -258,3 +279,5 @@ extension DarwinToolchain {
   }
 
 }
+
+// TODO: See whether Windows needs `addArgsToLinkStdlib`.

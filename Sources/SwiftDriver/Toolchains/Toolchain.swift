@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -135,7 +135,7 @@ extension Toolchain {
       return path
     } else if let path = try? xcrunFind(executable: executable) {
       return path
-    } else if !["swift-frontend", "swift"].contains(executable),
+    } else if !["swift-frontend", "swift", "swift-frontend.exe", "swift.exe"].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
               parentDirectory != executableDir,
               let path = lookupExecutablePath(filename: executable, searchPaths: [parentDirectory]) {
@@ -144,9 +144,11 @@ extension Toolchain {
       return path
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
       return path
+    // Temporary shim: fall back to looking for "swift" before failing.
     } else if executable == "swift-frontend" {
-      // Temporary shim: fall back to looking for "swift" before failing.
       return try lookup(executable: "swift")
+    } else if executable == "swift-frontend.exe" {
+      return try lookup(executable: "swift.exe")
     } else if fallbackToExecutableDefaultPath {
       return AbsolutePath("/usr/bin/" + executable)
     } else {
