@@ -27,6 +27,16 @@ public final class WindowsToolchain: Toolchain {
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
+  public func archName(for triple: Triple) -> String {
+    switch triple.arch {
+    case .aarch64: return "aarch64"
+    case .arm: return "armv7"
+    case .x86: return "i386"
+    case nil, .x86_64: return "x86_64"
+    default: fatalError("unknown arch \(triple.archName) on Windows")
+    }
+  }
+
   public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
     self.env = env
     self.executor = executor
@@ -37,7 +47,7 @@ public final class WindowsToolchain: Toolchain {
     switch type {
     case .executable: return "\(moduleName).exe"
     case .dynamicLibrary: return "\(moduleName).dll"
-    case .staticLibrary: return "\(moduleName).lib"
+    case .staticLibrary: return "lib\(moduleName).lib"
     }
   }
 
@@ -92,15 +102,6 @@ public final class WindowsToolchain: Toolchain {
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String {
-    let archName: String = {
-      switch targetTriple.arch {
-      case .aarch64: return "aarch64"
-      case .arm: return "armv7"
-      case .x86: return "i386"
-      case nil, .x86_64: return "x86_64"
-      default: fatalError("unknown arch \(targetTriple.archName) on Windows")
-      }
-    }()
-    return "clang_rt.\(sanitizer.libraryName)-\(archName).lib"
+    return "clang_rt.\(sanitizer.libraryName)-\(archName(for: targetTriple)).lib"
   }
 }

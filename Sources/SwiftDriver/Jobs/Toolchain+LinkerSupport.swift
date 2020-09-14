@@ -54,21 +54,6 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions
   ) throws -> AbsolutePath {
-    /// Use the one in `VCTools` if exists on Windows.
-    if triple.isWindows,
-      let vctools = env["VCToolsInstallDir"],
-      let root = try? AbsolutePath(validating: vctools) {
-        let archName: String = {
-          switch triple.arch {
-          case .aarch64: return "arm64"
-          case .arm: return "arm"
-          case .x86: return "x86"
-          case nil, .x86_64: return "x64"
-          default: fatalError("unknown arch \(triple.archName) on Windows")
-          }
-        }()
-      return root.appending(components: "lib", archName)
-    }
     return try computeResourceDirPath(for: triple,
                                       parsedOptions: &parsedOptions,
                                       isShared: true)
