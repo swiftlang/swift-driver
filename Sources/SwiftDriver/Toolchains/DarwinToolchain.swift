@@ -20,14 +20,17 @@ import SwiftOptions
 public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
 
-  /// Doubles as path cache and point for overriding normal lookup
-  private var toolPaths = [Tool: AbsolutePath]()
-
   /// The executor used to run processes used to find tools and retrieve target info.
   public let executor: DriverExecutor
 
   /// The file system to use for any file operations.
   public let fileSystem: FileSystem
+
+  /// The suffix of executable files.
+  public let executableSuffix = ""
+
+  /// Doubles as path cache and point for overriding normal lookup
+  private var toolPaths = [Tool: AbsolutePath]()
 
   public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
     self.env = env

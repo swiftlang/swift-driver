@@ -21,6 +21,9 @@ public final class WindowsToolchain: Toolchain {
   /// The file system to use for queries.
   public let fileSystem: FileSystem
 
+  /// The suffix of executable files.
+  public let executableSuffix = ".exe"
+
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
@@ -53,24 +56,24 @@ public final class WindowsToolchain: Toolchain {
   private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
-      return try lookup(executable: "swift-frontend.exe")
+      return try lookup(executable: "swift-frontend")
     case .staticLinker:
-      return try lookup(executable: "lib.exe")
+      return try lookup(executable: "lib")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
-      return try lookup(executable: "link.exe")
+      return try lookup(executable: "link")
     case .clang:
-      return try lookup(executable: "clang.exe")
+      return try lookup(executable: "clang")
     case .swiftAutolinkExtract:
       fatalError("Trying to look up \"swift-autolink-extract\" on Windows")
     case .dsymutil:
       fatalError("Trying to look up \"dsymutil\" on Windows")
     case .lldb:
-      return try lookup(executable: "lldb.exe")
+      return try lookup(executable: "lldb")
     case .dwarfdump:
-      return try lookup(executable: "llvm-dwarfdump.exe")
+      return try lookup(executable: "llvm-dwarfdump")
     case .swiftHelp:
-      return try lookup(executable: "swift-help.exe")
+      return try lookup(executable: "swift-help")
     }
   }
 

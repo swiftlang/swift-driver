@@ -38,6 +38,8 @@ public protocol Toolchain {
 
   var executor: DriverExecutor { get }
 
+  var executableSuffix: String { get }
+
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
@@ -129,26 +131,25 @@ extension Toolchain {
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
   func lookup(executable: String) throws -> AbsolutePath {
+    let filename = executable + executableSuffix
     if let overrideString = envVar(forExecutable: executable) {
       return try AbsolutePath(validating: overrideString)
-    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
+    } else if let path = lookupExecutablePath(filename: filename, searchPaths: [executableDir]) {
       return path
     } else if let path = try? xcrunFind(executable: executable) {
       return path
-    } else if !["swift-frontend", "swift", "swift-frontend.exe", "swift.exe"].contains(executable),
+    } else if !["swift-frontend", "swift"].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
               parentDirectory != executableDir,
-              let path = lookupExecutablePath(filename: executable, searchPaths: [parentDirectory]) {
+              let path = lookupExecutablePath(filename: filename, searchPaths: [parentDirectory]) {
       // If the driver library's client and the frontend are in different directories,
       // try looking for tools next to the frontend.
       return path
-    } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
+    } else if let path = lookupExecutablePath(filename: filename, searchPaths: searchPaths) {
       return path
-    // Temporary shim: fall back to looking for "swift" before failing.
     } else if executable == "swift-frontend" {
+      // Temporary shim: fall back to looking for "swift" before failing.
       return try lookup(executable: "swift")
-    } else if executable == "swift-frontend.exe" {
-      return try lookup(executable: "swift.exe")
     } else if fallbackToExecutableDefaultPath {
       return AbsolutePath("/usr/bin/" + executable)
     } else {

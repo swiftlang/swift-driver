@@ -21,6 +21,9 @@ public final class GenericUnixToolchain: Toolchain {
   /// The file system to use for queries.
   public let fileSystem: FileSystem
 
+  /// The suffix of executable files.
+  public let executableSuffix = ""
+
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
