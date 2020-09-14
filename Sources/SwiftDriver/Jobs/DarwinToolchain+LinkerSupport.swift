@@ -303,6 +303,11 @@ extension DarwinToolchain {
       commandLine.appendFlag("-application_extension")
     }
 
+    // On Darwin, we only support libc++.
+    if parsedOptions.contains(.enableExperimentalCxxInterop) {
+      commandLine.appendFlag("-lc++")
+    }
+
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)

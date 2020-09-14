@@ -3017,6 +3017,33 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testCXXInteropOptions() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-enable-experimental-cxx-interop", "foo.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-cxx-interop")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
+      }
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-enable-experimental-cxx-interop",
+                                     "-experimental-cxx-stdlib", "libc++", "foo.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-cxx-interop")))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-stdlib=libc++")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
+      }
+    }
+  }
+
   func testVFSOverlay() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-c", "-vfsoverlay", "overlay.yaml", "foo.swift"])

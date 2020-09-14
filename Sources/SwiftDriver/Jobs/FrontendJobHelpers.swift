@@ -91,6 +91,15 @@ extension Driver {
       commandLine.appendFlag(.disableObjcInterop)
     }
 
+    // Add flags for C++ interop
+    if parsedOptions.hasArgument(.enableExperimentalCxxInterop) {
+      commandLine.appendFlag(.enableCxxInterop)
+    }
+    if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
+      commandLine.appendFlag("-Xcc")
+      commandLine.appendFlag("-stdlib=\(stdlibVariant)")
+    }
+
     // Handle the CPU and its preferences.
     try commandLine.appendLast(.targetCpu, from: &parsedOptions)
 
