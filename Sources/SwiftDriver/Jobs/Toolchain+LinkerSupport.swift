@@ -54,12 +54,20 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions
   ) throws -> AbsolutePath {
-    return try computeResourceDirPath(for: triple,
-                                      parsedOptions: &parsedOptions,
-                                      isShared: true)
-      .parentDirectory // Remove platform name.
-      .appending(components: "clang", "lib",
-                 triple.platformName(conflatingDarwin: true)!)
+    #if os(Windows)
+      return try getToolPath(.swiftCompiler)
+        .parentDirectory // remove /swift
+        .parentDirectory // remove /bin
+        .appending(components: "lib", "swift", "clang", "lib",
+                   triple.platformName(conflatingDarwin: true)!)
+    #else
+      return try computeResourceDirPath(for: triple,
+                                        parsedOptions: &parsedOptions,
+                                        isShared: true)
+        .parentDirectory // Remove platform name.
+        .appending(components: "clang", "lib",
+                   triple.platformName(conflatingDarwin: true)!)
+    #endif
   }
 
   func runtimeLibraryPaths(
