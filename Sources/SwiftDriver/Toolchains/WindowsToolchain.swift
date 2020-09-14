@@ -55,16 +55,16 @@ public final class WindowsToolchain: Toolchain {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend.exe")
     case .staticLinker:
-      return try lookup(executable: "llvm-lib.exe")
+      return try lookup(executable: "lib.exe")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
-      return try lookup(executable: "lld-link.exe")
+      return try lookup(executable: "link.exe")
     case .clang:
       return try lookup(executable: "clang.exe")
     case .swiftAutolinkExtract:
-      return try lookup(executable: "swift-autolink-extract.exe")
+      fatalError("Trying to look up \"swift-autolink-extract\" on Windows")
     case .dsymutil:
-      return try lookup(executable: "dsymutil.exe")
+      fatalError("Trying to look up \"dsymutil\" on Windows")
     case .lldb:
       return try lookup(executable: "lldb.exe")
     case .dwarfdump:
@@ -89,6 +89,15 @@ public final class WindowsToolchain: Toolchain {
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String {
-    return "clang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).dll"
+    let archName: String = {
+      switch targetTriple.arch {
+      case .aarch64: return "aarch64"
+      case .arm: return "armv7"
+      case .x86: return "i386"
+      case nil, .x86_64: return "x86_64"
+      default: fatalError("unknown arch \(targetTriple.archName) on Windows")
+      }
+    }()
+    return "clang_rt.\(sanitizer.libraryName)-\(archName).lib"
   }
 }

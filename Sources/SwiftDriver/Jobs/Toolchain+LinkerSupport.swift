@@ -60,7 +60,7 @@ extension Toolchain {
       let root = try? AbsolutePath(validating: vctools) {
         let archName: String = {
           switch triple.arch {
-          case .aarch64, .aarch64_32: return "arm64"
+          case .aarch64: return "arm64"
           case .arm: return "arm"
           case .x86: return "x86"
           case nil, .x86_64: return "x64"
@@ -280,4 +280,4 @@ extension DarwinToolchain {
 
 }
 
-// TODO: See whether Windows needs `addArgsToLinkStdlib`.
+// TODO: Implement `addArgsToLinkStdlib` for `WindowsToolchain`.

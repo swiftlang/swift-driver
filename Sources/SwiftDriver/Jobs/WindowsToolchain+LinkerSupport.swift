@@ -27,24 +27,26 @@ extension WindowsToolchain {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
-      // Same options as an executable, just with '-shared'
       commandLine.appendFlags("-parse-as-library", "-emit-library")
-      fallthrough
     case .executable:
       if !targetTriple.triple.isEmpty {
         commandLine.appendFlag("-target")
         commandLine.appendFlag(targetTriple.triple)
       }
-        commandLine.appendFlag("-emit-executable")
+      commandLine.appendFlag("-emit-executable")
     default:
       break
     }
-    
+
     switch linkerOutputType {
     case .staticLibrary:
-        commandLine.append(.joinedOptionAndPath("-out:", outputFile))
-        commandLine.append(contentsOf: inputs.map { .path($0.file) })
+      commandLine.append(.joinedOptionAndPath("-out:", outputFile))
+      commandLine.append(contentsOf: inputs.map { .path($0.file) })
+      if commandLine.contains(.flag("-use-ld=lld")) {
+        return try lookup(executable: "llvm-lib.exe")
+      }
       return try getToolPath(.staticLinker)
+    // TODO: Check for `-use-ld=lld`.
     default:
         // Configure the toolchain.
         //
@@ -92,17 +94,6 @@ extension WindowsToolchain {
           sdkPath: sdkPath,
           isShared: hasRuntimeArgs
         )
-
-        if hasRuntimeArgs {
-          // FIXME: We probably shouldn't be adding an rpath here unless we know
-          //        ahead of time the standard library won't be copied.
-          for path in runtimePaths {
-            commandLine.appendFlag(.Xlinker)
-            commandLine.appendFlag("-rpath")
-            commandLine.appendFlag(.Xlinker)
-            commandLine.appendPath(path)
-          }
-        }
 
         let sharedResourceDirPath = try computeResourceDirPath(
           for: targetTriple,
@@ -214,6 +205,5 @@ extension WindowsToolchain {
         commandLine.appendPath(outputFile)
         return clangPath
     }
-
   }
 }
