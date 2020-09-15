@@ -311,6 +311,9 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_
   llbuild_cmake_flags = base_cmake_flags + flags
   if args.sysroot:
     llbuild_cmake_flags.append('-DSQLite3_INCLUDE_DIR=%s/usr/include' % args.sysroot)
+    # FIXME: This may be particularly hacky but CMake finds a different version of libsqlite3
+    # on some machines. This is also Darwin-specific...
+    llbuild_cmake_flags.append('-DSQLite3_LIBRARY=%s/usr/lib/libsqlite3.tbd' % args.sysroot)
   cmake_build(args, swiftc_exec, llbuild_cmake_flags, llbuild_source_dir, llbuild_build_dir)
 
 def build_tsc_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_cmake_flags):
