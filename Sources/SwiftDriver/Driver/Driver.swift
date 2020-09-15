@@ -342,6 +342,16 @@ public struct Driver {
       self.outputFileMap = outputFileMap
     }
 
+    // If requested, print the output file map
+    if parsedOptions.contains(.driverPrintOutputFileMap) {
+      if let outputFileMap = self.outputFileMap {
+        stderrStream <<< outputFileMap.description
+        stderrStream.flush()
+      } else {
+        diagnosticsEngine.emit(.error_no_output_file_map_specified)
+      }
+    }
+
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
     if shouldUseInputFileList {
@@ -817,6 +827,10 @@ extension Diagnostic.Message {
 
   static var warning_cannot_multithread_batch_mode: Diagnostic.Message {
     .warning("ignoring -num-threads argument; cannot multithread batch mode")
+  }
+
+  static var error_no_output_file_map_specified: Diagnostic.Message {
+    .error("no output file map specified")
   }
 }
 
