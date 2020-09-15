@@ -132,10 +132,12 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 extension FileType: CustomStringConvertible {
   public var description: String {
     switch self {
-    case .swift, .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink,
+    case .swift, .sil, .sib, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
          .remap, .tbd, .pcm, .pch, .clangModuleMap:
       return rawValue
+    case .object:
+      return "object"
 
     case .ast:
       return "ast-dump"
