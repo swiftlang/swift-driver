@@ -1391,8 +1391,6 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       // No module wrapping with Mach-O.
-      // FIXME: There should also be an autolink-extract job. It looks like our
-      // triple parsing code is not detecting the object file format correctly.
       XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .link, .generateDSYM])
     }
     #endif
