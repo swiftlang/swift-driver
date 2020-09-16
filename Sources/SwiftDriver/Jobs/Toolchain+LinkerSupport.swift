@@ -119,6 +119,13 @@ extension Toolchain {
     parsedOptions: inout ParsedOptions,
     isShared: Bool
   ) throws -> Bool {
+    // Currently only ASAN is supported on Windows, but clang builds may
+    // include runtime libraries for unsupported sanitizers.  Manually
+    // disable unsupported sanitizers.
+    if targetTriple.isWindows && sanitizer != .address {
+      return false
+    }
+
     let runtimeName = try runtimeLibraryName(
       for: sanitizer,
       targetTriple: targetTriple,
