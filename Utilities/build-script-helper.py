@@ -180,6 +180,7 @@ def install(args, build_dir):
   # and libSwiftDriver, libSwiftOptions libraries
   toolchain_bin = os.path.join(args.toolchain, 'bin')
   toolchain_lib = os.path.join(args.toolchain, 'lib', 'swift', 'macosx')
+  toolchain_include = os.path.join(args.toolchain, 'include', 'swift')
   universal_dir = os.path.join(build_dir, 'universal-apple-macos%s' % macos_deployment_target)
   bin_dir = os.path.join(universal_dir, 'bin')
   lib_dir = os.path.join(universal_dir, 'lib')
@@ -193,8 +194,15 @@ def install(args, build_dir):
   # libSwiftDriver and libSwiftOptions
   install_libraries(args, build_dir, lib_dir, toolchain_lib)
 
-  # SwiftDriver.swiftmodule and SwiftOptions.swiftmodule
-  install_modules(args, build_dir, toolchain_lib)
+  # Binary Swift Modules:
+  # swift-driver: SwiftDriver.swiftmodule, SwiftOptions.swiftmodule
+  # swift-argument-parser: ArgumentParser.swiftmodule
+  # swift-tools-support-core: TSCUtility.swiftmodule, TSCLibc.swiftmodule, TSCBasic.swiftmodule
+  install_binary_swift_modules(args, build_dir, toolchain_lib)
+
+  # Modulemaps for C Modules:
+  # llbuild, TSCclibc
+  install_c_module_includes(args, build_dir, toolchain_include)
 
 def install_executables(args, build_dir, universal_bin_dir, toolchain_bin_dir):
   for exe in ['swift-driver', 'swift-help']:
@@ -250,17 +258,52 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
     subprocess.check_call(lipo_cmd)
     install_binary(dylib_file, universal_lib_dir, toolchain_lib_dir, args.verbose)
 
-def install_modules(args, build_dir, toolchain_lib_dir):
+def install_binary_swift_modules(args, build_dir, toolchain_lib_dir):
+  # The common subpath from a project's build directory to where its build products are found
+  product_subpath = 'swift'
+
+  # swift-driver
   for module in ['SwiftDriver', 'SwiftOptions']:
-    toolchain_module_dir = os.path.join(toolchain_lib_dir, module + '.swiftmodule')
-    mkdir_p(toolchain_module_dir)
-    for arch in macos_target_architectures:
-      swift_dir = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
-                               'swift-driver', 'swift')
-      for fileext in ['.swiftmodule', '.swiftdoc']:
-        install_binary(module + fileext, swift_dir, toolchain_module_dir, args.verbose)
-        os.rename(os.path.join(toolchain_module_dir, module + fileext),
-                  os.path.join(toolchain_module_dir, arch + '-apple-macos' + fileext))
+    install_module(args, build_dir, product_subpath, toolchain_lib_dir, module, 'swift-driver')
+
+  # swift-argument-parser
+  install_module(args, build_dir, product_subpath, toolchain_lib_dir, 'ArgumentParser', 'swift-argument-parser')
+
+  # swift-tools-support-core
+  for module in ['TSCUtility', 'TSCLibc', 'TSCBasic']:
+    install_module(args, build_dir, product_subpath, toolchain_lib_dir, module, 'swift-tools-support-core')
+
+  # llbuildSwift
+  llbuild_product_subpath = os.path.join('products', 'llbuildSwift')
+  install_module(args, build_dir, llbuild_product_subpath, toolchain_lib_dir, 'llbuildSwift', 'llbuild')
+
+def install_c_module_includes(args, build_dir, toolchain_include_dir):
+  # TSCclibc C module's modulemap and header files
+  tscc_include_dir = os.path.join(os.path.dirname(args.package_path), 'swift-tools-support-core', 'Sources',
+                                  'TSCclibc', 'include')
+  install_module_includes(args, toolchain_include_dir, tscc_include_dir, 'TSCclibc')
+
+  # llbuild C module's modulemap and header files
+  llbuild_include_dir = os.path.join(os.path.dirname(args.package_path), 'llbuild', 'products',
+                                     'libllbuild', 'include')
+  install_module_includes(args, toolchain_include_dir, llbuild_include_dir, 'llbuild')
+
+def install_module(args, build_dir, product_subpath, toolchain_lib, module_name, source_package):
+  toolchain_module_dir = os.path.join(toolchain_lib, module_name + '.swiftmodule')
+  mkdir_p(toolchain_module_dir)
+  for arch in macos_target_architectures:
+    swift_dir = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+                             source_package, product_subpath)
+    for fileext in ['.swiftmodule', '.swiftdoc']:
+      install_binary(module_name + fileext, swift_dir, toolchain_module_dir, args.verbose)
+      os.rename(os.path.join(toolchain_module_dir, module_name + fileext),
+                os.path.join(toolchain_module_dir, arch + '-apple-macos' + fileext))
+
+def install_module_includes(args, toolchain_include_dir, src_include_dir, dst_module_name):
+  toolchain_module_include_dir = os.path.join(toolchain_include_dir, dst_module_name)
+  if os.path.exists(toolchain_module_include_dir):
+    shutil.rmtree(toolchain_module_include_dir, ignore_errors=True)
+  shutil.copytree(src_include_dir, toolchain_module_include_dir)
 
 def build_for_distribution(args, toolchain_bin, build_dir):
   print('Preparing SwiftDriver for distribution using CMake.')
@@ -294,7 +337,7 @@ def build_for_distribution(args, toolchain_bin, build_dir):
 
 def build_llbuild_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_cmake_flags):
   print('Building llbuild for target: %s' % target)
-  llbuild_source_dir = os.path.join(args.package_path, '..', 'llbuild')
+  llbuild_source_dir = os.path.join(os.path.dirname(args.package_path), 'llbuild')
   llbuild_build_dir = os.path.join(cmake_target_dir, 'llbuild')
   llbuild_api_dir = os.path.join(llbuild_build_dir, '.cmake/api/v1/query')
   mkdir_p(llbuild_api_dir)
@@ -318,21 +361,21 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_
 
 def build_tsc_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_cmake_flags):
   print('Building TSC for target: %s' % target)
-  tsc_source_dir = os.path.join(args.package_path, '..', 'swift-tools-support-core')
+  tsc_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-tools-support-core')
   tsc_build_dir = os.path.join(cmake_target_dir, 'swift-tools-support-core')
   tsc_flags = base_cmake_flags + ['-DBUILD_SHARED_LIBS=OFF']
   cmake_build(args, swiftc_exec, tsc_flags, tsc_source_dir, tsc_build_dir)
 
 def build_yams_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_cmake_flags):
   print('Building Yams for target: %s' % target)
-  yams_source_dir = os.path.join(args.package_path, '..', 'yams')
+  yams_source_dir = os.path.join(os.path.dirname(args.package_path), 'yams')
   yams_build_dir = os.path.join(cmake_target_dir, 'yams')
   yams_flags = base_cmake_flags + ['-DBUILD_SHARED_LIBS=OFF', '-DCMAKE_C_FLAGS=-target %s' % target]
   cmake_build(args, swiftc_exec, yams_flags, yams_source_dir, yams_build_dir)
 
 def build_argument_parser_using_cmake(args, target, swiftc_exec, cmake_target_dir, base_cmake_flags):
   print('Building Argument Parser for target: %s' % target)
-  parser_source_dir = os.path.join(args.package_path, '..', 'swift-argument-parser')
+  parser_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-argument-parser')
   parser_build_dir = os.path.join(cmake_target_dir, 'swift-argument-parser')
   custom_flags = ['-DBUILD_SHARED_LIBS=OFF', '-DBUILD_TESTING=NO', '-DBUILD_EXAMPLES=NO']
   parser_flags = base_cmake_flags + custom_flags
@@ -343,8 +386,7 @@ def build_swift_driver_using_cmake(args, target, swiftc_exec, cmake_target_dir, 
   print('Building Swift Driver for target: %s' % target)
   driver_source_dir = args.package_path
   driver_build_dir = os.path.join(cmake_target_dir, 'swift-driver')
-  # TODO: Enable Library Evolution for swift-driver
-  #swift_flags = '-DCMAKE_Swift_FLAGS=' + '-enable-library-evolution' + ' -emit-module-interface-path ' + os.path.join(cmake_target_dir, 'swift-driver', 'SwiftDriver.swiftinterface') + ' -Xfrontend -module-interface-preserve-types-as-written'
+  # TODO: Enable Library Evolution
   swift_flags = ''
   flags = [
         '-DLLBuild_DIR=' + os.path.join(os.path.join(cmake_target_dir, 'llbuild'), 'cmake/modules'),
