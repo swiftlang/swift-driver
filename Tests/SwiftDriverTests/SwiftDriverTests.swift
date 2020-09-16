@@ -2456,6 +2456,36 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testVerifyEmittedInterfaceJob() throws {
+    // Evolution enabled
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-verify-emitted-module-interface",
+                                     "-enable-library-evolution"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      let compileJob = plannedJobs[0]
+      let mergeJob = plannedJobs[1]
+      let verifyJob = plannedJobs[2]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertEqual(mergeJob.kind, .mergeModule)
+      let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == .swiftInterface }
+      XCTAssertTrue(mergeInterfaceOutputs.count == 1,
+                    "Merge module job should only have one swiftinterface output")
+      XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
+      XCTAssertTrue(verifyJob.inputs.count == 1)
+      XCTAssertTrue(verifyJob.inputs[0] == mergeInterfaceOutputs[0])
+    }
+    // No Evolution
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface", "-verify-emitted-module-interface"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+    }
+  }
+
   func testPCHGeneration() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck", "-import-objc-header", "TestInputHeader.h", "foo.swift"])

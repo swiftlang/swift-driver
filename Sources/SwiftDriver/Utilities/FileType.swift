@@ -51,6 +51,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// A textual Swift interface file.
   case swiftInterface = "swiftinterface"
 
+  /// An SPI Swift Interface file.
+  case privateSwiftInterface = "private.swiftinterface"
+
   /// Serialized source information.
   case swiftSourceInfoFile = "swiftsourceinfo"
 
@@ -154,6 +157,9 @@ extension FileType: CustomStringConvertible {
     case .llvmBitcode:
       return "llvm-bc"
 
+    case .privateSwiftInterface:
+      return "private-swiftinterface"
+
     case .objcHeader:
       return "objc-header"
 
@@ -203,9 +209,9 @@ extension FileType {
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
-         .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
-         .swiftSourceInfoFile, .jsonDependencies, .clangModuleMap, .jsonTargetInfo,
-         .jsonSwiftArtifacts, .jsonClangDependencies:
+         .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
+         .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
+         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
       return false
     }
   }
@@ -246,6 +252,8 @@ extension FileType {
       return "swiftdoc"
     case .swiftInterface:
       return "swiftinterface"
+    case .privateSwiftInterface:
+      return "private-swiftinterface"
     case .swiftSourceInfoFile:
       return "swiftsourceinfo"
     case .clangModuleMap:
@@ -303,8 +311,9 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
-         .yamlOptimizationRecord, .swiftInterface, .jsonDependencies, .clangModuleMap,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
+         .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
+         .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts,
+         .jsonClangDependencies:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -320,11 +329,11 @@ extension FileType {
     case .assembly, .llvmIR, .llvmBitcode, .object:
       return true
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
-         .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile,
-         .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap, .importedModules,
-         .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
-         .pcm, .pch, .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .jsonClangDependencies:
+         .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface,
+         .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
+         .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
+         .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
+         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
       return false
     }
   }
