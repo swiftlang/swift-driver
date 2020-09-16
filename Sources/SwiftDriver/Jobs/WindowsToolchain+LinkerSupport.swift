@@ -153,9 +153,8 @@ extension WindowsToolchain {
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {
-        let libProfile = try clangLibraryPath(for: targetTriple, parsedOptions: &parsedOptions)
-          .appending(components: "clang_rt.profile-\(archName(for: targetTriple)).lib")
-        commandLine.appendPath(libProfile)
+        // Profiling support for Windows isn't ready yet. It should have been disabled.
+        fatalError("Profiling support should have been disabled on Windows.")
       }
 
       // Run clang++ in verbose mode if "-v" is set

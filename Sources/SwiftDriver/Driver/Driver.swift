@@ -361,7 +361,8 @@ public struct Driver {
     Self.validateProfilingArgs(&parsedOptions,
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
-                               diagnosticEngine: diagnosticEngine)
+                               diagnosticEngine: diagnosticEngine,
+                               targetTriple: self.frontendTargetInfo.target.triple)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
@@ -1642,10 +1643,30 @@ extension Driver {
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
                                     workingDirectory: AbsolutePath?,
-                                    diagnosticEngine: DiagnosticsEngine) {
+                                    diagnosticEngine: DiagnosticsEngine,
+                                    targetTriple: Triple) {
     if parsedOptions.hasArgument(.profileGenerate) &&
         parsedOptions.hasArgument(.profileUse) {
       diagnosticEngine.emit(Error.conflictingOptions(.profileGenerate, .profileUse))
+    }
+
+    // Windows executables should be profiled with ETW, whose support needs to be
+    // implemented before we can enable the option.
+    if targetTriple.isWindows {
+      if parsedOptions.hasArgument(.profileGenerate) {
+        diagnosticEngine.emit(
+          .error_unsupported_opt_for_target(
+            arg: "-profile-generate",
+            target: targetTriple)
+          )
+      }
+      if parsedOptions.hasArgument(.profileUse) {
+        diagnosticEngine.emit(
+          .error_unsupported_opt_for_target(
+            arg: "-profile-use=",
+            target: targetTriple)
+          )
+      }
     }
 
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
