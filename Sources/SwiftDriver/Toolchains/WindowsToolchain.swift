@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import SwiftOptions
 
 /// Toolchain for Windows.
 public final class WindowsToolchain: Toolchain {
@@ -21,9 +22,6 @@ public final class WindowsToolchain: Toolchain {
   /// The file system to use for queries.
   public let fileSystem: FileSystem
 
-  /// The suffix of executable files.
-  public let executableSuffix = ".exe"
-
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
@@ -33,7 +31,7 @@ public final class WindowsToolchain: Toolchain {
     case .arm: return "armv7"
     case .x86: return "i386"
     case nil, .x86_64: return "x86_64"
-    default: fatalError("unknown arch \(triple.archName) on Windows")
+    default: fatalError("unknown arch \(triple.archName) for Windows")
     }
   }
 
@@ -75,9 +73,9 @@ public final class WindowsToolchain: Toolchain {
     case .clang:
       return try lookup(executable: "clang")
     case .swiftAutolinkExtract:
-      fatalError("Trying to look up \"swift-autolink-extract\" on Windows")
+      return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
-      fatalError("Trying to look up \"dsymutil\" on Windows")
+      return try lookup(executable: "llvm-dsymutil")
     case .lldb:
       return try lookup(executable: "lldb")
     case .dwarfdump:
@@ -103,5 +101,32 @@ public final class WindowsToolchain: Toolchain {
     isShared: Bool
   ) throws -> String {
     return "clang_rt.\(sanitizer.libraryName)-\(archName(for: targetTriple)).lib"
+  }
+}
+
+extension WindowsToolchain {
+  public func validateArgs(_ parsedOptions: inout ParsedOptions,
+                           targetTriple: Triple,
+                           targetVariantTriple: Triple?,
+                           diagnosticsEngine: DiagnosticsEngine) throws {
+    // Windows executables should be profiled with ETW, whose support needs to be
+    // implemented before we can enable the option.
+    if parsedOptions.hasArgument(.profileGenerate) {
+      throw ToolchainValidationError.argumentNotSupported("-profile-generate")
+    }
+    if parsedOptions.hasArgument(.profileUse) {
+      throw ToolchainValidationError.argumentNotSupported("-profile-use=")
+    }
+  }
+}
+
+public enum ToolchainValidationError: Error, DiagnosticData {
+  case argumentNotSupported(String)
+
+  public var description: String {
+    switch self {
+    case .argumentNotSupported(let argument):
+      return "\(argument) is not supported for Windows"
+    }
   }
 }

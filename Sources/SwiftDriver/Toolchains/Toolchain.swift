@@ -38,8 +38,6 @@ public protocol Toolchain {
 
   var executor: DriverExecutor { get }
 
-  var executableSuffix: String { get }
-
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
 
@@ -131,7 +129,12 @@ extension Toolchain {
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
   func lookup(executable: String) throws -> AbsolutePath {
-    let filename = executable + executableSuffix
+    let filename: String
+    #if os(Windows)
+      filename = "\(executable).exe"
+    #else
+      filename = executable
+    #endif
     if let overrideString = envVar(forExecutable: executable) {
       return try AbsolutePath(validating: overrideString)
     } else if let path = lookupExecutablePath(filename: filename, searchPaths: [executableDir]) {
