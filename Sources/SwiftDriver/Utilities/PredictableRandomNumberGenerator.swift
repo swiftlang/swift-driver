@@ -16,7 +16,7 @@
 /// The generator uses the [xoshiro256**](http://prng.di.unimi.it/xoshiro256starstar.c)
 /// algorithm to produce its output. It is initialized using the
 /// [splitmix64](http://prng.di.unimi.it/splitmix64.c) algorithm.
-public struct PredictableRandomNumberGenerator: RandomNumberGenerator {
+@_spi(Testing) public struct PredictableRandomNumberGenerator: RandomNumberGenerator {
 
   var state: (UInt64, UInt64, UInt64, UInt64)
 

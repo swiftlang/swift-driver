@@ -62,7 +62,7 @@ extension SwiftVersion: Codable {
 }
 
 /// Describes information about the target as provided by the Swift frontend.
-public struct FrontendTargetInfo: Codable {
+@_spi(Testing) public struct FrontendTargetInfo: Codable {
   struct CompatibilityLibrary: Codable {
     enum Filter: String, Codable {
       case all

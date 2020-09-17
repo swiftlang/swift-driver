@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 
-public struct SourceFileDependencyGraph {
+@_spi(Testing) public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
   public static let sourceFileProvidesImplementationSequenceNumber: Int = 1
 
@@ -52,11 +52,11 @@ public struct SourceFileDependencyGraph {
   }
 }
 
-public enum DeclAspect: UInt64 {
+@_spi(Testing) public enum DeclAspect: UInt64 {
   case interface, implementation
 }
 
-public struct DependencyKey {
+@_spi(Testing) public struct DependencyKey {
   public enum Kind: UInt64 {
     case topLevel
     case nominal

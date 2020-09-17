@@ -12,7 +12,7 @@
 import TSCBasic
 
 /// Toolchain for Unix-like systems.
-public final class GenericUnixToolchain: Toolchain {
+@_spi(Testing) public final class GenericUnixToolchain: Toolchain {
   public let env: [String: String]
 
   /// The executor used to run processes used to find tools and retrieve target info.

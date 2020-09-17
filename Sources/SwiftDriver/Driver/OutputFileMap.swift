@@ -71,7 +71,7 @@ public struct OutputFileMap: Hashable, Codable {
   }
 
   /// Load the output file map at the given path.
-  public static func load(
+  @_spi(Testing) public static func load(
     fileSystem: FileSystem,
     file: VirtualPath,
     diagnosticEngine: DiagnosticsEngine

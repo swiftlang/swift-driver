@@ -13,7 +13,7 @@ import XCTest
 import TSCBasic
 import TSCUtility
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 extension Job.ArgTemplate: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {

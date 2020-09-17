@@ -13,7 +13,7 @@ import TSCBasic
 import Foundation
 import SwiftOptions
 
-public struct IncrementalCompilationState {
+@_spi(Testing) public struct IncrementalCompilationState {
   public let showIncrementalBuildDecisions: Bool
   public let enableIncrementalBuild: Bool
   public let buildRecordPath: VirtualPath?
