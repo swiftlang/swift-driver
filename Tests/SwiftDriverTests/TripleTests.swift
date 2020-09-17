@@ -1074,10 +1074,10 @@ final class TripleTests: XCTestCase {
   }
 
   static let jetPacks = Triple.FeatureAvailability(
-    macOS: .init(10, 50, 0),
-    iOS: .init(50, 0, 0),
-    tvOS: .init(50, 0, 0),
-    watchOS: .init(50, 0, 0),
+    macOS: .available(since: .init(10, 50, 0)),
+    iOS: .available(since: .init(50, 0, 0)),
+    tvOS: .available(since: .init(50, 0, 0)),
+    watchOS: .available(since: .init(50, 0, 0)),
     nonDarwin: true
   )
 

@@ -310,27 +310,28 @@ extension Triple {
   ///
   /// - SeeAlso: `Triple.supports(_:)`
   public struct FeatureAvailability {
-    public let macOS: Triple.Version?
-    public let iOS: Triple.Version?
-    public let tvOS: Triple.Version?
-    public let watchOS: Triple.Version?
+    
+    public enum Availability {
+      case unavailable
+      case available(since: Version)
+      case availableInAllVersions
+    }
+    
+    public let macOS: Availability
+    public let iOS: Availability
+    public let tvOS: Availability
+    public let watchOS: Availability
 
     // TODO: We should have linux, windows, etc.
     public let nonDarwin: Bool
 
     /// Describes the availability of a feature that is supported on multiple platforms,
     /// but is tied to a particular version.
-    ///
-    /// Each version parameter is `Optional`; a `nil` value means the feature is
-    /// not supported on any version of that platform. Use `Triple.Version.zero`
-    /// for a feature that is available in all versions.
-    ///
-    /// If `tvOS` availability is omitted, it will be set to be the same as `iOS`.
     public init(
-      macOS: Triple.Version?,
-      iOS: Triple.Version?,
-      tvOS: Triple.Version?,
-      watchOS: Triple.Version?,
+      macOS: Availability,
+      iOS: Availability,
+      tvOS: Availability,
+      watchOS: Availability,
       nonDarwin: Bool = false
     ) {
       self.macOS = macOS
@@ -343,15 +344,11 @@ extension Triple {
     /// Describes the availability of a feature that is supported on multiple platforms,
     /// but is tied to a particular version.
     ///
-    /// Each version parameter is `Optional`; a `nil` value means the feature is
-    /// not supported on any version of that platform. Use `Triple.Version.zero`
-    /// for a feature that is available in all versions.
-    ///
     /// If `tvOS` availability is omitted, it will be set to be the same as `iOS`.
     public init(
-      macOS: Triple.Version?,
-      iOS: Triple.Version?,
-      watchOS: Triple.Version?,
+      macOS: Availability,
+      iOS: Availability,
+      watchOS: Availability,
       nonDarwin: Bool = false
     ) {
       self.init(macOS: macOS, iOS: iOS, tvOS: iOS, watchOS: watchOS,
@@ -359,8 +356,8 @@ extension Triple {
     }
 
     /// Returns the version when the feature was introduced on the specified Darwin
-    /// platform, or `nil` if the feature has not been introduced there.
-    public subscript(darwinPlatform: DarwinPlatform) -> Triple.Version? {
+    /// platform, or `.unavailable` if the feature has not been introduced there.
+    public subscript(darwinPlatform: DarwinPlatform) -> Availability {
       switch darwinPlatform {
       case .macOS:
         return macOS
@@ -380,20 +377,24 @@ extension Triple {
     guard let darwinPlatform = darwinPlatform else {
       return feature.nonDarwin
     }
-    guard let introducedVersion = feature[darwinPlatform] else {
+    
+    switch feature[darwinPlatform] {
+    case .unavailable:
       return false
+    case .available(let introducedVersion):
+      return version(for: darwinPlatform) >= introducedVersion
+    case .availableInAllVersions:
+      return true
     }
-
-    return version(for: darwinPlatform) >= introducedVersion
   }
 }
 
 extension Triple.FeatureAvailability {
   /// Linking `libarclite` is unnecessary for triples supporting this feature.
   static let compatibleObjCRuntime = Self(
-    macOS: Triple.Version(10, 11, 0),
-    iOS: Triple.Version(9, 0, 0),
-    watchOS: .zero
+    macOS: .available(since: Triple.Version(10, 11, 0)),
+    iOS: .available(since: Triple.Version(9, 0, 0)),
+    watchOS: .availableInAllVersions
   )
   // When updating the versions listed here, please record the most recent
   // feature being depended on and when it was introduced:

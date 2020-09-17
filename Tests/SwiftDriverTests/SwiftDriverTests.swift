@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TSCBasic
 import XCTest
@@ -1391,8 +1391,6 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       // No module wrapping with Mach-O.
-      // FIXME: There should also be an autolink-extract job. It looks like our
-      // triple parsing code is not detecting the object file format correctly.
       XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .link, .generateDSYM])
     }
     #endif
@@ -2349,6 +2347,32 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testPrintOutputFileMap() throws {
+    try withTemporaryDirectory { path in
+      // Replace the error stream with one we capture here.
+      let errorStream = stderrStream
+      let errorOutputFile = path.appending(component: "dummy_error_stream")
+      TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
+
+      let dummyInput = path.appending(component: "output_file_map_test.swift")
+      let outputFileMap = path.appending(component: "output_file_map.json")
+      let fileMap = "{\"\(dummyInput.description)\": {\"object\": \"/build/basic_output_file_map.o\"}, \"\(path)/Inputs/main.swift\": {\"object\": \"/build/main.o\"}, \"\(path)/Inputs/lib.swift\": {\"object\": \"/build/lib.o\"}}"
+      try localFileSystem.writeFileContents(outputFileMap) { $0 <<< fileMap }
+      _ = try Driver(args: ["swiftc", "-driver-print-output-file-map",
+                                     "-target", "x86_64-apple-macosx10.9",
+                                     "-o", "/build/basic_output_file_map.out",
+                                     "-module-name", "OutputFileMap",
+                                     "-output-file-map", outputFileMap.description])
+      let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
+      XCTAssertTrue(invocationError.contains("/Inputs/lib.swift -> object: \"/build/lib.o\""))
+      XCTAssertTrue(invocationError.contains("/Inputs/main.swift -> object: \"/build/main.o\""))
+      XCTAssertTrue(invocationError.contains("/output_file_map_test.swift -> object: \"/build/basic_output_file_map.o\""))
+
+      // Restore the error stream to what it was
+      TSCBasic.stderrStream = errorStream
+    }
+  }
+
   func testDiagnosticOptions() throws {
     do {
       var driver = try Driver(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "foo.swift"])
@@ -2427,6 +2451,36 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("-scan-dependencies")))
       XCTAssertTrue(job.commandLine.contains(.flag("-emit-dependencies-path")))
       XCTAssertTrue(job.commandLine.contains(.path(.temporary(RelativePath("foo.d")))))
+    }
+  }
+
+  func testVerifyEmittedInterfaceJob() throws {
+    // Evolution enabled
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-verify-emitted-module-interface",
+                                     "-enable-library-evolution"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      let compileJob = plannedJobs[0]
+      let mergeJob = plannedJobs[1]
+      let verifyJob = plannedJobs[2]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertEqual(mergeJob.kind, .mergeModule)
+      let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == .swiftInterface }
+      XCTAssertTrue(mergeInterfaceOutputs.count == 1,
+                    "Merge module job should only have one swiftinterface output")
+      XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
+      XCTAssertTrue(verifyJob.inputs.count == 1)
+      XCTAssertTrue(verifyJob.inputs[0] == mergeInterfaceOutputs[0])
+    }
+    // No Evolution
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface", "-verify-emitted-module-interface"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
     }
   }
 
@@ -3013,6 +3067,33 @@ final class SwiftDriverTests: XCTestCase {
 
       for job in plannedJobs {
         XCTAssertFalse(job.commandLine.contains(.flag("-embed-bitcode-marker")))
+      }
+    }
+  }
+
+  func testCXXInteropOptions() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-enable-experimental-cxx-interop", "foo.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-cxx-interop")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
+      }
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-enable-experimental-cxx-interop",
+                                     "-experimental-cxx-stdlib", "libc++", "foo.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-cxx-interop")))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-stdlib=libc++")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
       }
     }
   }

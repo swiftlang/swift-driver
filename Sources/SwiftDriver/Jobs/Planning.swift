@@ -196,6 +196,28 @@ extension Driver {
       mergeJob = mergeModule
     }
 
+    if let mergeJob = mergeJob,
+       parsedOptions.hasArgument(.enableLibraryEvolution),
+       parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                             negative: .noVerifyEmittedModuleInterface,
+                             default: false) {
+      if parsedOptions.hasArgument(.emitModuleInterface) ||
+          parsedOptions.hasArgument(.emitModuleInterfacePath) {
+        let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == .swiftInterface }
+        assert(mergeInterfaceOutputs.count == 1,
+               "Merge module job should only have one swiftinterface output")
+        let verifyJob = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
+        jobs.append(verifyJob)
+      }
+      if parsedOptions.hasArgument(.emitPrivateModuleInterfacePath) {
+        let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == .privateSwiftInterface }
+        assert(mergeInterfaceOutputs.count == 1,
+               "Merge module job should only have one private swiftinterface output")
+        let verifyJob = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
+        jobs.append(verifyJob)
+      }
+    }
+
     // If we need to autolink-extract, do so.
     let autolinkInputs = linkerInputs.filter { $0.type == .object }
     if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {

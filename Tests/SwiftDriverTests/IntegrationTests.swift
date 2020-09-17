@@ -156,11 +156,11 @@ final class IntegrationTests: IntegrationTestCase {
       /// The path to the real frontend we should use.
       let frontendFile = swiftBuildDir.appending(components: "bin", "swift")
 
-      /// The root directory, where build/, llvm/, and swift/ live.
+      /// The root directory, where build/, llvm-project/, and swift/ live.
       let swiftRootDir = swiftBuildDir.parentDirectory.parentDirectory.parentDirectory
 
       /// The path to lit.py.
-      let litFile = swiftRootDir.appending(components: "llvm", "utils", "lit",
+      let litFile = swiftRootDir.appending(components: "llvm-project", "llvm", "utils", "lit",
                                              "lit.py")
 
       /// The path to the test suite we want to run.

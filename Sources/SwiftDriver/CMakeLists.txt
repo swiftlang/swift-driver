@@ -57,6 +57,7 @@ add_library(SwiftDriver
   Jobs/Toolchain+InterpreterSupport.swift
   Jobs/Toolchain+LinkerSupport.swift
   Jobs/VerifyDebugInfoJob.swift
+  Jobs/VerifyModuleInterfaceJob.swift
   Jobs/WindowsToolchain+LinkerSupport.swift
 
   Toolchains/DarwinToolchain.swift

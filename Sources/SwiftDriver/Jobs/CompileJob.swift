@@ -59,17 +59,18 @@ extension Driver {
   /// Is this compile job top-level
   func isTopLevelOutput(type: FileType?) -> Bool {
     switch type {
-    case .assembly, .sil, .raw_sil, .llvmIR, .ast, .jsonDependencies:
+    case .assembly, .sil, .raw_sil, .llvmIR, .ast, .jsonDependencies, .sib, .raw_sib,
+         .importedModules, .indexData:
       return true
     case .object:
       return (linkerOutputType == nil)
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .swift, .sib, .image, .dSYM, .dependencies, .autolink,
-         .swiftDocumentation, .swiftInterface,
-         .swiftSourceInfoFile, .raw_sib, .llvmBitcode, .diagnostics,
-         .objcHeader, .swiftDeps, .remap, .importedModules, .tbd, .moduleTrace,
-         .indexData, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
+    case .llvmBitcode:
+      return compilerOutputType == type
+    case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
+         .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
+         .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
          .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, nil:
       return false
     }
@@ -310,7 +311,7 @@ extension FileType {
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
          .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
-         .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts:
+         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts:
       fatalError("Output type can never be a primary output")
     }
   }

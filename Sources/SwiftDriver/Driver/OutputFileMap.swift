@@ -106,6 +106,23 @@ public struct OutputFileMap: Hashable, Codable {
     let contents = try encoder.encode(OutputFileMapJSON.fromVirtualOutputFileMap(entries).entries)
     try fileSystem.writeFileContents(file, bytes: ByteString(contents))
   }
+
+  /// Human-readable texual representation
+  var description: String {
+    var result = ""
+    func outputPairDescription(inputPath: VirtualPath, outputPair: (FileType, VirtualPath))
+    -> String {
+      "\(inputPath.description) -> \(outputPair.0.description): \"\(outputPair.1.description)\"\n"
+    }
+    let maps = entries.map { ($0, $1) }.sorted { $0.0.description < $1.0.description }
+    for (input, map) in maps {
+      let pairs = map.map { ($0, $1) }.sorted { $0.0.description < $1.0.description }
+      for (outputType, outputPath) in pairs {
+        result += outputPairDescription(inputPath: input, outputPair: (outputType, outputPath))
+      }
+    }
+    return result
+  }
 }
 
 /// Struct for loading the JSON file from disk.
