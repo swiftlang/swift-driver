@@ -184,6 +184,7 @@ final class IntegrationTests: IntegrationTestCase {
         litFile.pathString, "-svi", "--time-tests",
         "--param", "copy_env=SWIFT_DRIVER_SWIFT_EXEC",
         "--param", "swift_site_config=\(litConfigFile.pathString)",
+        "--param", "swift_driver",
         testDir.pathString
       ]
 
