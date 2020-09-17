@@ -117,16 +117,25 @@ extension WindowsToolchain {
     if parsedOptions.hasArgument(.profileUse) {
       throw ToolchainValidationError.argumentNotSupported("-profile-use=")
     }
+    
+    if let crt = parsedOptions.getLastArgument(.libc) {
+      if !["MT", "MTd", "MD", "MDd"].contains(crt.asSingle) {
+        throw ToolchainValidationError.illegalCrtName(crt.asSingle)
+      }
+    }
   }
-}
 
-public enum ToolchainValidationError: Error, DiagnosticData {
-  case argumentNotSupported(String)
+  public enum ToolchainValidationError: Error, DiagnosticData {
+    case argumentNotSupported(String)
+    case illegalCrtName(String)
 
-  public var description: String {
-    switch self {
-    case .argumentNotSupported(let argument):
-      return "\(argument) is not supported for Windows"
+    public var description: String {
+      switch self {
+      case .argumentNotSupported(let argument):
+        return "\(argument) is not supported for Windows"
+      case .illegalCrtName(let argument):
+        return "\(argument) is not a valid C Runtime for Windows"
+      }
     }
   }
 }

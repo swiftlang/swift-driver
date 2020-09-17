@@ -75,6 +75,20 @@ extension WindowsToolchain {
       }
       commandLine.appendFlag("-fuse-ld=\(linker)")
 
+      // FIXME: Do we really need `oldnames`?
+      commandLine.appendFlags("-autolink-library", "oldnames")
+      if let crt = parsedOptions.getLastArgument(.libc) {
+        switch crt.asSingle {
+        case "MT": commandLine.appendFlags("-autolink-library", "libcmt")
+        case "MTd": commandLine.appendFlags("-autolink-library", "libcmtd")
+        case "MD": commandLine.appendFlags("-autolink-library", "msvcrt")
+        case "MDd": commandLine.appendFlags("-autolink-library", "msvcrtd")
+        default: fatalError("Invalid C runtime value should be filtered")
+        }
+      } else {
+        commandLine.appendFlags("-autolink-library", "msvcrt")
+      }
+
       let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
                                                negative: .noStaticStdlib,
                                                 default: false)
@@ -150,11 +164,6 @@ extension WindowsToolchain {
           commandLine.appendFlag("-lBlocksRuntime")
           commandLine.appendFlag("-ldispatch")
         }
-      }
-
-      if parsedOptions.hasArgument(.profileGenerate) {
-        // Profiling support for Windows isn't ready yet. It should have been disabled.
-        fatalError("Profiling support should have been disabled on Windows.")
       }
 
       // Run clang++ in verbose mode if "-v" is set

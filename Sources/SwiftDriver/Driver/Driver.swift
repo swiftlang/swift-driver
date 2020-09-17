@@ -370,6 +370,9 @@ public struct Driver {
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     Self.validateWarningControlArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateCRuntimeArgs(&parsedOptions,
+                              diagnosticEngine: diagnosticsEngine,
+                              targetTriple: self.frontendTargetInfo.target.triple)
     Self.validateProfilingArgs(&parsedOptions,
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
@@ -1657,6 +1660,14 @@ extension Driver {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
       diagnosticEngine.emit(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+    }
+  }
+
+  static func validateCRuntimeArgs(_ parsedOptions: inout ParsedOptions,
+                                   diagnosticEngine: DiagnosticsEngine,
+                                   targetTriple: Triple) {
+    if parsedOptions.hasArgument(.libc) && !targetTriple.isWindows {
+      diagnosticEngine.emit(.error_unsupported_opt_for_target(arg: "-libc", target: targetTriple))
     }
   }
 
