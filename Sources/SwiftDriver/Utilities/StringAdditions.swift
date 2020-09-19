@@ -32,6 +32,11 @@ extension DefaultStringInterpolation {
     }
     appendInterpolation(value)
   }
+
+  /// Interpolates the provided `value` using a format string specifier.
+  mutating func appendInterpolation(_ value: CVarArg, specifier: String) {
+    appendInterpolation(String(format: specifier, value))
+  }
 }
 
 extension Unicode.Scalar {

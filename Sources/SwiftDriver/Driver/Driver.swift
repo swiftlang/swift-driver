@@ -136,6 +136,9 @@ public struct Driver {
   /// The mapping from input files to output files for each kind.
   internal let outputFileMap: OutputFileMap?
 
+  /// Used to record driver performance statistics.
+  @_spi(Testing) public let statsReporter: StatsReporter
+
   /// The number of files required before making a file list.
   internal let fileListThreshold: Int
 
@@ -279,6 +282,7 @@ public struct Driver {
 
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
+    self.statsReporter = StatsReporter()
 
     self.externalDependencyArtifactMap = externalModuleDependencies
 
@@ -753,7 +757,7 @@ extension Driver {
 
     if jobs.contains(where: { $0.requiresInPlaceExecution })
       // Only one job and no cleanup required
-      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
+        || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput, .driverTimeCompilation)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       var job = jobs[0]
       // Require in-place execution for all single job plans.
@@ -780,10 +784,16 @@ extension Driver {
         diagnosticEngine.emit(.warn_unused_option(option))
       }
     }
+
+    if parsedOptions.hasArgument(.driverTimeCompilation) {
+      statsReporter.printTimings(to: stderrStream)
+    }
   }
 
-  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
-    var mode: ToolExecutionDelegate.Mode = .regular
+  mutating func createToolExecutionDelegate() -> JobExecutionDelegate {
+    var delegates: [JobExecutionDelegate] = []
+
+    var mode: TextualOutputExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
     if parsedOptions.contains(.parseableOutput) {
@@ -792,7 +802,13 @@ extension Driver {
       mode = .verbose
     }
 
-    return ToolExecutionDelegate(mode: mode)
+    delegates.append(TextualOutputExecutionDelegate(mode: mode))
+
+    if parsedOptions.hasArgument(.driverTimeCompilation) {
+      delegates.append(StatsReportingExecutionDelegate(reporter: statsReporter))
+    }
+
+    return ForwardingExecutionDelegate(subDelegates: delegates)
   }
 
   private func printBindings(_ job: Job) {

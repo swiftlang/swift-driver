@@ -21,6 +21,7 @@ add_library(SwiftDriver
   Driver/LinkKind.swift
   Driver/ModuleOutputInfo.swift
   Driver/OutputFileMap.swift
+  Driver/StatsReporter.swift
   Driver/ToolExecutionDelegate.swift
 
   Execution/ArgsResolver.swift

@@ -52,3 +52,61 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   return true
 }
 #endif
+
+struct Microseconds {
+  var value: UInt64
+  private static let usecPerSec: UInt64 = 1_000_000
+
+  static func +(lhs: Microseconds, rhs: Microseconds) -> Microseconds {
+    .init(value: lhs.value + rhs.value)
+  }
+
+  static func -(lhs: Microseconds, rhs: Microseconds) -> Microseconds {
+    .init(value: lhs.value - rhs.value)
+  }
+
+  init(value: UInt64) {
+    self.value = value
+  }
+
+  #if os(macOS) || os(Linux)
+  init(timeVal: timeval) {
+    value = Self.usecPerSec * UInt64(timeVal.tv_sec) + UInt64(timeVal.tv_usec)
+  }
+  #endif
+
+  var seconds: Double {
+    Double(value) / 1_000_000
+  }
+}
+
+struct TimeValues {
+  let userTime: Microseconds
+  let systemTime: Microseconds
+  let wallTime: Microseconds
+}
+
+#if os(macOS) || os(Linux)
+func currentTimeValues() -> TimeValues? {
+  var resourceUsage: rusage = .init()
+  #if os(macOS)
+  guard getrusage(RUSAGE_SELF, &resourceUsage) == 0 else { return nil }
+  #else
+  guard getrusage(RUSAGE_SELF.rawValue, &resourceUsage) == 0 else { return nil }
+  #endif
+  
+  var wallTimeVal: timeval = .init()
+  guard gettimeofday(&wallTimeVal, nil) == 0 else { return nil }
+
+  let userTime = Microseconds(timeVal: resourceUsage.ru_utime)
+  let systemTime = Microseconds(timeVal: resourceUsage.ru_stime)
+  let wallTime = Microseconds(timeVal: wallTimeVal)
+
+  return .init(userTime: userTime, systemTime: systemTime, wallTime: wallTime)
+}
+#else
+func currentTimeValues() -> TimeValues? {
+  #warning("missing implementation for current platform")
+  return nil
+}
+#endif

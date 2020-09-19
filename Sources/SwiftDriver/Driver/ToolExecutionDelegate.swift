@@ -22,8 +22,20 @@ import Glibc
 #error("Missing libc or equivalent")
 #endif
 
+struct ForwardingExecutionDelegate: JobExecutionDelegate {
+  let subDelegates: [JobExecutionDelegate]
+
+  func jobStarted(job: Job, arguments: [String], pid: Int) {
+    subDelegates.forEach { $0.jobStarted(job: job, arguments: arguments, pid: pid) }
+  }
+
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    subDelegates.forEach { $0.jobFinished(job: job, result: result, pid: pid) }
+  }
+}
+
 /// Delegate for printing execution information on the command-line.
-public struct ToolExecutionDelegate: JobExecutionDelegate {
+public struct TextualOutputExecutionDelegate: JobExecutionDelegate {
   public enum Mode {
     case verbose
     case parsableOutput

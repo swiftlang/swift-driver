@@ -13,7 +13,7 @@ import XCTest
 import TSCBasic
 import TSCUtility
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 extension Job.ArgTemplate: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
@@ -301,6 +301,31 @@ final class JobExecutorTests: XCTestCase {
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         XCTAssertThrowsError(try driver.run(jobs: jobs))
       }
+    }
+  }
+
+  func testCompilationTiming() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "let foo = 1"
+      }
+
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-driver-time-compilation", main.pathString])
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      let stream = BufferedOutputByteStream()
+      driver.statsReporter.printTimings(to: stream)
+      let output = stream.bytes.description
+      let lines = output.split(separator: "\n")
+      XCTAssertEqual(lines.count, 7)
+      XCTAssertTrue(lines[1].contains("Driver Compilation Time"))
+      XCTAssertNotNil(lines[3].range(of: #"Total Execution Time: \d*\.\d* seconds \(\d*\.\d* wall clock\)"#,
+                                     options: .regularExpression))
+      XCTAssertNotNil(lines[5].range(of: #"(\d*\.\d* \(\d*\.\d\%\) *){4}Compiling main main\.swift"#,
+                                     options: .regularExpression))
+      XCTAssertNotNil(lines[6].range(of: #"(\d*\.\d* \(100.0%\) *){4}Total"#,
+                                     options: .regularExpression))
     }
   }
 }
