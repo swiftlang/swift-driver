@@ -62,6 +62,15 @@ extension CompilerMode {
     }
   }
 
+  public var isStandardCompilationForPlanning: Bool {
+    switch self {
+      case .immediate, .repl, .compilePCM:
+        return false
+      case .batchCompile, .standardCompile, .singleCompile:
+        return true
+    }
+  }
+
   // Whether this compilation mode supports the use of bridging pre-compiled
   // headers.
   public var supportsBridgingPCH: Bool {
