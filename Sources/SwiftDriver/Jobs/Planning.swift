@@ -37,69 +37,17 @@ extension Driver {
 
     var jobs = [Job]()
     // Keep track of the various outputs we care about from the jobs we build.
-    var linkerInputs = [TypedVirtualPath]()
-    var moduleInputs = [TypedVirtualPath]()
-    var moduleInputsFromJobOutputs = [TypedVirtualPath]()
 
     // Passing in these functions instead of inout parameters clarifies that
     // the code is only adding to the collections in question.
     func addJob(_ j: Job) { jobs.append(j) }
     func addJobs(_ js: [Job]) { jobs.append(contentsOf: js) }
-    func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
-    func addLinkerInputs(_ lis: [TypedVirtualPath]) { linkerInputs.append(contentsOf: lis) }
-    func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
-    func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
-      moduleInputsFromJobOutputs.append(mis) }
-
-    func addJobOutputs(_ jobOutputs: [TypedVirtualPath]) {
-      for jobOutput in jobOutputs {
-        switch jobOutput.type {
-        case .object, .autolink:
-          linkerInputs.append(jobOutput)
-
-        case .swiftModule:
-          moduleInputsFromJobOutputs.append(jobOutput)
-
-        default:
-          break
-        }
-      }
-    }
 
     try addPrecompileModuleDependenciesJobs(addJobs: addJobs)
     try addPrecompileBridgingHeaderJob(addJob: addJob)
     try addEmitModuleJob(addJob: addJob)
 
-    let partitions: BatchPartitions? = batchPartitions()
-
-    try addSingleCompileJobs(addJob: addJob,
-                             addJobOutputs: addJobOutputs)
-
-    for input in inputFiles {
-      try computeJobs(
-        for: input,
-        partitions: partitions,
-        addJob: addJob,
-        addModuleInput: addModuleInput,
-        addLinkerInput: addLinkerInput,
-        addJobOutputs: addJobOutputs)
-    }
-
-    try addAutolinkExtractJob(linkerInputs: linkerInputs,
-                              addLinkerInputs: addLinkerInputs,
-                              addJob: addJob)
-
-     if let mergeJob = try mergeModuleJob(
-          moduleInputs: moduleInputs,
-          moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
-      addJob(mergeJob)
-      try addVerifyJobs(mergeJob: mergeJob, addJob: addJob)
-      try addWrapJobOrMergeOutputs(
-        mergeJob: mergeJob,
-        debugInfo: debugInfo,
-        addJob: addJob,
-        addLinkerInputs: addLinkerInputs)
-     }
+    let linkerInputs = try addJobsFeedingLinker(addJob: addJob)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
                                addJob: addJob)
@@ -150,6 +98,62 @@ extension Driver {
     }
   }
 
+  private mutating func addJobsFeedingLinker(
+    addJob: (Job) -> Void
+  ) throws -> [TypedVirtualPath] {
+
+    var linkerInputs = [TypedVirtualPath]()
+    func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
+    func addLinkerInputs(_ lis: [TypedVirtualPath]) { linkerInputs.append(contentsOf: lis) }
+
+    var moduleInputs = [TypedVirtualPath]()
+    func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
+    var moduleInputsFromJobOutputs = [TypedVirtualPath]()
+    func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
+      moduleInputsFromJobOutputs.append(mis) }
+
+    func addJobOutputs(_ jobOutputs: [TypedVirtualPath]) {
+      for jobOutput in jobOutputs {
+        switch jobOutput.type {
+          case .object, .autolink:
+            addLinkerInput(jobOutput)
+
+          case .swiftModule:
+            moduleInputsFromJobOutputs.append(jobOutput)
+
+          default:
+            break
+        }
+      }
+    }
+
+    try addSingleCompileJobs(addJob: addJob,
+                             addJobOutputs: addJobOutputs);
+
+    try addJobsForPrimaryInputs(
+      addJob: addJob,
+      addModuleInput: addModuleInput,
+      addLinkerInput: addLinkerInput,
+      addJobOutputs: addJobOutputs)
+
+    try addAutolinkExtractJob(linkerInputs: linkerInputs,
+                              addLinkerInputs: addLinkerInputs,
+                              addJob: addJob)
+
+    if let mergeJob = try mergeModuleJob(
+        moduleInputs: moduleInputs,
+        moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
+      addJob(mergeJob)
+      try addVerifyJobs(mergeJob: mergeJob, addJob: addJob)
+      try addWrapJobOrMergeOutputs(
+        mergeJob: mergeJob,
+        debugInfo: debugInfo,
+        addJob: addJob,
+        addLinkerInputs: addLinkerInputs)
+    }
+    return linkerInputs
+  }
+
   private mutating func addSingleCompileJobs(
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void
@@ -179,9 +183,26 @@ extension Driver {
       addJob(job)
   }
 
+  private mutating func addJobsForPrimaryInputs(
+    addJob: (Job) -> Void,
+    addModuleInput: (TypedVirtualPath) -> Void,
+    addLinkerInput: (TypedVirtualPath) -> Void,
+    addJobOutputs: ([TypedVirtualPath]) -> Void)
+  throws {
+    let partitions = batchPartitions()
+    for input in inputFiles {
+      try addJobs(
+        forPrimaryInput: input,
+        partitions: partitions,
+        addJob: addJob,
+        addModuleInput: addModuleInput,
+        addLinkerInput: addLinkerInput,
+        addJobOutputs: addJobOutputs)
+    }
+  }
 
-  private mutating func computeJobs(
-    for input: TypedVirtualPath,
+  private mutating func addJobs(
+    forPrimaryInput input: TypedVirtualPath,
     partitions: BatchPartitions?,
     addJob: (Job) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
