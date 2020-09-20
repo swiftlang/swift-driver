@@ -36,7 +36,6 @@ extension Driver {
                  "compiler mode \(compilerMode) is handled elsewhere")
 
     var jobs = [Job]()
-    var backendJobs = [Job]()
     // Keep track of the various outputs we care about from the jobs we build.
     var linkerInputs = [TypedVirtualPath]()
     var moduleInputs = [TypedVirtualPath]()
@@ -44,7 +43,6 @@ extension Driver {
 
     func addJob(_ j: Job) { jobs.append(j) }
     func addJobs(_ js: [Job]) { jobs.append(contentsOf: js) }
-    func addBackendJob(_ j: Job) { backendJobs.append(j) }
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
     func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
     func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
@@ -73,7 +71,6 @@ extension Driver {
     let partitions: BatchPartitions? = batchPartitions()
 
     try addSingleCompileJobs(addJob: addJob,
-                             addBackendJob: addBackendJob,
                              addJobOutputs: addJobOutputs)
 
     for input in inputFiles {
@@ -81,12 +78,10 @@ extension Driver {
         for: input,
         partitions: partitions,
         addJob: addJob,
-        addBackendJob: addBackendJob,
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs)
     }
-    jobs.append(contentsOf: backendJobs)
 
     let mergeJob = try planMergeModuleJobIfThereAreModuleInputs(
       moduleInputs: moduleInputs,
@@ -169,7 +164,6 @@ extension Driver {
 
   private mutating func addSingleCompileJobs(
     addJob: (Job) -> Void,
-    addBackendJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void
   ) throws {
     guard case .singleCompile = compilerMode
@@ -185,7 +179,7 @@ extension Driver {
 
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
           let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
-          addBackendJob(job)
+          addJob(job)
         }
         return
       }
@@ -202,7 +196,6 @@ extension Driver {
     for input: TypedVirtualPath,
     partitions: BatchPartitions?,
     addJob: (Job) -> Void,
-    addBackendJob: (Job) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void
@@ -238,7 +231,7 @@ extension Driver {
         addJob(job)
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
           let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
-          addBackendJob(job)
+          addJob(job)
         }
       } else {
         let job = try compileJob(primaryInputs: primaryInputs,
