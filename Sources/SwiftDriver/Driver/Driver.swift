@@ -26,8 +26,10 @@ public struct Driver {
     case integratedReplRemoved
     case conflictingOptions(Option, Option)
     case unableToLoadOutputFileMap(String)
-    case unableToDecodeFrontendTargetInfo
+    case unableToDecodeFrontendTargetInfo(String?, [String], String)
     case failedToRetrieveFrontendTargetInfo
+    case failedToRunFrontendToRetrieveTargetInfo(Int, String?)
+    case unableToReadFrontendTargetInfo
     case missingProfilingData(String)
     case conditionalCompilationFlagHasRedundantPrefix(String)
     case conditionalCompilationFlagIsNotValidIdentifier(String)
@@ -57,10 +59,22 @@ public struct Driver {
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .conflictingOptions(let one, let two):
         return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
-      case .unableToDecodeFrontendTargetInfo:
-        return "could not decode frontend target info; compiler driver and frontend executables may be incompatible"
+      case let .unableToDecodeFrontendTargetInfo(outputString, arguments, errorDesc):
+        let output = outputString.map { ": \"\($0)\""} ?? ""
+        return """
+          could not decode frontend target info; compiler driver and frontend executables may be incompatible
+          details: frontend: \(arguments.first ?? "")
+                   arguments: \(arguments.dropFirst())
+                   error: \(errorDesc)
+          output\n\(output)
+          """
       case .failedToRetrieveFrontendTargetInfo:
         return "failed to retrieve frontend target info"
+      case .unableToReadFrontendTargetInfo:
+        return "could not read frontend target info"
+      case let .failedToRunFrontendToRetrieveTargetInfo(returnCode, stderr):
+        return "frontend job retrieving target info failed with code \(returnCode)"
+          + (stderr.map {": \($0)"} ?? "")
       case .missingProfilingData(let arg):
         return "no profdata file exists at '\(arg)'"
       case .conditionalCompilationFlagHasRedundantPrefix(let name):
@@ -1818,8 +1832,31 @@ extension Driver {
       }
 
       return (toolchain, info, swiftCompilerPrefixArgs)
-    } catch is DecodingError {
-      throw Error.unableToDecodeFrontendTargetInfo
+    } catch let JobExecutionError.decodingError(decodingError,
+                                                dataToDecode,
+                                                processResult) {
+      let stringToDecode = String(data: dataToDecode, encoding: .utf8)
+      let errorDesc: String
+      switch decodingError {
+        case let .typeMismatch(type, context):
+          errorDesc = "type mismatch: \(type), path: \(context.codingPath)"
+        case let .valueNotFound(type, context):
+          errorDesc = "value missing: \(type), path: \(context.codingPath)"
+        case let .keyNotFound(key, context):
+          errorDesc = "key missing: \(key), path: \(context.codingPath)"
+       case let .dataCorrupted(context):
+          errorDesc = "data corrupted at path: \(context.codingPath)"
+        @unknown default:
+          errorDesc = "unknown decoding error"
+      }
+      throw Error.unableToDecodeFrontendTargetInfo(
+        stringToDecode,
+        processResult.arguments,
+        errorDesc)
+    } catch let JobExecutionError.jobFailedWithNonzeroExitCode(returnCode, stdout) {
+      throw Error.failedToRunFrontendToRetrieveTargetInfo(returnCode, stdout)
+    } catch JobExecutionError.failedToReadJobOutput {
+      throw Error.unableToReadFrontendTargetInfo
     } catch {
       throw Error.failedToRetrieveFrontendTargetInfo
     }
