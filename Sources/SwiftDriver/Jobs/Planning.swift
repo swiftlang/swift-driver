@@ -44,6 +44,7 @@ extension Driver {
     func addJob(_ j: Job) { jobs.append(j) }
     func addJobs(_ js: [Job]) { jobs.append(contentsOf: js) }
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
+    func addLinkerInputs(_ lis: [TypedVirtualPath]) { linkerInputs.append(contentsOf: lis) }
     func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
     func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
       moduleInputsFromJobOutputs.append(mis) }
@@ -67,7 +68,6 @@ extension Driver {
     try addPrecompileBridgingHeaderJob(addJob: addJob)
     try addEmitModuleJob(addJob: addJob)
 
-
     let partitions: BatchPartitions? = batchPartitions()
 
     try addSingleCompileJobs(addJob: addJob,
@@ -83,11 +83,18 @@ extension Driver {
         addJobOutputs: addJobOutputs)
     }
 
-    let mergeJob = try planMergeModuleJobIfThereAreModuleInputs(
-      moduleInputs: moduleInputs,
-      moduleInputsFromJobOutputs: moduleInputsFromJobOutputs)
+     if let mergeJob = try mergeModuleJob(
+          moduleInputs: moduleInputs,
+          moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
+      addJob(mergeJob)
+      try addVerifyJobs(mergeJob, addJob: addJob)
+      try addAutolinkExtractJob(linkerInputs: linkerInputs, addLinkerInputs: addLinkerInputs, addJob: addJob)
+     }
+    else {
+      try addAutolinkExtractJob(linkerInputs: linkerInputs, addLinkerInputs: addLinkerInputs, addJob: addJob)
+    }
 
-    let verifyJobs = try verifyJobsIfNeeded(mergeJob: mergeJob)
+
 
     let (autolinkExtractJob, autolinkExtractOutputs) = try
       autolinkExtractJobIfNeeded(linkerInputs: linkerInputs)
@@ -266,25 +273,26 @@ extension Driver {
     }
   }
 
-  private mutating func planMergeModuleJobIfThereAreModuleInputs(
+  /// Need a merge module job if there are module inputs
+  private mutating func mergeModuleJob(
     moduleInputs: [TypedVirtualPath],
     moduleInputsFromJobOutputs: [TypedVirtualPath]
   ) throws -> Job? {
-    if moduleOutputInfo.output != nil && !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty) && compilerMode.usesPrimaryFileInputs {
-      return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
-    }
-    return nil
+    guard moduleOutputInfo.output != nil,
+          !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty),
+          compilerMode.usesPrimaryFileInputs
+    else { return nil }
+    return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
   }
 
-  private mutating func verifyJobsIfNeeded(
-    mergeJob: Job?)
-  throws -> [Job] {
-    guard let mergeJob = mergeJob,
+  private mutating func addVerifyJobs(mergeJob: Job, addJob: (Job) -> Void )
+  throws {
+    guard
        parsedOptions.hasArgument(.enableLibraryEvolution),
        parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                              negative: .noVerifyEmittedModuleInterface,
                              default: false)
-    else { return [] }
+    else { return }
 
     func computeJob(forPrivate: Bool) throws -> Job? {
       let isNeeded =
@@ -298,20 +306,24 @@ extension Driver {
       let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
-      return try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
+      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
+      addJob(job)
     }
-
-    return try [false, true].compactMap(computeJob(forPrivate:))
+    computeJob(forPrivate: false)
+    computeJob(forPrivate: true )
   }
 
-  private mutating func autolinkExtractJobIfNeeded(linkerInputs: [TypedVirtualPath])
-  throws -> (job: Job?, linkerInputs: [TypedVirtualPath])
+  private mutating func addAutolinkExtractJob(
+    linkerInputs: [TypedVirtualPath],
+    addLinkerInputs: ([TypedVirtualPath]) -> Void,
+    addJob: (Job) -> Void)
+  throws
   {
     let autolinkInputs = linkerInputs.filter { $0.type == .object }
     if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {
-      return (autolinkExtractJob, autolinkExtractJob.outputs)
+      addJob(autolinkExtractJob)
+      addLinkerInputs(autolinkExtractJob.outputs)
     }
-    return (nil, [])
   }
 
   private mutating func wrapJobIfNeeded(mergeJob: Job?, debugInfo: DebugInfo)
