@@ -12,8 +12,6 @@
 import TSCBasic
 import Foundation
 
-public typealias FileSystem = TSCBasic.FileSystem
-
 /// Mapping of input file paths to specific output files.
 public struct OutputFileMap: Hashable, Codable {
   static let singleInputKey = VirtualPath.relative(RelativePath(""))

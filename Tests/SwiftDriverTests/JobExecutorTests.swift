@@ -14,6 +14,7 @@ import TSCBasic
 import TSCUtility
 
 @_spi(Testing) import SwiftDriver
+import SwiftDriverExecution
 
 extension Job.ArgTemplate: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {

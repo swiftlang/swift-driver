@@ -83,7 +83,7 @@ extension Driver {
     let success = batchScanResult.exitStatus == .terminated(code: EXIT_SUCCESS)
     guard success else {
       throw JobExecutionError.jobFailedWithNonzeroExitCode(
-        SwiftDriverExecutor.computeReturnCode(exitStatus: batchScanResult.exitStatus),
+        type(of: executor).computeReturnCode(exitStatus: batchScanResult.exitStatus),
         try batchScanResult.utf8stderrOutput())
     }
 
