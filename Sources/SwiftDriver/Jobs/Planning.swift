@@ -41,6 +41,8 @@ extension Driver {
     var moduleInputs = [TypedVirtualPath]()
     var moduleInputsFromJobOutputs = [TypedVirtualPath]()
 
+    // Passing in these functions instead of inout parameters clarifies that
+    // the code is only adding to the collections in question.
     func addJob(_ j: Job) { jobs.append(j) }
     func addJobs(_ js: [Job]) { jobs.append(contentsOf: js) }
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
@@ -98,21 +100,10 @@ extension Driver {
         addJob: addJob,
         addLinkerInputs: addLinkerInputs)
      }
-
-    let linkJob = try linkJobIfNeeded(linkerInputs:
-                                        linkerInputs)
-
-    let dsymAndVerifyInfoJobs = try computeDsymAndVerifyDebugInfoJobsIfNeeded(
-      link: linkJob,
-      targetTriple: targetTriple,
-      debugInfo: debugInfo)
-
-    return Array( [
-      jobs,
-       linkJob.map {[$0]} ?? [],
-      dsymAndVerifyInfoJobs
-    ] .joined()
-    )
+    try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
+                               debugInfo: debugInfo,
+                               addJob: addJob)
+    return jobs
   }
 
 
@@ -336,26 +327,25 @@ extension Driver {
     }
   }
 
-  private mutating func linkJobIfNeeded(linkerInputs: [TypedVirtualPath]) throws -> Job? {
-    if linkerOutputType != nil && !linkerInputs.isEmpty {
-      return try linkJob(inputs: linkerInputs)
-    }
-    return nil
-  }
+  private mutating func addLinkAndPostLinkJobs(
+    linkerInputs: [TypedVirtualPath],
+    debugInfo: DebugInfo,
+    addJob: (Job) -> Void)
+  throws {
+    guard linkerOutputType != nil && !linkerInputs.isEmpty
+    else { return }
 
-  private  func computeDsymAndVerifyDebugInfoJobsIfNeeded(
-    link: Job?, targetTriple: Triple, debugInfo: DebugInfo
-  ) throws -> [Job] {
-    guard let linkJob = link, targetTriple.isDarwin, debugInfo.level != nil
-    else {
-      return []
-    }
-    let dsymJob = try generateDSYMJob(inputs: linkJob.outputs)
-    if !debugInfo.shouldVerify { return [dsymJob] }
-    let verifyJob = try verifyDebugInfoJob(inputs: dsymJob.outputs)
-    return [dsymJob, verifyJob]
-  }
+    let linkJ = try linkJob(inputs: linkerInputs)
+    addJob(linkJ)
+    guard targetTriple.isDarwin, debugInfo.level != nil
+    else {return }
 
+    let dsymJob = try generateDSYMJob(inputs: linkJ.outputs)
+    addJob(dsymJob)
+    if debugInfo.shouldVerify {
+      addJob(try verifyDebugInfoJob(inputs: dsymJob.outputs))
+    }
+  }
 
   /// Prescan the source files to produce a module dependency graph and turn it into a set
   /// of jobs required to build all dependencies.
