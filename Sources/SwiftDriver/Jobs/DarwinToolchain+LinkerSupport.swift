@@ -14,11 +14,11 @@ import TSCUtility
 import SwiftOptions
 
 extension DarwinToolchain {
-  internal func findARCLiteLibPath() throws -> AbsolutePath? {
+  internal func findXcodeClangLibPath(_ additionalPath: String) throws -> AbsolutePath? {
     let path = try getToolPath(.swiftCompiler)
       .parentDirectory // 'swift'
       .parentDirectory // 'bin'
-      .appending(components: "lib", "arc")
+      .appending(components: "lib", additionalPath)
 
     if fileSystem.exists(path) { return path }
 
@@ -28,9 +28,20 @@ extension DarwinToolchain {
       return clangPath
         .parentDirectory // 'clang'
         .parentDirectory // 'bin'
-        .appending(components: "lib", "arc")
+        .appending(components: "lib", additionalPath)
     }
     return nil
+  }
+
+  internal func findARCLiteLibPath() throws -> AbsolutePath? {
+    return try findXcodeClangLibPath("arc")
+  }
+
+  internal func addLTOLibArgs(to commandLine: inout [Job.ArgTemplate]) throws {
+    if let path = try findXcodeClangLibPath("libLTO.dylib") {
+      commandLine.appendFlag("-lto_library")
+      commandLine.appendPath(path)
+    }
   }
 
   func addLinkRuntimeLibraryRPath(
@@ -183,6 +194,7 @@ extension DarwinToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
+    lto: LTOKind?,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
@@ -260,7 +272,7 @@ extension DarwinToolchain {
       try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
 
     case .staticLibrary:
-      linkerTool = .staticLinker
+      linkerTool = .staticLinker(lto)
       commandLine.appendFlag(.static)
     }
 
@@ -269,6 +281,9 @@ extension DarwinToolchain {
       parsedOptions: &parsedOptions,
       targetTriple: targetTriple
     )
+
+    try addLTOLibArgs(to: &commandLine)
+
     let targetVariantTriple = targetInfo.targetVariant?.triple
     addDeploymentTargetArgs(
       to: &commandLine,
@@ -320,6 +335,8 @@ extension DarwinToolchain {
           inputModules.append(input.file)
         } else if input.type == .object {
           inputPaths.append(input.file)
+        } else if input.type == .llvmBitcode {
+          inputPaths.append(input.file)
         }
       }
       commandLine.appendPath(.fileList(path, .list(inputPaths)))
@@ -336,6 +353,8 @@ extension DarwinToolchain {
         if path.type == .swiftModule {
           return [.flag("-add_ast_path"), .path(path.file)]
         } else if path.type == .object {
+          return [.path(path.file)]
+        } else if path.type == .llvmBitcode {
           return [.path(path.file)]
         } else {
           return []

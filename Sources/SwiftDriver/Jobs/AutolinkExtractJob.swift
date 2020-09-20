@@ -17,7 +17,7 @@ extension Driver {
     // pull the info we need from the .o files directly and pass them as an
     // argument input file to the linker.
     // FIXME: Also handle Cygwin and MinGW
-    guard inputs.count > 0 && targetTriple.objectFormat == .elf else {
+    guard inputs.count > 0 && targetTriple.objectFormat == .elf && lto == nil else {
       return nil
     }
 

@@ -103,6 +103,7 @@ extension Driver {
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
 
     var moduleInputs = [TypedVirtualPath]()
+    let acceptBitcodeAsLinkerInput = lto == .llvmThin || lto == .llvmFull
     func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
     var moduleInputsFromJobOutputs = [TypedVirtualPath]()
     func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
@@ -113,7 +114,8 @@ extension Driver {
         switch jobOutput.type {
           case .object, .autolink:
             addLinkerInput(jobOutput)
-
+          case .llvmBitcode where acceptBitcodeAsLinkerInput:
+            addLinkerInput(jobOutput)
           case .swiftModule:
             addModuleInputFromJobOutputs(jobOutput)
 
@@ -245,7 +247,7 @@ extension Driver {
         addJob(job)
       }
 
-    case .object, .autolink:
+    case .object, .autolink, .llvmBitcode:
       if linkerOutputType != nil {
         addLinkerInput(input)
       } else {

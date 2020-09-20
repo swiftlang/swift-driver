@@ -13,9 +13,9 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
-public enum Tool {
+public enum Tool: Hashable {
   case swiftCompiler
-  case staticLinker
+  case staticLinker(LTOKind?)
   case dynamicLinker
   case clang
   case swiftAutolinkExtract
@@ -66,6 +66,7 @@ public enum Tool {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
+    lto: LTOKind?,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo

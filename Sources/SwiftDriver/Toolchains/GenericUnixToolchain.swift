@@ -54,8 +54,11 @@ import TSCBasic
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
-    case .staticLinker:
+    case .staticLinker(nil):
       return try lookup(executable: "ar")
+    case .staticLinker(.llvmFull),
+         .staticLinker(.llvmThin):
+      return try lookup(executable: "llvm-ar")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
       return try lookup(executable: "clang")

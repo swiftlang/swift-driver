@@ -248,6 +248,11 @@ final class SwiftDriverTests: XCTestCase {
     let driver3 = try Driver(args: ["swiftc", "-static", "foo.swift", "-emit-library"])
     XCTAssertEqual(driver3.compilerOutputType, .object)
     XCTAssertEqual(driver3.linkerOutputType, .staticLibrary)
+
+    let driver4 = try Driver(args: ["swiftc", "-lto=llvm-thin", "foo.swift", "-emit-library"])
+    XCTAssertEqual(driver4.compilerOutputType, .llvmBitcode)
+    let driver5 = try Driver(args: ["swiftc", "-lto=llvm-full", "foo.swift", "-emit-library"])
+    XCTAssertEqual(driver5.compilerOutputType, .llvmBitcode)
   }
 
   func testPrimaryOutputKindsDiagnostics() throws {
@@ -850,6 +855,34 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+    
+    do {
+      // lto linking
+      var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], env: env)
+      let plannedJobs1 = try driver1.planBuild()
+      XCTAssertFalse(plannedJobs1.contains(where: { $0.kind == .autolinkExtract }))
+      let linkJob1 = plannedJobs1.first(where: { $0.kind == .link })
+      XCTAssertTrue(linkJob1?.tool.name.contains("ld"))
+      XCTAssertTrue(linkJob1?.commandLine.contains(.flag("-lto_library")))
+
+      var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
+      let plannedJobs2 = try driver2.planBuild()
+      XCTAssertFalse(plannedJobs2.contains(where: { $0.kind == .autolinkExtract }))
+      let linkJob2 = plannedJobs2.first(where: { $0.kind == .link })
+      XCTAssertTrue(linkJob2?.tool.name.contains("clang"))
+      XCTAssertTrue(linkJob2?.commandLine.contains(.flag("-flto=thin")))
+
+      var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
+      let plannedJobs3 = try driver3.planBuild()
+      XCTAssertFalse(plannedJobs3.contains(where: { $0.kind == .autolinkExtract }))
+      
+      let compileJob3 = try XCTUnwrap(plannedJobs3.first(where: { $0.kind == .compile }))
+      XCTAssertTrue(compileJob3.outputs.contains { $0.file.basename.hasSuffix(".bc") })
+
+      let linkJob3 = try XCTUnwrap(plannedJobs3.first(where: { $0.kind == .link }))
+      XCTAssertTrue(linkJob3.tool.name.contains("clang"))
+      XCTAssertTrue(linkJob3.commandLine.contains(.flag("-flto=full")))
     }
 
     #if os(macOS)
