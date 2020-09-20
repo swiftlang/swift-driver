@@ -2288,7 +2288,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
                                       executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())))) {
         error in
-        XCTAssertEqual(error as? Driver.Error, .unableToDecodeFrontendTargetInfo)
+        if case .unableToDecodeFrontendTargetInfo = error as? Driver.Error {}
+        else {
+          XCTFail("not a decoding error")
+        }
       }
     }
 

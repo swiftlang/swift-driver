@@ -41,6 +41,8 @@ public protocol DriverExecutor {
 enum JobExecutionError: Error {
   case jobFailedWithNonzeroExitCode(Int, String)
   case failedToReadJobOutput
+  // A way to pass more information to the catch point
+  case decodingError(DecodingError, Data, ProcessResult)
 }
 
 extension DriverExecutor {
@@ -59,8 +61,13 @@ extension DriverExecutor {
     guard let outputData = try? Data(result.utf8Output().utf8) else {
       throw JobExecutionError.failedToReadJobOutput
     }
-    
-    return try JSONDecoder().decode(outputType, from: outputData)
+
+    do {
+      return try JSONDecoder().decode(outputType, from: outputData)
+    }
+    catch let err as DecodingError {
+      throw JobExecutionError.decodingError(err, outputData, result)
+    }
   }
 
   static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {
