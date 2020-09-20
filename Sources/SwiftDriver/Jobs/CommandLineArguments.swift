@@ -162,7 +162,7 @@ extension Array where Element == Job.ArgTemplate {
   }
 
   /// A shell-escaped string representation of the arguments, as they would appear on the command line.
-  var joinedArguments: String {
+  public var joinedArguments: String {
     return self.map {
       switch $0 {
         case .flag(let string):
