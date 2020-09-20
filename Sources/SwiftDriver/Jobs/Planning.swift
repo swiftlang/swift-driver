@@ -40,8 +40,12 @@ extension Driver {
 
     // Passing in these functions instead of inout parameters clarifies that
     // the code is only adding to the collections in question.
-    func addJob(_ j: Job) { jobs.append(j) }
-    func addJobs(_ js: [Job]) { jobs.append(contentsOf: js) }
+    func addJob(_ j: Job) {
+      jobs.append(j)
+    }
+    func addJobs(_ js: [Job]) {
+      jobs.append(contentsOf: js)
+    }
 
     try addPrecompileModuleDependenciesJobs(addJobs: addJobs)
     try addPrecompileBridgingHeaderJob(addJob: addJob)
