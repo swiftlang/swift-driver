@@ -1360,12 +1360,13 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 5)
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .autolinkExtract, .moduleWrap, .link])
-      XCTAssertEqual(plannedJobs[3].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[3].inputs.count, 1)
-      XCTAssertTrue(plannedJobs[3].commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
-      XCTAssertTrue(plannedJobs[1].outputs.contains(plannedJobs[3].inputs.first!))
-      XCTAssertTrue(plannedJobs[4].inputs.contains(plannedJobs[3].outputs.first!))
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .moduleWrap, .link]))
+      let wrapJob = plannedJobs.filter {$0.kind == .moduleWrap} .first!
+      XCTAssertEqual(wrapJob.inputs.count, 1)
+      XCTAssertTrue(wrapJob.commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
+      let mergeJob = plannedJobs.filter {$0.kind == .mergeModule} .first!
+      XCTAssertTrue(mergeJob.outputs.contains(wrapJob.inputs.first!))
+      XCTAssertTrue(plannedJobs[4].inputs.contains(wrapJob.outputs.first!))
     }
 
     do {
@@ -1373,7 +1374,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       // No merge module/module wrap jobs.
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .autolinkExtract, .link])
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .autolinkExtract, .link]))
     }
 
     do {
@@ -1381,7 +1382,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       // Merge module, but no module wrapping.
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .autolinkExtract, .link])
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .link]))
     }
     #endif
     // dsymutil won't be found on other platforms
