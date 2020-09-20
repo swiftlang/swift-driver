@@ -83,30 +83,24 @@ extension Driver {
         addJobOutputs: addJobOutputs)
     }
 
+    try addAutolinkExtractJob(linkerInputs: linkerInputs,
+                              addLinkerInputs: addLinkerInputs,
+                              addJob: addJob)
+
      if let mergeJob = try mergeModuleJob(
           moduleInputs: moduleInputs,
           moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
       addJob(mergeJob)
-      try addVerifyJobs(mergeJob, addJob: addJob)
-      try addAutolinkExtractJob(linkerInputs: linkerInputs, addLinkerInputs: addLinkerInputs, addJob: addJob)
+      try addVerifyJobs(mergeJob: mergeJob, addJob: addJob)
+      try addWrapJobOrMergeOutputs(
+        mergeJob: mergeJob,
+        debugInfo: debugInfo,
+        addJob: addJob,
+        addLinkerInputs: addLinkerInputs)
      }
-    else {
-      try addAutolinkExtractJob(linkerInputs: linkerInputs, addLinkerInputs: addLinkerInputs, addJob: addJob)
-    }
-
-
-
-    let (autolinkExtractJob, autolinkExtractOutputs) = try
-      autolinkExtractJobIfNeeded(linkerInputs: linkerInputs)
-
-    let (wrapJob, wrapOrMergeOutputs) = try wrapJobIfNeeded(
-      mergeJob: mergeJob,
-      debugInfo: debugInfo)
 
     let linkJob = try linkJobIfNeeded(linkerInputs:
-                                        linkerInputs +
-                                        autolinkExtractOutputs +
-                                        wrapOrMergeOutputs)
+                                        linkerInputs)
 
     let dsymAndVerifyInfoJobs = try computeDsymAndVerifyDebugInfoJobsIfNeeded(
       link: linkJob,
@@ -115,11 +109,7 @@ extension Driver {
 
     return Array( [
       jobs,
-      mergeJob.map {[$0]} ?? [],
-      verifyJobs,
-      autolinkExtractJob.map {[$0]} ?? [],
-      wrapJob.map {[$0]} ?? [],
-      linkJob.map {[$0]} ?? [],
+       linkJob.map {[$0]} ?? [],
       dsymAndVerifyInfoJobs
     ] .joined()
     )
@@ -294,12 +284,12 @@ extension Driver {
                              default: false)
     else { return }
 
-    func computeJob(forPrivate: Bool) throws -> Job? {
+    func addVerifyJob(forPrivate: Bool) throws {
       let isNeeded =
         forPrivate
         ? parsedOptions.hasArgument(.emitPrivateModuleInterfacePath)
         : parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath)
-      guard isNeeded else { return nil }
+      guard isNeeded else { return }
 
       let outputType: FileType =
         forPrivate ? .privateSwiftInterface : .swiftInterface
@@ -309,8 +299,8 @@ extension Driver {
       let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
       addJob(job)
     }
-    computeJob(forPrivate: false)
-    computeJob(forPrivate: true )
+    try addVerifyJob(forPrivate: false)
+    try addVerifyJob(forPrivate: true )
   }
 
   private mutating func addAutolinkExtractJob(
@@ -326,21 +316,23 @@ extension Driver {
     }
   }
 
-  private mutating func wrapJobIfNeeded(mergeJob: Job?, debugInfo: DebugInfo)
-  throws -> (wrapJob: Job?, linkerInputs: [TypedVirtualPath] ) {
-    guard let mergeJob = mergeJob, debugInfo.level == .astTypes
-    else {
-      return (nil, [])
-    }
+  private mutating func addWrapJobOrMergeOutputs(mergeJob: Job,
+                                                 debugInfo: DebugInfo,
+                                                 addJob: (Job) -> Void,
+                                                 addLinkerInputs: ([TypedVirtualPath]) -> Void)
+  throws {
+    guard case .astTypes = debugInfo.level
+    else { return }
     if targetTriple.objectFormat != .macho {
       // Module wrapping is required.
       let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
       assert(mergeModuleOutputs.count == 1,
              "Merge module job should only have one swiftmodule output")
       let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
-      return (wrapJob, wrapJob.outputs)
+      addJob(wrapJob)
+      addLinkerInputs(wrapJob.outputs)
     } else {
-      return (nil, mergeJob.outputs)
+      addLinkerInputs(mergeJob.outputs)
     }
   }
 
