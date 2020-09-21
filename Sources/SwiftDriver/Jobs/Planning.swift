@@ -39,11 +39,8 @@ extension Driver {
     func addJob(_ j: Job) {
       jobs.append(j)
     }
-    func addJobs(_ js: [Job]) {
-      jobs.append(contentsOf: js)
-    }
 
-    try addPrecompileModuleDependenciesJobs(addJobs: addJobs)
+    try addPrecompileModuleDependenciesJobs(addJob: addJob)
     try addPrecompileBridgingHeaderJob(addJob: addJob)
     try addEmitModuleJob(addJob: addJob)
 
@@ -55,7 +52,7 @@ extension Driver {
   }
 
 
-  private mutating func addPrecompileModuleDependenciesJobs(addJobs: ([Job]) -> Void) throws {
+  private mutating func addPrecompileModuleDependenciesJobs(addJob: (Job) -> Void) throws {
     // If asked, add jobs to precompile module dependencies
     guard   parsedOptions.contains(.driverExplicitModuleBuild) ||
             parsedOptions.contains(.driverPrintModuleDependenciesJobs)
@@ -64,7 +61,7 @@ extension Driver {
     }
     let modulePrebuildJobs = try generateExplicitModuleBuildJobs()
     if parsedOptions.contains(.driverExplicitModuleBuild) {
-      addJobs(modulePrebuildJobs)
+      modulePrebuildJobs.forEach(addJob)
     }
 
     // If we've been asked to prebuild module dependencies,
@@ -104,7 +101,6 @@ extension Driver {
 
     var linkerInputs = [TypedVirtualPath]()
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
-    func addLinkerInputs(_ lis: [TypedVirtualPath]) { linkerInputs.append(contentsOf: lis) }
 
     var moduleInputs = [TypedVirtualPath]()
     func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
@@ -119,7 +115,7 @@ extension Driver {
             addLinkerInput(jobOutput)
 
           case .swiftModule:
-            moduleInputsFromJobOutputs.append(jobOutput)
+            addModuleInputFromJobOutputs(jobOutput)
 
           default:
             break
@@ -137,7 +133,7 @@ extension Driver {
       addJobOutputs: addJobOutputs)
 
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
-                              addLinkerInputs: addLinkerInputs,
+                              addLinkerInput: addLinkerInput,
                               addJob: addJob)
 
     if let mergeJob = try mergeModuleJob(
@@ -149,7 +145,7 @@ extension Driver {
         mergeJob: mergeJob,
         debugInfo: debugInfo,
         addJob: addJob,
-        addLinkerInputs: addLinkerInputs)
+        addLinkerInput: addLinkerInput)
     }
     return linkerInputs
   }
@@ -317,21 +313,21 @@ extension Driver {
 
   private mutating func addAutolinkExtractJob(
     linkerInputs: [TypedVirtualPath],
-    addLinkerInputs: ([TypedVirtualPath]) -> Void,
+    addLinkerInput: (TypedVirtualPath) -> Void,
     addJob: (Job) -> Void)
   throws
   {
     let autolinkInputs = linkerInputs.filter { $0.type == .object }
     if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {
       addJob(autolinkExtractJob)
-      addLinkerInputs(autolinkExtractJob.outputs)
+      autolinkExtractJob.outputs.forEach(addLinkerInput)
     }
   }
 
   private mutating func addWrapJobOrMergeOutputs(mergeJob: Job,
                                                  debugInfo: DebugInfo,
                                                  addJob: (Job) -> Void,
-                                                 addLinkerInputs: ([TypedVirtualPath]) -> Void)
+                                                 addLinkerInput: (TypedVirtualPath) -> Void)
   throws {
     guard case .astTypes = debugInfo.level
     else { return }
@@ -342,9 +338,9 @@ extension Driver {
              "Merge module job should only have one swiftmodule output")
       let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
       addJob(wrapJob)
-      addLinkerInputs(wrapJob.outputs)
+      wrapJob.outputs.forEach(addLinkerInput)
     } else {
-      addLinkerInputs(mergeJob.outputs)
+      mergeJob.outputs.forEach(addLinkerInput)
     }
   }
 
