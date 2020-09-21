@@ -36,10 +36,6 @@ extension Driver {
                  "compiler mode \(compilerMode) is handled elsewhere")
 
     var jobs = [Job]()
-    // Keep track of the various outputs we care about from the jobs we build.
-
-    // Passing in these functions instead of inout parameters clarifies that
-    // the code is only adding to the collections in question.
     func addJob(_ j: Job) {
       jobs.append(j)
     }
