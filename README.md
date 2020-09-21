@@ -42,9 +42,9 @@ available. Doing so requires several dependencies to be built first,
 all with CMake:
 
 * (Non-Apple platforms only) [swift-corelibs-foundation](https://github.com/apple/swift-corelibs-foundation)
-* [llbuild](https://github.com/apple/swift-llbuild) configure CMake with `-DLLBUILD_SUPPORT_BINDINGS="Swift"` when building
+* [llbuild](https://github.com/apple/swift-llbuild) configure CMake with `-DLLBUILD_SUPPORT_BINDINGS="Swift"` and `-DCMAKE_OSX_ARCHITECTURES=x86_64` (If building on Intel) when building
   ```
-  cmake -B <llbuild-build-dir> -G Ninja <llbuild-source-dir> -DLLBUILD_SUPPORT_BINDINGS="Swift"
+  cmake -B <llbuild-build-dir> -G Ninja <llbuild-source-dir> -DLLBUILD_SUPPORT_BINDINGS="Swift" -DCMAKE_OSX_ARCHITECTURES=x86_64
   ```
 * [swift-argument-parser](https://github.com/apple/swift-argument-parser)
 * [Yams](https://github.com/jpsim/Yams)
