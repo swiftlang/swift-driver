@@ -132,7 +132,7 @@ extension Driver {
     }
 
     try addSingleCompileJobs(addJob: addJob,
-                             addJobOutputs: addJobOutputs);
+                             addJobOutputs: addJobOutputs)
 
     try addJobsForPrimaryInputs(
       addJob: addJob,
