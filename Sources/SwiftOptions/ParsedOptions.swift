@@ -306,6 +306,7 @@ extension ParsedOptions {
   }
 
   /// Get the last parsed option within the given option group.
+  /// FIXME: Should mark the gotten option as "used". That's why must be `mutating`
   public mutating func getLast(in group: Option.Group) -> ParsedOption? {
     return groupIndex[group]?.last
   }
