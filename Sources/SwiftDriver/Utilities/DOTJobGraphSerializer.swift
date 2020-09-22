@@ -12,7 +12,7 @@
 import TSCBasic
 
 /// Serializes the job graph to a .dot file
-public struct DOTJobGraphSerializer {
+@_spi(Testing) public struct DOTJobGraphSerializer {
   var kindCounter = [Job.Kind: Int]()
   var hasEmittedStyling = Set<String>()
   let jobs: [Job]

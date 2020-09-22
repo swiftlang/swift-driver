@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 // Yes, these are meta-tests! `assertDiagnostics(do:)` and friends are
 // complicated enough to warrant a few tests of their own. To test that they

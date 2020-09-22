@@ -12,7 +12,7 @@
 import XCTest
 import Foundation
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 final class ParsableMessageTests: XCTestCase {
   func testBeganMessage() throws {

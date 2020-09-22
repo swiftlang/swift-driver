@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The information about module output produced by the driver.
-public struct ModuleOutputInfo {
+@_spi(Testing) public struct ModuleOutputInfo {
 
   /// How should the Swift module output be handled?
   public enum ModuleOutput: Equatable {

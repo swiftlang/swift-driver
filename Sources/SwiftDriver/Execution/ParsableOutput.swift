@@ -12,7 +12,7 @@
 
 import Foundation
 
-public struct ParsableMessage {
+@_spi(Testing) public struct ParsableMessage {
   public enum Kind {
     case began(BeganMessage)
     case finished(FinishedMessage)
@@ -39,7 +39,7 @@ public struct ParsableMessage {
   }
 }
 
-public struct BeganMessage: Encodable {
+@_spi(Testing) public struct BeganMessage: Encodable {
   public struct Output: Encodable {
     public let type: String
     public let path: String
@@ -79,7 +79,7 @@ public struct BeganMessage: Encodable {
   }
 }
 
-public struct FinishedMessage: Encodable {
+@_spi(Testing) public struct FinishedMessage: Encodable {
   let exitStatus: Int
   let pid: Int
   let output: String?
@@ -103,7 +103,7 @@ public struct FinishedMessage: Encodable {
   }
 }
 
-public struct SignalledMessage: Encodable {
+@_spi(Testing) public struct SignalledMessage: Encodable {
   let pid: Int
   let output: String?
   let errorMessage: String
@@ -124,7 +124,7 @@ public struct SignalledMessage: Encodable {
   }
 }
 
-extension ParsableMessage: Encodable {
+@_spi(Testing) extension ParsableMessage: Encodable {
   enum CodingKeys: CodingKey {
     case name
     case kind

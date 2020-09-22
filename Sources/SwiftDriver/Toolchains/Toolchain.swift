@@ -27,7 +27,7 @@ public enum Tool {
 
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
-public protocol Toolchain {
+@_spi(Testing) public protocol Toolchain {
   init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem)
 
   var env: [String: String] { get }
@@ -178,6 +178,6 @@ extension Toolchain {
   ) throws {}
 }
 
-public enum ToolchainError: Swift.Error {
+@_spi(Testing) public enum ToolchainError: Swift.Error {
   case unableToFind(tool: String)
 }

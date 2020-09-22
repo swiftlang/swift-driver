@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 final class IncrementalCompilationTests: XCTestCase {
   func testInputInfoMapReading() throws {

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 /// The mode of the compiler.
-public enum CompilerMode: Equatable {
+@_spi(Testing) public enum CompilerMode: Equatable {
   /// A standard compilation, using multiple frontend invocations and -primary-file.
   case standardCompile
 
@@ -33,7 +33,7 @@ public enum CompilerMode: Equatable {
 
 /// Information about batch mode, which is used to determine how to form
 /// the batches of jobs.
-public struct BatchModeInfo: Equatable {
+@_spi(Testing) public struct BatchModeInfo: Equatable {
   let seed: Int?
   let count: Int?
   let sizeLimit: Int?
