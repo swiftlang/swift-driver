@@ -316,6 +316,11 @@ extension Driver {
           finalOutputPath: dependenciesFilePath,
           input: input,
           flag: "-emit-dependencies-path")
+        addOutputOfType(
+          outputType: .swiftDeps,
+          finalOutputPath: referenceDependenciesFilePath,
+          input: input,
+          flag: "-emit-reference-dependencies-path")
       }
 
       addOutputOfType(
