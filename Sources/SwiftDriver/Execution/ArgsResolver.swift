@@ -133,7 +133,9 @@ public final class ArgsResolver {
 
   private func quoteAndEscape(path: VirtualPath) -> String {
     let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path), Tag(.str), .doubleQuoted))
-    let string = try! Yams.serialize(node: inputNode)
+    // Width parameter of -1 sets preferred line-width to unlimited so that no extraneous
+    // line-breaks will be inserted during serialization.
+    let string = try! Yams.serialize(node: inputNode, width: -1)
     // Remove the newline from the end
     return string.trimmingCharacters(in: .whitespacesAndNewlines)
   }
