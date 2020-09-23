@@ -379,7 +379,7 @@ public struct Driver {
       self.allSourcesFileList = nil
     }
 
-    self.lto = Self.ltoKind(&parsedOptions)
+    self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
     (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
@@ -594,11 +594,14 @@ extension Driver {
 }
 
 extension Driver {
-  private static func ltoKind(_ parsedOptions: inout ParsedOptions) -> LTOKind? {
-    guard let arg = parsedOptions.getLastArgument(.lto)?.asSingle else {
+  private static func ltoKind(_ parsedOptions: inout ParsedOptions,
+                              diagnosticsEngine: DiagnosticsEngine) -> LTOKind? {
+    guard let arg = parsedOptions.getLastArgument(.lto)?.asSingle else { return nil }
+    guard let kind = LTOKind(rawValue: arg) else {
+      diagnosticsEngine.emit(.error_invalid_arg_value(arg: .lto, value: arg))
       return nil
     }
-    return LTOKind(rawValue: arg)
+    return kind
   }
 }
 

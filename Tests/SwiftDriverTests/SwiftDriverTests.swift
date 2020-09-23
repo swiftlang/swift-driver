@@ -2469,6 +2469,18 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testLTOOption() throws {
+    XCTAssertEqual(try Driver(args: ["swiftc"]).lto, nil)
+
+    XCTAssertEqual(try Driver(args: ["swiftc", "-lto=llvm-thin"]).lto, .llvmThin)
+
+    XCTAssertEqual(try Driver(args: ["swiftc", "-lto=llvm-full"]).lto, .llvmFull)
+
+    try assertDriverDiagnostics(args: ["swiftc", "-lto=nop"]) { driver, verify in
+      verify.expect(.error("invalid value 'nop' in '-lto='"))
+    }
+  }
+
   func testScanDependenciesOption() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-scan-dependencies", "foo.swift"])
