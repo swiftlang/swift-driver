@@ -157,8 +157,10 @@ extension Driver {
   }
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
-  mutating func compileJob(primaryInputs: [TypedVirtualPath], outputType: FileType?,
-                           allOutputs: inout [TypedVirtualPath]) throws -> Job {
+  mutating func compileJob(primaryInputs: [TypedVirtualPath],
+                           outputType: FileType?,
+                           addJobOutputs: ([TypedVirtualPath]) -> Void)
+  throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
@@ -249,7 +251,7 @@ extension Driver {
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
 
-    allOutputs += outputs
+    addJobOutputs(outputs)
 
     // If we're creating emit module job, order the compile jobs after that.
     if shouldCreateEmitModuleJob {

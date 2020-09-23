@@ -1360,12 +1360,13 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 5)
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .autolinkExtract, .moduleWrap, .link])
-      XCTAssertEqual(plannedJobs[3].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[3].inputs.count, 1)
-      XCTAssertTrue(plannedJobs[3].commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
-      XCTAssertTrue(plannedJobs[1].outputs.contains(plannedJobs[3].inputs.first!))
-      XCTAssertTrue(plannedJobs[4].inputs.contains(plannedJobs[3].outputs.first!))
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .moduleWrap, .link]))
+      let wrapJob = plannedJobs.filter {$0.kind == .moduleWrap} .first!
+      XCTAssertEqual(wrapJob.inputs.count, 1)
+      XCTAssertTrue(wrapJob.commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
+      let mergeJob = plannedJobs.filter {$0.kind == .mergeModule} .first!
+      XCTAssertTrue(mergeJob.outputs.contains(wrapJob.inputs.first!))
+      XCTAssertTrue(plannedJobs[4].inputs.contains(wrapJob.outputs.first!))
     }
 
     do {
@@ -1373,7 +1374,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       // No merge module/module wrap jobs.
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .autolinkExtract, .link])
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .autolinkExtract, .link]))
     }
 
     do {
@@ -1381,7 +1382,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       // Merge module, but no module wrapping.
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .autolinkExtract, .link])
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .link]))
     }
     #endif
     // dsymutil won't be found on other platforms
@@ -2132,14 +2133,14 @@ final class SwiftDriverTests: XCTestCase {
       "compile (swift-frontend)" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
       "compile (swift-frontend)" -> "test.swiftdoc" [color=green];
-      "mergeModule (swift-frontend)" [style=bold];
-      "test.swiftmodule" -> "mergeModule (swift-frontend)" [color=blue];
-      "mergeModule (swift-frontend)" -> "test.swiftmodule" [color=green];
-      "mergeModule (swift-frontend)" -> "test.swiftdoc" [color=green];
       "autolinkExtract (swift-autolink-extract)" [style=bold];
       "test.o" -> "autolinkExtract (swift-autolink-extract)" [color=blue];
       "test.autolink" [fontsize=12];
       "autolinkExtract (swift-autolink-extract)" -> "test.autolink" [color=green];
+      "mergeModule (swift-frontend)" [style=bold];
+      "test.swiftmodule" -> "mergeModule (swift-frontend)" [color=blue];
+      "mergeModule (swift-frontend)" -> "test.swiftmodule" [color=green];
+      "mergeModule (swift-frontend)" -> "test.swiftdoc" [color=green];
       "link (clang)" [style=bold];
       "test.o" -> "link (clang)" [color=blue];
       "test.autolink" -> "link (clang)" [color=blue];
@@ -2785,18 +2786,18 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].outputs.count, 1)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("main.bc")))
 
-      XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .relative(RelativePath("main.swift")))
-      XCTAssertEqual(plannedJobs[1].inputs[1].file, .relative(RelativePath("hi.swift")))
+      XCTAssertEqual(plannedJobs[1].kind, .backend)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("main.bc")))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("hi.bc")))
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("main.o")))
 
-      XCTAssertEqual(plannedJobs[2].kind, .backend)
-      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[2].inputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertEqual(plannedJobs[2].kind, .compile)
+      XCTAssertEqual(plannedJobs[2].inputs.count, 2)
+      XCTAssertEqual(plannedJobs[2].inputs[0].file, .relative(RelativePath("main.swift")))
+      XCTAssertEqual(plannedJobs[2].inputs[1].file, .relative(RelativePath("hi.swift")))
       XCTAssertEqual(plannedJobs[2].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .temporary(RelativePath("main.o")))
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .temporary(RelativePath("hi.bc")))
 
       XCTAssertEqual(plannedJobs[3].kind, .backend)
       XCTAssertEqual(plannedJobs[3].inputs.count, 1)
@@ -2867,15 +2868,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
 
-      XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("empty.bc")))
+      XCTAssertEqual(plannedJobs[1].kind, .backend)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertEqual(plannedJobs[1].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
 
-      XCTAssertEqual(plannedJobs[2].kind, .backend)
-      XCTAssertEqual(plannedJobs[2].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[2].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
+      XCTAssertEqual(plannedJobs[2].kind, .compile)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .temporary(RelativePath("empty.bc")))
 
       XCTAssertEqual(plannedJobs[3].kind, .backend)
       XCTAssertEqual(plannedJobs[3].inputs.count, 1)

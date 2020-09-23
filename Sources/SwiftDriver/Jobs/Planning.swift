@@ -27,235 +27,341 @@ public enum PlanningError: Error, DiagnosticData {
   }
 }
 
-/// Planning for builds
+/// // MARK: Standard build planning
 extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
   private mutating func planStandardCompile() throws -> [Job] {
-    var jobs = [Job]()
+    precondition(compilerMode.isStandardCompilationForPlanning,
+                 "compiler mode \(compilerMode) is handled elsewhere")
 
-    // Keep track of the various outputs we care about from the jobs we build.
+    var jobs = [Job]()
+    func addJob(_ j: Job) {
+      jobs.append(j)
+    }
+
+    try addPrecompileModuleDependenciesJobs(addJob: addJob)
+    try addPrecompileBridgingHeaderJob(addJob: addJob)
+    try addEmitModuleJob(addJob: addJob)
+
+    let linkerInputs = try addJobsFeedingLinker(addJob: addJob)
+    try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
+                               debugInfo: debugInfo,
+                               addJob: addJob)
+    return jobs
+  }
+
+
+  private mutating func addPrecompileModuleDependenciesJobs(addJob: (Job) -> Void) throws {
+    // If asked, add jobs to precompile module dependencies
+    guard   parsedOptions.contains(.driverExplicitModuleBuild) ||
+            parsedOptions.contains(.driverPrintModuleDependenciesJobs)
+    else {
+      return
+    }
+    let modulePrebuildJobs = try generateExplicitModuleBuildJobs()
+    if parsedOptions.contains(.driverExplicitModuleBuild) {
+      modulePrebuildJobs.forEach(addJob)
+    }
+
+    // If we've been asked to prebuild module dependencies,
+    // for the time being, just print the jobs' compile commands.
+    if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
+      let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
+      for job in modulePrebuildJobs {
+        print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
+      }
+    }
+  }
+
+
+  private mutating func addPrecompileBridgingHeaderJob(addJob: (Job) -> Void) throws {
+    guard
+      let importedObjCHeader = importedObjCHeader,
+      let bridgingPrecompiledHeader = bridgingPrecompiledHeader
+    else { return }
+
+    addJob(
+      try generatePCHJob(input:  .init(file: importedObjCHeader,
+                                       type: .objcHeader),
+                         output: .init(file: bridgingPrecompiledHeader,
+                                       type: .pch))
+    )
+  }
+
+  private mutating func addEmitModuleJob(addJob: (Job) -> Void) throws {
+    if shouldCreateEmitModuleJob {
+      addJob( try emitModuleJob() )
+    }
+  }
+
+  private mutating func addJobsFeedingLinker(
+    addJob: (Job) -> Void
+  ) throws -> [TypedVirtualPath] {
+
     var linkerInputs = [TypedVirtualPath]()
+    func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
+
     var moduleInputs = [TypedVirtualPath]()
+    func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
     var moduleInputsFromJobOutputs = [TypedVirtualPath]()
+    func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
+      moduleInputsFromJobOutputs.append(mis) }
+
     func addJobOutputs(_ jobOutputs: [TypedVirtualPath]) {
       for jobOutput in jobOutputs {
         switch jobOutput.type {
-        case .object, .autolink:
-          linkerInputs.append(jobOutput)
+          case .object, .autolink:
+            addLinkerInput(jobOutput)
 
-        case .swiftModule:
-          moduleInputsFromJobOutputs.append(jobOutput)
+          case .swiftModule:
+            addModuleInputFromJobOutputs(jobOutput)
 
-        default:
-          break
+          default:
+            break
         }
       }
     }
 
-    // If asked, add jobs to precompile module dependencies
-    if parsedOptions.contains(.driverExplicitModuleBuild) ||
-        parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
-      let modulePrebuildJobs = try generateExplicitModuleBuildJobs()
+    try addSingleCompileJobs(addJob: addJob,
+                             addJobOutputs: addJobOutputs)
 
-      if parsedOptions.contains(.driverExplicitModuleBuild) {
-        jobs.append(contentsOf: modulePrebuildJobs)
-      }
+    try addJobsForPrimaryInputs(
+      addJob: addJob,
+      addModuleInput: addModuleInput,
+      addLinkerInput: addLinkerInput,
+      addJobOutputs: addJobOutputs)
 
-      // If we've been asked to prebuild module dependencies,
-      // for the time being, just print the jobs' compile commands.
-      if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
-        let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
-        for job in modulePrebuildJobs {
-          print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
-        }
-      }
+    try addAutolinkExtractJob(linkerInputs: linkerInputs,
+                              addLinkerInput: addLinkerInput,
+                              addJob: addJob)
+
+    if let mergeJob = try mergeModuleJob(
+        moduleInputs: moduleInputs,
+        moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
+      addJob(mergeJob)
+      try addVerifyJobs(mergeJob: mergeJob, addJob: addJob)
+      try addWrapJobOrMergeOutputs(
+        mergeJob: mergeJob,
+        debugInfo: debugInfo,
+        addJob: addJob,
+        addLinkerInput: addLinkerInput)
     }
+    return linkerInputs
+  }
 
-    // Precompile the bridging header if needed.
-    if let importedObjCHeader = importedObjCHeader,
-      let bridgingPrecompiledHeader = bridgingPrecompiledHeader {
-      jobs.append(try generatePCHJob(input: .init(file: importedObjCHeader, type: .objcHeader),
-                                     output: .init(file: bridgingPrecompiledHeader, type: .pch)))
-    }
+  private mutating func addSingleCompileJobs(
+    addJob: (Job) -> Void,
+    addJobOutputs: ([TypedVirtualPath]) -> Void
+  ) throws {
+    guard case .singleCompile = compilerMode
+    else { return }
 
-    // If we should create emit module job, do so.
-    if shouldCreateEmitModuleJob {
-      jobs.append(try emitModuleJob())
-    }
+    if parsedOptions.hasArgument(.embedBitcode),
+       inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation })
+      {
+        let job = try compileJob(primaryInputs: [],
+                                 outputType: .llvmBitcode,
+                                 addJobOutputs: addJobOutputs)
+        addJob(job)
 
-    var backendJobs = [Job]()
-
-    let partitions: BatchPartitions?
-    switch compilerMode {
-    case .batchCompile(let batchInfo):
-      partitions = batchPartitions(batchInfo)
-
-    case .immediate, .repl, .compilePCM:
-      fatalError("compiler mode \(compilerMode) is handled elsewhere")
-
-    case .singleCompile:
-      if parsedOptions.hasArgument(.embedBitcode),
-        inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
-        var jobOutputs: [TypedVirtualPath] = []
-        let job = try compileJob(primaryInputs: [], outputType: .llvmBitcode, allOutputs: &jobOutputs)
-        jobs.append(job)
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
-          let job = try backendJob(input: input, allOutputs: &jobOutputs)
-          backendJobs.append(job)
+          let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
+          addJob(job)
         }
-        addJobOutputs(jobOutputs)
+        return
+      }
+      // Create a single compile job for all of the files, none of which
+      // are primary.
+      let job = try compileJob(primaryInputs: [],
+                               outputType: compilerOutputType,
+                               addJobOutputs: addJobOutputs)
+      addJob(job)
+  }
+
+  private mutating func addJobsForPrimaryInputs(
+    addJob: (Job) -> Void,
+    addModuleInput: (TypedVirtualPath) -> Void,
+    addLinkerInput: (TypedVirtualPath) -> Void,
+    addJobOutputs: ([TypedVirtualPath]) -> Void)
+  throws {
+    let partitions = batchPartitions()
+    for input in inputFiles {
+      try addJobs(
+        forPrimaryInput: input,
+        partitions: partitions,
+        addJob: addJob,
+        addModuleInput: addModuleInput,
+        addLinkerInput: addLinkerInput,
+        addJobOutputs: addJobOutputs)
+    }
+  }
+
+  private mutating func addJobs(
+    forPrimaryInput input: TypedVirtualPath,
+    partitions: BatchPartitions?,
+    addJob: (Job) -> Void,
+    addModuleInput: (TypedVirtualPath) -> Void,
+    addLinkerInput: (TypedVirtualPath) -> Void,
+    addJobOutputs: ([TypedVirtualPath]) -> Void
+  ) throws
+  {
+    switch input.type {
+    case .swift, .sil, .sib:
+      // Generate a compile job for primary inputs here.
+      guard compilerMode.usesPrimaryFileInputs else { break }
+
+      var primaryInputs: [TypedVirtualPath]
+      if let partitions = partitions, let partitionIdx = partitions.assignment[input] {
+        // We have a partitioning for batch mode. If this input file isn't the first
+        // file in the partition, skip it: it's been accounted for already.
+        let partition = partitions.partitions[partitionIdx]
+        if partition[0] != input {
+          return
+        }
+
+        if parsedOptions.hasArgument(.driverShowJobLifecycle) {
+          stdoutStream.write("Forming batch job from \(partition.count) constituents\n")
+        }
+
+        primaryInputs = partitions.partitions[partitionIdx]
       } else {
-        // Create a single compile job for all of the files, none of which
-        // are primary.
-        var jobOutputs: [TypedVirtualPath] = []
-        let job = try compileJob(primaryInputs: [], outputType: compilerOutputType, allOutputs: &jobOutputs)
-        jobs.append(job)
-        addJobOutputs(jobOutputs)
+        primaryInputs = [input]
       }
 
-      partitions = nil
-
-    case .standardCompile:
-      partitions = nil
-    }
-
-    for input in inputFiles {
-      switch input.type {
-      case .swift, .sil, .sib:
-        // Generate a compile job for primary inputs here.
-        guard compilerMode.usesPrimaryFileInputs else { break }
-
-        var primaryInputs: [TypedVirtualPath]
-        if let partitions = partitions, let partitionIdx = partitions.assignment[input] {
-          // We have a partitioning for batch mode. If this input file isn't the first
-          // file in the partition, skip it: it's been accounted for already.
-          let partition = partitions.partitions[partitionIdx]
-          if partition[0] != input {
-            continue
-          }
-
-          if parsedOptions.hasArgument(.driverShowJobLifecycle) {
-            stdoutStream.write("Forming batch job from \(partition.count) constituents\n")
-          }
-
-          primaryInputs = partitions.partitions[partitionIdx]
-        } else {
-          primaryInputs = [input]
+      if parsedOptions.hasArgument(.embedBitcode) {
+        let job = try compileJob(primaryInputs: primaryInputs,
+                                 outputType: .llvmBitcode,
+                                 addJobOutputs: addJobOutputs)
+        addJob(job)
+        for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
+          let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
+          addJob(job)
         }
+      } else {
+        let job = try compileJob(primaryInputs: primaryInputs,
+                                 outputType: compilerOutputType,
+                                 addJobOutputs: addJobOutputs)
+        addJob(job)
+      }
 
-        if parsedOptions.hasArgument(.embedBitcode) {
-          var jobOutputs: [TypedVirtualPath] = []
-          let job = try compileJob(primaryInputs: primaryInputs, outputType: .llvmBitcode, allOutputs: &jobOutputs)
-          jobs.append(job)
-          for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
-            let job = try backendJob(input: input, allOutputs: &jobOutputs)
-            backendJobs.append(job)
-          }
-          addJobOutputs(jobOutputs)
-        } else {
-          var jobOutputs: [TypedVirtualPath] = []
-          let job = try compileJob(primaryInputs: primaryInputs, outputType: compilerOutputType, allOutputs: &jobOutputs)
-          jobs.append(job)
-          addJobOutputs(jobOutputs)
-        }
-
-      case .object, .autolink:
-        if linkerOutputType != nil {
-          linkerInputs.append(input)
-        } else {
-          diagnosticEngine.emit(.error_unexpected_input_file(input.file))
-        }
-
-      case .swiftModule, .swiftDocumentation:
-        if moduleOutputInfo.output != nil && linkerOutputType == nil {
-          // When generating a .swiftmodule as a top-level output (as opposed
-          // to, for example, linking an image), treat .swiftmodule files as
-          // inputs to a MergeModule action.
-          moduleInputs.append(input)
-        } else if linkerOutputType != nil {
-          // Otherwise, if linking, pass .swiftmodule files as inputs to the
-          // linker, so that their debug info is available.
-          linkerInputs.append(input)
-        } else {
-          diagnosticEngine.emit(.error_unexpected_input_file(input.file))
-        }
-
-      default:
+    case .object, .autolink:
+      if linkerOutputType != nil {
+        addLinkerInput(input)
+      } else {
         diagnosticEngine.emit(.error_unexpected_input_file(input.file))
       }
+
+    case .swiftModule, .swiftDocumentation:
+      if moduleOutputInfo.output != nil && linkerOutputType == nil {
+        // When generating a .swiftmodule as a top-level output (as opposed
+        // to, for example, linking an image), treat .swiftmodule files as
+        // inputs to a MergeModule action.
+        addModuleInput(input)
+      } else if linkerOutputType != nil {
+        // Otherwise, if linking, pass .swiftmodule files as inputs to the
+        // linker, so that their debug info is available.
+        addLinkerInput(input)
+      } else {
+        diagnosticEngine.emit(.error_unexpected_input_file(input.file))
+      }
+
+    default:
+      diagnosticEngine.emit(.error_unexpected_input_file(input.file))
     }
+  }
 
-    jobs.append(contentsOf: backendJobs)
+  /// Need a merge module job if there are module inputs
+  private mutating func mergeModuleJob(
+    moduleInputs: [TypedVirtualPath],
+    moduleInputsFromJobOutputs: [TypedVirtualPath]
+  ) throws -> Job? {
+    guard moduleOutputInfo.output != nil,
+          !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty),
+          compilerMode.usesPrimaryFileInputs
+    else { return nil }
+    return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
+  }
 
-    // Plan the merge-module job, if there are module inputs.
-    var mergeJob: Job?
-    if moduleOutputInfo.output != nil && !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty) && compilerMode.usesPrimaryFileInputs {
-      let mergeModule = try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
-      jobs.append(mergeModule)
-      mergeJob = mergeModule
-    }
-
-    if let mergeJob = mergeJob,
+  private mutating func addVerifyJobs(mergeJob: Job, addJob: (Job) -> Void )
+  throws {
+    guard
        parsedOptions.hasArgument(.enableLibraryEvolution),
        parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                              negative: .noVerifyEmittedModuleInterface,
-                             default: false) {
-      if parsedOptions.hasArgument(.emitModuleInterface) ||
-          parsedOptions.hasArgument(.emitModuleInterfacePath) {
-        let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == .swiftInterface }
-        assert(mergeInterfaceOutputs.count == 1,
-               "Merge module job should only have one swiftinterface output")
-        let verifyJob = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
-        jobs.append(verifyJob)
-      }
-      if parsedOptions.hasArgument(.emitPrivateModuleInterfacePath) {
-        let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == .privateSwiftInterface }
-        assert(mergeInterfaceOutputs.count == 1,
-               "Merge module job should only have one private swiftinterface output")
-        let verifyJob = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
-        jobs.append(verifyJob)
-      }
-    }
+                             default: false)
+    else { return }
 
-    // If we need to autolink-extract, do so.
+    func addVerifyJob(forPrivate: Bool) throws {
+      let isNeeded =
+        forPrivate
+        ? parsedOptions.hasArgument(.emitPrivateModuleInterfacePath)
+        : parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath)
+      guard isNeeded else { return }
+
+      let outputType: FileType =
+        forPrivate ? .privateSwiftInterface : .swiftInterface
+      let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == outputType }
+      assert(mergeInterfaceOutputs.count == 1,
+             "Merge module job should only have one swiftinterface output")
+      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
+      addJob(job)
+    }
+    try addVerifyJob(forPrivate: false)
+    try addVerifyJob(forPrivate: true )
+  }
+
+  private mutating func addAutolinkExtractJob(
+    linkerInputs: [TypedVirtualPath],
+    addLinkerInput: (TypedVirtualPath) -> Void,
+    addJob: (Job) -> Void)
+  throws
+  {
     let autolinkInputs = linkerInputs.filter { $0.type == .object }
     if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {
-      linkerInputs.append(contentsOf: autolinkExtractJob.outputs)
-      jobs.append(autolinkExtractJob)
+      addJob(autolinkExtractJob)
+      autolinkExtractJob.outputs.forEach(addLinkerInput)
     }
+  }
 
-    if let mergeJob = mergeJob, debugInfo.level == .astTypes {
-      if targetTriple.objectFormat != .macho {
-        // Module wrapping is required.
-        let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
-        assert(mergeModuleOutputs.count == 1,
-               "Merge module job should only have one swiftmodule output")
-        let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
-        linkerInputs.append(contentsOf: wrapJob.outputs)
-        jobs.append(wrapJob)
-      } else {
-        linkerInputs.append(contentsOf: mergeJob.outputs)
-      }
+  private mutating func addWrapJobOrMergeOutputs(mergeJob: Job,
+                                                 debugInfo: DebugInfo,
+                                                 addJob: (Job) -> Void,
+                                                 addLinkerInput: (TypedVirtualPath) -> Void)
+  throws {
+    guard case .astTypes = debugInfo.level
+    else { return }
+    if targetTriple.objectFormat != .macho {
+      // Module wrapping is required.
+      let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
+      assert(mergeModuleOutputs.count == 1,
+             "Merge module job should only have one swiftmodule output")
+      let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
+      addJob(wrapJob)
+      wrapJob.outputs.forEach(addLinkerInput)
+    } else {
+      mergeJob.outputs.forEach(addLinkerInput)
     }
+  }
 
-    // If we should link, do so.
-    var link: Job?
-    if linkerOutputType != nil && !linkerInputs.isEmpty {
-      link = try linkJob(inputs: linkerInputs)
-      jobs.append(link!)
+  private mutating func addLinkAndPostLinkJobs(
+    linkerInputs: [TypedVirtualPath],
+    debugInfo: DebugInfo,
+    addJob: (Job) -> Void)
+  throws {
+    guard linkerOutputType != nil && !linkerInputs.isEmpty
+    else { return }
+
+    let linkJ = try linkJob(inputs: linkerInputs)
+    addJob(linkJ)
+    guard targetTriple.isDarwin, debugInfo.level != nil
+    else {return }
+
+    let dsymJob = try generateDSYMJob(inputs: linkJ.outputs)
+    addJob(dsymJob)
+    if debugInfo.shouldVerify {
+      addJob(try verifyDebugInfoJob(inputs: dsymJob.outputs))
     }
-
-    // If we should generate a dSYM, do so.
-    if let linkJob = link, targetTriple.isDarwin, debugInfo.level != nil {
-      let dsymJob = try generateDSYMJob(inputs: linkJob.outputs)
-      jobs.append(dsymJob)
-      if debugInfo.shouldVerify {
-        jobs.append(try verifyDebugInfoJob(inputs: dsymJob.outputs))
-      }
-    }
-
-    return jobs
   }
 
   /// Prescan the source files to produce a module dependency graph and turn it into a set
@@ -321,6 +427,10 @@ extension Driver {
     }
   }
 
+}
+
+/// MARK: Planning
+extension Driver {
   /// Create a job if needed for simple requests that can be immediately
   /// forwarded to the frontend.
   public mutating func immediateForwardingJob() throws -> Job? {
@@ -336,7 +446,7 @@ extension Driver {
                               default: false) {
         useStaticResourceDir = true
       }
-      
+
       return try toolchain.printTargetInfoJob(target: targetTriple,
                                               targetVariant: targetVariantTriple,
                                               sdkPath: sdkPath,
@@ -555,7 +665,10 @@ extension Driver {
   }
 
   /// Compute the partitions we'll use for batch mode.
-  private func batchPartitions(_ info: BatchModeInfo) -> BatchPartitions? {
+  private func batchPartitions() -> BatchPartitions? {
+    guard case let .batchCompile(info) = compilerMode
+    else { return nil }
+
     let swiftInputFiles = inputFiles.filter { inputFile in
       inputFile.type.isPartOfSwiftCompilation
     }

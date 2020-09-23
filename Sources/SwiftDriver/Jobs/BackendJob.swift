@@ -15,7 +15,8 @@ import Foundation
 extension Driver {
   /// Form a backend job.
   mutating func backendJob(input: TypedVirtualPath,
-                           allOutputs: inout [TypedVirtualPath]) throws -> Job {
+                           addJobOutputs: ([TypedVirtualPath]) -> Void)
+  throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs = [TypedVirtualPath]()
     var outputs = [TypedVirtualPath]()
@@ -62,7 +63,7 @@ extension Driver {
       outputs.append(output)
     }
 
-    allOutputs += outputs
+    addJobOutputs(outputs)
 
     return Job(
       moduleName: moduleOutputInfo.name,
