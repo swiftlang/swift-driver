@@ -14,7 +14,7 @@
         "package": "llbuild",
         "repositoryURL": "https://github.com/apple/swift-llbuild.git",
         "state": {
-          "branch": "master",
+          "branch": "main",
           "revision": "0816cf594c2e4d890d1f188271da667f99763fa9",
           "version": null
         }
@@ -23,7 +23,7 @@
         "package": "swift-tools-support-core",
         "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
         "state": {
-          "branch": "master",
+          "branch": "main",
           "revision": "25fc6eaec5d9f79b79419c5bdaa04e434cbcd568",
           "version": null
         }

@@ -76,7 +76,7 @@ let package = Package(
 if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("main")),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
@@ -90,7 +90,7 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
-    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("main")),
     .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "4.0.0")),
     // The 'swift-argument-parser' version declared here must match that
     // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
