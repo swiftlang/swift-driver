@@ -88,6 +88,6 @@ public protocol JobExecutionDelegate {
   /// Called when a job starts executing.
   func jobStarted(job: Job, arguments: [String], pid: Int)
   
-  /// Called when a job finished.
-  func jobFinished(job: Job, result: ProcessResult, pid: Int)
+  /// Called when a job finished. May return newly discovered jobs.
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job]
 }

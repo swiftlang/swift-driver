@@ -795,7 +795,7 @@ extension Driver {
     }
 
     // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = createToolExecutionDelegate()
+    let executorDelegate = createCompoundExecutionDelegate()
 
     // Perform the build
     try executor.execute(jobs: jobs,
@@ -812,7 +812,7 @@ extension Driver {
     }
   }
 
-  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
+  mutating func createCompoundExecutionDelegate() -> JobExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
@@ -822,7 +822,12 @@ extension Driver {
       mode = .verbose
     }
 
-    return ToolExecutionDelegate(mode: mode)
+    let ted =  ToolExecutionDelegate(mode: mode)
+    guard parsedOptions.hasArgument(.incremental) else {
+      return ted
+    }
+    let rdpd = ReferenceDependenciesProcessingDelegate(driver: self)
+    return CompoundExecutionDelegate(delegates: [ted, rdpd])
   }
 
   private func printBindings(_ job: Job) {

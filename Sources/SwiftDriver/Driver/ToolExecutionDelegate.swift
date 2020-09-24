@@ -59,7 +59,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
     }
   }
 
-  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job] {
     switch mode {
     case .regular, .verbose:
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
@@ -86,6 +86,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
       }
       emit(message)
     }
+    return []
   }
 
   private func emit(_ message: ParsableMessage) {

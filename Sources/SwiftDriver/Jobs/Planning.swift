@@ -127,7 +127,10 @@ extension Driver {
 
     try addSingleCompileJobs(addJob: addJob,
                              addJobOutputs: addJobOutputs)
-
+    // TODO Incremental:
+    // if parsedOptions.hasArgument(.incremental)
+    //    only create initial compilations, nothing that follows
+    //    Or maybe we need a new rule??
     try addJobsForPrimaryInputs(
       addJob: addJob,
       addModuleInput: addModuleInput,

@@ -175,3 +175,12 @@ extension Diagnostic.Message {
     .remark("Incremental compilation has been disabled, because \(why).\n")
   }
 }
+
+extension Driver {
+  func additionalJobs(updatingDependenciesWith: [TypedVirtualPath], exitStatus: ProcessResult.ExitStatus) -> [Job] {
+    precondition(parsedOptions.hasArgument(.incremental))
+    // TODO Incremental: read swiftdeps files, and return any more jobs to run
+    // If no more compilations are needed, return all post-compilation jobs
+    return []
+  }
+}

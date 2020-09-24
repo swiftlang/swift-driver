@@ -44,8 +44,9 @@ class JobCollectingDelegate: JobExecutionDelegate {
   var started: [Job] = []
   var finished: [(Job, ProcessResult)] = []
 
-  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) -> [Job] {
     finished.append((job, result))
+    return []
   }
 
   func jobStarted(job: Job, arguments: [String], pid: Int) {
