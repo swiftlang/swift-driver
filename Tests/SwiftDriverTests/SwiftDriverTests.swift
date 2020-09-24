@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 @_spi(Testing) import SwiftDriver
+import SwiftDriverExecution
 import SwiftOptions
 import TSCBasic
 import XCTest

@@ -24,11 +24,9 @@ add_library(SwiftDriver
   Driver/ToolExecutionDelegate.swift
 
   Execution/ArgsResolver.swift
-  Execution/MultiJobExecutor.swift
   Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
-  Execution/llbuild.swift
 
   "Incremental Compilation/IncrementalCompilationState.swift"
   "Incremental Compilation/InputIInfoMap.swift"
@@ -84,8 +82,7 @@ add_library(SwiftDriver
 target_link_libraries(SwiftDriver PUBLIC
   TSCBasic
   TSCUtility
-  SwiftOptions
-  llbuildSwift)
+  SwiftOptions)
 target_link_libraries(SwiftDriver PRIVATE
   CYaml
   Yams)

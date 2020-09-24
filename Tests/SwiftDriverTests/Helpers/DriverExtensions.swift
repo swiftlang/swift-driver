@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftDriver
+import SwiftDriverExecution
 import TSCBasic
 
 extension Driver {

@@ -12,6 +12,7 @@
 
 import Foundation
 @_spi(Testing) import SwiftDriver
+import SwiftDriverExecution
 import TSCBasic
 import XCTest
 

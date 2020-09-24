@@ -8,5 +8,6 @@
 
 add_subdirectory(SwiftOptions)
 add_subdirectory(SwiftDriver)
+add_subdirectory(SwiftDriverExecution)
 add_subdirectory(swift-driver)
 add_subdirectory(swift-help)

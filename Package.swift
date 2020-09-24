@@ -27,15 +27,25 @@ let package = Package(
     .library(
       name: "SwiftOptions",
       targets: ["SwiftOptions"]),
+    .library(
+      name: "SwiftDriverExecution",
+      targets: ["SwiftDriverExecution"]),
   ],
   targets: [
     /// The driver library.
     .target(
       name: "SwiftDriver",
       dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "Yams"]),
+
+    /// The execution library.
+    .target(
+      name: "SwiftDriverExecution",
+      dependencies: ["SwiftDriver", "SwiftToolsSupport-auto"]),
+
+    /// Driver tests.
     .testTarget(
       name: "SwiftDriverTests",
-      dependencies: ["SwiftDriver", "swift-driver"]),
+      dependencies: ["SwiftDriver", "SwiftDriverExecution", "swift-driver"]),
 
     /// The options library.
     .target(
@@ -48,7 +58,7 @@ let package = Package(
     /// The primary driver executable.
     .target(
       name: "swift-driver",
-      dependencies: ["SwiftDriver"]),
+      dependencies: ["SwiftDriverExecution", "SwiftDriver"]),
 
     /// The help executable.
     .target(
@@ -75,7 +85,7 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
             .package(path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SwiftDriver" })!.dependencies += ["llbuildSwift"]
+    package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += ["llbuildSwift"]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {

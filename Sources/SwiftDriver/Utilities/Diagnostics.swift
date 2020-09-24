@@ -12,9 +12,6 @@
 import TSCBasic
 import SwiftOptions
 
-public typealias Diagnostic = TSCBasic.Diagnostic
-public typealias DiagnosticData = TSCBasic.DiagnosticData
-
 extension Diagnostic.Message {
   static var error_static_emit_executable_disallowed: Diagnostic.Message {
     .error("-static may not be used with -emit-executable")

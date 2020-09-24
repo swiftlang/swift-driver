@@ -1,4 +1,4 @@
-//===--------------- JobExecutor.swift - Swift Job Execution --------------===//
+//===------- MultiJobExecutor.swift - LLBuild-powered job executor --------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -9,11 +9,22 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
 import TSCBasic
 import enum TSCUtility.Diagnostics
 
 import Foundation
 import Dispatch
+import SwiftDriver
+
+// We either import the llbuildSwift shared library or the llbuild framework.
+#if canImport(llbuildSwift)
+@_implementationOnly import llbuildSwift
+@_implementationOnly import llbuild
+#else
+@_implementationOnly import llbuild
+#endif
+
 
 public final class MultiJobExecutor {
 
@@ -33,7 +44,7 @@ public final class MultiJobExecutor {
     let env: [String: String]
 
     /// The file system.
-    let fileSystem: FileSystem
+    let fileSystem: TSCBasic.FileSystem
 
     /// The job executor delegate.
     let executorDelegate: JobExecutionDelegate
@@ -62,7 +73,7 @@ public final class MultiJobExecutor {
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
-      fileSystem: FileSystem,
+      fileSystem: TSCBasic.FileSystem,
       producerMap: [VirtualPath: Int],
       jobs: [Job],
       executorDelegate: JobExecutionDelegate,
@@ -138,7 +149,7 @@ public final class MultiJobExecutor {
   }
 
   /// Execute all jobs.
-  public func execute(env: [String: String], fileSystem: FileSystem) throws {
+  public func execute(env: [String: String], fileSystem: TSCBasic.FileSystem) throws {
     let context = createContext(jobs, env: env, fileSystem: fileSystem)
 
     let delegate = JobExecutorBuildDelegate(context)
@@ -153,7 +164,7 @@ public final class MultiJobExecutor {
   }
 
   /// Create the context required during the execution.
-  func createContext(_ jobs: [Job], env: [String: String], fileSystem: FileSystem) -> Context {
+  func createContext(_ jobs: [Job], env: [String: String], fileSystem: TSCBasic.FileSystem) -> Context {
     var producerMap: [VirtualPath: Int] = [:]
     for (index, job) in jobs.enumerated() {
       for output in job.outputs {
@@ -234,7 +245,7 @@ class ExecuteAllJobsRule: LLBuildRule {
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key, jobs: [Job], fileSystem: FileSystem) {
+  init(_ key: Key, jobs: [Job], fileSystem: TSCBasic.FileSystem) {
     self.key = RuleKey(key)
     self.jobs = jobs
     super.init(fileSystem: fileSystem)
@@ -394,12 +405,12 @@ class ExecuteJobRule: LLBuildRule {
 
 extension Job: LLBuildValue { }
 
-private extension Diagnostic.Message {
-  static func error_command_failed(kind: Job.Kind, code: Int32) -> Diagnostic.Message {
+private extension TSCBasic.Diagnostic.Message {
+  static func error_command_failed(kind: Job.Kind, code: Int32) -> TSCBasic.Diagnostic.Message {
     .error("\(kind.rawValue) command failed with exit code \(code) (use -v to see invocation)")
   }
 
-  static func error_command_signalled(kind: Job.Kind, signal: Int32) -> Diagnostic.Message {
+  static func error_command_signalled(kind: Job.Kind, signal: Int32) -> TSCBasic.Diagnostic.Message {
     .error("\(kind.rawValue) command failed due to signal \(signal) (use -v to see invocation)")
   }
 }

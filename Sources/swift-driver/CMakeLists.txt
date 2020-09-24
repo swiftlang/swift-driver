@@ -9,6 +9,7 @@
 add_executable(swift-driver
   main.swift)
 target_link_libraries(swift-driver PUBLIC
-  SwiftDriver)
+  SwiftDriver
+  SwiftDriverExecution)
 
 
