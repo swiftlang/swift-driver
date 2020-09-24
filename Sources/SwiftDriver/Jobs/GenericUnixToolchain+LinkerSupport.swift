@@ -50,6 +50,7 @@ extension GenericUnixToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
+    lto: LTOKind?,
     sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
@@ -70,6 +71,8 @@ extension GenericUnixToolchain {
       var linker: String?
       if let arg = parsedOptions.getLastArgument(.useLd) {
         linker = arg.asSingle
+      } else if lto != nil {
+        linker = "lld"
       } else {
         linker = defaultLinker(for: targetTriple)
       }
@@ -247,6 +250,15 @@ extension GenericUnixToolchain {
         commandLine.appendFlag("-u__llvm_profile_runtime")
       }
 
+      if let lto = lto {
+        switch lto {
+        case .llvmFull:
+          commandLine.appendFlag("-flto=full")
+        case .llvmThin:
+          commandLine.appendFlag("-flto=thin")
+        }
+      }
+
       // Run clang++ in verbose mode if "-v" is set
       try commandLine.appendLast(.v, from: &parsedOptions)
 
@@ -268,7 +280,7 @@ extension GenericUnixToolchain {
       commandLine.appendPath(outputFile)
 
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
-      return try getToolPath(.staticLinker)
+      return try getToolPath(.staticLinker(lto))
     }
 
   }
