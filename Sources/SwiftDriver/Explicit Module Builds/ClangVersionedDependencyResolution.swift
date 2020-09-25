@@ -31,6 +31,8 @@ internal extension Driver {
     // to all Clang modules, and compute a set of distinct PCMArgs across all paths to a
     // given Clang module in the graph.
     let modulePCMArgsSetMap = try dependencyGraph.computePCMArgSetsForClangModules()
+
+    // Set up the batch scan input
     let temporaryDirectory = try determineTempDirectory()
     let batchScanInputList =
       try modulePCMArgsSetMap.compactMap { (moduleId, pcmArgsSet) throws -> [BatchScanModuleInfo] in
@@ -53,10 +55,13 @@ internal extension Driver {
         return moduleInfos
       }.reduce([], +)
 
-    // Batch scan all clang modules for each discovered unique set of PCMArgs, per module
+    // Batch scan all clang modules for each discovered new, unique set of PCMArgs, per module
     let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]] =
       try performBatchDependencyScan(moduleInfos: batchScanInputList)
+
+    // Update the dependency graph to reflect the newly-discovered dependencies
     try dependencyGraph.resolveVersionedClangModules(using: moduleVersionedGraphMap)
+    try dependencyGraph.updateCapturedPCMArgClangDependencies(using: modulePCMArgsSetMap)
   }
 }
 
@@ -138,5 +143,19 @@ private extension InterModuleDependencyGraph {
               pathPCMArtSet: [],
               pcmArgSetMap: &pcmArgSetMap)
     return pcmArgSetMap
+  }
+
+  /// Update the set of all PCMArgs against which a given clang module was re-scanned
+  mutating func updateCapturedPCMArgClangDependencies(using pcmArgSetMap:
+                                                        [ModuleDependencyId : Set<[String]>]
+  ) throws {
+    for (moduleId, newPCMArgs) in pcmArgSetMap {
+      var moduleDetails = try clangModuleDetails(of: moduleId)
+      if moduleDetails.dependenciesCapturedPCMArgs == nil {
+        moduleDetails.dependenciesCapturedPCMArgs = Set<[String]>()
+      }
+      newPCMArgs.forEach { moduleDetails.dependenciesCapturedPCMArgs!.insert($0) }
+      modules[moduleId]!.details = .clang(moduleDetails)
+    }
   }
 }
