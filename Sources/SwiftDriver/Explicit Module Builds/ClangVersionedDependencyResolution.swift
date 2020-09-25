@@ -116,11 +116,17 @@ private extension InterModuleDependencyGraph {
                       pcmArgSetMap: &pcmArgSetMap)
           }
         case .clang:
+          // The details of this module contain information on which sets of PCMArgs are already
+          // captured in the described dependencies of this module. Only re-scan at PCMArgs not
+          // already captured.
+          let moduleDetails = try clangModuleDetails(of: moduleId)
+          let alreadyCapturedPCMArgs = moduleDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+          let newPCMArgSet = pathPCMArtSet.filter { !alreadyCapturedPCMArgs.contains($0) }
           // Add current path's PCMArgs to the SetMap and stop traversal
           if pcmArgSetMap[moduleId] != nil {
-            pathPCMArtSet.forEach { pcmArgSetMap[moduleId]!.insert($0) }
+            newPCMArgSet.forEach { pcmArgSetMap[moduleId]!.insert($0) }
           } else {
-            pcmArgSetMap[moduleId] = pathPCMArtSet
+            pcmArgSetMap[moduleId] = newPCMArgSet
           }
           return
         case .swiftPlaceholder:
