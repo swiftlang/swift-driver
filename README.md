@@ -2,7 +2,7 @@
 
 Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/apple/swift-package-manager) or Xcode's build system.
 
-The `swift-driver` project is a new implementation of the Swift compiler driver that is intended to replace the [existing driver](https://github.com/apple/swift/tree/master/lib/Driver) with a more extensible, maintainable, and robust code base. The specific goals of this project include:
+The `swift-driver` project is a new implementation of the Swift compiler driver that is intended to replace the [existing driver](https://github.com/apple/swift/tree/main/lib/Driver) with a more extensible, maintainable, and robust code base. The specific goals of this project include:
 
 * A maintainable, robust, and flexible Swift code base
 * Library-based architecture that allows better integration with build tools
@@ -61,7 +61,7 @@ The new Swift driver is a work in progress, and there are numerous places for an
 
 ### Driver Documentation
 
-For a conceptual overview of the driver, see [The Swift Driver, Compilation Model, and Command-Line Experience](https://github.com/apple/swift/blob/master/docs/Driver.md). To learn more about the internals, see [Driver Design & Internals](https://github.com/apple/swift/blob/master/docs/DriverInternals.md) and [Parseable Driver Output](https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.md).
+For a conceptual overview of the driver, see [The Swift Driver, Compilation Model, and Command-Line Experience](https://github.com/apple/swift/blob/main/docs/Driver.md). To learn more about the internals, see [Driver Design & Internals](https://github.com/apple/swift/blob/main/docs/DriverInternals.md) and [Parseable Driver Output](https://github.com/apple/swift/blob/main/docs/DriverParseableOutput.md).
 
 ### Testing
 
@@ -100,7 +100,7 @@ Using:
 apple/swift-driver#208
 @swift-ci smoke test
 ```
-@swift-ci cross-repository testing facilities are described [here](https://github.com/apple/swift/blob/master/docs/ContinuousIntegration.md#cross-repository-testing).
+@swift-ci cross-repository testing facilities are described [here](https://github.com/apple/swift/blob/main/docs/ContinuousIntegration.md#cross-repository-testing).
 
 #### Preparing a Linux docker for debug
 
@@ -126,7 +126,7 @@ $ apt-get install libncurses-dev
 
 ### Rebuilding `Options.swift`
 
-`Options.swift`, which contains the complete set of options that can be parsed by the driver, is automatically generated from the [option tables in the Swift compiler](https://github.com/apple/swift/tree/master/include/swift/Option). If you need to regenerate `Options.swift`, you will need to [build the Swift compiler](https://github.com/apple/swift#building-swift) and then build `makeOptions` program with a `-I` that allows the generated `Options.inc` to
+`Options.swift`, which contains the complete set of options that can be parsed by the driver, is automatically generated from the [option tables in the Swift compiler](https://github.com/apple/swift/tree/main/include/swift/Option). If you need to regenerate `Options.swift`, you will need to [build the Swift compiler](https://github.com/apple/swift#building-swift) and then build `makeOptions` program with a `-I` that allows the generated `Options.inc` to
 be found, e.g.:
 
 ```
@@ -152,7 +152,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [ ] Find a better way to describe aliases for options. Can they be of some other type `OptionAlias` so we can't make the mistake of (e.g.) asking for an alias option when we're translating options?
   * [ ] Diagnose unused options on the command line
   * [ ] Typo correction for misspelled option names
-  * [ ] Find a better way than `makeOptions.cpp` to translate the command-line options from [Swift's repository](https://github.com/apple/swift/tree/master/include/swift/Option) into `Options.swift`.
+  * [ ] Find a better way than `makeOptions.cpp` to translate the command-line options from [Swift's repository](https://github.com/apple/swift/tree/main/include/swift/Option) into `Options.swift`.
 * Platform support
   * [x] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
   * [x] Fill out the `GenericUnixToolchain` toolchain to get it working
@@ -173,10 +173,10 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [x] Complete `OutputFileMap` implementation to handle all file types uniformly
 * Testing
   * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
-  * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver).
+  * [x] Shim in `swift-driver` so it can run the Swift repository's [driver test suite](https://github.com/apple/swift/tree/main/test/Driver).
   * [ ] Investigate differences in the test results for the Swift repository's driver test suite (above) between the existing and new driver.
-  * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/master/test/Driver) over to XCTest
+  * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/main/test/Driver) over to XCTest
   * [ ] Fuzz the command-line options to try to crash the Swift driver itself
 * Integration
-  * [ ] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/master/utils/build-script) to build `swift-driver`.
-  * [ ] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/master/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
+  * [ ] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/main/utils/build-script) to build `swift-driver`.
+  * [ ] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/main/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
