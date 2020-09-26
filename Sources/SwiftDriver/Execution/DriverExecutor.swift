@@ -90,4 +90,6 @@ public protocol JobExecutionDelegate {
   
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
+
+  func areOutputsCurrent(from: Job) -> Bool
 }

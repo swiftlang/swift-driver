@@ -828,7 +828,7 @@ extension Driver {
       mode = .verbose
     }
 
-    return ToolExecutionDelegate(mode: mode)
+    return ToolExecutionDelegate(mode: mode, incrementalCompilationState: incrementalCompilationState)
   }
 
   private func printBindings(_ job: Job) {

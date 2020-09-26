@@ -303,7 +303,7 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   override func isResultValid(_ priorValue: Value) -> Bool {
-    return false
+    context.executorDelegate.areOutputsCurrent(from: myJob)
   }
 
   override func provideValue(_ engine: LLTaskBuildEngine, inputID _: Int, value: Value) {

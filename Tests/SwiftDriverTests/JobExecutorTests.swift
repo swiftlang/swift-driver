@@ -51,6 +51,10 @@ class JobCollectingDelegate: JobExecutionDelegate {
   func jobStarted(job: Job, arguments: [String], pid: Int) {
     started.append(job)
   }
+
+  func areOutputsCurrent(from: Job) -> Bool {
+    false // non-incremental
+  }
 }
 
 extension DarwinToolchain {

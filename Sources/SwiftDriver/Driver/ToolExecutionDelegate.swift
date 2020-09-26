@@ -32,6 +32,9 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
 
   public let mode: Mode
 
+  /// A slightly funny place to store this
+  public let incrementalCompilationState: IncrementalCompilationState
+
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
     switch mode {
     case .regular:
@@ -60,6 +63,8 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    incrementalCompilationState.jobFinished(job: job, result: result)
+
     switch mode {
     case .regular, .verbose:
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
@@ -95,5 +100,9 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
     stderrStream <<< json.count <<< "\n"
     stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
     stderrStream.flush()
+  }
+
+  func areOutputsCurrent(from job: Job) -> Bool {
+    incrementalCompilationState.areOutputsCurrent(from: job)
   }
 }
