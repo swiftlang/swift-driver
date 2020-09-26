@@ -417,8 +417,8 @@ public struct Driver {
       moduleOutput: self.moduleOutputInfo.output,
       fileSystem: fileSystem,
       inputFiles: inputFiles,
-      diagnosticEngine: diagnosticEngine,
-      actualSwiftVersion: self.frontendTargetInfo.compilerVersion
+      actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
+      diagnosticEngine: diagnosticEngine
     )
 
     // Local variable to alias the target triple, because self.targetTriple
@@ -801,7 +801,7 @@ extension Driver {
     }
 
     // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = createToolExecutionDelegate()
+    let executorDelegate = createToolExecutionDelegate(jobs)
 
     // Perform the build
     try executor.execute(jobs: jobs,
@@ -818,7 +818,7 @@ extension Driver {
     }
   }
 
-  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
+  mutating func createToolExecutionDelegate(_ jobs: [Job]) -> ToolExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
@@ -828,7 +828,16 @@ extension Driver {
       mode = .verbose
     }
 
-    return ToolExecutionDelegate(mode: mode, incrementalCompilationState: incrementalCompilationState)
+    return ToolExecutionDelegate(
+      mode: mode,
+      incrementalCompilationState: incrementalCompilationState,
+      dependencyGraph: ModuleDependencyGraph.buildInitialGraph(
+        jobs: jobs,
+        verifyDependencyGraphAfterEveryImport:
+          parsedOptions.contains(.driverVerifyFineGrainedDependencyGraphAfterEveryImport),
+        emitDependencyDotFileAfterEveryImport:
+          parsedOptions.contains(.driverEmitFineGrainedDependencyDotFileAfterEveryImport),
+        diagnosticEngine: diagnosticEngine))
   }
 
   private func printBindings(_ job: Job) {

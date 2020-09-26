@@ -52,39 +52,8 @@ import Foundation
   }
 }
 
-@_spi(Testing) public enum DeclAspect: UInt64 {
-  case interface, implementation
-}
 
-@_spi(Testing) public struct DependencyKey {
-  public enum Kind: UInt64 {
-    case topLevel
-    case nominal
-    case potentialMember
-    case member
-    case dynamicLookup
-    case externalDepend
-    case sourceFileProvide
-  }
-
-  public var kind: Kind
-  public var aspect: DeclAspect
-  public var context: String
-  public var name: String
-
-  public func verify() {
-    assert(kind != .externalDepend || aspect == .interface, "All external dependencies must be interfaces.")
-    switch kind {
-    case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide:
-      assert(context.isEmpty && !name.isEmpty, "Must only have a name")
-    case .nominal, .potentialMember:
-      assert(!context.isEmpty && name.isEmpty, "Must only have a context")
-    case .member:
-      assert(!context.isEmpty && !name.isEmpty, "Must have both")
-    }
-  }
-}
-
+// TODO Incremental: make Node immutable
 extension SourceFileDependencyGraph {
   public struct Node {
     public var key: DependencyKey
@@ -92,6 +61,20 @@ extension SourceFileDependencyGraph {
     public var sequenceNumber: Int
     public var defsIDependUpon: [Int]
     public var isProvides: Bool
+
+    @_spi(Testing) public init(
+      key: DependencyKey,
+      fingerprint: String?,
+      sequenceNumber: Int,
+      defsIDependUpon: [Int],
+      isProvides: Bool
+    ) {
+      self.key = key
+      self.fingerprint = fingerprint
+      self.sequenceNumber = sequenceNumber
+      self.defsIDependUpon = defsIDependUpon
+      self.isProvides = isProvides
+    }
 
     public func verify() {
       key.verify()
@@ -130,6 +113,37 @@ extension SourceFileDependencyGraph {
     case malformedSourceFileDepGraphNodeRecord
     case unknownRecord
     case unexpectedSubblock
+    case notSwiftDeps
+    case notAbsolutePath
+  }
+
+  public static func read(from file: TypedVirtualPath)
+  throws -> (graph: Self?, swiftDeps: String)
+  {
+    guard case .swiftDeps = file.type
+    else {
+      throw ReadError.notSwiftDeps
+    }
+    guard let path = file.file.absolutePath
+    else {
+      throw ReadError.notAbsolutePath
+    }
+    return (
+      graph: try self.init(pathString: path.pathString),
+      path.pathString
+    )
+  }
+
+  @_spi(Testing) public init(nodesForTesting: [Node]) {
+    majorVersion = 0
+    minorVersion = 0
+    compilerVersionString = ""
+    allNodes = nodesForTesting
+  }
+
+  public init(pathString: String) throws {
+    let data = try Data(contentsOf: URL(fileURLWithPath: pathString))
+    try self.init(data: data)
   }
 
   public init(data: Data) throws {
@@ -168,8 +182,8 @@ extension SourceFileDependencyGraph {
           nodes.append(node)
         }
         guard record.fields.count == 5,
-              let nodeKind = DependencyKey.Kind(rawValue: record.fields[0]),
-              let declAspect = DeclAspect(rawValue: record.fields[1]),
+              let nodeKind = DependencyKey.Kind(code: record.fields[0]),
+              let declAspect = DeclAspect(record.fields[1]),
               record.fields[2] < identifiers.count,
               record.fields[3] < identifiers.count else {
           throw ReadError.malformedSourceFileDepGraphNodeRecord

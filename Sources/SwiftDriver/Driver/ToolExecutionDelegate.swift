@@ -34,6 +34,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
 
   /// A slightly funny place to store this
   public let incrementalCompilationState: IncrementalCompilationState
+  public let dependencyGraph: ModuleDependencyGraph
 
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
     switch mode {
@@ -63,7 +64,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
-    incrementalCompilationState.jobFinished(job: job, result: result)
+    incrementalCompilationState.jobFinished(job: job, result: result, dependencyGraph: dependencyGraph)
 
     switch mode {
     case .regular, .verbose:
@@ -103,6 +104,6 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   func areOutputsCurrent(from job: Job) -> Bool {
-    incrementalCompilationState.areOutputsCurrent(from: job)
+    incrementalCompilationState.areOutputsCurrent(from: job, dependencyGraph: dependencyGraph)
   }
 }

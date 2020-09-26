@@ -21,6 +21,7 @@ import SwiftOptions
   public let argsHash: String
   public let lastBuildTime: Date
   public let outOfDateMap: InputInfoMap?
+  public let diagnosticEngine: DiagnosticsEngine
 
   public var jobsWhichHaveRun = Set<Job>()
 
@@ -31,7 +32,8 @@ import SwiftOptions
     outputBuildRecordForModuleOnlyBuild: Bool,
     argsHash: String,
     lastBuildTime: Date,
-    outOfDateMap: InputInfoMap?
+    outOfDateMap: InputInfoMap?,
+    diagnosticEngine: DiagnosticsEngine
   ) {
     self.showIncrementalBuildDecisions = showIncrementalBuildDecisions
     self.enableIncrementalBuild = enableIncrementalBuild
@@ -40,6 +42,7 @@ import SwiftOptions
     self.argsHash = argsHash
     self.lastBuildTime = lastBuildTime
     self.outOfDateMap = outOfDateMap
+    self.diagnosticEngine = diagnosticEngine
   }
 
 
@@ -50,8 +53,8 @@ import SwiftOptions
               moduleOutput: ModuleOutputInfo.ModuleOutput?,
               fileSystem: FileSystem,
               inputFiles: [TypedVirtualPath],
-              diagnosticEngine: DiagnosticsEngine,
-              actualSwiftVersion: String?
+              actualSwiftVersion: String?,
+              diagnosticEngine: DiagnosticsEngine
   ) {
     let showIncrementalBuildDecisions = Self.getShowIncrementalBuildDecisions(&parsedOptions)
 
@@ -91,7 +94,8 @@ import SwiftOptions
       outputBuildRecordForModuleOnlyBuild: outputBuildRecordForModuleOnlyBuild,
       argsHash: argsHash,
       lastBuildTime: lastBuildTime,
-      outOfDateMap: outOfDateMap
+      outOfDateMap: outOfDateMap,
+      diagnosticEngine: diagnosticEngine
     )
   }
 
@@ -227,7 +231,7 @@ extension Driver {
 }
 
 extension IncrementalCompilationState {
-  func areOutputsCurrent(from job: Job) -> Bool {
+  func areOutputsCurrent(from job: Job, dependencyGraph: ModuleDependencyGraph) -> Bool {
     guard enableIncrementalBuild else { return false }
     guard case .compile = job.kind else { return false }
     guard !hasAlreadyRun(job) else { return true }
@@ -240,16 +244,25 @@ extension IncrementalCompilationState {
   private func hasAlreadyRun(_ job: Job) -> Bool {
     jobsWhichHaveRun.contains(job)
   }
-
+// TODO: incremental
   private func isJobInFirstRound(_ job: Job) -> Bool {
+//    computeShouldInitiallyScheduleJobAndDependendents
+//    collectCascadedJobsFromDependencyGraph
+//    collectExternallyDependentJobsFromDependencyGraph
     return true // TODO incremental
   }
 
-//  private func haveAnyInputsChangedSinceLastBuild(of job: Job) -> Bool {
-//  }
 
-  func jobFinished( job: Job, result: ProcessResult ) {
+  func jobFinished( job: Job, result: ProcessResult, dependencyGraph: ModuleDependencyGraph ) {
     jobsWhichHaveRun.insert(job)
+    let changes = dependencyGraph.integrate(job: job)
+    // get diagnosticEngine from self, or store it in graph
+//nodes to jobs excluding already run
+//    var nextWave = Set<Job>()
+//    for swiftDeps in job.swiftDepsOutputs {
+//
+//    }
+//    dependencyGraph.integrate(job:
     // TODO: Incremental
   }
 
