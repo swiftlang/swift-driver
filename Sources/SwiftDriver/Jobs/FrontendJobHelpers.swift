@@ -260,7 +260,8 @@ extension Driver {
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
                                                         primaryInputs: [TypedVirtualPath],
-                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath]) throws -> [TypedVirtualPath] {
+                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath],
+                                                        includeModuleTracePath: Bool) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
@@ -368,6 +369,12 @@ extension Driver {
         finalOutputPath: tbdPath,
         input: nil,
         flag: "-emit-tbd-path")
+    }
+
+    if includeModuleTracePath, let tracePath = loadedModuleTracePath {
+      flaggedInputOutputPairs.append((flag: "-emit-loaded-module-trace-path",
+                                      input: nil,
+                                      output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
     // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:

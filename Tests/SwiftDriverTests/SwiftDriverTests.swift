@@ -2099,6 +2099,44 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testEmitModuleTrace() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-emit-loaded-module-trace", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(
+        job.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
+                                               .path(.relative(.init("foo.trace.json")))])
+      )
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck",
+                                     "-emit-loaded-module-trace",
+                                     "foo.swift, bar.swift", "baz.swift"])
+      let plannedJobs = try driver.planBuild()
+      let tracedJobs = plannedJobs.filter {
+        $0.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
+                                              .path(.relative(.init("main.trace.json")))])
+      }
+      XCTAssertEqual(tracedJobs.count, 1)
+    }
+    do {
+      var env = ProcessEnv.vars
+      env["SWIFT_LOADED_MODULE_TRACE_FILE"] = "/some/path/to/the.trace.json"
+      var driver = try Driver(args: ["swiftc", "-typecheck",
+                                     "-emit-loaded-module-trace", "foo.swift"],
+                              env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(
+        job.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
+                                               .path(.absolute(.init("/some/path/to/the.trace.json")))])
+      )
+    }
+  }
+
   func testVerifyDebugInfo() throws {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",

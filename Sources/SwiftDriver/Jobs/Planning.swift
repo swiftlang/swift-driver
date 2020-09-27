@@ -164,7 +164,8 @@ extension Driver {
       {
         let job = try compileJob(primaryInputs: [],
                                  outputType: .llvmBitcode,
-                                 addJobOutputs: addJobOutputs)
+                                 addJobOutputs: addJobOutputs,
+                                 emitModuleTrace: loadedModuleTracePath != nil)
         addJob(job)
 
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
@@ -177,7 +178,8 @@ extension Driver {
       // are primary.
       let job = try compileJob(primaryInputs: [],
                                outputType: compilerOutputType,
-                               addJobOutputs: addJobOutputs)
+                               addJobOutputs: addJobOutputs,
+                               emitModuleTrace: loadedModuleTracePath != nil)
       addJob(job)
   }
 
@@ -188,14 +190,17 @@ extension Driver {
     addJobOutputs: ([TypedVirtualPath]) -> Void)
   throws {
     let partitions = batchPartitions()
-    for input in inputFiles {
+    for (index, input) in inputFiles.enumerated() {
+      // Only emit a loaded module trace from the first frontend job.
+      let emitModuleTrace = (index == inputFiles.startIndex) && (loadedModuleTracePath != nil)
       try addJobs(
         forPrimaryInput: input,
         partitions: partitions,
         addJob: addJob,
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
-        addJobOutputs: addJobOutputs)
+        addJobOutputs: addJobOutputs,
+        emitModuleTrace: emitModuleTrace)
     }
   }
 
@@ -205,7 +210,8 @@ extension Driver {
     addJob: (Job) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
-    addJobOutputs: ([TypedVirtualPath]) -> Void
+    addJobOutputs: ([TypedVirtualPath]) -> Void,
+    emitModuleTrace: Bool
   ) throws
   {
     switch input.type {
@@ -234,7 +240,8 @@ extension Driver {
       if parsedOptions.hasArgument(.embedBitcode) {
         let job = try compileJob(primaryInputs: primaryInputs,
                                  outputType: .llvmBitcode,
-                                 addJobOutputs: addJobOutputs)
+                                 addJobOutputs: addJobOutputs,
+                                 emitModuleTrace: emitModuleTrace)
         addJob(job)
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
           let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
@@ -243,7 +250,8 @@ extension Driver {
       } else {
         let job = try compileJob(primaryInputs: primaryInputs,
                                  outputType: compilerOutputType,
-                                 addJobOutputs: addJobOutputs)
+                                 addJobOutputs: addJobOutputs,
+                                 emitModuleTrace: emitModuleTrace)
         addJob(job)
       }
 
