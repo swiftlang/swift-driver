@@ -841,7 +841,8 @@ extension Driver {
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
-    outputStream.write(try executor.checkNonZeroExit(args: toolchain.getToolPath(.swiftCompiler).pathString, "--version", environment: env))
+    outputStream <<< frontendTargetInfo.compilerVersion <<< "\n"
+    outputStream <<< "Target: \(frontendTargetInfo.target.triple.triple)\n"
     outputStream.flush()
   }
 }
