@@ -159,7 +159,8 @@ extension Driver {
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
   mutating func compileJob(primaryInputs: [TypedVirtualPath],
                            outputType: FileType?,
-                           addJobOutputs: ([TypedVirtualPath]) -> Void)
+                           addJobOutputs: ([TypedVirtualPath]) -> Void,
+                           emitModuleTrace: Bool)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
@@ -187,7 +188,8 @@ extension Driver {
 
     outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine,
                                                            primaryInputs: primaryInputs,
-                                                           inputOutputMap: inputOutputMap)
+                                                           inputOutputMap: inputOutputMap,
+                                                           includeModuleTracePath: emitModuleTrace)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)

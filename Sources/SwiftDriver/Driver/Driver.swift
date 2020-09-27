@@ -467,13 +467,19 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-    self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
+
+    if let loadedModuleTraceEnvVar = env["SWIFT_LOADED_MODULE_TRACE_FILE"] {
+      self.loadedModuleTracePath = try VirtualPath(path: loadedModuleTraceEnvVar)
+    } else {
+      self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .moduleTrace, isOutputOptions: [.emitLoadedModuleTrace],
         outputPath: .emitLoadedModuleTracePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    }
+
     self.tbdPath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .tbd, isOutputOptions: [.emitTbd],
         outputPath: .emitTbdPath,
