@@ -13,9 +13,13 @@ import TSCBasic
 import TSCUtility
 import Foundation
 
-/// A map from a module identifier to a pair consisting of a path to its .swiftmodule file and its module dependency graph.
-public typealias ExternalDependencyArtifactMap =
-    [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)]
+/// A map from a module identifier to a pair consisting of a path to its .swiftmodule file.
+public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath]
+/// A map from a module identifier to its info
+public typealias ModuleInfoMap = [ModuleDependencyId: ModuleInfo]
+/// A tuple all external artifacts a build system may pass in as input to the explicit build of the current module
+/// Consists of a map of externally-built targets, and a map of all previously discovered/scanned modules.
+public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleInfoMap)
 
 /// In Explicit Module Build mode, this handler is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
@@ -201,7 +205,7 @@ public typealias ExternalDependencyArtifactMap =
 
     // First, take the command line options provided in the dependency information
     let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
-    moduleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
+    moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
 
     // Add the `-target` option as inherited from the dependent Swift module's PCM args
     pcmArgs.forEach { commandLine.appendFlags($0) }

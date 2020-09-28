@@ -124,7 +124,7 @@ public struct ClangModuleDetails: Codable {
   var contextHash: String?
 
   /// Options to the compile command
-  var commandLine: [String]? = []
+  var commandLine: [String] = []
 }
 
 public struct ModuleInfo: Codable {

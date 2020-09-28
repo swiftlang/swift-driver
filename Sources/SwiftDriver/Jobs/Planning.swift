@@ -398,8 +398,8 @@ extension Driver {
                                 recordedInputModificationDates: recordedInputModificationDates)
 
     // Resolve placeholder dependencies in the dependency graph, if any.
-    if externalDependencyArtifactMap != nil, !externalDependencyArtifactMap!.isEmpty {
-      try dependencyGraph.resolvePlaceholderDependencies(using: externalDependencyArtifactMap!)
+    if externalBuildArtifacts != nil, !externalBuildArtifacts!.0.isEmpty {
+      try dependencyGraph.resolvePlaceholderDependencies(using: externalBuildArtifacts!)
     }
 
     // Re-scan Clang modules at all the targets they will be built against.
