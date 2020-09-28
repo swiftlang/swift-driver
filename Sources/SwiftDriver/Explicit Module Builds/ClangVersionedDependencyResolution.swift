@@ -159,3 +159,49 @@ private extension InterModuleDependencyGraph {
     }
   }
 }
+
+public extension InterModuleDependencyGraph {
+    /// Given two moduleInfos of clang modules, merge them by combining their directDependencies and
+    /// dependenciesCapturedPCMArgs fields
+    static func mergeClangModuleInfoDependencies(_ firstInfo: ModuleInfo, _ secondInfo:ModuleInfo
+    ) -> ModuleInfo {
+        // All fields other than dependency-related ones must be identical
+        precondition(firstInfo.modulePath == secondInfo.modulePath)
+        precondition(firstInfo.sourceFiles == secondInfo.sourceFiles)
+        guard case .clang(let firstDetails) = firstInfo.details,
+              case .clang(let secondDetails) = secondInfo.details
+        else {
+            fatalError("Clang ModuleInfo without a corresponding clangModuleDetails field")
+        }
+        precondition(firstDetails.moduleMapPath == secondDetails.moduleMapPath)
+        precondition(firstDetails.contextHash == secondDetails.contextHash)
+        precondition(firstDetails.commandLine == secondDetails.commandLine)
+
+        // As far as their dependencies go, these module infos are identical
+        if firstInfo.directDependencies == secondInfo.directDependencies,
+           firstDetails.dependenciesCapturedPCMArgs ==
+            secondDetails.dependenciesCapturedPCMArgs {
+            return firstInfo
+        }
+
+        // Create a new moduleInfo that represents this module with combined dependency information
+        let firstModuleDependencies = firstInfo.directDependencies ?? []
+        let secondModuleDependencies = secondInfo.directDependencies ?? []
+        let combinedDependencies = Array(Set(firstModuleDependencies + secondModuleDependencies))
+
+        let firstModuleCapturedPCMArgs = firstDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+        let secondModuleCapturedPCMArgs = secondDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+        let combinedCapturedPCMArgs = firstModuleCapturedPCMArgs.union(secondModuleCapturedPCMArgs)
+
+        let combinedModuleDetails =
+            ClangModuleDetails(moduleMapPath: firstDetails.moduleMapPath,
+                               dependenciesCapturedPCMArgs: combinedCapturedPCMArgs,
+                               contextHash: firstDetails.contextHash,
+                               commandLine: firstDetails.commandLine)
+
+        return ModuleInfo(modulePath: firstInfo.modulePath,
+                          sourceFiles: firstInfo.sourceFiles,
+                          directDependencies: combinedDependencies,
+                          details: .clang(combinedModuleDetails))
+    }
+}
