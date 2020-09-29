@@ -299,25 +299,15 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    for (idx, input) in context.jobs[key.index].inputs.enumerated() {
-      if let producingJobIndex = context.producerMap[input.file] {
-        let key = ExecuteJobRule.RuleKey(index: producingJobIndex)
-        engine.taskNeedsInput(key, inputID: idx)
-      }
-    }
+    requestInputs(from: engine)
   }
 
   override func isResultValid(_ priorValue: Value) -> Bool {
     return false
   }
 
-  override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
-    do {
-      let buildValue = try DriverBuildValue(value)
-      allInputsSucceeded = allInputsSucceeded && buildValue.success
-    } catch {
-      allInputsSucceeded = false
-    }
+  override func provideValue(_ engine: LLTaskBuildEngine, inputID _: Int, value: Value) {
+    rememberIfInputSucceeded(engine, value: value)
   }
 
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
@@ -331,10 +321,36 @@ class ExecuteJobRule: LLBuildRule {
     }
   }
 
+  private var myJob: Job {
+    context.jobs[key.index]
+  }
+
+  private var inputKeysAndIDs: [(RuleKey, Int)] {
+    myJob.inputs.enumerated().compactMap {
+      (inputIndex, inputFile) in
+      context.producerMap[inputFile.file] .map  { (ExecuteJobRule.RuleKey(index: $0), inputIndex) }
+    }
+  }
+
+  private func requestInputs(from engine: LLTaskBuildEngine) {
+    for (key, ID) in inputKeysAndIDs {
+      engine.taskNeedsInput(key, inputID: ID)
+    }
+  }
+
+  private func rememberIfInputSucceeded(_ engine: LLTaskBuildEngine, value: Value) {
+    do {
+      let buildValue = try DriverBuildValue(value)
+      allInputsSucceeded = allInputsSucceeded && buildValue.success
+    } catch {
+      allInputsSucceeded = false
+    }
+  }
+
   private func executeJob(_ engine: LLTaskBuildEngine) {
     let context = self.context
     let resolver = context.argsResolver
-    let job = context.jobs[key.index]
+    let job = myJob
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
