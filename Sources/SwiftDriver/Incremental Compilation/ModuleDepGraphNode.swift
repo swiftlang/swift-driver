@@ -12,7 +12,15 @@
 import Foundation
 import TSCBasic
 
-/// TODO: Incremental  privatize, organize
+/// TODO: Incremental  privatize, organize _spi's
+
+/// A node in the per-module (i.e. the driver) dependency graph
+/// Each node represents a \c Decl from the frontend.
+/// If a file references a \c Decl we haven't seen yet, the node's \c swiftDeps will be nil, otherwise
+/// it will hold the name of the swiftdeps file from which the node was read.
+/// A dependency is represented by an arc, in the `usesByDefs` map.
+/// (Cargo-culted and modified from the legacy driver.)
+
 @_spi(Testing) public final class ModuleDepGraphNode {
   /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
   let key: DependencyKey
@@ -31,62 +39,66 @@ import TSCBasic
   /// frontend creates an interface node,
   /// it adds a dependency to it from the implementation source file node (which
   /// has the intefaceHash as its fingerprint).
-  var fingerprint: String?
+  private var fingerprint: String?
 
 
-    /// The swiftDeps file that holds this entity iff this is a provides node.
-    /// If more than one source file has the same DependencyKey, then there
-    /// will be one node for each in the driver, distinguished by this field.
-  var swiftDeps: String?
+  /// The swiftDeps file that holds this entity iff the entities .swiftdeps is known.
+  /// If more than one source file has the same DependencyKey, then there
+  /// will be one node for each in the driver, distinguished by this field.
+  /// Nodes can move from file to file when the driver reads the result of a
+  /// compilation.
+  /// Empty string represents a node with no known residance
+  var swiftDeps: String
+  var isExpat: Bool { swiftDeps == Self.expatSwiftDeps }
+
 
   /// When finding transitive dependents, this node has been traversed.
-  var hasBeenTracedAsADependent = false
+  internal private(set) var hasBeenTraced = false
 
-  init(key: DependencyKey, fingerprint: String?, swiftDeps: String?) {
+  init(key: DependencyKey, fingerprint: String?, swiftDeps: String) {
     self.key = key
     self.fingerprint = fingerprint
     self.swiftDeps = swiftDeps
   }
+}
 
-  var hasBeenTraced: Bool { hasBeenTracedAsADependent }
-  func setHasBeenTraced() { hasBeenTracedAsADependent = true }
-  func clearHasBeenTraced() { hasBeenTracedAsADependent = false }
+// MARK: - Tracing
+extension ModuleDepGraphNode {
+  func   setHasBeenTraced() { hasBeenTraced = true }
+  func clearHasBeenTraced() { hasBeenTraced = false }
+}
 
-    /// Integrate \p integrand's fingerprint into \p dn.
-    /// \returns true if there was a change requiring recompilation.
+// MARK: - Fingerprinting
+extension ModuleDepGraphNode {
+  /// Integrate \p integrand's fingerprint into \p dn.
+  /// \returns true if there was a change requiring recompilation.
   func integrateFingerprintFrom(_ integrand: SourceFileDependencyGraph.Node) -> Bool {
     if fingerprint == integrand.fingerprint {
-        return false
-      }
+      return false
+    }
     fingerprint = integrand.fingerprint
     return true
-    }
+  }
+}
 
 
-    /// Nodes can move from file to file when the driver reads the result of a
-    /// compilation.
-  func setSwiftDeps(s: String?) { swiftDeps = s }
 
-  var isProvides: Bool {swiftDeps != nil}
 
-    /// Return true if this node describes a definition for which the job is known
-  var isDefinedInAKnownFile: Bool { isProvides }
 
+
+
+extension ModuleDepGraphNode {
+
+
+
+  /// Return true if this node describes a definition for which the job is known
+
+/// TODO: incremental add assertion that no real one matches this
   static let expatSwiftDeps = ""
 
   var nodeMapKey: (String, DependencyKey) {
-    (swiftDeps ?? Self.expatSwiftDeps, key)
+    (swiftDeps, key)
   }
-
-  var doesNodeProvideAnInterface: Bool {
-    key.aspect == .interface && isProvides
-    }
-
-  func assertImplementationMustBeInAFile() -> Bool {
-    assert(isDefinedInAKnownFile || key.aspect != .implementation,
-             "Implementations must be in some file.")
-      return true;
-    }
 }
 
 
@@ -107,6 +119,6 @@ extension ModuleDepGraphNode: Equatable, Hashable {
 
 extension ModuleDepGraphNode: CustomStringConvertible {
   public var description: String {
-    "\(key)\( swiftDeps.map {" \($0)"} ?? "" )"
+    "\(key)\( swiftDeps)"
   }
 }

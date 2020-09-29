@@ -54,8 +54,13 @@ import Foundation
 
   public let kind: Kind
   public let aspect: DeclAspect
+  // TODO: incremental make nil instead of blank
   public let context: String
+  public static let noContext = ""
   public let name: String
+  // TODO: Incremental make nil?? instead of blank
+  public static let potentialMemberName = noName
+  public static let noName = ""
 
   @_spi(Testing) public init(
     kind: Kind,

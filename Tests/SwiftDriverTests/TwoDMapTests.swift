@@ -19,30 +19,30 @@ class TwoDMapTests: XCTestCase {
     var indices = [Int]()
     var m = TwoDMap<Int, String, Double>()
 
-    m.verify { _, _, _, _ in XCTFail() }
+    m.verify { _, _, _ in XCTFail() }
     XCTAssertEqual(nil, m.updateValue(3.4, forKey: (1, "a")))
-    m.verify { k1, k2, v, i in
-      XCTAssert(k1 == 1 && k2 == "a" && v == 3.4)
+    m.verify { k, v, i in
+      XCTAssert(k.0 == 1 && k.1 == "a" && v == 3.4)
       indices.append(i)
     }
     XCTAssertEqual(indices, [0, 1])
     indices.removeAll()
 
     XCTAssertEqual(3.4, m.updateValue(11, forKey: (1, "a")))
-    m.verify { _, _, _, _ in }
+    m.verify {  _, _, _ in }
 
     XCTAssertEqual(nil, m.updateValue(21, forKey: (2, "a")))
-    m.verify { _, _, _, _ in }
+    m.verify { _, _, _ in }
 
     XCTAssertEqual(nil, m.updateValue(12, forKey: (1, "b")))
-    m.verify { _, _, _, _ in }
+    m.verify {  _, _, _ in }
 
     XCTAssertEqual(nil, m.updateValue(22, forKey: (2, "b")))
-    m.verify { _, _, _, _ in }
+    m.verify {  _, _, _ in }
 
     var n = 0
-    m.verify { k1, k2, v, i in
-      switch (k1, k2, v, i) {
+    m.verify { k, v, i in
+      switch (k.0, k.1, v, i) {
         case
           (1, "a", 11, 0),
           (1, "a", 11, 1),
@@ -60,8 +60,8 @@ class TwoDMapTests: XCTestCase {
 
     XCTAssertEqual(21, m.removeValue(forKey: (2, "a")))
     n = 0
-    m.verify { k1, k2, v, i in
-      switch (k1, k2, v, i) {
+    m.verify { k, v, i in
+      switch (k.0, k.1, v, i) {
         case
           (1, "a", 11, 0),
           (1, "a", 11, 1),

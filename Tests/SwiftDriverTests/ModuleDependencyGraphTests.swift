@@ -1222,7 +1222,7 @@ fileprivate extension DependencyKey {
     }
     return DependencyKey(kind: .sourceFileProvide,
                          aspect: aspectOfUse,
-                         context: "",
+                         context: DependencyKey.noContext,
                          name: swiftDeps
     )
   }
@@ -1254,8 +1254,8 @@ fileprivate extension String {
 
   func parseContextAndName( _ kind: DependencyKey.Kind) -> (context: String, name: String) {
     switch kind.singleNameIsContext {
-      case true?:  return (context: self, name: "")
-      case false?: return (context: "", name: self)
+      case true?:  return (context: self, name: DependencyKey.noName)
+      case false?: return (context: DependencyKey.noContext, name: self)
       case nil:
         let r = range(of: Self.nameContextSeparator) ?? (endIndex ..< endIndex)
         return (
