@@ -116,6 +116,10 @@ public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
   @_spi(Testing) public var moduleMapPath: String
 
+  /// Set of PCM Arguments of depending modules which
+  /// are covered by the directDependencies info of this module
+  var dependenciesCapturedPCMArgs: Set<[String]>?
+
   /// clang-generated context hash
   var contextHash: String?
 
