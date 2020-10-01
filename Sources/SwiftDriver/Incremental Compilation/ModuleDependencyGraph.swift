@@ -34,8 +34,12 @@ fileprivate struct NodesAndUses {
 }
 // MARK: - finding
 extension NodesAndUses {
-  func findNode(_ swiftDeps: String, _ key: DependencyKey) -> ModuleDepGraphNode? {
-    nodeMap[(swiftDeps, key)]
+  func findFileInterfaceNode(forSwiftDeps swiftDeps: String) -> ModuleDepGraphNode?  {
+    let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
+    return findNode((swiftDeps, fileKey))
+  }
+  private func findNode(_ mapKey: (String, DependencyKey)) -> ModuleDepGraphNode? {
+    nodeMap[mapKey]
   }
   
   func findNodes(for swiftDeps: String) -> [DependencyKey: ModuleDepGraphNode]? {
@@ -63,7 +67,6 @@ extension NodesAndUses {
 
   func mappings(of n: ModuleDepGraphNode) -> [(String, DependencyKey)]
   {
-    // TODO: Incremental use keyForNodeMap
     nodeMap.compactMap {
       k, _ in
       k.0 == n.swiftDeps && k.1 == n.dependencyKey
@@ -74,6 +77,12 @@ extension NodesAndUses {
 
   func defsUsing(_ n: ModuleDepGraphNode) -> [DependencyKey] {
     usesByDef.keysContainingValue(n)
+  }
+}
+
+fileprivate extension ModuleDepGraphNode {
+  var mapKey: (String, DependencyKey) {
+    return (swiftDeps, dependencyKey)
   }
 }
 
@@ -88,7 +97,7 @@ extension NodesAndUses {
   mutating func insert(_ n: ModuleDepGraphNode, isUsed: Bool?)
   -> ModuleDepGraphNode?
   {
-    nodeMap.updateValue(n, forKey: (n.swiftDeps, n.dependencyKey))
+    nodeMap.updateValue(n, forKey: n.mapKey)
   }
 
   // TODO: Incremental consistent open { for fns
@@ -116,7 +125,7 @@ extension NodesAndUses {
 
   private mutating func removeMapping(of nodeToNotMap: ModuleDepGraphNode) {
     // TODO: Incremental use nodeMapKey
-    let old = nodeMap.removeValue(forKey: (nodeToNotMap.swiftDeps, nodeToNotMap.dependencyKey))
+    let old = nodeMap.removeValue(forKey: nodeToNotMap.mapKey)
     assert(old == nodeToNotMap, "Should have been there")
     assert(mappings(of: nodeToNotMap).isEmpty)
   }
@@ -176,7 +185,7 @@ extension NodesAndUses {
   }
 
   private func verifyNodeIsMapped(_ n: ModuleDepGraphNode) {
-    if findNode(n.swiftDeps, n.dependencyKey) == nil {
+    if findNode(n.mapKey) == nil {
       fatalError("\(n) should be mapped")
     }
   }
@@ -512,21 +521,21 @@ extension ModuleDependencyGraph {
   
   /// Testing only
   @_spi(Testing) public func haveAnyNodesBeenTraversedIn(_ job: Job) -> Bool {
-    let swiftDepsInBatch = job.swiftDepsPaths
-    assert(swiftDepsInBatch.count == 1, "Only used for testing single-swiftdeps jobs")
-    let swiftDeps = swiftDepsInBatch[0]
-    // optimization
-    let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
-    if let fileNode = nodesAndUses.findNode(swiftDeps, fileKey),
-       fileNode.hasBeenTraced {
-      return true
-    }
+    for swiftDeps in job.swiftDepsPaths {
+      // optimization
+      if let fileNode = nodesAndUses.findFileInterfaceNode(forSwiftDeps: swiftDeps),
+         fileNode.hasBeenTraced
+      {
+        return true
+      }
     
-    var result = false;
-    forEachNodeInJob(swiftDeps) {
-      result = result || $0.hasBeenTraced
+      var result = false;
+      forEachNodeInJob(swiftDeps) {
+        result = result || $0.hasBeenTraced
+      }
+      if result { return true; }
     }
-    return result;
+    return false
   }
   
   private func forEachNodeInJob(_ swiftDeps: String, _ fn: (ModuleDepGraphNode) -> Void) {

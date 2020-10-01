@@ -55,6 +55,8 @@ import TSCBasic
   /// When finding transitive dependents, this node has been traversed.
   internal private(set) var hasBeenTraced = false
 
+  /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
+  /// SourceFileDependencyGraph or the DependencyKeys
   init(key: DependencyKey, fingerprint: String?, swiftDeps: String) {
     self.dependencyKey = key
     self.fingerprint = fingerprint
@@ -93,11 +95,8 @@ extension ModuleDepGraphNode {
 
   /// Return true if this node describes a definition for which the job is known
 
+  // TODO: incremental shoudl be nil?
   static let expatSwiftDeps = ""
-
-  var nodeMapKey: (String, DependencyKey) {
-    (swiftDeps, dependencyKey)
-  }
 }
 
 
