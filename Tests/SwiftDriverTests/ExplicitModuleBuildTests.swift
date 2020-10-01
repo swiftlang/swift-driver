@@ -182,9 +182,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
-      var targetDependencyMap :[ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)] = [:]
-      targetDependencyMap[ModuleDependencyId.swiftPlaceholder("B")] =
-        (AbsolutePath("/Somewhere/B.swiftmodule"), inputDependencyGraph)
+
+      let targetModulePathMap: ExternalTargetModulePathMap =
+        [ModuleDependencyId.swiftPlaceholder("B"):AbsolutePath("/Somewhere/B.swiftmodule")]
+      let externalModuleInfoMap: ModuleInfoMap = inputDependencyGraph.modules
 
       // Construct a module dependency graph that will contain .swiftPlaceholder("B")
       var moduleDependencyGraph =
@@ -201,11 +202,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                              fileSystem: localFileSystem,
                                              env: ProcessEnv.vars)
       var driver = try Driver(args: commandLine, executor: executor,
-                              externalModuleDependencies: targetDependencyMap)
+                              externalBuildArtifacts: (targetModulePathMap, externalModuleInfoMap))
 
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
-      try moduleDependencyGraph.resolvePlaceholderDependencies(using: targetDependencyMap)
+      try moduleDependencyGraph.resolvePlaceholderDependencies(
+        using: (targetModulePathMap, externalModuleInfoMap))
       driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
                                                                          toolchain: driver.toolchain,
                                                                          fileSystem: localFileSystem)
@@ -224,7 +226,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
 
-      // After module resolution all the dependencies are already satisfied.
       XCTAssertEqual(modulePrebuildJobs.count, 0)
       let mainModuleJob = try driver.emitModuleJob()
       XCTAssertEqual(mainModuleJob.inputs.count, 5)

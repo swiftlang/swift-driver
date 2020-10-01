@@ -14,6 +14,10 @@ import TSCUtility
 import Foundation
 import SwiftOptions
 
+/// Temporary backwards-compatible API for SwiftPM
+public typealias ExternalDependencyArtifactMap =
+    [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)]
+
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
@@ -240,10 +244,10 @@ public struct Driver {
   /// as explicit by the various compilation jobs.
   @_spi(Testing) public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
 
-  /// A collection describing external dependencies for the current main module that may be invisible to
-  /// the driver itself, but visible to its clients (e.g. build systems like SwiftPM). Along with the external dependencies'
-  /// module dependency graphs.
-  @_spi(Testing) public var externalDependencyArtifactMap: ExternalDependencyArtifactMap? = nil
+  /// All external artifacts a build system (e.g. SwiftPM) may pass in as input to the explicit
+  /// build of the current module. Consists of a map of externally-built targets, and a map of all previously
+  /// discovered/scanned modules and their infos.
+  @_spi(Testing) public var externalBuildArtifacts: ExternalBuildArtifacts? = nil
 
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
@@ -269,6 +273,56 @@ public struct Driver {
     stream.flush()
   }
 
+  /// Temporary API for backwards-compatibility with the API currently used by SwiftPM
+  /// This is a workaround for SwiftPM's current lack of cross-repository testing with swift-driver.
+  /// It will be removed after the corresponding SwiftPM API change is submitted.
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    externalModuleDependencies: ExternalDependencyArtifactMap
+  ) throws {
+    let externalBuildArtifacts: ExternalBuildArtifacts
+    var externalTargetModulePathMap: ExternalTargetModulePathMap = [:]
+    var moduleInfoMap: ModuleInfoMap = [:]
+    for (externalDependencyModuleId, (path, dependencyGraph)) in externalModuleDependencies {
+      externalTargetModulePathMap[externalDependencyModuleId] = path
+      for (moduleId, moduleInfo) in dependencyGraph.modules {
+        switch moduleId {
+          case .swift:
+            if moduleInfoMap[moduleId] == nil {
+              moduleInfoMap[moduleId] = moduleInfo
+            } else {
+              // Only update swift modules if we have an updated module path for them.
+              if moduleInfoMap[moduleId]!.modulePath == moduleId.moduleName + ".swiftmodule" {
+                moduleInfoMap[moduleId] = moduleInfo
+              }
+            }
+          case .clang:
+            if moduleInfoMap[moduleId] == nil {
+              moduleInfoMap[moduleId] = moduleInfo
+            } else {
+              // If this module *has* been seen before, merge the module infos to capture
+              // the super-set of so-far discovered dependencies of this module at various
+              // PCMArg scanning actions.
+              let combinedDependenciesInfo =
+                InterModuleDependencyGraph.mergeClangModuleInfoDependencies(moduleInfo,
+                                                                            moduleInfoMap[moduleId]!)
+              moduleInfoMap[moduleId] = combinedDependenciesInfo
+            }
+
+          case .swiftPlaceholder:
+            fatalError("Unresolved placeholder dependencies in Driver input: \(moduleId)")
+        }
+      }
+    }
+    externalBuildArtifacts = (externalTargetModulePathMap, moduleInfoMap)
+    try self.init(args: args, env: env, diagnosticsEngine: diagnosticsEngine, fileSystem: fileSystem,
+                  executor: executor, externalBuildArtifacts: externalBuildArtifacts)
+  }
+
   /// Create the driver with the given arguments.
   ///
   /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
@@ -281,15 +335,16 @@ public struct Driver {
   ///   expand response files, etc. By default this is the local filesystem.
   /// - Parameter executor: Used by the driver to execute jobs. The default argument
   ///   is present to streamline testing, it shouldn't be used in production.
-  /// - Parameter externalModuleDependencies: A collection of external modules that the main module
-  ///   of the current compilation depends on. Explicit Module Build use only.
+  /// - Parameter externalBuildArtifacts: All external artifacts a build system may pass in as input to the explicit
+  ///   build of the current module. Consists of a map of externally-built targets, and a map of all previously
+  ///   discovered/scanned modules.
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
-    externalModuleDependencies: ExternalDependencyArtifactMap? = nil
+    externalBuildArtifacts: ExternalBuildArtifacts? = nil
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
@@ -297,7 +352,7 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
-    self.externalDependencyArtifactMap = externalModuleDependencies
+    self.externalBuildArtifacts = externalBuildArtifacts
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver

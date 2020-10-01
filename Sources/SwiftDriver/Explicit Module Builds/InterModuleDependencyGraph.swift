@@ -118,13 +118,13 @@ public struct ClangModuleDetails: Codable {
 
   /// Set of PCM Arguments of depending modules which
   /// are covered by the directDependencies info of this module
-  var dependenciesCapturedPCMArgs: Set<[String]>?
+  public var dependenciesCapturedPCMArgs: Set<[String]>?
 
   /// clang-generated context hash
   var contextHash: String?
 
   /// Options to the compile command
-  var commandLine: [String]? = []
+  var commandLine: [String] = []
 }
 
 public struct ModuleInfo: Codable {

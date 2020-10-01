@@ -29,11 +29,11 @@ extension Driver {
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
-    // Pass in external dependencies to be treated as placeholder dependencies by the scanner
-    if let externalDependencyArtifactMap = externalDependencyArtifactMap {
+    // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
+    if let externalBuildArtifacts = externalBuildArtifacts {
       let dependencyPlaceholderMapFile =
-        try serializeExternalDependencyArtifacts(externalDependencyArtifactMap:
-                                                  externalDependencyArtifactMap)
+        try serializeExternalDependencyArtifacts(externalTargetModulePathMap:
+                                                  externalBuildArtifacts.0)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
@@ -53,17 +53,17 @@ extension Driver {
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-  func serializeExternalDependencyArtifacts(externalDependencyArtifactMap: ExternalDependencyArtifactMap)
+  func serializeExternalDependencyArtifacts(externalTargetModulePathMap: ExternalTargetModulePathMap)
   throws -> AbsolutePath {
     let temporaryDirectory = try determineTempDirectory()
     let placeholderMapFilePath =
       temporaryDirectory.appending(component: "\(moduleOutputInfo.name)-placeholder-modules.json")
 
     var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
-    for (moduleId, dependencyInfo) in externalDependencyArtifactMap {
+    for (moduleId, binaryModulePath) in externalTargetModulePathMap {
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: dependencyInfo.0.description))
+                                  modulePath: binaryModulePath.description))
     }
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
