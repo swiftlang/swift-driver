@@ -876,6 +876,21 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 }
 
+enum MockDependencyKind {
+  case topLevel, dynamicLookup, externalDepend, sourceFileProvide,
+        nominal, potentialMember,
+        member
+
+  var singleNameIsContext: Bool? {
+    switch self {
+      case .nominal, .potentialMember: return true
+      case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide: return false
+      case .member: return nil
+    }
+  }
+}
+
+
 extension ModuleDependencyGraph {
 
   convenience init(mock diagnosticEngine: DiagnosticsEngine,
@@ -887,9 +902,10 @@ extension ModuleDependencyGraph {
       diagnosticEngine: diagnosticEngine)
   }
 
+
   func simulateLoad(
     _ cmd: Job,
-    _ dependencyDescriptions: [DependencyKey.Kind: [String]],
+    _ dependencyDescriptions: [MockDependencyKind: [String]],
     _ interfaceHash: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
@@ -902,7 +918,7 @@ extension ModuleDependencyGraph {
   }
 
   func simulateReload(_ cmd: Job,
-                      _ dependencyDescriptions: [DependencyKey.Kind: [String]],
+                      _ dependencyDescriptions: [MockDependencyKind: [String]],
                       _ interfaceHash: String? = nil,
                       includePrivateDeps: Bool = true,
                       hadCompilationError: Bool = false)
@@ -921,7 +937,7 @@ extension ModuleDependencyGraph {
 
   func getChangesForSimulatedLoad(
     _ cmd: Job,
-    _ dependencyDescriptions: [DependencyKey.Kind: [String]],
+    _ dependencyDescriptions: [MockDependencyKind: [String]],
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
@@ -976,7 +992,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   private let hadCompilationError: Bool
   private let swiftDeps: String
   private let interfaceHash: String
-  private let dependencyDescriptions: [(DependencyKey.Kind, String)]
+  private let dependencyDescriptions: [(MockDependencyKind, String)]
 
   private var allNodes: [Node] = []
   private var memoizedNodes: [DependencyKey: Node] = [:]
@@ -987,7 +1003,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
     hadCompilationError: Bool,
     swiftDeps: String,
     interfaceHash: String,
-    _ dependencyDescriptions: [DependencyKey.Kind: [String]]
+    _ dependencyDescriptions: [MockDependencyKind: [String]]
   ) -> SourceFileDependencyGraph
   {
     var m = Self.init(
@@ -1021,10 +1037,11 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func findExistingNodePairOrCreateAndAddIfNew(
-    _ interfaceKey: DependencyKey, _ fingerprint: String?)
+    _ interfaceKey: DependencyKey,
+    _ fingerprint: String?)
   -> NodePair {
     // Optimization for whole-file users:
-    if interfaceKey.kind == .sourceFileProvide && !allNodes.isEmpty {
+    if case .sourceFileProvide = interfaceKey.designator, !allNodes.isEmpty {
       return getSourceFileNodePair()
     }
     assert(interfaceKey.aspect == .interface)
@@ -1110,7 +1127,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
     }
   }
 
-  private mutating func addADefinedDecl(_ kind: DependencyKey.Kind, _ s: String) {
+  private mutating func addADefinedDecl(_ kind: MockDependencyKind, _ s: String) {
     guard let interfaceKey = DependencyKey.parseADefinedDecl(s, kind, .interface, includePrivateDeps: includePrivateDeps)
     else {
       return
@@ -1125,7 +1142,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
     addArc(def: sourceFileNodePair!.interface, use: nodePair.interface)
   }
 
-  private mutating func addAUsedDecl(_ kind: DependencyKey.Kind, _ s: String) {
+  private mutating func addAUsedDecl(_ kind: MockDependencyKind, _ s: String) {
     guard let defAndUseKeys = DependencyKey.parseAUsedDecl(s,
                                                            kind,
                                                            includePrivateDeps: includePrivateDeps,
@@ -1172,20 +1189,18 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
 
 fileprivate extension DependencyKey {
-  static func parseADefinedDecl(_ s: String, _ kind: DependencyKey.Kind, _ aspect: DeclAspect, includePrivateDeps: Bool) -> Self? {
+  static func parseADefinedDecl(_ s: String, _ kind: MockDependencyKind, _ aspect: DeclAspect, includePrivateDeps: Bool) -> Self? {
     let privatePrefix = "#"
     let isPrivate = s.hasPrefix(privatePrefix)
     guard !isPrivate || includePrivateDeps else {return nil}
     let ss = s.drop {String($0) == privatePrefix}
     let sss = ss.range(of: String.fingerprintSeparator).map { ss.prefix(upTo: $0.lowerBound) } ?? ss
-    return DependencyKey(
-      kind,
-      aspect,
-      String(sss).parseContextAndName(kind))
+    return Self(aspect: aspect,
+                designator: Designator(kind: kind, String(sss).parseContextAndName(kind)))
   }
 
   static func parseAUsedDecl(_ s: String,
-                             _ kind: DependencyKey.Kind,
+                             _ kind: MockDependencyKind,
                              includePrivateDeps: Bool,
                              swiftDeps: String) -> (def: Self, use: Self)? {
     let noncascadingPrefix = "#"
@@ -1202,10 +1217,8 @@ fileprivate extension DependencyKey {
     }
     let withoutPrivatePrefix = withoutNCPrefix.drop {String($0) == privateHolderPrefix}
     let defUseStrings = withoutPrivatePrefix.splitDefUse
-    let defKey = Self(kind,
-                      aspectOfDefUsed,
-                      defUseStrings.def.parseContextAndName(kind))
-
+    let defKey = Self(aspect: aspectOfDefUsed,
+                      designator: Designator(kind: kind, defUseStrings.def.parseContextAndName(kind)))
     return (def: defKey,
             use: computeUseKey(defUseStrings.use,
                                isCascadingUse: isCascadingUse,
@@ -1215,32 +1228,16 @@ fileprivate extension DependencyKey {
 
   static func computeUseKey(_ s: String, isCascadingUse: Bool, includePrivateDeps: Bool, swiftDeps: String) -> Self {
     // For now, in unit tests, mock uses are always nominal
-    let kindOfUse = DependencyKey.Kind.nominal
     let aspectOfUse: DeclAspect = isCascadingUse ? .interface : .implementation
     if !s.isEmpty {
+      let kindOfUse = MockDependencyKind.nominal
       return parseADefinedDecl(s, kindOfUse, aspectOfUse, includePrivateDeps: includePrivateDeps)!
     }
-    return DependencyKey(kind: .sourceFileProvide,
-                         aspect: aspectOfUse,
-                         context: nil,
-                         name: swiftDeps
-    )
-  }
-  
-  init(_ kind: Kind, _ aspect: DeclAspect, _ cn: (context: String?, name: String?)) {
-    self.init(kind: kind, aspect: aspect, context: cn.context, name: cn.name)
+    return Self(aspect: aspectOfUse,
+                designator: Designator(kind: .sourceFileProvide, (context: "", name: swiftDeps)))
   }
 }
 
-fileprivate extension DependencyKey.Kind {
-  var singleNameIsContext: Bool? {
-    switch self {
-      case .nominal, .potentialMember: return true
-      case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide: return false
-      case .member: return nil
-    }
-  }
-}
 
 fileprivate extension String {
   static var fingerprintSeparator: Self {"@"}
@@ -1252,7 +1249,7 @@ fileprivate extension String {
 
   static var nameContextSeparator: String { "," }
 
-  func parseContextAndName( _ kind: DependencyKey.Kind) -> (context: String?, name: String?) {
+  func parseContextAndName( _ kind: MockDependencyKind) -> (context: String?, name: String?) {
     switch kind.singleNameIsContext {
       case true?:  return (context: self, name: nil)
       case false?: return (context: nil, name: self)
@@ -1284,10 +1281,9 @@ fileprivate extension SourceFileDependencyGraph.Node {
 fileprivate extension DependencyKey {
   static func createKeyForWholeSourceFile(_ aspect: DeclAspect,
                                           _ swiftDeps: String) -> Self {
-    return Self(.sourceFileProvide,
-                aspect,
-                swiftDeps.parseContextAndName(.sourceFileProvide)
-    )
+    return Self(aspect: aspect,
+                designator: Designator(kind: .sourceFileProvide,
+                                       swiftDeps.parseContextAndName(.sourceFileProvide)))
   }
 }
 
@@ -1302,3 +1298,38 @@ extension Job {
   }
 
 }
+
+fileprivate extension DependencyKey.Designator {
+  init(kind: MockDependencyKind, _ contextAndName: (context: String?, name: String?))
+  {
+    func mustBeAbsent(_ s: String?) {
+      if let s = s, !s.isEmpty {
+        XCTFail()
+      }
+    }
+    let (context: context, name: name) = contextAndName
+    switch kind {
+      case .topLevel:
+        mustBeAbsent(context)
+        self = .topLevel(name: name!)
+      case .nominal:
+        mustBeAbsent(name)
+        self = .nominal(context: context!)
+      case .potentialMember:
+         mustBeAbsent(name)
+        self = .potentialMember(context: context!)
+      case .member:
+        self = .member(context: context!, name: name!)
+      case .dynamicLookup:
+         mustBeAbsent(context)
+        self = .dynamicLookup(name: name!)
+      case .externalDepend:
+         mustBeAbsent(context)
+        self = .externalDepend(name: name!)
+      case .sourceFileProvide:
+         mustBeAbsent(context)
+        self = .sourceFileProvide(name: name!)
+    }
+  }
+}
+

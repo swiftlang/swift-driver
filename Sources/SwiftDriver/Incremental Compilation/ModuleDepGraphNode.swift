@@ -93,7 +93,6 @@ extension ModuleDepGraphNode {
 
   /// Return true if this node describes a definition for which the job is known
 
-/// TODO: incremental add assertion that no real one matches this
   static let expatSwiftDeps = ""
 
   var nodeMapKey: (String, DependencyKey) {

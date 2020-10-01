@@ -424,12 +424,11 @@ extension NodesAndUses {
     _ moduleUseNode: ModuleDepGraphNode)
   -> Bool {
     var useHasNewExternalDependency = false
+    // TODO: Incremental slow???
     g.forEachDefDependedUpon(by: sourceFileUseNode) {
       def in
       let isNewUse = nodesAndUses.record(def: def.key, use: moduleUseNode)
-      if isNewUse && def.key.kind == .externalDepend {
-// TODO: incremental enum for the DepKey to avoid the !
-        let externalSwiftDeps = def.key.name!
+      if case let .externalDepend(name: externalSwiftDeps) = def.key.designator, isNewUse {
         externalDependencies.insert(externalSwiftDeps)
         useHasNewExternalDependency = true
       }
@@ -517,11 +516,7 @@ extension ModuleDependencyGraph {
     assert(swiftDepsInBatch.count == 1, "Only used for testing single-swiftdeps jobs")
     let swiftDeps = swiftDepsInBatch[0]
     // optimization
-    //TODO: Incremental move to DepKey
-    let fileKey = DependencyKey(kind: .sourceFileProvide,
-                                aspect: .interface,
-                                context: nil,
-                                name: swiftDeps)
+    let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
     if let fileNode = nodesAndUses.findNode(swiftDeps, fileKey),
        fileNode.hasBeenTraced {
       return true
@@ -574,10 +569,7 @@ extension ModuleDependencyGraph {
   ) {
     // TODO move nameForDep into key
     // These nodes will depend on the *interface* of the external Decl.
-    let key = DependencyKey(kind: .externalDepend,
-                            aspect: .interface,
-                            context: nil,
-                            name: externalSwiftDeps)
+    let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
     nodesAndUses.forEachUse(of: key) {
       use in
       if !use.hasBeenTraced {
@@ -665,4 +657,17 @@ extension Job {
   @_spi(Testing) public var swiftDepsPaths: [String] {
     outputs.compactMap {$0.type != .swiftDeps ? nil : $0.file.name }
   }
+}
+
+fileprivate extension DependencyKey {
+  init(interfaceForSourceFile swiftDeps: String) {
+    self.init(aspect: .interface,
+              designator: .sourceFileProvide(name: swiftDeps))
+  }
+
+  init(interfaceForExternalDepend externalSwiftDeps: String ) {
+    self.init(aspect: .interface,
+              designator: .externalDepend(name: externalSwiftDeps))
+  }
+
 }

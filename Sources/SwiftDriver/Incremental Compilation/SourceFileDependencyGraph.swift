@@ -79,12 +79,12 @@ extension SourceFileDependencyGraph {
     public func verify() {
       key.verify()
 
-      if key.kind == .sourceFileProvide {
+      if case .sourceFileProvide = key.designator {
         switch key.aspect {
-        case .interface:
-          assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber)
-        case .implementation:
-          assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber)
+          case .interface:
+            assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber)
+          case .implementation:
+            assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber)
         }
       }
     }
@@ -102,7 +102,7 @@ extension SourceFileDependencyGraph {
     case identifierNode
   }
 
-  private enum ReadError: Error {
+  fileprivate enum ReadError: Error {
     case badMagic
     case noRecordBlock
     case malformedMetadataRecord
@@ -115,6 +115,8 @@ extension SourceFileDependencyGraph {
     case unexpectedSubblock
     case notSwiftDeps
     case notAbsolutePath
+    case bogusNameOrContext
+    case unknownKind
   }
 
   public static func read(from file: TypedVirtualPath)
@@ -175,50 +177,50 @@ extension SourceFileDependencyGraph {
       guard case .record(let record) = element else { throw ReadError.unexpectedSubblock }
       guard let kind = RecordKind(rawValue: record.id) else { throw ReadError.unknownRecord }
       switch kind {
-      case .metadata:
-        throw ReadError.unexpectedMetadataRecord
-      case .sourceFileDepGraphNode:
-        if let node = node {
-          nodes.append(node)
-        }
-        guard record.fields.count == 5,
-              let nodeKind = DependencyKey.Kind(code: record.fields[0]),
-              let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-              record.fields[2] < identifiers.count,
-              record.fields[3] < identifiers.count else {
-          throw ReadError.malformedSourceFileDepGraphNodeRecord
-        }
-        let context = identifiers[Int(record.fields[2])]
-        let identifier = identifiers[Int(record.fields[3])]
-        let isProvides = record.fields[4] != 0
-        node = Node(key: .init(kind: nodeKind,
-                               aspect: declAspect,
-                               context: context.isEmpty ? nil : context,
-                               name: identifier.isEmpty ? nil : identifier),
-                    fingerprint: nil,
-                    sequenceNumber: sequenceNumber,
-                    defsIDependUpon: [],
-                    isProvides: isProvides)
-        sequenceNumber += 1
-      case .fingerprintNode:
-        guard node != nil,
-              record.fields.count == 0,
-              case .blob(let fingerprintBlob) = record.payload,
-              let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
-          throw ReadError.malformedFingerprintRecord
-        }
-        node?.fingerprint = fingerprint
-      case .dependsOnDefinitionNode:
-        guard node != nil,
-              record.fields.count == 1 else { throw ReadError.malformedDependsOnDefinitionRecord }
-        node?.defsIDependUpon.append(Int(record.fields[0]))
-      case .identifierNode:
-        guard record.fields.count == 0,
-              case .blob(let identifierBlob) = record.payload,
-              let identifier = String(data: identifierBlob, encoding: .utf8) else {
-          throw ReadError.malformedIdentifierRecord
-        }
-        identifiers.append(identifier)
+        case .metadata:
+          throw ReadError.unexpectedMetadataRecord
+        case .sourceFileDepGraphNode:
+          if let node = node {
+            nodes.append(node)
+          }
+          let kindCode = record.fields[0]
+          guard record.fields.count == 5,
+                let declAspect = DependencyKey.DeclAspect(record.fields[1]),
+                record.fields[2] < identifiers.count,
+                record.fields[3] < identifiers.count else {
+            throw ReadError.malformedSourceFileDepGraphNodeRecord
+          }
+          let context = identifiers[Int(record.fields[2])]
+          let identifier = identifiers[Int(record.fields[3])]
+          let isProvides = record.fields[4] != 0
+          let designator = try DependencyKey.Designator(
+            kindCode: kindCode, context: context, name: identifier)
+          let key = DependencyKey(aspect: declAspect, designator: designator)
+          node = Node(key: key,
+                      fingerprint: nil,
+                      sequenceNumber: sequenceNumber,
+                      defsIDependUpon: [],
+                      isProvides: isProvides)
+          sequenceNumber += 1
+        case .fingerprintNode:
+          guard node != nil,
+                record.fields.count == 0,
+                case .blob(let fingerprintBlob) = record.payload,
+                let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
+            throw ReadError.malformedFingerprintRecord
+          }
+          node?.fingerprint = fingerprint
+        case .dependsOnDefinitionNode:
+          guard node != nil,
+                record.fields.count == 1 else { throw ReadError.malformedDependsOnDefinitionRecord }
+          node?.defsIDependUpon.append(Int(record.fields[0]))
+        case .identifierNode:
+          guard record.fields.count == 0,
+                case .blob(let identifierBlob) = record.payload,
+                let identifier = String(data: identifierBlob, encoding: .utf8) else {
+            throw ReadError.malformedIdentifierRecord
+          }
+          identifiers.append(identifier)
       }
     }
 
@@ -240,18 +242,37 @@ fileprivate extension DependencyKey.DeclAspect {
   }
 }
 
-fileprivate extension DependencyKey.Kind {
-  init?(code: UInt64) {
-    switch code {
-      case 0: self = .topLevel
-      case 1: self = .nominal
-      case 2: self = .potentialMember
-      case 3: self = .member
-      case 4: self = .dynamicLookup
-      case 5: self = .externalDepend
-      case 6: self = .sourceFileProvide
+fileprivate extension DependencyKey.Designator {
+  init(kindCode: UInt64,
+       context: String,
+       name: String) throws {
+    func mustBeEmpty(_ s: String) throws {
+      guard s.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
+    }
+    switch kindCode {
+      case 0:
+        try mustBeEmpty(context)
+        self = .topLevel(name: name)
+      case 1:
+        try mustBeEmpty(name)
+        self = .nominal(context: context)
+      case 2:
+        try mustBeEmpty(name)
+        self = .potentialMember(context: context)
+      case 3:
+        self = .member(context: context, name: name)
+      case 4:
+        try mustBeEmpty(context)
+        self = .dynamicLookup(name: name)
+      case 5:
+        try mustBeEmpty(context)
+        self = .externalDepend(name: name)
+      case 6:
+        try mustBeEmpty(context)
+        self = .sourceFileProvide(name: name)
 
-      default: return nil
+      default: throw SourceFileDependencyGraph.ReadError.unknownKind
     }
   }
 }
+
