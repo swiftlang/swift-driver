@@ -12,7 +12,8 @@
 import Foundation
 import TSCBasic
 
-
+/// The core information for the ModuleDependencyGraph
+/// Isolate in a sub-structure in order to faciliate invariant maintainance
 struct NodesAndUses {
   
   /// Maps swiftDeps files and DependencyKeys to Nodes
@@ -200,6 +201,31 @@ extension NodesAndUses {
     return false
   }
 }
+// MARK: - mapping back-and-forth to jobs
+@_spi(Testing) public struct JobTracker {
+  /// Keyed by swiftdeps filename, so we can get back to Jobs.
+  private var jobsBySwiftDeps: [String: Job] = [:]
+
+
+  func getJob(_ swiftDeps: String) -> Job {
+    guard let job = jobsBySwiftDeps[swiftDeps] else {fatalError("All jobs should be tracked.")}
+    // TODO: Incremental centralize job invars
+    assert(job.swiftDepsPaths.contains(swiftDeps),
+           "jobsBySwiftDeps should be inverse of getSwiftDeps.")
+    return job
+  }
+
+  @_spi(Testing) public mutating func registerJob(_ job: Job) {
+    // No need to create any nodes; that will happen when the swiftdeps file is
+    // read. Just record the correspondence.
+    job.swiftDepsPaths.forEach { jobsBySwiftDeps[$0] = job }
+  }
+
+  @_spi(Testing) public var allJobs: [Job] {
+    Array(jobsBySwiftDeps.values)
+  }
+
+}
 
 // MARK: - ModuleDependencyGraph
 
@@ -210,8 +236,6 @@ extension NodesAndUses {
   // Supports requests from the driver to getExternalDependencies.
   @_spi(Testing) public internal(set) var externalDependencies = Set<String>()
 
-  /// Keyed by swiftdeps filename, so we can get back to Jobs.
-  private var jobsBySwiftDeps: [String: Job] = [:]
 
 
   let verifyDependencyGraphAfterEveryImport: Bool
@@ -219,15 +243,7 @@ extension NodesAndUses {
 
   @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
 
-  // TODO: incremental move next two into sub object
-
-  /// If tracing dependencies, holds a vector used to hold the current path
-  /// def - use/def - use/def - ...
-  private var currentPathIfTracing: [ModuleDepGraphNode]? = nil
-
-  /// If tracing dependencies, holds the sequence of defs used to get to the job
-  /// that is the key
-  private var dependencyPathsToJobs = Multidictionary<Job, [ModuleDepGraphNode]>()
+  @_spi(Testing) public var jobTracker = JobTracker()
 
 
   public init(
@@ -257,91 +273,35 @@ extension ModuleDependencyGraph {
     return r
   }
 }
-// MARK: - building or updating
-// UP TO HERE
+
+// MARK: - finding jobs
 extension ModuleDependencyGraph {
-  @discardableResult
-  func verifyGraph() -> Bool {
-    nodesAndUses.verify()
-  }
-
-
-
-}
-
-
-
-
-
-
-
-
-extension ModuleDependencyGraph {
-  func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: String) {
-    // TODO: Incremental emitDotFIle
-  }
-}
-
-// TODO: Incremental: move jobs out of here, reexamine how to deal with swiftdeps reading errors
-
-extension ModuleDependencyGraph {
-  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(_ jobToBeRecompiled: Job) -> [Job] {
-    var allNodesInJob = [ModuleDepGraphNode]()
-    for swiftDeps in jobToBeRecompiled.swiftDepsPaths {
-      forEachNodeInJob(swiftDeps) { allNodesInJob.append($0) }
-    }
+  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(_ job: Job) -> [Job] {
+    let allNodesInJob = findAllNodes(in: job)
     return findJobsToRecompileWhenNodesChange(allNodesInJob);
   }
+
+  private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
+    job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
+  }
   
-  @_spi(Testing) public func findJobsToRecompileWhenNodesChange<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
-  where Nodes.Element == ModuleDepGraphNode
+  @_spi(Testing) public func findJobsToRecompileWhenNodesChange(
+    _ nodes: [ModuleDepGraphNode])
+  -> [Job]
   {
-    var usedNodes: [ModuleDepGraphNode] = []
-    nodes.forEach {findPreviouslyUntracedDependents(of: $0, into: &usedNodes)}
-    return jobsContaining(usedNodes);
+    let affectedNodes = ModuleDepGraphTracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
+      .tracedUses
+    return jobsContaining(affectedNodes)
   }
-  
-  /// Testing only
-  @_spi(Testing) public func haveAnyNodesBeenTraversedIn(_ job: Job) -> Bool {
-    for swiftDeps in job.swiftDepsPaths {
-      // optimization
-      if let fileNode = nodesAndUses.findFileInterfaceNode(forSwiftDeps: swiftDeps),
-         fileNode.hasBeenTraced
-      {
-        return true
-      }
-    
-      var result = false;
-      forEachNodeInJob(swiftDeps) {
-        result = result || $0.hasBeenTraced
-      }
-      if result { return true; }
-    }
-    return false
-  }
-  
-  private func forEachNodeInJob(_ swiftDeps: String, _ fn: (ModuleDepGraphNode) -> Void) {
-    nodesAndUses.findNodes(for: swiftDeps)
-      .map {$0.values.forEach(fn)}
-  }
-  
-  
-  @_spi(Testing) public func registerJob(_ job: Job) {
-    // No need to create any nodes; that will happen when the swiftdeps file is
-    // read. Just record the correspondence.
-    job.swiftDepsPaths.forEach { jobsBySwiftDeps[$0] = job }
-  }
-  
-  @_spi(Testing) public var allJobs: [Job] {
-    Array(jobsBySwiftDeps.values)
-  }
-  
+
+
+
   // Add every (swiftdeps) use of the external dependency to foundJobs.
   // Can return duplicates, but it doesn't break anything, and they will be
   // canonicalized later.
   @_spi(Testing) public func findExternallyDependentUntracedJobs(_ externalDependency: String) -> [Job] {
     var foundJobs = [Job]()
-    
+
     forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(externalSwiftDeps: externalDependency) {
       job in
       foundJobs.append(job)
@@ -353,7 +313,7 @@ extension ModuleDependencyGraph {
     }
     return foundJobs;
   }
-  
+
   private func forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(
     externalSwiftDeps: String,
     _ fn: (Job) -> Void
@@ -364,38 +324,31 @@ extension ModuleDependencyGraph {
     nodesAndUses.forEachUse(of: key) {
       use, useSwiftDeps in
       if !use.hasBeenTraced {
-        fn(getJob(useSwiftDeps))
+        fn(jobTracker.getJob(useSwiftDeps))
       }
     }
   }
 
-  private func findPreviouslyUntracedDependents(
-    of definition: ModuleDepGraphNode,
-    into found: inout [ModuleDepGraphNode]
-  ) {
-    guard !definition.hasBeenTraced else { return }
-    definition.setHasBeenTraced();
-
-    found.append(definition)
-
-    // If this node is merely used, but not defined anywhere, nothing else
-    // can possibly depend upon it.
-    if definition.isExpat { return }
-
-    let pathLengthAfterArrival = traceArrival(at: definition);
-
-    // If this use also provides something, follow it
-    nodesAndUses.forEachUse(of: definition.dependencyKey) {
-      use, _ in
-      findPreviouslyUntracedDependents(of: use, into: &found)
-    }
-    traceDeparture(pathLengthAfterArrival);
-  }
 
   private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
   where Nodes.Element == ModuleDepGraphNode {
-    computeSwiftDepsFromNodes(nodes).map(getJob)
+    computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
   }
+
+
+
+
+}
+
+
+extension Job {
+  @_spi(Testing) public var swiftDepsPaths: [String] {
+    outputs.compactMap {$0.type != .swiftDeps ? nil : $0.file.name }
+  }
+}
+
+// MARK: - finding nodes; swiftDeps
+extension ModuleDependencyGraph {
   private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [String]
   where Nodes.Element == ModuleDepGraphNode {
     var swiftDepsOfNodes = Set<String>()
@@ -406,50 +359,37 @@ extension ModuleDependencyGraph {
     }
     return Array(swiftDepsOfNodes)
   }
-
-  private func getJob(_ swiftDeps: String) -> Job {
-    guard let job = jobsBySwiftDeps[swiftDeps] else {fatalError("All jobs should be tracked.")}
-    // TODO: Incremental centralize job invars
-    assert(job.swiftDepsPaths.contains(swiftDeps),
-           "jobsBySwiftDeps should be inverse of getSwiftDeps.")
-    return job
-  }
 }
 
+// MARK: - purely for testing
 extension ModuleDependencyGraph {
-  func traceArrival(at visitedNode: ModuleDepGraphNode) -> Int {
-    guard var currentPath = currentPathIfTracing else {
-      return 0
+  /// Testing only
+  @_spi(Testing) public func haveAnyNodesBeenTraversedIn(_ job: Job) -> Bool {
+    for swiftDeps in job.swiftDepsPaths {
+      // optimization
+      if let fileNode = nodesAndUses.findFileInterfaceNode(forSwiftDeps: swiftDeps),
+         fileNode.hasBeenTraced
+      {
+        return true
+      }
+      if  nodesIn(swiftDeps: swiftDeps).contains(where: {$0.hasBeenTraced}) {
+        return true
+      }
     }
-    currentPath.append(visitedNode)
-    currentPathIfTracing = currentPath
-    // should never be empty, but let's not crash for debugging info
-    recordDependencyPathToJob(currentPath, getJob(visitedNode.swiftDeps ?? ""))
-    return currentPath.count
+    return false
   }
-
-  func recordDependencyPathToJob(
-    _ pathToJob: [ModuleDepGraphNode],
-    _ dependentJob: Job)
+  
+  private func nodesIn(swiftDeps: String) -> [ModuleDepGraphNode]
   {
-    _ = dependencyPathsToJobs.addValue(pathToJob, forKey: dependentJob)
-  }
-
-  func traceDeparture(_ pathLengthAfterArrival: Int) {
-    guard var currentPath = currentPathIfTracing else { return }
-    assert(pathLengthAfterArrival == currentPath.count,
-           "Path must be maintained throughout recursive visits.")
-    currentPath.removeLast()
-    currentPathIfTracing = currentPath
+    nodesAndUses.findNodes(for: swiftDeps)
+      .map {Array($0.values)}
+    ?? []
   }
 }
 
 
-extension Job {
-  @_spi(Testing) public var swiftDepsPaths: [String] {
-    outputs.compactMap {$0.type != .swiftDeps ? nil : $0.file.name }
-  }
-}
+
+// MARK: - key helpers
 
 fileprivate extension DependencyKey {
   init(interfaceForSourceFile swiftDeps: String) {
@@ -462,4 +402,21 @@ fileprivate extension DependencyKey {
               designator: .externalDepend(name: externalSwiftDeps))
   }
 
+}
+
+// MARK: - verificaiton
+extension ModuleDependencyGraph {
+  @discardableResult
+  func verifyGraph() -> Bool {
+    nodesAndUses.verify()
+  }
+}
+
+
+// MARK: - debugging
+extension ModuleDependencyGraph {
+  func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: String) {
+    // TODO: Incremental emitDotFIle
+    fatalError("unimplmemented")
+  }
 }

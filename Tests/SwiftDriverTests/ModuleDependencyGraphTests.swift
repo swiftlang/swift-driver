@@ -930,8 +930,8 @@ extension ModuleDependencyGraph {
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
-      .map (findJobsToRecompileWhenNodesChange)
-      ?? allJobs
+      .map {findJobsToRecompileWhenNodesChange(Array($0))}
+      ?? jobTracker.allJobs
   }
 
 
@@ -943,7 +943,7 @@ extension ModuleDependencyGraph {
     hadCompilationError: Bool = false)
   -> DepGraphIntegrator.Changes
   {
-    registerJob(cmd)
+    jobTracker.registerJob(cmd)
 
     let swiftDeps = cmd.swiftDepsPaths.first!
     let interfaceHash = interfaceHashIfPresent ?? swiftDeps

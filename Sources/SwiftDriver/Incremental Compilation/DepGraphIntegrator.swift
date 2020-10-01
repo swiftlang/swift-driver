@@ -15,9 +15,6 @@ import TSCBasic
 // MARK: - building or updating
 @_spi(Testing) public struct DepGraphIntegrator {
   // nil means there was an error
-  // TODO: Incremental use sets of Keys and SwiftDeps instead because
-  // nodes should not exist anymore
-  // And optimize first time
   @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>?
 
   let source: SourceFileDependencyGraph
@@ -44,7 +41,7 @@ import TSCBasic
 extension DepGraphIntegrator {
   static func integrate(job: Job, into destination: ModuleDependencyGraph,
                         diagnosticEngine: DiagnosticsEngine) -> Changes {
-    destination.registerJob(job)
+    destination.jobTracker.registerJob(job)
     let graphsAndDeps = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
 
     let goodGraphsAndDeps = graphsAndDeps
@@ -113,7 +110,7 @@ extension DepGraphIntegrator {
       changedNodes.insert(node)
       destination.nodesAndUses.remove(node)
     }
-    changedNodes.forEach {$0.clearHasBeenTraced()}
+    ModuleDepGraphTracer.ensureChangedNodesAreRetraced(changedNodes)
   }
 }
 

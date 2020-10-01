@@ -53,7 +53,11 @@ import TSCBasic
 
 
   /// When finding transitive dependents, this node has been traversed.
+  /// Used by \c ModuleDepGraphTracer, faster than a Set
   internal private(set) var hasBeenTraced = false
+  func   setHasBeenTraced()  { hasBeenTraced = true  }
+  func clearHasBeenTraced()  { hasBeenTraced = false }
+
 
   /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
   /// SourceFileDependencyGraph or the DependencyKeys
@@ -63,13 +67,6 @@ import TSCBasic
     self.swiftDeps = swiftDeps
   }
 }
-
-// MARK: - Tracing
-extension ModuleDepGraphNode {
-  func   setHasBeenTraced()  { hasBeenTraced = true  }
-  func clearHasBeenTraced()  { hasBeenTraced = false }
-}
-
 // MARK: - Fingerprinting
 extension ModuleDepGraphNode {
   /// Integrate \p integrand's fingerprint into \p dn.
