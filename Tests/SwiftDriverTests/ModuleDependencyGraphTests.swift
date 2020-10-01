@@ -941,7 +941,7 @@ extension ModuleDependencyGraph {
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
-  -> ModuleDependencyGraph.Changes
+  -> DepGraphIntegrator.Changes
   {
     registerJob(cmd)
 
@@ -955,7 +955,10 @@ extension ModuleDependencyGraph {
       interfaceHash: interfaceHash,
       dependencyDescriptions)
 
-    return integrate(graph: sfdg, swiftDeps: swiftDeps)
+    return DepGraphIntegrator.integrate(
+      from: sfdg,
+      swiftDeps: swiftDeps,
+      into: self)
   }
 }
 

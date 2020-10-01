@@ -13,7 +13,7 @@ import Foundation
 import TSCBasic
 
 
-fileprivate struct NodesAndUses {
+struct NodesAndUses {
   
   /// Maps swiftDeps files and DependencyKeys to Nodes
   fileprivate typealias NodeMap = TwoDMap<String?, DependencyKey, ModuleDepGraphNode>
@@ -38,7 +38,7 @@ extension NodesAndUses {
     let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
     return findNode((swiftDeps, fileKey))
   }
-  private func findNode(_ mapKey: (String?, DependencyKey)) -> ModuleDepGraphNode? {
+  func findNode(_ mapKey: (String?, DependencyKey)) -> ModuleDepGraphNode? {
     nodeMap[mapKey]
   }
   
@@ -201,15 +201,14 @@ extension NodesAndUses {
   }
 }
 
-// TODO: Incremental UP TO HERE
 // MARK: - ModuleDependencyGraph
 
 @_spi(Testing) public final class ModuleDependencyGraph {
 
-  private var nodesAndUses = NodesAndUses()
+  internal var nodesAndUses = NodesAndUses()
 
   // Supports requests from the driver to getExternalDependencies.
-  @_spi(Testing) public private(set) var externalDependencies = Set<String>()
+  @_spi(Testing) public internal(set) var externalDependencies = Set<String>()
 
   /// Keyed by swiftdeps filename, so we can get back to Jobs.
   private var jobsBySwiftDeps: [String: Job] = [:]
@@ -220,6 +219,8 @@ extension NodesAndUses {
 
   @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
 
+  // TODO: incremental move next two into sub object
+
   /// If tracing dependencies, holds a vector used to hold the current path
   /// def - use/def - use/def - ...
   private var currentPathIfTracing: [ModuleDepGraphNode]? = nil
@@ -228,6 +229,20 @@ extension NodesAndUses {
   /// that is the key
   private var dependencyPathsToJobs = Multidictionary<Job, [ModuleDepGraphNode]>()
 
+
+  public init(
+    verifyDependencyGraphAfterEveryImport: Bool,
+    emitDependencyDotFileAfterEveryImport: Bool,
+    diagnosticEngine: DiagnosticsEngine)
+  {
+    self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
+    self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
+    self.diagnosticEngine = diagnosticEngine
+  }
+}
+
+// MARK: - initial build only
+extension ModuleDependencyGraph {
   static func buildInitialGraph(jobs: [Job],
                                 verifyDependencyGraphAfterEveryImport: Bool,
                                 emitDependencyDotFileAfterEveryImport: Bool,
@@ -235,257 +250,25 @@ extension NodesAndUses {
     let r = Self(verifyDependencyGraphAfterEveryImport: verifyDependencyGraphAfterEveryImport,
                  emitDependencyDotFileAfterEveryImport: emitDependencyDotFileAfterEveryImport,
                  diagnosticEngine: diagnosticEngine)
-    for job in jobs { _ = r.integrate(job: job) }
+    for job in jobs {
+      _ = DepGraphIntegrator.integrate(job: job, into: r,
+                                       diagnosticEngine: diagnosticEngine)
+    }
     return r
   }
-
-  public init(
-    verifyDependencyGraphAfterEveryImport: Bool,
-    emitDependencyDotFileAfterEveryImport: Bool,
-    diagnosticEngine: DiagnosticsEngine) {
-    self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
-    self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
-    self.diagnosticEngine = diagnosticEngine
-  }
-
-  // nil means there was an error
-  // TODO: Incremental use sets of Keys and SwiftDeps instead because
-  // nodes should not exist anymore
-  // And optimize first time
-  @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>?
-
-  func integrate(job: Job) -> Changes {
-    registerJob(job)
-    let graphsAndDeps = getSourceFileDependencyGraphs(job: job)
-    let goodGraphsAndDeps = graphsAndDeps
-      .compactMap {gd in gd.graph.map {(graph: $0, swiftDeps: gd.swiftDeps)}}
-
-    let changedNodes = goodGraphsAndDeps
-      .flatMap {integrate(graph: $0.graph, swiftDeps: $0.swiftDeps)}
-
-    let hadError = graphsAndDeps.count != goodGraphsAndDeps.count
-
-    return hadError ? nil : Set(changedNodes)
-  }
-
-  /// Integrate a SourceFileDepGraph into the receiver.
-  /// Integration happens when the driver needs to read SourceFileDepGraph.
-  /// Returns changed nodes
-  @_spi(Testing) public func integrate(graph g: SourceFileDependencyGraph,
-                                       swiftDeps: String)
-  -> Set<ModuleDepGraphNode> {
-    var disappearedNodes = nodesAndUses.findNodes(for: swiftDeps) ?? [:]
-
-    // When done, changeDependencyKeys contains a list of keys that changed
-    // as a result of this integration.
-    // Or if the integration failed, None.
-    var changedNodes = Set<ModuleDepGraphNode>()
-
-    g.forEachNode {
-      // TODO: Incremental pull out loop body and return instead of mutate dis and changed
-      integrand in
-      let key = integrand.key
-      let preexistingMatch = PreexistingNode(
-        matches: nodesAndUses.findNodes(for: key),
-        integrand: integrand,
-        swiftDeps: swiftDeps)
-      if case let .here(node) = preexistingMatch {
-        assert(node.dependencyKey == key)
-        disappearedNodes.removeValue(forKey: node.dependencyKey)  // Node was and still is. Do not remove it.
-      }
-
-      let newOrChangedNode = integrateSourceFileDepGraphNode(
-        g,
-        integrand,
-        preexistingMatch,
-        swiftDeps)
-
-      if let n = newOrChangedNode {
-        changedNodes.insert(n)
-      }
-    }
-    for (_, node) in disappearedNodes {
-      changedNodes.insert(node)
-      nodesAndUses.remove(node)
-    }
-
-    changedNodes.forEach {$0.clearHasBeenTraced()}
-
-    if verifyDependencyGraphAfterEveryImport {
-      verifyAfterImporting(g, swiftDeps, changedNodes)
-    }
-    if emitDependencyDotFileAfterEveryImport {
-      emitDotFile(g, swiftDeps)
-    }
-
-    return changedNodes
-  }
-
-
-  @discardableResult
-  func verifyAfterImporting(_ sfg: SourceFileDependencyGraph,
-                            _ swiftDeps: String,
-                            _ changedNodes: Set<ModuleDepGraphNode>)
-  -> Bool {
-    guard let nodesInFile = nodesAndUses.findNodes(for: swiftDeps),
-          !nodesInFile.isEmpty
-    else {
-      fatalError("Just imported \(swiftDeps), should have nodes")
-    }
-    return verifyGraph()
-  }
-
+}
+// MARK: - building or updating
+// UP TO HERE
+extension ModuleDependencyGraph {
   @discardableResult
   func verifyGraph() -> Bool {
     nodesAndUses.verify()
   }
 
- /// nil graph for error
-  private func getSourceFileDependencyGraphs(job: Job)
-  -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)] {
-    let swiftDepsOutputs = job.outputs.filter {$0.type == .swiftDeps}
-    return swiftDepsOutputs.map {
-        do {
-          return try SourceFileDependencyGraph.read(from: $0)
-        }
-        catch {
-          diagnosticEngine.emit(
-            .error_cannot_read_swiftdeps(file: $0, reason: error.localizedDescription)
-          )
-          return (graph: nil, swiftDeps: $0.file.name)
-        }
-      }
-  }
-
-  /// Returns a new or changed node
-  /// TODO: Integration name vs integrate above
-  private func integrateSourceFileDepGraphNode(
-    _ g: SourceFileDependencyGraph,
-    _ integrand: SourceFileDependencyGraph.Node,
-    _ preexistingMatch: PreexistingNode,
-    _ swiftDeps: String)
-  -> ModuleDepGraphNode? {
-    if !integrand.isProvides {
-      // depends are captured by recordWhatUseDependsUpon below
-      return nil
-    }
-
-    let (hasChange, integratedNode) = integrateSourceFileDeclNode(
-      integrand, swiftDeps, preexistingMatch)
-
-    let hasNewExternalDependency = recordWhatUseDependsUpon(g, integrand, integratedNode)
-
-    let changedNode = hasChange || hasNewExternalDependency
-      ? integratedNode
-      : nil
-
-    return changedNode
-  }
-
-  private func integrateSourceFileDeclNode(
-    _ integrand: SourceFileDependencyGraph.Node,
-    _ swiftDeps: String,
-    _ preexistingMatch: PreexistingNode
-  ) -> (foundChange: Bool, node: ModuleDepGraphNode) {
-    switch preexistingMatch {
-      case .none:
-        /// Came from nowhere. (Goes to nowhere case is handled by dissapearedNodes.)
-        return (true, integrateANewDef(integrand, swiftDeps))
-
-      case .here(let n):
-        return (
-          foundChange: n.integrateFingerprintFrom(integrand),
-          node: n)
-
-      case .nowhere(let n):
-        // Some other file depended on this, but didn't know where it was.
-        nodesAndUses.move(n, toDifferentFile: swiftDeps)
-        _ = n.integrateFingerprintFrom(integrand)
-        return (foundChange: true, n) // New decl, assume changed
-
-      case .elsewhere:
-        // new node, same base name
-        return (foundChange: true, integrateANewDef(integrand, swiftDeps)
-        )
-    }
-  }
-
-  private func integrateANewDef(
-    _ integrand: SourceFileDependencyGraph.Node,
-    _ swiftDeps: String)
-  -> ModuleDepGraphNode
-  {
-    precondition(integrand.isProvides, "Dependencies are arcs in the module graph")
-    let newNode = ModuleDepGraphNode(
-      key: integrand.key,
-      fingerprint: integrand.fingerprint,
-      swiftDeps: swiftDeps)
-    let oldNode = nodesAndUses.insert(newNode, isUsed: false)
-    assert(oldNode == nil, "Should be new!")
-    return newNode
-  }
 
 
-  func recordWhatUseDependsUpon(
-    _ g: SourceFileDependencyGraph,
-    _ sourceFileUseNode: SourceFileDependencyGraph.Node,
-    _ moduleUseNode: ModuleDepGraphNode)
-  -> Bool {
-    var useHasNewExternalDependency = false
-    // TODO: Incremental slow???
-    g.forEachDefDependedUpon(by: sourceFileUseNode) {
-      def in
-      let isNewUse = nodesAndUses.record(def: def.key, use: moduleUseNode)
-      if case let .externalDepend(name: externalSwiftDeps) = def.key.designator, isNewUse {
-        externalDependencies.insert(externalSwiftDeps)
-        useHasNewExternalDependency = true
-      }
-    }
-    return useHasNewExternalDependency
-  }
 }
 
-
-fileprivate extension ModuleDependencyGraph {
-  enum PreexistingNode {
-    case none,
-         nowhere(ModuleDepGraphNode),
-         here(ModuleDepGraphNode),
-         elsewhere(ModuleDepGraphNode)
-
-    var node: ModuleDepGraphNode? {
-      switch self {
-        case .none: return nil
-        case let .nowhere(n),
-             let .here(n),
-             let .elsewhere(n):
-          return n
-      }
-    }
-
-    init( matches: [String?: ModuleDepGraphNode]?,
-          integrand: SourceFileDependencyGraph.Node,
-          swiftDeps: String
-    ) {
-      guard let matches = matches else {
-        self = .none
-        return
-      }
-      if let expat = matches[ModuleDepGraphNode.expatSwiftDeps] {
-        assert(matches.count == 1,
-               "If an expat exists, then must not be any matches in other files")
-        self = .nowhere(expat)
-        return
-      }
-      if let preexistingNodeInPlace = matches[swiftDeps], integrand.isProvides {
-        self = .here(preexistingNodeInPlace)
-        return
-      }
-      self = matches.first.map {.elsewhere($0.value)} ?? .none
-    }
-  }
-
-}
 
 
 
