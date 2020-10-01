@@ -16,7 +16,7 @@ import TSCBasic
 fileprivate struct NodesAndUses {
   
   /// Maps swiftDeps files and DependencyKeys to Nodes
-  fileprivate typealias NodeMap = TwoDMap<String, DependencyKey, ModuleDepGraphNode>
+  fileprivate typealias NodeMap = TwoDMap<String?, DependencyKey, ModuleDepGraphNode>
   fileprivate var nodeMap = NodeMap()
   
   /// Since dependency keys use baseNames, they are coarser than individual
@@ -38,34 +38,33 @@ extension NodesAndUses {
     let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
     return findNode((swiftDeps, fileKey))
   }
-  private func findNode(_ mapKey: (String, DependencyKey)) -> ModuleDepGraphNode? {
+  private func findNode(_ mapKey: (String?, DependencyKey)) -> ModuleDepGraphNode? {
     nodeMap[mapKey]
   }
   
-  func findNodes(for swiftDeps: String) -> [DependencyKey: ModuleDepGraphNode]? {
+  func findNodes(for swiftDeps: String?) -> [DependencyKey: ModuleDepGraphNode]? {
     nodeMap[swiftDeps]
   }
-  func findNodes(for key: DependencyKey) -> [String: ModuleDepGraphNode]? {
+  func findNodes(for key: DependencyKey) -> [String?: ModuleDepGraphNode]? {
     nodeMap[key]
   }
-  
-  func forEachUse(_ fn: (DependencyKey, ModuleDepGraphNode) -> Void) {
+
+  /// Since uses must be somewhere, pass inthe swiftDeps to the function here
+  func forEachUse(_ fn: (DependencyKey, ModuleDepGraphNode, String) -> Void) {
     usesByDef.forEach {
       def, use in
-      assertUseIsOK(use)
-      fn(def, use)
+      fn(def, use, useMustHaveSwiftDeps(use))
     }
   }
-  func forEachUse(of def: DependencyKey, _ fn: (ModuleDepGraphNode) -> Void) {
+  func forEachUse(of def: DependencyKey, _ fn: (ModuleDepGraphNode, String) -> Void) {
     usesByDef[def].map {
       $0.values.forEach { use in
-        assertUseIsOK(use)
-        fn(use)
+        fn(use, useMustHaveSwiftDeps(use))
       }
     }
   }
 
-  func mappings(of n: ModuleDepGraphNode) -> [(String, DependencyKey)]
+  func mappings(of n: ModuleDepGraphNode) -> [(String?, DependencyKey)]
   {
     nodeMap.compactMap {
       k, _ in
@@ -81,7 +80,7 @@ extension NodesAndUses {
 }
 
 fileprivate extension ModuleDepGraphNode {
-  var mapKey: (String, DependencyKey) {
+  var mapKey: (String?, DependencyKey) {
     return (swiftDeps, dependencyKey)
   }
 }
@@ -124,7 +123,6 @@ extension NodesAndUses {
   }
 
   private mutating func removeMapping(of nodeToNotMap: ModuleDepGraphNode) {
-    // TODO: Incremental use nodeMapKey
     let old = nodeMap.removeValue(forKey: nodeToNotMap.mapKey)
     assert(old == nodeToNotMap, "Should have been there")
     assert(mappings(of: nodeToNotMap).isEmpty)
@@ -173,8 +171,9 @@ extension NodesAndUses {
     }
   }
 
-  private func assertUseIsOK(_ n: ModuleDepGraphNode) {
+  private func useMustHaveSwiftDeps(_ n: ModuleDepGraphNode)  -> String {
     assert(verifyUseIsOK(n))
+    return n.swiftDeps!
   }
 
   @discardableResult
@@ -464,7 +463,7 @@ fileprivate extension ModuleDependencyGraph {
       }
     }
 
-    init( matches: [String: ModuleDepGraphNode]?,
+    init( matches: [String?: ModuleDepGraphNode]?,
           integrand: SourceFileDependencyGraph.Node,
           swiftDeps: String
     ) {
@@ -580,9 +579,9 @@ extension ModuleDependencyGraph {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
     nodesAndUses.forEachUse(of: key) {
-      use in
+      use, useSwiftDeps in
       if !use.hasBeenTraced {
-        fn(getJob(use.swiftDeps))
+        fn(getJob(useSwiftDeps))
       }
     }
   }
@@ -604,7 +603,8 @@ extension ModuleDependencyGraph {
 
     // If this use also provides something, follow it
     nodesAndUses.forEachUse(of: definition.dependencyKey) {
-      findPreviouslyUntracedDependents(of: $0, into: &found)
+      use, _ in
+      findPreviouslyUntracedDependents(of: use, into: &found)
     }
     traceDeparture(pathLengthAfterArrival);
   }
@@ -617,15 +617,14 @@ extension ModuleDependencyGraph {
   where Nodes.Element == ModuleDepGraphNode {
     var swiftDepsOfNodes = Set<String>()
     for n in nodes {
-      // TODO: Incremental if or assert?
-      if !n.isExpat {swiftDepsOfNodes.insert(n.swiftDeps)}
+      if let swiftDeps = n.swiftDeps {
+        swiftDepsOfNodes.insert(swiftDeps)
+      }
     }
     return Array(swiftDepsOfNodes)
   }
-// TODO: Incremental try not optional, also job >1 swiftDeps
-  private func getJob(_ swiftDeps: String?) -> Job {
-    // TODO: Incremental expats? nil? assert???
-    guard let swiftDeps = swiftDeps else {fatalError( "Don't call me for nothing.")}
+
+  private func getJob(_ swiftDeps: String) -> Job {
     guard let job = jobsBySwiftDeps[swiftDeps] else {fatalError("All jobs should be tracked.")}
     // TODO: Incremental centralize job invars
     assert(job.swiftDepsPaths.contains(swiftDeps),
@@ -641,7 +640,8 @@ extension ModuleDependencyGraph {
     }
     currentPath.append(visitedNode)
     currentPathIfTracing = currentPath
-    recordDependencyPathToJob(currentPath, getJob(visitedNode.swiftDeps))
+    // should never be empty, but let's not crash for debugging info
+    recordDependencyPathToJob(currentPath, getJob(visitedNode.swiftDeps ?? ""))
     return currentPath.count
   }
 

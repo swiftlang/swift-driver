@@ -47,9 +47,9 @@ import TSCBasic
   /// will be one node for each in the driver, distinguished by this field.
   /// Nodes can move from file to file when the driver reads the result of a
   /// compilation.
-  /// Empty string represents a node with no known residance
-  var swiftDeps: String
-  var isExpat: Bool { swiftDeps == Self.expatSwiftDeps }
+  /// Nil represents a node with no known residance
+  var swiftDeps: String?
+  var isExpat: Bool { swiftDeps == nil }
 
 
   /// When finding transitive dependents, this node has been traversed.
@@ -57,7 +57,7 @@ import TSCBasic
 
   /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
   /// SourceFileDependencyGraph or the DependencyKeys
-  init(key: DependencyKey, fingerprint: String?, swiftDeps: String) {
+  init(key: DependencyKey, fingerprint: String?, swiftDeps: String?) {
     self.dependencyKey = key
     self.fingerprint = fingerprint
     self.swiftDeps = swiftDeps
@@ -95,8 +95,7 @@ extension ModuleDepGraphNode {
 
   /// Return true if this node describes a definition for which the job is known
 
-  // TODO: incremental shoudl be nil?
-  static let expatSwiftDeps = ""
+  static let expatSwiftDeps: String? = nil
 }
 
 
@@ -118,7 +117,7 @@ extension ModuleDepGraphNode: Equatable, Hashable {
 
 extension ModuleDepGraphNode: CustomStringConvertible {
   public var description: String {
-    "\(dependencyKey)\( swiftDeps)"
+    "\(dependencyKey)\( swiftDeps ?? "<expat>")"
   }
 }
 
