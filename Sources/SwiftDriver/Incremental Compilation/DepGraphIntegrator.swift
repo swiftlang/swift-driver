@@ -24,9 +24,8 @@ import TSCBasic
   let swiftDeps: String
   let destination: ModuleDependencyGraph
 
-  /// When done, changeDependencyKeys contains a list of keys that changed
-  /// as a result of this integration.
-  /// Or if the integration failed, None.
+  /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
+
   var changedNodes = Set<ModuleDepGraphNode>()
   var disappearedNodes = [DependencyKey: ModuleDepGraphNode]()
 
@@ -91,7 +90,7 @@ extension DepGraphIntegrator {
   /// Integrate a SourceFileDepGraph into the receiver.
   /// Integration happens when the driver needs to read SourceFileDepGraph.
   /// Returns changed nodes
-  @_spi(Testing) static public func integrate(
+  @_spi(Testing) public static func integrate(
     from g: SourceFileDependencyGraph,
     swiftDeps: String,
     into destination: ModuleDependencyGraph)

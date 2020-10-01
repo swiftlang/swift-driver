@@ -63,7 +63,7 @@ import TSCBasic
 // MARK: - comparing, hashing
 extension ModuleDepGraphNode: Equatable, Hashable {
   /// Excludes hasBeenTraced...
-  static public func == (lhs: ModuleDepGraphNode, rhs: ModuleDepGraphNode) -> Bool {
+  public static func == (lhs: ModuleDepGraphNode, rhs: ModuleDepGraphNode) -> Bool {
     lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.swiftDeps == rhs.swiftDeps
   }

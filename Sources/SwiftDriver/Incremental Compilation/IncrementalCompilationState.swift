@@ -140,7 +140,7 @@ import SwiftOptions
       : partialBuildRecordPath
   }
 
-  static private func computeArgsHash(_ parsedOptionsArg: ParsedOptions) -> String {
+  private static func computeArgsHash(_ parsedOptionsArg: ParsedOptions) -> String {
     var parsedOptions = parsedOptionsArg
     let hashInput = parsedOptions
       .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}

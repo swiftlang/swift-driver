@@ -99,7 +99,7 @@ public extension InputInfoMap {
       self.init(argsHash: a, swiftVersion: s, buildTime: b, inputInfos: i)
   }
 
-  static private func decodeDate(_ node: Yams.Node) throws -> Date {
+  private static func decodeDate(_ node: Yams.Node) throws -> Date {
     guard let vals = node.sequence else { throw SimpleErrors.dateValuesNotSequence }
     guard vals.count == 2 else {throw SimpleErrors.dateValuesNotDuo}
     guard let secs = vals[0].int, let ns = vals[1].int
@@ -107,7 +107,7 @@ public extension InputInfoMap {
     return Date(legacyDriverSecs: secs, nanos: ns)
   }
 
-  static private func decodeInputInfos(_ node: Yams.Node) throws -> [VirtualPath: InputInfo] {
+  private static func decodeInputInfos(_ node: Yams.Node) throws -> [VirtualPath: InputInfo] {
     guard let map = node.mapping else { throw SimpleErrors.inputInfosNotAMap }
     return try Dictionary(uniqueKeysWithValues:
       map.map {
