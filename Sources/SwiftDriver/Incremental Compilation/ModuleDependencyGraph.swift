@@ -17,20 +17,16 @@ import TSCBasic
 
 @_spi(Testing) public final class ModuleDependencyGraph {
 
-  internal var nodesAndUses = NodesAndUses()
+  internal var nodeFinder = NodeFinder()
+  @_spi(Testing) public var jobTracker = JobTracker()
 
   // Supports requests from the driver to getExternalDependencies.
   @_spi(Testing) public internal(set) var externalDependencies = Set<String>()
-
-
 
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
 
   @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
-
-  @_spi(Testing) public var jobTracker = JobTracker()
-
 
   public init(
     verifyDependencyGraphAfterEveryImport: Bool,
@@ -60,17 +56,13 @@ extension ModuleDependencyGraph {
   }
 }
 
-// MARK: - finding jobs
+// MARK: - finding jobs (public interface)
 extension ModuleDependencyGraph {
   @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(_ job: Job) -> [Job] {
     let allNodesInJob = findAllNodes(in: job)
     return findJobsToRecompileWhenNodesChange(allNodesInJob);
   }
 
-  private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
-    job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
-  }
-  
   @_spi(Testing) public func findJobsToRecompileWhenNodesChange(
     _ nodes: [ModuleDepGraphNode])
   -> [Job]
@@ -79,8 +71,6 @@ extension ModuleDependencyGraph {
       .tracedUses
     return jobsContaining(affectedNodes)
   }
-
-
 
   // Add every (swiftdeps) use of the external dependency to foundJobs.
   // Can return duplicates, but it doesn't break anything, and they will be
@@ -99,33 +89,7 @@ extension ModuleDependencyGraph {
     }
     return foundJobs;
   }
-
-  private func forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(
-    externalSwiftDeps: String,
-    _ fn: (Job) -> Void
-  ) {
-    // TODO move nameForDep into key
-    // These nodes will depend on the *interface* of the external Decl.
-    let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
-    nodesAndUses.forEachUse(of: key) {
-      use, useSwiftDeps in
-      if !use.hasBeenTraced {
-        fn(jobTracker.getJob(useSwiftDeps))
-      }
-    }
-  }
-
-
-  private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
-  where Nodes.Element == ModuleDepGraphNode {
-    computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
-  }
-
-
-
-
 }
-
 
 extension Job {
   @_spi(Testing) public var swiftDepsPaths: [String] {
@@ -133,6 +97,32 @@ extension Job {
   }
 }
 
+// MARK: - finding jobs (private functions)
+extension ModuleDependencyGraph {
+
+  private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
+    job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
+  }
+
+  private func forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(
+    externalSwiftDeps: String,
+    _ fn: (Job) -> Void
+  ) {
+    // These nodes will depend on the *interface* of the external Decl.
+    let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
+    nodeFinder.forEachUse(of: key) {
+      use, useSwiftDeps in
+      if !use.hasBeenTraced {
+        fn(jobTracker.getJob(useSwiftDeps))
+      }
+    }
+  }
+
+  private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
+  where Nodes.Element == ModuleDepGraphNode {
+    computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
+  }
+}
 // MARK: - finding nodes; swiftDeps
 extension ModuleDependencyGraph {
   private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [String]
@@ -147,13 +137,13 @@ extension ModuleDependencyGraph {
   }
 }
 
-// MARK: - purely for testing
+// MARK: - queries for testing
 extension ModuleDependencyGraph {
   /// Testing only
   @_spi(Testing) public func haveAnyNodesBeenTraversedIn(_ job: Job) -> Bool {
     for swiftDeps in job.swiftDepsPaths {
       // optimization
-      if let fileNode = nodesAndUses.findFileInterfaceNode(forSwiftDeps: swiftDeps),
+      if let fileNode = nodeFinder.findFileInterfaceNode(forSwiftDeps: swiftDeps),
          fileNode.hasBeenTraced
       {
         return true
@@ -167,24 +157,19 @@ extension ModuleDependencyGraph {
   
   private func nodesIn(swiftDeps: String) -> [ModuleDepGraphNode]
   {
-    nodesAndUses.findNodes(for: swiftDeps)
+    nodeFinder.findNodes(for: swiftDeps)
       .map {Array($0.values)}
     ?? []
   }
 }
 
-
-
-
-
 // MARK: - verificaiton
 extension ModuleDependencyGraph {
   @discardableResult
   func verifyGraph() -> Bool {
-    nodesAndUses.verify()
+    nodeFinder.verify()
   }
 }
-
 
 // MARK: - debugging
 extension ModuleDependencyGraph {

@@ -13,7 +13,7 @@
 /// The core information for the ModuleDependencyGraph
 /// Isolate in a sub-structure in order to faciliate invariant maintainance
 extension ModuleDependencyGraph {
-  struct NodesAndUses {
+  struct NodeFinder {
 
     /// Maps swiftDeps files and DependencyKeys to Nodes
     fileprivate typealias NodeMap = TwoDMap<String?, DependencyKey, ModuleDepGraphNode>
@@ -34,7 +34,7 @@ extension ModuleDependencyGraph {
   }
 }
 // MARK: - finding
-extension ModuleDependencyGraph.NodesAndUses {
+extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(forSwiftDeps swiftDeps: String) -> ModuleDepGraphNode?  {
     let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
     return findNode((swiftDeps, fileKey))
@@ -88,7 +88,7 @@ fileprivate extension ModuleDepGraphNode {
 
 // MARK: - inserting
 
-extension ModuleDependencyGraph.NodesAndUses {
+extension ModuleDependencyGraph.NodeFinder {
 
   /// Add \c node to the structure, return the old node if any at those coordinates.
   /// \c isUsed helps for assertion checking.
@@ -111,7 +111,7 @@ extension ModuleDependencyGraph.NodesAndUses {
 }
 
 // MARK: - removing
-extension ModuleDependencyGraph.NodesAndUses {
+extension ModuleDependencyGraph.NodeFinder {
   mutating func remove(_ nodeToErase: ModuleDepGraphNode) {
     // uses first preserves invariant that every used node is in nodeMap
     removeUsings(of: nodeToErase)
@@ -131,7 +131,7 @@ extension ModuleDependencyGraph.NodesAndUses {
 }
 
 // MARK: - moving
-extension ModuleDependencyGraph.NodesAndUses {
+extension ModuleDependencyGraph.NodeFinder {
   /// When integrating a SourceFileDepGraph, there might be a node representing
   /// a Decl that had previously been read as an expat, that is a node
   /// representing a Decl in no known file (to that point). (Recall the the
@@ -146,7 +146,7 @@ extension ModuleDependencyGraph.NodesAndUses {
 }
 
 // MARK: - asserting & verifying
-extension ModuleDependencyGraph.NodesAndUses {
+extension ModuleDependencyGraph.NodeFinder {
   func verify() -> Bool {
     verifyNodeMap()
     verifyUsesByDef()

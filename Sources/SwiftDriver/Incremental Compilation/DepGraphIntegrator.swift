@@ -103,12 +103,12 @@ extension DepGraphIntegrator {
 
 
   private mutating func integrate() {
-    disappearedNodes = destination.nodesAndUses.findNodes(for: swiftDeps) ?? [:]
+    disappearedNodes = destination.nodeFinder.findNodes(for: swiftDeps) ?? [:]
 
     source.forEachNode {integrate(oneNode: $0) }
     for (_, node) in disappearedNodes {
       changedNodes.insert(node)
-      destination.nodesAndUses.remove(node)
+      destination.nodeFinder.remove(node)
     }
     ModuleDepGraphTracer.ensureChangedNodesAreRetraced(changedNodes)
   }
@@ -120,7 +120,7 @@ extension DepGraphIntegrator {
   {
     let key = integrand.key
     let preexistingMatch = PreexistingMatch(
-      matches: destination.nodesAndUses.findNodes(for: key),
+      matches: destination.nodeFinder.findNodes(for: key),
       integrand: integrand,
       swiftDeps: swiftDeps)
 
@@ -163,7 +163,7 @@ extension DepGraphIntegrator {
 
       case .nowhere(let n):
         // Some other file depended on this, but didn't know where it was.
-        destination.nodesAndUses.move(n, toDifferentFile: swiftDeps)
+        destination.nodeFinder.move(n, toDifferentFile: swiftDeps)
         _ = n.integrateFingerprintFrom(integrand)
         return (foundChange: true, n) // New decl, assume changed
 
@@ -181,7 +181,7 @@ extension DepGraphIntegrator {
       key: integrand.key,
       fingerprint: integrand.fingerprint,
       swiftDeps: swiftDeps)
-    let oldNode = destination.nodesAndUses.insert(newNode, isUsed: false)
+    let oldNode = destination.nodeFinder.insert(newNode, isUsed: false)
     assert(oldNode == nil, "Should be new!")
     return newNode
   }
@@ -194,7 +194,7 @@ extension DepGraphIntegrator {
     var useHasNewExternalDependency = false
     source.forEachDefDependedUpon(by: sourceFileUseNode) {
       def in
-      let isNewUse = destination.nodesAndUses.record(def: def.key, use: moduleUseNode)
+      let isNewUse = destination.nodeFinder.record(def: def.key, use: moduleUseNode)
       if case let .externalDepend(name: externalSwiftDeps) = def.key.designator, isNewUse {
         destination.externalDependencies.insert(externalSwiftDeps)
         useHasNewExternalDependency = true
@@ -209,7 +209,7 @@ extension DepGraphIntegrator {
   @discardableResult
   func verifyAfterImporting()
   -> Bool {
-    guard let nodesInFile = destination.nodesAndUses.findNodes(for: swiftDeps),
+    guard let nodesInFile = destination.nodeFinder.findNodes(for: swiftDeps),
           !nodesInFile.isEmpty
     else {
       fatalError("Just imported \(swiftDeps), should have nodes")
