@@ -1222,12 +1222,12 @@ fileprivate extension DependencyKey {
     }
     return DependencyKey(kind: .sourceFileProvide,
                          aspect: aspectOfUse,
-                         context: DependencyKey.noContext,
+                         context: nil,
                          name: swiftDeps
     )
   }
   
-  init(_ kind: Kind, _ aspect: DeclAspect, _ cn: (context: String, name: String)) {
+  init(_ kind: Kind, _ aspect: DeclAspect, _ cn: (context: String?, name: String?)) {
     self.init(kind: kind, aspect: aspect, context: cn.context, name: cn.name)
   }
 }
@@ -1252,10 +1252,10 @@ fileprivate extension String {
 
   static var nameContextSeparator: String { "," }
 
-  func parseContextAndName( _ kind: DependencyKey.Kind) -> (context: String, name: String) {
+  func parseContextAndName( _ kind: DependencyKey.Kind) -> (context: String?, name: String?) {
     switch kind.singleNameIsContext {
-      case true?:  return (context: self, name: DependencyKey.noName)
-      case false?: return (context: DependencyKey.noContext, name: self)
+      case true?:  return (context: self, name: nil)
+      case false?: return (context: nil, name: self)
       case nil:
         let r = range(of: Self.nameContextSeparator) ?? (endIndex ..< endIndex)
         return (

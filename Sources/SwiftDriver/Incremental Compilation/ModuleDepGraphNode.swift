@@ -122,3 +122,16 @@ extension ModuleDepGraphNode: CustomStringConvertible {
     "\(key)\( swiftDeps)"
   }
 }
+
+extension ModuleDepGraphNode {
+  public func verify() {
+    verifyExpatsHaveNoFingerprints()
+    key.verify()
+  }
+
+  public func verifyExpatsHaveNoFingerprints() {
+    if isExpat && fingerprint != nil {
+      fatalError(#function)
+    }
+  }
+}

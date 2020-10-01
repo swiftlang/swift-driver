@@ -63,7 +63,7 @@ extension NodesAndUses {
 
   func mappings(of n: ModuleDepGraphNode) -> [(String, DependencyKey)]
   {
-    // TODO: Incremental use keyForNodeMap and make nodeMap a real collection
+    // TODO: Incremental use keyForNodeMap
     nodeMap.compactMap {
       k, _ in
       k.0 == n.swiftDeps && k.1 == n.key
@@ -76,8 +76,7 @@ extension NodesAndUses {
     usesByDef.keysContainingValue(n)
   }
 }
-  /// Maintain usesByDef/nodeMap invariants by putting all changes in here
-/// TODO: Incremental substructure
+
 // MARK: - inserting
 
 extension NodesAndUses {
@@ -153,6 +152,7 @@ extension NodesAndUses {
       if let prev = nodes[submapIndex].update(with: v) {
         fatalError("\(v) is also in nodeMap at \(prev), submap: \(submapIndex)")
       }
+      v.verify()
     }
   }
 
@@ -428,7 +428,8 @@ extension NodesAndUses {
       def in
       let isNewUse = nodesAndUses.record(def: def.key, use: moduleUseNode)
       if isNewUse && def.key.kind == .externalDepend {
-        let externalSwiftDeps = def.key.name
+// TODO: incremental enum for the DepKey to avoid the !
+        let externalSwiftDeps = def.key.name!
         externalDependencies.insert(externalSwiftDeps)
         useHasNewExternalDependency = true
       }
@@ -487,7 +488,7 @@ fileprivate extension ModuleDependencyGraph {
 
 extension ModuleDependencyGraph {
   func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: String) {
-    // TODO: Incremental
+    // TODO: Incremental emitDotFIle
   }
 }
 
@@ -516,9 +517,10 @@ extension ModuleDependencyGraph {
     assert(swiftDepsInBatch.count == 1, "Only used for testing single-swiftdeps jobs")
     let swiftDeps = swiftDepsInBatch[0]
     // optimization
+    //TODO: Incremental move to DepKey
     let fileKey = DependencyKey(kind: .sourceFileProvide,
                                 aspect: .interface,
-                                context: DependencyKey.noContext,
+                                context: nil,
                                 name: swiftDeps)
     if let fileNode = nodesAndUses.findNode(swiftDeps, fileKey),
        fileNode.hasBeenTraced {
@@ -574,7 +576,7 @@ extension ModuleDependencyGraph {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(kind: .externalDepend,
                             aspect: .interface,
-                            context: DependencyKey.noContext,
+                            context: nil,
                             name: externalSwiftDeps)
     nodesAndUses.forEachUse(of: key) {
       use in

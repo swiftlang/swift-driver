@@ -54,19 +54,14 @@ import Foundation
 
   public let kind: Kind
   public let aspect: DeclAspect
-  // TODO: incremental make nil instead of blank
-  public let context: String
-  public static let noContext = ""
-  public let name: String
-  // TODO: Incremental make nil?? instead of blank
-  public static let potentialMemberName = noName
-  public static let noName = ""
+  public let context: String?
+  public let name: String?
 
   @_spi(Testing) public init(
     kind: Kind,
     aspect: DeclAspect,
-    context: String,
-    name: String)
+    context: String?,
+    name: String?)
   {
     self.kind = kind
     self.aspect = aspect
@@ -83,11 +78,11 @@ import Foundation
     assert(kind != .externalDepend || aspect == .interface, "All external dependencies must be interfaces.")
     switch kind {
     case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide:
-      assert(context.isEmpty && !name.isEmpty, "Must only have a name")
+      assert(context == nil && name != nil, "Must only have a name")
     case .nominal, .potentialMember:
-      assert(!context.isEmpty && name.isEmpty, "Must only have a context")
+      assert(context != nil && name == nil, "Must only have a context")
     case .member:
-      assert(!context.isEmpty && !name.isEmpty, "Must have both")
+      assert(context != nil && name != nil, "Must have both")
     }
   }
 }

@@ -193,8 +193,8 @@ extension SourceFileDependencyGraph {
         let isProvides = record.fields[4] != 0
         node = Node(key: .init(kind: nodeKind,
                                aspect: declAspect,
-                               context: context,
-                               name: identifier),
+                               context: context.isEmpty ? nil : context,
+                               name: identifier.isEmpty ? nil : identifier),
                     fingerprint: nil,
                     sequenceNumber: sequenceNumber,
                     defsIDependUpon: [],

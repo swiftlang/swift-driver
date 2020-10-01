@@ -54,7 +54,7 @@ final class IncrementalCompilationTests: XCTestCase {
         saw0 = true
         XCTAssertEqual(node.key.kind, .sourceFileProvide)
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(node.key.context, DependencyKey.noContext)
+        XCTAssertEqual(node.key.context, nil)
         XCTAssertEqual(node.key.name, "main.swiftdeps")
         XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
         XCTAssertEqual(node.defsIDependUpon, [2])
@@ -63,7 +63,7 @@ final class IncrementalCompilationTests: XCTestCase {
         saw1 = true
         XCTAssertEqual(node.key.kind, .sourceFileProvide)
         XCTAssertEqual(node.key.aspect, .implementation)
-        XCTAssertEqual(node.key.context, DependencyKey.noContext)
+        XCTAssertEqual(node.key.context, nil)
         XCTAssertEqual(node.key.name, "main.swiftdeps")
         XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
         XCTAssertEqual(node.defsIDependUpon, [])
@@ -72,7 +72,7 @@ final class IncrementalCompilationTests: XCTestCase {
         saw2 = true
         XCTAssertEqual(node.key.kind, .topLevel)
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(node.key.context, DependencyKey.noContext)
+        XCTAssertEqual(node.key.context, nil)
         XCTAssertEqual(node.key.name, "a")
         XCTAssertNil(node.fingerprint)
         XCTAssertEqual(node.defsIDependUpon, [])
@@ -124,7 +124,7 @@ final class IncrementalCompilationTests: XCTestCase {
         XCTAssertEqual(defNode.fingerprint, "38b457b424090ac2e595be0e5f7e3b5b")
 
         XCTAssertEqual(useNode.key.kind, .potentialMember)
-        XCTAssertEqual(useNode.key.name, DependencyKey.potentialMemberName)
+        XCTAssertEqual(useNode.key.name, nil)
         XCTAssertEqual(useNode.key.context, "5hello1AC")
         XCTAssertEqual(useNode.fingerprint, "b83bbc0b4b0432dbfabff6556a3a901f")
       }
