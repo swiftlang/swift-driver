@@ -64,8 +64,8 @@ import TSCBasic
 
 // MARK: - Tracing
 extension ModuleDepGraphNode {
-  func   setHasBeenTraced() { hasBeenTraced = true }
-  func clearHasBeenTraced() { hasBeenTraced = false }
+  func   setHasBeenTraced()  { hasBeenTraced = true  }
+  func clearHasBeenTraced()  { hasBeenTraced = false }
 }
 
 // MARK: - Fingerprinting
