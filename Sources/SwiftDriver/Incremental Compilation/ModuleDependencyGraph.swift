@@ -66,7 +66,7 @@ extension NodesAndUses {
     // TODO: Incremental use keyForNodeMap
     nodeMap.compactMap {
       k, _ in
-      k.0 == n.swiftDeps && k.1 == n.key
+      k.0 == n.swiftDeps && k.1 == n.dependencyKey
         ? k
         : nil
     }
@@ -88,7 +88,7 @@ extension NodesAndUses {
   mutating func insert(_ n: ModuleDepGraphNode, isUsed: Bool?)
   -> ModuleDepGraphNode?
   {
-    nodeMap.updateValue(n, forKey: (n.swiftDeps, n.key))
+    nodeMap.updateValue(n, forKey: (n.swiftDeps, n.dependencyKey))
   }
 
   // TODO: Incremental consistent open { for fns
@@ -116,7 +116,7 @@ extension NodesAndUses {
 
   private mutating func removeMapping(of nodeToNotMap: ModuleDepGraphNode) {
     // TODO: Incremental use nodeMapKey
-    let old = nodeMap.removeValue(forKey: (nodeToNotMap.swiftDeps, nodeToNotMap.key))
+    let old = nodeMap.removeValue(forKey: (nodeToNotMap.swiftDeps, nodeToNotMap.dependencyKey))
     assert(old == nodeToNotMap, "Should have been there")
     assert(mappings(of: nodeToNotMap).isEmpty)
   }
@@ -176,7 +176,7 @@ extension NodesAndUses {
   }
 
   private func verifyNodeIsMapped(_ n: ModuleDepGraphNode) {
-    if findNode(n.swiftDeps, n.key) == nil {
+    if findNode(n.swiftDeps, n.dependencyKey) == nil {
       fatalError("\(n) should be mapped")
     }
   }
@@ -282,8 +282,8 @@ extension NodesAndUses {
         integrand: integrand,
         swiftDeps: swiftDeps)
       if case let .here(node) = preexistingMatch {
-        assert(node.key == key)
-        disappearedNodes.removeValue(forKey: node.key)  // Node was and still is. Do not remove it.
+        assert(node.dependencyKey == key)
+        disappearedNodes.removeValue(forKey: node.dependencyKey)  // Node was and still is. Do not remove it.
       }
 
       let newOrChangedNode = integrateSourceFileDepGraphNode(
@@ -594,7 +594,7 @@ extension ModuleDependencyGraph {
     let pathLengthAfterArrival = traceArrival(at: definition);
 
     // If this use also provides something, follow it
-    nodesAndUses.forEachUse(of: definition.key) {
+    nodesAndUses.forEachUse(of: definition.dependencyKey) {
       findPreviouslyUntracedDependents(of: $0, into: &found)
     }
     traceDeparture(pathLengthAfterArrival);

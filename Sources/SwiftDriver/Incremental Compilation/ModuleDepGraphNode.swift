@@ -23,7 +23,7 @@ import TSCBasic
 
 @_spi(Testing) public final class ModuleDepGraphNode {
   /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
-  let key: DependencyKey
+  let dependencyKey: DependencyKey
 
   /// The frontend records in the fingerprint, all of the information about an
   /// entity, such that any uses need be rebuilt only if the fingerprint
@@ -56,7 +56,7 @@ import TSCBasic
   internal private(set) var hasBeenTraced = false
 
   init(key: DependencyKey, fingerprint: String?, swiftDeps: String) {
-    self.key = key
+    self.dependencyKey = key
     self.fingerprint = fingerprint
     self.swiftDeps = swiftDeps
   }
@@ -96,7 +96,7 @@ extension ModuleDepGraphNode {
   static let expatSwiftDeps = ""
 
   var nodeMapKey: (String, DependencyKey) {
-    (swiftDeps, key)
+    (swiftDeps, dependencyKey)
   }
 }
 
@@ -104,12 +104,13 @@ extension ModuleDepGraphNode {
 extension ModuleDepGraphNode: Equatable, Hashable {
   /// Excludes hasBeenTraced...
   static public func == (lhs: ModuleDepGraphNode, rhs: ModuleDepGraphNode) -> Bool {
-    lhs.key == rhs.key && lhs.fingerprint == rhs.fingerprint
+    // TODO is fingerprint righ tin here?
+    lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.swiftDeps == rhs.swiftDeps
   }
 
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(key)
+    hasher.combine(dependencyKey)
     hasher.combine(fingerprint)
     hasher.combine(swiftDeps)
   }
@@ -118,14 +119,14 @@ extension ModuleDepGraphNode: Equatable, Hashable {
 
 extension ModuleDepGraphNode: CustomStringConvertible {
   public var description: String {
-    "\(key)\( swiftDeps)"
+    "\(dependencyKey)\( swiftDeps)"
   }
 }
 
 extension ModuleDepGraphNode {
   public func verify() {
     verifyExpatsHaveNoFingerprints()
-    key.verify()
+    dependencyKey.verify()
   }
 
   public func verifyExpatsHaveNoFingerprints() {
