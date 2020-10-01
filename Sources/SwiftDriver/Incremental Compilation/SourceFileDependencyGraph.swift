@@ -183,7 +183,7 @@ extension SourceFileDependencyGraph {
         }
         guard record.fields.count == 5,
               let nodeKind = DependencyKey.Kind(code: record.fields[0]),
-              let declAspect = DeclAspect(record.fields[1]),
+              let declAspect = DependencyKey.DeclAspect(record.fields[1]),
               record.fields[2] < identifiers.count,
               record.fields[3] < identifiers.count else {
           throw ReadError.malformedSourceFileDepGraphNodeRecord
@@ -227,5 +227,31 @@ extension SourceFileDependencyGraph {
     }
 
     self.allNodes = nodes
+  }
+}
+
+fileprivate extension DependencyKey.DeclAspect {
+  init?(_ c: UInt64) {
+    switch c {
+      case 0: self = .interface
+      case 1: self = .implementation
+      default: return nil
+    }
+  }
+}
+
+fileprivate extension DependencyKey.Kind {
+  init?(code: UInt64) {
+    switch code {
+      case 0: self = .topLevel
+      case 1: self = .nominal
+      case 2: self = .potentialMember
+      case 3: self = .member
+      case 4: self = .dynamicLookup
+      case 5: self = .externalDepend
+      case 6: self = .sourceFileProvide
+
+      default: return nil
+    }
   }
 }
