@@ -43,8 +43,7 @@ import Foundation
 
   @_spi(Testing) public init(
     aspect: DeclAspect,
-    designator: Designator
-  )
+    designator: Designator)
   {
     self.aspect = aspect
     self.designator = designator
@@ -57,8 +56,10 @@ import Foundation
     return Self(aspect: .implementation, designator: designator)
   }
 
-  public func verify() {
-    // nothing to see here
+  @discardableResult
+  func verify() -> Bool {
+    // This space reserved for future use.
+    return true
   }
 }
 

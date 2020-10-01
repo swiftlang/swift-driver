@@ -12,15 +12,14 @@
 import Foundation
 import TSCBasic
 
-/// Trace dependencies through the graph and record the paths taking so that
-/// -driver-show-incremental can explain why things are recompiled
+/// Trace dependencies through the graph
 @_spi(Testing) public struct ModuleDepGraphTracer {
   let startingPoints: [ModuleDepGraphNode]
   let graph: ModuleDependencyGraph
 
   @_spi(Testing) public private(set) var tracedUses: [ModuleDepGraphNode] = []
 
-
+  /// Record the paths taking so that  -driver-show-incremental can explain why things are recompiled
   /// If tracing dependencies, holds a vector used to hold the current path
   /// def - use/def - use/def - ...
   private var currentPathIfTracing: [ModuleDepGraphNode]? = nil
@@ -56,8 +55,8 @@ extension ModuleDepGraphTracer {
   }
 
   private mutating func findNextPreviouslyUntracedDependent(of definition: ModuleDepGraphNode) {
-    guard !definition.hasBeenTraced else { return }
-    definition.setHasBeenTraced();
+    guard graph.isUntraced(definition) else { return }
+    graph.amTracing(definition)
 
     tracedUses.append(definition)
 
@@ -99,14 +98,5 @@ extension ModuleDepGraphTracer {
            "Path must be maintained throughout recursive visits.")
     currentPath.removeLast()
     currentPathIfTracing = currentPath
-  }
-}
-
-// MARK: - Retracing nodes
-extension ModuleDepGraphTracer {
-  static func ensureChangedNodesAreRetraced<Nodes: Sequence>(_ nodes: Nodes)
-  where Nodes.Element == ModuleDepGraphNode
-  {
-    for n in nodes { n.clearHasBeenTraced() }
   }
 }

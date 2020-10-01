@@ -53,7 +53,6 @@ import Foundation
 }
 
 
-// TODO Incremental: make Node immutable
 extension SourceFileDependencyGraph {
   public struct Node {
     public var key: DependencyKey

@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Like a Dictionary, but can have >1 value per key (i.e., a multimap)
 @_spi(Testing) public struct Multidictionary<Key: Hashable, Value: Hashable>: Collection {
   public typealias OuterDict = [Key: Set<Value>]
   public typealias InnerSet = Set<Value>
@@ -83,5 +84,18 @@
     changedPairs.forEach {
       outerDict[$0.key] = $0.value
     }
+  }
+
+  @discardableResult
+  public mutating func replace(_ original: Value,
+                               with replacement: Value,
+                               forKey key: Key)
+  -> Bool
+  {
+    guard var vals = outerDict[key],
+          let _ = vals.remove(original) else { return false }
+    vals.insert(replacement)
+    outerDict.updateValue(vals, forKey: key)
+    return true
   }
 }

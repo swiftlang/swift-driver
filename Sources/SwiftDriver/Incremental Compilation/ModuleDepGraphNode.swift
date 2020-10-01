@@ -12,14 +12,14 @@
 import Foundation
 import TSCBasic
 
-/// TODO: Incremental  privatize, organize _spi's
-
 /// A node in the per-module (i.e. the driver) dependency graph
 /// Each node represents a \c Decl from the frontend.
 /// If a file references a \c Decl we haven't seen yet, the node's \c swiftDeps will be nil, otherwise
 /// it will hold the name of the swiftdeps file from which the node was read.
 /// A dependency is represented by an arc, in the `usesByDefs` map.
 /// (Cargo-culted and modified from the legacy driver.)
+///
+/// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
 @_spi(Testing) public final class ModuleDepGraphNode {
   /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
@@ -39,7 +39,7 @@ import TSCBasic
   /// frontend creates an interface node,
   /// it adds a dependency to it from the implementation source file node (which
   /// has the intefaceHash as its fingerprint).
-  private var fingerprint: String?
+  let fingerprint: String?
 
 
   /// The swiftDeps file that holds this entity iff the entities .swiftdeps is known.
@@ -48,18 +48,11 @@ import TSCBasic
   /// Nodes can move from file to file when the driver reads the result of a
   /// compilation.
   /// Nil represents a node with no known residance
-  var swiftDeps: String?
+  let swiftDeps: String?
   var isExpat: Bool { swiftDeps == nil }
 
 
-  /// When finding transitive dependents, this node has been traversed.
-  /// Used by \c ModuleDepGraphTracer, faster than a Set
-  internal private(set) var hasBeenTraced = false
-  func   setHasBeenTraced()  { hasBeenTraced = true  }
-  func clearHasBeenTraced()  { hasBeenTraced = false }
-
-
-  /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
+ /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
   /// SourceFileDependencyGraph or the DependencyKeys
   init(key: DependencyKey, fingerprint: String?, swiftDeps: String?) {
     self.dependencyKey = key
@@ -67,39 +60,10 @@ import TSCBasic
     self.swiftDeps = swiftDeps
   }
 }
-// MARK: - Fingerprinting
-extension ModuleDepGraphNode {
-  /// Integrate \p integrand's fingerprint into \p dn.
-  /// \returns true if there was a change requiring recompilation.
-  func integrateFingerprintFrom(_ integrand: SourceFileDependencyGraph.Node) -> Bool {
-    if fingerprint == integrand.fingerprint {
-      return false
-    }
-    fingerprint = integrand.fingerprint
-    return true
-  }
-}
-
-
-
-
-
-
-
-extension ModuleDepGraphNode {
-
-
-
-  /// Return true if this node describes a definition for which the job is known
-
-  static let expatSwiftDeps: String? = nil
-}
-
-
+// MARK: - comparing, hashing
 extension ModuleDepGraphNode: Equatable, Hashable {
   /// Excludes hasBeenTraced...
   static public func == (lhs: ModuleDepGraphNode, rhs: ModuleDepGraphNode) -> Bool {
-    // TODO is fingerprint righ tin here?
     lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.swiftDeps == rhs.swiftDeps
   }

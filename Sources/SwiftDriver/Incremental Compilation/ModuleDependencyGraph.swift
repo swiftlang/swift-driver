@@ -18,6 +18,11 @@ import TSCBasic
 @_spi(Testing) public final class ModuleDependencyGraph {
 
   internal var nodeFinder = NodeFinder()
+
+  /// When integrating a change, want to find untraced nodes so we can kick off jobs that have not been
+  /// kicked off yet
+  private var tracedNodes = Set<ModuleDepGraphNode>()
+
   @_spi(Testing) public var jobTracker = JobTracker()
 
   // Supports requests from the driver to getExternalDependencies.
@@ -44,7 +49,9 @@ extension ModuleDependencyGraph {
   static func buildInitialGraph(jobs: [Job],
                                 verifyDependencyGraphAfterEveryImport: Bool,
                                 emitDependencyDotFileAfterEveryImport: Bool,
-                                diagnosticEngine: DiagnosticsEngine) -> Self {
+                                diagnosticEngine: DiagnosticsEngine)
+  -> Self
+  {
     let r = Self(verifyDependencyGraphAfterEveryImport: verifyDependencyGraphAfterEveryImport,
                  emitDependencyDotFileAfterEveryImport: emitDependencyDotFileAfterEveryImport,
                  diagnosticEngine: diagnosticEngine)
@@ -58,7 +65,9 @@ extension ModuleDependencyGraph {
 
 // MARK: - finding jobs (public interface)
 extension ModuleDependencyGraph {
-  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(_ job: Job) -> [Job] {
+  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(_ job: Job)
+  -> [Job]
+  {
     let allNodesInJob = findAllNodes(in: job)
     return findJobsToRecompileWhenNodesChange(allNodesInJob);
   }
@@ -75,7 +84,10 @@ extension ModuleDependencyGraph {
   // Add every (swiftdeps) use of the external dependency to foundJobs.
   // Can return duplicates, but it doesn't break anything, and they will be
   // canonicalized later.
-  @_spi(Testing) public func findExternallyDependentUntracedJobs(_ externalDependency: String) -> [Job] {
+  @_spi(Testing) public func findExternallyDependentUntracedJobs(
+    _ externalDependency: String)
+  -> [Job]
+  {
     var foundJobs = [Job]()
 
     forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(externalSwiftDeps: externalDependency) {
@@ -100,7 +112,8 @@ extension Job {
 // MARK: - finding jobs (private functions)
 extension ModuleDependencyGraph {
 
-  private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
+  private func findAllNodes(in job: Job)
+  -> [ModuleDepGraphNode] {
     job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
   }
 
@@ -112,7 +125,7 @@ extension ModuleDependencyGraph {
     let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
     nodeFinder.forEachUse(of: key) {
       use, useSwiftDeps in
-      if !use.hasBeenTraced {
+      if isUntraced(use) {
         fn(jobTracker.getJob(useSwiftDeps))
       }
     }
@@ -137,6 +150,24 @@ extension ModuleDependencyGraph {
   }
 }
 
+// MARK: - tracking traced nodes
+extension ModuleDependencyGraph {
+
+  func isUntraced(_ n: ModuleDepGraphNode) -> Bool {
+    !isTraced(n)
+  }
+  func isTraced(_ n: ModuleDepGraphNode) -> Bool {
+    tracedNodes.contains(n)
+  }
+  func amTracing(_ n: ModuleDepGraphNode) {
+    tracedNodes.insert(n)
+  }
+  func ensureGraphWillRetrace<Nodes: Sequence>(_ nodes: Nodes)
+  where Nodes.Element == ModuleDepGraphNode {
+    nodes.forEach { tracedNodes.remove($0) }
+  }
+}
+
 // MARK: - queries for testing
 extension ModuleDependencyGraph {
   /// Testing only
@@ -144,11 +175,11 @@ extension ModuleDependencyGraph {
     for swiftDeps in job.swiftDepsPaths {
       // optimization
       if let fileNode = nodeFinder.findFileInterfaceNode(forSwiftDeps: swiftDeps),
-         fileNode.hasBeenTraced
+         isTraced(fileNode)
       {
         return true
       }
-      if  nodesIn(swiftDeps: swiftDeps).contains(where: {$0.hasBeenTraced}) {
+      if  nodesIn(swiftDeps: swiftDeps).contains(where: isTraced) {
         return true
       }
     }
@@ -163,7 +194,7 @@ extension ModuleDependencyGraph {
   }
 }
 
-// MARK: - verificaiton
+// MARK: - verification
 extension ModuleDependencyGraph {
   @discardableResult
   func verifyGraph() -> Bool {

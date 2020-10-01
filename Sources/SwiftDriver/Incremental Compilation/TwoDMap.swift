@@ -57,6 +57,7 @@
     map1.index(after: i)
   }
 
+  @discardableResult
   public mutating func updateValue(_ v: Value, forKey keys: (Key1, Key2)) -> Value? {
     let inserted1 = map1.updateValue(v, forKey:  keys           )
     let inserted2 = map2.updateValue(v, forKey: (keys.1, keys.0))
@@ -64,6 +65,7 @@
     return inserted1
   }
 
+  @discardableResult
   public mutating func removeValue(forKey keys: (Key1, Key2)) -> Value? {
     let v1 = map1.removeValue(forKey:  keys           )
     let v2 = map2.removeValue(forKey: (keys.1, keys.0))

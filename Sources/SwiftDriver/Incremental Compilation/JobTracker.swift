@@ -15,7 +15,10 @@ import TSCBasic
 import Foundation
 
 extension ModuleDependencyGraph {
-  /// mapping back-and-forth to jobs
+  // TODO: Incremental, check the relationship between batching and incremental compilation
+  // Must delay batching until *after* incremental decisions
+
+  ///Since the rest of the driver trucks in jobs, the correspondence must be tracked
   @_spi(Testing) public struct JobTracker {
     /// Keyed by swiftdeps filename, so we can get back to Jobs.
     private var jobsBySwiftDeps: [String: Job] = [:]
@@ -23,8 +26,7 @@ extension ModuleDependencyGraph {
 
     func getJob(_ swiftDeps: String) -> Job {
       guard let job = jobsBySwiftDeps[swiftDeps] else {fatalError("All jobs should be tracked.")}
-      // TODO: Incremental centralize job invars
-      assert(job.swiftDepsPaths.contains(swiftDeps),
+       assert(job.swiftDepsPaths.contains(swiftDeps),
              "jobsBySwiftDeps should be inverse of getSwiftDeps.")
       return job
     }

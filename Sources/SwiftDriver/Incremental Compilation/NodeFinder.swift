@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The core information for the ModuleDependencyGraph
-/// Isolate in a sub-structure in order to faciliate invariant maintainance
 extension ModuleDependencyGraph {
+  
+  /// The core information for the ModuleDependencyGraph
+  /// Isolate in a sub-structure in order to faciliate invariant maintainance
   struct NodeFinder {
 
     /// Maps swiftDeps files and DependencyKeys to Nodes
@@ -91,18 +92,14 @@ fileprivate extension ModuleDepGraphNode {
 extension ModuleDependencyGraph.NodeFinder {
 
   /// Add \c node to the structure, return the old node if any at those coordinates.
-  /// \c isUsed helps for assertion checking.
-  /// TODO: Incremental clean up doxygens
   @discardableResult
-  mutating func insert(_ n: ModuleDepGraphNode, isUsed: Bool?)
+  mutating func insert(_ n: ModuleDepGraphNode)
   -> ModuleDepGraphNode?
   {
     nodeMap.updateValue(n, forKey: n.mapKey)
   }
 
-  // TODO: Incremental consistent open { for fns
-
-  /// record def-use, return if is new use
+   /// record def-use, return if is new use
   mutating func record(def: DependencyKey, use: ModuleDepGraphNode)
   -> Bool {
     verifyUseIsOK(use)
@@ -138,10 +135,20 @@ extension ModuleDependencyGraph.NodeFinder {
   /// Frontend processes name lookups as dependencies, but does not record in
   /// which file the name was found.) In such a case, it is necessary to move
   /// the node to the proper collection.
-  mutating func move(_ nodeToMove: ModuleDepGraphNode, toDifferentFile newFile: String) {
-    removeMapping(of: nodeToMove)
-    nodeToMove.swiftDeps = newFile
-    insert(nodeToMove, isUsed: nil)
+  ///
+  /// Now that nodes are immutable, this function needs to replace the node
+  mutating func replace(_ original: ModuleDepGraphNode,
+                        newSwiftDeps: String,
+                        newFingerprint: String?)
+  -> ModuleDepGraphNode
+  {
+    let replacement = ModuleDepGraphNode(key: original.dependencyKey,
+                                         fingerprint: newFingerprint,
+                                         swiftDeps: newSwiftDeps)
+    usesByDef.replace(original, with: replacement, forKey: original.dependencyKey)
+    nodeMap.removeValue(forKey: original.mapKey)
+    nodeMap.updateValue(replacement, forKey: replacement.mapKey)
+    return replacement
   }
 }
 
@@ -179,7 +186,7 @@ extension ModuleDependencyGraph.NodeFinder {
 
   @discardableResult
   private func verifyUseIsOK(_ n: ModuleDepGraphNode) -> Bool {
-    verifyExpatsAreNotUses(n, isUsed: true)
+    verifyUsedIsNotExpat(n)
     verifyNodeIsMapped(n)
     return true
   }
@@ -190,18 +197,12 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
 
-  /// isUsed is an optimization
   @discardableResult
-  private func verifyExpatsAreNotUses(_ use: ModuleDepGraphNode, isUsed: Bool?) -> Bool {
-    guard use.isExpat else {return true}
-    let isReallyUsed = isUsed ?? !defsUsing(use).isEmpty
-    if (isReallyUsed) {
-      fatalError("An expat is not defined anywhere and thus cannot be used")
-    }
-    return false
+  private func verifyUsedIsNotExpat(_ use: ModuleDepGraphNode) -> Bool {
+    guard use.isExpat else { return true }
+    fatalError("An expat is not defined anywhere and thus cannot be used")
   }
 }
-
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {

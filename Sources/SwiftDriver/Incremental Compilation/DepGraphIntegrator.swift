@@ -12,18 +12,21 @@
 
 import TSCBasic
 
-// MARK: - building or updating
+// MARK: - state & creation
+
+/// Integrates a \c SourceFileDependencyGraph into a \c ModuleDependencyGraph
+/// The former comes from a frontend job, and the latter is used by the driver.
 @_spi(Testing) public struct DepGraphIntegrator {
-  // nil means there was an error
+  /// nil means there was an error
   @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>?
 
   let source: SourceFileDependencyGraph
   let swiftDeps: String
   let destination: ModuleDependencyGraph
 
-  // When done, changeDependencyKeys contains a list of keys that changed
-  // as a result of this integration.
-  // Or if the integration failed, None.
+  /// When done, changeDependencyKeys contains a list of keys that changed
+  /// as a result of this integration.
+  /// Or if the integration failed, None.
   var changedNodes = Set<ModuleDepGraphNode>()
   var disappearedNodes = [DependencyKey: ModuleDepGraphNode]()
 
@@ -38,9 +41,14 @@ import TSCBasic
 }
 
 // MARK: - integrate a Job
+
 extension DepGraphIntegrator {
-  static func integrate(job: Job, into destination: ModuleDependencyGraph,
-                        diagnosticEngine: DiagnosticsEngine) -> Changes {
+  @_spi(Testing) public static func integrate(
+    job: Job,
+    into destination: ModuleDependencyGraph,
+    diagnosticEngine: DiagnosticsEngine)
+  -> Changes
+  {
     destination.jobTracker.registerJob(job)
     let graphsAndDeps = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
 
@@ -57,9 +65,11 @@ extension DepGraphIntegrator {
     return hadError ? nil : Set(changedNodes)
   }
 
- /// nil graph for error
-  private static func getSourceFileDependencyGraphs(job: Job, diagnosticEngine: DiagnosticsEngine)
-  -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)] {
+ /// Returns a nil graph if there's a error
+  private static func getSourceFileDependencyGraphs(job: Job,
+                                                    diagnosticEngine: DiagnosticsEngine)
+  -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)]
+  {
     let swiftDepsOutputs = job.outputs.filter {$0.type == .swiftDeps}
     return swiftDepsOutputs.map {
         do {
@@ -101,7 +111,6 @@ extension DepGraphIntegrator {
     return integrator.changedNodes
   }
 
-
   private mutating func integrate() {
     disappearedNodes = destination.nodeFinder.findNodes(for: swiftDeps) ?? [:]
 
@@ -110,66 +119,76 @@ extension DepGraphIntegrator {
       changedNodes.insert(node)
       destination.nodeFinder.remove(node)
     }
-    ModuleDepGraphTracer.ensureChangedNodesAreRetraced(changedNodes)
+    destination.ensureGraphWillRetrace(changedNodes)
   }
 }
 
 // MARK: - integrate a node
 extension DepGraphIntegrator {
-  private mutating func integrate(oneNode integrand: SourceFileDependencyGraph.Node)
+  private mutating func integrate(
+    oneNode integrand: SourceFileDependencyGraph.Node)
   {
-    let key = integrand.key
-    let preexistingMatch = PreexistingMatch(
-      matches: destination.nodeFinder.findNodes(for: key),
-      integrand: integrand,
-      swiftDeps: swiftDeps)
-
-    if case let .here(node) = preexistingMatch {
-      // Node was and still is. Do not remove it.
-      disappearedNodes.removeValue(forKey: node.dependencyKey)
-    }
-
     guard integrand.isProvides else {
       // depends are captured by recordWhatIsDependendedUpon below
       return
     }
 
-    let (hasChange, integratedNode) =
-      integrate(integrand, reconcilingWith: preexistingMatch)
+    let preexistingMatchHereOrExpat =
+      destination.nodeFinder.findNodes(for: integrand.key)
+      .flatMap {
+        (matches: [String?: ModuleDepGraphNode]) -> ModuleDepGraphNode? in
+        if let matchHere = matches[swiftDeps] {
+          // Node was and still is. Do not remove it.
+          disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
+          return matchHere
+        }
+        if let expat = matches[nil] {
+          assert(matches.count == 1,
+                 "If an expat exists, then must not be any matches in other files")
+          return expat
+        }
+        return nil
+      }
+
+    let (foundChange: foundChange, integratedNode: integratedNode) =
+      integrate(integrand, reconcilingWith: preexistingMatchHereOrExpat)
 
     let hasNewExternalDependency = recordWhatIsDependendedUpon(
       integrand, integratedNode)
 
-    if hasChange || hasNewExternalDependency {
+    if foundChange || hasNewExternalDependency {
       changedNodes.insert(integratedNode)
     }
   }
 
   private func integrate(
       _ integrand: SourceFileDependencyGraph.Node,
-      reconcilingWith preexistingMatch: PreexistingMatch
-    )
-  -> (foundChange: Bool, node: ModuleDepGraphNode)
+      reconcilingWith preexistingMatch: ModuleDepGraphNode?
+  )
+  -> (foundChange: Bool, integratedNode: ModuleDepGraphNode)
   {
+    precondition(
+      preexistingMatch.flatMap {$0.swiftDeps.map {$0 == swiftDeps} ?? true} ?? true,
+      "preexistingMatch must be nil or here or expat"
+    )
     switch preexistingMatch {
-      case .none:
-        /// Came from nowhere. (Goes to nowhere case is handled by dissapearedNodes.)
-        return (true, integrateANewDef(integrand))
+      case nil:
+      // no match, or match for a different decl
+      // create a new node
+        return (foundChange: true, integratedNode: integrateANewDef(integrand))
 
-      case .here(let n):
-        return (
-          foundChange: n.integrateFingerprintFrom(integrand),
-          node: n)
+      case let node?
+            where node.swiftDeps == swiftDeps
+            && node.fingerprint == integrand.fingerprint:
+        // no change
+        return (foundChange: false, integratedNode: node)
 
-      case .nowhere(let n):
-        // Some other file depended on this, but didn't know where it was.
-        destination.nodeFinder.move(n, toDifferentFile: swiftDeps)
-        _ = n.integrateFingerprintFrom(integrand)
-        return (foundChange: true, n) // New decl, assume changed
-
-      case .elsewhere:
-        // new node, same base name
-        return (foundChange: true, integrateANewDef(integrand))
+      case let node?:
+        let integratedNode = destination.nodeFinder
+          .replace(node,
+                   newSwiftDeps: swiftDeps,
+                   newFingerprint: integrand.fingerprint)
+        return ( foundChange: true, integratedNode: integratedNode )
     }
   }
 
@@ -181,7 +200,7 @@ extension DepGraphIntegrator {
       key: integrand.key,
       fingerprint: integrand.fingerprint,
       swiftDeps: swiftDeps)
-    let oldNode = destination.nodeFinder.insert(newNode, isUsed: false)
+    let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
     return newNode
   }
@@ -190,7 +209,8 @@ extension DepGraphIntegrator {
   func recordWhatIsDependendedUpon(
     _ sourceFileUseNode: SourceFileDependencyGraph.Node,
     _ moduleUseNode: ModuleDepGraphNode)
-  -> Bool {
+  -> Bool
+  {
     var useHasNewExternalDependency = false
     source.forEachDefDependedUpon(by: sourceFileUseNode) {
       def in
@@ -208,7 +228,8 @@ extension DepGraphIntegrator {
 extension DepGraphIntegrator {
   @discardableResult
   func verifyAfterImporting()
-  -> Bool {
+  -> Bool
+  {
     guard let nodesInFile = destination.nodeFinder.findNodes(for: swiftDeps),
           !nodesInFile.isEmpty
     else {
@@ -216,47 +237,4 @@ extension DepGraphIntegrator {
     }
     return destination.verifyGraph()
   }
-}
-
-// MARK: - preexisting match
-
-private extension DepGraphIntegrator {
-  enum PreexistingMatch {
-    case none,
-         nowhere(ModuleDepGraphNode),
-         here(ModuleDepGraphNode),
-         elsewhere(ModuleDepGraphNode)
-
-    var node: ModuleDepGraphNode? {
-      switch self {
-        case .none: return nil
-        case let .nowhere(n),
-             let .here(n),
-             let .elsewhere(n):
-          return n
-      }
-    }
-
-    init( matches: [String?: ModuleDepGraphNode]?,
-          integrand: SourceFileDependencyGraph.Node,
-          swiftDeps: String
-    ) {
-      guard let matches = matches else {
-        self = .none
-        return
-      }
-      if let expat = matches[ModuleDepGraphNode.expatSwiftDeps] {
-        assert(matches.count == 1,
-               "If an expat exists, then must not be any matches in other files")
-        self = .nowhere(expat)
-        return
-      }
-      if let preexistingMatchInPlace = matches[swiftDeps], integrand.isProvides {
-        self = .here(preexistingMatchInPlace)
-        return
-      }
-      self = matches.first.map {.elsewhere($0.value)} ?? .none
-    }
-  }
-
 }

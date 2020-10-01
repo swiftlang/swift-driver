@@ -14,20 +14,27 @@
 /// It supports iterating over all 2nd-level pairs. See \code subscript(key: OuterKey)
 
 import Foundation
-@_spi(Testing) public  struct DictionaryOfDictionaries<OuterKey: Hashable, InnerKey: Hashable, Value>: Collection {
-
-
+@_spi(Testing) public  struct DictionaryOfDictionaries
+  <OuterKey: Hashable, InnerKey: Hashable, Value>: Collection
+{
   public typealias InnerDict = [InnerKey: Value]
   public typealias OuterDict = [OuterKey: InnerDict]
 
   public typealias Key = (OuterKey, InnerKey)
   public typealias Element = (Key, Value)
 
+  var outerDict = [OuterKey: [InnerKey: Value]]()
+}
+
+// MARK: indices
+extension DictionaryOfDictionaries {
   public enum Index: Comparable {
     case end
     case notEnd(OuterDict.Index, InnerDict.Index)
 
-    public static func < (lhs: Self, rhs: Self) -> Bool {
+    public static func < (lhs: Self, rhs: Self)
+    -> Bool
+    {
       switch (lhs, rhs) {
         case (.end, .end): return false
         case (_, .end): return true
@@ -39,15 +46,12 @@ import Foundation
           }
       }
     }
-
   }
-  var outerDict = [OuterKey: [InnerKey: Value]]()
 
   private func makeIndex(_ oi: OuterDict.Index, _ ii: InnerDict.Index) -> Index {
     assert(outerDict[oi].value.indices.contains(ii))
     return .notEnd(oi, ii)
   }
-
 
   public var startIndex: Index {
     return outerDict.isEmpty
@@ -59,6 +63,28 @@ import Foundation
     return .end
   }
 
+  public func index(after i: Index)
+  -> Index
+  {
+    switch i {
+      case .end: fatalError("index at end")
+      case let .notEnd(outerIndex, innerIndex):
+        let innerDict = outerDict[outerIndex].value
+        let nextInnerIndex = innerDict.index(after: innerIndex)
+        if nextInnerIndex < innerDict.endIndex {
+          return makeIndex(outerIndex, nextInnerIndex)
+        }
+        let nextOuterIndex = outerDict.index(after: outerIndex)
+        if nextOuterIndex < outerDict.endIndex {
+          return .notEnd(nextOuterIndex, outerDict[nextOuterIndex].value.startIndex)
+        }
+        return .end
+    }
+  }
+}
+
+// MARK: - subscripting
+extension DictionaryOfDictionaries {
   public subscript(position: Index) -> Element {
       switch position {
         case .end: fatalError("index at end")
@@ -84,25 +110,13 @@ import Foundation
       else { _ = outerDict.removeValue(forKey: key) }
     }
   }
+}
 
-  public func index(after i: Index) -> Index {
-    switch i {
-      case .end: fatalError("index at end")
-      case let .notEnd(outerIndex, innerIndex):
-        let innerDict = outerDict[outerIndex].value
-        let nextInnerIndex = innerDict.index(after: innerIndex)
-        if nextInnerIndex < innerDict.endIndex {
-          return makeIndex(outerIndex, nextInnerIndex)
-        }
-        let nextOuterIndex = outerDict.index(after: outerIndex)
-        if nextOuterIndex < outerDict.endIndex {
-          return .notEnd(nextOuterIndex, outerDict[nextOuterIndex].value.startIndex)
-        }
-        return .end
-    }
-  }
-
-  mutating func updateValue(_ v: Value, forKey keys : (OuterKey,InnerKey)) -> Value? {
+// MARK: - mutating
+extension DictionaryOfDictionaries {
+  mutating func updateValue(_ v: Value, forKey keys : (OuterKey,InnerKey))
+  -> Value?
+  {
     if var innerDict = outerDict[keys.0] {
       let old = innerDict.updateValue(v, forKey: keys.1)
       outerDict.updateValue(innerDict, forKey: keys.0)
@@ -112,7 +126,9 @@ import Foundation
     return nil
   }
 
-  mutating func removeValue(forKey keys : (OuterKey,InnerKey)) -> Value? {
+  mutating func removeValue(forKey keys : (OuterKey,InnerKey))
+  -> Value?
+  {
     guard var innerDict = outerDict[keys.0]
     else { return nil }
     let old = innerDict.removeValue(forKey: keys.1)
