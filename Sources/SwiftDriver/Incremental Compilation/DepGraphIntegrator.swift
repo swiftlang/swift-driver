@@ -41,6 +41,11 @@ import TSCBasic
 // MARK: - integrate a Job
 
 extension DepGraphIntegrator {
+  private enum LoadedDependencyGraph {
+    case success(SourceFileDependencyGraph, String)
+    case failure(String)
+  }
+
   /// returns nil means there was an error
   @_spi(Testing) public static func integrate(
     job: Job,
@@ -48,37 +53,39 @@ extension DepGraphIntegrator {
     diagnosticEngine: DiagnosticsEngine
   ) -> Changes? {
     destination.jobTracker.registerJob(job)
-    let graphsAndDeps = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
+    let loadedGraphs = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
 
-    let goodGraphsAndDeps = graphsAndDeps
-      .compactMap {gd in
-        gd.graph.map {
-          (graph: $0, swiftDeps: gd.swiftDeps)
-        }
+    var changedNodes = Changes()
+    var hadError = false
+    loadedGraphs.forEach {
+      if case let .success(graph, swiftDeps) = $0 {
+        integrate(from: graph, swiftDeps: swiftDeps, into: destination)
+          .forEach {changedNodes.insert($0)}
       }
-    let changedNodes = goodGraphsAndDeps
-      .flatMap {
-        integrate(from: $0.graph, swiftDeps: $0.swiftDeps, into: destination)
+      else {
+        hadError = true
       }
-    let hadError = graphsAndDeps.count != goodGraphsAndDeps.count
-
+    }
     return hadError ? nil : Set(changedNodes)
   }
 
   /// Returns a nil graph if there's a error
   private static func getSourceFileDependencyGraphs(job: Job,
                                                     diagnosticEngine: DiagnosticsEngine
-  ) -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)] {
+  ) -> [LoadedDependencyGraph] {
     let swiftDepsOutputs = job.outputs.filter {$0.type == .swiftDeps}
     return swiftDepsOutputs.map {
       do {
-        return try SourceFileDependencyGraph.read(from: $0)
+        return .success(
+          try SourceFileDependencyGraph.read(from: $0),
+          $0.file.name
+        )
       }
       catch {
         diagnosticEngine.emit(
           .error_cannot_read_swiftdeps(file: $0, reason: error.localizedDescription)
         )
-        return (graph: nil, swiftDeps: $0.file.name)
+        return .failure($0.file.name)
       }
     }
   }

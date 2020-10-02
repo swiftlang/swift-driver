@@ -119,7 +119,7 @@ extension SourceFileDependencyGraph {
   }
   
   public static func read(from file: TypedVirtualPath
-  ) throws -> (graph: Self?, swiftDeps: String) {
+  ) throws -> Self {
     guard case .swiftDeps = file.type
     else {
       throw ReadError.notSwiftDeps
@@ -128,10 +128,7 @@ extension SourceFileDependencyGraph {
     else {
       throw ReadError.notAbsolutePath
     }
-    return (
-      graph: try self.init(pathString: path.pathString),
-      path.pathString
-    )
+    return try self.init(pathString: path.pathString)
   }
   
   @_spi(Testing) public init(nodesForTesting: [Node]) {
