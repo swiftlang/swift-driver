@@ -388,6 +388,32 @@ final class ExplicitModuleBuildTests: XCTestCase {
     #endif
   }
 
+  func testDependencyGraphMerge() throws {
+    let moduleDependencyGraph1 =
+          try JSONDecoder().decode(
+            InterModuleDependencyGraph.self,
+            from: ModuleDependenciesInputs.mergeGraphInput1.data(using: .utf8)!)
+    let moduleDependencyGraph2 =
+          try JSONDecoder().decode(
+            InterModuleDependencyGraph.self,
+            from: ModuleDependenciesInputs.mergeGraphInput2.data(using: .utf8)!)
+
+    var accumulatingModuleInfoMap: [ModuleDependencyId: ModuleInfo] = [:]
+
+    try InterModuleDependencyGraph.mergeModules(from: moduleDependencyGraph1,
+                                                into: &accumulatingModuleInfoMap)
+    try InterModuleDependencyGraph.mergeModules(from: moduleDependencyGraph2,
+                                                into: &accumulatingModuleInfoMap)
+
+    // Ensure the dependencies of the diplicate clang "B" module are merged
+    let clangIDs = accumulatingModuleInfoMap.keys.filter { $0.moduleName == "B" }
+    XCTAssertTrue(clangIDs.count == 1)
+    let clangBInfo = accumulatingModuleInfoMap[clangIDs[0]]!
+    XCTAssertTrue(clangBInfo.directDependencies!.count == 2)
+    XCTAssertTrue(clangBInfo.directDependencies!.contains(ModuleDependencyId.clang("D")))
+    XCTAssertTrue(clangBInfo.directDependencies!.contains(ModuleDependencyId.clang("C")))
+  }
+
   func testExplicitSwiftModuleMap() throws {
     let jsonExample : String = """
     [

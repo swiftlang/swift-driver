@@ -375,6 +375,134 @@ enum ModuleDependenciesInputs {
     """
   }
 
+  static var mergeGraphInput1: String {
+    """
+    {
+      "mainModuleName": "A",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+            "/A/A.swift"
+          ],
+          "directDependencies": [
+            {
+              "clang": "B"
+            }
+          ],
+          "details": {
+            "swift": {
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.10",
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "clang": "B"
+        },
+        {
+          "modulePath": "B.pcm",
+          "sourceFiles": [
+            "/B/module.map",
+            "/B/include/b.h"
+          ],
+          "directDependencies": [
+               {
+                 "clang": "D"
+               }
+          ],
+          "details": {
+            "clang": {
+              "moduleMapPath": "/B/module.map",
+              "contextHash": "2QEMRLNY63H2N",
+              "commandLine": [
+                "-remove-preceeding-explicit-module-build-incompatible-options",
+                "-fno-implicit-modules",
+                "-emit-module",
+                "-fmodule-name=c_simd"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
+  static var mergeGraphInput2: String {
+    """
+    {
+      "mainModuleName": "A",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+            "/A/A.swift"
+          ],
+          "directDependencies": [
+            {
+              "clang": "B"
+            },
+          ],
+          "details": {
+            "swift": {
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-target",
+                "-Xcc",
+                "x86_64-apple-macosx10.10",
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "clang": "B"
+        },
+        {
+          "modulePath": "B.pcm",
+          "sourceFiles": [
+            "/B/module.map",
+            "/B/include/b.h"
+          ],
+          "directDependencies": [
+               {
+                 "clang": "C"
+               }
+          ],
+          "details": {
+            "clang": {
+              "moduleMapPath": "/B/module.map",
+              "contextHash": "2QEMRLNY63H2N",
+              "commandLine": [
+                "-remove-preceeding-explicit-module-build-incompatible-options",
+                "-fno-implicit-modules",
+                "-emit-module",
+                "-fmodule-name=c_simd"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
   static var bPlaceHolderInput: String {
     """
     {
