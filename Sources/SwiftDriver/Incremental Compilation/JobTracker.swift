@@ -9,10 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import Foundation
-import TSCBasic
-
-import Foundation
 
 extension ModuleDependencyGraph {
   // TODO: Incremental, check the relationship between batching and incremental compilation

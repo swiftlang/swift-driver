@@ -134,7 +134,7 @@ extension DepGraphIntegrator {
     oneNode integrand: SourceFileDependencyGraph.Node)
   {
     guard integrand.isProvides else {
-      // depends are captured by recordWhatIsDependendedUpon below
+      // depends are captured by recordWhatIsDependedUpon below
       return
     }
 
@@ -157,7 +157,7 @@ extension DepGraphIntegrator {
     let (foundChange: foundChange, integratedNode: integratedNode) =
       integrate(integrand, reconcilingWith: preexistingMatchHereOrExpat)
 
-    let hasNewExternalDependency = recordWhatIsDependendedUpon(
+    let hasNewExternalDependency = recordWhatIsDependedUpon(
       integrand, integratedNode)
 
     if foundChange || hasNewExternalDependency {
@@ -179,7 +179,7 @@ extension DepGraphIntegrator {
     case nil:
       // no match, or match for a different decl
       // create a new node
-      return (foundChange: true, integratedNode: integrateANewDef(integrand))
+      return (foundChange: true, integratedNode: integrateNewDef(integrand))
 
     case let node?
           where node.swiftDeps == swiftDeps
@@ -196,7 +196,7 @@ extension DepGraphIntegrator {
     }
   }
 
-  private func integrateANewDef(_ integrand: SourceFileDependencyGraph.Node
+  private func integrateNewDef(_ integrand: SourceFileDependencyGraph.Node
   ) -> ModuleDepGraphNode {
     precondition(integrand.isProvides, "Dependencies are arcs in the module graph")
     let newNode = ModuleDepGraphNode(
@@ -209,7 +209,7 @@ extension DepGraphIntegrator {
   }
 
   /// Return true for new external dependency
-  func recordWhatIsDependendedUpon(
+  func recordWhatIsDependedUpon(
     _ sourceFileUseNode: SourceFileDependencyGraph.Node,
     _ moduleUseNode: ModuleDepGraphNode) -> Bool {
     var useHasNewExternalDependency = false

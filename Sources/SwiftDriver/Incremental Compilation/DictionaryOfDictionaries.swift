@@ -36,7 +36,7 @@ extension DictionaryOfDictionaries {
       switch (lhs, rhs) {
       case (.end, .end): return false
       case (_, .end): return true
-      case (end, _): return false
+      case (.end, _): return false
       case let (.notEnd(lo, li), .notEnd(ro, ri)):
         switch (lo, ro, li, ri) {
         case let (lo, ro, _, _) where lo != ro: return lo < ro
