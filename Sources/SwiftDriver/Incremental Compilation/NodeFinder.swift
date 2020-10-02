@@ -15,11 +15,11 @@ extension ModuleDependencyGraph {
   /// The core information for the ModuleDependencyGraph
   /// Isolate in a sub-structure in order to faciliate invariant maintainance
   struct NodeFinder {
-
+    
     /// Maps swiftDeps files and DependencyKeys to Nodes
     fileprivate typealias NodeMap = TwoDMap<String?, DependencyKey, ModuleDepGraphNode>
     fileprivate var nodeMap = NodeMap()
-
+    
     /// Since dependency keys use baseNames, they are coarser than individual
     /// decls. So two decls might map to the same key. Given a use, which is
     /// denoted by a node, the code needs to find the files to recompile. So, the
@@ -29,7 +29,7 @@ extension ModuleDependencyGraph {
     /// (In a given file, only one node exists with a given key, but in the future
     /// that would need to change if/when we can recompile a smaller unit than a
     /// source file.)
-
+    
     /// Tracks def-use relationships by DependencyKey.
     private(set)var usesByDef = Multidictionary<DependencyKey, ModuleDepGraphNode>()
   }
@@ -43,14 +43,14 @@ extension ModuleDependencyGraph.NodeFinder {
   func findNode(_ mapKey: (String?, DependencyKey)) -> ModuleDepGraphNode? {
     nodeMap[mapKey]
   }
-
+  
   func findNodes(for swiftDeps: String?) -> [DependencyKey: ModuleDepGraphNode]? {
     nodeMap[swiftDeps]
   }
   func findNodes(for key: DependencyKey) -> [String?: ModuleDepGraphNode]? {
     nodeMap[key]
   }
-
+  
   /// Since uses must be somewhere, pass inthe swiftDeps to the function here
   func forEachUse(_ fn: (DependencyKey, ModuleDepGraphNode, String) -> Void) {
     usesByDef.forEach {
@@ -65,7 +65,7 @@ extension ModuleDependencyGraph.NodeFinder {
       }
     }
   }
-
+  
   func mappings(of n: ModuleDepGraphNode) -> [(String?, DependencyKey)]
   {
     nodeMap.compactMap {
@@ -75,7 +75,7 @@ extension ModuleDependencyGraph.NodeFinder {
         : nil
     }
   }
-
+  
   func defsUsing(_ n: ModuleDepGraphNode) -> [DependencyKey] {
     usesByDef.keysContainingValue(n)
   }
@@ -90,7 +90,7 @@ fileprivate extension ModuleDepGraphNode {
 // MARK: - inserting
 
 extension ModuleDependencyGraph.NodeFinder {
-
+  
   /// Add \c node to the structure, return the old node if any at those coordinates.
   @discardableResult
   mutating func insert(_ n: ModuleDepGraphNode)
@@ -98,8 +98,8 @@ extension ModuleDependencyGraph.NodeFinder {
   {
     nodeMap.updateValue(n, forKey: n.mapKey)
   }
-
-   /// record def-use, return if is new use
+  
+  /// record def-use, return if is new use
   mutating func record(def: DependencyKey, use: ModuleDepGraphNode)
   -> Bool {
     verifyUseIsOK(use)
@@ -114,12 +114,12 @@ extension ModuleDependencyGraph.NodeFinder {
     removeUsings(of: nodeToErase)
     removeMapping(of: nodeToErase)
   }
-
+  
   private mutating func removeUsings(of nodeToNotUse: ModuleDepGraphNode) {
     usesByDef.removeValue(nodeToNotUse)
     assert(defsUsing(nodeToNotUse).isEmpty)
   }
-
+  
   private mutating func removeMapping(of nodeToNotMap: ModuleDepGraphNode) {
     let old = nodeMap.removeValue(forKey: nodeToNotMap.mapKey)
     assert(old == nodeToNotMap, "Should have been there")
@@ -159,7 +159,7 @@ extension ModuleDependencyGraph.NodeFinder {
     verifyUsesByDef()
     return true
   }
-
+  
   private func verifyNodeMap() {
     var nodes = [Set<ModuleDepGraphNode>(), Set<ModuleDepGraphNode>()]
     nodeMap.verify {
@@ -170,7 +170,7 @@ extension ModuleDependencyGraph.NodeFinder {
       v.verify()
     }
   }
-
+  
   private func verifyUsesByDef() {
     usesByDef.forEach {
       def, use in
@@ -178,25 +178,25 @@ extension ModuleDependencyGraph.NodeFinder {
       verifyUseIsOK(use)
     }
   }
-
+  
   private func useMustHaveSwiftDeps(_ n: ModuleDepGraphNode)  -> String {
     assert(verifyUseIsOK(n))
     return n.swiftDeps!
   }
-
+  
   @discardableResult
   private func verifyUseIsOK(_ n: ModuleDepGraphNode) -> Bool {
     verifyUsedIsNotExpat(n)
     verifyNodeIsMapped(n)
     return true
   }
-
+  
   private func verifyNodeIsMapped(_ n: ModuleDepGraphNode) {
     if findNode(n.mapKey) == nil {
       fatalError("\(n) should be mapped")
     }
   }
-
+  
   @discardableResult
   private func verifyUsedIsNotExpat(_ use: ModuleDepGraphNode) -> Bool {
     guard use.isExpat else { return true }

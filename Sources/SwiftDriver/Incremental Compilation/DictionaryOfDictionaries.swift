@@ -15,14 +15,14 @@
 
 import Foundation
 @_spi(Testing) public  struct DictionaryOfDictionaries
-  <OuterKey: Hashable, InnerKey: Hashable, Value>: Collection
+<OuterKey: Hashable, InnerKey: Hashable, Value>: Collection
 {
   public typealias InnerDict = [InnerKey: Value]
   public typealias OuterDict = [OuterKey: InnerDict]
-
+  
   public typealias Key = (OuterKey, InnerKey)
   public typealias Element = (Key, Value)
-
+  
   var outerDict = [OuterKey: [InnerKey: Value]]()
 }
 
@@ -31,28 +31,28 @@ extension DictionaryOfDictionaries {
   public enum Index: Comparable {
     case end
     case notEnd(OuterDict.Index, InnerDict.Index)
-
+    
     public static func < (lhs: Self, rhs: Self)
     -> Bool
     {
       switch (lhs, rhs) {
-        case (.end, .end): return false
-        case (_, .end): return true
-        case (end, _): return false
-        case let (.notEnd(lo, li), .notEnd(ro, ri)):
-          switch (lo, ro, li, ri) {
-            case let (lo, ro, _, _) where lo != ro: return lo < ro
-            case let (_, _, li, ri): return li < ri
-          }
+      case (.end, .end): return false
+      case (_, .end): return true
+      case (end, _): return false
+      case let (.notEnd(lo, li), .notEnd(ro, ri)):
+        switch (lo, ro, li, ri) {
+        case let (lo, ro, _, _) where lo != ro: return lo < ro
+        case let (_, _, li, ri): return li < ri
+        }
       }
     }
   }
-
+  
   private func makeIndex(_ oi: OuterDict.Index, _ ii: InnerDict.Index) -> Index {
     assert(outerDict[oi].value.indices.contains(ii))
     return .notEnd(oi, ii)
   }
-
+  
   public var startIndex: Index {
     return outerDict.isEmpty
       ? endIndex
@@ -62,23 +62,23 @@ extension DictionaryOfDictionaries {
   public var endIndex: Index {
     return .end
   }
-
+  
   public func index(after i: Index)
   -> Index
   {
     switch i {
-      case .end: fatalError("index at end")
-      case let .notEnd(outerIndex, innerIndex):
-        let innerDict = outerDict[outerIndex].value
-        let nextInnerIndex = innerDict.index(after: innerIndex)
-        if nextInnerIndex < innerDict.endIndex {
-          return makeIndex(outerIndex, nextInnerIndex)
-        }
-        let nextOuterIndex = outerDict.index(after: outerIndex)
-        if nextOuterIndex < outerDict.endIndex {
-          return .notEnd(nextOuterIndex, outerDict[nextOuterIndex].value.startIndex)
-        }
-        return .end
+    case .end: fatalError("index at end")
+    case let .notEnd(outerIndex, innerIndex):
+      let innerDict = outerDict[outerIndex].value
+      let nextInnerIndex = innerDict.index(after: innerIndex)
+      if nextInnerIndex < innerDict.endIndex {
+        return makeIndex(outerIndex, nextInnerIndex)
+      }
+      let nextOuterIndex = outerDict.index(after: outerIndex)
+      if nextOuterIndex < outerDict.endIndex {
+        return .notEnd(nextOuterIndex, outerDict[nextOuterIndex].value.startIndex)
+      }
+      return .end
     }
   }
 }
@@ -86,15 +86,15 @@ extension DictionaryOfDictionaries {
 // MARK: - subscripting
 extension DictionaryOfDictionaries {
   public subscript(position: Index) -> Element {
-      switch position {
-        case .end: fatalError("index at end")
-        case let .notEnd(outerIndex, innerIndex):
-          let (outerKey, innerDict) = outerDict[outerIndex]
-          let (innerKey, value) = innerDict[innerIndex]
-          return (key: (outerKey, innerKey), value: value)
-      }
+    switch position {
+    case .end: fatalError("index at end")
+    case let .notEnd(outerIndex, innerIndex):
+      let (outerKey, innerDict) = outerDict[outerIndex]
+      let (innerKey, value) = innerDict[innerIndex]
+      return (key: (outerKey, innerKey), value: value)
+    }
   }
-
+  
   public subscript(key: Key) -> Value? {
     get {outerDict[key.0]?[key.1]}
     set {
@@ -102,7 +102,7 @@ extension DictionaryOfDictionaries {
       else { _ = removeValue(forKey: key) }
     }
   }
-
+  
   public subscript(key: OuterKey) -> [InnerKey: Value]? {
     get {outerDict[key]}
     set {
@@ -125,7 +125,7 @@ extension DictionaryOfDictionaries {
     outerDict.updateValue([keys.1: v], forKey: keys.0)
     return nil
   }
-
+  
   mutating func removeValue(forKey keys : (OuterKey,InnerKey))
   -> Value?
   {

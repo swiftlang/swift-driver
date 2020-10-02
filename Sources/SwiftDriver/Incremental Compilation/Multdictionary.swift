@@ -15,53 +15,53 @@
   public typealias OuterDict = [Key: Set<Value>]
   public typealias InnerSet = Set<Value>
   private var outerDict = OuterDict()
-
+  
   public typealias Element = (key: Key, value: Value)
-
+  
   public enum Index: Comparable {
     case end
     case notEnd(OuterDict.Index, InnerSet.Index)
   }
-
+  
   public var startIndex: Index {
     outerDict.first.map {Index.notEnd(outerDict.startIndex, $0.value.startIndex)} ?? .end
   }
   public var endIndex: Index {.end}
-
+  
   public func index(after i: Index) -> Index {
     switch i {
-      case .end: fatalError()
-      case let .notEnd(outerIndex, innerIndex):
-        let innerSet = outerDict[outerIndex].value
-        let nextInner = innerSet.index(after: innerIndex)
-        if nextInner < innerSet.endIndex {
-          return .notEnd(outerIndex, nextInner)
-        }
-        let nextOuter = outerDict.index(after: outerIndex)
-        if nextOuter < outerDict.endIndex {
-          return .notEnd(nextOuter, outerDict[nextOuter].value.startIndex)
-        }
-        return .end
+    case .end: fatalError()
+    case let .notEnd(outerIndex, innerIndex):
+      let innerSet = outerDict[outerIndex].value
+      let nextInner = innerSet.index(after: innerIndex)
+      if nextInner < innerSet.endIndex {
+        return .notEnd(outerIndex, nextInner)
+      }
+      let nextOuter = outerDict.index(after: outerIndex)
+      if nextOuter < outerDict.endIndex {
+        return .notEnd(nextOuter, outerDict[nextOuter].value.startIndex)
+      }
+      return .end
     }
   }
-
+  
   public subscript(position: Index) -> (key: Key, value: Value) {
     switch position {
-      case .end: fatalError()
-      case  let .notEnd(outerIndex, innerIndex):
-        let (key, vals) = outerDict[outerIndex]
-        return (key: key, value: vals[innerIndex])
+    case .end: fatalError()
+    case  let .notEnd(outerIndex, innerIndex):
+      let (key, vals) = outerDict[outerIndex]
+      return (key: key, value: vals[innerIndex])
     }
   }
-
+  
   public subscript(key: Key) -> (key: Key, values: Set<Value>)? {
     outerDict[key].map {(key: key, values: $0)}
   }
-
+  
   public func keysContainingValue(_ v: Value) -> [Key] {
     outerDict.compactMap { (k, vs) in vs.contains(v) ? k : nil }
   }
-
+  
   /// Returns true if inserted
   public mutating func addValue(_ v: Value, forKey key: Key) -> Bool {
     if var inner = outerDict[key] {
@@ -72,7 +72,7 @@
     outerDict[key] = Set([v])
     return true
   }
-
+  
   public mutating func removeValue(_ v: Value) {
     let changedPairs = outerDict.compactMap {
       kv -> (key: Key, value: Set<Value>?)? in
@@ -85,7 +85,7 @@
       outerDict[$0.key] = $0.value
     }
   }
-
+  
   @discardableResult
   public mutating func replace(_ original: Value,
                                with replacement: Value,

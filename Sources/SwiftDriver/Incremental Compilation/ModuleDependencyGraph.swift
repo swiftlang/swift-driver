@@ -16,23 +16,23 @@ import TSCBasic
 // MARK: - ModuleDependencyGraph
 
 @_spi(Testing) public final class ModuleDependencyGraph {
-
+  
   internal var nodeFinder = NodeFinder()
-
+  
   /// When integrating a change, want to find untraced nodes so we can kick off jobs that have not been
   /// kicked off yet
   private var tracedNodes = Set<ModuleDepGraphNode>()
-
+  
   @_spi(Testing) public var jobTracker = JobTracker()
-
+  
   // Supports requests from the driver to getExternalDependencies.
   @_spi(Testing) public internal(set) var externalDependencies = Set<String>()
-
+  
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
-
+  
   @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
-
+  
   public init(
     verifyDependencyGraphAfterEveryImport: Bool,
     emitDependencyDotFileAfterEveryImport: Bool,
@@ -71,7 +71,7 @@ extension ModuleDependencyGraph {
     let allNodesInJob = findAllNodes(in: job)
     return findJobsToRecompileWhenNodesChange(allNodesInJob);
   }
-
+  
   @_spi(Testing) public func findJobsToRecompileWhenNodesChange(
     _ nodes: [ModuleDepGraphNode])
   -> [Job]
@@ -80,7 +80,7 @@ extension ModuleDependencyGraph {
       .tracedUses
     return jobsContaining(affectedNodes)
   }
-
+  
   // Add every (swiftdeps) use of the external dependency to foundJobs.
   // Can return duplicates, but it doesn't break anything, and they will be
   // canonicalized later.
@@ -89,7 +89,7 @@ extension ModuleDependencyGraph {
   -> [Job]
   {
     var foundJobs = [Job]()
-
+    
     forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(externalSwiftDeps: externalDependency) {
       job in
       foundJobs.append(job)
@@ -111,12 +111,12 @@ extension Job {
 
 // MARK: - finding jobs (private functions)
 extension ModuleDependencyGraph {
-
+  
   private func findAllNodes(in job: Job)
   -> [ModuleDepGraphNode] {
     job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
   }
-
+  
   private func forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(
     externalSwiftDeps: String,
     _ fn: (Job) -> Void
@@ -130,7 +130,7 @@ extension ModuleDependencyGraph {
       }
     }
   }
-
+  
   private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
   where Nodes.Element == ModuleDepGraphNode {
     computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
@@ -152,7 +152,7 @@ extension ModuleDependencyGraph {
 
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
-
+  
   func isUntraced(_ n: ModuleDepGraphNode) -> Bool {
     !isTraced(n)
   }
@@ -190,7 +190,7 @@ extension ModuleDependencyGraph {
   {
     nodeFinder.findNodes(for: swiftDeps)
       .map {Array($0.values)}
-    ?? []
+      ?? []
   }
 }
 
@@ -217,5 +217,5 @@ fileprivate extension DependencyKey {
     self.init(aspect: .interface,
               designator: .externalDepend(name: externalSwiftDeps))
   }
-
+  
 }

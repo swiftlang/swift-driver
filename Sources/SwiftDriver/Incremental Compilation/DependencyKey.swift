@@ -23,18 +23,18 @@ import Foundation
   /// graph, splitting the current *member* into \ref member and \ref
   /// potentialMember and adding \ref sourceFileProvide.
   @_spi(Testing) public enum Designator: Hashable {
-  case
-    topLevel(name: String),
-    dynamicLookup(name: String),
-    externalDepend(name: String),
-    sourceFileProvide(name: String)
+    case
+      topLevel(name: String),
+      dynamicLookup(name: String),
+      externalDepend(name: String),
+      sourceFileProvide(name: String)
 
-  case
-    nominal(context: String),
-    potentialMember(context: String)
+    case
+      nominal(context: String),
+      potentialMember(context: String)
 
-  case
-    member(context: String, name: String)
+    case
+      member(context: String, name: String)
   }
 
   @_spi(Testing) public let aspect: DeclAspect

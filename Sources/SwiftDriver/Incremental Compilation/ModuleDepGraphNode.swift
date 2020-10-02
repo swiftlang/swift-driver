@@ -24,7 +24,7 @@ import TSCBasic
 @_spi(Testing) public final class ModuleDepGraphNode {
   /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
   let dependencyKey: DependencyKey
-
+  
   /// The frontend records in the fingerprint, all of the information about an
   /// entity, such that any uses need be rebuilt only if the fingerprint
   /// changes.
@@ -40,8 +40,8 @@ import TSCBasic
   /// it adds a dependency to it from the implementation source file node (which
   /// has the intefaceHash as its fingerprint).
   let fingerprint: String?
-
-
+  
+  
   /// The swiftDeps file that holds this entity iff the entities .swiftdeps is known.
   /// If more than one source file has the same DependencyKey, then there
   /// will be one node for each in the driver, distinguished by this field.
@@ -50,9 +50,9 @@ import TSCBasic
   /// Nil represents a node with no known residance
   let swiftDeps: String?
   var isExpat: Bool { swiftDeps == nil }
-
-
- /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
+  
+  
+  /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
   /// SourceFileDependencyGraph or the DependencyKeys
   init(key: DependencyKey, fingerprint: String?, swiftDeps: String?) {
     self.dependencyKey = key
@@ -67,7 +67,7 @@ extension ModuleDepGraphNode: Equatable, Hashable {
     lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.swiftDeps == rhs.swiftDeps
   }
-
+  
   public func hash(into hasher: inout Hasher) {
     hasher.combine(dependencyKey)
     hasher.combine(fingerprint)
@@ -87,7 +87,7 @@ extension ModuleDepGraphNode {
     verifyExpatsHaveNoFingerprints()
     dependencyKey.verify()
   }
-
+  
   public func verifyExpatsHaveNoFingerprints() {
     if isExpat && fingerprint != nil {
       fatalError(#function)

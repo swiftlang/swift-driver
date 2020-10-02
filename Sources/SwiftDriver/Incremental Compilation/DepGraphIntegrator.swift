@@ -64,23 +64,23 @@ extension DepGraphIntegrator {
     return hadError ? nil : Set(changedNodes)
   }
 
- /// Returns a nil graph if there's a error
+  /// Returns a nil graph if there's a error
   private static func getSourceFileDependencyGraphs(job: Job,
                                                     diagnosticEngine: DiagnosticsEngine)
   -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)]
   {
     let swiftDepsOutputs = job.outputs.filter {$0.type == .swiftDeps}
     return swiftDepsOutputs.map {
-        do {
-          return try SourceFileDependencyGraph.read(from: $0)
-        }
-        catch {
-          diagnosticEngine.emit(
-            .error_cannot_read_swiftdeps(file: $0, reason: error.localizedDescription)
-          )
-          return (graph: nil, swiftDeps: $0.file.name)
-        }
+      do {
+        return try SourceFileDependencyGraph.read(from: $0)
       }
+      catch {
+        diagnosticEngine.emit(
+          .error_cannot_read_swiftdeps(file: $0, reason: error.localizedDescription)
+        )
+        return (graph: nil, swiftDeps: $0.file.name)
+      }
+    }
   }
 }
 
@@ -97,8 +97,8 @@ extension DepGraphIntegrator {
   ->  Set<ModuleDepGraphNode>
   {
     var integrator = Self(source: g,
-                            swiftDeps: swiftDeps,
-                            destination: destination)
+                          swiftDeps: swiftDeps,
+                          destination: destination)
     integrator.integrate()
 
     if destination.verifyDependencyGraphAfterEveryImport {
@@ -161,8 +161,8 @@ extension DepGraphIntegrator {
   }
 
   private func integrate(
-      _ integrand: SourceFileDependencyGraph.Node,
-      reconcilingWith preexistingMatch: ModuleDepGraphNode?
+    _ integrand: SourceFileDependencyGraph.Node,
+    reconcilingWith preexistingMatch: ModuleDepGraphNode?
   )
   -> (foundChange: Bool, integratedNode: ModuleDepGraphNode)
   {
@@ -171,23 +171,23 @@ extension DepGraphIntegrator {
       "preexistingMatch must be nil or here or expat"
     )
     switch preexistingMatch {
-      case nil:
+    case nil:
       // no match, or match for a different decl
       // create a new node
-        return (foundChange: true, integratedNode: integrateANewDef(integrand))
+      return (foundChange: true, integratedNode: integrateANewDef(integrand))
 
-      case let node?
-            where node.swiftDeps == swiftDeps
-            && node.fingerprint == integrand.fingerprint:
-        // no change
-        return (foundChange: false, integratedNode: node)
+    case let node?
+          where node.swiftDeps == swiftDeps
+          && node.fingerprint == integrand.fingerprint:
+      // no change
+      return (foundChange: false, integratedNode: node)
 
-      case let node?:
-        let integratedNode = destination.nodeFinder
-          .replace(node,
-                   newSwiftDeps: swiftDeps,
-                   newFingerprint: integrand.fingerprint)
-        return ( foundChange: true, integratedNode: integratedNode )
+    case let node?:
+      let integratedNode = destination.nodeFinder
+        .replace(node,
+                 newSwiftDeps: swiftDeps,
+                 newFingerprint: integrand.fingerprint)
+      return ( foundChange: true, integratedNode: integratedNode )
     }
   }
 
