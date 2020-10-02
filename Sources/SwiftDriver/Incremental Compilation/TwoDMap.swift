@@ -13,18 +13,18 @@
 
 /// A map with 2 keys that can iterate in a number of ways
 @_spi(Testing) public struct TwoDMap<Key1: Hashable, Key2: Hashable, Value: Equatable>: MutableCollection {
-  
+
   private var map1 = DictionaryOfDictionaries<Key1, Key2, Value>()
   private var map2 = DictionaryOfDictionaries<Key2, Key1, Value>()
-  
+
   public typealias Key = (Key1, Key2)
   public typealias Element = (Key, Value)
   public typealias Index = DictionaryOfDictionaries<Key1, Key2, Value>.Index
-  
-  
-  
+
+
+
   public init() {}
-  
+
   public subscript(position: Index) -> Element {
     get { map1[position] }
     set {
@@ -32,31 +32,31 @@
       map2[(newValue.0.1, newValue.0.0)] = newValue.1
     }
   }
-  
+
   public subscript(key: Key) -> Value? {
     get { map1[key] }
   }
-  
+
   public subscript(key: Key1) -> [Key2: Value]? {
     get { map1[key] }
   }
-  
+
   public subscript(key: Key2) -> [Key1: Value]? {
     get { map2[key] }
   }
-  
+
   public var startIndex: Index {
     map1.startIndex
   }
-  
+
   public var endIndex: Index {
     map1.endIndex
   }
-  
+
   public func index(after i: Index) -> Index {
     map1.index(after: i)
   }
-  
+
   @discardableResult
   public mutating func updateValue(_ v: Value, forKey keys: (Key1, Key2)) -> Value? {
     let inserted1 = map1.updateValue(v, forKey:  keys           )
@@ -64,7 +64,7 @@
     assert(inserted1 == inserted2)
     return inserted1
   }
-  
+
   @discardableResult
   public mutating func removeValue(forKey keys: (Key1, Key2)) -> Value? {
     let v1 = map1.removeValue(forKey:  keys           )
@@ -72,7 +72,7 @@
     assert(v1 == v2)
     return v1
   }
-  
+
   /// Verify the integrity of each map and the cross-map consistency.
   /// Then call \p verifyFn for each entry found in each of the two maps,
   /// passing an index so that the verifyFn knows which map is being tested.
@@ -88,11 +88,10 @@
     }
     return true
   }
-  
+
   public func compactMap<R>(_ fn: ((Key1, Key2), Value) -> R?)
   -> [R]
   {
     map1.compactMap(fn)
   }
 }
-

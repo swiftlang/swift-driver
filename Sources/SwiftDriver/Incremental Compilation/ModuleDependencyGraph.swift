@@ -123,8 +123,7 @@ extension ModuleDependencyGraph {
   ) {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
-    nodeFinder.forEachUse(of: key) {
-      use, useSwiftDeps in
+    nodeFinder.forEachUse(of: key) { use, useSwiftDeps in
       if isUntraced(use) {
         fn(jobTracker.getJob(useSwiftDeps))
       }

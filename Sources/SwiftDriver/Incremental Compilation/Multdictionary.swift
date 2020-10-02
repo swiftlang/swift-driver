@@ -55,7 +55,7 @@
   }
   
   public subscript(key: Key) -> (key: Key, values: Set<Value>)? {
-    outerDict[key].map {(key: key, values: $0)}
+    outerDict[key].map { (key: key, values: $0) }
   }
   
   public func keysContainingValue(_ v: Value) -> [Key] {

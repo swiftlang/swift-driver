@@ -52,13 +52,15 @@ extension DepGraphIntegrator {
     let graphsAndDeps = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
 
     let goodGraphsAndDeps = graphsAndDeps
-      .compactMap {gd in gd.graph.map {(graph: $0, swiftDeps: gd.swiftDeps)}}
-
+      .compactMap {gd in
+        gd.graph.map {
+          (graph: $0, swiftDeps: gd.swiftDeps)
+        }
+      }
     let changedNodes = goodGraphsAndDeps
       .flatMap {
         integrate(from: $0.graph, swiftDeps: $0.swiftDeps, into: destination)
       }
-
     let hadError = graphsAndDeps.count != goodGraphsAndDeps.count
 
     return hadError ? nil : Set(changedNodes)
@@ -113,7 +115,7 @@ extension DepGraphIntegrator {
   private mutating func integrate() {
     disappearedNodes = destination.nodeFinder.findNodes(for: swiftDeps) ?? [:]
 
-    source.forEachNode {integrate(oneNode: $0) }
+    source.forEachNode { integrate(oneNode: $0) }
     for (_, node) in disappearedNodes {
       changedNodes.insert(node)
       destination.nodeFinder.remove(node)
@@ -167,7 +169,9 @@ extension DepGraphIntegrator {
   -> (foundChange: Bool, integratedNode: ModuleDepGraphNode)
   {
     precondition(
-      preexistingMatch.flatMap {$0.swiftDeps.map {$0 == swiftDeps} ?? true} ?? true,
+      preexistingMatch.flatMap {
+        $0.swiftDeps.map {$0 == swiftDeps} ?? true}
+        ?? true,
       "preexistingMatch must be nil or here or expat"
     )
     switch preexistingMatch {
