@@ -74,8 +74,7 @@
   }
   
   public mutating func removeValue(_ v: Value) {
-    let changedPairs = outerDict.compactMap {
-      kv -> (key: Key, value: Set<Value>?)? in
+    let changedPairs = outerDict.compactMap { kv -> (key: Key, value: Set<Value>?)? in
       var vals = kv.value
       guard vals.contains(v) else { return nil}
       vals.remove(v)

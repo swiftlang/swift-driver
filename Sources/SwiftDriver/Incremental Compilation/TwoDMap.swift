@@ -89,8 +89,7 @@
     return true
   }
 
-  public func compactMap<R>(_ fn: ((Key1, Key2), Value) -> R?)
-  -> [R]
+  public func compactMap<R>(_ fn: ((Key1, Key2), Value) -> R?) -> [R]
   {
     map1.compactMap(fn)
   }

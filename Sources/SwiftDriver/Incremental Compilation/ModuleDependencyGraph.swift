@@ -49,9 +49,8 @@ extension ModuleDependencyGraph {
   static func buildInitialGraph(jobs: [Job],
                                 verifyDependencyGraphAfterEveryImport: Bool,
                                 emitDependencyDotFileAfterEveryImport: Bool,
-                                diagnosticEngine: DiagnosticsEngine)
-  -> Self
-  {
+                                diagnosticEngine: DiagnosticsEngine
+  ) -> Self {
     let r = Self(verifyDependencyGraphAfterEveryImport: verifyDependencyGraphAfterEveryImport,
                  emitDependencyDotFileAfterEveryImport: emitDependencyDotFileAfterEveryImport,
                  diagnosticEngine: diagnosticEngine)
@@ -65,17 +64,16 @@ extension ModuleDependencyGraph {
 
 // MARK: - finding jobs (public interface)
 extension ModuleDependencyGraph {
-  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(_ job: Job)
-  -> [Job]
-  {
+  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(
+    _ job: Job
+  ) -> [Job] {
     let allNodesInJob = findAllNodes(in: job)
     return findJobsToRecompileWhenNodesChange(allNodesInJob);
   }
   
   @_spi(Testing) public func findJobsToRecompileWhenNodesChange(
-    _ nodes: [ModuleDepGraphNode])
-  -> [Job]
-  {
+    _ nodes: [ModuleDepGraphNode]
+  ) -> [Job] {
     let affectedNodes = ModuleDepGraphTracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
       .tracedUses
     return jobsContaining(affectedNodes)
@@ -85,9 +83,8 @@ extension ModuleDependencyGraph {
   // Can return duplicates, but it doesn't break anything, and they will be
   // canonicalized later.
   @_spi(Testing) public func findExternallyDependentUntracedJobs(
-    _ externalDependency: String)
-  -> [Job]
-  {
+    _ externalDependency: String
+  ) -> [Job] {
     var foundJobs = [Job]()
     
     forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(externalSwiftDeps: externalDependency) {
@@ -112,8 +109,7 @@ extension Job {
 // MARK: - finding jobs (private functions)
 extension ModuleDependencyGraph {
   
-  private func findAllNodes(in job: Job)
-  -> [ModuleDepGraphNode] {
+  private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
     job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
   }
   
@@ -185,8 +181,7 @@ extension ModuleDependencyGraph {
     return false
   }
   
-  private func nodesIn(swiftDeps: String) -> [ModuleDepGraphNode]
-  {
+  private func nodesIn(swiftDeps: String) -> [ModuleDepGraphNode] {
     nodeFinder.findNodes(for: swiftDeps)
       .map {Array($0.values)}
       ?? []

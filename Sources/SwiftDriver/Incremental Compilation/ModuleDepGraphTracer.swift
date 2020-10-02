@@ -33,10 +33,10 @@ import TSCBasic
 
 // MARK:- Tracing
 extension ModuleDepGraphTracer {
-  @_spi(Testing) public static func findPreviouslyUntracedUsesOf(defs: [ModuleDepGraphNode],
-                                                                 in graph: ModuleDependencyGraph)
-  -> Self
-  {
+  @_spi(Testing) public static func findPreviouslyUntracedUsesOf(
+    defs: [ModuleDepGraphNode],
+    in graph: ModuleDependencyGraph
+  ) -> Self {
     var tracer = Self(findingUsesOf: defs, in: graph)
     tracer.findPreviouslyUntracedDependents()
     return tracer

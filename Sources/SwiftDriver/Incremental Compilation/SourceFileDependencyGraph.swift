@@ -118,9 +118,8 @@ extension SourceFileDependencyGraph {
     case unknownKind
   }
   
-  public static func read(from file: TypedVirtualPath)
-  throws -> (graph: Self?, swiftDeps: String)
-  {
+  public static func read(from file: TypedVirtualPath
+  ) throws -> (graph: Self?, swiftDeps: String) {
     guard case .swiftDeps = file.type
     else {
       throw ReadError.notSwiftDeps

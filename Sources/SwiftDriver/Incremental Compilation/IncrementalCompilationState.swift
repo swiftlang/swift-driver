@@ -85,8 +85,8 @@ import SwiftOptions
     }
   }
   
-  private static func getShowIncrementalBuildDecisions(_ parsedOptions: inout ParsedOptions)
-  -> Bool {
+  private static func getShowIncrementalBuildDecisions(
+    _ parsedOptions: inout ParsedOptions) -> Bool {
     parsedOptions.hasArgument(.driverShowIncremental)
   }
   
@@ -95,9 +95,7 @@ import SwiftOptions
     showIncrementalBuildDecisions: Bool,
     compilerMode: CompilerMode,
     diagnosticEngine: DiagnosticsEngine
-  )
-  -> Bool
-  {
+  ) -> Bool {
     guard parsedOptions.hasArgument(.incremental) else {
       return false
     }

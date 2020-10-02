@@ -93,15 +93,12 @@ extension ModuleDependencyGraph.NodeFinder {
   
   /// Add \c node to the structure, return the old node if any at those coordinates.
   @discardableResult
-  mutating func insert(_ n: ModuleDepGraphNode)
-  -> ModuleDepGraphNode?
-  {
+  mutating func insert(_ n: ModuleDepGraphNode) -> ModuleDepGraphNode? {
     nodeMap.updateValue(n, forKey: n.mapKey)
   }
   
   /// record def-use, return if is new use
-  mutating func record(def: DependencyKey, use: ModuleDepGraphNode)
-  -> Bool {
+  mutating func record(def: DependencyKey, use: ModuleDepGraphNode) -> Bool {
     verifyUseIsOK(use)
     return usesByDef.addValue(use, forKey: def)
   }
@@ -139,9 +136,8 @@ extension ModuleDependencyGraph.NodeFinder {
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: ModuleDepGraphNode,
                         newSwiftDeps: String,
-                        newFingerprint: String?)
-  -> ModuleDepGraphNode
-  {
+                        newFingerprint: String?
+  ) -> ModuleDepGraphNode {
     let replacement = ModuleDepGraphNode(key: original.dependencyKey,
                                          fingerprint: newFingerprint,
                                          swiftDeps: newSwiftDeps)

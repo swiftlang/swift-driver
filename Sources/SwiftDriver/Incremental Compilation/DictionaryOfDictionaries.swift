@@ -14,9 +14,7 @@
 /// It supports iterating over all 2nd-level pairs. See \code subscript(key: OuterKey)
 
 import Foundation
-@_spi(Testing) public  struct DictionaryOfDictionaries
-<OuterKey: Hashable, InnerKey: Hashable, Value>: Collection
-{
+@_spi(Testing) public struct DictionaryOfDictionaries<OuterKey: Hashable, InnerKey: Hashable, Value>: Collection {
   public typealias InnerDict = [InnerKey: Value]
   public typealias OuterDict = [OuterKey: InnerDict]
   
@@ -63,9 +61,7 @@ extension DictionaryOfDictionaries {
     return .end
   }
   
-  public func index(after i: Index)
-  -> Index
-  {
+  public func index(after i: Index) -> Index {
     switch i {
     case .end: fatalError("index at end")
     case let .notEnd(outerIndex, innerIndex):
@@ -114,9 +110,8 @@ extension DictionaryOfDictionaries {
 
 // MARK: - mutating
 extension DictionaryOfDictionaries {
-  mutating func updateValue(_ v: Value, forKey keys : (OuterKey,InnerKey))
-  -> Value?
-  {
+  mutating func updateValue(_ v: Value, forKey keys : (OuterKey,InnerKey)
+  ) -> Value? {
     if var innerDict = outerDict[keys.0] {
       let old = innerDict.updateValue(v, forKey: keys.1)
       outerDict.updateValue(innerDict, forKey: keys.0)
@@ -126,9 +121,8 @@ extension DictionaryOfDictionaries {
     return nil
   }
   
-  mutating func removeValue(forKey keys : (OuterKey,InnerKey))
-  -> Value?
-  {
+  mutating func removeValue(forKey keys : (OuterKey,InnerKey)
+  ) -> Value? {
     guard var innerDict = outerDict[keys.0]
     else { return nil }
     let old = innerDict.removeValue(forKey: keys.1)

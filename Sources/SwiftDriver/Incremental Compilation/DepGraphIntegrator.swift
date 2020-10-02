@@ -45,9 +45,8 @@ extension DepGraphIntegrator {
   @_spi(Testing) public static func integrate(
     job: Job,
     into destination: ModuleDependencyGraph,
-    diagnosticEngine: DiagnosticsEngine)
-  -> Changes
-  {
+    diagnosticEngine: DiagnosticsEngine
+  ) -> Changes {
     destination.jobTracker.registerJob(job)
     let graphsAndDeps = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
 
@@ -68,9 +67,8 @@ extension DepGraphIntegrator {
 
   /// Returns a nil graph if there's a error
   private static func getSourceFileDependencyGraphs(job: Job,
-                                                    diagnosticEngine: DiagnosticsEngine)
-  -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)]
-  {
+                                                    diagnosticEngine: DiagnosticsEngine
+  ) -> [(graph: SourceFileDependencyGraph?, swiftDeps: String)] {
     let swiftDepsOutputs = job.outputs.filter {$0.type == .swiftDeps}
     return swiftDepsOutputs.map {
       do {
@@ -95,9 +93,8 @@ extension DepGraphIntegrator {
   @_spi(Testing) public static func integrate(
     from g: SourceFileDependencyGraph,
     swiftDeps: String,
-    into destination: ModuleDependencyGraph)
-  ->  Set<ModuleDepGraphNode>
-  {
+    into destination: ModuleDependencyGraph
+  ) ->  Set<ModuleDepGraphNode> {
     var integrator = Self(source: g,
                           swiftDeps: swiftDeps,
                           destination: destination)
@@ -136,8 +133,7 @@ extension DepGraphIntegrator {
 
     let preexistingMatchHereOrExpat =
       destination.nodeFinder.findNodes(for: integrand.key)
-      .flatMap {
-        (matches: [String?: ModuleDepGraphNode]) -> ModuleDepGraphNode? in
+      .flatMap { (matches: [String?: ModuleDepGraphNode]) -> ModuleDepGraphNode? in
         if let matchHere = matches[swiftDeps] {
           // Node was and still is. Do not remove it.
           disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
@@ -165,9 +161,7 @@ extension DepGraphIntegrator {
   private func integrate(
     _ integrand: SourceFileDependencyGraph.Node,
     reconcilingWith preexistingMatch: ModuleDepGraphNode?
-  )
-  -> (foundChange: Bool, integratedNode: ModuleDepGraphNode)
-  {
+  ) -> (foundChange: Bool, integratedNode: ModuleDepGraphNode) {
     precondition(
       preexistingMatch.flatMap {
         $0.swiftDeps.map {$0 == swiftDeps} ?? true}
@@ -195,9 +189,8 @@ extension DepGraphIntegrator {
     }
   }
 
-  private func integrateANewDef(_ integrand: SourceFileDependencyGraph.Node)
-  -> ModuleDepGraphNode
-  {
+  private func integrateANewDef(_ integrand: SourceFileDependencyGraph.Node
+  ) -> ModuleDepGraphNode {
     precondition(integrand.isProvides, "Dependencies are arcs in the module graph")
     let newNode = ModuleDepGraphNode(
       key: integrand.key,
@@ -211,9 +204,7 @@ extension DepGraphIntegrator {
   /// Return true for new external dependency
   func recordWhatIsDependendedUpon(
     _ sourceFileUseNode: SourceFileDependencyGraph.Node,
-    _ moduleUseNode: ModuleDepGraphNode)
-  -> Bool
-  {
+    _ moduleUseNode: ModuleDepGraphNode) -> Bool {
     var useHasNewExternalDependency = false
     source.forEachDefDependedUpon(by: sourceFileUseNode) {
       def in
@@ -230,9 +221,7 @@ extension DepGraphIntegrator {
 // MARK: - verification
 extension DepGraphIntegrator {
   @discardableResult
-  func verifyAfterImporting()
-  -> Bool
-  {
+  func verifyAfterImporting() -> Bool {
     guard let nodesInFile = destination.nodeFinder.findNodes(for: swiftDeps),
           !nodesInFile.isEmpty
     else {
