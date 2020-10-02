@@ -941,7 +941,7 @@ extension ModuleDependencyGraph {
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
-  -> DepGraphIntegrator.Changes
+  -> DepGraphIntegrator.Changes?
   {
     jobTracker.registerJob(cmd)
 

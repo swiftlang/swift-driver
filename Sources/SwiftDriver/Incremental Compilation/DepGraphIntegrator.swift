@@ -17,8 +17,7 @@ import TSCBasic
 /// Integrates a \c SourceFileDependencyGraph into a \c ModuleDependencyGraph
 /// The former comes from a frontend job, and the latter is used by the driver.
 @_spi(Testing) public struct DepGraphIntegrator {
-  /// nil means there was an error
-  @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>?
+  @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>
 
   let source: SourceFileDependencyGraph
   let swiftDeps: String
@@ -26,7 +25,7 @@ import TSCBasic
 
   /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
 
-  var changedNodes = Set<ModuleDepGraphNode>()
+  var changedNodes = Changes()
   var disappearedNodes = [DependencyKey: ModuleDepGraphNode]()
 
   init(source: SourceFileDependencyGraph,
@@ -42,11 +41,12 @@ import TSCBasic
 // MARK: - integrate a Job
 
 extension DepGraphIntegrator {
+  /// returns nil means there was an error
   @_spi(Testing) public static func integrate(
     job: Job,
     into destination: ModuleDependencyGraph,
     diagnosticEngine: DiagnosticsEngine
-  ) -> Changes {
+  ) -> Changes? {
     destination.jobTracker.registerJob(job)
     let graphsAndDeps = getSourceFileDependencyGraphs(job: job, diagnosticEngine: diagnosticEngine)
 
@@ -94,7 +94,7 @@ extension DepGraphIntegrator {
     from g: SourceFileDependencyGraph,
     swiftDeps: String,
     into destination: ModuleDependencyGraph
-  ) ->  Set<ModuleDepGraphNode> {
+  ) ->  Changes {
     var integrator = Self(source: g,
                           swiftDeps: swiftDeps,
                           destination: destination)
