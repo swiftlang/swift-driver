@@ -238,3 +238,33 @@ private extension SwiftModuleDetails {
     self.isFramework = false
   }
 }
+
+/// An extension to allow clients to accumulate InterModuleDependencyGraphs across mutiple main modules/targets
+/// into a single collection of discovered modules.
+public extension InterModuleDependencyGraph {
+  static func mergeModules(
+    from dependencyGraph: InterModuleDependencyGraph,
+    into discoveredModules: inout ModuleInfoMap
+  ) throws {
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      switch moduleId {
+        case .swift:
+          discoveredModules[moduleId] = moduleInfo
+        case .clang:
+          guard let existingModuleInfo = discoveredModules[moduleId] else {
+            discoveredModules[moduleId] = moduleInfo
+            break
+          }
+          // If this module *has* been seen before, merge the module infos to capture
+          // the super-set of so-far discovered dependencies of this module at various
+          // PCMArg scanning actions.
+          let combinedDependenciesInfo =
+            Self.mergeClangModuleInfoDependencies(moduleInfo,
+                                                  existingModuleInfo)
+          discoveredModules[moduleId] = combinedDependenciesInfo
+        case .swiftPlaceholder:
+          fatalError("Unresolved placeholder dependencies at manifest build stage: \(moduleId)")
+      }
+    }
+  }
+}
