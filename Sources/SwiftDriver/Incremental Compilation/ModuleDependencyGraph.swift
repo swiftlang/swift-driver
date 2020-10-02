@@ -127,14 +127,16 @@ extension ModuleDependencyGraph {
   }
   
   private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
-  where Nodes.Element == ModuleDepGraphNode {
+  where Nodes.Element == ModuleDepGraphNode
+  {
     computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
   }
 }
 // MARK: - finding nodes; swiftDeps
 extension ModuleDependencyGraph {
   private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [String]
-  where Nodes.Element == ModuleDepGraphNode {
+  where Nodes.Element == ModuleDepGraphNode
+  {
     var swiftDepsOfNodes = Set<String>()
     for n in nodes {
       if let swiftDeps = n.swiftDeps {
@@ -158,7 +160,8 @@ extension ModuleDependencyGraph {
     tracedNodes.insert(n)
   }
   func ensureGraphWillRetrace<Nodes: Sequence>(_ nodes: Nodes)
-  where Nodes.Element == ModuleDepGraphNode {
+  where Nodes.Element == ModuleDepGraphNode
+  {
     nodes.forEach { tracedNodes.remove($0) }
   }
 }
