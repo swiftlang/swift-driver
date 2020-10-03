@@ -28,10 +28,21 @@ add_library(SwiftDriver
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
 
+  "Incremental Compilation/ModuleDependencyGraph Parts/Integrator.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/JobTracker.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/Node.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/NodeFinder.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/SwiftDeps.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/Tracer.swift"
+  "Incremental Compilation/DependencyKey.swift"
+  "Incremental Compilation/DictionaryOfDictionaries.swift"
   "Incremental Compilation/IncrementalCompilationState.swift"
   "Incremental Compilation/InputIInfoMap.swift"
   "Incremental Compilation/InputInfo.swift"
+  "Incremental Compilation/ModuleDependencyGraph.swift"
+  "Incremental Compilation/Multidictionary.swift"
   "Incremental Compilation/SourceFileDependencyGraph.swift"
+  "Incremental Compilation/TwoDMap.swift"
 
   Jobs/AutolinkExtractJob.swift
   Jobs/BackendJob.swift
