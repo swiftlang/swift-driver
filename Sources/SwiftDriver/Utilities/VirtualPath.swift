@@ -76,6 +76,22 @@ public enum VirtualPath: Hashable {
     }
   }
 
+  public var relativePath: RelativePath? {
+    guard case .relative(let relativePath) = self else { return nil }
+    return relativePath
+  }
+  
+  /// If the path is some kind of temporary file, returns the `RelativePath`
+  /// representing its name.
+  public var temporaryFileName: RelativePath? {
+    switch self {
+    case .temporary(let name), .fileList(let name, _):
+      return name
+    case .absolute, .relative, .standardInput, .standardOutput:
+      return nil
+    }
+  }
+
   /// Retrieve the basename of the path.
   public var basename: String {
     switch self {
