@@ -21,7 +21,7 @@ import TSCBasic
   
   /// When integrating a change, want to find untraced nodes so we can kick off jobs that have not been
   /// kicked off yet
-  private var tracedNodes = Set<ModuleDepGraphNode>()
+  private var tracedNodes = Set<Node>()
   
   @_spi(Testing) public var jobTracker = JobTracker()
   
@@ -55,8 +55,8 @@ extension ModuleDependencyGraph {
                  emitDependencyDotFileAfterEveryImport: emitDependencyDotFileAfterEveryImport,
                  diagnosticEngine: diagnosticEngine)
     for job in jobs {
-      _ = DepGraphIntegrator.integrate(job: job, into: r,
-                                       diagnosticEngine: diagnosticEngine)
+      _ = Integrator.integrate(job: job, into: r,
+                               diagnosticEngine: diagnosticEngine)
     }
     return r
   }
@@ -72,9 +72,9 @@ extension ModuleDependencyGraph {
   }
   
   @_spi(Testing) public func findJobsToRecompileWhenNodesChange(
-    _ nodes: [ModuleDepGraphNode]
+    _ nodes: [Node]
   ) -> [Job] {
-    let affectedNodes = ModuleDepGraphTracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
+    let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
       .tracedUses
     return jobsContaining(affectedNodes)
   }
@@ -100,15 +100,15 @@ extension ModuleDependencyGraph {
 }
 
 extension Job {
-  @_spi(Testing) public var allSwiftDeps: [SwiftDeps] {
-    outputs.compactMap(SwiftDeps.init)
+  @_spi(Testing) public var allSwiftDeps: [ModuleDependencyGraph.SwiftDeps] {
+    outputs.compactMap(ModuleDependencyGraph.SwiftDeps.init)
   }
 }
 
 // MARK: - finding jobs (private functions)
 extension ModuleDependencyGraph {
   
-  private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
+  private func findAllNodes(in job: Job) -> [Node] {
     job.allSwiftDeps.flatMap(nodes(in:))
   }
   
@@ -126,7 +126,7 @@ extension ModuleDependencyGraph {
   }
   
   private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
-  where Nodes.Element == ModuleDepGraphNode
+  where Nodes.Element == Node
   {
     computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
   }
@@ -134,7 +134,7 @@ extension ModuleDependencyGraph {
 // MARK: - finding nodes; swiftDeps
 extension ModuleDependencyGraph {
   private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [SwiftDeps]
-  where Nodes.Element == ModuleDepGraphNode
+  where Nodes.Element == Node
   {
     var swiftDepsOfNodes = Set<SwiftDeps>()
     for n in nodes {
@@ -149,17 +149,17 @@ extension ModuleDependencyGraph {
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
   
-  func isUntraced(_ n: ModuleDepGraphNode) -> Bool {
+  func isUntraced(_ n: Node) -> Bool {
     !isTraced(n)
   }
-  func isTraced(_ n: ModuleDepGraphNode) -> Bool {
+  func isTraced(_ n: Node) -> Bool {
     tracedNodes.contains(n)
   }
-  func amTracing(_ n: ModuleDepGraphNode) {
+  func amTracing(_ n: Node) {
     tracedNodes.insert(n)
   }
   func ensureGraphWillRetrace<Nodes: Sequence>(_ nodes: Nodes)
-  where Nodes.Element == ModuleDepGraphNode
+  where Nodes.Element == Node
   {
     nodes.forEach { tracedNodes.remove($0) }
   }
@@ -183,7 +183,7 @@ extension ModuleDependencyGraph {
     return false
   }
   
-  private func nodes(in swiftDeps: SwiftDeps) -> [ModuleDepGraphNode] {
+  private func nodes(in swiftDeps: SwiftDeps) -> [Node] {
     nodeFinder.findNodes(for: swiftDeps)
       .map {Array($0.values)}
       ?? []

@@ -16,6 +16,7 @@ extension ModuleDependencyGraph {
   
   ///Since the rest of the driver trucks in jobs, the correspondence must be tracked
   @_spi(Testing) public struct JobTracker {
+
     /// Keyed by swiftdeps filename, so we can get back to Jobs.
     private var jobsBySwiftDeps: [SwiftDeps: Job] = [:]
 

@@ -1,4 +1,4 @@
-//===---------- DepGraphIntegrator.swift ----------------------------------===//
+//===------------------ Integrator.swift ----------------------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -12,38 +12,45 @@
 
 import TSCBasic
 
-// MARK: - state & creation
+extension ModuleDependencyGraph {
 
-/// Integrates a \c SourceFileDependencyGraph into a \c ModuleDependencyGraph
-/// The former comes from a frontend job, and the latter is used by the driver.
-@_spi(Testing) public struct DepGraphIntegrator {
-  @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>
+  // MARK: Integrator - state & creation
 
-  let source: SourceFileDependencyGraph
-  let swiftDeps: SwiftDeps
-  let destination: ModuleDependencyGraph
+  /// Integrates a \c SourceFileDependencyGraph into a \c ModuleDependencyGraph
+  /// The former comes from a frontend job, and the latter is used by the driver.
+  @_spi(Testing) public struct Integrator {
 
-  /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
+    // Shorthands
+    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
 
-  var changedNodes = Changes()
-  var disappearedNodes = [DependencyKey: ModuleDepGraphNode]()
+    @_spi(Testing) public  typealias Changes = Set<Node>
 
-  init(source: SourceFileDependencyGraph,
-       swiftDeps: SwiftDeps,
-       destination: ModuleDependencyGraph)
-  {
-    self.source = source
-    self.swiftDeps = swiftDeps
-    self.destination = destination
+    let source: SourceFileDependencyGraph
+    let swiftDeps: SwiftDeps
+    let destination: ModuleDependencyGraph
+
+    /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
+
+    var changedNodes = Changes()
+    var disappearedNodes = [DependencyKey: Graph.Node]()
+
+    init(source: SourceFileDependencyGraph,
+         swiftDeps: SwiftDeps,
+         destination: ModuleDependencyGraph)
+    {
+      self.source = source
+      self.swiftDeps = swiftDeps
+      self.destination = destination
+    }
   }
 }
 
 // MARK: - integrate a Job
 
-extension DepGraphIntegrator {
+extension ModuleDependencyGraph.Integrator {
   private enum LoadedDependencyGraph {
-    case success(SourceFileDependencyGraph, SwiftDeps)
-    case failure(SwiftDeps)
+    case success(SourceFileDependencyGraph, Graph.SwiftDeps)
+    case failure(Graph.SwiftDeps)
   }
 
   /// returns nil means there was an error
@@ -91,13 +98,13 @@ extension DepGraphIntegrator {
 
 // MARK: - integrate a graph
 
-extension DepGraphIntegrator {
+extension ModuleDependencyGraph.Integrator {
   /// Integrate a SourceFileDepGraph into the receiver.
   /// Integration happens when the driver needs to read SourceFileDepGraph.
   /// Returns changed nodes
   @_spi(Testing) public static func integrate(
     from g: SourceFileDependencyGraph,
-    swiftDeps: SwiftDeps,
+    swiftDeps: Graph.SwiftDeps,
     into destination: ModuleDependencyGraph
   ) ->  Changes {
     var integrator = Self(source: g,
@@ -127,7 +134,7 @@ extension DepGraphIntegrator {
 }
 
 // MARK: - integrate a node
-extension DepGraphIntegrator {
+extension ModuleDependencyGraph.Integrator {
   private mutating func integrate(
     oneNode integrand: SourceFileDependencyGraph.Node)
   {
@@ -138,7 +145,8 @@ extension DepGraphIntegrator {
 
     let preexistingMatchHereOrExpat =
       destination.nodeFinder.findNodes(for: integrand.key)
-      .flatMap { (matches: [SwiftDeps?: ModuleDepGraphNode]) -> ModuleDepGraphNode? in
+      .flatMap { (matches: [Graph.SwiftDeps?: Graph.Node])
+        -> Graph.Node? in
         if let matchHere = matches[swiftDeps] {
           // Node was and still is. Do not remove it.
           disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
@@ -165,8 +173,8 @@ extension DepGraphIntegrator {
 
   private func integrate(
     _ integrand: SourceFileDependencyGraph.Node,
-    reconcilingWith preexistingMatch: ModuleDepGraphNode?
-  ) -> (foundChange: Bool, integratedNode: ModuleDepGraphNode) {
+    reconcilingWith preexistingMatch: Graph.Node?
+  ) -> (foundChange: Bool, integratedNode: Graph.Node) {
     precondition(
       preexistingMatch.flatMap {
         $0.swiftDeps.map {$0 == swiftDeps} ?? true}
@@ -195,9 +203,9 @@ extension DepGraphIntegrator {
   }
 
   private func integrateNewDef(_ integrand: SourceFileDependencyGraph.Node
-  ) -> ModuleDepGraphNode {
+  ) -> Graph.Node {
     precondition(integrand.isProvides, "Dependencies are arcs in the module graph")
-    let newNode = ModuleDepGraphNode(
+    let newNode = Graph.Node(
       key: integrand.key,
       fingerprint: integrand.fingerprint,
       swiftDeps: swiftDeps)
@@ -209,7 +217,7 @@ extension DepGraphIntegrator {
   /// Return true for new external dependency
   func recordWhatIsDependedUpon(
     _ sourceFileUseNode: SourceFileDependencyGraph.Node,
-    _ moduleUseNode: ModuleDepGraphNode) -> Bool {
+    _ moduleUseNode: Graph.Node) -> Bool {
     var useHasNewExternalDependency = false
     source.forEachDefDependedUpon(by: sourceFileUseNode) {
       def in
@@ -225,7 +233,7 @@ extension DepGraphIntegrator {
 }
 
 // MARK: - verification
-extension DepGraphIntegrator {
+extension ModuleDependencyGraph.Integrator {
   @discardableResult
   func verifyAfterImporting() -> Bool {
     guard let nodesInFile = destination.nodeFinder.findNodes(for: swiftDeps),

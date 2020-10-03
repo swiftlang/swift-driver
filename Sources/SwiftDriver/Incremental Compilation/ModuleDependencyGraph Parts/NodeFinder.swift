@@ -1,4 +1,4 @@
-//===------------------ NodesAndUses.swift --------------------------------===//
+//===-------------------- NodeFinder.swift --------------------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -11,13 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 extension ModuleDependencyGraph {
-  
+
+  // Shorthands
+
   /// The core information for the ModuleDependencyGraph
   /// Isolate in a sub-structure in order to faciliate invariant maintainance
   struct NodeFinder {
+    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
     
     /// Maps swiftDeps files and DependencyKeys to Nodes
-    fileprivate typealias NodeMap = TwoDMap<SwiftDeps?, DependencyKey, ModuleDepGraphNode>
+    fileprivate typealias NodeMap = TwoDMap<SwiftDeps?, DependencyKey, Node>
     fileprivate var nodeMap = NodeMap()
     
     /// Since dependency keys use baseNames, they are coarser than individual
@@ -31,34 +34,35 @@ extension ModuleDependencyGraph {
     /// source file.)
     
     /// Tracks def-use relationships by DependencyKey.
-    private(set)var usesByDef = Multidictionary<DependencyKey, ModuleDepGraphNode>()
+    private(set)var usesByDef = Multidictionary<DependencyKey, Node>()
   }
 }
 // MARK: - finding
 extension ModuleDependencyGraph.NodeFinder {
-  func findFileInterfaceNode(forMock swiftDeps: SwiftDeps) -> ModuleDepGraphNode?  {
-   let fileKey = DependencyKey(fileKeyForMockSwiftDeps: swiftDeps)
+  func findFileInterfaceNode(forMock swiftDeps: ModuleDependencyGraph.SwiftDeps
+  ) -> Graph.Node?  {
+    let fileKey = DependencyKey(fileKeyForMockSwiftDeps: swiftDeps)
     return findNode((swiftDeps, fileKey))
   }
-  func findNode(_ mapKey: (SwiftDeps?, DependencyKey)) -> ModuleDepGraphNode? {
+  func findNode(_ mapKey: (Graph.SwiftDeps?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
   
-  func findNodes(for swiftDeps: SwiftDeps?) -> [DependencyKey: ModuleDepGraphNode]? {
+  func findNodes(for swiftDeps: Graph.SwiftDeps?) -> [DependencyKey: Graph.Node]? {
     nodeMap[swiftDeps]
   }
-  func findNodes(for key: DependencyKey) -> [SwiftDeps?: ModuleDepGraphNode]? {
+  func findNodes(for key: DependencyKey) -> [Graph.SwiftDeps?: Graph.Node]? {
     nodeMap[key]
   }
   
   /// Since uses must be somewhere, pass inthe swiftDeps to the function here
-  func forEachUse(_ fn: (DependencyKey, ModuleDepGraphNode, SwiftDeps) -> Void) {
+  func forEachUse(_ fn: (DependencyKey, Graph.Node, Graph.SwiftDeps) -> Void) {
     usesByDef.forEach {
       def, use in
       fn(def, use, useMustHaveSwiftDeps(use))
     }
   }
-  func forEachUse(of def: DependencyKey, _ fn: (ModuleDepGraphNode, SwiftDeps) -> Void) {
+  func forEachUse(of def: DependencyKey, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
     usesByDef[def].map {
       $0.values.forEach { use in
         fn(use, useMustHaveSwiftDeps(use))
@@ -66,7 +70,7 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  func mappings(of n: ModuleDepGraphNode) -> [(SwiftDeps?, DependencyKey)]
+  func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)]
   {
     nodeMap.compactMap {
       k, _ in
@@ -76,13 +80,13 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  func defsUsing(_ n: ModuleDepGraphNode) -> [DependencyKey] {
+  func defsUsing(_ n: Graph.Node) -> [DependencyKey] {
     usesByDef.keysContainingValue(n)
   }
 }
 
-fileprivate extension ModuleDepGraphNode {
-  var mapKey: (SwiftDeps?, DependencyKey) {
+fileprivate extension ModuleDependencyGraph.Node {
+  var mapKey: (Graph.SwiftDeps?, DependencyKey) {
     return (swiftDeps, dependencyKey)
   }
 }
@@ -93,12 +97,12 @@ extension ModuleDependencyGraph.NodeFinder {
   
   /// Add \c node to the structure, return the old node if any at those coordinates.
   @discardableResult
-  mutating func insert(_ n: ModuleDepGraphNode) -> ModuleDepGraphNode? {
+  mutating func insert(_ n: Graph.Node) -> Graph.Node? {
     nodeMap.updateValue(n, forKey: n.mapKey)
   }
   
   /// record def-use, return if is new use
-  mutating func record(def: DependencyKey, use: ModuleDepGraphNode) -> Bool {
+  mutating func record(def: DependencyKey, use: Graph.Node) -> Bool {
     verifyUseIsOK(use)
     return usesByDef.addValue(use, forKey: def)
   }
@@ -106,18 +110,18 @@ extension ModuleDependencyGraph.NodeFinder {
 
 // MARK: - removing
 extension ModuleDependencyGraph.NodeFinder {
-  mutating func remove(_ nodeToErase: ModuleDepGraphNode) {
+  mutating func remove(_ nodeToErase: Graph.Node) {
     // uses first preserves invariant that every used node is in nodeMap
     removeUsings(of: nodeToErase)
     removeMapping(of: nodeToErase)
   }
   
-  private mutating func removeUsings(of nodeToNotUse: ModuleDepGraphNode) {
+  private mutating func removeUsings(of nodeToNotUse: Graph.Node) {
     usesByDef.removeValue(nodeToNotUse)
     assert(defsUsing(nodeToNotUse).isEmpty)
   }
   
-  private mutating func removeMapping(of nodeToNotMap: ModuleDepGraphNode) {
+  private mutating func removeMapping(of nodeToNotMap: Graph.Node) {
     let old = nodeMap.removeValue(forKey: nodeToNotMap.mapKey)
     assert(old == nodeToNotMap, "Should have been there")
     assert(mappings(of: nodeToNotMap).isEmpty)
@@ -134,13 +138,13 @@ extension ModuleDependencyGraph.NodeFinder {
   /// the node to the proper collection.
   ///
   /// Now that nodes are immutable, this function needs to replace the node
-  mutating func replace(_ original: ModuleDepGraphNode,
-                        newSwiftDeps: SwiftDeps,
+  mutating func replace(_ original: Graph.Node,
+                        newSwiftDeps: Graph.SwiftDeps,
                         newFingerprint: String?
-  ) -> ModuleDepGraphNode {
-    let replacement = ModuleDepGraphNode(key: original.dependencyKey,
-                                         fingerprint: newFingerprint,
-                                         swiftDeps: newSwiftDeps)
+  ) -> Graph.Node {
+    let replacement = Graph.Node(key: original.dependencyKey,
+                                 fingerprint: newFingerprint,
+                                 swiftDeps: newSwiftDeps)
     usesByDef.replace(original, with: replacement, forKey: original.dependencyKey)
     nodeMap.removeValue(forKey: original.mapKey)
     nodeMap.updateValue(replacement, forKey: replacement.mapKey)
@@ -157,7 +161,7 @@ extension ModuleDependencyGraph.NodeFinder {
   }
   
   private func verifyNodeMap() {
-    var nodes = [Set<ModuleDepGraphNode>(), Set<ModuleDepGraphNode>()]
+    var nodes = [Set<Graph.Node>(), Set<Graph.Node>()]
     nodeMap.verify {
       _, v, submapIndex in
       if let prev = nodes[submapIndex].update(with: v) {
@@ -175,26 +179,26 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  private func useMustHaveSwiftDeps(_ n: ModuleDepGraphNode) -> SwiftDeps {
+  private func useMustHaveSwiftDeps(_ n: Graph.Node) -> Graph.SwiftDeps {
     assert(verifyUseIsOK(n))
     return n.swiftDeps!
   }
   
   @discardableResult
-  private func verifyUseIsOK(_ n: ModuleDepGraphNode) -> Bool {
+  private func verifyUseIsOK(_ n: Graph.Node) -> Bool {
     verifyUsedIsNotExpat(n)
     verifyNodeIsMapped(n)
     return true
   }
   
-  private func verifyNodeIsMapped(_ n: ModuleDepGraphNode) {
+  private func verifyNodeIsMapped(_ n: Graph.Node) {
     if findNode(n.mapKey) == nil {
       fatalError("\(n) should be mapped")
     }
   }
   
   @discardableResult
-  private func verifyUsedIsNotExpat(_ use: ModuleDepGraphNode) -> Bool {
+  private func verifyUsedIsNotExpat(_ use: Graph.Node) -> Bool {
     guard use.isExpat else { return true }
     fatalError("An expat is not defined anywhere and thus cannot be used")
   }
@@ -202,14 +206,14 @@ extension ModuleDependencyGraph.NodeFinder {
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {
-  init(fileKeyForMockSwiftDeps swiftDeps: SwiftDeps) {
+  init(fileKeyForMockSwiftDeps swiftDeps: ModuleDependencyGraph.SwiftDeps) {
     self.init(aspect: .interface,
               designator:
                 .sourceFileProvide(name: swiftDeps.sourceFileProvidesNameForMocking)
     )
   }
 }
-fileprivate extension SwiftDeps {
+fileprivate extension ModuleDependencyGraph.SwiftDeps {
   var sourceFileProvidesNameForMocking: String {
     // Only when mocking are these two guaranteed to be the same
     file.name

@@ -941,7 +941,7 @@ extension ModuleDependencyGraph {
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
-  -> DepGraphIntegrator.Changes?
+  -> Integrator.Changes?
   {
     jobTracker.registerJob(cmd)
 
@@ -955,7 +955,7 @@ extension ModuleDependencyGraph {
       interfaceHash: interfaceHash,
       dependencyDescriptions)
 
-    return DepGraphIntegrator.integrate(
+    return Integrator.integrate(
       from: sfdg,
       swiftDeps: swiftDeps,
       into: self)
@@ -997,7 +997,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
   private let includePrivateDeps: Bool
   private let hadCompilationError: Bool
-  private let swiftDeps: SwiftDeps
+  private let swiftDeps: ModuleDependencyGraph.SwiftDeps
   private let interfaceHash: String
   private let dependencyDescriptions: [(MockDependencyKind, String)]
 
@@ -1008,7 +1008,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   static func mock(
     includePrivateDeps: Bool,
     hadCompilationError: Bool,
-    swiftDeps: SwiftDeps,
+    swiftDeps: ModuleDependencyGraph.SwiftDeps,
     interfaceHash: String,
     _ dependencyDescriptions: [MockDependencyKind: [String]]
   ) -> SourceFileDependencyGraph
@@ -1209,7 +1209,8 @@ fileprivate extension DependencyKey {
   static func parseAUsedDecl(_ s: String,
                              _ kind: MockDependencyKind,
                              includePrivateDeps: Bool,
-                             swiftDeps: SwiftDeps) -> (def: Self, use: Self)? {
+                             swiftDeps: ModuleDependencyGraph.SwiftDeps
+  ) -> (def: Self, use: Self)? {
     let noncascadingPrefix = "#"
     let privateHolderPrefix = "~"
 
@@ -1233,7 +1234,10 @@ fileprivate extension DependencyKey {
                                swiftDeps: swiftDeps))
   }
 
-  static func computeUseKey(_ s: String, isCascadingUse: Bool, includePrivateDeps: Bool, swiftDeps: SwiftDeps) -> Self {
+  static func computeUseKey(_ s: String, isCascadingUse: Bool,
+                            includePrivateDeps: Bool,
+                            swiftDeps: ModuleDependencyGraph.SwiftDeps
+  ) -> Self {
     // For now, in unit tests, mock uses are always nominal
     let aspectOfUse: DeclAspect = isCascadingUse ? .interface : .implementation
     if !s.isEmpty {
@@ -1290,8 +1294,10 @@ fileprivate extension SourceFileDependencyGraph.Node {
 }
 
 fileprivate extension DependencyKey {
-  static func createKeyForWholeSourceFile(_ aspect: DeclAspect,
-                                          _ swiftDeps: SwiftDeps) -> Self {
+  static func createKeyForWholeSourceFile(
+    _ aspect: DeclAspect,
+    _ swiftDeps: ModuleDependencyGraph.SwiftDeps
+  ) -> Self {
     return Self(aspect: aspect,
                 designator: Designator(kind: .sourceFileProvide,
                                        swiftDeps.sourceFileProvideNameForMockSwiftDeps

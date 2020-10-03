@@ -1,4 +1,4 @@
-//===------- ModuleDepGraphTracer.swift ----------------------------------===//
+//===----------------------------- Tracer.swift ---------------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -12,29 +12,34 @@
 import Foundation
 import TSCBasic
 
+extension ModuleDependencyGraph {
+
 /// Trace dependencies through the graph
-@_spi(Testing) public struct ModuleDepGraphTracer {
-  let startingPoints: [ModuleDepGraphNode]
-  let graph: ModuleDependencyGraph
-  
-  @_spi(Testing) public private(set) var tracedUses: [ModuleDepGraphNode] = []
-  
-  /// Record the paths taking so that  -driver-show-incremental can explain why things are recompiled
-  /// If tracing dependencies, holds a vector used to hold the current path
-  /// def - use/def - use/def - ...
-  private var currentPathIfTracing: [ModuleDepGraphNode]? = nil
-  
-  
-  
-  /// If tracing dependencies, holds the sequence of defs used to get to the job
-  /// that is the key
-  @_spi(Testing) public private(set) var dependencyPathsToJobs = Multidictionary<Job, [ModuleDepGraphNode]>()
+  @_spi(Testing) public struct Tracer {
+    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
+
+    let startingPoints: [Node]
+    let graph: ModuleDependencyGraph
+
+    @_spi(Testing) public private(set) var tracedUses: [Node] = []
+
+    /// Record the paths taking so that  -driver-show-incremental can explain why things are recompiled
+    /// If tracing dependencies, holds a vector used to hold the current path
+    /// def - use/def - use/def - ...
+    private var currentPathIfTracing: [Node]? = nil
+
+
+
+    /// If tracing dependencies, holds the sequence of defs used to get to the job
+    /// that is the key
+    @_spi(Testing) public private(set) var dependencyPathsToJobs = Multidictionary<Job, [Node]>()
+  }
 }
 
 // MARK:- Tracing
-extension ModuleDepGraphTracer {
+extension ModuleDependencyGraph.Tracer {
   @_spi(Testing) public static func findPreviouslyUntracedUsesOf(
-    defs: [ModuleDepGraphNode],
+    defs: [ModuleDependencyGraph.Node],
     in graph: ModuleDependencyGraph
   ) -> Self {
     var tracer = Self(findingUsesOf: defs, in: graph)
@@ -42,7 +47,7 @@ extension ModuleDepGraphTracer {
     return tracer
   }
   
-  private init(findingUsesOf defs: [ModuleDepGraphNode],
+  private init(findingUsesOf defs: [ModuleDependencyGraph.Node],
                in graph: ModuleDependencyGraph) {
     self.graph = graph
     self.startingPoints = defs
@@ -54,7 +59,9 @@ extension ModuleDepGraphTracer {
     }
   }
   
-  private mutating func findNextPreviouslyUntracedDependent(of definition: ModuleDepGraphNode) {
+  private mutating func findNextPreviouslyUntracedDependent(
+    of definition: ModuleDependencyGraph.Node
+  ) {
     guard graph.isUntraced(definition) else { return }
     graph.amTracing(definition)
     
@@ -73,7 +80,8 @@ extension ModuleDepGraphTracer {
     traceDeparture(pathLengthAfterArrival);
   }
   
-  private mutating func traceArrival(at visitedNode: ModuleDepGraphNode) -> Int {
+  private mutating func traceArrival(at visitedNode: ModuleDependencyGraph.Node
+  ) -> Int {
     guard var currentPath = currentPathIfTracing else {
       return 0
     }
@@ -90,7 +98,7 @@ extension ModuleDepGraphTracer {
   }
   
   private mutating func recordDependencyPathToJob(
-    _ pathToJob: [ModuleDepGraphNode],
+    _ pathToJob: [Graph.Node],
     _ dependentJob: Job)
   {
     _ = dependencyPathsToJobs.addValue(pathToJob, forKey: dependentJob)

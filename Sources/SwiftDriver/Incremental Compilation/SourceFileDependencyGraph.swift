@@ -117,7 +117,7 @@ extension SourceFileDependencyGraph {
     case unknownKind
   }
   
-  public static func read(from swiftDeps: SwiftDeps
+  public static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) throws -> Self {
     guard let path = swiftDeps.file.absolutePath
     else {
