@@ -26,7 +26,7 @@ import TSCBasic
   @_spi(Testing) public var jobTracker = JobTracker()
   
   // Supports requests from the driver to getExternalDependencies.
-  @_spi(Testing) public internal(set) var externalDependencies = Set<String>()
+  @_spi(Testing) public internal(set) var externalDependencies = Set<ExternalDependency>()
   
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
@@ -82,12 +82,11 @@ extension ModuleDependencyGraph {
   // Add every (swiftdeps) use of the external dependency to foundJobs.
   // Can return duplicates, but it doesn't break anything, and they will be
   // canonicalized later.
-  @_spi(Testing) public func findExternallyDependentUntracedJobs(
-    _ externalDependency: String
+  @_spi(Testing) public func findUntracedJobsDependent(
+    on externalDependency: ExternalDependency
   ) -> [Job] {
     var foundJobs = [Job]()
-    
-    forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(externalSwiftDeps: externalDependency) {
+    forEachUntracedJobDirectlyDependent(on: externalDependency) {
       job in
       foundJobs.append(job)
       // findJobsToRecompileWhenWholeJobChanges is reflexive
@@ -101,8 +100,8 @@ extension ModuleDependencyGraph {
 }
 
 extension Job {
-  @_spi(Testing) public var swiftDepsPaths: [String] {
-    outputs.compactMap {$0.type != .swiftDeps ? nil : $0.file.name }
+  @_spi(Testing) public var allSwiftDeps: [SwiftDeps] {
+    outputs.compactMap(SwiftDeps.init)
   }
 }
 
@@ -110,15 +109,15 @@ extension Job {
 extension ModuleDependencyGraph {
   
   private func findAllNodes(in job: Job) -> [ModuleDepGraphNode] {
-    job.swiftDepsPaths.flatMap(nodesIn(swiftDeps:))
+    job.allSwiftDeps.flatMap(nodes(in:))
   }
   
-  private func forEachUntracedJobDirectlyDependentOnExternalSwiftDeps(
-    externalSwiftDeps: String,
+  private func forEachUntracedJobDirectlyDependent(
+    on externalSwiftDeps: ExternalDependency,
     _ fn: (Job) -> Void
   ) {
     // These nodes will depend on the *interface* of the external Decl.
-    let key = DependencyKey(interfaceForExternalDepend: externalSwiftDeps)
+    let key = DependencyKey(interfaceFor: externalSwiftDeps)
     nodeFinder.forEachUse(of: key) { use, useSwiftDeps in
       if isUntraced(use) {
         fn(jobTracker.getJob(useSwiftDeps))
@@ -134,10 +133,10 @@ extension ModuleDependencyGraph {
 }
 // MARK: - finding nodes; swiftDeps
 extension ModuleDependencyGraph {
-  private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [String]
+  private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [SwiftDeps]
   where Nodes.Element == ModuleDepGraphNode
   {
-    var swiftDepsOfNodes = Set<String>()
+    var swiftDepsOfNodes = Set<SwiftDeps>()
     for n in nodes {
       if let swiftDeps = n.swiftDeps {
         swiftDepsOfNodes.insert(swiftDeps)
@@ -169,22 +168,22 @@ extension ModuleDependencyGraph {
 // MARK: - queries for testing
 extension ModuleDependencyGraph {
   /// Testing only
-  @_spi(Testing) public func haveAnyNodesBeenTraversedIn(_ job: Job) -> Bool {
-    for swiftDeps in job.swiftDepsPaths {
+  @_spi(Testing) public func haveAnyNodesBeenTraversed(inMock job: Job) -> Bool {
+    for swiftDeps in job.allSwiftDeps {
       // optimization
-      if let fileNode = nodeFinder.findFileInterfaceNode(forSwiftDeps: swiftDeps),
+      if let fileNode = nodeFinder.findFileInterfaceNode(forMock: swiftDeps),
          isTraced(fileNode)
       {
         return true
       }
-      if  nodesIn(swiftDeps: swiftDeps).contains(where: isTraced) {
+      if  nodes(in: swiftDeps).contains(where: isTraced) {
         return true
       }
     }
     return false
   }
   
-  private func nodesIn(swiftDeps: String) -> [ModuleDepGraphNode] {
+  private func nodes(in swiftDeps: SwiftDeps) -> [ModuleDepGraphNode] {
     nodeFinder.findNodes(for: swiftDeps)
       .map {Array($0.values)}
       ?? []
@@ -201,7 +200,7 @@ extension ModuleDependencyGraph {
 
 // MARK: - debugging
 extension ModuleDependencyGraph {
-  func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: String) {
+  func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: SwiftDeps) {
     // TODO: Incremental emitDotFIle
     fatalError("unimplmemented")
   }
@@ -210,9 +209,9 @@ extension ModuleDependencyGraph {
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {
-  init(interfaceForExternalDepend externalSwiftDeps: String ) {
+  init(interfaceFor dep: ExternalDependency ) {
     self.init(aspect: .interface,
-              designator: .externalDepend(name: externalSwiftDeps))
+              designator: .externalDepend(dep))
   }
   
 }

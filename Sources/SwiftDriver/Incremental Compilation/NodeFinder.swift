@@ -17,7 +17,7 @@ extension ModuleDependencyGraph {
   struct NodeFinder {
     
     /// Maps swiftDeps files and DependencyKeys to Nodes
-    fileprivate typealias NodeMap = TwoDMap<String?, DependencyKey, ModuleDepGraphNode>
+    fileprivate typealias NodeMap = TwoDMap<SwiftDeps?, DependencyKey, ModuleDepGraphNode>
     fileprivate var nodeMap = NodeMap()
     
     /// Since dependency keys use baseNames, they are coarser than individual
@@ -36,29 +36,29 @@ extension ModuleDependencyGraph {
 }
 // MARK: - finding
 extension ModuleDependencyGraph.NodeFinder {
-  func findFileInterfaceNode(forSwiftDeps swiftDeps: String) -> ModuleDepGraphNode?  {
-    let fileKey = DependencyKey(interfaceForSourceFile: swiftDeps)
+  func findFileInterfaceNode(forMock swiftDeps: SwiftDeps) -> ModuleDepGraphNode?  {
+   let fileKey = DependencyKey(fileKeyForMockSwiftDeps: swiftDeps)
     return findNode((swiftDeps, fileKey))
   }
-  func findNode(_ mapKey: (String?, DependencyKey)) -> ModuleDepGraphNode? {
+  func findNode(_ mapKey: (SwiftDeps?, DependencyKey)) -> ModuleDepGraphNode? {
     nodeMap[mapKey]
   }
   
-  func findNodes(for swiftDeps: String?) -> [DependencyKey: ModuleDepGraphNode]? {
+  func findNodes(for swiftDeps: SwiftDeps?) -> [DependencyKey: ModuleDepGraphNode]? {
     nodeMap[swiftDeps]
   }
-  func findNodes(for key: DependencyKey) -> [String?: ModuleDepGraphNode]? {
+  func findNodes(for key: DependencyKey) -> [SwiftDeps?: ModuleDepGraphNode]? {
     nodeMap[key]
   }
   
   /// Since uses must be somewhere, pass inthe swiftDeps to the function here
-  func forEachUse(_ fn: (DependencyKey, ModuleDepGraphNode, String) -> Void) {
+  func forEachUse(_ fn: (DependencyKey, ModuleDepGraphNode, SwiftDeps) -> Void) {
     usesByDef.forEach {
       def, use in
       fn(def, use, useMustHaveSwiftDeps(use))
     }
   }
-  func forEachUse(of def: DependencyKey, _ fn: (ModuleDepGraphNode, String) -> Void) {
+  func forEachUse(of def: DependencyKey, _ fn: (ModuleDepGraphNode, SwiftDeps) -> Void) {
     usesByDef[def].map {
       $0.values.forEach { use in
         fn(use, useMustHaveSwiftDeps(use))
@@ -66,7 +66,7 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  func mappings(of n: ModuleDepGraphNode) -> [(String?, DependencyKey)]
+  func mappings(of n: ModuleDepGraphNode) -> [(SwiftDeps?, DependencyKey)]
   {
     nodeMap.compactMap {
       k, _ in
@@ -82,7 +82,7 @@ extension ModuleDependencyGraph.NodeFinder {
 }
 
 fileprivate extension ModuleDepGraphNode {
-  var mapKey: (String?, DependencyKey) {
+  var mapKey: (SwiftDeps?, DependencyKey) {
     return (swiftDeps, dependencyKey)
   }
 }
@@ -135,7 +135,7 @@ extension ModuleDependencyGraph.NodeFinder {
   ///
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: ModuleDepGraphNode,
-                        newSwiftDeps: String,
+                        newSwiftDeps: SwiftDeps,
                         newFingerprint: String?
   ) -> ModuleDepGraphNode {
     let replacement = ModuleDepGraphNode(key: original.dependencyKey,
@@ -175,7 +175,7 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  private func useMustHaveSwiftDeps(_ n: ModuleDepGraphNode)  -> String {
+  private func useMustHaveSwiftDeps(_ n: ModuleDepGraphNode) -> SwiftDeps {
     assert(verifyUseIsOK(n))
     return n.swiftDeps!
   }
@@ -202,8 +202,16 @@ extension ModuleDependencyGraph.NodeFinder {
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {
-  init(interfaceForSourceFile swiftDeps: String) {
+  init(fileKeyForMockSwiftDeps swiftDeps: SwiftDeps) {
     self.init(aspect: .interface,
-              designator: .sourceFileProvide(name: swiftDeps))
+              designator:
+                .sourceFileProvide(name: swiftDeps.sourceFileProvidesNameForMocking)
+    )
+  }
+}
+fileprivate extension SwiftDeps {
+  var sourceFileProvidesNameForMocking: String {
+    // Only when mocking are these two guaranteed to be the same
+    file.name
   }
 }

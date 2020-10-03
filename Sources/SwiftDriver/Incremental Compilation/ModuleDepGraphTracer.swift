@@ -79,8 +79,13 @@ extension ModuleDepGraphTracer {
     }
     currentPath.append(visitedNode)
     currentPathIfTracing = currentPath
-    // should never be empty, but let's not crash for debugging info
-    recordDependencyPathToJob(currentPath, graph.jobTracker.getJob(visitedNode.swiftDeps ?? ""))
+
+    // TODO Incremental: type system should be telling use this is a provides node
+    // and then it should always succeed
+    if let swiftDeps = visitedNode.swiftDeps {
+      recordDependencyPathToJob(currentPath,
+                                graph.jobTracker.getJob(swiftDeps))
+    }
     return currentPath.count
   }
   

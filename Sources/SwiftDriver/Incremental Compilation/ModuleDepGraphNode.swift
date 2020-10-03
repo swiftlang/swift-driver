@@ -12,6 +12,24 @@
 import Foundation
 import TSCBasic
 
+@_spi(Testing) public struct SwiftDeps: Hashable, CustomStringConvertible {
+  let file: VirtualPath
+
+  @_spi(Testing) public init?(_ typedFile: TypedVirtualPath) {
+    guard typedFile.type == .swiftDeps else { return nil }
+    self.file = typedFile.file
+  }
+
+  @_spi(Testing) public init(mock whatever: String) {
+    self.file = try! VirtualPath(path: whatever)
+  }
+
+  public var description: String {
+    file.description
+  }
+}
+
+
 /// A node in the per-module (i.e. the driver) dependency graph
 /// Each node represents a \c Decl from the frontend.
 /// If a file references a \c Decl we haven't seen yet, the node's \c swiftDeps will be nil, otherwise
@@ -48,13 +66,12 @@ import TSCBasic
   /// Nodes can move from file to file when the driver reads the result of a
   /// compilation.
   /// Nil represents a node with no known residance
-  let swiftDeps: String?
+  let swiftDeps: SwiftDeps?
   var isExpat: Bool { swiftDeps == nil }
-  
-  
+
   /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
   /// SourceFileDependencyGraph or the DependencyKeys
-  init(key: DependencyKey, fingerprint: String?, swiftDeps: String?) {
+  init(key: DependencyKey, fingerprint: String?, swiftDeps: SwiftDeps?) {
     self.dependencyKey = key
     self.fingerprint = fingerprint
     self.swiftDeps = swiftDeps
@@ -78,7 +95,7 @@ extension ModuleDepGraphNode: Equatable, Hashable {
 
 extension ModuleDepGraphNode: CustomStringConvertible {
   public var description: String {
-    "\(dependencyKey)\( swiftDeps ?? "<expat>")"
+    "\(dependencyKey)\( swiftDeps?.description ?? "<expat>")"
   }
 }
 
@@ -92,5 +109,15 @@ extension ModuleDepGraphNode {
     if isExpat && fingerprint != nil {
       fatalError(#function)
     }
+  }
+}
+
+// MARK: - testing
+extension SwiftDeps {
+  @_spi(Testing) public var sourceFileProvideNameForMockSwiftDeps: String {
+    file.name
+  }
+  @_spi(Testing) public var interfaceHashForMockSwiftDeps: String {
+    file.name
   }
 }

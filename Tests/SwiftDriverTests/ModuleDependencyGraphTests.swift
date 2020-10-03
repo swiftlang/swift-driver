@@ -61,25 +61,25 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job2, [.topLevel: ["c0", "c->"]])
 
     XCTAssertEqual(1, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     // Mark 0 again -- should be no change.
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     XCTAssertEqual(1, graph.findJobsToRecompileWhenWholeJobChanges(job2).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     XCTAssertEqual(1, graph.findJobsToRecompileWhenWholeJobChanges(job1).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testIndependentDepKinds() {
@@ -89,8 +89,8 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job1, [.topLevel: ["a", "b->"]])
 
     XCTAssertEqual(1, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testIndependentDepKinds2() {
@@ -100,8 +100,8 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job1, [.topLevel: ["b->", "a"]])
 
     XCTAssertEqual(1, graph.findJobsToRecompileWhenWholeJobChanges(job1).count)
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testIndependentMembers() {
@@ -114,11 +114,11 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job4, [.member: ["b,bb->"]])
 
     XCTAssertEqual(1, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job3))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job4))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job3))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job4))
   }
 
   func testSimpleDependent() {
@@ -131,12 +131,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependentReverse() {
@@ -150,16 +150,16 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job0))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
     do {
       let jobs = graph.findJobsToRecompileWhenWholeJobChanges(job0)
       XCTAssertEqual(1, jobs.count)
       XCTAssertTrue(jobs.contains(job0))
     }
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependent2() {
@@ -173,12 +173,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependent3() {
@@ -192,12 +192,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependent4() {
@@ -212,12 +212,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependent5() {
@@ -233,13 +233,13 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     let _ = graph.findJobsToRecompileWhenWholeJobChanges(job0)
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependent6() {
@@ -253,12 +253,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleDependentMember() {
@@ -273,12 +273,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testMultipleDependentsSame() {
@@ -294,14 +294,14 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testMultipleDependentsDifferent() {
@@ -317,14 +317,14 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testChainedDependents() {
@@ -340,14 +340,14 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testChainedNoncascadingDependents() {
@@ -363,14 +363,14 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     XCTAssertEqual(0, graph.findJobsToRecompileWhenWholeJobChanges(job0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testChainedNoncascadingDependents2() {
@@ -385,9 +385,9 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testMarkTwoNodes() {
@@ -406,12 +406,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2)) //?????
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job10))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job11))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job12))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job10))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job11))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job12))
 
     do {
       let jobs = graph.findJobsToRecompileWhenWholeJobChanges(job10)
@@ -420,12 +420,12 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job11))
       XCTAssertFalse(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job10))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job11))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job12))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job10))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job11))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job12))
   }
 
   func testMarkOneNodeTwice() {
@@ -440,18 +440,18 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     do {
       let jobs = graph.simulateReload(job0, [.nominal: ["b"]])
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testMarkOneNodeTwice2() {
@@ -466,18 +466,18 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     do {
       let jobs = graph.simulateReload(job0, [.nominal: ["a", "b"]])
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testReloadDetectsChange() {
@@ -491,9 +491,9 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(1, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     do {
       let jobs =
@@ -502,9 +502,9 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testNotTransitiveOnceMarked() {
@@ -519,9 +519,9 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertEqual(1, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     do {
       let jobs =
@@ -530,9 +530,9 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testDependencyLoops() {
@@ -549,17 +549,17 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job1))
       XCTAssertTrue(jobs.contains(job2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
 
     do {
       let jobs = graph.findJobsToRecompileWhenWholeJobChanges(job0)
       XCTAssertEqual(0, jobs.count)
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job2))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job2))
   }
 
   func testMarkIntransitive() {
@@ -568,16 +568,16 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(job1, [.topLevel: ["x->", "b->", "z->"]])
 
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     do {
       let jobs = graph.findJobsToRecompileWhenWholeJobChanges(job0)
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testMarkIntransitiveTwice() {
@@ -586,8 +586,8 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(job1, [.topLevel: ["x->", "b->", "z->"]])
 
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testMarkIntransitiveThenIndirect() {
@@ -596,8 +596,8 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(job1, [.topLevel: ["x->", "b->", "z->"]])
 
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     do {
       let jobs = graph.findJobsToRecompileWhenWholeJobChanges(job0)
@@ -605,8 +605,8 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(jobs.contains(job0))
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testSimpleExternal() {
@@ -619,15 +619,15 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
 
     do {
-      let jobs = graph.findExternallyDependentUntracedJobs("/foo")
+      let jobs = graph.findUntracedJobsDependent(onExternal: "/foo")
       XCTAssertEqual(jobs.count, 1)
       XCTAssertTrue(jobs.contains(job0))
     }
 
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
 
-    XCTAssertEqual(0, graph.findExternallyDependentUntracedJobs("/foo").count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
+    XCTAssertEqual(0, graph.findUntracedJobsDependent(onExternal: "/foo").count)
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
   }
 
   func testSimpleExternal2() {
@@ -636,11 +636,11 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(job0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertEqual(1, graph.findExternallyDependentUntracedJobs("/bar").count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
+    XCTAssertEqual(1, graph.findUntracedJobsDependent(onExternal: "/bar").count)
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
 
-    XCTAssertEqual(0, graph.findExternallyDependentUntracedJobs("/bar").count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
+    XCTAssertEqual(0, graph.findUntracedJobsDependent(onExternal: "/bar").count)
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
   }
 
   func testChainedExternal() {
@@ -657,20 +657,20 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
 
     do {
-      let jobs = graph.findExternallyDependentUntracedJobs("/foo")
+      let jobs = graph.findUntracedJobsDependent(onExternal: "/foo")
       XCTAssertEqual(jobs.count, 2)
       XCTAssertTrue(jobs.contains(job0))
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     do {
-      let jobs = graph.findExternallyDependentUntracedJobs("/foo")
+      let jobs = graph.findUntracedJobsDependent(onExternal: "/foo")
       XCTAssertEqual(jobs.count, 0)
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testChainedExternalReverse() {
@@ -684,24 +684,24 @@ class ModuleDependencyGraphTests: XCTestCase {
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
     do {
-      let jobs = graph.findExternallyDependentUntracedJobs("/bar")
+      let jobs = graph.findUntracedJobsDependent(onExternal: "/bar")
       XCTAssertEqual(1, jobs.count)
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
-    XCTAssertEqual(0, graph.findExternallyDependentUntracedJobs("/bar").count)
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertEqual(0, graph.findUntracedJobsDependent(onExternal: "/bar").count)
+    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
 
     do {
-      let jobs = graph.findExternallyDependentUntracedJobs("/foo")
+      let jobs = graph.findUntracedJobsDependent(onExternal: "/foo")
       XCTAssertEqual(1, jobs.count)
       XCTAssertTrue(jobs.contains(job0))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testChainedExternalPreMarked() {
@@ -715,13 +715,13 @@ class ModuleDependencyGraphTests: XCTestCase {
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
     do {
-      let jobs = graph.findExternallyDependentUntracedJobs("/foo")
+      let jobs = graph.findUntracedJobsDependent(onExternal: "/foo")
       XCTAssertEqual(2, jobs.count)
       XCTAssertTrue(jobs.contains(job0))
       XCTAssertTrue(jobs.contains(job1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversedIn(job1))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job0))
+    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: job1))
   }
 
   func testMutualInterfaceHash() {
@@ -945,8 +945,8 @@ extension ModuleDependencyGraph {
   {
     jobTracker.registerJob(cmd)
 
-    let swiftDeps = cmd.swiftDepsPaths.first!
-    let interfaceHash = interfaceHashIfPresent ?? swiftDeps
+    let swiftDeps = cmd.allSwiftDeps.first!
+    let interfaceHash = interfaceHashIfPresent ?? swiftDeps.interfaceHashForMockSwiftDeps
 
     let sfdg = SourceFileDependencyGraphMocker.mock(
       includePrivateDeps: includePrivateDeps,
@@ -959,6 +959,10 @@ extension ModuleDependencyGraph {
       from: sfdg,
       swiftDeps: swiftDeps,
       into: self)
+  }
+
+  func findUntracedJobsDependent(onExternal s: String) -> [Job] {
+    findUntracedJobsDependent(on: s.asExternal)
   }
 }
 
@@ -993,7 +997,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
   private let includePrivateDeps: Bool
   private let hadCompilationError: Bool
-  private let swiftDeps: String
+  private let swiftDeps: SwiftDeps
   private let interfaceHash: String
   private let dependencyDescriptions: [(MockDependencyKind, String)]
 
@@ -1004,7 +1008,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   static func mock(
     includePrivateDeps: Bool,
     hadCompilationError: Bool,
-    swiftDeps: String,
+    swiftDeps: SwiftDeps,
     interfaceHash: String,
     _ dependencyDescriptions: [MockDependencyKind: [String]]
   ) -> SourceFileDependencyGraph
@@ -1205,7 +1209,7 @@ fileprivate extension DependencyKey {
   static func parseAUsedDecl(_ s: String,
                              _ kind: MockDependencyKind,
                              includePrivateDeps: Bool,
-                             swiftDeps: String) -> (def: Self, use: Self)? {
+                             swiftDeps: SwiftDeps) -> (def: Self, use: Self)? {
     let noncascadingPrefix = "#"
     let privateHolderPrefix = "~"
 
@@ -1229,7 +1233,7 @@ fileprivate extension DependencyKey {
                                swiftDeps: swiftDeps))
   }
 
-  static func computeUseKey(_ s: String, isCascadingUse: Bool, includePrivateDeps: Bool, swiftDeps: String) -> Self {
+  static func computeUseKey(_ s: String, isCascadingUse: Bool, includePrivateDeps: Bool, swiftDeps: SwiftDeps) -> Self {
     // For now, in unit tests, mock uses are always nominal
     let aspectOfUse: DeclAspect = isCascadingUse ? .interface : .implementation
     if !s.isEmpty {
@@ -1237,10 +1241,10 @@ fileprivate extension DependencyKey {
       return parseADefinedDecl(s, kindOfUse, aspectOfUse, includePrivateDeps: includePrivateDeps)!
     }
     return Self(aspect: aspectOfUse,
-                designator: Designator(kind: .sourceFileProvide, (context: "", name: swiftDeps)))
+                designator: Designator(kind: .sourceFileProvide,
+                                       (context: "", name: swiftDeps.sourceFileProvideNameForMockSwiftDeps)))
   }
 }
-
 
 fileprivate extension String {
   static var fingerprintSeparator: Self {"@"}
@@ -1264,6 +1268,10 @@ fileprivate extension String {
         )
     }
   }
+
+  var asExternal: ExternalDependency {
+    ExternalDependency(self)
+  }
 }
 
 fileprivate extension Substring {
@@ -1283,10 +1291,11 @@ fileprivate extension SourceFileDependencyGraph.Node {
 
 fileprivate extension DependencyKey {
   static func createKeyForWholeSourceFile(_ aspect: DeclAspect,
-                                          _ swiftDeps: String) -> Self {
+                                          _ swiftDeps: SwiftDeps) -> Self {
     return Self(aspect: aspect,
                 designator: Designator(kind: .sourceFileProvide,
-                                       swiftDeps.parseContextAndName(.sourceFileProvide)))
+                                       swiftDeps.sourceFileProvideNameForMockSwiftDeps
+                                        .parseContextAndName(.sourceFileProvide)))
   }
 }
 
@@ -1328,7 +1337,7 @@ fileprivate extension DependencyKey.Designator {
         self = .dynamicLookup(name: name!)
       case .externalDepend:
          mustBeAbsent(context)
-        self = .externalDepend(name: name!)
+        self = .externalDepend(ExternalDependency(name!))
       case .sourceFileProvide:
          mustBeAbsent(context)
         self = .sourceFileProvide(name: name!)
@@ -1336,3 +1345,8 @@ fileprivate extension DependencyKey.Designator {
   }
 }
 
+fileprivate extension Set where Element == ExternalDependency {
+  func contains(_ s: String) -> Bool {
+    contains(s.asExternal)
+  }
+}

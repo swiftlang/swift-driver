@@ -17,12 +17,13 @@ extension ModuleDependencyGraph {
   ///Since the rest of the driver trucks in jobs, the correspondence must be tracked
   @_spi(Testing) public struct JobTracker {
     /// Keyed by swiftdeps filename, so we can get back to Jobs.
-    private var jobsBySwiftDeps: [String: Job] = [:]
-    
-    
-    func getJob(_ swiftDeps: String) -> Job {
-      guard let job = jobsBySwiftDeps[swiftDeps] else {fatalError("All jobs should be tracked.")}
-      assert(job.swiftDepsPaths.contains(swiftDeps),
+    private var jobsBySwiftDeps: [SwiftDeps: Job] = [:]
+
+    func getJob(_ swiftDeps: SwiftDeps) -> Job {
+      guard let job = jobsBySwiftDeps[swiftDeps] else {
+        fatalError("All jobs should be tracked.")
+      }
+      assert(job.allSwiftDeps.contains(swiftDeps),
              "jobsBySwiftDeps should be inverse of getSwiftDeps.")
       return job
     }
@@ -30,7 +31,7 @@ extension ModuleDependencyGraph {
     @_spi(Testing) public mutating func registerJob(_ job: Job) {
       // No need to create any nodes; that will happen when the swiftdeps file is
       // read. Just record the correspondence.
-      job.swiftDepsPaths.forEach { jobsBySwiftDeps[$0] = job }
+      job.allSwiftDeps.forEach { jobsBySwiftDeps[$0] = job }
     }
     
     @_spi(Testing) public var allJobs: [Job] {

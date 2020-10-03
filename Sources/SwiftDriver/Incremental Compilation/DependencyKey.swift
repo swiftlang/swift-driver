@@ -1,6 +1,20 @@
 
 import Foundation
 
+/// A filename from another module
+@_spi(Testing) public struct ExternalDependency: Hashable, CustomStringConvertible {
+  let fileName: String
+
+  @_spi(Testing) public init(_ path: String) {
+    self.fileName = path
+  }
+
+  public var description: String {
+    fileName.description
+  }
+}
+
+
 
 @_spi(Testing) public struct DependencyKey: Hashable {
   /// Instead of the status quo scheme of two kinds of "Depends", cascading and
@@ -22,11 +36,12 @@ import Foundation
   /// Encode the current sorts of dependencies as kinds of nodes in the dependency
   /// graph, splitting the current *member* into \ref member and \ref
   /// potentialMember and adding \ref sourceFileProvide.
+  ///
   @_spi(Testing) public enum Designator: Hashable {
     case
       topLevel(name: String),
       dynamicLookup(name: String),
-      externalDepend(name: String),
+      externalDepend(ExternalDependency),
       sourceFileProvide(name: String)
 
     case
@@ -35,7 +50,15 @@ import Foundation
 
     case
       member(context: String, name: String)
-  }
+
+    var externalDependency: ExternalDependency? {
+      switch self {
+      case let .externalDepend(externalDependency):
+        return externalDependency
+      default:
+        return nil}
+    }
+ }
 
   @_spi(Testing) public let aspect: DeclAspect
   @_spi(Testing) public let designator: Designator
@@ -48,7 +71,6 @@ import Foundation
     self.aspect = aspect
     self.designator = designator
   }
-
 
 
   @_spi(Testing) public var correspondingImplementation: Self {

@@ -112,19 +112,14 @@ extension SourceFileDependencyGraph {
     case malformedSourceFileDepGraphNodeRecord
     case unknownRecord
     case unexpectedSubblock
-    case notSwiftDeps
     case notAbsolutePath
     case bogusNameOrContext
     case unknownKind
   }
   
-  public static func read(from file: TypedVirtualPath
+  public static func read(from swiftDeps: SwiftDeps
   ) throws -> Self {
-    guard case .swiftDeps = file.type
-    else {
-      throw ReadError.notSwiftDeps
-    }
-    guard let path = file.file.absolutePath
+    guard let path = swiftDeps.file.absolutePath
     else {
       throw ReadError.notAbsolutePath
     }
@@ -261,7 +256,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(name: name)
+      self = .externalDepend(ExternalDependency(name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

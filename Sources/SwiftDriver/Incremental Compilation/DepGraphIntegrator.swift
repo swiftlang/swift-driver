@@ -20,7 +20,7 @@ import TSCBasic
   @_spi(Testing) public  typealias Changes = Set<ModuleDepGraphNode>
 
   let source: SourceFileDependencyGraph
-  let swiftDeps: String
+  let swiftDeps: SwiftDeps
   let destination: ModuleDependencyGraph
 
   /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
@@ -29,7 +29,7 @@ import TSCBasic
   var disappearedNodes = [DependencyKey: ModuleDepGraphNode]()
 
   init(source: SourceFileDependencyGraph,
-       swiftDeps: String,
+       swiftDeps: SwiftDeps,
        destination: ModuleDependencyGraph)
   {
     self.source = source
@@ -42,8 +42,8 @@ import TSCBasic
 
 extension DepGraphIntegrator {
   private enum LoadedDependencyGraph {
-    case success(SourceFileDependencyGraph, String)
-    case failure(String)
+    case success(SourceFileDependencyGraph, SwiftDeps)
+    case failure(SwiftDeps)
   }
 
   /// returns nil means there was an error
@@ -59,7 +59,9 @@ extension DepGraphIntegrator {
     var hadError = false
     loadedGraphs.forEach {
       if case let .success(graph, swiftDeps) = $0 {
-        integrate(from: graph, swiftDeps: swiftDeps, into: destination)
+        integrate(from: graph,
+                  swiftDeps: swiftDeps,
+                  into: destination)
           .forEach {changedNodes.insert($0)}
       }
       else {
@@ -73,19 +75,15 @@ extension DepGraphIntegrator {
   private static func getSourceFileDependencyGraphs(job: Job,
                                                     diagnosticEngine: DiagnosticsEngine
   ) -> [LoadedDependencyGraph] {
-    let swiftDepsOutputs = job.outputs.filter {$0.type == .swiftDeps}
-    return swiftDepsOutputs.map {
+    return job.allSwiftDeps.map {
       do {
-        return .success(
-          try SourceFileDependencyGraph.read(from: $0),
-          $0.file.name
-        )
+        return .success( try SourceFileDependencyGraph.read(from: $0), $0 )
       }
       catch {
         diagnosticEngine.emit(
-          .error_cannot_read_swiftdeps(file: $0, reason: error.localizedDescription)
+          .error_cannot_read_swiftdeps(file: $0.file, reason: error.localizedDescription)
         )
-        return .failure($0.file.name)
+        return .failure($0)
       }
     }
   }
@@ -99,7 +97,7 @@ extension DepGraphIntegrator {
   /// Returns changed nodes
   @_spi(Testing) public static func integrate(
     from g: SourceFileDependencyGraph,
-    swiftDeps: String,
+    swiftDeps: SwiftDeps,
     into destination: ModuleDependencyGraph
   ) ->  Changes {
     var integrator = Self(source: g,
@@ -140,7 +138,7 @@ extension DepGraphIntegrator {
 
     let preexistingMatchHereOrExpat =
       destination.nodeFinder.findNodes(for: integrand.key)
-      .flatMap { (matches: [String?: ModuleDepGraphNode]) -> ModuleDepGraphNode? in
+      .flatMap { (matches: [SwiftDeps?: ModuleDepGraphNode]) -> ModuleDepGraphNode? in
         if let matchHere = matches[swiftDeps] {
           // Node was and still is. Do not remove it.
           disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
@@ -216,8 +214,9 @@ extension DepGraphIntegrator {
     source.forEachDefDependedUpon(by: sourceFileUseNode) {
       def in
       let isNewUse = destination.nodeFinder.record(def: def.key, use: moduleUseNode)
-      if case let .externalDepend(name: externalSwiftDeps) = def.key.designator, isNewUse {
-        destination.externalDependencies.insert(externalSwiftDeps)
+      if let externalDependency = def.key.designator.externalDependency,
+         isNewUse {
+        destination.externalDependencies.insert(externalDependency)
         useHasNewExternalDependency = true
       }
     }
