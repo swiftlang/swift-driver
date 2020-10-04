@@ -2835,6 +2835,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testIndexFilePathHandling() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-index-file", "-index-file-path",
+                                     "bar.swift", "foo.swift", "bar.swift", "baz.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(subsequence: [.path(.relative(.init("foo.swift"))),
+                                                           "-primary-file",
+                                                           .path(.relative(.init("bar.swift"))),
+                                                           .path(.relative(.init("baz.swift")))]))
+    }
+  }
+
   func testEmbedBitcode() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-embed-bitcode", "embed-bitcode.swift"])

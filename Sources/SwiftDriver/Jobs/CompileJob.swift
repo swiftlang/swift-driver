@@ -79,6 +79,7 @@ extension Driver {
   /// Add the compiler inputs for a frontend compilation job, and return the
   /// corresponding primary set of outputs.
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
+                                 indexFilePath: TypedVirtualPath?,
                                  inputs: inout [TypedVirtualPath],
                                  inputOutputMap: inout [TypedVirtualPath: TypedVirtualPath],
                                  outputType: FileType?,
@@ -107,9 +108,21 @@ extension Driver {
 
     // If we will be passing primary files via -primary-file, form a set of primary input files so
     // we can check more quickly.
-    let usesPrimaryFileInputs = compilerMode.usesPrimaryFileInputs
-    assert(!usesPrimaryFileInputs || !primaryInputs.isEmpty)
-    let primaryInputFiles = usesPrimaryFileInputs ? Set(primaryInputs) : Set()
+    let usesPrimaryFileInputs: Bool
+    let primaryInputFiles: Set<TypedVirtualPath>
+    if compilerMode.usesPrimaryFileInputs {
+      assert(!primaryInputs.isEmpty)
+      usesPrimaryFileInputs = true
+      primaryInputFiles = Set(primaryInputs)
+    } else if let path = indexFilePath {
+      // If -index-file is used, we perform a single compile but pass the
+      // -index-file-path as a primary input file.
+      usesPrimaryFileInputs = true
+      primaryInputFiles = [path]
+    } else {
+      usesPrimaryFileInputs = false
+      primaryInputFiles = []
+    }
 
     let isMultithreaded = numThreads > 0
 
@@ -170,11 +183,21 @@ extension Driver {
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
-    let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs,
-                                          inputs: &inputs,
-                                          inputOutputMap: &inputOutputMap,
-                                          outputType: outputType,
-                                          commandLine: &commandLine)
+
+    let indexFilePath: TypedVirtualPath?
+    if let indexFileArg = parsedOptions.getLastArgument(.indexFilePath)?.asSingle {
+      let path = try VirtualPath(path: indexFileArg)
+      indexFilePath = inputFiles.first { $0.file == path }
+    } else {
+      indexFilePath = nil
+    }
+
+    let primaryOutputs = try addCompileInputs(primaryInputs: primaryInputs,
+                                              indexFilePath: indexFilePath,
+                                              inputs: &inputs,
+                                              inputOutputMap: &inputOutputMap,
+                                              outputType: outputType,
+                                              commandLine: &commandLine)
     outputs += primaryOutputs
 
     // FIXME: optimization record arguments are added before supplementary outputs
