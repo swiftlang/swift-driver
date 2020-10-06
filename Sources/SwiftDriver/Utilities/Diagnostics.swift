@@ -41,10 +41,6 @@ extension Diagnostic.Message {
     .error("this mode does not support emitting modules")
   }
 
-  static func error_cannot_read_swiftdeps(file: VirtualPath, reason: String) -> Diagnostic.Message {
-    .error("cannot read swiftdeps: \(reason), file: \(file)")
-  }
-
   static func error_bad_module_name(
     moduleName: String,
     explicitModuleName: Bool

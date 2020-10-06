@@ -40,7 +40,8 @@ final class IncrementalCompilationTests: XCTestCase {
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
         .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputPath = packageRootPath + "/TestInputs/Incremental/main.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
+    let graph = try SourceFileDependencyGraph(data: data)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -49,25 +50,31 @@ final class IncrementalCompilationTests: XCTestCase {
     var saw1 = false
     var saw2 = false
     graph.forEachNode { node in
-      switch (node.sequenceNumber, node.key.designator) {
-        case let (0, .sourceFileProvide(name: name)):
-          saw0 = true
+      switch node.sequenceNumber {
+      case 0:
+        saw0 = true
+        XCTAssertEqual(node.key.kind, .sourceFileProvide)
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(name, "main.swiftdeps")
+        XCTAssertEqual(node.key.context, "")
+        XCTAssertEqual(node.key.name, "main.swiftdeps")
         XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
         XCTAssertEqual(node.defsIDependUpon, [2])
         XCTAssertTrue(node.isProvides)
-        case let (1, .sourceFileProvide(name: name)):
+      case 1:
         saw1 = true
+        XCTAssertEqual(node.key.kind, .sourceFileProvide)
         XCTAssertEqual(node.key.aspect, .implementation)
-        XCTAssertEqual(name, "main.swiftdeps")
+        XCTAssertEqual(node.key.context, "")
+        XCTAssertEqual(node.key.name, "main.swiftdeps")
         XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
         XCTAssertEqual(node.defsIDependUpon, [])
         XCTAssertTrue(node.isProvides)
-        case let (2, .topLevel(name: name)):
+      case 2:
         saw2 = true
+        XCTAssertEqual(node.key.kind, .topLevel)
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(name, "a")
+        XCTAssertEqual(node.key.context, "")
+        XCTAssertEqual(node.key.name, "a")
         XCTAssertNil(node.fingerprint)
         XCTAssertEqual(node.defsIDependUpon, [])
         XCTAssertFalse(node.isProvides)
@@ -94,14 +101,13 @@ final class IncrementalCompilationTests: XCTestCase {
     // Check that a node chosen at random appears as expected.
     var foundNode = false
     graph.forEachNode { node in
-      if case let .member(context: context, name: name) = node.key.designator,
-         node.sequenceNumber == 25
-      {
+      if node.sequenceNumber == 25 {
         XCTAssertFalse(foundNode)
         foundNode = true
+        XCTAssertEqual(node.key.kind, .member)
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(context, "5hello1BV")
-        XCTAssertEqual(name, "init")
+        XCTAssertEqual(node.key.context, "5hello1BV")
+        XCTAssertEqual(node.key.name, "init")
         XCTAssertEqual(node.defsIDependUpon, [])
         XCTAssertFalse(node.isProvides)
       }
@@ -112,21 +118,16 @@ final class IncrementalCompilationTests: XCTestCase {
     var foundEdge = false
     graph.forEachArc { defNode, useNode in
       if defNode.sequenceNumber == 0 && useNode.sequenceNumber == 10 {
-        switch (defNode.key.designator, useNode.key.designator) {
-          case let (.sourceFileProvide(name: defName),
-                    .potentialMember(context: useContext)):
-            XCTAssertFalse(foundEdge)
-            foundEdge = true
+        XCTAssertFalse(foundEdge)
+        foundEdge = true
+        XCTAssertEqual(defNode.key.kind, .sourceFileProvide)
+        XCTAssertEqual(defNode.key.name, "/Users/owenvoorhees/Desktop/hello.swiftdeps")
+        XCTAssertEqual(defNode.fingerprint, "38b457b424090ac2e595be0e5f7e3b5b")
 
-            XCTAssertEqual(defName, "/Users/owenvoorhees/Desktop/hello.swiftdeps")
-            XCTAssertEqual(defNode.fingerprint, "38b457b424090ac2e595be0e5f7e3b5b")
-
-            XCTAssertEqual(useContext, "5hello1AC")
-            XCTAssertEqual(useNode.fingerprint, "b83bbc0b4b0432dbfabff6556a3a901f")
-
-          default:
-            XCTFail()
-        }
+        XCTAssertEqual(useNode.key.kind, .potentialMember)
+        XCTAssertEqual(useNode.key.name, "")
+        XCTAssertEqual(useNode.key.context, "5hello1AC")
+        XCTAssertEqual(useNode.fingerprint, "b83bbc0b4b0432dbfabff6556a3a901f")
       }
     }
     XCTAssertTrue(foundEdge)
