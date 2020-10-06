@@ -3479,7 +3479,9 @@ fileprivate extension Array where Element: Equatable {
   /// are relatively small.
   func contains<Elements: Collection>(
     subsequence: Elements
-  ) -> Bool where Elements.Element == Element {
+  ) -> Bool
+  where Elements.Element == Element
+  {
     precondition(!subsequence.isEmpty,  "Subsequence may not be empty")
 
     let subsequenceCount = subsequence.count
@@ -3493,7 +3495,9 @@ fileprivate extension Array where Element: Equatable {
   }
 }
 
-fileprivate extension Array where Element == Job {
+fileprivate extension Array
+where Element == Job
+{
   // Utility to drop autolink-extract jobs, which helps avoid introducing
   // platform-specific conditionals in tests unrelated to autolinking.
   func removingAutolinkExtractJobs() -> Self {
