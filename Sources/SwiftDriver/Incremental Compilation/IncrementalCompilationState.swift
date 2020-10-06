@@ -22,43 +22,43 @@ import SwiftOptions
   public let lastBuildTime: Date
   public let outOfDateMap: InputInfoMap?
   public var rebuildEverything: Bool { return outOfDateMap == nil }
-  
+
   public init(_ parsedOptions: inout ParsedOptions,
-              compilerMode: CompilerMode,
-              outputFileMap: OutputFileMap?,
-              compilerOutputType: FileType?,
-              moduleOutput: ModuleOutputInfo.ModuleOutput?,
-              fileSystem: FileSystem,
-              inputFiles: [TypedVirtualPath],
-              diagnosticEngine: DiagnosticsEngine,
-              actualSwiftVersion: String?
+       compilerMode: CompilerMode,
+       outputFileMap: OutputFileMap?,
+       compilerOutputType: FileType?,
+       moduleOutput: ModuleOutputInfo.ModuleOutput?,
+       fileSystem: FileSystem,
+       inputFiles: [TypedVirtualPath],
+       diagnosticEngine: DiagnosticsEngine,
+       actualSwiftVersion: String?
   ) {
     let showIncrementalBuildDecisions = Self.getShowIncrementalBuildDecisions(&parsedOptions)
     self.showIncrementalBuildDecisions = showIncrementalBuildDecisions
-    
+
     let enableIncrementalBuild = Self.computeAndExplainShouldCompileIncrementally(
       &parsedOptions,
       showIncrementalBuildDecisions: showIncrementalBuildDecisions,
       compilerMode: compilerMode,
       diagnosticEngine: diagnosticEngine)
-    
+
     self.enableIncrementalBuild = enableIncrementalBuild
-    
+
     self.buildRecordPath = Self.computeBuildRecordPath(
       outputFileMap: outputFileMap,
       compilerOutputType: compilerOutputType,
       diagnosticEngine: enableIncrementalBuild ? diagnosticEngine : nil)
-    
+
     // If we emit module along with full compilation, emit build record
     // file for '-emit-module' only mode as well.
     self.outputBuildRecordForModuleOnlyBuild = self.buildRecordPath != nil &&
       moduleOutput?.isTopLevel ?? false
-    
+
     let argsHash = Self.computeArgsHash(parsedOptions)
     self.argsHash = argsHash
     let lastBuildTime = Date()
     self.lastBuildTime = lastBuildTime
-    
+
     if let buRP = buildRecordPath, enableIncrementalBuild {
       let outOfDateMap = InputInfoMap.populateOutOfDateMap(
         argsHash: argsHash,
@@ -84,25 +84,27 @@ import SwiftOptions
       self.outOfDateMap = nil
     }
   }
-  
-  private static func getShowIncrementalBuildDecisions(
-    _ parsedOptions: inout ParsedOptions) -> Bool {
+
+  private static func getShowIncrementalBuildDecisions(_ parsedOptions: inout ParsedOptions)
+    -> Bool {
     parsedOptions.hasArgument(.driverShowIncremental)
   }
-  
+
   private static func computeAndExplainShouldCompileIncrementally(
     _ parsedOptions: inout ParsedOptions,
     showIncrementalBuildDecisions: Bool,
     compilerMode: CompilerMode,
     diagnosticEngine: DiagnosticsEngine
-  ) -> Bool {
+  )
+    -> Bool
+  {
     guard parsedOptions.hasArgument(.incremental) else {
       return false
     }
     guard compilerMode.supportsIncrementalCompilation else {
-      diagnosticEngine.emit(
-        .remark_incremental_compilation_disabled(
-          because: "it is not compatible with \(compilerMode)"))
+    diagnosticEngine.emit(
+      .remark_incremental_compilation_disabled(
+        because: "it is not compatible with \(compilerMode)"))
       return false
     }
     guard !parsedOptions.hasArgument(.embedBitcode) else {
@@ -113,7 +115,7 @@ import SwiftOptions
     }
     return true
   }
-  
+
   private static func computeBuildRecordPath(
     outputFileMap: OutputFileMap?,
     compilerOutputType: FileType?,
@@ -126,9 +128,9 @@ import SwiftOptions
       return nil
     }
     guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)
-    else {
-      diagnosticEngine.map { $0.emit(.warning_incremental_requires_build_record_entry) }
-      return nil
+      else {
+        diagnosticEngine.map { $0.emit(.warning_incremental_requires_build_record_entry) }
+        return nil
     }
     // In 'emit-module' only mode, use build-record filename suffixed with
     // '~moduleonly'. So that module-only mode doesn't mess up build-record
@@ -137,8 +139,8 @@ import SwiftOptions
       ? partialBuildRecordPath.appendingToBaseName("~moduleonly")
       : partialBuildRecordPath
   }
-  
-  private static func computeArgsHash(_ parsedOptionsArg: ParsedOptions) -> String {
+
+  static private func computeArgsHash(_ parsedOptionsArg: ParsedOptions) -> String {
     var parsedOptions = parsedOptionsArg
     let hashInput = parsedOptions
       .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
@@ -166,7 +168,7 @@ extension Diagnostic.Message {
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
     .warning(
       "ignoring -incremental; " +
-        "output file map has no master dependencies entry under \(FileType.swiftDeps)"
+      "output file map has no master dependencies entry under \(FileType.swiftDeps)"
     )
   }
   static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
