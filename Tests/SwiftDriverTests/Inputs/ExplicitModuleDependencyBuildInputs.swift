@@ -290,6 +290,10 @@ enum ModuleDependenciesInputs {
         },
         {
           "modulePath": "/Volumes/Data/Current/Driver/ExplicitPMTest/.build/x86_64-apple-macosx/debug/B.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies" : [
+          ],
           "details": {
             "swiftPlaceholder": {
             }
@@ -307,7 +311,6 @@ enum ModuleDependenciesInputs {
           "details": {
             "swift": {
               "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
-              "contextHash": "30OCBGKPNG64V",
               "commandLine": [
                 "-frontend",
                 "-compile-module-from-interface",
@@ -317,8 +320,6 @@ enum ModuleDependenciesInputs {
                 "5",
                 "-module-name",
                 "Swift"
-              ],
-              "compiledModuleCandidates": [
               ],
               "isFramework": false,
               "extraPcmArgs": [
@@ -543,10 +544,13 @@ enum ModuleDependenciesInputs {
         },
         {
           "modulePath" : "Swift.swiftmodule",
+          "sourceFiles": [
+          ],
           "directDependencies" : [
           ],
           "details" : {
             "swift" : {
+              "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
               "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
@@ -565,6 +569,8 @@ enum ModuleDependenciesInputs {
         },
         {
           "modulePath" : "SwiftOnoneSupport.swiftmodule",
+          "sourceFiles": [
+          ],
           "directDependencies" : [
             {
               "swift" : "Swift"
@@ -572,6 +578,7 @@ enum ModuleDependenciesInputs {
           ],
           "details" : {
             "swift" : {
+              "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
               "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",

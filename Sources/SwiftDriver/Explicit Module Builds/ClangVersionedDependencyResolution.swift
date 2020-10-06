@@ -134,6 +134,15 @@ private extension InterModuleDependencyGraph {
             pcmArgSetMap[moduleId] = newPCMArgSet
           }
           return
+        case .swiftPrebuiltExternal:
+          // We can rely on the fact that this pre-built module already has its
+          // versioned-PCM dependencies satisfied, so we do not need to add additional
+          // arguments. Proceed traversal to its dependencies.
+          for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+            try visit(dependencyId,
+                      pathPCMArtSet: pathPCMArtSet,
+                      pcmArgSetMap: &pcmArgSetMap)
+          }
         case .swiftPlaceholder:
           fatalError("Unresolved placeholder dependencies at planning stage: \(moduleId)")
       }
