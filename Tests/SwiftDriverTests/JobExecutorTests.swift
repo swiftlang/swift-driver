@@ -202,6 +202,11 @@ final class JobExecutorTests: XCTestCase {
   }
 
   func testStubProcessProtocol() throws {
+    // This test fails intermittently on Linux
+    // rdar://70067844
+    #if !os(macOS)
+      throw XCTSkip()
+    #endif
     let job = Job(
       moduleName: "main",
       kind: .compile,
