@@ -43,6 +43,16 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
             print(' '.join(cmd))
         error(str(e))
 
+def get_dispatch_cmake_arg(args):
+    """Returns the CMake argument to the Dispatch configuration to use for bulding SwiftPM."""
+    dispatch_dir = os.path.join(args.dispatch_build_dir, 'cmake/modules')
+    return '-Ddispatch_DIR=' + dispatch_dir
+
+def get_foundation_cmake_arg(args):
+    """Returns the CMake argument to the Foundation configuration to use for bulding SwiftPM."""
+    foundation_dir = os.path.join(args.foundation_build_dir, 'cmake/modules')
+    return '-DFoundation_DIR=' + foundation_dir
+
 def swiftpm(action, swift_exec, swiftpm_args, env=None):
   cmd = [swift_exec, action] + swiftpm_args
   print(' '.join(cmd))
@@ -420,7 +430,21 @@ def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flag
   print('Building Yams for target: %s' % target)
   yams_source_dir = os.path.join(os.path.dirname(args.package_path), 'yams')
   yams_build_dir = os.path.join(build_dir, 'yams')
-  yams_flags = base_cmake_flags + ['-DBUILD_SHARED_LIBS=OFF', '-DCMAKE_C_FLAGS=-target %s' % target]
+  yams_flags = base_cmake_flags + [
+      '-DCMAKE_C_COMPILER:=clang',
+      '-DBUILD_SHARED_LIBS=OFF']
+
+  if platform.system() == 'Darwin':
+    yams_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
+    yams_flags.append('-DCMAKE_C_FLAGS=-target %s' % target)
+  else:
+    yams_flags.append('-DCMAKE_C_FLAGS=-fPIC -target %s' % target)
+    if args.dispatch_build_dir:
+      yams_flags.append(get_dispatch_cmake_arg(args))
+
+    if args.foundation_build_dir:
+      yams_flags.append(get_foundation_cmake_arg(args))
+
   cmake_build(args, swiftc_exec, yams_flags, yams_source_dir, yams_build_dir)
 
 def build_argument_parser_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
@@ -503,6 +527,8 @@ def main():
     parser.add_argument('--ninja-bin', metavar='PATH', help='ninja binary to use for testing')
     parser.add_argument('--cmake-bin', metavar='PATH', help='cmake binary to use for building')
     parser.add_argument('--build-path', metavar='PATH', default='.build', help='build in the given path')
+    parser.add_argument('--foundation-build-dir', metavar='PATH', help='Path to the Foundation build directory')
+    parser.add_argument('--dispatch-build-dir', metavar='PATH', help='Path to the Dispatch build directory')
     parser.add_argument('--configuration', '-c', default='debug', help='build using configuration (release|debug)')
     parser.add_argument('--no-local-deps', action='store_true', help='use normal remote dependencies when building')
     parser.add_argument('--verbose', '-v', action='store_true', help='enable verbose output')
@@ -520,6 +546,8 @@ def main():
   install_parser = subparsers.add_parser('install', help='build the package')
   add_common_args(install_parser)
 
+  
+
   args = parser.parse_args(sys.argv[1:])
 
   # Canonicalize paths
@@ -536,6 +564,12 @@ def main():
     toolchain_bin = os.path.join(args.toolchain, 'bin')
   else:
     toolchain_bin = ''
+
+  if args.dispatch_build_dir:
+    args.dispatch_build_dir = os.path.abspath(args.dispatch_build_dir)
+
+  if args.foundation_build_dir:
+    args.foundation_build_dir = os.path.abspath(args.foundation_build_dir)
 
   handle_invocation(toolchain_bin, args)
 
