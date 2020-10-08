@@ -14,27 +14,27 @@ import Foundation
 @_spi(Testing) public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
   public static let sourceFileProvidesImplementationSequenceNumber: Int = 1
-
+  
   public var majorVersion: UInt64
   public var minorVersion: UInt64
   public var compilerVersionString: String
   private var allNodes: [Node]
-
+  
   public var sourceFileNodePair: (interface: Node, implementation: Node) {
     (interface: allNodes[SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber],
      implementation: allNodes[SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber])
   }
-
+  
   public func forEachNode(_ doIt: (Node) -> Void) {
     allNodes.forEach(doIt)
   }
-
+  
   public func forEachDefDependedUpon(by node: Node, _ doIt: (Node) -> Void) {
     for sequenceNumber in node.defsIDependUpon {
       doIt(allNodes[sequenceNumber])
     }
   }
-
+  
   public func forEachArc(_ doIt: (Node, Node) -> Void) {
     forEachNode { useNode in
       forEachDefDependedUpon(by: useNode) { defNode in
@@ -42,7 +42,7 @@ import Foundation
       }
     }
   }
-
+  
   @discardableResult public func verify() -> Bool {
     assert(Array(allNodes.indices) == allNodes.map { $0.sequenceNumber })
     forEachNode {
@@ -52,38 +52,6 @@ import Foundation
   }
 }
 
-@_spi(Testing) public enum DeclAspect: UInt64 {
-  case interface, implementation
-}
-
-@_spi(Testing) public struct DependencyKey {
-  public enum Kind: UInt64 {
-    case topLevel
-    case nominal
-    case potentialMember
-    case member
-    case dynamicLookup
-    case externalDepend
-    case sourceFileProvide
-  }
-
-  public var kind: Kind
-  public var aspect: DeclAspect
-  public var context: String
-  public var name: String
-
-  public func verify() {
-    assert(kind != .externalDepend || aspect == .interface, "All external dependencies must be interfaces.")
-    switch kind {
-    case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide:
-      assert(context.isEmpty && !name.isEmpty, "Must only have a name")
-    case .nominal, .potentialMember:
-      assert(!context.isEmpty && name.isEmpty, "Must only have a context")
-    case .member:
-      assert(!context.isEmpty && !name.isEmpty, "Must have both")
-    }
-  }
-}
 
 extension SourceFileDependencyGraph {
   public struct Node {
@@ -92,11 +60,25 @@ extension SourceFileDependencyGraph {
     public var sequenceNumber: Int
     public var defsIDependUpon: [Int]
     public var isProvides: Bool
-
+    
+    @_spi(Testing) public init(
+      key: DependencyKey,
+      fingerprint: String?,
+      sequenceNumber: Int,
+      defsIDependUpon: [Int],
+      isProvides: Bool
+    ) {
+      self.key = key
+      self.fingerprint = fingerprint
+      self.sequenceNumber = sequenceNumber
+      self.defsIDependUpon = defsIDependUpon
+      self.isProvides = isProvides
+    }
+    
     public func verify() {
       key.verify()
-
-      if key.kind == .sourceFileProvide {
+      
+      if case .sourceFileProvide = key.designator {
         switch key.aspect {
         case .interface:
           assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber)
@@ -110,7 +92,7 @@ extension SourceFileDependencyGraph {
 
 extension SourceFileDependencyGraph {
   private static let recordBlockId = 8
-
+  
   private enum RecordKind: UInt64 {
     case metadata = 1
     case sourceFileDepGraphNode
@@ -118,8 +100,8 @@ extension SourceFileDependencyGraph {
     case dependsOnDefinitionNode
     case identifierNode
   }
-
-  private enum ReadError: Error {
+  
+  fileprivate enum ReadError: Error {
     case badMagic
     case noRecordBlock
     case malformedMetadataRecord
@@ -130,29 +112,53 @@ extension SourceFileDependencyGraph {
     case malformedSourceFileDepGraphNodeRecord
     case unknownRecord
     case unexpectedSubblock
+    case notAbsolutePath
+    case bogusNameOrContext
+    case unknownKind
   }
-
+  
+  public static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
+  ) throws -> Self {
+    guard let path = swiftDeps.file.absolutePath
+    else {
+      throw ReadError.notAbsolutePath
+    }
+    return try self.init(pathString: path.pathString)
+  }
+  
+  @_spi(Testing) public init(nodesForTesting: [Node]) {
+    majorVersion = 0
+    minorVersion = 0
+    compilerVersionString = ""
+    allNodes = nodesForTesting
+  }
+  
+  public init(pathString: String) throws {
+    let data = try Data(contentsOf: URL(fileURLWithPath: pathString))
+    try self.init(data: data)
+  }
+  
   public init(data: Data) throws {
     // FIXME: visit blocks and records incrementally instead of reading the
     // entire file up front.
     let bitcode = try Bitcode(data: data)
     guard bitcode.signature == .init(string: "DEPS") else { throw ReadError.badMagic }
-
+    
     guard bitcode.elements.count == 1,
           case .block(let recordBlock) = bitcode.elements.first,
           recordBlock.id == Self.recordBlockId else { throw ReadError.noRecordBlock }
-
+    
     guard case .record(let metadataRecord) = recordBlock.elements.first,
           RecordKind(rawValue: metadataRecord.id) == .metadata,
           metadataRecord.fields.count == 2,
           case .blob(let compilerVersionBlob) = metadataRecord.payload,
           let compilerVersionString = String(data: compilerVersionBlob, encoding: .utf8)
     else { throw ReadError.malformedMetadataRecord }
-
+    
     self.majorVersion = metadataRecord.fields[0]
     self.minorVersion = metadataRecord.fields[1]
     self.compilerVersionString = compilerVersionString
-
+    
     var nodes: [Node] = []
     var node: Node? = nil
     var identifiers: [String] = [""] // The empty string is hardcoded as identifiers[0]
@@ -167,9 +173,9 @@ extension SourceFileDependencyGraph {
         if let node = node {
           nodes.append(node)
         }
+        let kindCode = record.fields[0]
         guard record.fields.count == 5,
-              let nodeKind = DependencyKey.Kind(rawValue: record.fields[0]),
-              let declAspect = DeclAspect(rawValue: record.fields[1]),
+              let declAspect = DependencyKey.DeclAspect(record.fields[1]),
               record.fields[2] < identifiers.count,
               record.fields[3] < identifiers.count else {
           throw ReadError.malformedSourceFileDepGraphNodeRecord
@@ -177,10 +183,10 @@ extension SourceFileDependencyGraph {
         let context = identifiers[Int(record.fields[2])]
         let identifier = identifiers[Int(record.fields[3])]
         let isProvides = record.fields[4] != 0
-        node = Node(key: .init(kind: nodeKind,
-                               aspect: declAspect,
-                               context: context,
-                               name: identifier),
+        let designator = try DependencyKey.Designator(
+          kindCode: kindCode, context: context, name: identifier)
+        let key = DependencyKey(aspect: declAspect, designator: designator)
+        node = Node(key: key,
                     fingerprint: nil,
                     sequenceNumber: sequenceNumber,
                     defsIDependUpon: [],
@@ -207,11 +213,56 @@ extension SourceFileDependencyGraph {
         identifiers.append(identifier)
       }
     }
-
+    
     if let node = node {
       nodes.append(node)
     }
-
+    
     self.allNodes = nodes
   }
 }
+
+fileprivate extension DependencyKey.DeclAspect {
+  init?(_ c: UInt64) {
+    switch c {
+    case 0: self = .interface
+    case 1: self = .implementation
+    default: return nil
+    }
+  }
+}
+
+fileprivate extension DependencyKey.Designator {
+  init(kindCode: UInt64,
+       context: String,
+       name: String) throws {
+    func mustBeEmpty(_ s: String) throws {
+      guard s.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
+    }
+    switch kindCode {
+    case 0:
+      try mustBeEmpty(context)
+      self = .topLevel(name: name)
+    case 1:
+      try mustBeEmpty(name)
+      self = .nominal(context: context)
+    case 2:
+      try mustBeEmpty(name)
+      self = .potentialMember(context: context)
+    case 3:
+      self = .member(context: context, name: name)
+    case 4:
+      try mustBeEmpty(context)
+      self = .dynamicLookup(name: name)
+    case 5:
+      try mustBeEmpty(context)
+      self = .externalDepend(ExternalDependency(name))
+    case 6:
+      try mustBeEmpty(context)
+      self = .sourceFileProvide(name: name)
+      
+    default: throw SourceFileDependencyGraph.ReadError.unknownKind
+    }
+  }
+}
+
