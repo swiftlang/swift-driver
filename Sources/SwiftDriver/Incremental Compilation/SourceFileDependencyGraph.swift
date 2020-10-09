@@ -92,8 +92,6 @@ extension SourceFileDependencyGraph {
 }
 
 extension SourceFileDependencyGraph {
-  private static let recordBlockId = 8
-  
   private enum RecordKind: UInt64 {
     case metadata = 1
     case sourceFileDepGraphNode
@@ -117,7 +115,8 @@ extension SourceFileDependencyGraph {
     case bogusNameOrContext
     case unknownKind
   }
-  
+
+  // FIXME: This should accept a FileSystem parameter.
   static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) throws -> Self {
     guard let path = swiftDeps.file.absolutePath
@@ -133,14 +132,22 @@ extension SourceFileDependencyGraph {
     compilerVersionString = ""
     allNodes = nodesForTesting
   }
-  
+
+  // FIXME: This should accept a FileSystem parameter.
   @_spi(Testing) public init(pathString: String) throws {
     let data = try Data(contentsOf: URL(fileURLWithPath: pathString))
     try self.init(data: data)
   }
 
-  private init(data: Data) throws {
+  @_spi(Testing) public init(data: Data,
+                             fromSwiftModule extractFromSwiftModule: Bool = false) throws {
     struct Visitor: BitstreamVisitor {
+      let extractFromSwiftModule: Bool
+
+      init(extractFromSwiftModule: Bool) {
+        self.extractFromSwiftModule = extractFromSwiftModule
+      }
+
       var nodes: [Node] = []
       var majorVersion: UInt64?
       var minorVersion: UInt64?
@@ -149,31 +156,41 @@ extension SourceFileDependencyGraph {
       private var node: Node? = nil
       private var identifiers: [String] = [""] // The empty string is hardcoded as identifiers[0]
       private var sequenceNumber = 0
-      private var done = false
 
       func validate(signature: Bitcode.Signature) throws {
-        guard signature == .init(string: "DEPS") else { throw ReadError.badMagic }
+        if extractFromSwiftModule {
+          guard signature == .init(value: 0x0EA89CE2) else { throw ReadError.badMagic }
+        } else {
+          guard signature == .init(string: "DEPS") else { throw ReadError.badMagic }
+        }
       }
 
       mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
-        guard id == SourceFileDependencyGraph.recordBlockId else {
-          throw ReadError.noRecordBlock
+        if extractFromSwiftModule {
+          // Enter the top-level module block, and the incremental info
+          // subblock, ignoring the rest of the file.
+          return id == /*Module block*/ 8 || id == /*Incremental record block*/ 196
+        } else {
+          guard id == /*Incremental record block*/ 8 else {
+            throw ReadError.unexpectedSubblock
+          }
+          return true
         }
-        guard !done else { throw ReadError.unexpectedSubblock }
-        return true
       }
+
       mutating func didExitBlock() throws {
-        // Append the final node if needed.
+        // Finalize the current node if needed.
         if let node = node {
           nodes.append(node)
+          self.node = nil
         }
-        done = true
       }
 
       mutating func visit(record: BitcodeElement.Record) throws {
         guard let kind = RecordKind(rawValue: record.id) else { throw ReadError.unknownRecord }
         switch kind {
         case .metadata:
+          // If we've already read metadata, this is an unexpected duplicate.
           guard majorVersion == nil, minorVersion == nil, compilerVersionString == nil else {
             throw ReadError.unexpectedMetadataRecord
           }
@@ -231,7 +248,7 @@ extension SourceFileDependencyGraph {
       }
     }
 
-    var visitor = Visitor()
+    var visitor = Visitor(extractFromSwiftModule: extractFromSwiftModule)
     try Bitcode.read(stream: data, using: &visitor)
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,

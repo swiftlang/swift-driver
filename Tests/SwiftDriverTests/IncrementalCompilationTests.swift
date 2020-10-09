@@ -132,6 +132,33 @@ final class IncrementalCompilationTests: XCTestCase {
     XCTAssertTrue(foundEdge)
   }
 
+  func testExtractSourceFileDependencyGraphFromSwiftModule() throws {
+    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+    let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftmodule"
+    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
+    let graph = try SourceFileDependencyGraph(data: data, fromSwiftModule: true)
+    XCTAssertEqual(graph.majorVersion, 1)
+    XCTAssertEqual(graph.minorVersion, 0)
+    XCTAssertEqual(graph.compilerVersionString, "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
+    graph.verify()
+
+    // Check that a node chosen at random appears as expected.
+    var foundNode = false
+    graph.forEachNode { node in
+      if case .nominal(context: "5hello3FooV") = node.key.designator,
+         node.sequenceNumber == 4
+      {
+        XCTAssertFalse(foundNode)
+        foundNode = true
+        XCTAssertEqual(node.key.aspect, .interface)
+        XCTAssertEqual(node.defsIDependUpon, [0])
+        XCTAssertTrue(node.isProvides)
+      }
+    }
+    XCTAssertTrue(foundNode)
+  }
+
   func testDateConversion() {
     let sn =  [0, 8000]
     let d = try! Date(legacyDriverSecsAndNanos: sn)
