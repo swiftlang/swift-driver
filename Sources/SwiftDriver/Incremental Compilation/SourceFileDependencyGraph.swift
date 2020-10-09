@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
+import TSCUtility
 
 @_spi(Testing) public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
