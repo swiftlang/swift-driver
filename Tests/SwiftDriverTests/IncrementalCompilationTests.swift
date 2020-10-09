@@ -85,8 +85,7 @@ final class IncrementalCompilationTests: XCTestCase {
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftdeps"
-    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
-    let graph = try SourceFileDependencyGraph(data: data)
+    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
