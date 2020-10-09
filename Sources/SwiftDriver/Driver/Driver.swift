@@ -781,6 +781,14 @@ extension Driver {
       return
     }
 
+    if parsedOptions.contains(.driverPrintActions) {
+      // Print actions using the same style as the old C++ driver
+      // This is mostly for testing purposes. We should print semantically
+      // equivalent actions as the old driver.
+      Driver.printActions(jobs)
+      return
+    }
+
     if parsedOptions.contains(.driverPrintGraphviz) {
       var serializer = DOTJobGraphSerializer(jobs: jobs)
       serializer.writeDOT(to: &stdoutStream)
@@ -845,6 +853,51 @@ extension Driver {
     stdoutStream <<< "}"
     stdoutStream <<< "\n"
     stdoutStream.flush()
+  }
+
+  private static func printActions(_ jobs: [Job]) {
+    defer {
+      stdoutStream.flush()
+    }
+    var jobIdMap = Dictionary<Job, uint>()
+    // The C++ driver treats each input as an action, we should print them as
+    // an action too for testing purposes.
+    var inputIdMap = Dictionary<TypedVirtualPath, uint>()
+    var nextId: uint = 0
+    for job in jobs {
+      // All input action IDs for this action.
+      var inputIds = Set<uint>()
+      // Collect input job IDs.
+      for input in job.displayInputs.isEmpty ? job.inputs : job.displayInputs {
+        var foundInput = false
+        for (prevJob, id) in jobIdMap {
+          if prevJob.outputs.contains(input) {
+            foundInput = true
+            inputIds.insert(id)
+          }
+        }
+        if (!foundInput) {
+          if inputIdMap[input] == nil {
+            stdoutStream <<< nextId <<< ": " <<< "input, "
+            stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
+            inputIdMap[input] = nextId
+            nextId += 1
+          }
+          inputIds.insert(inputIdMap[input]!)
+        }
+      }
+      // Print current Job
+      stdoutStream <<< nextId <<< ": " <<< job.kind.rawValue <<< ", {"
+      stdoutStream <<< inputIds.sorted().map({ $0.description })
+          .joined(separator: ", ")
+      var typeName = job.outputs.first?.type.name
+      if typeName == nil {
+        typeName = "none"
+      }
+      stdoutStream <<< "}, " <<< typeName! <<< "\n"
+      jobIdMap[job] = nextId
+      nextId += 1
+    }
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
