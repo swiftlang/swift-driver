@@ -54,24 +54,9 @@ extension Driver {
 
   private mutating func addPrecompileModuleDependenciesJobs(addJob: (Job) -> Void) throws {
     // If asked, add jobs to precompile module dependencies
-    guard   parsedOptions.contains(.driverExplicitModuleBuild) ||
-            parsedOptions.contains(.driverPrintModuleDependenciesJobs)
-    else {
-      return
-    }
-    let modulePrebuildJobs = try generateExplicitModuleBuildJobs()
-    if parsedOptions.contains(.driverExplicitModuleBuild) {
-      modulePrebuildJobs.forEach(addJob)
-    }
-
-    // If we've been asked to prebuild module dependencies,
-    // for the time being, just print the jobs' compile commands.
-    if parsedOptions.contains(.driverPrintModuleDependenciesJobs) {
-      let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
-      for job in modulePrebuildJobs {
-        print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
-      }
-    }
+    guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
+    let modulePrebuildJobs = try generateExplicitModuleDependenciesJobs()
+    modulePrebuildJobs.forEach(addJob)
   }
 
 
@@ -378,7 +363,7 @@ extension Driver {
   /// of jobs required to build all dependencies.
   /// Preprocess the graph by resolving placeholder dependencies, if any are present and
   /// by re-scanning all Clang modules against all possible targets they will be built against.
-  public mutating func generateExplicitModuleBuildJobs() throws -> [Job] {
+  public mutating func generateExplicitModuleDependenciesJobs() throws -> [Job] {
     let dependencyGraph = try generateInterModuleDependencyGraph()
     explicitModuleBuildHandler =
         try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,

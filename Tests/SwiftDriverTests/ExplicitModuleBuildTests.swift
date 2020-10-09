@@ -153,7 +153,7 @@ private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmAr
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-driver-print-module-dependencies-jobs",
+      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
                                      "-module-name", "testModuleDependencyBuildCommandGeneration",
                                      "test.swift"])
       let pcmArgs = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.15"]
@@ -214,9 +214,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.fastDependencyScannerPlaceholderOutput.data(using: .utf8)!)
 
       // Construct the driver with explicit external dependency input
-      var commandLine = ["swiftc", "-driver-print-module-dependencies-jobs",
+      var commandLine = ["swiftc", "-experimental-explicit-module-build",
                          "test.swift", "-module-name", "A", "-g"]
-      commandLine.append("-experimental-explicit-module-build")
       let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
                                              processSet: ProcessSet(),
                                              fileSystem: localFileSystem,
