@@ -19,7 +19,7 @@ public struct Job: Codable, Equatable, Hashable {
     case backend
     case mergeModule = "merge-module"
     case link
-    case generateDSYM = "generate-dsym"
+    case generateDSYM = "generate-dSYM"
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
     case generatePCH = "generate-pch"
