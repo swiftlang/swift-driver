@@ -187,6 +187,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs
     )
   }
@@ -232,6 +233,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs
     )
   }

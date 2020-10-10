@@ -29,6 +29,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.lldb)),
       commandLine: [Job.ArgTemplate.flag(lldbArg)],
       inputs: inputs,
+      primaryInputs: [],
       outputs: [],
       requiresInPlaceExecution: true
     )

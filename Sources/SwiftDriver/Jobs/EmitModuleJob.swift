@@ -75,6 +75,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs
     )
   }

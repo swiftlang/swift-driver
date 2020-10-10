@@ -32,6 +32,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: [moduleInput],
+      primaryInputs: [],
       outputs: [.init(file: outputPath, type: .object)],
       supportsResponseFiles: true
     )

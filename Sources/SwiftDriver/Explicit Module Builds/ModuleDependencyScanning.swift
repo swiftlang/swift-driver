@@ -48,6 +48,7 @@ extension Driver {
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
+               primaryInputs: [],
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
                supportsResponseFiles: true)
   }
@@ -156,6 +157,7 @@ extension Driver {
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
+               primaryInputs: [],
                outputs: outputs,
                supportsResponseFiles: true)
   }

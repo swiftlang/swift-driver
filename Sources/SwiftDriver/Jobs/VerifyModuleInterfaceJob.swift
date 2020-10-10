@@ -34,6 +34,7 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: [],
       inputs: [interfaceInput],
+      primaryInputs: [],
       outputs: [outputFile]
     )
   }

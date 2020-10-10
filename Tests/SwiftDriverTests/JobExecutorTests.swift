@@ -113,6 +113,11 @@ final class JobExecutorTests: XCTestCase {
         .relative(RelativePath("main")): exec.pathString,
       ]
 
+      let inputs: [String: TypedVirtualPath] = [
+        "foo" : .init(file: .relative(RelativePath( "foo.swift")), type: .swift),
+        "main": .init(file: .relative(RelativePath("main.swift")), type: .swift)
+      ]
+
       let compileFoo = Job(
         moduleName: "main",
         kind: .compile,
@@ -121,8 +126,8 @@ final class JobExecutorTests: XCTestCase {
           "-frontend",
           "-c",
           "-primary-file",
-          .path(.relative(RelativePath("foo.swift"))),
-          .path(.relative(RelativePath("main.swift"))),
+          .path(inputs[ "foo"]!.file),
+          .path(inputs["main"]!.file),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
@@ -130,10 +135,8 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("foo.o"))),
         ],
-        inputs: [
-          .init(file: .relative(RelativePath("foo.swift")), type: .swift),
-          .init(file: .relative(RelativePath("main.swift")), type: .swift),
-        ],
+        inputs: Array(inputs.values),
+        primaryInputs: [inputs["foo"]!],
         outputs: [.init(file: .temporary(RelativePath("foo.o")), type: .object)]
       )
 
@@ -146,7 +149,7 @@ final class JobExecutorTests: XCTestCase {
           "-c",
           .path(.relative(RelativePath("foo.swift"))),
           "-primary-file",
-          .path(.relative(RelativePath("main.swift"))),
+          .path(inputs["main"]!.file),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
@@ -154,10 +157,8 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("main.o"))),
         ],
-        inputs: [
-          .init(file: .relative(RelativePath("foo.swift")), type: .swift),
-          .init(file: .relative(RelativePath("main.swift")), type: .swift),
-        ],
+        inputs: Array(inputs.values),
+        primaryInputs: [inputs["main"]!],
         outputs: [.init(file: .temporary(RelativePath("main.o")), type: .object)]
       )
 
@@ -182,6 +183,7 @@ final class JobExecutorTests: XCTestCase {
           .init(file: .temporary(RelativePath("foo.o")), type: .object),
           .init(file: .temporary(RelativePath("main.o")), type: .object),
         ],
+        primaryInputs: [],
         outputs: [.init(file: .relative(RelativePath("main")), type: .image)]
       )
 
@@ -213,6 +215,7 @@ final class JobExecutorTests: XCTestCase {
       tool: .absolute(AbsolutePath("/usr/bin/swift")),
       commandLine: [.flag("something")],
       inputs: [],
+      primaryInputs: [],
       outputs: [.init(file: .temporary(RelativePath("main")), type: .object)]
     )
 

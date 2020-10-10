@@ -1311,8 +1311,9 @@ extension Job {
                    kind: .compile,
                    tool: VirtualPath(path: ""),
                    commandLine: [],
-                   inputs:  [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swift"    ), type: .swift    )],
-                   outputs: [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swiftdeps"), type: .swiftDeps)])
+                   inputs:         [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swift"    ), type: .swift    )],
+                   primaryInputs:  [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swift"    ), type: .swift    )],
+                   outputs:        [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swiftdeps"), type: .swiftDeps)])
   }
 
 }
