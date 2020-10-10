@@ -19,27 +19,27 @@ extension Toolchain {
     for triple: Triple,
     parsedOptions: inout ParsedOptions,
     isShared: Bool
-  ) throws -> AbsolutePath {
+  ) throws -> VirtualPath {
     // FIXME: This almost certainly won't be an absolute path in practice...
-    let resourceDirBase: AbsolutePath
+    let resourceDirBase: VirtualPath
     if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-      resourceDirBase = try AbsolutePath(validating: resourceDir.asSingle)
+      resourceDirBase = try VirtualPath(path: resourceDir.asSingle)
     } else if !triple.isDarwin,
       let sdk = parsedOptions.getLastArgument(.sdk),
-      let sdkPath = try? AbsolutePath(validating: sdk.asSingle) {
+      let sdkPath = try? VirtualPath(path: sdk.asSingle) {
       resourceDirBase = sdkPath
         .appending(components: "usr", "lib",
                    isShared ? "swift" : "swift_static")
     } else {
-      resourceDirBase = try getToolPath(.swiftCompiler)
-        .parentDirectory // remove /swift
-        .parentDirectory // remove /bin
-        .appending(components: "lib", isShared ? "swift" : "swift_static")
+      resourceDirBase = .absolute(try getToolPath(.swiftCompiler)
+                                    .parentDirectory // remove /swift
+                                    .parentDirectory // remove /bin
+                                    .appending(components: "lib", isShared ? "swift" : "swift_static"))
     }
-    return resourceDirBase.appending(components: triple.platformName() ?? "")
+    return resourceDirBase.appending(component: triple.platformName() ?? "")
   }
 
-  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: AbsolutePath) -> AbsolutePath? {
+  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: VirtualPath) -> VirtualPath? {
     guard triple.isMacCatalyst else { return nil }
     return primaryPath.parentDirectory.appending(component: "macosx")
   }
@@ -47,7 +47,7 @@ extension Toolchain {
   func clangLibraryPath(
     for triple: Triple,
     parsedOptions: inout ParsedOptions
-  ) throws -> AbsolutePath {
+  ) throws -> VirtualPath {
     return try computeResourceDirPath(for: triple,
                                       parsedOptions: &parsedOptions,
                                       isShared: true)
@@ -59,9 +59,9 @@ extension Toolchain {
   func runtimeLibraryPaths(
     for triple: Triple,
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
+    sdkPath: VirtualPath?,
     isShared: Bool
-  ) throws -> [AbsolutePath] {
+  ) throws -> [VirtualPath] {
     let resourceDirPath = try computeResourceDirPath(
       for: triple,
       parsedOptions: &parsedOptions,
@@ -73,14 +73,13 @@ extension Toolchain {
       result.append(path)
     }
 
-    if let path = sdkPath {
-      let sdkPath = AbsolutePath(path)
+    if let sdkPath = sdkPath {
       // If we added the secondary resource dir, we also need the iOSSupport directory.
       if secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
       }
 
-      result.append(sdkPath.appending(RelativePath("usr/lib/swift")))
+      result.append(sdkPath.appending(components: "usr", "lib", "swift"))
     }
 
     return result
@@ -114,7 +113,7 @@ extension Toolchain {
       for: targetTriple,
       parsedOptions: &parsedOptions
     ).appending(component: runtimeName)
-    return fileSystem.exists(path)
+    return try fileSystem.exists(path)
   }
 }
 
@@ -124,7 +123,6 @@ extension DarwinToolchain {
   func addArgsToLinkStdlib(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
     targetInfo: FrontendTargetInfo,
     linkerOutputType: LinkOutputType,
     fileSystem: FileSystem
@@ -136,9 +134,9 @@ extension DarwinToolchain {
     let resourceDirPath = try computeResourceDirPath(for: targetTriple,
                                                      parsedOptions: &parsedOptions,
                                                      isShared: true)
-    func addArgsForBackDeployLib(_ libName: String) {
+    func addArgsForBackDeployLib(_ libName: String) throws {
       let backDeployLibPath = resourceDirPath.appending(component: libName)
-      if fileSystem.exists(backDeployLibPath) {
+      if try fileSystem.exists(backDeployLibPath) {
         commandLine.append(.flag("-force_load"))
         commandLine.appendPath(backDeployLibPath)
       }
@@ -156,7 +154,7 @@ extension DarwinToolchain {
       }
 
       if shouldLink {
-        addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a")
+        try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a")
       }
     }
 
@@ -165,7 +163,7 @@ extension DarwinToolchain {
     let runtimePaths = try runtimeLibraryPaths(
       for: targetTriple,
       parsedOptions: &parsedOptions,
-      sdkPath: sdkPath,
+      sdkPath: targetInfo.sdkPath?.path,
       isShared: true
     )
     for path in runtimePaths {
@@ -245,12 +243,12 @@ extension DarwinToolchain {
       }
     }
 
-    func paths(runtimeLibraryPaths: [AbsolutePath]) -> [AbsolutePath] {
+    func paths(runtimeLibraryPaths: [VirtualPath]) -> [VirtualPath] {
       switch self {
       case .toolchain:
         return runtimeLibraryPaths
       case .os:
-        return [AbsolutePath("/usr/lib/swift")]
+        return [.absolute(.init("/usr/lib/swift"))]
       case .none:
         return []
       }

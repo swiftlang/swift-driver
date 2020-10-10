@@ -152,6 +152,16 @@ public enum VirtualPath: Hashable {
     }
   }
 
+  public func appending(components: String...) -> VirtualPath {
+    // FIXME: TSC should add non-variadic overloads of appending(components:)
+    // so we can forward arguments here instead of appending components one-by-one.
+    var result = self
+    components.forEach {
+      result = result.appending(component: $0)
+    }
+    return result
+  }
+
   /// Returns the virtual path with an additional suffix appended to base name.
   ///
   /// This should not be used with `.standardInput` or `.standardOutput`.
@@ -335,5 +345,9 @@ extension TSCBasic.FileSystem {
 
   func getFileInfo(_ path: VirtualPath) throws -> TSCBasic.FileInfo {
     try resolvingVirtualPath(path, apply: getFileInfo)
+  }
+
+  func exists(_ path: VirtualPath) throws -> Bool {
+    try resolvingVirtualPath(path, apply: exists)
   }
 }

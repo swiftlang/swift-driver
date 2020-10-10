@@ -136,7 +136,6 @@ extension Driver {
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
-    try commandLine.appendLast(.resourceDir, from: &parsedOptions)
     try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
     try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)

@@ -46,7 +46,6 @@ extension Driver {
       outputFile: outputFile,
       shouldUseInputFileList: shouldUseInputFileList,
       lto: lto,
-      sdkPath: self.absoluteSDKPath?.pathString,
       sanitizers: enabledSanitizers,
       targetInfo: frontendTargetInfo
     )

@@ -3321,6 +3321,42 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testFrontendTargetInfoWithWorkingDirectory() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift",
+                                     "-resource-dir", "resource/dir",
+                                     "-sdk", "sdk",
+                                     "-working-directory", "/absolute/path"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.path(.absolute(.init("/absolute/path/resource/dir")))))
+      XCTAssertFalse(job.commandLine.contains(.path(.relative(.init("resource/dir")))))
+      XCTAssertTrue(job.commandLine.contains(.path(.absolute(.init("/absolute/path/sdk")))))
+      XCTAssertFalse(job.commandLine.contains(.path(.relative(.init("sdk")))))
+    }
+  }
+
+  func testRelativeResourceDir() throws {
+    do {
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-unknown-linux", "-lto=llvm-thin",
+                                     "foo.swift",
+                                     "-resource-dir", "resource/dir"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-resource-dir", .path(.relative(.init("resource/dir")))]))
+      let linkJob = plannedJobs[1]
+      XCTAssertEqual(linkJob.kind, .link)
+      XCTAssertTrue(linkJob.commandLine.contains(subsequence:
+                                              ["-Xlinker", "-rpath",
+                                               "-Xlinker", .path(.relative(.init("resource/dir/linux")))]))
+      XCTAssertTrue(linkJob.commandLine.contains(.path(.relative(.init("resource/dir/linux/x86_64/swiftrt.o")))))
+      XCTAssertTrue(linkJob.commandLine.contains(subsequence:
+                                              ["-L", .path(.relative(.init("resource/dir/linux")))]))
+    }
+  }
+
   func testSanitizerArgsForTargets() throws {
     let targets = ["x86_64-unknown-freebsd",  "x86_64-unknown-linux", "x86_64-apple-macosx10.9"]
     try targets.forEach {

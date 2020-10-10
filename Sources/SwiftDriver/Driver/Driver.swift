@@ -323,13 +323,6 @@ public struct Driver {
     // Determine the compilation mode.
     self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
-    // Build the toolchain and determine target information.
-    (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
-        try Self.computeToolchain(
-          &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
-          compilerMode: self.compilerMode, env: env,
-          executor: self.executor, fileSystem: fileSystem)
-
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
       let cwd = fileSystem.currentWorkingDirectory
@@ -340,6 +333,13 @@ public struct Driver {
     if let workingDirectory = self.workingDirectory {
       try Self.applyWorkingDirectory(workingDirectory, to: &self.parsedOptions)
     }
+
+    // Build the toolchain and determine target information.
+    (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
+        try Self.computeToolchain(
+          &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+          compilerMode: self.compilerMode, env: env,
+          executor: self.executor, fileSystem: fileSystem)
 
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)

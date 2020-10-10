@@ -51,7 +51,6 @@ extension GenericUnixToolchain {
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
     lto: LTOKind?,
-    sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
@@ -135,7 +134,7 @@ extension GenericUnixToolchain {
       let runtimePaths = try runtimeLibraryPaths(
         for: targetTriple,
         parsedOptions: &parsedOptions,
-        sdkPath: sdkPath,
+        sdkPath: targetInfo.sdkPath?.path,
         isShared: hasRuntimeArgs
       )
 
@@ -184,9 +183,9 @@ extension GenericUnixToolchain {
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
-      if let path = sdkPath {
+      if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
-        commandLine.appendFlag(path)
+        commandLine.appendPath(path)
       }
 
       // Add the runtime library link paths.
@@ -198,7 +197,7 @@ extension GenericUnixToolchain {
       // Link the standard library. In two paths, we do this using a .lnk file
       // if we're going that route, we'll set `linkFilePath` to the path to that
       // file.
-      var linkFilePath: AbsolutePath? = try computeResourceDirPath(
+      var linkFilePath: VirtualPath? = try computeResourceDirPath(
         for: targetTriple,
         parsedOptions: &parsedOptions,
         isShared: false
@@ -214,10 +213,10 @@ extension GenericUnixToolchain {
       }
 
       if let linkFile = linkFilePath {
-        guard fileSystem.isFile(linkFile) else {
-          fatalError("\(linkFile.pathString) not found")
+        guard try fileSystem.exists(linkFile) else {
+          fatalError("\(linkFile) not found")
         }
-        commandLine.append(.responseFilePath(.absolute(linkFile)))
+        commandLine.append(.responseFilePath(linkFile))
       }
 
       // Explicitly pass the target to the linker
