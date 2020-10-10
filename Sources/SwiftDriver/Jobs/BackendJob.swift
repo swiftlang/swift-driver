@@ -72,6 +72,7 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: inputs,
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs,
       supportsResponseFiles: true
     )

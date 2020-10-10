@@ -165,6 +165,7 @@ extension Toolchain {
       commandLine: commandLine,
       displayInputs: [],
       inputs: [],
+      primaryInputs: [],
       outputs: [.init(file: .standardOutput, type: .jsonTargetInfo)],
       requiresInPlaceExecution: requiresInPlaceExecution,
       supportsResponseFiles: false

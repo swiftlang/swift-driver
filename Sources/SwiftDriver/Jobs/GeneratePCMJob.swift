@@ -59,6 +59,7 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs
     )
   }

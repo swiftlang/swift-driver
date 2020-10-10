@@ -58,6 +58,7 @@ extension Driver {
       tool: .absolute(toolPath),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: [.init(file: outputFile, type: .image)]
     )
   }

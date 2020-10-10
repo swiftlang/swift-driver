@@ -267,6 +267,7 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: primaryInputs,
       inputs: inputs,
+      primaryInputs: primaryInputs,
       outputs: outputs,
       supportsResponseFiles: true
     )

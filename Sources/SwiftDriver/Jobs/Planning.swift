@@ -472,6 +472,7 @@ extension Driver {
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [.flag("--version")],
         inputs: [],
+        primaryInputs: [],
         outputs: [],
         requiresInPlaceExecution: true)
     }
@@ -487,6 +488,7 @@ extension Driver {
         tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
         commandLine: commandLine,
         inputs: [],
+        primaryInputs: [],
         outputs: [],
         requiresInPlaceExecution: true)
     }
