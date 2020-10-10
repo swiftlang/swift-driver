@@ -14,6 +14,7 @@ import Foundation
 @_implementationOnly import Yams
 
 /// Holds the info about inputs needed to plan incremenal compilation
+/// A.k.a. BuildRecord, but InputInfoMap is the legacy name
 public struct InputInfoMap {
   public let swiftVersion: String
   public let argsHash: String
@@ -175,7 +176,7 @@ extension InputInfoMap {
     )
   }
 
-  func encode() throws -> String {
+  @_spi(Testing) public func encode() throws -> String {
       let pathsAndInfos = try inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
         guard let path = input.absolutePath else {
@@ -186,24 +187,28 @@ extension InputInfoMap {
       let inputInfosNode = Yams.Node(
         pathsAndInfos
           .sorted {$0.0 < $1.0}
-          .map {(Yams.Node($0.0), Self.encode($0.1))}
+          .map {(Yams.Node($0.0, .implicit, .doubleQuoted), Self.encode($0.1))}
       )
       let fieldNodes = [
-        ("version", Yams.Node(swiftVersion)),
-        ("options", Yams.Node(argsHash)),
+        ("version", Yams.Node(swiftVersion, .implicit, .doubleQuoted)),
+        ("options", Yams.Node(argsHash, .implicit, .doubleQuoted)),
         ("build_time", Self.encode(buildTime)),
         ("inputs", inputInfosNode )
       ] .map { (Yams.Node($0.0), $0.1) }
 
-      let inputInfoMapNode = Yams.Node(fieldNodes)
-      return try Yams.serialize(node: inputInfoMapNode)
+    let inputInfoMapNode = Yams.Node(fieldNodes, .implicit, .block)
+   // let options = Yams.Emitter.Options(canonical: true)
+    return try Yams.serialize(node: inputInfoMapNode,
+                              width: -1,
+                              sortKeys: false)
   }
 
   private static func encode(_ date: Date, tag tagString: String? = nil) -> Yams.Node {
     let secsAndNanos = date.legacyDriverSecsAndNanos
     return Yams.Node(
       secsAndNanos.map {Yams.Node(String($0))},
-      tagString.map {Yams.Tag(Yams.Tag.Name(rawValue: $0))} ?? .implicit)
+      tagString.map {Yams.Tag(Yams.Tag.Name(rawValue: $0))} ?? .implicit,
+      .flow)
   }
 
   private static func encode(_ inputInfo: InputInfo) -> Yams.Node {

@@ -131,5 +131,35 @@ final class IncrementalCompilationTests: XCTestCase {
     }
     XCTAssertTrue(foundEdge)
   }
-}
 
+  func testReadAndWriteBuildRecord() throws {
+    let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
+    let options = "abbbfbcaf36b93e58efaadd8271ff142"
+    let file2 = "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"
+    let main = "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"
+    let gazorp = "/Volumes/gazorp.swift"
+    let inputString =
+      """
+      version: "\(version)"
+      options: "\(options)"
+      build_time: [1570318779, 32358000]
+      inputs:
+        "\(file2)": !dirty [1570318778, 0]
+        "\(main)": [1570083660, 0]
+        "\(gazorp)": !private [0,0]
+      """
+    let buildRecord = try InputInfoMap(contents: inputString)
+    XCTAssertEqual(buildRecord.swiftVersion, version)
+    XCTAssertEqual(buildRecord.argsHash, options)
+    XCTAssertEqual(buildRecord.inputInfos.count, 3)
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: file2 )]!.status,
+                   .needsCascadingBuild)
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: gazorp)]!.status,
+                   .needsNonCascadingBuild)
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: main  )]!.status,
+                   .upToDate)
+
+    let outputString = try buildRecord.encode()
+    XCTAssertEqual(inputString, outputString)
+  }
+}
