@@ -869,14 +869,14 @@ extension Driver {
     defer {
       stdoutStream.flush()
     }
-    var jobIdMap = Dictionary<Job, uint>()
+    var jobIdMap = Dictionary<Job, UInt>()
     // The C++ driver treats each input as an action, we should print them as
     // an action too for testing purposes.
-    var inputIdMap = Dictionary<TypedVirtualPath, uint>()
-    var nextId: uint = 0
+    var inputIdMap = Dictionary<TypedVirtualPath, UInt>()
+    var nextId: UInt = 0
     for job in jobs {
       // All input action IDs for this action.
-      var inputIds = Set<uint>()
+      var inputIds = Set<UInt>()
       // Collect input job IDs.
       for input in job.displayInputs.isEmpty ? job.inputs : job.displayInputs {
         var foundInput = false
