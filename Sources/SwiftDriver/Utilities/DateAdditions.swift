@@ -25,9 +25,9 @@ public extension Date {
     self = Date(timeIntervalSince1970: Double(secs) + Double(nanos) / 1e9)
   }
   var legacyDriverSecsAndNanos: [Int] {
-    let totalNanos = timeIntervalSince1970
-    let secs  = Int(              floor(totalNanos))
-    let nanos = Int((totalNanos - floor(totalNanos)) * 1e9)
+    let totalSecs = timeIntervalSince1970
+    let secs  = Int(              floor(totalSecs))
+    let nanos = Int((totalSecs  - floor(totalSecs)) * 1e9)
     return [secs, nanos]
   }
 }
