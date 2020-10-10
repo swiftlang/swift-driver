@@ -195,7 +195,6 @@ extension DarwinToolchain {
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
     lto: LTOKind?,
-    sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
@@ -217,8 +216,8 @@ extension DarwinToolchain {
         for: targetTriple,
         parsedOptions: &parsedOptions)
       .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
-    if fileSystem.exists(compilerRTPath) {
-      commandLine.append(.path(.absolute(compilerRTPath)))
+    if try fileSystem.exists(compilerRTPath) {
+      commandLine.append(.path(compilerRTPath))
     }
 
     // Set up for linking.
@@ -258,7 +257,6 @@ extension DarwinToolchain {
       try addArgsToLinkStdlib(
         to: &commandLine,
         parsedOptions: &parsedOptions,
-        sdkPath: sdkPath,
         targetInfo: targetInfo,
         linkerOutputType: linkerOutputType,
         fileSystem: fileSystem
@@ -289,7 +287,7 @@ extension DarwinToolchain {
       to: &commandLine,
       targetTriple: targetTriple,
       targetVariantTriple: targetVariantTriple,
-      sdkPath: try sdkPath.map(VirtualPath.init(path:))
+      sdkPath: targetInfo.sdkPath?.path
     )
     try addProfileGenerationArgs(
       to: &commandLine,
@@ -304,9 +302,9 @@ extension DarwinToolchain {
     )
 
     // Add the SDK path
-    if let sdkPath = sdkPath {
+    if let sdkPath = targetInfo.sdkPath?.path {
       commandLine.appendFlag("-syslibroot")
-      commandLine.appendPath(try VirtualPath(path: sdkPath))
+      commandLine.appendPath(sdkPath)
     }
 
     if parsedOptions.contains(.embedBitcode) ||

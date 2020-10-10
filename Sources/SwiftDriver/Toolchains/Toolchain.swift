@@ -67,7 +67,6 @@ public enum Tool: Hashable {
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
     lto: LTOKind?,
-    sdkPath: String?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath
@@ -81,7 +80,7 @@ public enum Tool: Hashable {
   func platformSpecificInterpreterEnvironmentVariables(
     env: [String: String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
+    sdkPath: VirtualPath?,
     targetTriple: Triple) throws -> [String: String]
 
   func addPlatformSpecificCommonFrontendOptions(

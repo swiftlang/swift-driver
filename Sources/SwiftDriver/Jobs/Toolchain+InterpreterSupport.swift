@@ -34,7 +34,7 @@ extension DarwinToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
+    sdkPath: VirtualPath?,
     targetTriple: Triple) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
@@ -43,7 +43,7 @@ extension DarwinToolchain {
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
       isShared: true
-    ).map { $0.pathString }
+    ).map { $0.name }
 
     addPathEnvironmentVariableIfNeeded("DYLD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
@@ -62,7 +62,7 @@ extension GenericUnixToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
+    sdkPath: VirtualPath?,
     targetTriple: Triple) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
@@ -71,7 +71,7 @@ extension GenericUnixToolchain {
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
       isShared: true
-    ).map { $0.pathString }
+    ).map { $0.name }
 
     addPathEnvironmentVariableIfNeeded("LD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
