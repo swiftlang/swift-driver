@@ -1377,6 +1377,10 @@ extension Driver {
       .filter { $0.option == .sanitizeEQ }
       .flatMap { $0.argument.asMultiple }
 
+    // No sanitizer args found, we could return.
+    if args.isEmpty {
+      return set
+    }
     // Find the sanitizer kind.
     for arg in args {
       guard let sanitizer = Sanitizer(rawValue: arg) else {

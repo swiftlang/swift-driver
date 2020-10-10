@@ -3306,6 +3306,15 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testSanitizerArgsForTargets() throws {
+    let targets = ["x86_64-unknown-freebsd",  "x86_64-unknown-linux", "x86_64-apple-macosx10.9"]
+    try targets.forEach {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-target", $0, "foo.swift"])
+      _ = try driver.planBuild()
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
+  }
+
   func testFilelist() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"])
