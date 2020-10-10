@@ -30,17 +30,6 @@ public struct InputInfoMap {
     self.buildTime = buildTime
     self.inputInfos = inputInfos
   }
-}
-
-// Reading
-public extension InputInfoMap {
-  private enum SectionName: String, CaseIterable {
-  case
-    swiftVersion = "version",
-    argsHash = "options",
-    buildTime = "build_time",
-    inputInfos = "inputs"
-  }
 
   enum SimpleErrors: String, LocalizedError {
     case
@@ -60,13 +49,28 @@ public extension InputInfoMap {
   }
   enum Errors: LocalizedError {
     case
-    unexpectedSection(String)
+    unexpectedSection(String),
+    notAbsolutePath(VirtualPath)
+
     public var localizedDescription: String {
       switch self {
       case .unexpectedSection(let s): return "unexpected section \(s)"
+      case .notAbsolutePath(let p): return "not absolute path \(p)"
       }
     }
   }
+}
+
+// MARK: - Reading the old map and deciding whether to use it
+public extension InputInfoMap {
+  private enum SectionName: String, CaseIterable {
+  case
+    swiftVersion = "version",
+    argsHash = "options",
+    buildTime = "build_time",
+    inputInfos = "inputs"
+  }
+
 
   init(contents: String) throws {
     guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
@@ -77,6 +81,7 @@ public extension InputInfoMap {
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else { throw SimpleErrors.sectionNameNotString }
+      // TODO: Incremental use SectionNames here
       switch k {
       case "version": swiftVersion = value.string
       case "options": argsHash = value.string
@@ -120,43 +125,13 @@ public extension InputInfoMap {
       }
     )
   }
-}
-
-
-
-/// Reading the old map and deciding whether to use it
-public extension InputInfoMap {
-  static func populateOutOfDateMap(
-    argsHash: String,
-    lastBuildTime: Date,
-    fileSystem: FileSystem,
-    inputFiles: [TypedVirtualPath],
-    buildRecordPath: VirtualPath,
-    showIncrementalBuildDecisions: Bool,
-    diagnosticEngine: DiagnosticsEngine
-  ) -> Self? {
-    let contents: String
-    do {
-      contents = try fileSystem.readFileContents(buildRecordPath).cString
-      return try Self(contents: contents)
-    }
-    catch {
-      if showIncrementalBuildDecisions {
-        diagnosticEngine.emit(.remark_could_not_read_build_record(error))
-      }
-      return nil
-    }
-  }
 
   /// Returns why it did not match
-  func matches(argsHash: String, inputFiles: [TypedVirtualPath], actualSwiftVersion: String?) -> String? {
-    guard let actualSwiftVersion = actualSwiftVersion else {
-      return "the version of the compiler we will be using could not determined"
+  @_spi(Testing) func mismatchReason(buildRecordInfo: BuildRecordInfo, inputFiles: [TypedVirtualPath]) -> String? {
+    guard buildRecordInfo.actualSwiftVersion == self.swiftVersion else {
+      return "the compiler version has changed from \(self.swiftVersion) to \(buildRecordInfo.actualSwiftVersion)"
     }
-    guard actualSwiftVersion == self.swiftVersion else {
-      return "the compiler version has changed from \(self.swiftVersion) to \(actualSwiftVersion)"
-    }
-    guard argsHash == self.argsHash else {
+    guard buildRecordInfo.argsHash == self.argsHash else {
       return "different arguments were passed to the compiler"
     }
     let missingInputs = Set(self.inputInfos.keys).subtracting(inputFiles.map {$0.file})
@@ -168,9 +143,95 @@ public extension InputInfoMap {
   }
 }
 
+// MARK: - Creating and writing a new map
+extension InputInfoMap {
+  /// Create a new buildRecord for writing
+  init(jobs: [Job],
+       finishedJobResults: [Job: ProcessResult],
+       skippedInputs: Set<TypedVirtualPath>?,
+       compilationInputModificationDates: [TypedVirtualPath: Date],
+       actualSwiftVersion: String,
+       argsHash: String,
+       timeBeforeFirstJob: Date
+  ) {
+    let jobResultsByInput = Dictionary(
+      uniqueKeysWithValues:
+        finishedJobResults.flatMap { job, result in
+          job.primaryInputs.map { ($0, result)  }
+        }
+    )
+    let inputInfosArray = compilationInputModificationDates
+      .map { input, modDate -> (VirtualPath, InputInfo) in
+        let status = InputInfo.Status(  wasSkipped: skippedInputs?.contains(input),
+                                        jobResult: jobResultsByInput[input])
+        return (input.file, InputInfo(status: status, previousModTime: modDate))
+      }
+
+    self.init(
+      argsHash: argsHash,
+      swiftVersion: actualSwiftVersion,
+      buildTime: timeBeforeFirstJob,
+      inputInfos: Dictionary(uniqueKeysWithValues: inputInfosArray)
+    )
+  }
+
+  func encode() throws -> String {
+      let pathsAndInfos = try inputInfos.map {
+        input, inputInfo -> (String, InputInfo) in
+        guard let path = input.absolutePath else {
+          throw Errors.notAbsolutePath(input)
+        }
+        return (path.pathString, inputInfo)
+      }
+      let inputInfosNode = Yams.Node(
+        pathsAndInfos
+          .sorted {$0.0 < $1.0}
+          .map {(Yams.Node($0.0), Self.encode($0.1))}
+      )
+      let fieldNodes = [
+        ("version", Yams.Node(swiftVersion)),
+        ("options", Yams.Node(argsHash)),
+        ("build_time", Self.encode(buildTime)),
+        ("inputs", inputInfosNode )
+      ] .map { (Yams.Node($0.0), $0.1) }
+
+      let inputInfoMapNode = Yams.Node(fieldNodes)
+      return try Yams.serialize(node: inputInfoMapNode)
+  }
+
+  private static func encode(_ date: Date, tag tagString: String? = nil) -> Yams.Node {
+    let secsAndNanos = date.legacyDriverSecsAndNanos
+    return Yams.Node(
+      secsAndNanos.map {Yams.Node(String($0))},
+      tagString.map {Yams.Tag(Yams.Tag.Name(rawValue: $0))} ?? .implicit)
+  }
+
+  private static func encode(_ inputInfo: InputInfo) -> Yams.Node {
+    encode(inputInfo.previousModTime, tag: inputInfo.tag)
+  }
+
+}
 
 extension Diagnostic.Message {
-  static func remark_could_not_read_build_record(_ error: Error) -> Diagnostic.Message {
-    .remark("Incremental compilation could not read build record: \(error.localizedDescription).")
+  static func warning_could_not_serialize_build_record(_ err: Error
+  ) -> Diagnostic.Message {
+    .warning("Next compile won't be incremental; Could not serialize build record: \(err.localizedDescription)")
+  }
+  static func warning_could_not_write_build_record_not_absolutePath(
+    _ path: VirtualPath
+  ) -> Diagnostic.Message {
+    .warning("Next compile won't be incremental; build record path was not absolute: \(path)")
+  }
+  static func warning_could_not_write_build_record(_ path: AbsolutePath
+  ) -> Diagnostic.Message {
+    .warning("Next compile won't be incremental; could not write build record to \(path)")
+  }
+}
+
+extension Diagnostic.Message {
+  static func remark_could_not_read_build_record(_ path: VirtualPath,
+                                                 _ error: Error
+  ) -> Diagnostic.Message {
+    .remark("Incremental compilation could not read build record at \(path): \(error.localizedDescription).")
   }
 }

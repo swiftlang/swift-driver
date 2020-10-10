@@ -186,8 +186,13 @@ public struct Driver {
   // The information about the module to produce.
   @_spi(Testing) public let moduleOutputInfo: ModuleOutputInfo
 
-  /// Code & data for incremental compilation
-  @_spi(Testing) public let incrementalCompilationState: IncrementalCompilationState
+  /// Info needed to write and maybe read the build record.
+  /// Only present when the driver will be writing the record.
+  /// Only used for reading when compiling incrementally.
+  @_spi(Testing) public let buildRecordInfo: BuildRecordInfo?
+
+  /// Code & data for incremental compilation. Nil if not running in incremental mode
+  @_spi(Testing) public let incrementalCompilationState: IncrementalCompilationState?
 
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
@@ -419,18 +424,25 @@ public struct Driver {
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine)
 
+    self.buildRecordInfo = BuildRecordInfo(
+      actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
+      compilerOutputType: compilerOutputType,
+      diagnosticEngine: diagnosticEngine,
+      fileSystem: fileSystem,
+      moduleOutputInfo: moduleOutputInfo,
+      outputFileMap: outputFileMap,
+      parsedOptions: parsedOptions,
+      recordedInputModificationDates: recordedInputModificationDates)
+
     // Determine the state for incremental compilation
     self.incrementalCompilationState = IncrementalCompilationState(
-      &parsedOptions,
+      buildRecordInfo: buildRecordInfo,
       compilerMode: compilerMode,
-      outputFileMap: self.outputFileMap,
-      compilerOutputType: self.compilerOutputType,
-      moduleOutput: self.moduleOutputInfo.output,
+      diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
       inputFiles: inputFiles,
-      diagnosticEngine: diagnosticEngine,
-      actualSwiftVersion: self.frontendTargetInfo.compilerVersion
-    )
+      outputFileMap: outputFileMap,
+      parsedOptions: &parsedOptions)
 
     // Local variable to alias the target triple, because self.targetTriple
     // is not available until the end of this initializer.
@@ -828,6 +840,8 @@ extension Driver {
                          numParallelJobs: numParallelJobs ?? 1,
                          forceResponseFiles: forceResponseFiles,
                          recordedInputModificationDates: recordedInputModificationDates)
+
+    buildRecordInfo?.writeBuildRecord( jobs, nil)
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
     if parsedOptions.hasArgument(.driverWarnUnusedOptions) {
@@ -1895,7 +1909,7 @@ extension Driver {
       targetTriple: explicitTarget, fileSystem: fileSystem,
       diagnosticsEngine: diagnosticsEngine, env: env)
 
-    // Query the frontend to for target information.
+    // Query the frontend for target information.
     do {
       var info = try executor.execute(
         job: toolchain.printTargetInfoJob(

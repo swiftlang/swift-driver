@@ -12,87 +12,55 @@
 import TSCBasic
 import Foundation
 import SwiftOptions
+@_spi(Testing) public class IncrementalCompilationState {
+  public let buildRecordInfo: BuildRecordInfo
+  public let diagnosticEngine: DiagnosticsEngine
+  public let outOfDateMap: InputInfoMap
 
-@_spi(Testing) public struct IncrementalCompilationState {
-  public let showIncrementalBuildDecisions: Bool
-  public let enableIncrementalBuild: Bool
-  public let buildRecordPath: VirtualPath?
-  public let outputBuildRecordForModuleOnlyBuild: Bool
-  public let argsHash: String
-  public let lastBuildTime: Date
-  public let outOfDateMap: InputInfoMap?
-  public var rebuildEverything: Bool { return outOfDateMap == nil }
-  
-  public init(_ parsedOptions: inout ParsedOptions,
-              compilerMode: CompilerMode,
-              outputFileMap: OutputFileMap?,
-              compilerOutputType: FileType?,
-              moduleOutput: ModuleOutputInfo.ModuleOutput?,
-              fileSystem: FileSystem,
-              inputFiles: [TypedVirtualPath],
-              diagnosticEngine: DiagnosticsEngine,
-              actualSwiftVersion: String?
+  /// Return nil if not compiling incrementally
+  public init?(
+    buildRecordInfo: BuildRecordInfo?,
+    compilerMode: CompilerMode,
+    diagnosticEngine: DiagnosticsEngine,
+    fileSystem: FileSystem,
+    inputFiles: [TypedVirtualPath],
+    outputFileMap: OutputFileMap?,
+    parsedOptions: inout ParsedOptions
   ) {
-    let showIncrementalBuildDecisions = Self.getShowIncrementalBuildDecisions(&parsedOptions)
-    self.showIncrementalBuildDecisions = showIncrementalBuildDecisions
-    
-    let enableIncrementalBuild = Self.computeAndExplainShouldCompileIncrementally(
-      &parsedOptions,
-      showIncrementalBuildDecisions: showIncrementalBuildDecisions,
-      compilerMode: compilerMode,
-      diagnosticEngine: diagnosticEngine)
-    
-    self.enableIncrementalBuild = enableIncrementalBuild
-    
-    self.buildRecordPath = Self.computeBuildRecordPath(
-      outputFileMap: outputFileMap,
-      compilerOutputType: compilerOutputType,
-      diagnosticEngine: enableIncrementalBuild ? diagnosticEngine : nil)
-    
-    // If we emit module along with full compilation, emit build record
-    // file for '-emit-module' only mode as well.
-    self.outputBuildRecordForModuleOnlyBuild = self.buildRecordPath != nil &&
-      moduleOutput?.isTopLevel ?? false
-    
-    let argsHash = Self.computeArgsHash(parsedOptions)
-    self.argsHash = argsHash
-    let lastBuildTime = Date()
-    self.lastBuildTime = lastBuildTime
-    
-    if let buRP = buildRecordPath, enableIncrementalBuild {
-      let outOfDateMap = InputInfoMap.populateOutOfDateMap(
-        argsHash: argsHash,
-        lastBuildTime: lastBuildTime,
-        fileSystem: fileSystem,
-        inputFiles: inputFiles,
-        buildRecordPath: buRP,
-        showIncrementalBuildDecisions: showIncrementalBuildDecisions,
-        diagnosticEngine: diagnosticEngine)
-      if let mismatchReason = outOfDateMap?.matches(
-        argsHash: argsHash,
-        inputFiles: inputFiles,
-        actualSwiftVersion: actualSwiftVersion
-      ) {
-        diagnosticEngine.emit(.remark_incremental_compilation_disabled(because: mismatchReason))
-        self.outOfDateMap = nil
-      }
-      else {
-        self.outOfDateMap = outOfDateMap
-      }
-    }
+    guard Self.shouldAttemptIncrementalCompilation(
+            parsedOptions: &parsedOptions,
+            compilerMode: compilerMode,
+            diagnosticEngine: diagnosticEngine)
     else {
-      self.outOfDateMap = nil
+      return nil
     }
+    guard let _ = outputFileMap,
+          let buildRecordInfo = buildRecordInfo
+    else {
+      diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
+      return nil
+    }
+    // FIXME: This should work without an output file map. We should have
+    // another way to specify a build record and where to put intermediates.
+    guard let outOfDateMap = buildRecordInfo.populateOutOfDateMap()
+    else {
+      return nil
+    }
+    if let mismatchReason = outOfDateMap.mismatchReason(
+      buildRecordInfo: buildRecordInfo,
+      inputFiles: inputFiles
+    ) {
+      diagnosticEngine.emit(
+        .remark_incremental_compilation_disabled(because: mismatchReason))
+      return nil
+    }
+    self.outOfDateMap = outOfDateMap
+    self.diagnosticEngine = diagnosticEngine
+    self.buildRecordInfo = buildRecordInfo
   }
-  
-  private static func getShowIncrementalBuildDecisions(
-    _ parsedOptions: inout ParsedOptions) -> Bool {
-    parsedOptions.hasArgument(.driverShowIncremental)
-  }
-  
-  private static func computeAndExplainShouldCompileIncrementally(
-    _ parsedOptions: inout ParsedOptions,
-    showIncrementalBuildDecisions: Bool,
+
+  private static func shouldAttemptIncrementalCompilation(
+    parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode,
     diagnosticEngine: DiagnosticsEngine
   ) -> Bool {
@@ -113,42 +81,7 @@ import SwiftOptions
     }
     return true
   }
-  
-  private static func computeBuildRecordPath(
-    outputFileMap: OutputFileMap?,
-    compilerOutputType: FileType?,
-    diagnosticEngine: DiagnosticsEngine?
-  ) -> VirtualPath? {
-    // FIXME: This should work without an output file map. We should have
-    // another way to specify a build record and where to put intermediates.
-    guard let ofm = outputFileMap else {
-      diagnosticEngine.map { $0.emit(.warning_incremental_requires_output_file_map) }
-      return nil
-    }
-    guard let partialBuildRecordPath = ofm.existingOutputForSingleInput(outputType: .swiftDeps)
-    else {
-      diagnosticEngine.map { $0.emit(.warning_incremental_requires_build_record_entry) }
-      return nil
-    }
-    // In 'emit-module' only mode, use build-record filename suffixed with
-    // '~moduleonly'. So that module-only mode doesn't mess up build-record
-    // file for full compilation.
-    return compilerOutputType == .swiftModule
-      ? partialBuildRecordPath.appendingToBaseName("~moduleonly")
-      : partialBuildRecordPath
-  }
-  
-  private static func computeArgsHash(_ parsedOptionsArg: ParsedOptions) -> String {
-    var parsedOptions = parsedOptionsArg
-    let hashInput = parsedOptions
-      .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
-      .map {$0.option.spelling}
-      .sorted()
-      .joined()
-    return SHA256().hash(hashInput).hexadecimalRepresentation
-  }
 }
-
 
 fileprivate extension CompilerMode {
   var supportsIncrementalCompilation: Bool {
