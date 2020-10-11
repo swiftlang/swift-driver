@@ -52,7 +52,7 @@ extension InputInfo.Status {
 
 // MARK: - writing
 extension InputInfo.Status {
-  /// The identifier is used for the tag in the value of the input in the InputInfoMap
+  /// The identifier is used for the tag in the value of the input in the BuildRecord
   var identifier: String {
     switch self {
     case .upToDate:

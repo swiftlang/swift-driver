@@ -14,15 +14,15 @@ import XCTest
 @_spi(Testing) import SwiftDriver
 
 final class IncrementalCompilationTests: XCTestCase {
-  func testInputInfoMapReading() throws {
-    let inputInfoMap = try! InputInfoMap(contents: Inputs.inputInfoMap)
-    XCTAssertEqual(inputInfoMap.swiftVersion,
+  func testBuildRecordReading() throws {
+    let buildRecord = try! BuildRecord(contents: Inputs.buildRecord)
+    XCTAssertEqual(buildRecord.swiftVersion,
       "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(inputInfoMap.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
+    XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
 
-    try XCTAssertEqual(inputInfoMap.buildTime,
+    try XCTAssertEqual(buildRecord.buildTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
-    try XCTAssertEqual(inputInfoMap.inputInfos,
+    try XCTAssertEqual(buildRecord.inputInfos,
           [
             VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
               InputInfo(status: .needsCascadingBuild,
@@ -154,7 +154,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "\(gazorp)": !private [0, 0]
 
       """
-    let buildRecord = try InputInfoMap(contents: inputString)
+    let buildRecord = try BuildRecord(contents: inputString)
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)

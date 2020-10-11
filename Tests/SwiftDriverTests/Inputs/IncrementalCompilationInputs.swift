@@ -13,7 +13,7 @@
 import Foundation
 
 enum Inputs {
-  static var inputInfoMap: String {
+  static var buildRecord: String {
     """
         version: "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
         options: "abbbfbcaf36b93e58efaadd8271ff142"

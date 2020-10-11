@@ -1,4 +1,4 @@
-//===--------------- InputInfoMap.swift - Swift Input File Info Map -------===//
+//===--------------- BuildRecord.swift - Swift Input File Info Map -------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -14,8 +14,8 @@ import Foundation
 @_implementationOnly import Yams
 
 /// Holds the info about inputs needed to plan incremenal compilation
-/// A.k.a. BuildRecord, but InputInfoMap is the legacy name
-public struct InputInfoMap {
+/// A.k.a. BuildRecord was the legacy name
+public struct BuildRecord {
   public let swiftVersion: String
   public let argsHash: String
   public let buildTime: Date
@@ -34,7 +34,7 @@ public struct InputInfoMap {
 
   enum SimpleErrors: String, LocalizedError {
     case
-    couldNotDecodeInputInfoMap,
+    couldNotDecodeBuildRecord,
     sectionNameNotString,
     dateValuesNotSequence,
     dateValuesNotDuo,
@@ -63,7 +63,7 @@ public struct InputInfoMap {
 }
 
 // MARK: - Reading the old map and deciding whether to use it
-public extension InputInfoMap {
+public extension BuildRecord {
   private enum SectionName: String, CaseIterable {
   case
     swiftVersion = "version",
@@ -76,7 +76,7 @@ public extension InputInfoMap {
   init(contents: String) throws {
     guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
       .singleRoot()?.mapping
-      else { throw SimpleErrors.couldNotDecodeInputInfoMap }
+      else { throw SimpleErrors.couldNotDecodeBuildRecord }
     var argsHash, swiftVersion: String?
     var buildTime: Date?
     var inputInfos: [VirtualPath: InputInfo]?
@@ -145,7 +145,7 @@ public extension InputInfoMap {
 }
 
 // MARK: - Creating and writing a new map
-extension InputInfoMap {
+extension BuildRecord {
   /// Create a new buildRecord for writing
   init(jobs: [Job],
        finishedJobResults: [Job: ProcessResult],
@@ -196,9 +196,9 @@ extension InputInfoMap {
         ("inputs", inputInfosNode )
       ] .map { (Yams.Node($0.0), $0.1) }
 
-    let inputInfoMapNode = Yams.Node(fieldNodes, .implicit, .block)
+    let buildRecordNode = Yams.Node(fieldNodes, .implicit, .block)
    // let options = Yams.Emitter.Options(canonical: true)
-    return try Yams.serialize(node: inputInfoMapNode,
+    return try Yams.serialize(node: buildRecordNode,
                               width: -1,
                               sortKeys: false)
   }

@@ -92,7 +92,7 @@ import SwiftOptions
   /// `Jobs` must include all of the compilation jobs.
   /// `Inputs` will hold all the primary inputs that were not compiled because of incremental compilation
   func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>? ) {
-    let buildRecord = InputInfoMap(
+    let buildRecord = BuildRecord(
       jobs: jobs,
       finishedJobResults: finishedJobResults,
       skippedInputs: skippedInputs,
@@ -103,7 +103,7 @@ import SwiftOptions
 
     let contents: String
     do {  contents = try buildRecord.encode() }
-    catch let InputInfoMap.Errors.notAbsolutePath(p) {
+    catch let BuildRecord.Errors.notAbsolutePath(p) {
       diagnosticEngine.emit(
         .warning_could_not_write_build_record_not_absolutePath(p))
       return
@@ -127,11 +127,11 @@ import SwiftOptions
     }
  }
 
-// TODO: Incremental too many names, buildRecord InputInfoMap outofdatemap
-  func populateOutOfDateMap() -> InputInfoMap? {
+// TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
+  func populateOutOfDateMap() -> BuildRecord? {
     do {
       let contents = try fileSystem.readFileContents(buildRecordPath).cString
-      return try InputInfoMap(contents: contents)
+      return try BuildRecord(contents: contents)
     }
     catch {
       diagnosticEngine.emit(.remark_could_not_read_build_record(buildRecordPath, error))

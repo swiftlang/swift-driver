@@ -15,7 +15,7 @@ import SwiftOptions
 @_spi(Testing) public class IncrementalCompilationState {
   public let buildRecordInfo: BuildRecordInfo
   public let diagnosticEngine: DiagnosticsEngine
-  public let outOfDateMap: InputInfoMap
+  public let outOfDateMap: BuildRecord
 
   /// Return nil if not compiling incrementally
   public init?(
