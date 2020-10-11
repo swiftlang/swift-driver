@@ -967,7 +967,7 @@ extension ModuleDependencyGraph {
 }
 
 /// *Dependency info format:*
-/// A list of entries, each of which is keyed by a \c DependencyKey.Kind and contains a
+/// A list of entries, each of which is keyed by a `DependencyKey.Kind` and contains a
 /// list of dependency nodes.
 ///
 /// *Dependency node format:*

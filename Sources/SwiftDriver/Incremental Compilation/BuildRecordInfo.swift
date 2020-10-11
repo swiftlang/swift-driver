@@ -98,8 +98,8 @@ import SwiftOptions
   }
 
   /// Write out the build record.
-  /// \c Jobs must include all of the compilation jobs.
-  /// \c Inputs will hold all the primary inputs that were not compiled because of incremental compilation
+  /// `Jobs` must include all of the compilation jobs.
+  /// `Inputs` will hold all the primary inputs that were not compiled because of incremental compilation
   func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>? ) {
     let buildRecord = InputInfoMap(
       jobs: jobs,

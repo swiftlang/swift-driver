@@ -16,7 +16,7 @@ extension ModuleDependencyGraph {
 
   // MARK: Integrator - state & creation
 
-  /// Integrates a \c SourceFileDependencyGraph into a \c ModuleDependencyGraph
+  /// Integrates a `SourceFileDependencyGraph` into a `ModuleDependencyGraph`
   /// The former comes from a frontend job, and the latter is used by the driver.
   @_spi(Testing) public struct Integrator {
 

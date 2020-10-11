@@ -66,7 +66,7 @@ extension InputInfo.Status {
 
   /// Construct a status to write at the end of the compilation.
   /// The status will be read for the nextr driver invocaiton and will control the scheduling of that job.
-  /// \c .upToDate means only that the file was up to date when the build record was written.
+  /// `upToDate` means only that the file was up to date when the build record was written.
   init( wasSkipped: Bool?, jobResult: ProcessResult? ) {
     assert(wasSkipped != true || jobResult == nil,
            "When run, should have been removed from  status")

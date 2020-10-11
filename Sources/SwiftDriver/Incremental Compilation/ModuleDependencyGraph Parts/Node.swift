@@ -16,8 +16,8 @@ import TSCBasic
 extension ModuleDependencyGraph {
   
   /// A node in the per-module (i.e. the driver) dependency graph
-  /// Each node represents a \c Decl from the frontend.
-  /// If a file references a \c Decl we haven't seen yet, the node's \c swiftDeps will be nil, otherwise
+  /// Each node represents a `Decl` from the frontend.
+  /// If a file references a `Decl` we haven't seen yet, the node's `swiftDeps` will be nil, otherwise
   /// it will hold the name of the swiftdeps file from which the node was read.
   /// A dependency is represented by an arc, in the `usesByDefs` map.
   /// (Cargo-culted and modified from the legacy driver.)
