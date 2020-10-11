@@ -60,19 +60,19 @@ public struct BuildRecord {
       }
     }
   }
-}
-
-// MARK: - Reading the old map and deciding whether to use it
-public extension BuildRecord {
   private enum SectionName: String, CaseIterable {
   case
     swiftVersion = "version",
     argsHash = "options",
     buildTime = "build_time",
     inputInfos = "inputs"
+
+    var serializedName: String { rawValue }
   }
+}
 
-
+// MARK: - Reading the old map and deciding whether to use it
+public extension BuildRecord {
   init(contents: String) throws {
     guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
       .singleRoot()?.mapping
@@ -82,12 +82,15 @@ public extension BuildRecord {
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else { throw SimpleErrors.sectionNameNotString }
-      // TODO: Incremental use SectionNames here
       switch k {
-      case "version": swiftVersion = value.string
-      case "options": argsHash = value.string
-      case "build_time": buildTime = try Self.decodeDate(value)
-      case "inputs": inputInfos = try Self.decodeInputInfos(value)
+      case SectionName.swiftVersion.serializedName:
+        swiftVersion = value.string
+      case SectionName.argsHash.serializedName:
+        argsHash = value.string
+      case SectionName.buildTime.serializedName:
+        buildTime = try Self.decodeDate(value)
+      case SectionName.inputInfos.serializedName:
+        inputInfos = try Self.decodeInputInfos(value)
       default: throw Errors.unexpectedSection(k)
       }
     }
@@ -189,12 +192,12 @@ extension BuildRecord {
           .sorted {$0.0 < $1.0}
           .map {(Yams.Node($0.0, .implicit, .doubleQuoted), Self.encode($0.1))}
       )
-      let fieldNodes = [
-        ("version", Yams.Node(swiftVersion, .implicit, .doubleQuoted)),
-        ("options", Yams.Node(argsHash, .implicit, .doubleQuoted)),
-        ("build_time", Self.encode(buildTime)),
-        ("inputs", inputInfosNode )
-      ] .map { (Yams.Node($0.0), $0.1) }
+    let fieldNodes = [
+      (SectionName.swiftVersion, Yams.Node(swiftVersion, .implicit, .doubleQuoted)),
+      (SectionName.argsHash,     Yams.Node(argsHash, .implicit, .doubleQuoted)),
+      (SectionName.buildTime,    Self.encode(buildTime)),
+      (SectionName.inputInfos,   inputInfosNode )
+      ] .map { (Yams.Node($0.0.serializedName), $0.1) }
 
     let buildRecordNode = Yams.Node(fieldNodes, .implicit, .block)
    // let options = Yams.Emitter.Options(canonical: true)
