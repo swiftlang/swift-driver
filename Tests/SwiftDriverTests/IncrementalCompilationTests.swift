@@ -14,15 +14,15 @@ import XCTest
 @_spi(Testing) import SwiftDriver
 
 final class IncrementalCompilationTests: XCTestCase {
-  func testInputInfoMapReading() throws {
-    let inputInfoMap = try! InputInfoMap(contents: Inputs.inputInfoMap)
-    XCTAssertEqual(inputInfoMap.swiftVersion,
+  func testBuildRecordReading() throws {
+    let buildRecord = try! BuildRecord(contents: Inputs.buildRecord)
+    XCTAssertEqual(buildRecord.swiftVersion,
       "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(inputInfoMap.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
+    XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
 
-    try XCTAssertEqual(inputInfoMap.buildTime,
+    try XCTAssertEqual(buildRecord.buildTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
-    try XCTAssertEqual(inputInfoMap.inputInfos,
+    try XCTAssertEqual(buildRecord.inputInfos,
           [
             VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
               InputInfo(status: .needsCascadingBuild,
@@ -131,5 +131,57 @@ final class IncrementalCompilationTests: XCTestCase {
     }
     XCTAssertTrue(foundEdge)
   }
-}
 
+  func testDateConversion() {
+    let sn =  [0, 8000]
+    let d = try! Date(legacyDriverSecsAndNanos: sn)
+    XCTAssert(isCloseEnough(d.legacyDriverSecsAndNanos, sn))
+  }
+  func testReadAndWriteBuildRecord() throws {
+    let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
+    let options = "abbbfbcaf36b93e58efaadd8271ff142"
+    let file2 = "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"
+    let main = "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"
+    let gazorp = "/Volumes/gazorp.swift"
+    let inputString =
+      """
+      version: "\(version)"
+      options: "\(options)"
+      build_time: [1570318779, 32357931]
+      inputs:
+        "\(file2)": !dirty [1570318778, 0]
+        "\(main)": [1570083660, 0]
+        "\(gazorp)": !private [0, 0]
+
+      """
+    let buildRecord = try BuildRecord(contents: inputString)
+    XCTAssertEqual(buildRecord.swiftVersion, version)
+    XCTAssertEqual(buildRecord.argsHash, options)
+    XCTAssertEqual(buildRecord.inputInfos.count, 3)
+    XCTAssert(isCloseEnough(buildRecord.buildTime.legacyDriverSecsAndNanos,
+                   [1570318779, 32357931]))
+
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: file2 )]!.status,
+                   .needsCascadingBuild)
+    XCTAssert(try! isCloseEnough(buildRecord.inputInfos[VirtualPath(path: file2 )]!
+                    .previousModTime.legacyDriverSecsAndNanos,
+                   [1570318778, 0]))
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: gazorp)]!.status,
+                   .needsNonCascadingBuild)
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: gazorp)]!
+                    .previousModTime.legacyDriverSecsAndNanos,
+                   [0, 0])
+    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: main  )]!.status,
+                   .upToDate)
+    XCTAssert(try! isCloseEnough( buildRecord.inputInfos[VirtualPath(path: main  )]!
+                    .previousModTime.legacyDriverSecsAndNanos,
+                   [1570083660, 0]))
+
+    let outputString = try buildRecord.encode()
+    XCTAssertEqual(inputString, outputString)
+  }
+  /// The date conversions are not exact
+  func isCloseEnough(_ a: [Int], _ b: [Int]) -> Bool {
+    a[0] == b[0] && abs(a[1] - b[1]) <= 100
+  }
+}

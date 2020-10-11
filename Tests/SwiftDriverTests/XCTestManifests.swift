@@ -30,7 +30,7 @@ extension IncrementalCompilationTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__IncrementalCompilationTests = [
-        ("testInputInfoMapReading", testInputInfoMapReading),
+        ("testBuildRecordReading", testBuildRecordReading),
         ("testReadBinarySourceFileDependencyGraph", testReadBinarySourceFileDependencyGraph),
         ("testReadComplexSourceFileDependencyGraph", testReadComplexSourceFileDependencyGraph),
     ]

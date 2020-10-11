@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// A dictionary of dictionaries that also behaves like dictionary of tuples
-/// It supports iterating over all 2nd-level pairs. See \code subscript(key: OuterKey)
+/// It supports iterating over all 2nd-level pairs. See `subscript(key: OuterKey)`
 
 import Foundation
 @_spi(Testing) public struct DictionaryOfDictionaries<OuterKey: Hashable, InnerKey: Hashable, Value>: Collection {

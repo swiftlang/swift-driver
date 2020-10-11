@@ -138,7 +138,7 @@ fileprivate struct OutputFileMapJSON: Codable {
   }
 
   /// The data associated with an input file.
-  /// \c fileprivate so that the \c store method above can see it
+  /// `fileprivate` so that the `store` method above can see it
   fileprivate struct Entry: Codable {
 
     private struct CodingKeys: CodingKey {
@@ -182,7 +182,7 @@ fileprivate struct OutputFileMapJSON: Codable {
   }
 
   /// The parsed entries
-  /// \c fileprivate so that the \c store method above can see it
+  /// `fileprivate` so that the `store` method above can see it
   fileprivate let entries: [String: Entry]
 
   init(from decoder: Decoder) throws {

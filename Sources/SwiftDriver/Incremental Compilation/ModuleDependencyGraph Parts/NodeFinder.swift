@@ -95,7 +95,7 @@ fileprivate extension ModuleDependencyGraph.Node {
 
 extension ModuleDependencyGraph.NodeFinder {
   
-  /// Add \c node to the structure, return the old node if any at those coordinates.
+  /// Add `node` to the structure, return the old node if any at those coordinates.
   @discardableResult
   mutating func insert(_ n: Graph.Node) -> Graph.Node? {
     nodeMap.updateValue(n, forKey: n.mapKey)
