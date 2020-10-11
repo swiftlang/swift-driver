@@ -213,9 +213,6 @@ public struct Driver {
   /// Path to the dependencies file.
   let dependenciesFilePath: VirtualPath?
 
-  /// Path to the reference dependencies (.swiftdeps) file.
-  let referenceDependenciesFilePath: VirtualPath?
-
   /// Path to the serialized diagnostics file.
   let serializedDiagnosticsFilePath: VirtualPath?
 
@@ -452,13 +449,6 @@ public struct Driver {
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .dependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitDependenciesPath,
-        compilerOutputType: compilerOutputType,
-        compilerMode: compilerMode,
-        outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
-    self.referenceDependenciesFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .swiftDeps, isOutputOptions: [.emitReferenceDependencies],
-        outputPath: .emitReferenceDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
