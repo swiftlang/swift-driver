@@ -103,6 +103,6 @@ extension Diagnostic.Message {
     )
   }
   static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
-    .remark("Incremental compilation has been disabled, because \(why).\n")
+    .remark("incremental compilation has been disabled, because \(why).\n")
   }
 }

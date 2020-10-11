@@ -220,16 +220,16 @@ extension InputInfoMap {
 extension Diagnostic.Message {
   static func warning_could_not_serialize_build_record(_ err: Error
   ) -> Diagnostic.Message {
-    .warning("Next compile won't be incremental; Could not serialize build record: \(err.localizedDescription)")
+    .warning("next compile won't be incremental; Could not serialize build record: \(err.localizedDescription)")
   }
   static func warning_could_not_write_build_record_not_absolutePath(
     _ path: VirtualPath
   ) -> Diagnostic.Message {
-    .warning("Next compile won't be incremental; build record path was not absolute: \(path)")
+    .warning("next compile won't be incremental; build record path was not absolute: \(path)")
   }
   static func warning_could_not_write_build_record(_ path: AbsolutePath
   ) -> Diagnostic.Message {
-    .warning("Next compile won't be incremental; could not write build record to \(path)")
+    .warning("next compile won't be incremental; could not write build record to \(path)")
   }
 }
 
@@ -237,6 +237,6 @@ extension Diagnostic.Message {
   static func remark_could_not_read_build_record(_ path: VirtualPath,
                                                  _ error: Error
   ) -> Diagnostic.Message {
-    .remark("Incremental compilation could not read build record at \(path): \(error.localizedDescription).")
+    .remark("incremental compilation could not read build record at \(path): \(error.localizedDescription).")
   }
 }
