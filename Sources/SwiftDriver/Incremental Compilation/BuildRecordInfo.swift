@@ -23,7 +23,6 @@ import SwiftOptions
   let actualSwiftVersion: String
   let timeBeforeFirstJob: Date
   let diagnosticEngine: DiagnosticsEngine
-  let outputBuildRecordForModuleOnlyBuild: Bool
   let compilationInputModificationDates: [TypedVirtualPath: Date]
 
   var finishedJobResults  = [Job: ProcessResult]()
@@ -55,9 +54,6 @@ import SwiftOptions
       }
     self.diagnosticEngine = diagnosticEngine
     self.fileSystem = fileSystem
-    // If we emit module along with full compilation, emit build record
-    // file for '-emit-module' only mode as well.
-    self.outputBuildRecordForModuleOnlyBuild = moduleOutputInfo.output?.isTopLevel ?? false
     self.timeBeforeFirstJob = Date()
    }
 
@@ -89,12 +85,7 @@ import SwiftOptions
       diagnosticEngine.emit(.warning_incremental_requires_build_record_entry)
       return nil
     }
-    // In 'emit-module' only mode, use build-record filename suffixed with
-    // '~moduleonly', so that module-only mode doesn't mess up build-record
-    // file for full compilation.
-    return compilerOutputType == .swiftModule
-      ? partialBuildRecordPath.appendingToBaseName("~moduleonly")
-      : partialBuildRecordPath
+    return partialBuildRecordPath
   }
 
   /// Write out the build record.
@@ -134,16 +125,7 @@ import SwiftOptions
       diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
       return
     }
-
-    if outputBuildRecordForModuleOnlyBuild {
-      // If we emit module along with full compilation, emit build record
-      // file for '-emit-module' only mode as well.
-      // TODO: Optimize with clonefile(2)
-      try? fileSystem.copy(
-        from: absPath,
-        to: AbsolutePath(buildRecordPath.absolutePath!.pathString + "~moduleonly"))
-    }
-  }
+ }
 
 // TODO: Incremental too many names, buildRecord InputInfoMap outofdatemap
   func populateOutOfDateMap() -> InputInfoMap? {
