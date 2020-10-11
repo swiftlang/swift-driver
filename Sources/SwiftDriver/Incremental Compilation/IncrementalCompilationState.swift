@@ -15,7 +15,7 @@ import SwiftOptions
 @_spi(Testing) public class IncrementalCompilationState {
   public let buildRecordInfo: BuildRecordInfo
   public let diagnosticEngine: DiagnosticsEngine
-  public let outOfDateMap: BuildRecord
+  public let outOfDateBuildRecord: BuildRecord
 
   /// Return nil if not compiling incrementally
   public init?(
@@ -42,11 +42,11 @@ import SwiftOptions
     }
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
-    guard let outOfDateMap = buildRecordInfo.populateOutOfDateMap()
+    guard let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord()
     else {
       return nil
     }
-    if let mismatchReason = outOfDateMap.mismatchReason(
+    if let mismatchReason = outOfDateBuildRecord.mismatchReason(
       buildRecordInfo: buildRecordInfo,
       inputFiles: inputFiles
     ) {
@@ -54,7 +54,7 @@ import SwiftOptions
         .remark_incremental_compilation_disabled(because: mismatchReason))
       return nil
     }
-    self.outOfDateMap = outOfDateMap
+    self.outOfDateBuildRecord = outOfDateBuildRecord
     self.diagnosticEngine = diagnosticEngine
     self.buildRecordInfo = buildRecordInfo
   }

@@ -128,7 +128,7 @@ import SwiftOptions
  }
 
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
-  func populateOutOfDateMap() -> BuildRecord? {
+  func populateOutOfDateBuildRecord() -> BuildRecord? {
     do {
       let contents = try fileSystem.readFileContents(buildRecordPath).cString
       return try BuildRecord(contents: contents)
