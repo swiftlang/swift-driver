@@ -379,8 +379,9 @@ extension Driver {
                                       output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
+    let allInputsCount = primaryInputs.count + flaggedInputOutputPairs.count
     // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
-    if primaryInputs.count * FileType.allCases.count > fileListThreshold {
+    if allInputsCount * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath: [FileType: VirtualPath]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input] {
