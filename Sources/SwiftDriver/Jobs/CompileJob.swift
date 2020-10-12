@@ -192,12 +192,12 @@ extension Driver {
       indexFilePath = nil
     }
 
-    let primaryOutputs = try addCompileInputs(primaryInputs: primaryInputs,
-                                              indexFilePath: indexFilePath,
-                                              inputs: &inputs,
-                                              inputOutputMap: &inputOutputMap,
-                                              outputType: outputType,
-                                              commandLine: &commandLine)
+    let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs,
+                                          indexFilePath: indexFilePath,
+                                          inputs: &inputs,
+                                          inputOutputMap: &inputOutputMap,
+                                          outputType: outputType,
+                                          commandLine: &commandLine)
     outputs += primaryOutputs
 
     // FIXME: optimization record arguments are added before supplementary outputs
@@ -209,10 +209,11 @@ extension Driver {
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
-    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine,
-                                                           primaryInputs: primaryInputs,
-                                                           inputOutputMap: inputOutputMap,
-                                                           includeModuleTracePath: emitModuleTrace)
+    outputs += try addFrontendSupplementaryOutputArguments(
+      commandLine: &commandLine,
+      primaryInputs: primaryInputs,
+      inputOutputMap: inputOutputMap,
+      includeModuleTracePath: emitModuleTrace)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)

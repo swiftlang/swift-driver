@@ -20,13 +20,17 @@ extension ModuleDependencyGraph {
 
     @_spi(Testing) public init?(_ typedFile: TypedVirtualPath) {
       guard typedFile.type == .swiftDeps else { return nil }
-      self.file = typedFile.file
+      self.init(typedFile.file)
     }
-
-    @_spi(Testing) public init(mock whatever: String) {
-      self.file = try! VirtualPath(path: whatever)
+    init(_ file: VirtualPath) {
+      self.file = file
     }
-
+    @_spi(Testing) public init(mock i: Int) {
+      self.file = try! VirtualPath(path: String(i))
+    }
+    @_spi(Testing) public var mockID: Int {
+       Int(file.name)!
+    }
     public var description: String {
       file.description
     }

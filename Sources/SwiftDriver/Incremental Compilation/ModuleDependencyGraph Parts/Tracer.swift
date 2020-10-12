@@ -26,31 +26,33 @@ extension ModuleDependencyGraph {
     /// Record the paths taking so that  -driver-show-incremental can explain why things are recompiled
     /// If tracing dependencies, holds a vector used to hold the current path
     /// def - use/def - use/def - ...
-    private var currentPathIfTracing: [Node]? = nil
-
-
-
-    /// If tracing dependencies, holds the sequence of defs used to get to the job
-    /// that is the key
-    @_spi(Testing) public private(set) var dependencyPathsToJobs = Multidictionary<Job, [Node]>()
+    private var currentPathIfTracing: [Node]?
   }
 }
 
 // MARK:- Tracing
 extension ModuleDependencyGraph.Tracer {
-  @_spi(Testing) public static func findPreviouslyUntracedUsesOf(
-    defs: [ModuleDependencyGraph.Node],
+
+  /// Find all uses of `defs` that have not already been traced.
+  /// (If already traced, jobs have already been scheduled.)
+  @_spi(Testing) public static func findPreviouslyUntracedUsesOf<Nodes: Sequence> (
+    defs: Nodes,
     in graph: ModuleDependencyGraph
-  ) -> Self {
+  ) -> Self
+  where Nodes.Element == ModuleDependencyGraph.Node
+  {
     var tracer = Self(findingUsesOf: defs, in: graph)
     tracer.findPreviouslyUntracedDependents()
     return tracer
   }
-  
-  private init(findingUsesOf defs: [ModuleDependencyGraph.Node],
-               in graph: ModuleDependencyGraph) {
+
+  private init<Nodes: Sequence>(findingUsesOf defs: Nodes,
+               in graph: ModuleDependencyGraph)
+  where Nodes.Element == ModuleDependencyGraph.Node
+  {
     self.graph = graph
-    self.startingPoints = defs
+    self.startingPoints = Array(defs)
+    self.currentPathIfTracing = graph.traceDependencies ? [] : nil
   }
   
   private mutating func findPreviouslyUntracedDependents() {
@@ -79,6 +81,8 @@ extension ModuleDependencyGraph.Tracer {
     }
     traceDeparture(pathLengthAfterArrival);
   }
+
+
   
   private mutating func traceArrival(at visitedNode: ModuleDependencyGraph.Node
   ) -> Int {
@@ -88,27 +92,59 @@ extension ModuleDependencyGraph.Tracer {
     currentPath.append(visitedNode)
     currentPathIfTracing = currentPath
 
-    // TODO Incremental: type system should be telling use this is a provides node
-    // and then it should always succeed
-    if let swiftDeps = visitedNode.swiftDeps {
-      recordDependencyPathToJob(currentPath,
-                                graph.jobTracker.getJob(swiftDeps))
-    }
+    printPath(currentPath)
+
     return currentPath.count
   }
-  
-  private mutating func recordDependencyPathToJob(
-    _ pathToJob: [Graph.Node],
-    _ dependentJob: Job)
-  {
-    _ = dependencyPathsToJobs.addValue(pathToJob, forKey: dependentJob)
-  }
-  
+
+
   private mutating func traceDeparture(_ pathLengthAfterArrival: Int) {
     guard var currentPath = currentPathIfTracing else { return }
     assert(pathLengthAfterArrival == currentPath.count,
            "Path must be maintained throughout recursive visits.")
     currentPath.removeLast()
     currentPathIfTracing = currentPath
+  }
+
+
+  private func printPath(_ path: [Graph.Node]) {
+    guard path.first?.swiftDeps != path.last?.swiftDeps else {return}
+    print(
+      path
+        .compactMap { node in
+          node.swiftDeps
+            .flatMap {graph.fileTracker.sourceFilesBySwiftDeps[$0] }
+            .map (node.dependencyKey.descriptionForPath(from:))
+        }
+        .joined(separator: "->"),
+      to: &stderrStream
+    )
+  }
+}
+
+fileprivate extension DependencyKey {
+  func descriptionForPath(from sourceFile: TypedVirtualPath) -> String {
+    "\(aspect) of \(designator.descriptionForPath(from: sourceFile))"
+  }
+}
+
+fileprivate extension DependencyKey.Designator {
+  func descriptionForPath(from sourceFile: TypedVirtualPath) -> String {
+    switch self {
+    case let .topLevel(name: name):
+      return "top-level name \(name)"
+    case let .nominal(context: context):
+      return "type \(context)"
+    case let .potentialMember(context: context):
+      return "potential members of \(context)"
+    case let .member(context: context, name: name):
+      return "member \(name) of \(context)"
+    case let .dynamicLookup(name: name):
+      return "AnyObject member \(name)"
+    case let .externalDepend(externalDependency):
+      return "module \(externalDependency)"
+    case let .sourceFileProvide(name: name):
+      return (try? VirtualPath(path: name).basename) ?? name
+    }
   }
 }

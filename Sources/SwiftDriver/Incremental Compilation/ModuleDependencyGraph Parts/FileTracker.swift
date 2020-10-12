@@ -1,4 +1,4 @@
-//===------------------ JobTracker.swift ----------------------------------===//
+//===------------------ FileTracker.swift ---------------------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -13,30 +13,37 @@
 extension ModuleDependencyGraph {
   // TODO: Incremental, check the relationship between batching and incremental compilation
   // Must delay batching until *after* incremental decisions
-  
+
   ///Since the rest of the driver trucks in jobs, the correspondence must be tracked
-  @_spi(Testing) public struct JobTracker {
+  @_spi(Testing) public struct FileTracker {
 
-    /// Keyed by swiftdeps filename, so we can get back to Jobs.
-    private var jobsBySwiftDeps: [SwiftDeps: Job] = [:]
+    /// Keyed by swiftdeps filename, so we can get back to source files.
+    private(set) var sourceFilesBySwiftDeps: [SwiftDeps: TypedVirtualPath] = [:]
+    private(set) var swiftDepsBySourceFile: [TypedVirtualPath: SwiftDeps] = [:]
 
-    func getJob(_ swiftDeps: SwiftDeps) -> Job {
-      guard let job = jobsBySwiftDeps[swiftDeps] else {
-        fatalError("All jobs should be tracked.")
+
+    @_spi(Testing) public mutating func register(source: TypedVirtualPath,
+                                                 swiftDeps: SwiftDeps) {
+      sourceFilesBySwiftDeps[swiftDeps] = source
+      swiftDepsBySourceFile[source] = swiftDeps
+    }
+
+    @_spi(Testing) public func swiftDeps(for sourceFile: TypedVirtualPath
+    ) -> SwiftDeps {
+      guard let swiftDeps = swiftDepsBySourceFile[sourceFile]
+      else {
+      fatalError("\(sourceFile) was not registered")
       }
-      assert(job.allSwiftDeps.contains(swiftDeps),
-             "jobsBySwiftDeps should be inverse of getSwiftDeps.")
-      return job
+      return swiftDeps
     }
-    
-    @_spi(Testing) public mutating func registerJob(_ job: Job) {
-      // No need to create any nodes; that will happen when the swiftdeps file is
-      // read. Just record the correspondence.
-      job.allSwiftDeps.forEach { jobsBySwiftDeps[$0] = job }
-    }
-    
-    @_spi(Testing) public var allJobs: [Job] {
-      Array(jobsBySwiftDeps.values)
+
+    @_spi(Testing) public func sourceFile(for swiftDeps: SwiftDeps
+    ) -> TypedVirtualPath {
+      guard let sourceFile = sourceFilesBySwiftDeps[swiftDeps]
+      else {
+        fatalError("\(swiftDeps) was not registered")
+      }
+      return sourceFile
     }
   }
 }
