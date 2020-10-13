@@ -126,9 +126,8 @@ extension OptionTable {
         index += 1
 
       case .remaining:
-        parsedOptions.addOption(
-          option,
-          argument: .multiple(arguments[index...].map { String($0) }))
+        parsedOptions.addOption(.DASHDASH, argument: .single("--"))
+        arguments[index...].map { String($0) }.forEach { parsedOptions.addInput($0) }
         index = arguments.endIndex
 
       case .separate:

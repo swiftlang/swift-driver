@@ -1279,6 +1279,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDashDashPassingDownInput() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "-emit-module", "-o", "test.swiftmodule", "--", "main.swift", "multi-threaded.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 2)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
+      XCTAssertEqual(plannedJobs[0].inputs[1].file, VirtualPath.relative(RelativePath("multi-threaded.swift")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("test.swiftmodule")))
+    }
+  }
+
   func testWholeModuleOptimizationOutputFileMap() throws {
     let contents = """
     {
