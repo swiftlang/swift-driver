@@ -113,7 +113,7 @@ extension ModuleDependencyGraph.Tracer {
       path
         .compactMap { node in
           node.swiftDeps
-            .flatMap {graph.fileTracker.sourceFilesBySwiftDeps[$0] }
+            .flatMap {graph.sourceSwiftDepsMap[$0] }
             .map (node.dependencyKey.descriptionForPath(from:))
         }
         .joined(separator: "->"),

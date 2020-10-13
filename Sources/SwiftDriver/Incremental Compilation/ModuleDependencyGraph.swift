@@ -24,7 +24,7 @@ import SwiftOptions
   /// kicked off yet
   private var tracedNodes = Set<Node>()
   
-  @_spi(Testing) public var fileTracker = FileTracker()
+  @_spi(Testing) public var sourceSwiftDepsMap = BidirectionalMap<TypedVirtualPath, SwiftDeps>()
 
   // Supports requests from the driver to getExternalDependencies.
   @_spi(Testing) public internal(set) var externalDependencies = Set<ExternalDependency>()
@@ -77,7 +77,7 @@ extension ModuleDependencyGraph {
         return nil
       }
       let swiftDeps = SwiftDeps(swiftDepsFile)
-      r.fileTracker.register(source: input, swiftDeps: swiftDeps)
+      r.sourceSwiftDepsMap[input] = swiftDeps
       _ = Integrator.integrate(swiftDeps: swiftDeps,
                                into: r,
                                diagnosticEngine: diagnosticEngine)
@@ -95,7 +95,7 @@ extension ModuleDependencyGraph {
   ) -> [TypedVirtualPath] {
     var allSwiftDepsToRecompile = Set<SwiftDeps>()
 
-    let swiftDeps = fileTracker.swiftDeps(for: sourceFile)
+    let swiftDeps = sourceSwiftDepsMap[sourceFile]
 
     for swiftDepsToRecompile in
       findSwiftDepsToRecompileWhenWholeSwiftDepsChanges( swiftDeps ) {
@@ -104,7 +104,7 @@ extension ModuleDependencyGraph {
       }
     }
     return allSwiftDepsToRecompile.map {
-     let dependentSource = fileTracker.sourceFilesBySwiftDeps[$0]!
+     let dependentSource = sourceSwiftDepsMap[$0]
       reportIncrementalDecision(
         "Found dependent of \(sourceFile.file.basename): \(dependentSource.file.basename)")
       return dependentSource
@@ -129,7 +129,7 @@ extension ModuleDependencyGraph {
   @_spi(Testing) public func findSourcesToCompileAfterCompiling(
     _ source: TypedVirtualPath
   ) -> [TypedVirtualPath]? {
-    findSourcesToCompileAfterIntegrating( fileTracker.swiftDeps(for: source) )
+    findSourcesToCompileAfterIntegrating( sourceSwiftDepsMap[source] )
   }
 
   /// After a compile job has finished, read its swiftDeps file and return the source files needing
@@ -144,7 +144,7 @@ extension ModuleDependencyGraph {
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
           .subtracting([swiftDeps])
-          .map (fileTracker.sourceFile(for:))
+          .map {sourceSwiftDepsMap[$0]}
       }
   }
 }

@@ -275,9 +275,9 @@ extension IncrementalCompilationState {
         }
       }
     }
-    return externallyDependentSwiftDeps.compactMap(
-      moduleDependencyGraph.fileTracker.sourceFile(for:)
-    )
+    return externallyDependentSwiftDeps.compactMap {
+      moduleDependencyGraph.sourceSwiftDepsMap[$0]
+    }
   }
 
   /// Returns the cascaded files to compile in the first wave, even though it may not be need.
