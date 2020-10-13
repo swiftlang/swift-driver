@@ -216,7 +216,7 @@ extension IncrementalCompilationState {
     return (scheduled: scheduledInputs, skipped: skippedInputs)
   }
 
-  /// Find the inputs that have changed since last compilation, or were marked as needed a builid
+  /// Find the inputs that have changed since last compilation, or were marked as needed a build
   private static func computeChangedInputs(
     buildRecordInfo: BuildRecordInfo,
     moduleDependencyGraph: ModuleDependencyGraph,

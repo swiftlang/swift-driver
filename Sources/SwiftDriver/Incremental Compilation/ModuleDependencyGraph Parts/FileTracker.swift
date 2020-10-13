@@ -32,7 +32,7 @@ extension ModuleDependencyGraph {
     ) -> SwiftDeps {
       guard let swiftDeps = swiftDepsBySourceFile[sourceFile]
       else {
-      fatalError("\(sourceFile) was not registered")
+        fatalError("\(sourceFile) was not registered")
       }
       return swiftDeps
     }
