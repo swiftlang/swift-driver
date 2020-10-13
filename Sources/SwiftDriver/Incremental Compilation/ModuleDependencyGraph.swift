@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 import TSCBasic
+import SwiftOptions
 
 
 // MARK: - ModuleDependencyGraph
@@ -23,132 +24,165 @@ import TSCBasic
   /// kicked off yet
   private var tracedNodes = Set<Node>()
   
-  @_spi(Testing) public var jobTracker = JobTracker()
-  
+  @_spi(Testing) public var sourceSwiftDepsMap = BidirectionalMap<TypedVirtualPath, SwiftDeps>()
+
   // Supports requests from the driver to getExternalDependencies.
   @_spi(Testing) public internal(set) var externalDependencies = Set<ExternalDependency>()
   
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
+  let traceDependencies: Bool
   
   @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
   
   public init(
-    verifyDependencyGraphAfterEveryImport: Bool,
+    diagnosticEngine: DiagnosticsEngine,
+    traceDependencies: Bool,
     emitDependencyDotFileAfterEveryImport: Bool,
-    diagnosticEngine: DiagnosticsEngine)
+    verifyDependencyGraphAfterEveryImport: Bool)
   {
     self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
     self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
+    self.traceDependencies = traceDependencies
     self.diagnosticEngine = diagnosticEngine
   }
 }
-
 // MARK: - initial build only
 extension ModuleDependencyGraph {
-  static func buildInitialGraph(jobs: [Job],
-                                verifyDependencyGraphAfterEveryImport: Bool,
-                                emitDependencyDotFileAfterEveryImport: Bool,
-                                diagnosticEngine: DiagnosticsEngine
-  ) -> Self {
-    let r = Self(verifyDependencyGraphAfterEveryImport: verifyDependencyGraphAfterEveryImport,
-                 emitDependencyDotFileAfterEveryImport: emitDependencyDotFileAfterEveryImport,
-                 diagnosticEngine: diagnosticEngine)
-    for job in jobs {
-      _ = Integrator.integrate(job: job, into: r,
+  static func buildInitialGraph<Inputs: Sequence>(
+    diagnosticEngine: DiagnosticsEngine,
+    inputs: Inputs,
+    outputFileMap: OutputFileMap?,
+    parsedOptions: inout ParsedOptions,
+    remarkDisabled: (String) -> Diagnostic.Message,
+    traceDependencies: Bool
+  ) -> Self?
+  where Inputs.Element == TypedVirtualPath
+  {
+    let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
+    let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
+    let r = Self (
+      diagnosticEngine: diagnosticEngine,
+      traceDependencies: traceDependencies,
+      emitDependencyDotFileAfterEveryImport: parsedOptions.contains(emitOpt),
+      verifyDependencyGraphAfterEveryImport: parsedOptions.contains(veriOpt))
+    for input in inputs {
+      guard let swiftDepsFile = outputFileMap?.existingOutput(
+              inputFile: input.file,
+              outputType: .swiftDeps)
+      else {
+        diagnosticEngine.emit(
+          remarkDisabled("\(input.file.basename) has no swiftDeps file")
+        )
+        return nil
+      }
+      let swiftDeps = SwiftDeps(swiftDepsFile)
+      r.sourceSwiftDepsMap[input] = swiftDeps
+      _ = Integrator.integrate(swiftDeps: swiftDeps,
+                               into: r,
                                diagnosticEngine: diagnosticEngine)
     }
     return r
   }
 }
-
-// MARK: - finding jobs (public interface)
+// MARK: - Scheduling the first wave
 extension ModuleDependencyGraph {
-  @_spi(Testing) public func findJobsToRecompileWhenWholeJobChanges(
-    _ job: Job
-  ) -> [Job] {
-    let allNodesInJob = findAllNodes(in: job)
-    return findJobsToRecompileWhenNodesChange(allNodesInJob);
-  }
-  
-  @_spi(Testing) public func findJobsToRecompileWhenNodesChange(
-    _ nodes: [Node]
-  ) -> [Job] {
-    let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
-      .tracedUses
-    return jobsContaining(affectedNodes)
-  }
-  
-  // Add every (swiftdeps) use of the external dependency to foundJobs.
-  // Can return duplicates, but it doesn't break anything, and they will be
-  // canonicalized later.
-  @_spi(Testing) public func findUntracedJobsDependent(
-    on externalDependency: ExternalDependency
-  ) -> [Job] {
-    var foundJobs = [Job]()
-    forEachUntracedJobDirectlyDependent(on: externalDependency) {
-      job in
-      foundJobs.append(job)
-      // findJobsToRecompileWhenWholeJobChanges is reflexive
-      // Don't return job twice.
-      for marked in findJobsToRecompileWhenWholeJobChanges(job) where marked != job {
-        foundJobs.append(marked)
+  /// Find all the sources that depend on `sourceFile`. For some source files, these will be
+  /// speculatively scheduled in the first wave.
+  @_spi(Testing) public func findDependentSourceFiles(
+    of sourceFile: TypedVirtualPath,
+    _ reportIncrementalDecision: (String) -> Void
+  ) -> [TypedVirtualPath] {
+    var allSwiftDepsToRecompile = Set<SwiftDeps>()
+
+    let swiftDeps = sourceSwiftDepsMap[sourceFile]
+
+    for swiftDepsToRecompile in
+      findSwiftDepsToRecompileWhenWholeSwiftDepsChanges( swiftDeps ) {
+      if swiftDepsToRecompile != swiftDeps {
+        allSwiftDepsToRecompile.insert(swiftDepsToRecompile)
       }
     }
-    return foundJobs;
+    return allSwiftDepsToRecompile.map {
+     let dependentSource = sourceSwiftDepsMap[$0]
+      reportIncrementalDecision(
+        "Found dependent of \(sourceFile.file.basename): \(dependentSource.file.basename)")
+      return dependentSource
+    }
+  }
+
+  /// Find all the swiftDeps files that depend on `swiftDeps`.
+  /// Really private, except for testing.
+  @_spi(Testing) public func findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(
+    _ swiftDeps: SwiftDeps
+  ) -> Set<SwiftDeps> {
+    let nodes = nodeFinder.findNodes(for: swiftDeps) ?? [:]
+    /// Tests expect this to be reflexive
+    return findSwiftDepsToRecompileWhenNodesChange(nodes.values)
   }
 }
-
-extension Job {
-  @_spi(Testing) public var allSwiftDeps: [ModuleDependencyGraph.SwiftDeps] {
-    outputs.compactMap(ModuleDependencyGraph.SwiftDeps.init)
-  }
-}
-
-// MARK: - finding jobs (private functions)
+// MARK: - Scheduling the 2nd wave
 extension ModuleDependencyGraph {
-  
-  private func findAllNodes(in job: Job) -> [Node] {
-    job.allSwiftDeps.flatMap(nodes(in:))
+  /// After `source` has been compiled, figure out what other source files need compiling.
+  /// Used to schedule the 2nd wave.
+  /// Return nil in case of an error.
+  @_spi(Testing) public func findSourcesToCompileAfterCompiling(
+    _ source: TypedVirtualPath
+  ) -> [TypedVirtualPath]? {
+    findSourcesToCompileAfterIntegrating( sourceSwiftDepsMap[source] )
   }
-  
-  private func forEachUntracedJobDirectlyDependent(
+
+  /// After a compile job has finished, read its swiftDeps file and return the source files needing
+  /// recompilation.
+  /// Return nil in case of an error.
+  private func findSourcesToCompileAfterIntegrating(
+    _ swiftDeps: SwiftDeps
+  ) -> [TypedVirtualPath]? {
+    Integrator.integrate(swiftDeps: swiftDeps,
+                         into: self,
+                         diagnosticEngine: diagnosticEngine)
+      .map {
+        findSwiftDepsToRecompileWhenNodesChange($0)
+          .subtracting([swiftDeps])
+          .map {sourceSwiftDepsMap[$0]}
+      }
+  }
+}
+
+// MARK: - Scheduling either wave
+extension ModuleDependencyGraph {
+  /// Find all the swiftDeps affected when the nodes change.
+  @_spi(Testing) public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
+    _ nodes: Nodes
+  ) -> Set<SwiftDeps>
+  where Nodes.Element == Node
+  {
+    let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
+      .tracedUses
+    return Set(affectedNodes.compactMap {$0.swiftDeps})
+  }
+
+  @_spi(Testing) public  func forEachUntracedSwiftDepsDirectlyDependent(
     on externalSwiftDeps: ExternalDependency,
-    _ fn: (Job) -> Void
+    _ fn: (SwiftDeps) -> Void
   ) {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceFor: externalSwiftDeps)
     nodeFinder.forEachUse(of: key) { use, useSwiftDeps in
       if isUntraced(use) {
-        fn(jobTracker.getJob(useSwiftDeps))
+        fn(useSwiftDeps)
       }
     }
   }
-  
-  private func jobsContaining<Nodes: Sequence>(_ nodes: Nodes) -> [Job]
-  where Nodes.Element == Node
-  {
-    computeSwiftDepsFromNodes(nodes).map(jobTracker.getJob)
+}
+fileprivate extension DependencyKey {
+  init(interfaceFor dep: ExternalDependency ) {
+    self.init(aspect: .interface, designator: .externalDepend(dep))
   }
 }
-// MARK: - finding nodes; swiftDeps
-extension ModuleDependencyGraph {
-  private func computeSwiftDepsFromNodes<Nodes: Sequence>(_ nodes: Nodes) -> [SwiftDeps]
-  where Nodes.Element == Node
-  {
-    var swiftDepsOfNodes = Set<SwiftDeps>()
-    for n in nodes {
-      if let swiftDeps = n.swiftDeps {
-        swiftDepsOfNodes.insert(swiftDeps)
-      }
-    }
-    return Array(swiftDepsOfNodes)
-  }
-}
-
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
-  
+
   func isUntraced(_ n: Node) -> Bool {
     !isTraced(n)
   }
@@ -158,38 +192,30 @@ extension ModuleDependencyGraph {
   func amTracing(_ n: Node) {
     tracedNodes.insert(n)
   }
-  func ensureGraphWillRetrace<Nodes: Sequence>(_ nodes: Nodes)
+  func ensureGraphWillRetraceDependents<Nodes: Sequence>(of nodes: Nodes)
   where Nodes.Element == Node
   {
     nodes.forEach { tracedNodes.remove($0) }
   }
 }
 
-// MARK: - queries for testing
+// MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   /// Testing only
-  @_spi(Testing) public func haveAnyNodesBeenTraversed(inMock job: Job) -> Bool {
-    for swiftDeps in job.allSwiftDeps {
-      // optimization
-      if let fileNode = nodeFinder.findFileInterfaceNode(forMock: swiftDeps),
-         isTraced(fileNode)
-      {
-        return true
-      }
-      if  nodes(in: swiftDeps).contains(where: isTraced) {
-        return true
-      }
+  @_spi(Testing) public func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
+    let swiftDeps = SwiftDeps(mock: i)
+    // optimization
+    if let fileNode = nodeFinder.findFileInterfaceNode(forMock: swiftDeps),
+       isTraced(fileNode) {
+      return true
+    }
+    if let nodes = nodeFinder.findNodes(for: swiftDeps)?.values,
+       nodes.contains(where: isTraced) {
+      return true
     }
     return false
   }
-  
-  private func nodes(in swiftDeps: SwiftDeps) -> [Node] {
-    nodeFinder.findNodes(for: swiftDeps)
-      .map {Array($0.values)}
-      ?? []
-  }
 }
-
 // MARK: - verification
 extension ModuleDependencyGraph {
   @discardableResult
@@ -197,21 +223,10 @@ extension ModuleDependencyGraph {
     nodeFinder.verify()
   }
 }
-
 // MARK: - debugging
 extension ModuleDependencyGraph {
   func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: SwiftDeps) {
     // TODO: Incremental emitDotFIle
-    fatalError("unimplmemented")
+    fatalError("unimplmemented, writing dot file of dependency graph")
   }
-}
-
-// MARK: - key helpers
-
-fileprivate extension DependencyKey {
-  init(interfaceFor dep: ExternalDependency ) {
-    self.init(aspect: .interface,
-              designator: .externalDepend(dep))
-  }
-  
 }

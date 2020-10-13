@@ -5,10 +5,12 @@ import Foundation
 @_spi(Testing) public struct ExternalDependency: Hashable, CustomStringConvertible {
   let fileName: String
 
+  var file: VirtualPath? {
+    try? VirtualPath(path: fileName)
+  }
   @_spi(Testing) public init(_ path: String) {
     self.fileName = path
   }
-
   public var description: String {
     fileName.description
   }
