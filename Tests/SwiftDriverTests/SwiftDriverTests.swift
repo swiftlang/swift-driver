@@ -2208,6 +2208,18 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testLEqualPassedDownToLinkerInvocation() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-working-directory", "/Foo/Bar", "-emit-executable", "test.swift", "-L=.", "-F=."
+    ])
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-F=", .absolute(.init("/Foo/Bar")))))
+    XCTAssertFalse(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-L=", .absolute(.init("/Foo/Bar")))))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-L=", .absolute(.init("/Foo/Bar")))))
+    XCTAssertFalse(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-F=", .absolute(.init("/Foo/Bar")))))
+  }
+
   func testDOTFileEmission() throws {
     var driver = try Driver(args: [
       "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info"
