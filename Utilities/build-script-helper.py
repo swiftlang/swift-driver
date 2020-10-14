@@ -121,8 +121,7 @@ def delete_rpath(rpath, binary, verbose):
                                         stderr=subprocess.PIPE)
   stdout, stderr = installToolProcess.communicate()
   if installToolProcess.returncode != 0:
-    print('install_name_tool command failed: ')
-    print(stderr)
+    print('install_name_tool -delete_rpath command failed, assume incremental build and proceed.')
   if verbose:
     print(stdout)
 
@@ -135,8 +134,7 @@ def add_rpath(rpath, binary, verbose):
                                         stderr=subprocess.PIPE)
   stdout, stderr = installToolProcess.communicate()
   if installToolProcess.returncode != 0:
-    print('install_name_tool command failed: ')
-    print(stderr)
+    print('install_name_tool -add_rpath command failed, assume incremental build and proceed.')
   if verbose:
     print(stdout)
 
