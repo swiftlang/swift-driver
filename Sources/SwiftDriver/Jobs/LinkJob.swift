@@ -12,17 +12,27 @@
 import TSCBasic
 
 extension Driver {
-
-  /// Compute the output file for an image output.
-  private var outputFileForImage: VirtualPath {
+  private var relativeOutputFileForImage: RelativePath {
     if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
-      return .relative(RelativePath(inputFiles[0].file.basenameWithoutExt))
+      return RelativePath(inputFiles[0].file.basenameWithoutExt)
     }
 
     let outputName =
       toolchain.makeLinkerOutputFilename(moduleName: moduleOutputInfo.name,
                                          type: linkerOutputType!)
-    return .relative(RelativePath(outputName))
+    return RelativePath(outputName)
+  }
+
+  /// Compute the output file for an image output.
+  private var outputFileForImage: VirtualPath {
+    return useWorkingDirectory(relativeOutputFileForImage)
+  }
+
+  func useWorkingDirectory(_ relative: RelativePath) -> VirtualPath {
+    if let wd = workingDirectory {
+      return .absolute(AbsolutePath(relative.pathString, relativeTo: wd))
+    }
+    return .relative(relative)
   }
 
   /// Link the given inputs.
