@@ -52,8 +52,7 @@ extension Driver {
       return TypedVirtualPath(file:VirtualPath.temporary(.init(baseName.appendingFileTypeExtension(outputType))),
                               type: outputType)
     }
-
-    return TypedVirtualPath(file: .relative(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
+    return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
   }
 
   /// Is this compile job top-level

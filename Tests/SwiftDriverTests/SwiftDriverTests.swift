@@ -2218,6 +2218,19 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertFalse(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-L=", .absolute(.init("/Foo/Bar")))))
     XCTAssertTrue(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-L=", .absolute(.init("/Foo/Bar")))))
     XCTAssertFalse(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-F=", .absolute(.init("/Foo/Bar")))))
+    // Test implicit output file also honors the working directory.
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-o")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/test"))))
+  }
+
+  func testWorkdingDirectoryForImplicitOutputs() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-working-directory", "/Foo/Bar", "-emit-executable", "-c", "/tmp/main.swift"
+    ])
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.o"))))
   }
 
   func testDOTFileEmission() throws {
