@@ -29,6 +29,10 @@ extension Driver {
   }
 
   func useWorkingDirectory(_ relative: RelativePath) -> VirtualPath {
+    return Driver.useWorkingDirectory(relative, workingDirectory)
+  }
+
+  static func useWorkingDirectory(_ relative: RelativePath, _ workingDirectory: AbsolutePath?) -> VirtualPath {
     if let wd = workingDirectory {
       return .absolute(AbsolutePath(relative.pathString, relativeTo: wd))
     }

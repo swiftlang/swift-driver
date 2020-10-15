@@ -419,7 +419,8 @@ public struct Driver {
     // Determine the module we're building and whether/how the module file itself will be emitted.
     self.moduleOutputInfo = try Self.computeModuleInfo(
       &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
-      debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine)
+      debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine,
+      workingDirectory: self.workingDirectory)
 
     self.buildRecordInfo = BuildRecordInfo(
       actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
@@ -1522,7 +1523,8 @@ extension Driver {
     compilerMode: CompilerMode,
     linkerOutputType: LinkOutputType?,
     debugInfoLevel: DebugInfo.Level?,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    workingDirectory: AbsolutePath?
   ) throws -> ModuleOutputInfo {
     // Figure out what kind of module we will output.
     enum ModuleOutputKind {
@@ -1605,7 +1607,7 @@ extension Driver {
     }
 
     // Determine the module file to output.
-    let moduleOutputPath: VirtualPath
+    var moduleOutputPath: VirtualPath
 
     // FIXME: Look in the output file map. It looks like it is weirdly
     // anchored to the first input?
@@ -1626,6 +1628,11 @@ extension Driver {
       }
     } else {
       moduleOutputPath = .temporary(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
+    }
+
+    // Use working directory if specified
+    if let moduleRelative = moduleOutputPath.relativePath {
+      moduleOutputPath = Driver.useWorkingDirectory(moduleRelative, workingDirectory)
     }
 
     switch moduleOutputKind! {
