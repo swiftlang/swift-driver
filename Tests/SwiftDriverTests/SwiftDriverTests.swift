@@ -2223,7 +2223,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/test"))))
   }
 
-  func testWorkdingDirectoryForImplicitOutputs() throws {
+  func testWorkingDirectoryForImplicitOutputs() throws {
     var driver = try Driver(args: [
       "swiftc", "-working-directory", "/Foo/Bar", "-emit-executable", "-c", "/tmp/main.swift"
     ])
@@ -2231,6 +2231,20 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs.count, 1)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.o"))))
+  }
+
+  func testWorkingDirectoryForImplicitModules() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-working-directory", "/Foo/Bar", "-emit-module", "/tmp/main.swift"
+    ])
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-o")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftmodule"))))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-emit-module-doc-path")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftdoc"))))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-emit-module-source-info-path")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftsourceinfo"))))
   }
 
   func testDOTFileEmission() throws {
