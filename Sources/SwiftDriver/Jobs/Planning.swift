@@ -367,8 +367,7 @@ extension Driver {
     let dependencyGraph = try generateInterModuleDependencyGraph()
     explicitModuleBuildHandler =
         try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
-                                       toolchain: toolchain,
-                                       fileSystem: fileSystem)
+                                       toolchain: toolchain)
     return try explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
   }
 

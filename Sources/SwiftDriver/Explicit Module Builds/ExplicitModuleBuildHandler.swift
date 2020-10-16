@@ -36,24 +36,10 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
-  /// The file system which we should interact with.
-  /// FIXME: Our end goal is to not have any direct filesystem manipulation in here, but  that's dependent on getting the
-  /// dependency scanner/dependency job generation  moved into a Job.
-  private let fileSystem: FileSystem
-
-  /// Path to the directory that will contain the temporary files.
-  /// e.g. Explicit Swift module artifact files
-  /// FIXME: Our end goal is to not have any direct filesystem manipulation in here, but  that's dependent on getting the
-  /// dependency scanner/dependency job generation  moved into a Job.
-  private let temporaryDirectory: AbsolutePath
-
   public init(dependencyGraph: InterModuleDependencyGraph,
-              toolchain: Toolchain,
-              fileSystem: FileSystem) throws {
+              toolchain: Toolchain) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
-    self.fileSystem = fileSystem
-    self.temporaryDirectory = try determineTempDirectory()
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -241,14 +227,11 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// Store the output file artifacts for a given module in a JSON file, return the file's path.
   private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
                                            dependencyArtifacts: [SwiftModuleArtifactInfo]
-  ) throws -> AbsolutePath {
-    let dependencyFilePath =
-      temporaryDirectory.appending(component: "\(moduleId.moduleName)-dependencies.json")
+  ) throws -> VirtualPath {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(dependencyArtifacts)
-    try fileSystem.writeFileContents(dependencyFilePath, bytes: ByteString(contents))
-    return dependencyFilePath
+    return .temporaryWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
   }
 
   /// For the specified module, update the given command line flags and inputs
@@ -279,7 +262,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
         try serializeModuleDependencies(for: moduleId, dependencyArtifacts: swiftDependencyArtifacts)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendPath(dependencyFile)
-      inputs.append(TypedVirtualPath(file: try VirtualPath(path: dependencyFile.pathString),
+      inputs.append(TypedVirtualPath(file: dependencyFile,
                                      type: .jsonSwiftArtifacts))
       // Each individual module binary is still an "input" to ensure the build system gets the
       // order correctly.

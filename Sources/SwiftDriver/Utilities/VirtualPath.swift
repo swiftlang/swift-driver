@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import Foundation
 
 /// A virtual path.
 public enum VirtualPath: Hashable {
@@ -28,6 +29,9 @@ public enum VirtualPath: Hashable {
 
   /// A temporary file with the given name.
   case temporary(RelativePath)
+
+  /// A temporary file with the given name and contents.
+  case temporaryWithKnownContents(RelativePath, Data)
 
   /// A temporary file that holds a list of paths.
   case fileList(RelativePath, FileList)
@@ -48,7 +52,8 @@ public enum VirtualPath: Hashable {
   /// The extension of this path, for relative or absolute paths.
   public var `extension`: String? {
     switch self {
-    case .relative(let path), .temporary(let path), .fileList(let path, _):
+    case .relative(let path), .temporary(let path),
+         .temporaryWithKnownContents(let path, _), .fileList(let path, _):
       return path.extension
     case .absolute(let path):
       return path.extension
@@ -62,7 +67,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case .relative, .absolute, .standardInput, .standardOutput:
       return false
-    case .temporary, .fileList:
+    case .temporary, .temporaryWithKnownContents, .fileList:
       return true
     }
   }
@@ -71,7 +76,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case let .absolute(absolutePath):
       return absolutePath
-    case .relative, .temporary, .fileList, .standardInput, .standardOutput:
+    case .relative, .temporary, .temporaryWithKnownContents, .fileList, .standardInput, .standardOutput:
       return nil
     }
   }
@@ -85,7 +90,9 @@ public enum VirtualPath: Hashable {
   /// representing its name.
   public var temporaryFileName: RelativePath? {
     switch self {
-    case .temporary(let name), .fileList(let name, _):
+    case .temporary(let name),
+         .fileList(let name, _),
+         .temporaryWithKnownContents(let name, _):
       return name
     case .absolute, .relative, .standardInput, .standardOutput:
       return nil
@@ -97,7 +104,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case .absolute(let path):
       return path.basename
-    case .relative(let path), .temporary(let path), .fileList(let path, _):
+    case .relative(let path), .temporary(let path), .temporaryWithKnownContents(let path, _), .fileList(let path, _):
       return path.basename
     case .standardInput, .standardOutput:
       return ""
@@ -109,7 +116,7 @@ public enum VirtualPath: Hashable {
     switch self {
     case .absolute(let path):
       return path.basenameWithoutExt
-    case .relative(let path), .temporary(let path), .fileList(let path, _):
+    case .relative(let path), .temporary(let path), .temporaryWithKnownContents(let path, _), .fileList(let path, _):
       return path.basenameWithoutExt
     case .standardInput, .standardOutput:
       return ""
@@ -123,7 +130,7 @@ public enum VirtualPath: Hashable {
       return .absolute(path.parentDirectory)
     case .relative(let path):
       return .relative(RelativePath(path.dirname))
-    case .temporary(let path):
+    case .temporary(let path), .temporaryWithKnownContents(let path, _):
       return .temporary(RelativePath(path.dirname))
     case .fileList(let path, _):
       return .temporary(RelativePath(path.dirname))
@@ -144,6 +151,8 @@ public enum VirtualPath: Hashable {
       return .relative(path.appending(component: component))
     case .temporary(let path):
       return .temporary(path.appending(component: component))
+    case let .temporaryWithKnownContents(path, contents):
+      return .temporaryWithKnownContents(path.appending(component: component), contents)
     case .fileList(let path, let content):
       return .fileList(path.appending(component: component), content)
     case .standardInput, .standardOutput:
@@ -173,6 +182,8 @@ public enum VirtualPath: Hashable {
       return .relative(RelativePath(path.pathString + suffix))
     case let .temporary(path):
       return .temporary(RelativePath(path.pathString + suffix))
+    case let .temporaryWithKnownContents(path, contents):
+      return .temporaryWithKnownContents(RelativePath(path.pathString + suffix), contents)
     case let .fileList(path, content):
       return .fileList(RelativePath(path.pathString + suffix), content)
     case .standardInput, .standardOutput:
@@ -184,7 +195,8 @@ public enum VirtualPath: Hashable {
 
 extension VirtualPath: Codable {
   private enum CodingKeys: String, CodingKey {
-    case relative, absolute, standardInput, standardOutput, temporary, fileList
+    case relative, absolute, standardInput, standardOutput, temporary,
+         temporaryWithKnownContents, fileList
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -203,6 +215,10 @@ extension VirtualPath: Codable {
     case .temporary(let a1):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .temporary)
       try unkeyedContainer.encode(a1)
+    case let .temporaryWithKnownContents(path, contents):
+      var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .temporaryWithKnownContents)
+      try unkeyedContainer.encode(path)
+      try unkeyedContainer.encode(contents)
     case .fileList(let path, let fileList):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .fileList)
       try unkeyedContainer.encode(path)
@@ -232,6 +248,11 @@ extension VirtualPath: Codable {
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let a1 = try unkeyedValues.decode(RelativePath.self)
       self = .temporary(a1)
+    case .temporaryWithKnownContents:
+      var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+      let path = try unkeyedValues.decode(RelativePath.self)
+      let contents = try unkeyedValues.decode(Data.self)
+      self = .temporaryWithKnownContents(path, contents)
     case .fileList:
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let path = try unkeyedValues.decode(RelativePath.self)
@@ -257,7 +278,8 @@ struct TextualVirtualPath: Codable {
       try container.encode(path.pathString)
     case .relative(let path):
       try container.encode(path.pathString)
-    case .temporary, .standardInput, .standardOutput, .fileList:
+    case .temporary, .temporaryWithKnownContents, .standardInput,
+         .standardOutput, .fileList:
       preconditionFailure("Path does not have a round-trippable textual representation")
     }
   }
@@ -275,7 +297,8 @@ extension VirtualPath: CustomStringConvertible {
     case .standardInput, .standardOutput:
       return "-"
 
-    case .temporary(let path), .fileList(let path, _):
+    case .temporary(let path), .temporaryWithKnownContents(let path, _),
+         .fileList(let path, _):
       return path.pathString
     }
   }
@@ -292,6 +315,8 @@ extension VirtualPath {
       return .relative(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporary(path):
       return .temporary(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+    case let .temporaryWithKnownContents(path, contents):
+      return .temporaryWithKnownContents(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), contents)
     case let .fileList(path, content):
       return .fileList(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
     case .standardInput, .standardOutput:
@@ -330,7 +355,8 @@ extension TSCBasic.FileSystem {
         throw FileSystemError.noCurrentWorkingDirectory
       }
       return try f(.init(cwd, relPath))
-    case let .temporary(relPath), let .fileList(relPath, _):
+    case let .temporary(relPath), let .temporaryWithKnownContents(relPath, _),
+         let .fileList(relPath, _):
       throw FileSystemError.cannotResolveTempPath(relPath)
     case .standardInput:
       throw FileSystemError.cannotResolveStandardInput
