@@ -27,6 +27,8 @@ extension ModuleDependencyGraph {
     /// If tracing dependencies, holds a vector used to hold the current path
     /// def - use/def - use/def - ...
     private var currentPathIfTracing: [Node]?
+
+    private let diagnosticEngine: DiagnosticsEngine
   }
 }
 
@@ -37,22 +39,27 @@ extension ModuleDependencyGraph.Tracer {
   /// (If already traced, jobs have already been scheduled.)
   @_spi(Testing) public static func findPreviouslyUntracedUsesOf<Nodes: Sequence> (
     defs: Nodes,
-    in graph: ModuleDependencyGraph
+    in graph: ModuleDependencyGraph,
+    diagnosticEngine: DiagnosticsEngine
   ) -> Self
   where Nodes.Element == ModuleDependencyGraph.Node
   {
-    var tracer = Self(findingUsesOf: defs, in: graph)
+    var tracer = Self(findingUsesOf: defs,
+                      in: graph,
+                      diagnosticEngine: diagnosticEngine)
     tracer.findPreviouslyUntracedDependents()
     return tracer
   }
 
   private init<Nodes: Sequence>(findingUsesOf defs: Nodes,
-               in graph: ModuleDependencyGraph)
+               in graph: ModuleDependencyGraph,
+               diagnosticEngine: DiagnosticsEngine)
   where Nodes.Element == ModuleDependencyGraph.Node
   {
     self.graph = graph
     self.startingPoints = Array(defs)
     self.currentPathIfTracing = graph.traceDependencies ? [] : nil
+    self.diagnosticEngine = diagnosticEngine
   }
   
   private mutating func findPreviouslyUntracedDependents() {
@@ -109,15 +116,16 @@ extension ModuleDependencyGraph.Tracer {
 
   private func printPath(_ path: [Graph.Node]) {
     guard path.first?.swiftDeps != path.last?.swiftDeps else {return}
-    print(
-      path
-        .compactMap { node in
-          node.swiftDeps
-            .flatMap {graph.sourceSwiftDepsMap[$0] }
-            .map (node.dependencyKey.descriptionForPath(from:))
-        }
-        .joined(separator: "->"),
-      to: &stderrStream
+    diagnosticEngine.emit(
+      .remark(
+        path
+          .compactMap { node in
+            node.swiftDeps
+              .flatMap {graph.sourceSwiftDepsMap[$0] }
+              .map (node.dependencyKey.descriptionForPath(from:))
+          }
+          .joined(separator: "->")
+      )
     )
   }
 }

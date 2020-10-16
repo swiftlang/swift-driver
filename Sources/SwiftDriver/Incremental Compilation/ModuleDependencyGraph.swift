@@ -157,7 +157,10 @@ extension ModuleDependencyGraph {
   ) -> Set<SwiftDeps>
   where Nodes.Element == Node
   {
-    let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(defs: nodes, in: self)
+    let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(
+      defs: nodes,
+      in: self,
+      diagnosticEngine: diagnosticEngine)
       .tracedUses
     return Set(affectedNodes.compactMap {$0.swiftDeps})
   }
