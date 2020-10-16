@@ -1788,6 +1788,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testToolsDirectory() throws {
+    try withTemporaryDirectory { tmpDir in
+      let ld = tmpDir.appending(component: "ld")
+      try localFileSystem.writeFileContents(ld) { $0 <<< "" }
+      try localFileSystem.chmod(.executable, path: AbsolutePath(ld.pathString))
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-apple-macosx10.14",
+                                     "-tools-directory", tmpDir.pathString,
+                                     "foo.swift"])
+      let frontendJobs = try driver.planBuild()
+      XCTAssertTrue(frontendJobs.count == 2)
+      XCTAssertTrue(frontendJobs[1].tool.absolutePath!.pathString == ld.pathString)
+    }
+  }
+
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     try withTemporaryDirectory { tmpDir in

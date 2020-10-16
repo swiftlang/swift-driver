@@ -24,10 +24,13 @@ import TSCBasic
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
+  public let toolDirectory: AbsolutePath?
+
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.toolDirectory = toolDirectory
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
