@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import XCTest
+import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 
@@ -183,5 +184,35 @@ final class IncrementalCompilationTests: XCTestCase {
   /// The date conversions are not exact
   func isCloseEnough(_ a: [Int], _ b: [Int]) -> Bool {
     a[0] == b[0] && abs(a[1] - b[1]) <= 100
+  }
+
+  func testShowJobLifecycle() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "let foo = 1"
+      }
+      let other = path.appending(component: "other.swift")
+      try localFileSystem.writeFileContents(other) {
+        $0 <<< "let bar = 2"
+      }
+      try assertDriverDiagnostics(args: [
+                                    "swiftc",
+                                    "-driver-show-job-lifecycle",
+                                    "-c",
+                                    "-module-name", "theModule",
+                                    main.pathString, other.pathString
+      ]) {driver, verifier in
+        verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
+        verifier.expect(.remark("Starting Compiling theModule main.swift"))
+        verifier.expect(.remark("Starting Compiling theModule other.swift"))
+        verifier.expect(.remark("Finished Compiling theModule main.swift"))
+        verifier.expect(.remark("Finished Compiling theModule other.swift"))
+
+
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+       }
+    }
   }
 }
