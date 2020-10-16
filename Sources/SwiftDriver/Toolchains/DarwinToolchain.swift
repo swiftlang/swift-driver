@@ -29,10 +29,14 @@ import SwiftOptions
   /// The file system to use for any file operations.
   public let fileSystem: FileSystem
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
+  // An externally provided path from where we should find tools like ld
+  public let toolDirectory: AbsolutePath?
+
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.toolDirectory = toolDirectory
   }
 
   /// Retrieve the absolute path for a given tool.

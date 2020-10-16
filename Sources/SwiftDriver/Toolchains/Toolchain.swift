@@ -28,7 +28,7 @@ public enum Tool: Hashable {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 @_spi(Testing) public protocol Toolchain {
-  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem)
+  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, toolDirectory: AbsolutePath?)
 
   var env: [String: String] { get }
 
@@ -37,6 +37,8 @@ public enum Tool: Hashable {
   var searchPaths: [AbsolutePath] { get }
 
   var executor: DriverExecutor { get }
+
+  var toolDirectory: AbsolutePath? { get }
 
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
@@ -131,6 +133,10 @@ extension Toolchain {
   func lookup(executable: String) throws -> AbsolutePath {
     if let overrideString = envVar(forExecutable: executable) {
       return try AbsolutePath(validating: overrideString)
+    } else if let toolDir = toolDirectory,
+              let path = lookupExecutablePath(filename: executable, searchPaths: [toolDir]) {
+      // Looking for tools from the tools directory.
+      return path
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
       return path
     } else if let path = try? xcrunFind(executable: executable) {

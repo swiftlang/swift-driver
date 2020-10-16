@@ -1880,7 +1880,14 @@ extension Driver {
 
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
-    let toolchain = toolchainType.init(env: env, executor: executor, fileSystem: fileSystem)
+    // Find tools directory and pass it down to the toolchain
+    var toolDir: AbsolutePath?
+    if let td = parsedOptions.getLastArgument(.toolsDirectory) {
+      toolDir = try AbsolutePath(validating: td.asSingle)
+    }
+    let toolchain = toolchainType.init(env: env, executor: executor,
+                                       fileSystem: fileSystem,
+                                       toolDirectory: toolDir)
 
     // Find the Swift compiler executable.
     let swiftCompilerPrefixArgs: [String]
