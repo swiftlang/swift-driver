@@ -84,4 +84,8 @@ extension Diagnostic.Message {
   static func error_unknown_target(_ target: String) -> Diagnostic.Message {
     .error("unknown target '\(target)'")
   }
+
+  static func warning_option_overrides_another(overridingOption: Option, overridenOption: Option) -> Diagnostic.Message {
+    .warning("ignoring '\(overridenOption.spelling)' because '\(overridingOption.spelling)' was also specified")
+  }
 }
