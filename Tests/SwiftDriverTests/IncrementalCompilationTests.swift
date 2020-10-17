@@ -186,7 +186,11 @@ final class IncrementalCompilationTests: XCTestCase {
     a[0] == b[0] && abs(a[1] - b[1]) <= 100
   }
 
-  func testShowJobLifecycle() throws {
+  /// Run a test with two files, main and other.swift, passing on the additional arguments
+  /// expecting certain diagnostics.
+  private func runDriver(with otherArgs: [String],
+                         expecting expectations: [Diagnostic.Message]
+  ) throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
@@ -197,22 +201,48 @@ final class IncrementalCompilationTests: XCTestCase {
         $0 <<< "let bar = 2"
       }
       try assertDriverDiagnostics(args: [
-                                    "swiftc",
-                                    "-driver-show-job-lifecycle",
-                                    "-c",
-                                    "-module-name", "theModule",
-                                    main.pathString, other.pathString
-      ]) {driver, verifier in
+        "swiftc", "-module-name", "theModule",
+        main.pathString, other.pathString
+      ] + otherArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
-        verifier.expect(.remark("Starting Compiling theModule main.swift"))
-        verifier.expect(.remark("Starting Compiling theModule other.swift"))
-        verifier.expect(.remark("Finished Compiling theModule main.swift"))
-        verifier.expect(.remark("Finished Compiling theModule other.swift"))
 
+        expectations.forEach {verifier.expect($0)}
 
         let jobs = try driver.planBuild()
         try driver.run(jobs: jobs)
        }
     }
+  }
+
+  func testShowJobLifecycleAndIncremental() throws {
+    try runDriver( with: [
+      "-c",
+      "-driver-show-job-lifecycle",
+      "-driver-show-incremental",
+    ],
+    expecting: [
+      .remark("Starting Compiling theModule main.swift"),
+      .remark("Starting Compiling theModule other.swift"),
+      .remark("Finished Compiling theModule main.swift"),
+      .remark("Finished Compiling theModule other.swift")
+    ])
+    // Legacy driver output:
+    //    Adding standard job to task queue: {compile: main.o <= main.swift}
+    //    Added to TaskQueue: {compile: main.o <= main.swift}
+    //    Adding standard job to task queue: {compile: other.o <= other.swift}
+    //    Added to TaskQueue: {compile: other.o <= other.swift}
+    //    Job finished: {compile: main.o <= main.swift}
+    //    Job finished: {compile: other.o <= other.swift}
+  }
+  func testNoIncremental() throws {
+    try runDriver( with: [
+      "-c",
+      "-incremental",
+    ],
+    expecting: [
+      .warning("ignoring -incremental (currently requires an output file map)")
+    ])
+    // Legacy driver output:
+    //    <unknown>:0: warning: ignoring -incremental (currently requires an output file map)
   }
 }
