@@ -29,6 +29,10 @@ extension Diagnostic.Message {
     .error("invalid value '\(value)' in '\(arg.spelling)'")
   }
 
+  static func warning_inferring_simulator_target(originalTriple: Triple, inferredTriple: Triple) -> Diagnostic.Message {
+    .warning("inferring simulator environment for target '\(originalTriple.triple)'; use '-target \(inferredTriple.triple)' instead")
+  }
+
   static func error_argument_not_allowed_with(arg: String, other: String) -> Diagnostic.Message {
     .error("argument '\(arg)' is not allowed with '\(other)'")
   }

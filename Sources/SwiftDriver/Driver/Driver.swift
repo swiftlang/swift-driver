@@ -1941,6 +1941,13 @@ extension Driver {
         }
       }
 
+      // Check if the simulator environment was inferred for backwards compatibility.
+      if let explicitTarget = explicitTarget,
+         explicitTarget.environment != .simulator && info.target.triple.environment == .simulator {
+        diagnosticsEngine.emit(.warning_inferring_simulator_target(originalTriple: explicitTarget,
+                                                                   inferredTriple: info.target.triple))
+      }
+
       return (toolchain, info, swiftCompilerPrefixArgs)
     } catch let JobExecutionError.decodingError(decodingError,
                                                 dataToDecode,

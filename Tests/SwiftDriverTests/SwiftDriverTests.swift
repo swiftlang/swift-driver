@@ -1672,6 +1672,16 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testEnvironmentInferenceWarning() throws {
+    try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-ios13.0", "foo.swift"]) {
+      $1.expect(.warning("inferring simulator environment for target 'x86_64-apple-ios13.0'; use '-target x86_64-apple-ios13.0-simulator'"))
+    }
+    try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-watchos6.0", "foo.swift"]) {
+      $1.expect(.warning("inferring simulator environment for target 'x86_64-apple-watchos6.0'; use '-target x86_64-apple-watchos6.0-simulator'"))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "-target", "x86_64-apple-ios13.0-simulator", "foo.swift")
+  }
+
   func testDarwinToolchainArgumentValidation() throws {
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios6.0",
                                            "foo.swift"])) { error in
