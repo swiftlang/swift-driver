@@ -2515,11 +2515,12 @@ final class SwiftDriverTests: XCTestCase {
       let outputFileMap = path.appending(component: "output_file_map.json")
       let fileMap = "{\"\(dummyInput.description)\": {\"object\": \"/build/basic_output_file_map.o\"}, \"\(path)/Inputs/main.swift\": {\"object\": \"/build/main.o\"}, \"\(path)/Inputs/lib.swift\": {\"object\": \"/build/lib.o\"}}"
       try localFileSystem.writeFileContents(outputFileMap) { $0 <<< fileMap }
-      _ = try Driver(args: ["swiftc", "-driver-print-output-file-map",
+      var driver = try Driver(args: ["swiftc", "-driver-print-output-file-map",
                                      "-target", "x86_64-apple-macosx10.9",
                                      "-o", "/build/basic_output_file_map.out",
                                      "-module-name", "OutputFileMap",
                                      "-output-file-map", outputFileMap.description])
+      try driver.run(jobs: [])
       let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
       XCTAssertTrue(invocationError.contains("/Inputs/lib.swift -> object: \"/build/lib.o\""))
       XCTAssertTrue(invocationError.contains("/Inputs/main.swift -> object: \"/build/main.o\""))

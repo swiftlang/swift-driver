@@ -215,7 +215,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.fastDependencyScannerPlaceholderOutput.data(using: .utf8)!)
 
       // Construct the driver with explicit external dependency input
-      var commandLine = ["swiftc", "-experimental-explicit-module-build",
+      let commandLine = ["swiftc", "-experimental-explicit-module-build",
                          "test.swift", "-module-name", "A", "-g"]
       let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
                                              processSet: ProcessSet(),
