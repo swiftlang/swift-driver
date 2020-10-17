@@ -24,7 +24,7 @@ extension Toolchain {
     let resourceDirBase: VirtualPath
     if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
       resourceDirBase = try VirtualPath(path: resourceDir.asSingle)
-    } else if !triple.isDarwin,
+    } else if !triple.isDarwin && triple.os != .wasi,
       let sdk = parsedOptions.getLastArgument(.sdk),
       let sdkPath = try? VirtualPath(path: sdk.asSingle) {
       resourceDirBase = sdkPath

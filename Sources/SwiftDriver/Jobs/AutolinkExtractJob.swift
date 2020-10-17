@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 
-// On ELF platforms there's no built in autolinking mechanism, so we
+// On ELF/WASM platforms there's no built in autolinking mechanism, so we
 // pull the info we need from the .o files directly and pass them as an
 // argument input file to the linker.
 // FIXME: Also handle Cygwin and MinGW
 extension Driver {
   @_spi(Testing) public var isAutolinkExtractJobNeeded: Bool {
-    targetTriple.objectFormat == .elf && lto == nil
+    [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil
   }
 
   mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {

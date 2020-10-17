@@ -69,10 +69,12 @@ add_library(SwiftDriver
   Jobs/Toolchain+LinkerSupport.swift
   Jobs/VerifyDebugInfoJob.swift
   Jobs/VerifyModuleInterfaceJob.swift
+  Jobs/WebAssemblyToolchain+LinkerSupport.swift
 
   Toolchains/DarwinToolchain.swift
   Toolchains/GenericUnixToolchain.swift
   Toolchains/Toolchain.swift
+  Toolchains/WebAssemblyToolchain.swift
 
   Utilities/Bits.swift
   Utilities/Bitstream.swift

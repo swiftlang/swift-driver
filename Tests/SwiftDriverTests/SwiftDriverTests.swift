@@ -718,6 +718,8 @@ final class SwiftDriverTests: XCTestCase {
   func testLinking() throws {
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
 
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
     do {
@@ -886,8 +888,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkJob3.commandLine.contains(.flag("-flto=full")))
     }
 
-    #if os(macOS)
-    // dsymutil won't be found on Linux.
     do {
       var driver = try Driver(args: commonArgs + ["-emit-executable", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
@@ -908,14 +908,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-    #endif
 
-    // FIXME: This test will fail when run on macOS, because
-    // swift-autolink-extract is not present
-    #if os(Linux)
     do {
       // linux target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"], env: env)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -941,14 +937,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-static")))
     }
-    #endif
 
-    // FIXME: This test will fail when run on macOS, because
-    // swift-autolink-extract is not present
-    #if os(Linux)
     do {
       // static linux linking
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"], env: env)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -974,7 +966,115 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-    #endif
+
+    do {
+      // static WASM linking
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "wasm32-unknown-wasi"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let autolinkExtractJob = plannedJobs[2]
+      XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
+
+      let autolinkCmd = autolinkExtractJob.commandLine
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
+
+      let linkJob = plannedJobs[3]
+      let cmd = linkJob.commandLine
+      // we'd expect "ar crs libTest.a foo.o bar.o"
+      XCTAssertTrue(cmd.contains(.flag("crs")))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
+
+      XCTAssertFalse(cmd.contains(.flag("-o")))
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    do {
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(
+          path.appending(components: "wasi", "static-executable-args.lnk")) { $0 <<< "garbage" }
+        // WASM executable linking
+        var driver = try Driver(args: commonArgs + ["-emit-executable",
+                                                    "-target", "wasm32-unknown-wasi",
+                                                    "-resource-dir", path.pathString,
+                                                    "-sdk", "/sdk/path"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 4)
+
+        let autolinkExtractJob = plannedJobs[2]
+        XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
+
+        let autolinkCmd = autolinkExtractJob.commandLine
+        XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
+        XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+        XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
+
+        let linkJob = plannedJobs[3]
+        let cmd = linkJob.commandLine
+        XCTAssertTrue(cmd.contains(subsequence: ["-target", "wasm32-unknown-wasi"]))
+        XCTAssertTrue(cmd.contains(subsequence: ["--sysroot", .path(.absolute(.init("/sdk/path")))]))
+        XCTAssertTrue(cmd.contains(.path(.absolute(path.appending(components: "wasi", "wasm32", "swiftrt.o")))))
+        XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
+        XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+        XCTAssertTrue(cmd.contains(.responseFilePath(.temporary(RelativePath("Test.autolink")))))
+        XCTAssertTrue(cmd.contains(.responseFilePath(.absolute(path.appending(components: "wasi", "static-executable-args.lnk")))))
+        XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
+
+        XCTAssertFalse(cmd.contains(.flag("-dylib")))
+        XCTAssertFalse(cmd.contains(.flag("-shared")))
+      }
+    }
+  }
+
+  func testWebAssemblyUnsupportedFeatures() throws {
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+    do {
+      var driver = try Driver(args: ["swift", "-target", "wasm32-unknown-wasi", "foo.swift"], env: env)
+      XCTAssertThrowsError(try driver.planBuild()) {
+        guard case WebAssemblyToolchain.Error.interactiveModeUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
+          XCTFail()
+          return
+        }
+      }
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "-emit-library", "foo.swift"], env: env)
+      XCTAssertThrowsError(try driver.planBuild()) {
+        guard case WebAssemblyToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
+          XCTFail()
+          return
+        }
+      }
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "-no-static-executable", "foo.swift"], env: env)
+      XCTAssertThrowsError(try driver.planBuild()) {
+        guard case WebAssemblyToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
+          XCTFail()
+          return
+        }
+      }
+    }
+
+    do {
+      XCTAssertThrowsError(try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "foo.swift", "-sanitize=thread"], env: env)) {
+        guard case WebAssemblyToolchain.Error.sanitizersUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
+          XCTFail()
+          return
+        }
+      }
+    }
   }
 
   func testCompatibilityLibs() throws {
