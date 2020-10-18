@@ -188,8 +188,10 @@ final class IncrementalCompilationTests: XCTestCase {
 
   /// Run a test with two files, main and other.swift, passing on the additional arguments
   /// expecting certain diagnostics.
-  private func runDriver(with otherArgs: [String],
-                         expecting expectations: [Diagnostic.Message]
+  private func runDriver(
+    with otherArgs: [String],
+    expecting expectations: [Diagnostic.Message],
+    alsoExpectingWhenAutolinking autolinkExpectations: [Diagnostic.Message] = []
   ) throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
@@ -207,6 +209,9 @@ final class IncrementalCompilationTests: XCTestCase {
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
 
         expectations.forEach {verifier.expect($0)}
+        if driver.isAutolinkExtractJobNeeded {
+          autolinkExpectations.forEach {verifier.expect($0)}
+        }
 
         let jobs = try driver.planBuild()
         try driver.run(jobs: jobs)
@@ -215,6 +220,14 @@ final class IncrementalCompilationTests: XCTestCase {
   }
 
   func testShowJobLifecycleAndIncremental() throws {
+    // Legacy MacOS driver output:
+    //    Adding standard job to task queue: {compile: main.o <= main.swift}
+    //    Added to TaskQueue: {compile: main.o <= main.swift}
+    //    Adding standard job to task queue: {compile: other.o <= other.swift}
+    //    Added to TaskQueue: {compile: other.o <= other.swift}
+    //    Job finished: {compile: main.o <= main.swift}
+    //    Job finished: {compile: other.o <= other.swift}
+
     try runDriver( with: [
       "-c",
       "-driver-show-job-lifecycle",
@@ -224,15 +237,13 @@ final class IncrementalCompilationTests: XCTestCase {
       .remark("Starting Compiling theModule main.swift"),
       .remark("Starting Compiling theModule other.swift"),
       .remark("Finished Compiling theModule main.swift"),
-      .remark("Finished Compiling theModule other.swift")
+      .remark("Finished Compiling theModule other.swift"),
+      ],
+    alsoExpectingWhenAutolinking: [
+      .remark("Starting Extracting autolink information for module theModule"),
+      .remark("Finished Extracting autolink information for module theModule"),
     ])
-    // Legacy driver output:
-    //    Adding standard job to task queue: {compile: main.o <= main.swift}
-    //    Added to TaskQueue: {compile: main.o <= main.swift}
-    //    Adding standard job to task queue: {compile: other.o <= other.swift}
-    //    Added to TaskQueue: {compile: other.o <= other.swift}
-    //    Job finished: {compile: main.o <= main.swift}
-    //    Job finished: {compile: other.o <= other.swift}
+
   }
   func testNoIncremental() throws {
     try runDriver( with: [
