@@ -1844,6 +1844,8 @@ extension Triple {
       return GenericUnixToolchain.self
     case .freeBSD, .haiku:
       return GenericUnixToolchain.self
+    case .wasi:
+      return WebAssemblyToolchain.self
     case .win32:
       fatalError("Windows target not supported yet")
     default:

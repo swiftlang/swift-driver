@@ -289,13 +289,15 @@ extension Triple {
       return "ps4"
     case .haiku:
       return "haiku"
+    case .wasi:
+      return "wasi"
 
     // Explicitly spell out the remaining cases to force a compile error when
     // Triple updates
     case .ananas, .cloudABI, .dragonFly, .fuchsia, .kfreebsd, .lv2, .netbsd,
          .openbsd, .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl,
          .amdhsa, .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd,
-         .wasi, .emscripten:
+         .emscripten:
       return nil
     }
   }
