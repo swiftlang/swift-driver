@@ -63,10 +63,17 @@ extension Driver {
       return true
     case .object:
       return (linkerOutputType == nil)
+    case .llvmBitcode:
+      if compilerOutputType != .llvmBitcode {
+        // The compiler output isn't bitcode, so bitcode isn't top-level (-embed-bitcode).
+        return false
+      } else {
+        // When -lto is set, .bc will be used for linking. Otherwise, .bc is
+        // top-level output (-emit-bc)
+        return lto == nil
+      }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .llvmBitcode:
-      return compilerOutputType == type
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,

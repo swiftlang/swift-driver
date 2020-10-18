@@ -167,6 +167,8 @@ extension GenericUnixToolchain {
           return .responseFilePath(input.file)
         } else if input.type == .object {
           return .path(input.file)
+        } else if lto != nil && input.type == .llvmBitcode {
+          return .path(input.file)
         } else {
           return nil
         }
