@@ -135,6 +135,9 @@ public struct Driver {
   /// The set of parsed options.
   var parsedOptions: ParsedOptions
 
+  /// Whether to print out extra info regarding jobs
+  let showJobLifecycle: Bool
+
   /// Extra command-line arguments to pass to the Swift compiler.
   let swiftCompilerPrefixArgs: [String]
 
@@ -321,6 +324,7 @@ public struct Driver {
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
+    self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
     self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
@@ -440,7 +444,8 @@ public struct Driver {
       fileSystem: fileSystem,
       inputFiles: inputFiles,
       outputFileMap: outputFileMap,
-      parsedOptions: &parsedOptions)
+      parsedOptions: &parsedOptions,
+      showJobLifecycle: showJobLifecycle)
 
     // Local variable to alias the target triple, because self.targetTriple
     // is not available until the end of this initializer.
@@ -852,7 +857,12 @@ extension Driver {
       mode = .verbose
     }
 
-    return ToolExecutionDelegate(mode: mode)
+    return ToolExecutionDelegate(
+      mode: mode,
+      buildRecordInfo: buildRecordInfo,
+      incrementalCompilationState: incrementalCompilationState,
+      showJobLifecycle: showJobLifecycle,
+      diagnosticEngine: diagnosticEngine)
   }
 
   private func printBindings(_ job: Job) {

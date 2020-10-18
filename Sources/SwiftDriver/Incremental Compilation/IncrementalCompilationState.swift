@@ -20,7 +20,7 @@ import SwiftOptions
   public let reportIncrementalDecision: (String) -> Void
   public let reportIncrementalQueuing: (String, VirtualPath) -> Void
 
-  let immediatelyScheduledInputs: Set<TypedVirtualPath>
+  let immediatelyScheduledInputs: [TypedVirtualPath]
   var skippedInputs: Set<TypedVirtualPath>
 
 
@@ -32,7 +32,8 @@ import SwiftOptions
     fileSystem: FileSystem,
     inputFiles: [TypedVirtualPath],
     outputFileMap: OutputFileMap?,
-    parsedOptions: inout ParsedOptions
+    parsedOptions: inout ParsedOptions,
+    showJobLifecycle: Bool
   ) {
     guard Self.shouldAttemptIncrementalCompilation(
             parsedOptions: &parsedOptions,
@@ -44,7 +45,7 @@ import SwiftOptions
 
 
     let showIncrementalDecisions = parsedOptions.hasArgument(.driverShowIncremental) ||
-      parsedOptions.hasArgument(.driverShowJobLifecycle)
+      showJobLifecycle
 
     let reportIncrementalDecision =
          showIncrementalDecisions
@@ -175,7 +176,7 @@ extension IncrementalCompilationState {
     outOfDateBuildRecord: BuildRecord,
     reportIncrementalDecision: (String) -> Void,
     reportIncrementalQueuing: (String, VirtualPath) -> Void
-  ) -> (scheduled: Set<TypedVirtualPath>, skipped: Set<TypedVirtualPath>) {
+  ) -> (scheduled: [TypedVirtualPath], skipped: Set<TypedVirtualPath>) {
 
     let changedInputs: [(TypedVirtualPath, InputInfo.Status)] = computeChangedInputs(
       buildRecordInfo: buildRecordInfo,
@@ -206,7 +207,8 @@ extension IncrementalCompilationState {
     for addition in additions.sorted(by: {$0.file.name < $1.file.name}) {
       reportIncrementalQueuing("Queueing (dependent):", addition.file)
     }
-    let scheduledInputs = inputsRequiringCompilation.union(additions)
+    let scheduledInputs = Array(inputsRequiringCompilation.union(additions))
+      .sorted {$0.file.name < $1.file.name}
 
     let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(scheduledInputs)
@@ -325,5 +327,12 @@ extension IncrementalCompilationState {
       }
     }
     return dependentFiles
+  }
+}
+// MARK: - Scheduling 2nd wave
+extension IncrementalCompilationState {
+  func jobFinished(job: Job, result: ProcessResult) {
+    // Eventually will read swiftDeps of completed jobs and schedule
+    // additional jobs
   }
 }

@@ -139,7 +139,7 @@ import SwiftOptions
     }
   }
 
-  func job(_ job: Job, finishedWithResult result: ProcessResult) {
+  func jobFinished(job: Job, result: ProcessResult) {
     // REDUNDANT?
     if let _ = finishedJobResults.updateValue(result, forKey: job) {
       fatalError("job finished twice?!")

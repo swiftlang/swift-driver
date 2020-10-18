@@ -31,8 +31,16 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   public let mode: Mode
+  public let buildRecordInfo: BuildRecordInfo?
+  public let incrementalCompilationState: IncrementalCompilationState?
+  public let showJobLifecycle: Bool
+  public let diagnosticEngine: DiagnosticsEngine
+
 
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
+    if showJobLifecycle {
+      diagnosticEngine.emit(.remark_job_lifecycle("Starting", job))
+    }
     switch mode {
     case .regular:
       break
@@ -60,6 +68,13 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    if showJobLifecycle {
+      diagnosticEngine.emit(.remark_job_lifecycle("Finished", job))
+    }
+
+    buildRecordInfo?.jobFinished(job: job, result: result)
+    incrementalCompilationState?.jobFinished(job: job, result: result)
+
     switch mode {
     case .regular, .verbose:
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
@@ -95,5 +110,12 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
     stderrStream <<< json.count <<< "\n"
     stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
     stderrStream.flush()
+  }
+}
+
+fileprivate extension Diagnostic.Message {
+  static func remark_job_lifecycle(_ what: String, _ job: Job
+  ) -> Diagnostic.Message {
+    .remark("\(what) \(job)")
   }
 }
