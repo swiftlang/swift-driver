@@ -1043,6 +1043,28 @@ extension Driver {
     let hasIndexFile = parsedOptions.hasArgument(.indexFile)
     let wantBatchMode = parsedOptions.hasFlag(positive: .enableBatchMode, negative: .disableBatchMode, default: false)
 
+    // AST dump doesn't work with `-wmo`/`-index-file`. Since it's not common to want to dump
+    // the AST, we assume that's the priority and ignore those flags, but we warn the
+    // user about this decision.
+    if useWMO && parsedOptions.hasArgument(.dumpAst) {
+      diagnosticsEngine.emit(.warning_option_overrides_another(overridingOption: .dumpAst,
+                                                               overridenOption: .wmo))
+      parsedOptions.eraseArgument(.wmo)
+      return .standardCompile
+    }
+
+    if hasIndexFile && parsedOptions.hasArgument(.dumpAst) {
+      diagnosticsEngine.emit(.warning_option_overrides_another(overridingOption: .dumpAst,
+                                                               overridenOption: .indexFile))
+      parsedOptions.eraseArgument(.indexFile)
+      parsedOptions.eraseArgument(.indexFilePath)
+      parsedOptions.eraseArgument(.indexStorePath)
+      parsedOptions.eraseArgument(.indexIgnoreStdlib)
+      parsedOptions.eraseArgument(.indexSystemModules)
+      parsedOptions.eraseArgument(.indexIgnoreSystemModules)
+      return .standardCompile
+    }
+
     if useWMO || hasIndexFile {
       if wantBatchMode {
         let disablingOption: Option = useWMO ? .wholeModuleOptimization : .indexFile

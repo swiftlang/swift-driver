@@ -2444,6 +2444,35 @@ final class SwiftDriverTests: XCTestCase {
     _ = try driverWithEmptySDK.planBuild()
   }
 
+  func testDumpASTOverride() throws {
+    try assertDriverDiagnostics(args: ["swiftc", "-wmo", "-dump-ast", "foo.swift"]) {
+      $1.expect(.warning("ignoring '-wmo' because '-dump-ast' was also specified"))
+      let jobs = try $0.planBuild()
+      XCTAssertEqual(jobs[0].kind, .compile)
+      XCTAssertFalse(jobs[0].commandLine.contains("-wmo"))
+      XCTAssertTrue(jobs[0].commandLine.contains("-dump-ast"))
+    }
+    
+    try assertDriverDiagnostics(args: ["swiftc", "-index-file", "-dump-ast",
+                                       "foo.swift",
+                                       "-index-file-path", "foo.swift",
+                                       "-index-store-path", "store/path",
+                                       "-index-ignore-stdlib", "-index-system-modules",
+                                       "-index-ignore-system-modules"]) {
+      $1.expect(.warning("ignoring '-index-file' because '-dump-ast' was also specified"))
+      let jobs = try $0.planBuild()
+      XCTAssertEqual(jobs[0].kind, .compile)
+      XCTAssertFalse(jobs[0].commandLine.contains("-wmo"))
+      XCTAssertFalse(jobs[0].commandLine.contains("-index-file"))
+      XCTAssertFalse(jobs[0].commandLine.contains("-index-file-path"))
+      XCTAssertFalse(jobs[0].commandLine.contains("-index-store-path"))
+      XCTAssertFalse(jobs[0].commandLine.contains("-index-ignore-stdlib"))
+      XCTAssertFalse(jobs[0].commandLine.contains("-index-system-modules"))
+      XCTAssertFalse(jobs[0].commandLine.contains("-index-ignore-system-modules"))
+      XCTAssertTrue(jobs[0].commandLine.contains("-dump-ast"))
+    }
+  }
+
   func testToolchainClangPath() throws {
     // Overriding the swift executable to a specific location breaks this.
     guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil,
