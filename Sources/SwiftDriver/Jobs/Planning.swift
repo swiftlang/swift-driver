@@ -175,6 +175,15 @@ extension Driver {
     addJobOutputs: ([TypedVirtualPath]) -> Void)
   throws {
     let partitions = batchPartitions()
+    // Log life cycle for added batch job
+    if parsedOptions.hasArgument(.driverShowJobLifecycle) {
+      for input in inputFiles {
+        if let idx = partitions?.assignment[input] {
+          stdoutStream.write("Adding {compile: \(input.file.basename)} to batch \(idx)\n")
+          stdoutStream.flush()
+        }
+      }
+    }
     for (index, input) in inputFiles.enumerated() {
       // Only emit a loaded module trace from the first frontend job.
       let emitModuleTrace = (index == inputFiles.startIndex) && (loadedModuleTracePath != nil)
@@ -215,6 +224,7 @@ extension Driver {
 
         if parsedOptions.hasArgument(.driverShowJobLifecycle) {
           stdoutStream.write("Forming batch job from \(partition.count) constituents\n")
+          stdoutStream.flush()
         }
 
         primaryInputs = partitions.partitions[partitionIdx]
