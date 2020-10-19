@@ -1220,6 +1220,7 @@ extension Driver {
     } else if parsedOptions.hasArgument(.emitModule, .emitModulePath) {
       compilerOutputType = .swiftModule
     } else if driverKind != .interactive {
+      compilerOutputType = objectLikeFileType
       linkerOutputType = .executable
     }
 
