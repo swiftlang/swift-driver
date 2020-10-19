@@ -1772,6 +1772,17 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+
+  func testPCHasCompileInput() throws {
+    var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 3)
+    XCTAssert(plannedJobs[0].kind == .generatePCH)
+    XCTAssert(plannedJobs[1].kind == .compile)
+    XCTAssert(plannedJobs[1].inputs[0].file.extension == "swift")
+    XCTAssert(plannedJobs[1].inputs[1].file.extension == "pch")
+  }
+
   func testEnvironmentInferenceWarning() throws {
     try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-ios13.0", "foo.swift"]) {
       $1.expect(.warning("inferring simulator environment for target 'x86_64-apple-ios13.0'; use '-target x86_64-apple-ios13.0-simulator'"))
@@ -2834,7 +2845,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
       XCTAssert(plannedJobs[1].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
@@ -2871,7 +2882,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
     }
 
@@ -2893,7 +2904,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
     }
@@ -2916,7 +2927,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("foo.bc")))
@@ -2970,7 +2981,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
     }
@@ -3000,7 +3011,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
 
@@ -3025,7 +3036,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
     }
@@ -3049,7 +3060,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.path(.temporary(RelativePath("TestInputHeader.pch")))))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertEqual(plannedJobs[1].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
     }
 

@@ -290,6 +290,10 @@ extension Driver {
       inputs.append(TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule))
     }
 
+    // Bridging header is needed for compiling these .swift sources.
+    if let pchPath = bridgingPrecompiledHeader {
+      inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
+    }
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
