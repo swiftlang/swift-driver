@@ -70,6 +70,7 @@ extension Driver {
       kind: .link,
       tool: .absolute(toolPath),
       commandLine: commandLine,
+      displayInputs: inputs,
       inputs: inputs,
       primaryInputs: [],
       outputs: [.init(file: outputFile, type: .image)]

@@ -376,16 +376,6 @@ public struct Driver {
       self.outputFileMap = outputFileMap
     }
 
-    // If requested, print the output file map
-    if parsedOptions.contains(.driverPrintOutputFileMap) {
-      if let outputFileMap = self.outputFileMap {
-        stderrStream <<< outputFileMap.description
-        stderrStream.flush()
-      } else {
-        diagnosticsEngine.emit(.error_no_output_file_map_specified)
-      }
-    }
-
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
     if shouldUseInputFileList {
@@ -792,6 +782,16 @@ extension Driver {
       return
     }
 
+    if parsedOptions.contains(.driverPrintOutputFileMap) {
+      if let outputFileMap = self.outputFileMap {
+        stderrStream <<< outputFileMap.description
+        stderrStream.flush()
+      } else {
+        diagnosticEngine.emit(.error_no_output_file_map_specified)
+      }
+      return
+    }
+
     if parsedOptions.contains(.driverPrintBindings) {
       for job in jobs {
         printBindings(job)
@@ -869,7 +869,7 @@ extension Driver {
     stdoutStream <<< #"# ""# <<< targetTriple.triple
     stdoutStream <<< #"" - ""# <<< job.tool.basename
     stdoutStream <<< #"", inputs: ["#
-    stdoutStream <<< job.inputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream <<< job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
 
     stdoutStream <<< "], output: {"
 
