@@ -212,7 +212,7 @@ def install(args, build_dir):
   # swift-driver and swift-help
   install_executables(args, build_dir, bin_dir, toolchain_bin)
 
-  # libSwiftDriver and libSwiftOptions
+  # libSwiftDriver and libSwiftDriverExecution and libSwiftOptions
   install_libraries(args, build_dir, lib_dir, toolchain_lib)
 
   # Binary Swift Modules:
@@ -258,16 +258,17 @@ def install_executables(args, build_dir, universal_bin_dir, toolchain_bin_dir):
 
 # Install shared libraries for the driver and its dependencies into the toolchain
 def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
-  # Fixup the SwiftDriver rpath for libSwiftDriver
-  for arch in macos_target_architectures:
-    lib_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
-                                   args.configuration, 'lib', 'libSwiftDriver' + shared_lib_ext)
-    driver_lib_dir_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
-                                       args.configuration, 'lib')
-    delete_rpath(driver_lib_dir_path, lib_path, args.verbose)
+  # Fixup the SwiftDriver rpath for libSwiftDriver and libSwiftDriverExecution
+  for lib in ['libSwiftDriver', 'libSwiftDriverExecution']:
+    for arch in macos_target_architectures:
+      lib_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+                                     args.configuration, 'lib', lib + shared_lib_ext)
+      driver_lib_dir_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+                                         args.configuration, 'lib')
+      delete_rpath(driver_lib_dir_path, lib_path, args.verbose)
 
-  # Fixup the TSC rpath for libSwiftDriver and libSwiftOptions
-  for lib in ['libSwiftDriver', 'libSwiftOptions']:
+  # Fixup the TSC rpath for libSwiftDriver and libSwiftOptions and libSwiftDriverExecution
+  for lib in ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution']:
     for arch in macos_target_architectures:
       lib_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
                               args.configuration, 'lib', lib + shared_lib_ext)
@@ -276,9 +277,10 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
                                       'swift-tools-support-core', 'lib')
       delete_rpath(tsc_lib_dir_path, lib_path, args.verbose)
 
-  # Install the libSwiftDriver and libSwiftOptions shared libraries into the toolchain lib
+  # Install the libSwiftDriver and libSwiftOptions and libSwiftDriverExecution
+  # shared libraries into the toolchain lib
   package_subpath = args.configuration
-  for lib in ['libSwiftDriver', 'libSwiftOptions']:
+  for lib in ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution']:
     install_library(args, build_dir, package_subpath, lib,
                     universal_lib_dir, toolchain_lib_dir, 'swift-driver')
 
