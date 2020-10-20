@@ -67,6 +67,10 @@ extension Driver {
       inputs.append(input)
     }
 
+    if let pchPath = bridgingPrecompiledHeader {
+      inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
+    }
+
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
