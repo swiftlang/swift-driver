@@ -416,7 +416,9 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_f
     # on some machines. This is also Darwin-specific...
     if platform.system() == 'Darwin':
       llbuild_cmake_flags.append('-DSQLite3_LIBRARY=%s/usr/lib/libsqlite3.tbd' % args.sysroot)
-  cmake_build(args, swiftc_exec, llbuild_cmake_flags, llbuild_source_dir, llbuild_build_dir)
+
+  # Build only a subset of llbuild (in particular skipping tests)
+  cmake_build(args, swiftc_exec, llbuild_cmake_flags, llbuild_source_dir, llbuild_build_dir, 'products/all')
 
 def build_tsc_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
   print('Building TSC for target: %s' % target)
@@ -471,7 +473,7 @@ def build_swift_driver_using_cmake(args, target, swiftc_exec, build_dir, base_cm
   driver_cmake_flags = base_cmake_flags + flags
   cmake_build(args, swiftc_exec, driver_cmake_flags, driver_source_dir, driver_build_dir)
 
-def cmake_build(args, swiftc_exec, cmake_args, source_path, build_dir):
+def cmake_build(args, swiftc_exec, cmake_args, source_path, build_dir, ninja_target=None):
   """Configure with CMake and build with Ninja"""
   swift_flags = ''
   if args.sysroot:
@@ -492,6 +494,10 @@ def cmake_build(args, swiftc_exec, cmake_args, source_path, build_dir):
   ninja_cmd = [args.ninja_bin]
   if args.verbose:
     ninja_cmd.append('-v')
+  if ninja_target is not None:
+    ninja_cmd.append(ninja_target)
+
+  if args.verbose:
     print(' '.join(ninja_cmd))
   ninjaProcess = subprocess.Popen(ninja_cmd, cwd=build_dir,
                                   stdout=subprocess.PIPE,
