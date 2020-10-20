@@ -14,7 +14,8 @@ extension Driver {
   /// options for the paths of various module files.
   mutating func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
-      outputs: inout [TypedVirtualPath]
+      outputs: inout [TypedVirtualPath],
+      isMergeModule: Bool
   ) {
     // Add supplemental outputs.
     func addSupplementalOutput(path: VirtualPath?, flag: String, type: FileType) {
@@ -28,10 +29,14 @@ extension Driver {
     addSupplementalOutput(path: moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
     addSupplementalOutput(path: moduleSourceInfoPath, flag: "-emit-module-source-info-path", type: .swiftSourceInfoFile)
     addSupplementalOutput(path: swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
-    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
 
+    if isMergeModule {
+      return
+    }
+    // Add outputs that can't be merged
+    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
     if let dependenciesFilePath = dependenciesFilePath {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
@@ -64,7 +69,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
+    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputPath)

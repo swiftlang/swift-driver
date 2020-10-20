@@ -56,7 +56,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
+    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputInfo.output!.outputPath)
