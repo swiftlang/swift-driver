@@ -42,7 +42,16 @@ public struct OutputFileMap: Hashable, Codable {
   }
 
   public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {
-    entries[inputFile]?[outputType]
+    if let path = entries[inputFile]?[outputType] {
+      return path
+    }
+    switch outputType {
+    case .swiftDocumentation, .swiftSourceInfoFile:
+      // Infer paths for these entities using .swiftmodule path.
+      return entries[inputFile]?[.swiftModule]?.replacingExtension(with: outputType)
+    default:
+      return nil
+    }
   }
 
   public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath? {
