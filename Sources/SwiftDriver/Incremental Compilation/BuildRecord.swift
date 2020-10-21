@@ -141,7 +141,7 @@ public extension BuildRecord {
     let missingInputs = Set(self.inputInfos.keys).subtracting(inputFiles.map {$0.file})
     guard missingInputs.isEmpty else {
       return "the following inputs were used in the previous compilation but not in this one: "
-        + missingInputs.map {$0.name} .joined(separator: ", ")
+        + missingInputs.map {$0.basename} .joined(separator: ", ")
     }
     return nil
   }
@@ -150,13 +150,14 @@ public extension BuildRecord {
 // MARK: - Creating and writing a new map
 extension BuildRecord {
   /// Create a new buildRecord for writing
-  init(jobs: [Job],
-       finishedJobResults: [Job: ProcessResult],
-       skippedInputs: Set<TypedVirtualPath>?,
-       compilationInputModificationDates: [TypedVirtualPath: Date],
-       actualSwiftVersion: String,
-       argsHash: String,
-       timeBeforeFirstJob: Date
+  init(
+    jobs: [Job],
+    finishedJobResults: [Job: ProcessResult],
+    incrementalCompilationState: IncrementalCompilationState?,
+    compilationInputModificationDates: [TypedVirtualPath: Date],
+    actualSwiftVersion: String,
+    argsHash: String,
+    timeBeforeFirstJob: Date
   ) {
     let jobResultsByInput = Dictionary(
       uniqueKeysWithValues:
@@ -166,8 +167,12 @@ extension BuildRecord {
     )
     let inputInfosArray = compilationInputModificationDates
       .map { input, modDate -> (VirtualPath, InputInfo) in
-        let status = InputInfo.Status(  wasSkipped: skippedInputs?.contains(input),
-                                        jobResult: jobResultsByInput[input])
+        let wasSkipped = incrementalCompilationState?.skippedCompilationInputs.contains(input)
+        let previousStatus = incrementalCompilationState?.outOfDateBuildRecord.inputInfos[input.file]?.status
+        let status = InputInfo.Status(
+          wasSkipped: wasSkipped,
+          jobResult: jobResultsByInput[input],
+          previousStatus: previousStatus)
         return (input.file, InputInfo(status: status, previousModTime: modDate))
       }
 

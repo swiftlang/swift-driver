@@ -286,15 +286,20 @@ class ExecuteJobRule: LLBuildRule {
 
   override class var ruleName: String { "\(ExecuteJobRule.self)" }
 
-  private let key: RuleKey
-  private let context: MultiJobExecutor.Context
+  private let _key: RuleKey
+  private let _context: MultiJobExecutor.Context
+  private var key: RuleKey {
+    _key}
+  private var context: MultiJobExecutor.Context {
+    _context
+  }
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
   init(_ key: Key, context: MultiJobExecutor.Context) {
-    self.key = RuleKey(key)
-    self.context = context
+    self._key = RuleKey(key)
+    self._context = context
     super.init(fileSystem: context.fileSystem)
   }
 

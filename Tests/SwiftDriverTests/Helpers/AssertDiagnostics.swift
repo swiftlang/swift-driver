@@ -215,7 +215,12 @@ final class DiagnosticVerifier {
 
 extension Diagnostic {
   func matches(_ expectation: Diagnostic.Message) -> Bool {
-    behavior == expectation.behavior && message.text.contains(expectation.text)
+    if message.text.contains(expectation.text) {
+      if behavior != expectation.behavior {
+        print("BEHAVIOR MISMATCH:", behavior, expectation.behavior, message.text)
+      }
+    }
+    return behavior == expectation.behavior && message.text.contains(expectation.text)
   }
 }
 

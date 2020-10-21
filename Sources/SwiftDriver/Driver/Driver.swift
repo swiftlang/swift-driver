@@ -815,8 +815,10 @@ extension Driver {
     }
 
     if jobs.contains(where: { $0.requiresInPlaceExecution })
-      // Only one job and no cleanup required
-      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
+// no good for testing
+//      // Only one job and no cleanup required
+//      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput))
+    {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       var job = jobs[0]
       // Require in-place execution for all single job plans.
@@ -837,7 +839,18 @@ extension Driver {
                          forceResponseFiles: forceResponseFiles,
                          recordedInputModificationDates: recordedInputModificationDates)
 
-    buildRecordInfo?.writeBuildRecord( jobs, nil)
+
+    if let incrementalCompilationState = incrementalCompilationState {
+      incrementalCompilationState.secondWaveIsReady.wait()
+      try executor.execute(jobs: formBatchedJobs(incrementalCompilationState.jobsToBeRunInSecondWave),
+                           delegate: executorDelegate,
+                           numParallelJobs: numParallelJobs ?? 1,
+                           forceResponseFiles: forceResponseFiles,
+                           recordedInputModificationDates: recordedInputModificationDates)
+    }
+
+    buildRecordInfo?.writeBuildRecord( jobs,
+                                       incrementalCompilationState)
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
     if parsedOptions.hasArgument(.driverWarnUnusedOptions) {

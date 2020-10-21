@@ -1356,7 +1356,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].outputs.count, 4)
       XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary(RelativePath("foo3.o")))
       XCTAssertEqual(plannedJobs[2].outputs.count, 3)
-      XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.temporary(RelativePath("foo5.o")))
+      XCTAssertEqual(plannedJobs[2].outputs.first!.file,  VirtualPath.temporary(RelativePath("foo5.o")))
       XCTAssertTrue(plannedJobs[3].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
       XCTAssertEqual(plannedJobs[3].outputs.count, 1)
       XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))

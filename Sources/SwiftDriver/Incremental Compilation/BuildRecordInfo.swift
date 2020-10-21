@@ -91,11 +91,13 @@ import SwiftOptions
   /// Write out the build record.
   /// `Jobs` must include all of the compilation jobs.
   /// `Inputs` will hold all the primary inputs that were not compiled because of incremental compilation
-  func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>? ) {
+  func writeBuildRecord(
+    _ jobs: [Job],
+    _ incrementalCompilationState: IncrementalCompilationState?) {
     let buildRecord = BuildRecord(
       jobs: jobs,
       finishedJobResults: finishedJobResults,
-      skippedInputs: skippedInputs,
+      incrementalCompilationState: incrementalCompilationState,
       compilationInputModificationDates: compilationInputModificationDates,
       actualSwiftVersion: actualSwiftVersion,
       argsHash: argsHash,

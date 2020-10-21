@@ -20,9 +20,29 @@ import SwiftOptions
   public let reportIncrementalDecision: (String) -> Void
   public let reportIncrementalQueuing: (String, VirtualPath) -> Void
 
-  let immediatelyScheduledInputs: [TypedVirtualPath]
-  var skippedInputs: Set<TypedVirtualPath>
+  /// The primary input files that are part of the first wave
+  let firstWaveInputs: [TypedVirtualPath]
 
+  /// First wave inputs that must be completed before second wave can start.
+  /// Diminishes as build proceeds.
+  var incompleteFirstWaveInputs: Set<TypedVirtualPath>
+
+  /// Input files that were skipped.
+  /// May shrink from first wave to second.
+  var skippedCompilationInputs: Set<TypedVirtualPath>
+
+  /// Jobs that were skipped.
+  /// Redundant with `skippedCompilationInputs`
+  /// TODO: Incremental. clean up someday
+  var skippedCompileJobs = [TypedVirtualPath: Job]()
+
+  /// Accumulates jobs to be run in 2nd wave
+  public private(set) var jobsToBeRunInSecondWave = [Job]()
+
+  /// Alerts driver when it can schedule the second wave
+  public let secondWaveIsReady = DispatchSemaphore(value: 0)
+
+  private var amHandlingJobCompletion = false
 
   /// Return nil if not compiling incrementally
   public init?(
@@ -57,6 +77,7 @@ import SwiftOptions
       let output = p.basenameWithoutExt + ".o"
       let message = "\(s) {compile: \(output) <= \(input)}"
       print(message)
+      diagnosticEngine.emit(.remark_incremental_decision(because: message))
     }
     let reportIncrementalQueuing = showIncrementalDecisions
       ? reportIncrementalQueuingFn
@@ -95,21 +116,23 @@ import SwiftOptions
       return nil
     }
 
-    (immediatelyScheduledInputs, skippedInputs)
-      = Self.calculateScheduledAndSkippedInputs(
+    (firstWave: self.firstWaveInputs, skipped: self.skippedCompilationInputs)
+      = Self.calculateScheduledAndSkippedCompilationInputs(
         buildRecordInfo: buildRecordInfo,
         moduleDependencyGraph: moduleDependencyGraph,
         outOfDateBuildRecord: outOfDateBuildRecord,
         reportIncrementalDecision: reportIncrementalDecision,
         reportIncrementalQueuing: reportIncrementalQueuing)
 
+    self.incompleteFirstWaveInputs = Set(firstWaveInputs)
     self.moduleDependencyGraph = moduleDependencyGraph
     self.outOfDateBuildRecord = outOfDateBuildRecord
     self.reportIncrementalDecision = reportIncrementalDecision
     self.reportIncrementalQueuing = reportIncrementalQueuing
     self.diagnosticEngine = diagnosticEngine
-    self.skippedInputs = Set() // complete the initialization
     self.buildRecordInfo = buildRecordInfo
+
+    signalSecondWaveReadinessWhenReady()
   }
 
 
@@ -170,13 +193,13 @@ extension Diagnostic.Message {
 /// It is convenient to record the inputs to be compiled immediately by returning the inputs to be skipped until
 /// further notice.
 extension IncrementalCompilationState {
-  private static func calculateScheduledAndSkippedInputs(
+  private static func calculateScheduledAndSkippedCompilationInputs(
     buildRecordInfo: BuildRecordInfo,
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     reportIncrementalDecision: (String) -> Void,
     reportIncrementalQueuing: (String, VirtualPath) -> Void
-  ) -> (scheduled: [TypedVirtualPath], skipped: Set<TypedVirtualPath>) {
+  ) -> (firstWave: [TypedVirtualPath], skipped: Set<TypedVirtualPath>) {
 
     let changedInputs: [(TypedVirtualPath, InputInfo.Status)] = computeChangedInputs(
       buildRecordInfo: buildRecordInfo,
@@ -203,19 +226,19 @@ extension IncrementalCompilationState {
       changedInputs: changedInputs,
       moduleDependencyGraph: moduleDependencyGraph,
       reportIncrementalDecision: reportIncrementalDecision)
-    let additions = inputsRequiringCompilation.subtracting(speculativelyScheduledInputs)
+    let additions = speculativelyScheduledInputs.subtracting(inputsRequiringCompilation)
     for addition in additions.sorted(by: {$0.file.name < $1.file.name}) {
-      reportIncrementalQueuing("Queueing (dependent):", addition.file)
+      reportIncrementalQueuing("Queuing (dependent):", addition.file)
     }
     let scheduledInputs = Array(inputsRequiringCompilation.union(additions))
       .sorted {$0.file.name < $1.file.name}
 
-    let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
+    let skippedCompilationInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(scheduledInputs)
-    for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
+    for skippedInput in skippedCompilationInputs.sorted(by: {$0.file.name < $1.file.name})  {
       reportIncrementalQueuing("Skipping:", skippedInput.file)
     }
-    return (scheduled: scheduledInputs, skipped: skippedInputs)
+    return (firstWave: scheduledInputs, skipped: skippedCompilationInputs)
   }
 
   /// Find the inputs that have changed since last compilation, or were marked as needed a build
@@ -225,10 +248,11 @@ extension IncrementalCompilationState {
     outOfDateBuildRecord: BuildRecord,
     reportIncrementalDecision: (String) -> Void
    ) -> [(TypedVirtualPath, InputInfo.Status)] {
-    buildRecordInfo.compilationInputModificationDates.compactMap { input, modDate in
-      guard input.type.isPartOfSwiftCompilation else {
-        return nil
-      }
+    buildRecordInfo.compilationInputModificationDates.filter { input, _ in
+      input.type.isPartOfSwiftCompilation
+    }
+    .sorted {$0.key.file.name < $1.key.file.name}
+    .compactMap { input, modDate in
       let previousCompilationStatus = outOfDateBuildRecord
         .inputInfos[input.file]?.status ?? .newlyAdded
 
@@ -329,10 +353,80 @@ extension IncrementalCompilationState {
     return dependentFiles
   }
 }
+
 // MARK: - Scheduling 2nd wave
 extension IncrementalCompilationState {
+  func addSkippedCompileJobs(_ jobs: [Job]) {
+    for job in jobs {
+      reportIncrementalDecision("Skipping \(job.descriptionForLifecycle)")
+      for input in job.primaryInputs {
+        if let _ = skippedCompileJobs.updateValue(job, forKey: input) {
+          fatalError("should not have two skipped jobs for same skipped input")
+        }
+      }
+    }
+  }
+
+  func addPostCompileJobs(_ jobs: [Job]) {
+    for job in jobs {
+      reportIncrementalDecision("Delaying \(job.descriptionForLifecycle) pending discovering delayed dependencies")
+      willRunInSecondWave(job)
+    }
+  }
+
   func jobFinished(job: Job, result: ProcessResult) {
-    // Eventually will read swiftDeps of completed jobs and schedule
-    // additional jobs
+    defer {
+      amHandlingJobCompletion = false
+    }
+    assert(!amHandlingJobCompletion, "was reentered, need to synchronize")
+    amHandlingJobCompletion = true
+
+    job.primaryInputs.forEach {incompleteFirstWaveInputs.remove($0)}
+
+    let sourcesToSchedule = collectSourcesToScheduleAfterCompiling(job)
+    for sourcesToSchedule in sourcesToSchedule {
+      reportIncrementalQueuing(
+        "Queuing because of dependencies discovered later:", sourcesToSchedule.file)
+    }
+    scheduleSecondWave(sourcesToSchedule)
+    signalSecondWaveReadinessWhenReady()
+ }
+
+  private func collectSourcesToScheduleAfterCompiling(
+    _ job: Job
+  ) -> [TypedVirtualPath] {
+    Array(
+      Set(
+        job.primaryInputs.flatMap {
+          moduleDependencyGraph.findSourcesToCompileAfterCompiling($0)
+            ?? Array(skippedCompilationInputs)
+        }
+      )
+    )
+    .sorted {$0.file.name < $1.file.name}
+  }
+
+  private func scheduleSecondWave(_ sources: [TypedVirtualPath]) {
+    for input in sources {
+      if let job = skippedCompileJobs.removeValue(forKey: input) {
+        skippedCompilationInputs.subtract(job.primaryInputs)
+        willRunInSecondWave(job)
+      }
+      else {
+        reportIncrementalDecision("Tried to schedule 2nd wave input \(input.file.basename) again")
+      }
+    }
+  }
+
+  private func willRunInSecondWave(_ j: Job) {
+    reportIncrementalDecision("Scheduling for 2nd wave \(j.descriptionForLifecycle)")
+    jobsToBeRunInSecondWave.append(j)
+  }
+
+  private func signalSecondWaveReadinessWhenReady() {
+    if incompleteFirstWaveInputs.isEmpty {
+      // may get signalled > once, but doesn't matter
+      secondWaveIsReady.signal()
+    }
   }
 }
