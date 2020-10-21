@@ -76,8 +76,6 @@ add_library(SwiftDriver
   Toolchains/Toolchain.swift
   Toolchains/WebAssemblyToolchain.swift
 
-  Utilities/Bits.swift
-  Utilities/Bitstream.swift
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
