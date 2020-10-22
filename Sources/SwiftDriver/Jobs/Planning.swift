@@ -35,20 +35,40 @@ extension Driver {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
 
-    var jobs = [Job]()
-    func addJob(_ j: Job) {
-      jobs.append(j)
+    // Centralize job accumulation here.
+    // For incremental compilation, must separate jobs happening before and
+    // during compilation from those happening after.
+
+    // When emitting bitcode, if the first compile job is scheduled, the
+    // second must be. Thus, job-groups.
+    var  preAndCompileJobGroups = [[Job]]()
+    func addPreOrCompileJobGroup(_ group: [Job]) {
+      preAndCompileJobGroups.append(group)
+    }
+    func addPreOrCompileJob(_ j: Job) {
+      addPreOrCompileJobGroup([j])
+    }
+    // need to buffer these to dodge shared ownership
+    var postCompileJobs = [Job]()
+    func addPostCompileJob(_ j: Job) {
+      postCompileJobs.append(j)
+    }
+    var allJobs: [Job] {
+      preAndCompileJobGroups.joined() + postCompileJobs
     }
 
-    try addPrecompileModuleDependenciesJobs(addJob: addJob)
-    try addPrecompileBridgingHeaderJob(addJob: addJob)
-    try addEmitModuleJob(addJob: addJob)
-
-    let linkerInputs = try addJobsFeedingLinker(addJob: addJob)
+    try addPrecompileModuleDependenciesJobs(addJob: addPreOrCompileJob)
+    try addPrecompileBridgingHeaderJob(addJob: addPreOrCompileJob)
+    try addEmitModuleJob(addJob: addPreOrCompileJob)
+    let linkerInputs = try addJobsFeedingLinker(addJobGroup: addPreOrCompileJobGroup)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
-                               addJob: addJob)
-    return jobs
+                               addJob: addPostCompileJob)
+
+    incrementalCompilationState?.addPreOrCompileJobGroups(preAndCompileJobGroups)
+    incrementalCompilationState?.addPostCompileJobs(postCompileJobs)
+
+    return try formBatchedJobs(allJobs, forIncremental: false)
   }
 
 
@@ -81,7 +101,7 @@ extension Driver {
   }
 
   private mutating func addJobsFeedingLinker(
-    addJob: (Job) -> Void
+    addJobGroup: ([Job]) -> Void
   ) throws -> [TypedVirtualPath] {
 
     var linkerInputs = [TypedVirtualPath]()
@@ -110,11 +130,13 @@ extension Driver {
       }
     }
 
+    func addJob(_ j: Job) { addJobGroup([j]) }
+
     try addSingleCompileJobs(addJob: addJob,
                              addJobOutputs: addJobOutputs)
 
     try addJobsForPrimaryInputs(
-      addJob: addJob,
+      addJobGroup: addJobGroup,
       addModuleInput: addModuleInput,
       addLinkerInput: addLinkerInput,
       addJobOutputs: addJobOutputs)
@@ -169,28 +191,20 @@ extension Driver {
   }
 
   private mutating func addJobsForPrimaryInputs(
-    addJob: (Job) -> Void,
+    addJobGroup: ([Job]) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void)
   throws {
-    let partitions = batchPartitions()
-    // Log life cycle for added batch job
-    if parsedOptions.hasArgument(.driverShowJobLifecycle) {
-      for input in inputFiles {
-        if let idx = partitions?.assignment[input] {
-          stdoutStream.write("Adding {compile: \(input.file.basename)} to batch \(idx)\n")
-          stdoutStream.flush()
-        }
-      }
+    let swiftInputFiles = inputFiles.filter { inputFile in
+      inputFile.type.isPartOfSwiftCompilation
     }
-    for (index, input) in inputFiles.enumerated() {
+    for (index, input) in swiftInputFiles.enumerated() {
       // Only emit a loaded module trace from the first frontend job.
-      let emitModuleTrace = (index == inputFiles.startIndex) && (loadedModuleTracePath != nil)
-      try addJobs(
-        forPrimaryInput: input,
-        partitions: partitions,
-        addJob: addJob,
+      let emitModuleTrace = (index == swiftInputFiles.startIndex) && (loadedModuleTracePath != nil)
+      try addJobForPrimaryInput(
+        input: input,
+        addJobGroup: addJobGroup,
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
@@ -198,10 +212,9 @@ extension Driver {
     }
   }
 
-  private mutating func addJobs(
-    forPrimaryInput input: TypedVirtualPath,
-    partitions: BatchPartitions?,
-    addJob: (Job) -> Void,
+  private mutating func addJobForPrimaryInput(
+    input: TypedVirtualPath,
+    addJobGroup: ([Job]) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
@@ -213,34 +226,16 @@ extension Driver {
       // Generate a compile job for primary inputs here.
       guard compilerMode.usesPrimaryFileInputs else { break }
 
-      var primaryInputs: [TypedVirtualPath]
-      if let partitions = partitions, let partitionIdx = partitions.assignment[input] {
-        // We have a partitioning for batch mode. If this input file isn't the first
-        // file in the partition, skip it: it's been accounted for already.
-        let partition = partitions.partitions[partitionIdx]
-        if partition[0] != input {
-          return
-        }
-
-        if parsedOptions.hasArgument(.driverShowJobLifecycle) {
-          stdoutStream.write("Forming batch job from \(partition.count) constituents\n")
-          stdoutStream.flush()
-        }
-
-        primaryInputs = partitions.partitions[partitionIdx]
-      } else {
-        primaryInputs = [input]
-      }
-
+      let primaryInputs = [input]
       if parsedOptions.hasArgument(.embedBitcode) {
         let job = try compileJob(primaryInputs: primaryInputs,
                                  outputType: .llvmBitcode,
                                  addJobOutputs: addJobOutputs,
                                  emitModuleTrace: emitModuleTrace)
-        addJob(job)
+        var jobGroup = [job]
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
           let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
-          addJob(job)
+          jobGroup.append(job)
         }
       } else if !(compilerOutputType == .swiftModule && shouldCreateEmitModuleJob) {
         // We can skip the compile jobs if all we want is a module when it's
@@ -249,7 +244,7 @@ extension Driver {
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  emitModuleTrace: emitModuleTrace)
-        addJob(job)
+        addJobGroup([job])
       }
 
     case .object, .autolink, .llvmBitcode:
@@ -354,8 +349,8 @@ extension Driver {
   private mutating func addLinkAndPostLinkJobs(
     linkerInputs: [TypedVirtualPath],
     debugInfo: DebugInfo,
-    addJob: (Job) -> Void)
-  throws {
+    addJob: (Job) -> Void
+  ) throws {
     guard linkerOutputType != nil && !linkerInputs.isEmpty
     else { return }
 
@@ -540,11 +535,97 @@ extension Diagnostic.Message {
 
 // MARK: Batch mode
 extension Driver {
+
+  /// Given some jobs, merge the compile jobs into batched jobs, as appropriate
+  /// While it may seem odd to create unbatched jobs, then later disect and rebatch them,
+  /// there are reasons for doing it this way:
+  /// 1. For incremental builds, the inputs compiled in the 2nd wave cannot be known in advance, and
+  /// 2. The code that creates a compile job intermixes command line formation, output gathering, etc.
+  ///   It does this for good reason: these things are connected by consistency requirments, and
+  /// 3. The outputs of all compilations are needed, not just 1st wave ones, to feed as inputs to the link job.
+  ///
+  /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
+  /// compilation. But `compileJob` intermixes the output computation with other stuff.
+  mutating func formBatchedJobs(_ jobs: [Job], forIncremental: Bool) throws -> [Job] {
+    guard let _ = compilerMode.batchModeInfo else {
+      // Don't even go through the logic so as to not print out confusing
+      // "batched foobar" messages.
+      return jobs
+    }
+    let noncompileJobs = jobs.filter {$0.kind != .compile}
+    let compileJobs = jobs.filter {$0.kind == .compile}
+    let inputsAndJobs = compileJobs.flatMap { job in
+      job.primaryInputs.map {($0, job)}
+    }
+    let jobsByInput = Dictionary(uniqueKeysWithValues: inputsAndJobs)
+    // Try to preserve input order for easier testing
+    let inputsInOrder = inputFiles.filter {jobsByInput[$0] != nil}
+
+    // For compatibility with swiftpm, the driver produces batched jobs
+    // for every job, even when run in incremental mode, so that all jobs
+    // can be returned from `planBuild`.
+    // But in that case, don't emit lifecycle messages.
+    let isIncrementalBuild = incrementalCompilationState != nil
+    let isNotPhoneyBaloneyBatching = isIncrementalBuild == forIncremental
+
+    let partitions = batchPartitions(
+      inputs: inputsInOrder,
+      isNotPhoneyBaloneyBatching: isNotPhoneyBaloneyBatching)
+    let outputType = parsedOptions.hasArgument(.embedBitcode)
+      ? .llvmBitcode
+      : compilerOutputType
+
+    let inputsRequiringModuleTrace = Set(
+      compileJobs.filter { $0.outputs.contains {$0.type == .moduleTrace} }
+        .flatMap {$0.primaryInputs}
+    )
+
+    let batchedCompileJobs = try inputsInOrder.compactMap { anInput -> Job? in
+      let idx = partitions.assignment[anInput]!
+      let primaryInputs = partitions.partitions[idx]
+      guard primaryInputs[0] == anInput
+      else {
+        // This input file isn't the first
+        // file in the partition, skip it: it's been accounted for already.
+        return nil
+      }
+      if showJobLifecycle && isNotPhoneyBaloneyBatching {
+        // Log life cycle for added batch job
+        primaryInputs.forEach {
+          diagnosticEngine
+            .emit(
+              .remark(
+                "Adding {compile: \($0.file.basename)} to batch \(idx)\n"))
+        }
+
+        let constituents = primaryInputs.map {$0.file.basename}.joined(separator: ", ")
+        diagnosticEngine
+          .emit(
+            .remark(
+              "Forming batch job from \(primaryInputs.count) constituents: \(constituents)\n"))
+      }
+      let constituentsEmittedModuleTrace = !inputsRequiringModuleTrace.intersection(primaryInputs).isEmpty
+      // no need to add job outputs again
+      return try compileJob(primaryInputs: primaryInputs,
+                            outputType: outputType,
+                            addJobOutputs: {_ in },
+                            emitModuleTrace: constituentsEmittedModuleTrace)
+    }
+    return batchedCompileJobs + noncompileJobs
+  }
+
   /// Determine the number of partitions we'll use for batch mode.
   private func numberOfBatchPartitions(
-    _ info: BatchModeInfo,
-    swiftInputFiles: [TypedVirtualPath]
+    _ info: BatchModeInfo?,
+    numInputFiles: Int
   ) -> Int {
+    guard numInputFiles > 0 else {
+      return 0
+    }
+    guard let info = info else {
+      return 1 // not batch mode
+    }
+
     // If the number of partitions was specified by the user, use it
     if let fixedCount = info.count {
       return fixedCount
@@ -656,7 +737,6 @@ extension Driver {
     }
 
     let defaultSizeLimit = 25
-    let numInputFiles = swiftInputFiles.count
     let sizeLimit = info.sizeLimit ?? defaultSizeLimit
 
     let numTasks = numParallelJobs ?? 1
@@ -673,42 +753,53 @@ extension Driver {
     let partitions: [[TypedVirtualPath]]
   }
 
-  /// Compute the partitions we'll use for batch mode.
-  private func batchPartitions() -> BatchPartitions? {
-    guard case let .batchCompile(info) = compilerMode
-    else { return nil }
+  private func batchPartitions(
+    inputs: [TypedVirtualPath],
+    isNotPhoneyBaloneyBatching: Bool
+  ) -> BatchPartitions {
+    let numScheduledPartitions = numberOfBatchPartitions(
+      compilerMode.batchModeInfo,
+      numInputFiles: inputs.count)
 
-    let swiftInputFiles = inputFiles.filter { inputFile in
-      inputFile.type.isPartOfSwiftCompilation
+    if showJobLifecycle && inputs.count > 0 && isNotPhoneyBaloneyBatching {
+      diagnosticEngine
+        .emit(
+          .remark(
+            "Found \(inputs.count) batchable job\(inputs.count != 1 ? "s" : "")"
+          ))
+      diagnosticEngine
+        .emit(
+          .remark(
+            "Forming into \(numScheduledPartitions) batch\(numScheduledPartitions != 1 ? "es" : "")"
+          ))
     }
-    let numPartitions = numberOfBatchPartitions(info, swiftInputFiles: swiftInputFiles)
 
-    if parsedOptions.hasArgument(.driverShowJobLifecycle) {
-      stdoutStream.write("Found \(swiftInputFiles.count) batchable jobs\n")
-      stdoutStream.write("Forming into \(numPartitions) batches\n")
-      stdoutStream.flush()
-    }
-
-    // If there is only one partition, fast path.
-    if numPartitions == 1 {
+    // If there is at most one partition, fast path.
+    if numScheduledPartitions <= 1 {
       var assignment = [TypedVirtualPath: Int]()
-      for input in swiftInputFiles {
+      for input in inputs {
         assignment[input] = 0
       }
-      return BatchPartitions(assignment: assignment, partitions: [swiftInputFiles])
+      let partitions = inputs.isEmpty ? [] : [inputs]
+      return BatchPartitions(assignment: assignment,
+                             partitions: partitions)
     }
 
     // Map each input file to a partition index. Ensure that we evenly
     // distribute the remainder.
-    let numInputFiles = swiftInputFiles.count
-    let remainder = numInputFiles % numPartitions
-    let targetSize = numInputFiles / numPartitions
+    let numScheduledInputFiles = inputs.count
+    let remainder = numScheduledInputFiles % numScheduledPartitions
+    let targetSize = numScheduledInputFiles / numScheduledPartitions
     var partitionIndices: [Int] = []
-    for partitionIdx in 0..<numPartitions {
+    for partitionIdx in 0..<numScheduledPartitions {
       let fillCount = targetSize + (partitionIdx < remainder ? 1 : 0)
       partitionIndices.append(contentsOf: Array(repeating: partitionIdx, count: fillCount))
     }
-    assert(partitionIndices.count == numInputFiles)
+    assert(partitionIndices.count == numScheduledInputFiles)
+
+    guard let info = compilerMode.batchModeInfo else {
+      fatalError("should be at most 1 partition if not in batch mode")
+    }
 
     if let seed = info.seed {
       var generator = PredictableRandomNumberGenerator(seed: UInt64(seed))
@@ -717,13 +808,14 @@ extension Driver {
 
     // Form the actual partitions.
     var assignment: [TypedVirtualPath : Int] = [:]
-    var partitions = Array<[TypedVirtualPath]>(repeating: [], count: numPartitions)
-    for (fileIndex, file) in swiftInputFiles.enumerated() {
+    var partitions = Array<[TypedVirtualPath]>(repeating: [], count: numScheduledPartitions)
+    for (fileIndex, file) in inputs.enumerated() {
       let partitionIdx = partitionIndices[fileIndex]
       assignment[file] = partitionIdx
       partitions[partitionIdx].append(file)
     }
 
-    return BatchPartitions(assignment: assignment, partitions: partitions)
+    return BatchPartitions(assignment: assignment,
+                           partitions: partitions)
   }
 }
