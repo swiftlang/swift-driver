@@ -2179,7 +2179,7 @@ extension Driver {
         parentPath = moduleOutputPath.parentDirectory
       }
 
-      return parentPath.appending(component: moduleName).replacingExtension(with: type)
+      return parentPath.appending(component: moduleOutputPath.basename).replacingExtension(with: type)
     }
 
     // If the output option was not provided, don't produce this output at all.
