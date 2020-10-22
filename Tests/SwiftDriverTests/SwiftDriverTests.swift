@@ -2529,6 +2529,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDeriveSwiftDocPath() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-emit-module", "/tmp/main.swift", "-emit-module-path", "test-ios-macabi.swiftmodule"
+    ])
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertTrue(plannedJobs[1].kind == .mergeModule)
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-o")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "test-ios-macabi.swiftmodule"))))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-emit-module-doc-path")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "test-ios-macabi.swiftdoc"))))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-emit-module-source-info-path")))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "test-ios-macabi.swiftsourceinfo"))))
+  }
+
   func testToolchainClangPath() throws {
     // Overriding the swift executable to a specific location breaks this.
     guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil,
