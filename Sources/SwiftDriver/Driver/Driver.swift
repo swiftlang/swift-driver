@@ -239,6 +239,9 @@ public struct Driver {
   /// Path to the Swift interface file.
   let swiftInterfacePath: VirtualPath?
 
+  /// Path to the Swift private interface file.
+  let swiftPrivateInterfacePath: VirtualPath?
+
   /// Path to the optimization record.
   let optimizationRecordPath: VirtualPath?
 
@@ -516,6 +519,14 @@ public struct Driver {
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
         outputPath: .emitModuleInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+
+    self.swiftPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
+        outputPath: .emitPrivateModuleInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
@@ -1576,7 +1587,8 @@ extension Driver {
       moduleOutputKind = .auxiliary
     } else if compilerMode != .singleCompile &&
       parsedOptions.hasArgument(.emitObjcHeader, .emitObjcHeaderPath,
-                                .emitModuleInterface, .emitModuleInterfacePath) {
+                                .emitModuleInterface, .emitModuleInterfacePath,
+                                .emitPrivateModuleInterfacePath) {
       // An option has been passed which requires whole-module knowledge, but we
       // don't have that. Generate a module, but treat it as an intermediate
       // output.
