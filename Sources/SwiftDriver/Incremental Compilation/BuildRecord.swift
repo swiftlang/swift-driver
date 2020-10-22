@@ -141,7 +141,7 @@ public extension BuildRecord {
     let missingInputs = Set(self.inputInfos.keys).subtracting(inputFiles.map {$0.file})
     guard missingInputs.isEmpty else {
       return "the following inputs were used in the previous compilation but not in this one: "
-        + missingInputs.map {$0.name} .joined(separator: ", ")
+        + missingInputs.map {$0.basename} .joined(separator: ", ")
     }
     return nil
   }
