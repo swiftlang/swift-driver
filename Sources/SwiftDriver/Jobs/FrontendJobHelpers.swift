@@ -363,6 +363,12 @@ extension Driver {
         flag: "-emit-module-interface-path")
 
       addOutputOfType(
+        outputType: .privateSwiftInterface,
+        finalOutputPath: swiftPrivateInterfacePath,
+        input: nil,
+        flag: "-emit-private-module-interface-path")
+
+      addOutputOfType(
         outputType: .tbd,
         finalOutputPath: tbdPath,
         input: nil,
