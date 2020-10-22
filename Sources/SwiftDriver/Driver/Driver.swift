@@ -814,9 +814,7 @@ extension Driver {
       return
     }
 
-    if jobs.contains(where: { $0.requiresInPlaceExecution })
-      // Only one job and no cleanup required
-      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
+    if jobs.contains(where: { $0.requiresInPlaceExecution }) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       var job = jobs[0]
       // Require in-place execution for all single job plans.
