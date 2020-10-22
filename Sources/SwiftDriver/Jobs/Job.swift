@@ -196,6 +196,15 @@ extension Job : CustomStringConvertible {
       return "Verifying emitted module interface for module \(moduleName)"
     }
   }
+
+  public var descriptionForLifecycle: String {
+    switch kind {
+    case .compile:
+      return "Compiling \(displayInputs.map {$0.file.basename}.joined(separator: ", "))"
+    default:
+      return description
+    }
+  }
 }
 
 extension Job.Kind {

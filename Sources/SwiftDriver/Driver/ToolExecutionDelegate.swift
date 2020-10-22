@@ -116,6 +116,6 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
 fileprivate extension Diagnostic.Message {
   static func remark_job_lifecycle(_ what: String, _ job: Job
   ) -> Diagnostic.Message {
-    .remark("\(what) \(job)")
+    .remark("\(what) \(job.descriptionForLifecycle)")
   }
 }
