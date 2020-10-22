@@ -68,7 +68,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
-    if showJobLifecycle {
+     if showJobLifecycle {
       diagnosticEngine.emit(.remark_job_lifecycle("Finished", job))
     }
 

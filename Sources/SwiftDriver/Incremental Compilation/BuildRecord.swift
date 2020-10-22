@@ -129,22 +129,6 @@ public extension BuildRecord {
       }
     )
   }
-
-  /// Returns why it did not match
-  @_spi(Testing) func mismatchReason(buildRecordInfo: BuildRecordInfo, inputFiles: [TypedVirtualPath]) -> String? {
-    guard buildRecordInfo.actualSwiftVersion == self.swiftVersion else {
-      return "the compiler version has changed from \(self.swiftVersion) to \(buildRecordInfo.actualSwiftVersion)"
-    }
-    guard buildRecordInfo.argsHash == self.argsHash else {
-      return "different arguments were passed to the compiler"
-    }
-    let missingInputs = Set(self.inputInfos.keys).subtracting(inputFiles.map {$0.file})
-    guard missingInputs.isEmpty else {
-      return "the following inputs were used in the previous compilation but not in this one: "
-        + missingInputs.map {$0.basename} .joined(separator: ", ")
-    }
-    return nil
-  }
 }
 
 // MARK: - Creating and writing a new map
@@ -233,13 +217,5 @@ extension Diagnostic.Message {
   static func warning_could_not_write_build_record(_ path: AbsolutePath
   ) -> Diagnostic.Message {
     .warning("next compile won't be incremental; could not write build record to \(path)")
-  }
-}
-
-extension Diagnostic.Message {
-  static func remark_could_not_read_build_record(_ path: VirtualPath,
-                                                 _ error: Error
-  ) -> Diagnostic.Message {
-    .remark("incremental compilation could not read build record at \(path): \(error.localizedDescription).")
   }
 }

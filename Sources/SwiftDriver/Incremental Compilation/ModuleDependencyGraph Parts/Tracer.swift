@@ -58,7 +58,7 @@ extension ModuleDependencyGraph.Tracer {
   {
     self.graph = graph
     self.startingPoints = Array(defs)
-    self.currentPathIfTracing = graph.traceDependencies ? [] : nil
+    self.currentPathIfTracing = graph.reportIncrementalDecision != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
   
@@ -116,16 +116,18 @@ extension ModuleDependencyGraph.Tracer {
 
   private func printPath(_ path: [Graph.Node]) {
     guard path.first?.swiftDeps != path.last?.swiftDeps else {return}
-    diagnosticEngine.emit(
-      .remark(
+    graph.reportIncrementalDecision?(
+      [
+        "Traced:",
         path
           .compactMap { node in
             node.swiftDeps
               .flatMap {graph.sourceSwiftDepsMap[$0] }
               .map (node.dependencyKey.descriptionForPath(from:))
           }
-          .joined(separator: "->")
-      )
+          .joined(separator: " -> ")
+      ].joined(separator: " "),
+      nil
     )
   }
 }

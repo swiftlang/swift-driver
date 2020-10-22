@@ -828,14 +828,27 @@ extension Driver {
     // Create and use the tool execution delegate if one is not provided explicitly.
     let executorDelegate = createToolExecutionDelegate()
 
-    // Perform the build
-    try executor.execute(jobs: jobs,
-                         delegate: executorDelegate,
-                         numParallelJobs: numParallelJobs ?? 1,
-                         forceResponseFiles: forceResponseFiles,
-                         recordedInputModificationDates: recordedInputModificationDates)
+    func performAWave(jobs: [Job]) throws {
+      /// Coordinate with IncrementalCompilationState
+      try executor.execute(jobs: jobs,
+                           delegate: executorDelegate,
+                           numParallelJobs: numParallelJobs ?? 1,
+                           forceResponseFiles: forceResponseFiles,
+                           recordedInputModificationDates: recordedInputModificationDates)
+    }
 
-    buildRecordInfo?.writeBuildRecord( jobs, nil)
+    // Perform the build
+    try performAWave(jobs: jobs)
+
+    if let incrementalCompilationState = incrementalCompilationState {
+      while let jobs = incrementalCompilationState.dynamicallyDiscoveredJobs.removeAll() {
+        try performAWave(jobs: formBatchedJobs(jobs))
+      }
+    }
+
+    buildRecordInfo?.writeBuildRecord(
+      jobs,
+      incrementalCompilationState?.skippedCompilationInputs)
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
     if parsedOptions.hasArgument(.driverWarnUnusedOptions) {

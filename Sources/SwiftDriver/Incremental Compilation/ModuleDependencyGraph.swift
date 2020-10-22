@@ -31,19 +31,19 @@ import SwiftOptions
   
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
-  let traceDependencies: Bool
+  let reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   
   @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
   
   public init(
     diagnosticEngine: DiagnosticsEngine,
-    traceDependencies: Bool,
+    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?,
     emitDependencyDotFileAfterEveryImport: Bool,
     verifyDependencyGraphAfterEveryImport: Bool)
   {
     self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
     self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
-    self.traceDependencies = traceDependencies
+    self.reportIncrementalDecision = reportIncrementalDecision
     self.diagnosticEngine = diagnosticEngine
   }
 }
@@ -55,7 +55,7 @@ extension ModuleDependencyGraph {
     outputFileMap: OutputFileMap?,
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
-    traceDependencies: Bool
+    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   ) -> Self?
   where Inputs.Element == TypedVirtualPath
   {
@@ -63,7 +63,7 @@ extension ModuleDependencyGraph {
     let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
     let r = Self (
       diagnosticEngine: diagnosticEngine,
-      traceDependencies: traceDependencies,
+      reportIncrementalDecision: reportIncrementalDecision,
       emitDependencyDotFileAfterEveryImport: parsedOptions.contains(emitOpt),
       verifyDependencyGraphAfterEveryImport: parsedOptions.contains(veriOpt))
     for input in inputs {
@@ -91,7 +91,7 @@ extension ModuleDependencyGraph {
   /// speculatively scheduled in the first wave.
   @_spi(Testing) public func findDependentSourceFiles(
     of sourceFile: TypedVirtualPath,
-    _ reportIncrementalDecision: (String) -> Void
+    _ reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   ) -> [TypedVirtualPath] {
     var allSwiftDepsToRecompile = Set<SwiftDeps>()
 
@@ -105,8 +105,8 @@ extension ModuleDependencyGraph {
     }
     return allSwiftDepsToRecompile.map {
      let dependentSource = sourceSwiftDepsMap[$0]
-      reportIncrementalDecision(
-        "Found dependent of \(sourceFile.file.basename): \(dependentSource.file.basename)")
+      reportIncrementalDecision?(
+        "Found dependent of \(sourceFile.file.basename):", dependentSource)
       return dependentSource
     }
   }
