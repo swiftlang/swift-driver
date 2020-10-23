@@ -241,8 +241,10 @@ extension IncrementalCompilationState {
 
     let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(firstWaveInputs)
-    for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
-      reportIncrementalDecision?("Skipping:", skippedInput)
+    if let report = reportIncrementalDecision {
+      for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
+        report("Skipping:", skippedInput)
+      }
     }
     return (firstWave: firstWaveInputs, skipped: skippedInputs)
   }
@@ -378,8 +380,10 @@ extension IncrementalCompilationState {
   /// Remember a job that runs after all compile jobs
   func addPostCompileJobs(_ jobs: [Job]) {
     for job in jobs {
-      for input in job.primaryInputs {
-        reportIncrementalDecision?("Delaying pending discovering delayed dependencies", input)
+      if let report = reportIncrementalDecision {
+        for input in job.primaryInputs {
+          report("Delaying pending discovering delayed dependencies", input)
+        }
       }
       // UGH!
       if dynamicallyDiscoveredJobs.isOpen {
@@ -401,9 +405,10 @@ extension IncrementalCompilationState {
     amHandlingJobCompletion = true
 
     let secondWaveInputs = collectInputsToCompileIn2ndWave(job)
-    for input in secondWaveInputs {
-      reportIncrementalDecision?(
-        "Queuing because of dependencies discovered later:", input)
+    if let report = reportIncrementalDecision {
+      for input in secondWaveInputs {
+        report("Queuing because of dependencies discovered later:", input)
+      }
     }
     rememberInputsFor2ndWave(secondWaveInputs)
     job.primaryInputs.forEach {pendingInputs.remove($0)}
@@ -437,8 +442,10 @@ extension IncrementalCompilationState {
   }
 
   private func rememberJobFor2ndWave(_ j: Job) {
-    for input in j.primaryInputs {
-      reportIncrementalDecision?("Scheduling for 2nd wave", input)
+    if let report = reportIncrementalDecision {
+      for input in j.primaryInputs {
+        report("Scheduling for 2nd wave", input)
+      }
     }
     dynamicallyDiscoveredJobs.append(j)
   }
