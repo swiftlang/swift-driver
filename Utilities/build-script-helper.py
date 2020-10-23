@@ -290,10 +290,14 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
     install_library(args, build_dir, package_subpath, lib,
                     universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core')
 
-  # TODO: Until the argument parser is used, avoid installing it into the toolchain here
-  #package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser')
-  #install_library(args, build_dir, package_subpath, 'libArgumentParser',
-  #                universal_lib_dir, toolchain_lib_dir,'swift-argument-parser')
+  package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser')
+  install_library(args, build_dir, package_subpath, 'libArgumentParser',
+                  universal_lib_dir, toolchain_lib_dir,'swift-argument-parser')
+
+  package_subpath = os.path.join(args.configuration, 'dependencies', 'llbuild')
+  for lib in ['libllbuildSwift', 'libllbuild']:
+    install_library(args, build_dir, package_subpath, lib,
+                    universal_lib_dir, toolchain_lib_dir,'llbuild')
 
 # Create a universal shared-library file and install it into the toolchain lib
 def install_library(args, build_dir, package_subpath, lib_name,
@@ -326,11 +330,9 @@ def install_binary_swift_modules(args, build_dir, toolchain_lib_dir):
     install_module(args, build_dir, package_subpath, toolchain_lib_dir, module)
 
   # swift-argument-parser
-  # TODO: Until the argument parser is used, avoid installing it into the toolchain
-  #package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser',
-  #                               product_subpath)
-  #install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'ArgumentParser',
-  #               'swift-argument-parser')
+  package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser',
+                                 product_subpath)
+  install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'ArgumentParser')
 
 # Install the modulemaps and headers of the driver's C module dependencies into the toolchain
 # include directory
