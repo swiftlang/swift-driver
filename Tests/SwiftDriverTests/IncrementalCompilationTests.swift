@@ -376,7 +376,10 @@ final class IncrementalCompilationTests: XCTestCase {
       let masterSwiftDepsPath = derivedDataPath.appending(component: "theModule-master.swiftdeps")
 
       try! doABuild("initial", expectingRemarks: [
-        "incremental compilation could not read build record at \(masterSwiftDepsPath): The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.",
+        // Leave off the part after the colon because it varies on Linux:
+        // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
+        // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
+        "Incremental compilation has been disabled, because incremental compilation could not read build record at \(masterSwiftDepsPath)",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
