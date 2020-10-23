@@ -456,7 +456,8 @@ extension Driver {
                                               sdkPath: sdkPath,
                                               resourceDirPath: resourceDirPath,
                                               requiresInPlaceExecution: true,
-                                              useStaticResourceDir: useStaticResourceDir)
+                                              useStaticResourceDir: useStaticResourceDir,
+                                              swiftCompilerPrefixArgs: swiftCompilerPrefixArgs)
     }
 
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
