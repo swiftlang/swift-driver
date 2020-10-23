@@ -248,10 +248,9 @@ public struct Driver {
   /// Path to the Swift module source information file.
   let moduleSourceInfoPath: VirtualPath?
 
-  /// If the driver should force emit module in a single invocation.
-  ///
-  /// This will force the driver to first emit the module and then run compile jobs.
-  var forceEmitModuleInSingleInvocation: Bool = false
+  /// Force the driver to emit the module first and then run compile jobs. This could be used to unblock
+  /// dependencies in parallel builds.
+  var forceEmitModuleBeforeCompile: Bool = false
 
   /// Handler for constructing module build jobs using Explicit Module Builds.
   /// Constructed during the planning phase only when all modules will be prebuilt and treated
