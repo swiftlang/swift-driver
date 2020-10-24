@@ -35,34 +35,40 @@ extension Driver {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
 
-    var jobs = [Job]()
-    func addJob(_ j: Job) {
-      jobs.append(j)
+    // Centralize job accumulation here.
+    // For incremental compilation, must separate jobs happening before and
+    // during compilation from those happening after.
+
+    // When emitting bitcode, if the first compile job is scheduled, the
+    // second must be. Thus, job-groups.
+    var  preAndCompileJobGroups = [[Job]]()
+    func addPreOrCompileJobGroup(_ group: [Job]) {
+      preAndCompileJobGroups.append(group)
     }
-    var skippedCompileJobs = [Job]()
-    func addSkippedCompileJob(_ j: Job) {
-      skippedCompileJobs.append(j)
+    func addPreOrCompileJob(_ j: Job) {
+      addPreOrCompileJobGroup([j])
     }
-
-    try addPrecompileModuleDependenciesJobs(addJob: addJob)
-    try addPrecompileBridgingHeaderJob(addJob: addJob)
-    try addEmitModuleJob(addJob: addJob)
-
-    let linkerInputs = try addJobsFeedingLinker(
-      addJob: addJob,
-      addSkippedCompileJob: addSkippedCompileJob)
-
+    // need to buffer these to dodge shared ownership
     var postCompileJobs = [Job]()
-    func addPostCompileJob(_ j: Job) { postCompileJobs.append(j) }
+    func addPostCompileJob(_ j: Job) {
+      postCompileJobs.append(j)
+    }
+    var allJobs: [Job] {
+      preAndCompileJobGroups.joined() + postCompileJobs
+    }
+
+    try addPrecompileModuleDependenciesJobs(addJob: addPreOrCompileJob)
+    try addPrecompileBridgingHeaderJob(addJob: addPreOrCompileJob)
+    try addEmitModuleJob(addJob: addPreOrCompileJob)
+    let linkerInputs = try addJobsFeedingLinker(addJobGroup: addPreOrCompileJobGroup)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
-                               addJob: skippedCompileJobs.isEmpty
-                                ? addJob
-                                : addPostCompileJob)
+                               addJob: addPostCompileJob)
 
-    incrementalCompilationState?.addSkippedCompileJobs(skippedCompileJobs)
+    incrementalCompilationState?.addPreOrCompileJobGroups(preAndCompileJobGroups)
     incrementalCompilationState?.addPostCompileJobs(postCompileJobs)
-    return try formBatchedJobs(jobs)
+
+    return try formBatchedJobs(allJobs)
   }
 
 
@@ -95,8 +101,7 @@ extension Driver {
   }
 
   private mutating func addJobsFeedingLinker(
-    addJob: (Job) -> Void,
-    addSkippedCompileJob: (Job) -> Void
+    addJobGroup: ([Job]) -> Void
   ) throws -> [TypedVirtualPath] {
 
     var linkerInputs = [TypedVirtualPath]()
@@ -125,12 +130,13 @@ extension Driver {
       }
     }
 
+    func addJob(_ j: Job) { addJobGroup([j]) }
+
     try addSingleCompileJobs(addJob: addJob,
                              addJobOutputs: addJobOutputs)
 
     try addJobsForPrimaryInputs(
-      addJob: addJob,
-      addSkippedCompileJob: addSkippedCompileJob,
+      addJobGroup: addJobGroup,
       addModuleInput: addModuleInput,
       addLinkerInput: addLinkerInput,
       addJobOutputs: addJobOutputs)
@@ -185,8 +191,7 @@ extension Driver {
   }
 
   private mutating func addJobsForPrimaryInputs(
-    addJob: (Job) -> Void,
-    addSkippedCompileJob: (Job) -> Void,
+    addJobGroup: ([Job]) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void)
@@ -199,8 +204,7 @@ extension Driver {
       let emitModuleTrace = (index == swiftInputFiles.startIndex) && (loadedModuleTracePath != nil)
       try addJobForPrimaryInput(
         input: input,
-        addJob: addJob,
-        addSkippedCompileJob: addSkippedCompileJob,
+        addJobGroup: addJobGroup,
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
@@ -210,8 +214,7 @@ extension Driver {
 
   private mutating func addJobForPrimaryInput(
     input: TypedVirtualPath,
-    addJob: (Job) -> Void,
-    addSkippedCompileJob: (Job) -> Void,
+    addJobGroup: ([Job]) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
@@ -229,22 +232,18 @@ extension Driver {
                                  outputType: .llvmBitcode,
                                  addJobOutputs: addJobOutputs,
                                  emitModuleTrace: emitModuleTrace)
-        addJob(job)
+        var jobGroup = [job]
         for input in job.outputs.filter({ $0.type == .llvmBitcode }) {
           let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
-          addJob(job)
+          jobGroup.append(job)
         }
+        addJobGroup(jobGroup)
       } else {
         let job = try compileJob(primaryInputs: primaryInputs,
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  emitModuleTrace: emitModuleTrace)
-        if let skippedInputs = incrementalCompilationState?.skippedCompilationInputs,
-           skippedInputs.contains(input) {
-          addSkippedCompileJob(job)
-        } else {
-          addJob(job)
-        }
+        addJobGroup([job])
       }
 
     case .object, .autolink, .llvmBitcode:
@@ -349,8 +348,8 @@ extension Driver {
   private mutating func addLinkAndPostLinkJobs(
     linkerInputs: [TypedVirtualPath],
     debugInfo: DebugInfo,
-    addJob: (Job) -> Void)
-  throws {
+    addJob: (Job) -> Void
+  ) throws {
     guard linkerOutputType != nil && !linkerInputs.isEmpty
     else { return }
 

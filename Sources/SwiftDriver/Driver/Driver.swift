@@ -837,13 +837,20 @@ extension Driver {
                            recordedInputModificationDates: recordedInputModificationDates)
     }
 
-    // Perform the build
-    try performAWave(jobs: jobs)
 
+    // Perform the build
     if let incrementalCompilationState = incrementalCompilationState {
-      while let jobs = incrementalCompilationState.dynamicallyDiscoveredJobs.removeAll() {
+      while let jobs = incrementalCompilationState.preOrCompileJobs.removeAll() {
         try performAWave(jobs: formBatchedJobs(jobs))
       }
+      guard let postCompileJobs = incrementalCompilationState.postCompileJobs
+      else {
+        fatalError("planning must have finished by now")
+      }
+      try performAWave(jobs: postCompileJobs)
+    }
+    else {
+      try performAWave(jobs: jobs)
     }
 
     buildRecordInfo?.writeBuildRecord(

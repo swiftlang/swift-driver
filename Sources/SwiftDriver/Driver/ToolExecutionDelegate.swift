@@ -73,7 +73,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
     }
 
     buildRecordInfo?.jobFinished(job: job, result: result)
-    incrementalCompilationState?.jobFinished(job: job, result: result)
+    incrementalCompilationState?.jobFinished(finishedJob: job, result: result)
 
     switch mode {
     case .regular, .verbose:
