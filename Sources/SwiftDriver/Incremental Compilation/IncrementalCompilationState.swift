@@ -433,7 +433,7 @@ extension IncrementalCompilationState {
 
   /// Update the incremental build state when a job finishes:
   /// Read it's swiftDeps files and queue up any required discovered jobs.
-  func jobFinished(finishedJob: Job, result: ProcessResult) {
+  func jobFinished(job finishedJob: Job, result: ProcessResult) {
     defer {
       amHandlingJobCompletion = false
     }

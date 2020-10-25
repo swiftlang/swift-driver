@@ -828,33 +828,7 @@ extension Driver {
       return
     }
 
-    // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = createToolExecutionDelegate()
-
-    func performAWave(jobs: [Job]) throws {
-      /// Coordinate with IncrementalCompilationState
-      try executor.execute(jobs: jobs,
-                           delegate: executorDelegate,
-                           numParallelJobs: numParallelJobs ?? 1,
-                           forceResponseFiles: forceResponseFiles,
-                           recordedInputModificationDates: recordedInputModificationDates)
-    }
-
-
-    // Perform the build
-    if let incrementalCompilationState = incrementalCompilationState {
-      while let jobs = incrementalCompilationState.preOrCompileJobs.removeAll() {
-        try performAWave(jobs: formBatchedJobs(jobs))
-      }
-      guard let postCompileJobs = incrementalCompilationState.postCompileJobs
-      else {
-        fatalError("planning must have finished by now")
-      }
-      try performAWave(jobs: postCompileJobs)
-    }
-    else {
-      try performAWave(jobs: jobs)
-    }
+    try performTheBuild(allJobs: jobs, forceResponseFiles: forceResponseFiles)
 
     buildRecordInfo?.writeBuildRecord(
       jobs,
@@ -884,6 +858,35 @@ extension Driver {
       incrementalCompilationState: incrementalCompilationState,
       showJobLifecycle: showJobLifecycle,
       diagnosticEngine: diagnosticEngine)
+  }
+
+  private mutating func performTheBuild(
+    allJobs: [Job],
+    forceResponseFiles: Bool
+  ) throws {
+    // Create and use the tool execution delegate if one is not provided explicitly.
+    let executorDelegate = createToolExecutionDelegate()
+
+    func execute(jobs: [Job]) throws {
+      try executor.execute(jobs: jobs,
+                           delegate: executorDelegate,
+                           numParallelJobs: numParallelJobs ?? 1,
+                           forceResponseFiles: forceResponseFiles,
+                           recordedInputModificationDates: recordedInputModificationDates)
+    }
+
+    guard let incrementalCompilationState = incrementalCompilationState else {
+      try execute(jobs: allJobs)
+      return
+    }
+    while let jobs = incrementalCompilationState.preOrCompileJobs.removeAll() {
+      try execute(jobs: formBatchedJobs(jobs))
+    }
+    guard let postCompileJobs = incrementalCompilationState.postCompileJobs
+    else {
+      fatalError("planning must have finished by now")
+    }
+    try execute(jobs: postCompileJobs)
   }
 
   private func printBindings(_ job: Job) {
