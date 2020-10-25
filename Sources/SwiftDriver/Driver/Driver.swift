@@ -880,7 +880,7 @@ extension Driver {
       return
     }
     while let jobs = incrementalCompilationState.preOrCompileJobs.removeAll() {
-      try execute(jobs: formBatchedJobs(jobs))
+      try execute(jobs: formBatchedJobs(jobs, forIncremental: true))
     }
     guard let postCompileJobs = incrementalCompilationState.postCompileJobs
     else {

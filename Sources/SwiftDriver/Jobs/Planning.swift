@@ -68,7 +68,7 @@ extension Driver {
     incrementalCompilationState?.addPreOrCompileJobGroups(preAndCompileJobGroups)
     incrementalCompilationState?.addPostCompileJobs(postCompileJobs)
 
-    return try formBatchedJobs(allJobs)
+    return try formBatchedJobs(allJobs, forIncremental: false)
   }
 
 
@@ -544,7 +544,7 @@ extension Driver {
   ///
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
   /// compilation. But `compileJob` intermixes the output computation with other stuff.
-  mutating func formBatchedJobs(_ jobs: [Job]) throws -> [Job] {
+  mutating func formBatchedJobs(_ jobs: [Job], forIncremental: Bool) throws -> [Job] {
     guard let _ = compilerMode.batchModeInfo else {
       // Don't even go through the logic so as to not print out confusing
       // "batched foobar" messages.
@@ -558,7 +558,17 @@ extension Driver {
     let jobsByInput = Dictionary(uniqueKeysWithValues: inputsAndJobs)
     // Try to preserve input order for easier testing
     let inputsInOrder = inputFiles.filter {jobsByInput[$0] != nil}
-    let partitions = batchPartitions(inputs: inputsInOrder)
+
+    // For compatibility with swiftpm, the driver produces batched jobs
+    // for every job, even when run in incremental mode, so that all jobs
+    // can be returned from `planBuild`.
+    // But in that case, don't emit lifecycle messages.
+    let isIncrementalBuild = incrementalCompilationState != nil
+    let isNotPhoneyBaloneyBatching = isIncrementalBuild == forIncremental
+
+    let partitions = batchPartitions(
+      inputs: inputsInOrder,
+      isNotPhoneyBaloneyBatching: isNotPhoneyBaloneyBatching)
     let outputType = parsedOptions.hasArgument(.embedBitcode)
       ? .llvmBitcode
       : compilerOutputType
@@ -577,7 +587,7 @@ extension Driver {
         // file in the partition, skip it: it's been accounted for already.
         return nil
       }
-      if showJobLifecycle {
+      if showJobLifecycle && isNotPhoneyBaloneyBatching {
         // Log life cycle for added batch job
         primaryInputs.forEach {
           diagnosticEngine
@@ -741,12 +751,15 @@ extension Driver {
     let partitions: [[TypedVirtualPath]]
   }
 
-  private func batchPartitions(inputs: [TypedVirtualPath]) -> BatchPartitions {
+  private func batchPartitions(
+    inputs: [TypedVirtualPath],
+    isNotPhoneyBaloneyBatching: Bool
+  ) -> BatchPartitions {
     let numScheduledPartitions = numberOfBatchPartitions(
       compilerMode.batchModeInfo,
       numInputFiles: inputs.count)
 
-    if showJobLifecycle && inputs.count > 0 {
+    if showJobLifecycle && inputs.count > 0 && isNotPhoneyBaloneyBatching {
       diagnosticEngine
         .emit(
           .remark(

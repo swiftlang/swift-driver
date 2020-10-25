@@ -246,7 +246,7 @@ extension IncrementalCompilationState {
       .subtracting(immediatelyCompiledInputs)
     if let report = reportIncrementalDecision {
       for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
-        report("Skipping:", skippedInput)
+        report("Skipping input:", skippedInput)
       }
     }
     return (immediates: immediatelyCompiledInputs, skipped: skippedInputs)
@@ -274,7 +274,7 @@ extension IncrementalCompilationState {
       // has some inaccuracy.
       // Use outOfDateBuildRecord.buildTime instead
       case .upToDate where modDate < outOfDateBuildRecord.buildTime:
-        reportIncrementalDecision?("Skipping current", input)
+        reportIncrementalDecision?("May skip current input:", input)
         return nil
 
       case .upToDate:
@@ -402,7 +402,6 @@ extension IncrementalCompilationState {
   func recordSkippedGroup(_ group: [Job]) {
     let job = group.first!
     for input in job.primaryInputs {
-      reportIncrementalDecision?("Skipping", input)
       if let _ = skippedCompileGroups.updateValue(group, forKey: input) {
         fatalError("should not have two skipped jobs for same skipped input")
       }

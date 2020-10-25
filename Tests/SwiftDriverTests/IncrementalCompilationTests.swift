@@ -393,24 +393,21 @@ final class IncrementalCompilationTests: XCTestCase {
       )
       #if true
       try! doABuild("no-change", expectingRemarks: [
-        "Incremental compilation: Skipping current {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping current {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping: {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping: {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping {compile: other.o <= other.swift}",
+        "May skip current input: {compile: main.o <= main.swift}",
+        "May skip current input: {compile: other.o <= other.swift}",
+        "Skipping input: {compile: main.o <= main.swift}",
+        "Skipping input: {compile: other.o <= other.swift}",
         "Starting Linking theModule",
         "Finished Linking theModule",
       ])
       touch("other")
       try! doABuild("non-propagating", expectingRemarks: [
-        "Incremental compilation: Skipping current {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
-        "Incremental compilation: Skipping: {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping {compile: main.o <= main.swift}",
-        "Queueing Compiling other.swift",
+        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+        "Incremental compilation: Queueing Compiling other.swift",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
@@ -424,14 +421,11 @@ final class IncrementalCompilationTests: XCTestCase {
       replace(contentsOf: "main", with: "let foo = \"hello\"")
       try! doABuild("propagating into 2nd wave", expectingRemarks: [
         "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping current {compile: other.o <= other.swift}",
+        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
-        "Incremental compilation: Skipping: {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping {compile: other.o <= other.swift}",
-        "Queueing Compiling main.swift",
-        "Scheduling discovered {compile: other.o <= other.swift}",
-        "Queueing Compiling other.swift",
+        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Queueing Compiling main.swift",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
@@ -440,6 +434,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Finished Compiling main.swift",
         "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
         "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
+        "Incremental compilation: Queueing Compiling other.swift",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
