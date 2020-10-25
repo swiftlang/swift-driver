@@ -3124,6 +3124,33 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
     }
 
+    // Ensure the merge-module step is not passed the precompiled header
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-import-objc-header", "header.h", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("header.h")))
+      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("header.pch")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-o", .path(.temporary(RelativePath("header.pch")))]))
+
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence:
+                                                          ["-import-objc-header",
+                                                           .path(.temporary(RelativePath("header.pch")))]))
+
+      XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
+      XCTAssertTrue(plannedJobs[2].commandLine.contains(subsequence:
+                                                          ["-import-objc-header",
+                                                           .path(.relative(RelativePath("header.h")))]))
+    }
+
     // Immediate mode doesn't generate a pch
     do {
       var driver = try Driver(args: ["swift", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
@@ -3859,7 +3886,7 @@ fileprivate extension Array where Element: Equatable {
     precondition(!subsequence.isEmpty,  "Subsequence may not be empty")
 
     let subsequenceCount = subsequence.count
-    for index in 0..<(self.count - subsequence.count) {
+    for index in 0...(self.count - subsequence.count) {
       let subsequenceEnd = index + subsequenceCount
       if self[index..<subsequenceEnd].elementsEqual(subsequence) {
         return true
