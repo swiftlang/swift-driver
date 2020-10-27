@@ -341,14 +341,17 @@ final class IncrementalCompilationTests: XCTestCase {
       ]
       + inputPathsAndContents.map {$0.0.pathString} .sorted()
 
-      let autolinkExpectations = [
-       // "Incremental compilation: Queueing Extracting autolink information for module theModule",
+      let autolinkIncrementalExpectations = [
+        "Incremental compilation: Queuing Extracting autolink information for module theModule",
+      ]
+      let autolinkLifecycleExpectations = [
         "Starting Extracting autolink information for module theModule",
         "Finished Extracting autolink information for module theModule",
       ]
-      .map (Diagnostic.Message.remark)
 
-      func doABuild(_ message: String, expecting expectations: [Diagnostic.Message]) throws {
+      func doABuild(_ message: String,
+                    expecting expectations: [Diagnostic.Message],
+                    expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
         print("*** starting build \(message) ***")
         try assertDriverDiagnostics(args: args) {driver, verifier in
           verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
@@ -361,8 +364,13 @@ final class IncrementalCompilationTests: XCTestCase {
         }
         print("")
       }
-      func doABuild(_ message: String, expectingRemarks texts: [String]) throws {
-        try doABuild(message, expecting: texts.map {.remark($0)} )
+      func doABuild(_ message: String,
+                    expectingRemarks texts: [String],
+                    whenAutolinking: [String]) throws {
+        try doABuild(
+          message,
+          expecting: texts.map {.remark($0)},
+          expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
       }
       func touch(_ name: String) {
         print("*** touching \(name) ***")
@@ -376,7 +384,9 @@ final class IncrementalCompilationTests: XCTestCase {
       }
       let masterSwiftDepsPath = derivedDataPath.appending(component: "theModule-master.swiftdeps")
 
-      try! doABuild("initial", expectingRemarks: [
+      try! doABuild(
+        "initial",
+        expectingRemarks: [
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
         // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
@@ -390,8 +400,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
-      ]
-      )
+        ],
+        whenAutolinking: autolinkLifecycleExpectations)
       #if true
       try! doABuild("no-change", expectingRemarks: [
         "May skip current input: {compile: main.o <= main.swift}",
@@ -400,7 +410,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Skipping input: {compile: other.o <= other.swift}",
         "Starting Linking theModule",
         "Finished Linking theModule",
-      ])
+      ],
+      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
       touch("other")
       try! doABuild("non-propagating", expectingRemarks: [
         "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
@@ -408,7 +419,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
         "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Queueing Compiling other.swift",
+        "Incremental compilation: Queuing Compiling other.swift",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
@@ -417,7 +428,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Finished Compiling other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
-      ])
+      ],
+      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
       #endif
       replace(contentsOf: "main", with: "let foo = \"hello\"")
       try! doABuild("propagating into 2nd wave", expectingRemarks: [
@@ -426,7 +438,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
         "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queueing Compiling main.swift",
+        "Incremental compilation: Queuing Compiling main.swift",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
@@ -436,7 +448,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
         "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
         "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
-        "Incremental compilation: Queueing Compiling other.swift",
+        "Incremental compilation: Queuing Compiling other.swift",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
@@ -445,7 +457,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Finished Compiling other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
-     ])
+      ],
+      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
     }
   }
 }

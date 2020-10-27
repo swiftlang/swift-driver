@@ -413,7 +413,7 @@ extension IncrementalCompilationState {
   }
   /// Put job in queue for execution
   func schedule(preOrCompileJob job: Job) {
-    reportIncrementalDecision?("Queueing \(job.descriptionForLifecycle)", nil)
+    reportIncrementalDecision?("Queuing \(job.descriptionForLifecycle)", nil)
     preOrCompileJobs.append(job)
   }
 
