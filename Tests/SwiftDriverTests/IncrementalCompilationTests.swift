@@ -342,7 +342,7 @@ final class IncrementalCompilationTests: XCTestCase {
       + inputPathsAndContents.map {$0.0.pathString} .sorted()
 
       let autolinkExpectations = [
-        "Incremental compilation: Queueing Extracting autolink information for module theModule",
+       // "Incremental compilation: Queueing Extracting autolink information for module theModule",
         "Starting Extracting autolink information for module theModule",
         "Finished Extracting autolink information for module theModule",
       ]
