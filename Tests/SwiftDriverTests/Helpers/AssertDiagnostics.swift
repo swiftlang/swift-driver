@@ -193,7 +193,7 @@ final class DiagnosticVerifier {
     queue!.sync {
       for diag in self.actual where !self.permitted.contains(diag.behavior) {
         failures.append((
-          "Driver emitted unexpected diagnostic: \(diag)",
+          "Driver emitted unexpected diagnostic \(diag.behavior): \(diag)",
           file, line
         ))
       }

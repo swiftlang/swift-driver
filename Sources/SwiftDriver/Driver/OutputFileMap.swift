@@ -77,6 +77,17 @@ public struct OutputFileMap: Hashable, Codable {
     }))
   }
 
+  /// Slow, but only for debugging output
+  public func getInput(outputFile: VirtualPath) -> VirtualPath? {
+    entries
+      .compactMap {
+        $0.value.values.contains(outputFile)
+          ? $0.key
+          : nil
+      }
+      .first
+  }
+
   /// Load the output file map at the given path.
   @_spi(Testing) public static func load(
     fileSystem: FileSystem,

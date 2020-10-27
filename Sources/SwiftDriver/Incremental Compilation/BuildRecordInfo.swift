@@ -128,15 +128,36 @@ import SwiftOptions
  }
 
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
-  func populateOutOfDateBuildRecord() -> BuildRecord? {
+  func populateOutOfDateBuildRecord(
+    inputFiles: [TypedVirtualPath],
+    failed: (String) -> Void
+  ) -> BuildRecord? {
+    let outOfDateBuildRecord: BuildRecord
     do {
       let contents = try fileSystem.readFileContents(buildRecordPath).cString
-      return try BuildRecord(contents: contents)
+      outOfDateBuildRecord  = try BuildRecord(contents: contents)
     }
     catch {
-      diagnosticEngine.emit(.remark_could_not_read_build_record(buildRecordPath, error))
+      failed("incremental compilation could not read build record at \(buildRecordPath): \(error.localizedDescription).")
       return nil
     }
+    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion else {
+      failed(
+        "the compiler version has changed from \(outOfDateBuildRecord.swiftVersion) to \(actualSwiftVersion)"
+      )
+      return nil
+    }
+    guard argsHash == outOfDateBuildRecord.argsHash else {
+      failed( "different arguments were passed to the compiler" )
+      return nil
+    }
+    let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(inputFiles.map {$0.file})
+    guard missingInputs.isEmpty else {
+      failed( "the following inputs were used in the previous compilation but not in this one: "
+                + missingInputs.map {$0.basename} .joined(separator: ", "))
+      return nil
+    }
+    return outOfDateBuildRecord
   }
 
   func jobFinished(job: Job, result: ProcessResult) {
