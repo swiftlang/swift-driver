@@ -71,15 +71,6 @@ extension CompilerMode {
     }
   }
 
-  public var batchModeInfo: BatchModeInfo? {
-    switch self {
-    case let .batchCompile(info):
-      return info
-    default:
-      return nil
-    }
-  }
-
   // Whether this compilation mode supports the use of bridging pre-compiled
   // headers.
   public var supportsBridgingPCH: Bool {

@@ -826,9 +826,8 @@ extension Driver {
     }
 
     if jobs.contains(where: { $0.requiresInPlaceExecution })
-      // Only one job and no cleanup required, e.g. not writing build record
-      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput) &&
-      buildRecordInfo == nil) {
+      // Only one job and no cleanup required
+      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput)) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       var job = jobs[0]
       // Require in-place execution for all single job plans.
@@ -839,11 +838,17 @@ extension Driver {
       return
     }
 
-    try performTheBuild(allJobs: jobs, forceResponseFiles: forceResponseFiles)
+    // Create and use the tool execution delegate if one is not provided explicitly.
+    let executorDelegate = createToolExecutionDelegate()
 
-    buildRecordInfo?.writeBuildRecord(
-      jobs,
-      incrementalCompilationState?.skippedCompilationInputs)
+    // Perform the build
+    try executor.execute(jobs: jobs,
+                         delegate: executorDelegate,
+                         numParallelJobs: numParallelJobs ?? 1,
+                         forceResponseFiles: forceResponseFiles,
+                         recordedInputModificationDates: recordedInputModificationDates)
+
+    buildRecordInfo?.writeBuildRecord( jobs, nil)
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
     if parsedOptions.hasArgument(.driverWarnUnusedOptions) {
@@ -869,35 +874,6 @@ extension Driver {
       incrementalCompilationState: incrementalCompilationState,
       showJobLifecycle: showJobLifecycle,
       diagnosticEngine: diagnosticEngine)
-  }
-
-  private mutating func performTheBuild(
-    allJobs: [Job],
-    forceResponseFiles: Bool
-  ) throws {
-    // Create and use the tool execution delegate if one is not provided explicitly.
-    let executorDelegate = createToolExecutionDelegate()
-
-    func execute(jobs: [Job]) throws {
-      try executor.execute(jobs: jobs,
-                           delegate: executorDelegate,
-                           numParallelJobs: numParallelJobs ?? 1,
-                           forceResponseFiles: forceResponseFiles,
-                           recordedInputModificationDates: recordedInputModificationDates)
-    }
-
-    guard let incrementalCompilationState = incrementalCompilationState else {
-      try execute(jobs: allJobs)
-      return
-    }
-    while let jobs = incrementalCompilationState.preOrCompileJobs.removeAll() {
-      try execute(jobs: formBatchedJobs(jobs, forIncremental: true))
-    }
-    guard let postCompileJobs = incrementalCompilationState.postCompileJobs
-    else {
-      fatalError("planning must have finished by now")
-    }
-    try execute(jobs: postCompileJobs)
   }
 
   private func printBindings(_ job: Job) {
