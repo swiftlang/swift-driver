@@ -68,7 +68,7 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
-     if showJobLifecycle {
+    if showJobLifecycle {
       diagnosticEngine.emit(.remark_job_lifecycle("Finished", job))
     }
 
@@ -116,6 +116,6 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
 fileprivate extension Diagnostic.Message {
   static func remark_job_lifecycle(_ what: String, _ job: Job
   ) -> Diagnostic.Message {
-    .remark("\(what) \(job.descriptionForLifecycle)")
+    .remark("\(what) \(job)")
   }
 }

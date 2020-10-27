@@ -881,7 +881,7 @@ extension ModuleDependencyGraph {
                    emitDependencyDotFileAfterEveryImport: Bool = false) {
     self.init(
       diagnosticEngine: diagnosticEngine,
-      reportIncrementalDecision: nil,
+      traceDependencies: false,
       emitDependencyDotFileAfterEveryImport: false,
       verifyDependencyGraphAfterEveryImport: true)
   }

@@ -68,6 +68,9 @@ extension InputInfo.Status {
   /// The status will be read for the nextr driver invocaiton and will control the scheduling of that job.
   /// `upToDate` means only that the file was up to date when the build record was written.
   init( wasSkipped: Bool?, jobResult: ProcessResult? ) {
+    assert(wasSkipped != true || jobResult == nil,
+           "When run, should have been removed from  status")
+
     if let exitStatus = jobResult?.exitStatus,
        case let .terminated(exitCode) = exitStatus,
        exitCode == 0 {
