@@ -18,6 +18,27 @@ import XCTest
 
 final class SwiftDriverTests: XCTestCase {
 
+  /// Determine if the test's execution environment has LLDB
+  /// Used to skip tests that rely on LLDB in such environments.
+  private func testEnvHasLLDB() throws -> Bool {
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    let toolchain: Toolchain
+    #if os(macOS)
+    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    #else
+    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+    #endif
+    do {
+      _ = try toolchain.getToolPath(.lldb)
+    } catch ToolchainError.unableToFind {
+      return false
+    }
+    return true
+  }
+
   func testInvocationRunModes() throws {
 
     let driver1 = try Driver.invocationRunMode(forArgs: ["swift"])
@@ -1631,20 +1652,8 @@ final class SwiftDriverTests: XCTestCase {
 
   func testRepl() throws {
     // Do not run this test if no LLDB is found in the toolchain.
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
-    var toolchain: Toolchain
-    #if os(macOS)
-    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
-    #else
-    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
-    #endif
-    do {
-      _ = try toolchain.getToolPath(.lldb)
-    } catch ToolchainError.unableToFind {
-      return
+    if try !testEnvHasLLDB() {
+      throw XCTSkip()
     }
 
     func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
@@ -2618,9 +2627,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testNoInputs() throws {
-    do {
-      var driver = try Driver(args: ["swift"])
-      XCTAssertNoThrow(try driver.planBuild())
+    // A plain `swift` invocation requires lldb to be present
+    if try testEnvHasLLDB() {
+      do {
+        var driver = try Driver(args: ["swift"])
+        XCTAssertNoThrow(try driver.planBuild())
+      }
     }
     do {
       var driver = try Driver(args: ["swiftc"])
