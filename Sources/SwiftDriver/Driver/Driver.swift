@@ -1966,7 +1966,8 @@ extension Driver {
           target: explicitTarget, targetVariant: explicitTargetVariant,
           sdkPath: sdkPath, resourceDirPath: resourceDirPath,
           runtimeCompatibilityVersion:
-            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle
+            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+          swiftCompilerPrefixArgs: swiftCompilerPrefixArgs
         ),
         capturingJSONOutputAs: FrontendTargetInfo.self,
         forceResponseFiles: false,

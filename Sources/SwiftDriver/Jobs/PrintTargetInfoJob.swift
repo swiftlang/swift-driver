@@ -125,9 +125,11 @@ extension Toolchain {
                           resourceDirPath: VirtualPath? = nil,
                           runtimeCompatibilityVersion: String? = nil,
                           requiresInPlaceExecution: Bool = false,
-                          useStaticResourceDir: Bool = false) throws -> Job {
-    var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
-                                          .flag("-print-target-info")]
+                          useStaticResourceDir: Bool = false,
+                          swiftCompilerPrefixArgs: [String]) throws -> Job {
+    var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
+    commandLine.append(contentsOf: [.flag("-frontend"),
+                                    .flag("-print-target-info")])
     // If we were given a target, include it. Otherwise, let the frontend
     // tell us the host target.
     if let target = target {
