@@ -33,7 +33,7 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
 
-    if isMergeModule {
+    if isMergeModule || shouldCreateEmitModuleJob {
       return
     }
     // Add outputs that can't be merged
@@ -57,7 +57,7 @@ extension Driver {
       TypedVirtualPath(file: moduleOutputPath, type: .swiftModule)
     ]
 
-    commandLine.appendFlags("-frontend", "-emit-module")
+    commandLine.appendFlags("-frontend", "-emit-module", "-experimental-skip-non-inlinable-function-bodies")
 
     let swiftInputFiles = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
 
@@ -65,6 +65,10 @@ extension Driver {
     for input in swiftInputFiles {
       commandLine.append(.path(input.file))
       inputs.append(input)
+    }
+
+    if let pchPath = bridgingPrecompiledHeader {
+      inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
@@ -88,8 +92,7 @@ extension Driver {
 
   /// Returns true if the emit module job should be created.
   var shouldCreateEmitModuleJob: Bool {
-    return forceEmitModuleInSingleInvocation
-      && compilerOutputType != .swiftModule
-      && moduleOutputInfo.output != nil
+    return forceEmitModuleBeforeCompile
+      || parsedOptions.hasArgument(.emitModuleSeparately)
   }
 }

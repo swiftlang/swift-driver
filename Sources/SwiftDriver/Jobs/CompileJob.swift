@@ -285,8 +285,9 @@ extension Driver {
 
     addJobOutputs(outputs)
 
-    // If we're creating emit module job, order the compile jobs after that.
-    if shouldCreateEmitModuleJob {
+    // If we're prioritizing the emit module job, schedule the compile jobs
+    // after that.
+    if forceEmitModuleBeforeCompile {
       inputs.append(TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule))
     }
 

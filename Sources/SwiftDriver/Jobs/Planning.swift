@@ -242,7 +242,9 @@ extension Driver {
           let job = try backendJob(input: input, addJobOutputs: addJobOutputs)
           addJob(job)
         }
-      } else {
+      } else if !(compilerOutputType == .swiftModule && shouldCreateEmitModuleJob) {
+        // We can skip the compile jobs if all we want is a module when it's
+        // built separately.
         let job = try compileJob(primaryInputs: primaryInputs,
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
