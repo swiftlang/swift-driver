@@ -23,6 +23,9 @@ let package = Package(
       targets: ["swift-help"]),
     .library(
       name: "SwiftDriver",
+      targets: ["SwiftDriver"]),
+    .library(
+      name: "SwiftDriverDynamic",
       type: .dynamic,
       targets: ["SwiftDriver"]),
     .library(
