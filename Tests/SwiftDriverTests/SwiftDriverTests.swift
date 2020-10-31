@@ -876,6 +876,26 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // Object file inputs
+      var driver = try Driver(args: commonArgs + ["baz.o", "-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(linkJob.inputs.contains(.init(file: .temporary(.init("foo.o")), type: .object)))
+      XCTAssertTrue(linkJob.inputs.contains(.init(file: .temporary(.init("bar.o")), type: .object)))
+      XCTAssertTrue(linkJob.inputs.contains(.init(file: .relative(.init("baz.o")), type: .object)))
+      XCTAssertTrue(cmd.contains(.path(.temporary(.init("foo.o")))))
+      XCTAssertTrue(cmd.contains(.path(.temporary(.init("bar.o")))))
+      XCTAssertTrue(cmd.contains(.path(.relative(.init("baz.o")))))
+    }
+
+    do {
       // static linking
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
@@ -2356,13 +2376,26 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-typecheck",
                                      "-emit-loaded-module-trace",
-                                     "foo.swift, bar.swift", "baz.swift"])
+                                     "foo.swift", "bar.swift", "baz.swift"])
       let plannedJobs = try driver.planBuild()
       let tracedJobs = plannedJobs.filter {
         $0.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
                                               .path(.relative(.init("main.trace.json")))])
       }
       XCTAssertEqual(tracedJobs.count, 1)
+    }
+    do {
+      // Make sure the trace is associated with the first frontend job as
+      // opposed to the first input.
+      var driver = try Driver(args: ["swiftc", "-emit-loaded-module-trace",
+                                     "foo.o", "bar.swift", "baz.o"])
+      let plannedJobs = try driver.planBuild()
+      let tracedJobs = plannedJobs.filter {
+        $0.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
+                                              .path(.relative(.init("main.trace.json")))])
+      }
+      XCTAssertEqual(tracedJobs.count, 1)
+      XCTAssertTrue(tracedJobs[0].inputs.contains(.init(file: .relative(.init("bar.swift")), type: .swift)))
     }
     do {
       var env = ProcessEnv.vars

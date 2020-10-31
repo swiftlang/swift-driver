@@ -196,19 +196,18 @@ extension Driver {
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void)
   throws {
-    let swiftInputFiles = inputFiles.filter { inputFile in
-      inputFile.type.isPartOfSwiftCompilation
-    }
-    for (index, input) in swiftInputFiles.enumerated() {
+    let loadedModuleTraceInputIndex = inputFiles.firstIndex(where: {
+      $0.type.isPartOfSwiftCompilation && loadedModuleTracePath != nil
+    })
+    for (index, input) in inputFiles.enumerated() {
       // Only emit a loaded module trace from the first frontend job.
-      let emitModuleTrace = (index == swiftInputFiles.startIndex) && (loadedModuleTracePath != nil)
       try addJobForPrimaryInput(
         input: input,
         addJobGroup: addJobGroup,
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
-        emitModuleTrace: emitModuleTrace)
+        emitModuleTrace: index == loadedModuleTraceInputIndex)
     }
   }
 
