@@ -904,6 +904,39 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // static linking
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.9", "-lto=llvm-full"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-static")))
+      XCTAssertTrue(cmd.contains(.flag("-o")))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.bc")))))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.bc")))))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
+
+      // The regular Swift driver doesn't pass Xlinker flags to the static
+      // linker, so be consistent with this
+      XCTAssertFalse(cmd.contains(.flag("-w")))
+      XCTAssertFalse(cmd.contains(.flag("-L")))
+      XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+      XCTAssertFalse(cmd.contains("-force_load"))
+      XCTAssertFalse(cmd.contains("-platform_version"))
+      XCTAssertFalse(cmd.contains("-lto_library"))
+      XCTAssertFalse(cmd.contains("-syslibroot"))
+      XCTAssertFalse(cmd.contains("-no_objc_category_merging"))
+    }
+
+    do {
       // executable linking
       var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
@@ -2859,6 +2892,27 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-bc")))
       XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo.bc")))
       XCTAssertEqual(plannedJobs[1].inputs.first!.file, VirtualPath.temporary(RelativePath("foo.bc")))
+    }
+  }
+
+  func testLTOLibraryArg() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-target", "x86_64-apple-macos11.0"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-target", "x86_64-apple-macos11.0"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-target", "x86_64-apple-macos11.0"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertFalse(plannedJobs[1].commandLine.contains("-lto_library"))
     }
   }
 

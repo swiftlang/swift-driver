@@ -262,6 +262,56 @@ extension DarwinToolchain {
         fileSystem: fileSystem
       )
 
+      try addArgsToLinkARCLite(
+        to: &commandLine,
+        parsedOptions: &parsedOptions,
+        targetTriple: targetTriple
+      )
+
+      if lto != nil {
+        try addLTOLibArgs(to: &commandLine)
+      }
+
+      let targetVariantTriple = targetInfo.targetVariant?.triple
+      addDeploymentTargetArgs(
+        to: &commandLine,
+        targetTriple: targetTriple,
+        targetVariantTriple: targetVariantTriple,
+        sdkPath: targetInfo.sdkPath?.path
+      )
+
+      try addProfileGenerationArgs(
+        to: &commandLine,
+        parsedOptions: &parsedOptions,
+        targetTriple: targetTriple
+      )
+
+      commandLine.appendFlags(
+        "-lobjc",
+        "-lSystem",
+        "-no_objc_category_merging"
+      )
+
+      // Add the SDK path
+      if let sdkPath = targetInfo.sdkPath?.path {
+        commandLine.appendFlag("-syslibroot")
+        commandLine.appendPath(sdkPath)
+      }
+
+      if parsedOptions.contains(.embedBitcode) ||
+        parsedOptions.contains(.embedBitcodeMarker) {
+        commandLine.appendFlag("-bitcode_bundle")
+      }
+
+      if parsedOptions.contains(.enableAppExtension) {
+        commandLine.appendFlag("-application_extension")
+      }
+
+      // On Darwin, we only support libc++.
+      if parsedOptions.contains(.enableExperimentalCxxInterop) {
+        commandLine.appendFlag("-lc++")
+      }
+
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.append(
@@ -274,53 +324,6 @@ extension DarwinToolchain {
       commandLine.appendFlag(.static)
     }
 
-    try addArgsToLinkARCLite(
-      to: &commandLine,
-      parsedOptions: &parsedOptions,
-      targetTriple: targetTriple
-    )
-
-    try addLTOLibArgs(to: &commandLine)
-
-    let targetVariantTriple = targetInfo.targetVariant?.triple
-    addDeploymentTargetArgs(
-      to: &commandLine,
-      targetTriple: targetTriple,
-      targetVariantTriple: targetVariantTriple,
-      sdkPath: targetInfo.sdkPath?.path
-    )
-    try addProfileGenerationArgs(
-      to: &commandLine,
-      parsedOptions: &parsedOptions,
-      targetTriple: targetTriple
-    )
-
-    commandLine.appendFlags(
-      "-lobjc",
-      "-lSystem",
-      "-no_objc_category_merging"
-    )
-
-    // Add the SDK path
-    if let sdkPath = targetInfo.sdkPath?.path {
-      commandLine.appendFlag("-syslibroot")
-      commandLine.appendPath(sdkPath)
-    }
-
-    if parsedOptions.contains(.embedBitcode) ||
-      parsedOptions.contains(.embedBitcodeMarker) {
-      commandLine.appendFlag("-bitcode_bundle")
-    }
-
-    if parsedOptions.contains(.enableAppExtension) {
-      commandLine.appendFlag("-application_extension")
-    }
-
-    // On Darwin, we only support libc++.
-    if parsedOptions.contains(.enableExperimentalCxxInterop) {
-      commandLine.appendFlag("-lc++")
-    }
-
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
@@ -328,7 +331,7 @@ extension DarwinToolchain {
       var inputPaths = [VirtualPath]()
       var inputModules = [VirtualPath]()
       for input in inputs {
-        if input.type == .swiftModule {
+        if input.type == .swiftModule && linkerOutputType != .staticLibrary {
           inputPaths.append(input.file)
           inputModules.append(input.file)
         } else if input.type == .object {
@@ -338,9 +341,11 @@ extension DarwinToolchain {
         }
       }
       commandLine.appendPath(.fileList(path, .list(inputPaths)))
-      for module in inputModules {
-        commandLine.append(.flag("-add_ast_path"))
-        commandLine.append(.path(module))
+      if linkerOutputType != .staticLibrary {
+        for module in inputModules {
+          commandLine.append(.flag("-add_ast_path"))
+          commandLine.append(.path(module))
+        }
       }
 
       // FIXME: Primary inputs need to check -index-file-path
@@ -348,7 +353,7 @@ extension DarwinToolchain {
       // Add inputs.
       commandLine.append(contentsOf: inputs.flatMap {
         (path: TypedVirtualPath) -> [Job.ArgTemplate] in
-        if path.type == .swiftModule {
+        if path.type == .swiftModule && linkerOutputType != .staticLibrary {
           return [.flag("-add_ast_path"), .path(path.file)]
         } else if path.type == .object {
           return [.path(path.file)]
