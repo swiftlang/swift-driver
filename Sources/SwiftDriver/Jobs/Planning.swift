@@ -104,7 +104,7 @@ extension Driver {
     addJobGroup: ([Job]) -> Void
   ) throws -> [TypedVirtualPath] {
 
-    var linkerInputs = [TypedVirtualPath]()
+    var linkerInputs = inputFiles.filter { $0.type == .object }
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
 
     var moduleInputs = [TypedVirtualPath]()

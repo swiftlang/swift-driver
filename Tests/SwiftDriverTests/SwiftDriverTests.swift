@@ -1098,6 +1098,26 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testCompileAndLink() throws {
+    // Mixed compile and link external object file
+    do {
+      var driver = try Driver(args: ["swiftc", "objectFile.o", "sourceFile.swift", "-o", "a.out"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.inputs, [.init(file: .relative(.init("sourceFile.swift")), type: .swift)])
+      XCTAssertEqual(compileJob.outputs, [.init(file: .temporary(.init("sourceFile.o")), type: .object)])
+
+      let linkJob = plannedJobs[1]
+      XCTAssertEqual(linkJob.inputs, [
+        .init(file: .relative(.init("objectFile.o")), type: .object),
+        .init(file: .temporary(.init("sourceFile.o")), type: .object)
+      ])
+      XCTAssertEqual(linkJob.outputs, [.init(file: .relative(.init("a.out")), type: .image)])
+    }
+  }
+
   func testWebAssemblyUnsupportedFeatures() throws {
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
