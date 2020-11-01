@@ -329,7 +329,7 @@ final class IncrementalCompilationTests: XCTestCase {
       }
       let args: [String] = [
         "swiftc",
-        "module-name", module,
+        "-module-name", module,
         "-o", derivedDataPath.appending(component: module + ".o").pathString,
         "-output-file-map", OFM.pathString,
         "-driver-show-incremental",
