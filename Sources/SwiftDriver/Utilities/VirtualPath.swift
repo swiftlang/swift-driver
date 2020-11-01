@@ -304,6 +304,27 @@ extension VirtualPath: CustomStringConvertible {
   }
 }
 
+extension VirtualPath: CustomDebugStringConvertible {
+  public var debugDescription: String {
+    switch self {
+    case .relative(let path):
+      return ".relative(\(path.pathString))"
+    case .absolute(let path):
+      return ".absolute(\(path.pathString))"
+    case .standardInput:
+      return ".standardInput"
+    case .standardOutput:
+      return ".standardOutput"
+    case .temporary(let path):
+      return ".temporary(\(path.pathString))"
+    case .temporaryWithKnownContents(let path, _):
+      return ".temporaryWithKnownContents(\(path.pathString))"
+    case .fileList(let path, _):
+      return ".fileList(\(path.pathString))"
+    }
+  }
+}
+
 extension VirtualPath {
   /// Replace the extension of the given path with a new one based on the
   /// specified file type.
