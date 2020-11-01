@@ -102,6 +102,13 @@ apple/swift-driver#208
 ```
 @swift-ci cross-repository testing facilities are described [here](https://github.com/apple/swift/blob/main/docs/ContinuousIntegration.md#cross-repository-testing).
 
+### Testing in XCode with custom toolchain
+After the toolchain is installed, xcode needs to be told to use it. This can mean two things, building the driver with the toolchain and telling the driver to use the toolchain when running.
+
+Building with the toolchain is easy, set the toolchain in xcode: Menu Bar > Xcode > Toolchains > select your toolchain
+
+Running the driver requires setting the TOOLCHAINS evironment variable. This tells xcrun which toolchain to use, on darwin xcrun is used to find tools. This variable is the name of the toolchain and not the path (ex: `Swift Development Snapshot`)
+
 #### Preparing a Linux docker for debug
 
 When developing on macOS without quick access to a Linux machine, using a Linux Docker is often helpful when debugging.
