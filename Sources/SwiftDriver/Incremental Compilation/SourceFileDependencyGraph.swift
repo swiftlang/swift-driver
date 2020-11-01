@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
+import TSCUtility
 
 @_spi(Testing) public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
@@ -91,8 +92,6 @@ extension SourceFileDependencyGraph {
 }
 
 extension SourceFileDependencyGraph {
-  private static let recordBlockId = 8
-  
   private enum RecordKind: UInt64 {
     case metadata = 1
     case sourceFileDepGraphNode
@@ -116,8 +115,9 @@ extension SourceFileDependencyGraph {
     case bogusNameOrContext
     case unknownKind
   }
-  
-  public static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
+
+  // FIXME: This should accept a FileSystem parameter.
+  static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) throws -> Self {
     guard let path = swiftDeps.file.absolutePath
     else {
@@ -132,93 +132,133 @@ extension SourceFileDependencyGraph {
     compilerVersionString = ""
     allNodes = nodesForTesting
   }
-  
-  public init(pathString: String) throws {
+
+  // FIXME: This should accept a FileSystem parameter.
+  @_spi(Testing) public init(pathString: String) throws {
     let data = try Data(contentsOf: URL(fileURLWithPath: pathString))
     try self.init(data: data)
   }
-  
-  public init(data: Data) throws {
-    // FIXME: visit blocks and records incrementally instead of reading the
-    // entire file up front.
-    let bitcode = try Bitcode(data: data)
-    guard bitcode.signature == .init(string: "DEPS") else { throw ReadError.badMagic }
-    
-    guard bitcode.elements.count == 1,
-          case .block(let recordBlock) = bitcode.elements.first,
-          recordBlock.id == Self.recordBlockId else { throw ReadError.noRecordBlock }
-    
-    guard case .record(let metadataRecord) = recordBlock.elements.first,
-          RecordKind(rawValue: metadataRecord.id) == .metadata,
-          metadataRecord.fields.count == 2,
-          case .blob(let compilerVersionBlob) = metadataRecord.payload,
-          let compilerVersionString = String(data: compilerVersionBlob, encoding: .utf8)
-    else { throw ReadError.malformedMetadataRecord }
-    
-    self.majorVersion = metadataRecord.fields[0]
-    self.minorVersion = metadataRecord.fields[1]
-    self.compilerVersionString = compilerVersionString
-    
-    var nodes: [Node] = []
-    var node: Node? = nil
-    var identifiers: [String] = [""] // The empty string is hardcoded as identifiers[0]
-    var sequenceNumber = 0
-    for element in recordBlock.elements.dropFirst() {
-      guard case .record(let record) = element else { throw ReadError.unexpectedSubblock }
-      guard let kind = RecordKind(rawValue: record.id) else { throw ReadError.unknownRecord }
-      switch kind {
-      case .metadata:
-        throw ReadError.unexpectedMetadataRecord
-      case .sourceFileDepGraphNode:
+
+  @_spi(Testing) public init(data: Data,
+                             fromSwiftModule extractFromSwiftModule: Bool = false) throws {
+    struct Visitor: BitstreamVisitor {
+      let extractFromSwiftModule: Bool
+
+      init(extractFromSwiftModule: Bool) {
+        self.extractFromSwiftModule = extractFromSwiftModule
+      }
+
+      var nodes: [Node] = []
+      var majorVersion: UInt64?
+      var minorVersion: UInt64?
+      var compilerVersionString: String?
+
+      private var node: Node? = nil
+      private var identifiers: [String] = [""] // The empty string is hardcoded as identifiers[0]
+      private var sequenceNumber = 0
+
+      func validate(signature: Bitcode.Signature) throws {
+        if extractFromSwiftModule {
+          guard signature == .init(value: 0x0EA89CE2) else { throw ReadError.badMagic }
+        } else {
+          guard signature == .init(string: "DEPS") else { throw ReadError.badMagic }
+        }
+      }
+
+      mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
+        if extractFromSwiftModule {
+          // Enter the top-level module block, and the incremental info
+          // subblock, ignoring the rest of the file.
+          return id == /*Module block*/ 8 || id == /*Incremental record block*/ 196
+        } else {
+          guard id == /*Incremental record block*/ 8 else {
+            throw ReadError.unexpectedSubblock
+          }
+          return true
+        }
+      }
+
+      mutating func didExitBlock() throws {
+        // Finalize the current node if needed.
         if let node = node {
           nodes.append(node)
+          self.node = nil
         }
-        let kindCode = record.fields[0]
-        guard record.fields.count == 5,
-              let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-              record.fields[2] < identifiers.count,
-              record.fields[3] < identifiers.count else {
-          throw ReadError.malformedSourceFileDepGraphNodeRecord
+      }
+
+      mutating func visit(record: BitcodeElement.Record) throws {
+        guard let kind = RecordKind(rawValue: record.id) else { throw ReadError.unknownRecord }
+        switch kind {
+        case .metadata:
+          // If we've already read metadata, this is an unexpected duplicate.
+          guard majorVersion == nil, minorVersion == nil, compilerVersionString == nil else {
+            throw ReadError.unexpectedMetadataRecord
+          }
+          guard record.fields.count == 2,
+                case .blob(let compilerVersionBlob) = record.payload,
+                let compilerVersionString = String(data: compilerVersionBlob, encoding: .utf8)
+          else { throw ReadError.malformedMetadataRecord }
+
+          self.majorVersion = record.fields[0]
+          self.minorVersion = record.fields[1]
+          self.compilerVersionString = compilerVersionString
+        case .sourceFileDepGraphNode:
+          if let node = node {
+            nodes.append(node)
+          }
+          let kindCode = record.fields[0]
+          guard record.fields.count == 5,
+                let declAspect = DependencyKey.DeclAspect(record.fields[1]),
+                record.fields[2] < identifiers.count,
+                record.fields[3] < identifiers.count else {
+            throw ReadError.malformedSourceFileDepGraphNodeRecord
+          }
+          let context = identifiers[Int(record.fields[2])]
+          let identifier = identifiers[Int(record.fields[3])]
+          let isProvides = record.fields[4] != 0
+          let designator = try DependencyKey.Designator(
+            kindCode: kindCode, context: context, name: identifier)
+          let key = DependencyKey(aspect: declAspect, designator: designator)
+          node = Node(key: key,
+                      fingerprint: nil,
+                      sequenceNumber: sequenceNumber,
+                      defsIDependUpon: [],
+                      isProvides: isProvides)
+          sequenceNumber += 1
+        case .fingerprintNode:
+          guard node != nil,
+                record.fields.count == 0,
+                case .blob(let fingerprintBlob) = record.payload,
+                let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
+            throw ReadError.malformedFingerprintRecord
+          }
+          node?.fingerprint = fingerprint
+        case .dependsOnDefinitionNode:
+          guard node != nil,
+                record.fields.count == 1 else { throw ReadError.malformedDependsOnDefinitionRecord }
+          node?.defsIDependUpon.append(Int(record.fields[0]))
+        case .identifierNode:
+          guard record.fields.count == 0,
+                case .blob(let identifierBlob) = record.payload,
+                let identifier = String(data: identifierBlob, encoding: .utf8) else {
+            throw ReadError.malformedIdentifierRecord
+          }
+          identifiers.append(identifier)
         }
-        let context = identifiers[Int(record.fields[2])]
-        let identifier = identifiers[Int(record.fields[3])]
-        let isProvides = record.fields[4] != 0
-        let designator = try DependencyKey.Designator(
-          kindCode: kindCode, context: context, name: identifier)
-        let key = DependencyKey(aspect: declAspect, designator: designator)
-        node = Node(key: key,
-                    fingerprint: nil,
-                    sequenceNumber: sequenceNumber,
-                    defsIDependUpon: [],
-                    isProvides: isProvides)
-        sequenceNumber += 1
-      case .fingerprintNode:
-        guard node != nil,
-              record.fields.count == 0,
-              case .blob(let fingerprintBlob) = record.payload,
-              let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
-          throw ReadError.malformedFingerprintRecord
-        }
-        node?.fingerprint = fingerprint
-      case .dependsOnDefinitionNode:
-        guard node != nil,
-              record.fields.count == 1 else { throw ReadError.malformedDependsOnDefinitionRecord }
-        node?.defsIDependUpon.append(Int(record.fields[0]))
-      case .identifierNode:
-        guard record.fields.count == 0,
-              case .blob(let identifierBlob) = record.payload,
-              let identifier = String(data: identifierBlob, encoding: .utf8) else {
-          throw ReadError.malformedIdentifierRecord
-        }
-        identifiers.append(identifier)
       }
     }
-    
-    if let node = node {
-      nodes.append(node)
+
+    var visitor = Visitor(extractFromSwiftModule: extractFromSwiftModule)
+    try Bitcode.read(stream: data, using: &visitor)
+    guard let major = visitor.majorVersion,
+          let minor = visitor.minorVersion,
+          let versionString = visitor.compilerVersionString else {
+      throw ReadError.malformedMetadataRecord
     }
-    
-    self.allNodes = nodes
+    self.majorVersion = major
+    self.minorVersion = minor
+    self.compilerVersionString = versionString
+    self.allNodes = visitor.nodes
   }
 }
 
