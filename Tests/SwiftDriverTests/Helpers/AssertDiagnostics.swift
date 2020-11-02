@@ -23,7 +23,12 @@ func assertDriverDiagnostics(
   let matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
 
-  var driver = try Driver(args: args, env: env, diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:)]))
+  var driver = try Driver(args: args, env: env, diagnosticsEngine: DiagnosticsEngine(handlers: [
+        {
+          print($0.description, to: &stderrStream)
+          stderrStream.flush()
+        },
+                                                                                      matcher.emit(_:)]))
   try body(&driver, matcher)
 }
 
@@ -63,7 +68,12 @@ func assertDiagnostics(
   let matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
 
-  let diags = DiagnosticsEngine(handlers: [matcher.emit(_:)])
+  let diags = DiagnosticsEngine(handlers: [
+                                  {
+                                    print($0.description, to: &stderrStream)
+                                    stderrStream.flush()
+                                  },
+                                  matcher.emit(_:)])
   try body(diags, matcher)
 }
 
