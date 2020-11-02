@@ -2002,6 +2002,118 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testProfileLinkerArgs() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-macosx10.9", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_osx.a"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_ios.a"))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_iossim.a"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "arm64-apple-ios7.1", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_ios.a"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_tvos.a"))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_tvossim.a"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "arm64-apple-tvos9.0", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_tvos.a"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "i386-apple-watchos2.0-simulator", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchos.a"))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchossim.a"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "armv7k-apple-watchos2.0", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchos.a"))
+    }
+
+    // FIXME: These will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux)
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-unknown-linux-gnu", "test.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "wasm32-unknown-wasi", "test.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+      XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
+    #endif
+
+    // TODO: Windows
+  }
+
   func testConditionalCompilationArgValidation() throws {
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-DFOO=BAR"]) {
       $1.expect(.warning("conditional compilation flags do not have values in Swift; they are either present or absent (rather than 'FOO=BAR')"))
@@ -4030,5 +4142,18 @@ where Element == Job
     var filtered = self
     filtered.removeAll(where: { $0.kind == .autolinkExtract })
     return filtered
+  }
+}
+
+private extension Array where Element == Job.ArgTemplate {
+  func containsPathWithBasename(_ basename: String) -> Bool {
+    contains {
+      switch $0 {
+      case let .path(path):
+        return path.basename == basename
+      case .flag, .responseFilePath, .joinedOptionAndPath:
+        return false
+      }
+    }
   }
 }

@@ -116,12 +116,11 @@ extension DarwinToolchain {
     let clangPath = try clangLibraryPath(for: targetTriple,
                                          parsedOptions: &parsedOptions)
 
-    let runtime = targetTriple.darwinPlatform!.libraryNameSuffix
-
-    let clangRTPath = clangPath
-      .appending(component: "libclang_rt.profile_\(runtime).a")
-
-    commandLine.appendPath(clangRTPath)
+    for runtime in targetTriple.darwinPlatform!.profileLibraryNameSuffixes {
+      let clangRTPath = clangPath
+        .appending(component: "libclang_rt.profile_\(runtime).a")
+      commandLine.appendPath(clangRTPath)
+    }
   }
 
   private func addPlatformVersionArg(to commandLine: inout [Job.ArgTemplate],
@@ -370,5 +369,26 @@ extension DarwinToolchain {
     commandLine.appendPath(outputFile)
 
     return try getToolPath(linkerTool)
+  }
+}
+
+private extension DarwinPlatform {
+  var profileLibraryNameSuffixes: [String] {
+    switch self {
+    case .macOS, .iOS(.catalyst):
+      return ["osx"]
+    case .iOS(.device):
+      return ["ios"]
+    case .iOS(.simulator):
+      return ["iossim", "ios"]
+    case .tvOS(.device):
+      return ["tvos"]
+    case .tvOS(.simulator):
+      return ["tvossim", "tvos"]
+    case .watchOS(.device):
+      return ["watchos"]
+    case .watchOS(.simulator):
+      return ["watchossim", "watchos"]
+    }
   }
 }

@@ -244,7 +244,7 @@ extension GenericUnixToolchain {
         let libProfile = sharedResourceDirPath
           .parentDirectory // remove platform name
           .appending(components: "clang", "lib", targetTriple.osName,
-                                 "libclangrt_profile-\(targetTriple.archName).a")
+                                 "libclang_rt.profile-\(targetTriple.archName).a")
         commandLine.appendPath(libProfile)
 
         // HACK: Hard-coded from llvm::getInstrProfRuntimeHookVarName()
