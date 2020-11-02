@@ -20,9 +20,6 @@ import SwiftOptions
   /// If non-null outputs information for `-driver-show-incremental` for input path
   public let reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
 
-  /// The primary input files that are part of the first wave
-  private let immediatelyCompiledInputs: [TypedVirtualPath]
-
   /// Inputs that must be compiled, and swiftDeps processed.
   /// When empty, the compile phase is done.
   var pendingInputs: Set<TypedVirtualPath>
@@ -105,7 +102,7 @@ import SwiftOptions
       return nil
     }
 
-    (immediates: self.immediatelyCompiledInputs, skipped: self.skippedCompilationInputs)
+    (immediates: self.pendingInputs, skipped: self.skippedCompilationInputs)
       = Self.computeImmediateVsSkippedCompilationInputs(
         inputFiles: inputFiles,
         buildRecordInfo: buildRecordInfo,
@@ -113,7 +110,6 @@ import SwiftOptions
         outOfDateBuildRecord: outOfDateBuildRecord,
         reportIncrementalDecision: reportIncrementalDecision)
 
-    self.pendingInputs = Set(immediatelyCompiledInputs)
     self.moduleDependencyGraph = moduleDependencyGraph
     self.reportIncrementalDecision = reportIncrementalDecision
   }
@@ -200,7 +196,7 @@ extension IncrementalCompilationState {
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-  ) -> (immediates: [TypedVirtualPath], skipped: Set<TypedVirtualPath>) {
+  ) -> (immediates: Set<TypedVirtualPath>, skipped: Set<TypedVirtualPath>) {
 
     let changedInputs: [(TypedVirtualPath, InputInfo.Status)] = computeChangedInputs(
       inputFiles: inputFiles,
@@ -237,8 +233,7 @@ extension IncrementalCompilationState {
         report("Queuing (dependent):", dependent)
       }
     }
-    let immediatelyCompiledInputs = Array(definitelyRequiredInputs.union(speculativeInputs))
-      .sorted {$0.file.name < $1.file.name}
+    let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs)
 
     let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(immediatelyCompiledInputs)
