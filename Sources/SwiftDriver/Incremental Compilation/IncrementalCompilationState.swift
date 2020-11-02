@@ -22,7 +22,7 @@ import SwiftOptions
 
   /// Inputs that must be compiled, and swiftDeps processed.
   /// When empty, the compile phase is done.
-  var pendingInputs: Set<TypedVirtualPath>
+  var pendingInputs = Set<TypedVirtualPath>()
 
   /// Input files that were skipped.
   /// May shrink if one of these moves into pendingInputs.
@@ -102,8 +102,7 @@ import SwiftOptions
       return nil
     }
 
-    (immediates: self.pendingInputs, skipped: self.skippedCompilationInputs)
-      = Self.computeImmediateVsSkippedCompilationInputs(
+    self.skippedCompilationInputs = Self.computeSkippedCompilationInputs(
         inputFiles: inputFiles,
         buildRecordInfo: buildRecordInfo,
         moduleDependencyGraph: moduleDependencyGraph,
@@ -190,13 +189,13 @@ extension Diagnostic.Message {
 // MARK: - Scheduling the first wave
 
 extension IncrementalCompilationState {
-  private static func computeImmediateVsSkippedCompilationInputs(
+  private static func computeSkippedCompilationInputs(
     inputFiles: [TypedVirtualPath],
     buildRecordInfo: BuildRecordInfo,
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-  ) -> (immediates: Set<TypedVirtualPath>, skipped: Set<TypedVirtualPath>) {
+  ) -> Set<TypedVirtualPath> {
 
     let changedInputs: [(TypedVirtualPath, InputInfo.Status)] = computeChangedInputs(
       inputFiles: inputFiles,
@@ -242,7 +241,7 @@ extension IncrementalCompilationState {
         report("Skipping input:", skippedInput)
       }
     }
-    return (immediates: immediatelyCompiledInputs, skipped: skippedInputs)
+    return skippedInputs
   }
 
   /// Find the inputs that have changed since last compilation, or were marked as needed a build
@@ -416,6 +415,9 @@ extension IncrementalCompilationState {
         report("Queuing \(job.descriptionForLifecycle)", nil)
       }
     }
+    let primaryCompilationInputs = jobs
+      .flatMap {$0.kind == .compile ? $0.primaryInputs : []}
+    pendingInputs.formUnion(primaryCompilationInputs)
     preOrCompileJobs.enqueue(jobs)
   }
 
@@ -471,7 +473,8 @@ extension IncrementalCompilationState {
   private func schedule(compilationInputs inputs: [TypedVirtualPath]) {
     let jobs = inputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input) {
-        skippedCompilationInputs.subtract(group.first!.primaryInputs)
+        let primaryInputs = group.first!.primaryInputs
+        skippedCompilationInputs.subtract(primaryInputs)
         reportIncrementalDecision?("Scheduling discovered", input)
         return group
       }
