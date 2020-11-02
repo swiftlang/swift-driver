@@ -39,7 +39,7 @@ import SwiftOptions
   var skippedCompileGroups = [TypedVirtualPath: [Job]]()
 
   /// Accumulates jobs to be run through compilation
-  public var preOrCompileJobs = SynchronizedQueue<Job>()
+  public var preOrCompileJobs = SynchronizedQueue<[Job]?>()
 
   /// Jobs to run after the last compile
   /// Nonnil means planning has informed me
@@ -116,8 +116,6 @@ import SwiftOptions
     self.pendingInputs = Set(immediatelyCompiledInputs)
     self.moduleDependencyGraph = moduleDependencyGraph
     self.reportIncrementalDecision = reportIncrementalDecision
-
-    maybeFinishedWithCompilations()
   }
 
   /// Check various arguments to rule out incremental compilation if need be.
@@ -370,13 +368,18 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   /// Decide if  a job can be skipped, and register accordingly
   func addPreOrCompileJobGroups(_ groups: [[Job]]) {
+    var wereAnyJobsScheduled = false
     for group in groups {
       if let firstJob = group.first, isSkipped(firstJob) {
         recordSkippedGroup(group)
       }
       else {
         schedule(group: group)
+        wereAnyJobsScheduled = true
       }
+    }
+    if !wereAnyJobsScheduled {
+      finishedWithCompilations()
     }
   }
 
@@ -409,12 +412,16 @@ extension IncrementalCompilationState {
   }
 
   func schedule(group: [Job]) {
-    group.forEach {schedule(preOrCompileJob: $0)}
+    schedule(preOrCompileJobs: group)
   }
   /// Put job in queue for execution
-  func schedule(preOrCompileJob job: Job) {
-    reportIncrementalDecision?("Queuing \(job.descriptionForLifecycle)", nil)
-    preOrCompileJobs.append(job)
+  func schedule(preOrCompileJobs jobs: [Job]) {
+    if let report = reportIncrementalDecision {
+      for job in jobs {
+        report("Queuing \(job.descriptionForLifecycle)", nil)
+      }
+    }
+    preOrCompileJobs.enqueue(jobs)
   }
 
   /// Remember a job that runs after all compile jobs
@@ -447,7 +454,9 @@ extension IncrementalCompilationState {
     }
     schedule(compilationInputs: discoveredInputs)
     finishedJob.primaryInputs.forEach {pendingInputs.remove($0)}
-    maybeFinishedWithCompilations()
+    if pendingInputs.isEmpty {
+      finishedWithCompilations()
+    }
  }
 
   private func collectInputsDiscovered(
@@ -465,24 +474,22 @@ extension IncrementalCompilationState {
   }
 
   private func schedule(compilationInputs inputs: [TypedVirtualPath]) {
-    for input in inputs {
+    let jobs = inputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input) {
         skippedCompilationInputs.subtract(group.first!.primaryInputs)
         reportIncrementalDecision?("Scheduling discovered", input)
-        group.forEach {schedule(preOrCompileJob: $0)}
+        return group
       }
       else {
         reportIncrementalDecision?("Tried to schedule discovered input again", input)
+        return []
       }
     }
+    schedule(preOrCompileJobs: jobs)
   }
 
-  func maybeFinishedWithCompilations() {
-    guard pendingInputs.isEmpty
-    else {
-      return
-    }
-    preOrCompileJobs.close()
+  func finishedWithCompilations() {
+    preOrCompileJobs.enqueue(nil)
   }
 }
 

@@ -44,7 +44,6 @@ add_library(SwiftDriver
   "Incremental Compilation/ModuleDependencyGraph.swift"
   "Incremental Compilation/Multidictionary.swift"
   "Incremental Compilation/SourceFileDependencyGraph.swift"
-  "Incremental Compilation/SynchronizedQueue.swift"
   "Incremental Compilation/TwoDMap.swift"
 
   Jobs/AutolinkExtractJob.swift
