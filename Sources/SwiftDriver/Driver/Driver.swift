@@ -889,7 +889,7 @@ extension Driver {
       try execute(jobs: allJobs)
       return
     }
-    while let jobs = incrementalCompilationState.preOrCompileJobs.removeAll() {
+    while let jobs = incrementalCompilationState.preOrCompileJobs.dequeue() {
       try execute(jobs: formBatchedJobs(jobs, forIncremental: true))
     }
     guard let postCompileJobs = incrementalCompilationState.postCompileJobs
