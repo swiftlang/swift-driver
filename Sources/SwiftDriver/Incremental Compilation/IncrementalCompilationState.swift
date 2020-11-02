@@ -368,15 +368,19 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   /// Decide if  a job can be skipped, and register accordingly
   func addPreOrCompileJobGroups(_ groups: [[Job]]) {
+    var wereAnyJobsScheduled = false
     for group in groups {
       if let firstJob = group.first, isSkipped(firstJob) {
         recordSkippedGroup(group)
       }
       else {
         schedule(group: group)
+        wereAnyJobsScheduled = true
       }
     }
-    finishedWithCompilationsIfNoPendingInputs()
+    if !wereAnyJobsScheduled {
+      finishedWithCompilations()
+    }
   }
 
   func isSkipped(_ job: Job) -> Bool {
@@ -453,7 +457,9 @@ extension IncrementalCompilationState {
     }
     schedule(compilationInputs: discoveredInputs)
     finishedJob.primaryInputs.forEach {pendingInputs.remove($0)}
-    finishedWithCompilationsIfNoPendingInputs()
+    if pendingInputs.isEmpty {
+      finishedWithCompilations()
+    }
  }
 
   private func collectInputsDiscovered(
@@ -485,11 +491,7 @@ extension IncrementalCompilationState {
     schedule(preOrCompileJobs: jobs)
   }
 
-  func finishedWithCompilationsIfNoPendingInputs() {
-    guard pendingInputs.isEmpty
-    else {
-      return
-    }
+  func finishedWithCompilations() {
     print("*** enqueuing", "nil", to: &stderrStream)
     stderrStream.flush()
     preOrCompileJobs.enqueue(nil)
