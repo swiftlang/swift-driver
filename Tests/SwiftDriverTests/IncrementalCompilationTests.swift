@@ -378,7 +378,7 @@ final class IncrementalCompilationTests: XCTestCase {
       func doABuild(_ message: String,
                     expecting expectations: [Diagnostic.Message],
                     expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
-        print("*** starting build \(message) ***")
+        print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
         try assertDriverDiagnostics(args: args) {driver, verifier in
           verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
           expectations.forEach {verifier.expect($0)}
@@ -399,12 +399,12 @@ final class IncrementalCompilationTests: XCTestCase {
           expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
       }
       func touch(_ name: String) {
-        print("*** touching \(name) ***")
+        print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
         let (path, contents) = inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first!
         try! localFileSystem.writeFileContents(path) { $0 <<< contents }
       }
       func replace(contentsOf name: String, with replacement: String ) {
-        print("*** replacing \(name) ***")
+        print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
         let path = inputPathsAndContents.filter {$0.0.pathString.contains("/" + name + ".swift")}.first!.0
         let previousContents = try! localFileSystem.readFileContents(path).cString
         try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
