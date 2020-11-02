@@ -418,6 +418,9 @@ extension IncrementalCompilationState {
         report("Queuing \(job.descriptionForLifecycle)", nil)
       }
     }
+    print("*** enqueuing", jobs.map{$0.descriptionForLifecycle}.joined(separator: ", "),
+          to: &stderrStream)
+    stderrStream.flush()
     preOrCompileJobs.enqueue(jobs)
   }
 
@@ -488,6 +491,8 @@ extension IncrementalCompilationState {
     else {
       return
     }
+    print("*** enqueuing", "nil", to: &stderrStream)
+    stderrStream.flush()
     preOrCompileJobs.enqueue(nil)
   }
 }
