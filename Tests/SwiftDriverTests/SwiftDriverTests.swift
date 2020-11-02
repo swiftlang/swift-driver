@@ -2083,7 +2083,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchos.a"))
     }
 
-    // FIXME: These will fail when run on macOS, because
+    // FIXME: This will fail when run on macOS, because
     // swift-autolink-extract is not present
     #if os(Linux)
     do {
@@ -2095,18 +2095,6 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
       XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
-      XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
-    }
-
-    do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "wasm32-unknown-wasi", "test.swift"])
-      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-
-      XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertEqual(plannedJobs[0].kind, .compile)
-
-      XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
       XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
     }
     #endif
