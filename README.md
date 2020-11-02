@@ -102,12 +102,12 @@ apple/swift-driver#208
 ```
 @swift-ci cross-repository testing facilities are described [here](https://github.com/apple/swift/blob/main/docs/ContinuousIntegration.md#cross-repository-testing).
 
-### Testing in XCode with custom toolchain
-After the toolchain is installed, xcode needs to be told to use it. This can mean two things, building the driver with the toolchain and telling the driver to use the toolchain when running.
+### Testing in Xcode with custom toolchain
+After the toolchain is installed, Xcode needs to be told to use it. This can mean two things, building the driver with the toolchain and telling the driver to use the toolchain when running.
 
-Building with the toolchain is easy, set the toolchain in xcode: Menu Bar > Xcode > Toolchains > select your toolchain
+Building with the toolchain is easy, set the toolchain in Xcode: Menu Bar > Xcode > Toolchains > select your toolchain
 
-Running the driver requires setting the TOOLCHAINS evironment variable. This tells xcrun which toolchain to use, on darwin xcrun is used to find tools. This variable is the name of the toolchain and not the path (ex: `Swift Development Snapshot`)
+Running the driver requires setting the TOOLCHAINS environment variable. This tells xcrun which toolchain to use, on darwin xcrun is used to find tools. This variable is the name of the toolchain and not the path (ex: `Swift Development Snapshot`). Important note: xcrun is lower priority than SWIFT_EXEC_*_EXEC family of environment variables, tools directory, and for anything in the same directory as the driver (This includes a driver installed in a toolchain). Even though TOOLCHAINS is not highest priority it's a convenient one change for running the xctest suite against a custom toolchain.
 
 #### Preparing a Linux docker for debug
 
