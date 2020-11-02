@@ -29,8 +29,6 @@ import SwiftOptions
   private(set) var skippedCompilationInputs: Set<TypedVirtualPath>
 
   /// Job groups that were skipped.
-  /// Redundant with `skippedCompilationInputs`
-  /// TODO: Incremental. clean up someday. Should only need one.
   /// Need groups rather than jobs because a compile that emits bitcode and its backend job must be
   /// treated as a unit.
   private var skippedCompileGroups = [TypedVirtualPath: [Job]]()
@@ -41,7 +39,6 @@ import SwiftOptions
   /// Jobs to run after the last compile
   /// Nonnil means planning has informed me
   internal private(set) var postCompileJobs: [Job]? = nil
-
 
   /// A check for reentrancy.
   private var amHandlingJobCompletion = false
