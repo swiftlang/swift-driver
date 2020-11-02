@@ -116,8 +116,6 @@ import SwiftOptions
     self.pendingInputs = Set(immediatelyCompiledInputs)
     self.moduleDependencyGraph = moduleDependencyGraph
     self.reportIncrementalDecision = reportIncrementalDecision
-
-    maybeFinishedWithCompilations()
   }
 
   /// Check various arguments to rule out incremental compilation if need be.
@@ -378,6 +376,7 @@ extension IncrementalCompilationState {
         schedule(group: group)
       }
     }
+    finishedWithCompilationsIfNoPendingInputs()
   }
 
   func isSkipped(_ job: Job) -> Bool {
@@ -454,7 +453,7 @@ extension IncrementalCompilationState {
     }
     schedule(compilationInputs: discoveredInputs)
     finishedJob.primaryInputs.forEach {pendingInputs.remove($0)}
-    maybeFinishedWithCompilations()
+    finishedWithCompilationsIfNoPendingInputs()
  }
 
   private func collectInputsDiscovered(
@@ -486,7 +485,7 @@ extension IncrementalCompilationState {
     schedule(preOrCompileJobs: jobs)
   }
 
-  func maybeFinishedWithCompilations() {
+  func finishedWithCompilationsIfNoPendingInputs() {
     guard pendingInputs.isEmpty
     else {
       return
