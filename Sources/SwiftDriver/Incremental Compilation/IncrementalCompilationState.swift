@@ -22,18 +22,18 @@ import SwiftOptions
 
   /// Inputs that must be compiled, and swiftDeps processed.
   /// When empty, the compile phase is done.
-  var pendingInputs = Set<TypedVirtualPath>()
+  private var pendingInputs = Set<TypedVirtualPath>()
 
   /// Input files that were skipped.
   /// May shrink if one of these moves into pendingInputs.
-  var skippedCompilationInputs: Set<TypedVirtualPath>
+  private(set) var skippedCompilationInputs: Set<TypedVirtualPath>
 
   /// Job groups that were skipped.
   /// Redundant with `skippedCompilationInputs`
   /// TODO: Incremental. clean up someday. Should only need one.
   /// Need groups rather than jobs because a compile that emits bitcode and its backend job must be
   /// treated as a unit.
-  var skippedCompileGroups = [TypedVirtualPath: [Job]]()
+  private var skippedCompileGroups = [TypedVirtualPath: [Job]]()
 
   /// Accumulates jobs to be run through compilation
   public var preOrCompileJobs = SynchronizedQueue<[Job]?>()
