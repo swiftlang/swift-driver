@@ -373,10 +373,10 @@ extension Driver {
   /// by re-scanning all Clang modules against all possible targets they will be built against.
   public mutating func generateExplicitModuleDependenciesJobs() throws -> [Job] {
     let dependencyGraph = try generateInterModuleDependencyGraph()
-    explicitModuleBuildHandler =
-        try ExplicitModuleBuildHandler(dependencyGraph: dependencyGraph,
+    explicitDependencyBuildPlanner =
+        try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
                                        toolchain: toolchain)
-    return try explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+    return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
   private mutating func generateInterModuleDependencyGraph() throws -> InterModuleDependencyGraph {
@@ -390,7 +390,7 @@ extension Driver {
                                 recordedInputModificationDates: recordedInputModificationDates)
 
     // Resolve placeholder dependencies in the dependency graph, if any.
-    if externalBuildArtifacts != nil, !externalBuildArtifacts!.0.isEmpty {
+    if externalBuildArtifacts != nil {
       try dependencyGraph.resolvePlaceholderDependencies(using: externalBuildArtifacts!)
     }
 
@@ -491,7 +491,6 @@ extension Driver {
 
   /// Plan a build by producing a set of jobs to complete the build.
   public mutating func planBuild() throws -> [Job] {
-
     if let job = try immediateForwardingJob() {
       return [job]
     }

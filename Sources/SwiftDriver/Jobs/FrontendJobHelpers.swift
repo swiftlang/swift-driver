@@ -424,19 +424,19 @@ extension Driver {
   /// to inputs and command line arguments of a compile job.
   func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
                                        commandLine: inout [Job.ArgTemplate]) throws {
-    guard var handler = explicitModuleBuildHandler else {
-      fatalError("No handler in Explicit Module Build mode.")
+    guard var dependencyPlanner = explicitDependencyBuildPlanner else {
+      fatalError("No dependency planner in Explicit Module Build mode.")
     }
-    try handler.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
+    try dependencyPlanner.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
   /// such as Swift modules built from .swiftmodule files and Clang PCMs.
   public func isExplicitMainModuleJob(job: Job) -> Bool {
-    guard let handler = explicitModuleBuildHandler else {
-      fatalError("No handler in Explicit Module Build mode.")
+    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+      fatalError("No dependency planner in Explicit Module Build mode.")
     }
-    return job.moduleName == handler.dependencyGraph.mainModuleName
+    return job.moduleName == dependencyPlanner.dependencyGraph.mainModuleName
   }
 }
 

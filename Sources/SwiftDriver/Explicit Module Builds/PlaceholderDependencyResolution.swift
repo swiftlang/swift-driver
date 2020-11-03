@@ -45,12 +45,13 @@ import Foundation
   throws {
     let externalTargetModulePathMap = externalBuildArtifacts.0
     let externalModuleInfoMap = externalBuildArtifacts.1
-    let placeholderModules = modules.keys.filter {
+    let placeholderFilter : (ModuleDependencyId) -> Bool = {
       if case .swiftPlaceholder(_) = $0 {
         return true
       }
       return false
     }
+    var placeholderModules = modules.keys.filter(placeholderFilter)
 
     // Resolve all target placeholder modules
     let placeholderTargetModules = placeholderModules.filter { externalTargetModulePathMap[$0] != nil }
@@ -58,10 +59,31 @@ import Foundation
       guard let placeholderModulePath = externalTargetModulePathMap[moduleId] else {
         throw Driver.Error.missingExternalDependency(moduleId.moduleName)
       }
-
       try resolveTargetPlaceholder(placeholderId: moduleId,
                                    placeholderPath: placeholderModulePath,
                                    externalModuleInfoMap: externalModuleInfoMap)
+    }
+
+    // Process remaining placeholders until there are none left
+    placeholderModules = modules.keys.filter(placeholderFilter)
+    while !placeholderModules.isEmpty {
+      let moduleId = placeholderModules.first!
+      let swiftModuleId = ModuleDependencyId.swift(moduleId.moduleName)
+
+      guard externalModuleInfoMap[swiftModuleId] != nil else {
+        throw Driver.Error.missingExternalDependency(moduleId.moduleName)
+      }
+      let moduleInfo = externalModuleInfoMap[swiftModuleId]!
+
+      // Insert the resolved module, replacing the placeholder.
+      try Self.mergeModule(swiftModuleId, moduleInfo, into: &modules)
+
+      // Traverse and add all of this external module's dependencies to the current graph.
+      try resolvePlaceholderModuleDependencies(moduleId: swiftModuleId,
+                                               externalModuleInfoMap: externalModuleInfoMap)
+
+      // Update the set of remaining placeholders to resolve
+      placeholderModules = modules.keys.filter(placeholderFilter)
     }
   }
 }

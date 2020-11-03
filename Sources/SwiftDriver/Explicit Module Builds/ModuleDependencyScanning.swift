@@ -32,8 +32,7 @@ extension Driver {
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
     if let externalBuildArtifacts = externalBuildArtifacts {
       let dependencyPlaceholderMapFile =
-        try serializeExternalDependencyArtifacts(externalTargetModulePathMap:
-                                                  externalBuildArtifacts.0)
+        try serializeExternalDependencyArtifacts(externalBuildArtifacts: externalBuildArtifacts)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
@@ -54,18 +53,31 @@ extension Driver {
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-  func serializeExternalDependencyArtifacts(externalTargetModulePathMap: ExternalTargetModulePathMap)
+  func serializeExternalDependencyArtifacts(externalBuildArtifacts: ExternalBuildArtifacts)
   throws -> VirtualPath {
+    let (externalTargetModulePathMap, externalModuleInfoMap)  = externalBuildArtifacts
     var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
+
+    // Explicit external targets
     for (moduleId, binaryModulePath) in externalTargetModulePathMap {
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
                                   modulePath: binaryModulePath.description))
     }
+
+    // All other already-scanned Swift modules
+    for (moduleId, moduleInfo) in externalModuleInfoMap
+    where !externalTargetModulePathMap.keys.contains(moduleId) {
+      guard case .swift(_) = moduleId else { continue }
+      placeholderArtifacts.append(
+          SwiftModuleArtifactInfo(name: moduleId.moduleName,
+                                  modulePath: moduleInfo.modulePath))
+    }
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(placeholderArtifacts)
-    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"), contents)
+    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"),
+                                       contents)
   }
 
   mutating func performBatchDependencyScan(moduleInfos: [BatchScanModuleInfo])
@@ -163,6 +175,7 @@ extension Driver {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(moduleInfos)
-    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"), contents)
+    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
+                                       contents)
   }
 }

@@ -110,8 +110,8 @@ internal extension InterModuleDependencyGraph {
       }
       if let originalModuleIndex = moduleInfo.directDependencies?.firstIndex(of: originalId) {
         moduleInfo.directDependencies![originalModuleIndex] = replacementId;
+        moduleInfoMap[moduleId] = moduleInfo
       }
-      moduleInfoMap[moduleId] = moduleInfo
     }
   }
 }

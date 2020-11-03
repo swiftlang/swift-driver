@@ -1,4 +1,4 @@
-//===--------------- ExplicitModuleBuildHandler.swift ---------------------===//
+//===--------------- ExplicitDependencyBuildPlanner.swift ---------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -13,16 +13,16 @@ import TSCBasic
 import TSCUtility
 import Foundation
 
-/// A map from a module identifier to a pair consisting of a path to its .swiftmodule file.
+/// A map from a module identifier to a path to its .swiftmodule file.
 public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath]
 /// A tuple all external artifacts a build system may pass in as input to the explicit build of the current module
 /// Consists of a map of externally-built targets, and a map of all previously discovered/scanned modules.
 public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleInfoMap)
 
-/// In Explicit Module Build mode, this handler is responsible for generating and providing
+/// In Explicit Module Build mode, this planner is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
-@_spi(Testing) public struct ExplicitModuleBuildHandler {
+@_spi(Testing) public struct ExplicitDependencyBuildPlanner {
   /// The module dependency graph.
   public var dependencyGraph: InterModuleDependencyGraph
 
@@ -201,7 +201,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
     // Encode the target triple pcm args into the output `.pcm` filename
     let targetEncodedModulePath =
-      try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(for: moduleInfo,
+      try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: moduleInfo,
                                                                       pcmArgs: pcmArgs)
     outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
     commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
@@ -384,7 +384,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
     let dependencyClangModuleDetails = try dependencyGraph.clangModuleDetails(of: dependencyId)
     let clangModulePath =
-      try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(for: dependencyInfo,
+      try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: dependencyInfo,
                                                                       pcmArgs: pcmArgs)
 
     // Collect the requried information about this module
@@ -430,7 +430,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 }
 
 /// Utility methods for encoding PCM's target triple into its name.
-extension ExplicitModuleBuildHandler {
+extension ExplicitDependencyBuildPlanner {
   /// Compute a full path to the resulting .pcm file for a given Clang module, with the
   /// target triple encoded in the name.
   public static func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
@@ -455,7 +455,7 @@ extension ExplicitModuleBuildHandler {
   }
 }
 
-/// Encapsulates some of the common queries of the ExplicitModuleBuildeHandler with error-checking
+/// Encapsulates some of the common queries of the ExplicitDependencyBuildPlanner with error-checking
 /// on the dependency graph's structure.
 internal extension InterModuleDependencyGraph {
   func moduleInfo(of moduleId: ModuleDependencyId) throws -> ModuleInfo {
@@ -496,7 +496,7 @@ internal extension InterModuleDependencyGraph {
 }
 
 // InterModuleDependencyGraph printing, useful for debugging
-private extension InterModuleDependencyGraph {
+internal extension InterModuleDependencyGraph {
   func prettyPrintString() throws -> String {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
@@ -505,10 +505,10 @@ private extension InterModuleDependencyGraph {
   }
 }
 
-// To keep the ExplicitModuleBuildHandler an implementation detail, provide an API
+// To keep the ExplicitDependencyBuildPlanner an implementation detail, provide an API
 // to access the dependency graph
 extension Driver {
   public var interModuleDependencyGraph: InterModuleDependencyGraph? {
-    return explicitModuleBuildHandler?.dependencyGraph
+    return explicitDependencyBuildPlanner?.dependencyGraph
   }
 }
