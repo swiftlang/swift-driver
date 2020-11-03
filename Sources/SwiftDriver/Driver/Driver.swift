@@ -830,6 +830,12 @@ extension Driver {
       buildRecordInfo == nil) {
       assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
       var job = jobs[0]
+      // Print the driver source version first before we print the compiler
+      // versions.
+      if job.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
+        stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< "\n"
+        stderrStream.flush()
+      }
       // Require in-place execution for all single job plans.
       job.requiresInPlaceExecution = true
       try executor.execute(job: job,
