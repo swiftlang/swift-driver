@@ -197,28 +197,6 @@ extension DarwinToolchain {
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
-
-    // FIXME: If we used Clang as a linker instead of going straight to ld,
-    // we wouldn't have to replicate a bunch of Clang's logic here.
-
-    // Always link the regular compiler_rt if it's present. Note that the
-    // regular libclang_rt.a uses a fat binary for device and simulator; this is
-    // not true for all compiler_rt build products.
-    //
-    // Note: Normally we'd just add this unconditionally, but it's valid to build
-    // Swift and use it as a linker without building compiler_rt.
-    let targetTriple = targetInfo.target.triple
-    let darwinPlatformSuffix =
-        targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
-    let compilerRTPath =
-      try clangLibraryPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions)
-      .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
-    if try fileSystem.exists(compilerRTPath) {
-      commandLine.append(.path(compilerRTPath))
-    }
-
     // Set up for linking.
     let linkerTool: Tool
     switch linkerOutputType {
@@ -228,6 +206,28 @@ extension DarwinToolchain {
       fallthrough
     case .executable:
       linkerTool = .dynamicLinker
+      
+      // FIXME: If we used Clang as a linker instead of going straight to ld,
+      // we wouldn't have to replicate a bunch of Clang's logic here.
+
+      // Always link the regular compiler_rt if it's present. Note that the
+      // regular libclang_rt.a uses a fat binary for device and simulator; this is
+      // not true for all compiler_rt build products.
+      //
+      // Note: Normally we'd just add this unconditionally, but it's valid to build
+      // Swift and use it as a linker without building compiler_rt.
+      let targetTriple = targetInfo.target.triple
+      let darwinPlatformSuffix =
+          targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
+      let compilerRTPath =
+        try clangLibraryPath(
+          for: targetTriple,
+          parsedOptions: &parsedOptions)
+        .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
+      if try fileSystem.exists(compilerRTPath) {
+        commandLine.append(.path(compilerRTPath))
+      }
+
       let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
       for opt in fSystemArgs {
         commandLine.appendFlag(.F)
