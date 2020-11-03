@@ -178,6 +178,10 @@ class LLBuildRule: Rule, Task {
 
   func inputsAvailable(_ engine: LLTaskBuildEngine) {
   }
+
+  // Not strictly needed, but permits overriding for debugging
+  func updateStatus(_ status: RuleStatus) {
+  }
 }
 
 // MARK:- Helpers

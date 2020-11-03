@@ -23,13 +23,23 @@ public protocol DriverExecutor {
                recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
   
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
+  /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
+  func execute(jobs: [Job],
+               incrementalCompilationState: IncrementalCompilationState?,
+               delegate: JobExecutionDelegate,
+               numParallelJobs: Int,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath: Date]
+  ) throws
+
+  /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws
-  
+
   /// Launch a process with the given command line and report the result.
   @discardableResult
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
@@ -68,6 +78,22 @@ extension DriverExecutor {
     catch let err as DecodingError {
       throw JobExecutionError.decodingError(err, outputData, result)
     }
+  }
+
+  public func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputModificationDates: [TypedVirtualPath: Date]
+  ) throws {
+    try execute(
+      jobs: jobs,
+      incrementalCompilationState: nil,
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates)
   }
 
   static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {

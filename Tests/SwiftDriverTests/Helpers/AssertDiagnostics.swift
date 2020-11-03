@@ -130,7 +130,7 @@ final class DiagnosticVerifier {
   fileprivate var permitted: Set<Diagnostic.Behavior> = [.note, .remark, .ignored]
 
   /// Callback for the diagnostic engine or driver to use.
-  fileprivate func emit(_ diag: Diagnostic) {
+  func emit(_ diag: Diagnostic) {
     guard let queue = queue else {
       fatalError("Diagnostic emitted after the test was complete! \(diag)")
     }

@@ -286,7 +286,230 @@ final class NonincrementalCompilationTests: XCTestCase {
 }
 
 
-final class IncrementalCompilationTests: XCTestCase {
+final class IncrementalCompilationUnitTests: XCTestCase {
+
+  var tempDir: AbsolutePath = AbsolutePath("/tmp")
+
+  let module = "theModule"
+  var OFM: AbsolutePath {
+    tempDir.appending(component: "OFM.json")
+  }
+  let baseNamesAndContents = [
+    "main": "let foo = 1",
+    "other": "let bar = foo"
+  ]
+  var inputPathsAndContents: [(AbsolutePath, String)] {
+    baseNamesAndContents.map {
+      (tempDir.appending(component: $0.key + ".swift"), $0.value)
+    }
+  }
+  var derivedDataPath: AbsolutePath {
+    tempDir.appending(component: "derivedData")
+  }
+  var masterSwiftDepsPath: AbsolutePath {
+    derivedDataPath.appending(component: "\(module)-master.swiftdeps")
+  }
+  var autolinkIncrementalExpectations: [String] {
+    [
+      "Incremental compilation: Queuing Extracting autolink information for module \(module)",
+    ]
+  }
+  var autolinkLifecycleExpectations: [String] {
+    [
+      "Starting Extracting autolink information for module \(module)",
+      "Finished Extracting autolink information for module \(module)",
+    ]
+  }
+  var args: [String] {
+    [
+      "swiftc",
+      "-module-name", module,
+      "-o", derivedDataPath.appending(component: module + ".o").pathString,
+      "-output-file-map", OFM.pathString,
+      "-driver-show-incremental",
+      "-driver-show-job-lifecycle",
+      "-enable-batch-mode",
+      //        "-v",
+      "-save-temps",
+      "-incremental",
+    ]
+    + inputPathsAndContents.map {$0.0.pathString} .sorted()
+  }
+  deinit {
+    try? localFileSystem.removeFileTree(tempDir)
+  }
+
+  override func setUp() {
+    self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
+    try! localFileSystem.createDirectory(derivedDataPath)
+    writeOutputFileMapData(module: module,
+                           inputPaths: inputPathsAndContents.map {$0.0},
+                           derivedData: derivedDataPath,
+                           to: OFM)
+    for (base, contents) in baseNamesAndContents {
+      let filePath = tempDir.appending(component: "\(base).swift")
+      try! localFileSystem.writeFileContents(filePath) {
+        $0 <<< contents
+      }
+    }
+  }
+
+  func testIncrementalDiagnostics() throws {
+    try testIncremental(checkDiagnostics: true)
+  }
+
+  func testIncremental() throws {
+    try testIncremental(checkDiagnostics: false)
+  }
+
+
+  func testIncremental(checkDiagnostics: Bool) throws {
+    tryInitial(checkDiagnostics)
+    #if true // sometimes want to skip for debugging
+    tryNoChange(checkDiagnostics)
+    tryTouchingOther(checkDiagnostics)
+    #endif
+    tryReplacingMain(checkDiagnostics)
+  }
+
+
+  func tryInitial(_ checkDiagnostics: Bool) {
+    try! doABuild(
+      "initial",
+      checkDiagnostics: checkDiagnostics,
+      expectingRemarks: [
+        // Leave off the part after the colon because it varies on Linux:
+        // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
+        // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
+        "Incremental compilation has been disabled, because incremental compilation could not read build record",
+        "Found 2 batchable jobs",
+        "Forming into 1 batch",
+        "Adding {compile: main.swift} to batch 0",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 2 constituents: main.swift, other.swift",
+        "Starting Compiling main.swift, other.swift",
+        "Finished Compiling main.swift, other.swift",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
+      ],
+      whenAutolinking: autolinkLifecycleExpectations)
+  }
+  func tryNoChange(_ checkDiagnostics: Bool) {
+    try! doABuild(
+      "no-change",
+      checkDiagnostics: checkDiagnostics,
+      expectingRemarks: [
+        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+      ],
+      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
+  }
+  func tryTouchingOther(_ checkDiagnostics: Bool) {
+    touch("other")
+    try! doABuild(
+      "non-propagating",
+      checkDiagnostics: checkDiagnostics,
+      expectingRemarks: [
+        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
+        "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
+        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+        "Incremental compilation: Queuing Compiling other.swift",
+        "Starting Compiling other.swift",
+        "Finished Compiling other.swift",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
+    ],
+    whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
+  }
+
+  func tryReplacingMain(_ checkDiagnostics: Bool) {
+    replace(contentsOf: "main", with: "let foo = \"hello\"")
+    try! doABuild(
+      "propagating into 2nd wave",
+      checkDiagnostics: checkDiagnostics,
+      expectingRemarks: [
+        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
+        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing Compiling main.swift",
+        "Starting Compiling main.swift",
+        "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
+        "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
+        "Finished Compiling main.swift",
+        "Starting Compiling other.swift",
+        "Finished Compiling other.swift",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
+      ],
+      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
+  }
+
+  func touch(_ name: String) {
+    print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
+    let (path, contents) = inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first!
+    try! localFileSystem.writeFileContents(path) { $0 <<< contents }
+  }
+
+  private func replace(contentsOf name: String, with replacement: String ) {
+    print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
+    let path = inputPathsAndContents.filter {$0.0.pathString.contains("/" + name + ".swift")}.first!.0
+    let previousContents = try! localFileSystem.readFileContents(path).cString
+    try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
+    let newContents = try! localFileSystem.readFileContents(path).cString
+    XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
+    XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
+  }
+  func doABuild(_ message: String,
+                checkDiagnostics: Bool,
+                expectingRemarks texts: [String],
+                whenAutolinking: [String]) throws {
+    try doABuild(
+      message,
+      checkDiagnostics: checkDiagnostics,
+      expecting: texts.map {.remark($0)},
+      expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
+  }
+
+  func doABuild(_ message: String,
+                checkDiagnostics: Bool,
+                expecting expectations: [Diagnostic.Message],
+                expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
+    print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
+
+    func doIt(_ driver: inout Driver) {
+      let jobs = try! driver.planBuild()
+      try? driver.run(jobs: jobs)
+    }
+
+    if checkDiagnostics {
+      try assertDriverDiagnostics(args: args) {driver, verifier in
+        verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
+        expectations.forEach {verifier.expect($0)}
+        if driver.isAutolinkExtractJobNeeded {
+          autolinkExpectations.forEach {verifier.expect($0)}
+        }
+        doIt(&driver)
+      }
+    }
+    else {
+      let diagnosticEngine = DiagnosticsEngine(handlers: [
+        {print($0, to: &stderrStream); stderrStream.flush()}
+      ])
+      var driver = try Driver(args: args, env: ProcessEnv.vars,
+                              diagnosticsEngine: diagnosticEngine,
+                              fileSystem: localFileSystem)
+      doIt(&driver)
+    }
+    print("", to: &stderrStream); stderrStream.flush()
+  }
+
   private func generateOutputFileMapDict(module: String, inputPaths: [AbsolutePath],
                                          derivedData: AbsolutePath
   ) -> [String: [String: String]] {
@@ -327,168 +550,5 @@ final class IncrementalCompilationTests: XCTestCase {
     let d: Data = generateOutputFileMapData(module: module, inputPaths: inputPaths,
                                             derivedData: derivedData)
     try! localFileSystem.writeFileContents(dst, bytes: ByteString(d))
-  }
-
-
-  func testIncremental() throws {
-    try withTemporaryDirectory { path in
-      let module = "theModule"
-      let OFM = path.appending(component: "OFM.json")
-      let baseNamesAndContents = [
-        "main": "let foo = 1",
-        "other": "let bar = foo"
-      ]
-      let inputPathsAndContents = baseNamesAndContents.map {
-        (path.appending(component: $0.key + ".swift"), $0.value)
-      }
-      let derivedDataPath = path.appending(component: "derivedData")
-      try! localFileSystem.createDirectory(derivedDataPath)
-      writeOutputFileMapData(module: module,
-                             inputPaths: inputPathsAndContents.map {$0.0},
-                             derivedData: derivedDataPath,
-                             to: OFM)
-      for (base, contents) in baseNamesAndContents {
-        let filePath = path.appending(component: "\(base).swift")
-        try localFileSystem.writeFileContents(filePath) {
-          $0 <<< contents
-        }
-      }
-      let args: [String] = [
-        "swiftc",
-        "-module-name", module,
-        "-o", derivedDataPath.appending(component: module + ".o").pathString,
-        "-output-file-map", OFM.pathString,
-        "-driver-show-incremental",
-        "-driver-show-job-lifecycle",
-        "-enable-batch-mode",
-        //        "-v",
-        "-save-temps",
-        "-incremental",
-      ]
-      + inputPathsAndContents.map {$0.0.pathString} .sorted()
-
-      let autolinkIncrementalExpectations = [
-        "Incremental compilation: Queuing Extracting autolink information for module theModule",
-      ]
-      let autolinkLifecycleExpectations = [
-        "Starting Extracting autolink information for module theModule",
-        "Finished Extracting autolink information for module theModule",
-      ]
-
-      func doABuild(_ message: String,
-                    expecting expectations: [Diagnostic.Message],
-                    expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
-        print("*** starting build \(message) ***")
-        try assertDriverDiagnostics(args: args) {driver, verifier in
-          verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
-          expectations.forEach {verifier.expect($0)}
-          if driver.isAutolinkExtractJobNeeded {
-            autolinkExpectations.forEach {verifier.expect($0)}
-          }
-          let jobs = try! driver.planBuild()
-          try? driver.run(jobs: jobs)
-        }
-        print("")
-      }
-      func doABuild(_ message: String,
-                    expectingRemarks texts: [String],
-                    whenAutolinking: [String]) throws {
-        try doABuild(
-          message,
-          expecting: texts.map {.remark($0)},
-          expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
-      }
-      func touch(_ name: String) {
-        print("*** touching \(name) ***")
-        let (path, contents) = inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first!
-        try! localFileSystem.writeFileContents(path) { $0 <<< contents }
-      }
-      func replace(contentsOf name: String, with replacement: String ) {
-        print("*** replacing \(name) ***")
-        let path = inputPathsAndContents.filter {$0.0.pathString.contains("/" + name + ".swift")}.first!.0
-        let previousContents = try! localFileSystem.readFileContents(path).cString
-        try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
-        let newContents = try! localFileSystem.readFileContents(path).cString
-        XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
-        XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
-      }
-      let masterSwiftDepsPath = derivedDataPath.appending(component: "theModule-master.swiftdeps")
-
-      try! doABuild(
-        "initial",
-        expectingRemarks: [
-        // Leave off the part after the colon because it varies on Linux:
-        // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
-        // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-        "Incremental compilation has been disabled, because incremental compilation could not read build record at \(masterSwiftDepsPath)",
-        "Found 2 batchable jobs",
-        "Forming into 1 batch",
-        "Adding {compile: main.swift} to batch 0",
-        "Adding {compile: other.swift} to batch 0",
-        "Forming batch job from 2 constituents: main.swift, other.swift",
-        "Starting Compiling main.swift, other.swift",
-        "Finished Compiling main.swift, other.swift",
-        "Starting Linking theModule",
-        "Finished Linking theModule",
-        ],
-        whenAutolinking: autolinkLifecycleExpectations)
-      #if true
-      try! doABuild("no-change", expectingRemarks: [
-        "May skip current input: {compile: main.o <= main.swift}",
-        "May skip current input: {compile: other.o <= other.swift}",
-        "Skipping input: {compile: main.o <= main.swift}",
-        "Skipping input: {compile: other.o <= other.swift}",
-        "Starting Linking theModule",
-        "Finished Linking theModule",
-      ],
-      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
-      touch("other")
-      try! doABuild("non-propagating", expectingRemarks: [
-        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
-        "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Queuing Compiling other.swift",
-        "Found 1 batchable job",
-        "Forming into 1 batch",
-        "Adding {compile: other.swift} to batch 0",
-        "Forming batch job from 1 constituents: other.swift",
-        "Starting Compiling other.swift",
-        "Finished Compiling other.swift",
-        "Starting Linking theModule",
-        "Finished Linking theModule",
-      ],
-      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
-      #endif
-      replace(contentsOf: "main", with: "let foo = \"hello\"")
-      try! doABuild("propagating into 2nd wave", expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
-        "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing Compiling main.swift",
-        "Found 1 batchable job",
-        "Forming into 1 batch",
-        "Adding {compile: main.swift} to batch 0",
-        "Forming batch job from 1 constituents: main.swift",
-        "Starting Compiling main.swift",
-        "Finished Compiling main.swift",
-        "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
-        "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
-        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing Compiling other.swift",
-        "Found 1 batchable job",
-        "Forming into 1 batch",
-        "Adding {compile: other.swift} to batch 0",
-        "Forming batch job from 1 constituents: other.swift",
-        "Starting Compiling other.swift",
-        "Finished Compiling other.swift",
-        "Starting Linking theModule",
-        "Finished Linking theModule",
-      ],
-      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
-    }
   }
 }
