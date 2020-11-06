@@ -252,10 +252,10 @@ public struct Driver {
   /// dependencies in parallel builds.
   var forceEmitModuleBeforeCompile: Bool = false
 
-  /// Handler for constructing module build jobs using Explicit Module Builds.
+  /// Planner for constructing module build jobs using Explicit Module Builds.
   /// Constructed during the planning phase only when all modules will be prebuilt and treated
   /// as explicit by the various compilation jobs.
-  @_spi(Testing) public var explicitModuleBuildHandler: ExplicitModuleBuildHandler? = nil
+  @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
 
   /// All external artifacts a build system (e.g. SwiftPM) may pass in as input to the explicit
   /// build of the current module. Consists of a map of externally-built targets, and a map of all previously

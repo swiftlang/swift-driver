@@ -265,10 +265,10 @@ enum ModuleDependenciesInputs {
               "swiftPlaceholder": "B"
             },
             {
-              "swift": "Swift"
+              "swiftPlaceholder": "Swift"
             },
             {
-              "swift": "SwiftOnoneSupport"
+              "swiftPlaceholder": "SwiftOnoneSupport"
             }
           ],
           "details": {
@@ -300,7 +300,7 @@ enum ModuleDependenciesInputs {
           }
         },
         {
-          "swift": "Swift"
+          "swiftPlaceholder": "Swift"
         },
         {
           "modulePath": "Swift.swiftmodule",
@@ -309,65 +309,21 @@ enum ModuleDependenciesInputs {
           "directDependencies": [
           ],
           "details": {
-            "swift": {
-              "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
-              "commandLine": [
-                "-frontend",
-                "-compile-module-from-interface",
-                "-target",
-                "x86_64-apple-macosx10.10",
-                "-swift-version",
-                "5",
-                "-module-name",
-                "Swift"
-              ],
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+            "swiftPlaceholder": {
             }
           }
         },
         {
-          "swift": "SwiftOnoneSupport"
+          "swiftPlaceholder": "SwiftOnoneSupport"
         },
         {
           "modulePath": "SwiftOnoneSupport.swiftmodule",
           "sourceFiles": [
           ],
           "directDependencies": [
-            {
-              "swift": "Swift"
-            }
           ],
           "details": {
-            "swift": {
-              "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
-              "contextHash": "3GKS4RKE3GDZA",
-              "isFramework": false,
-              "commandLine": [
-                "-frontend",
-                "-compile-module-from-interface",
-                "-target",
-                "x86_64-apple-macosx10.10",
-                "-swift-version",
-                "5",
-                "-module-name",
-                "SwiftOnoneSupport"
-              ],
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+            "swiftPlaceholder": {
             }
           }
         }

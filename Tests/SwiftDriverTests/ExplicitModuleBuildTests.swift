@@ -116,7 +116,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         XCTAssertEqual(dependencyArtifacts!.modulePath, prebuiltModuleDetails.compiledModulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
-          try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
+          try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(
           for: dependencyInfo, pcmArgs: pcmArgs)
         let clangDependencyModulePath =
           TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
@@ -147,7 +147,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
 private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmArgs: [String]
 ) throws -> RelativePath {
   return RelativePath(
-    try ExplicitModuleBuildHandler.targetEncodedClangModuleName(for: moduleName,
+    try ExplicitDependencyBuildPlanner.targetEncodedClangModuleName(for: moduleName,
                                                                 pcmArgs: pcmArgs) + ".pcm")
 }
 
@@ -163,10 +163,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
-      driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
+      driver.explicitDependencyBuildPlanner = try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
                                                                          toolchain: driver.toolchain)
       let modulePrebuildJobs =
-        try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+        try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
       for job in modulePrebuildJobs {
         XCTAssertEqual(job.outputs.count, 1)
@@ -208,7 +208,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
         [ModuleDependencyId.swiftPlaceholder("B"):AbsolutePath("/Somewhere/B.swiftmodule")]
       let externalModuleInfoMap: ModuleInfoMap = inputDependencyGraph.modules
 
-      // Construct a module dependency graph that will contain .swiftPlaceholder("B")
+      // Construct a module dependency graph that will contain .swiftPlaceholder("B"),
+      // .swiftPlaceholder("Swift"), .swiftPlaceholder("SwiftOnoneSupport")
       var moduleDependencyGraph =
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
@@ -228,10 +229,20 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
       try moduleDependencyGraph.resolvePlaceholderDependencies(
         using: (targetModulePathMap, externalModuleInfoMap))
-      driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
-                                                                         toolchain: driver.toolchain)
+
+      // Ensure the graph no longer contains any placeholders
+      XCTAssertFalse(moduleDependencyGraph.modules.keys.contains {
+        if case .swiftPlaceholder(_) = $0 {
+          return true
+        }
+        return false
+      })
+
+      driver.explicitDependencyBuildPlanner =
+        try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
+                                           toolchain: driver.toolchain)
       let modulePrebuildJobs =
-        try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+        try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
 
       // Verify that the dependency graph contains no placeholders.
       let placeholdersInTheGraph = driver.interModuleDependencyGraph!.modules.keys
@@ -291,7 +302,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
-      let dependencyGraph = driver.explicitModuleBuildHandler!.dependencyGraph
+      let dependencyGraph = driver.explicitDependencyBuildPlanner!.dependencyGraph
       guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
         XCTFail("Main module does not have Swift details field")
         return
