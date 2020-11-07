@@ -880,14 +880,11 @@ extension Driver {
     allJobs: [Job],
     forceResponseFiles: Bool
   ) throws {
-    var numParallelJobs: Int {
-      self.numParallelJobs ?? 1
-    }
     try executor.execute(
       jobs: allJobs,
       incrementalCompilationState: incrementalCompilationState,
       delegate: createToolExecutionDelegate(),
-      numParallelJobs: numParallelJobs,
+      numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)
   }
