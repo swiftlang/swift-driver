@@ -60,7 +60,9 @@ extension Driver {
     try addPrecompileModuleDependenciesJobs(addJob: addPreOrCompileJob)
     try addPrecompileBridgingHeaderJob(addJob: addPreOrCompileJob)
     try addEmitModuleJob(addJob: addPreOrCompileJob)
-    let linkerInputs = try addJobsFeedingLinker(addJobGroup: addPreOrCompileJobGroup)
+    let linkerInputs = try addJobsFeedingLinker(
+      addJobGroup: addPreOrCompileJobGroup,
+      addPostCompileJob: addPostCompileJob)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
                                addJob: addPostCompileJob)
@@ -101,7 +103,8 @@ extension Driver {
   }
 
   private mutating func addJobsFeedingLinker(
-    addJobGroup: ([Job]) -> Void
+    addJobGroup: ([Job]) -> Void,
+    addPostCompileJob: (Job) -> Void
   ) throws -> [TypedVirtualPath] {
 
     var linkerInputs = [TypedVirtualPath]()
@@ -143,17 +146,17 @@ extension Driver {
 
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
                               addLinkerInput: addLinkerInput,
-                              addJob: addJob)
+                              addJob: addPostCompileJob)
 
     if let mergeJob = try mergeModuleJob(
         moduleInputs: moduleInputs,
         moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
-      addJob(mergeJob)
-      try addVerifyJobs(mergeJob: mergeJob, addJob: addJob)
+      addPostCompileJob(mergeJob)
+      try addVerifyJobs(mergeJob: mergeJob, addJob: addPostCompileJob)
       try addWrapJobOrMergeOutputs(
         mergeJob: mergeJob,
         debugInfo: debugInfo,
-        addJob: addJob,
+        addJob: addPostCompileJob,
         addLinkerInput: addLinkerInput)
     }
     return linkerInputs
