@@ -545,6 +545,30 @@ final class IncrementalCompilationTests: XCTestCase {
     print("", to: &stderrStream); stderrStream.flush()
   }
 
+  /// Ensure that autolink output file goes with .o directory, to not prevent incremental omission of
+  /// autolink job.
+  /// Much of the code below is taking from testLinking(), but uses the output file map code here.
+  func testAutolinkOutputPath() {
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
+
+    var driver = try! Driver(
+      args: args
+        + ["-emit-library", "-target", "x86_64-unknown-linux"],
+      env: env)
+    let plannedJobs = try! driver.planBuild()
+    let autolinkExtractJob = plannedJobs
+      .filter { $0.kind == .autolinkExtract }
+      .first!
+    let autoOuts = autolinkExtractJob.outputs.filter {$0.type == .autolink}
+    XCTAssertEqual(autoOuts.count, 1)
+    let autoOut = autoOuts[0]
+    let expected = AbsolutePath(derivedDataPath, "\(module).autolink")
+    XCTAssertEqual(autoOut.file.absolutePath, expected)
+  }
+
   private func generateOutputFileMapDict(module: String, inputPaths: [AbsolutePath],
                                          derivedData: AbsolutePath
   ) -> [String: [String: String]] {
