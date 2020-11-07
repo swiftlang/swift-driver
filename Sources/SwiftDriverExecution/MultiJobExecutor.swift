@@ -142,6 +142,9 @@ public final class MultiJobExecutor {
           to: &jobs,
           producing: &producerMap
           )
+        incrementalCompilationState.tertiaryJobs .forEach {
+          print("*** TJ", $0.descriptionForLifecycle, to: &stderrStream); stderrStream.flush()
+        }
         tertiaryIndices = Self.addJobs(
           incrementalCompilationState.tertiaryJobs,
           to: &jobs,
@@ -206,6 +209,7 @@ public final class MultiJobExecutor {
         needInputFor(indices: newJobIndices)
       }
       else {
+        print("**** tertiaryIndices", tertiaryIndices, to: &stderrStream); stderrStream.flush()
         needInputFor(indices: tertiaryIndices)
       }
     }
