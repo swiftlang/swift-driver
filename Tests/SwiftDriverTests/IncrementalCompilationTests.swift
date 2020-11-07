@@ -286,7 +286,7 @@ final class NonincrementalCompilationTests: XCTestCase {
 }
 
 
-final class IncrementalCompilationUnitTests: XCTestCase {
+final class IncrementalCompilationTests: XCTestCase {
 
   var tempDir: AbsolutePath = AbsolutePath("/tmp")
 
