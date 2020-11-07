@@ -404,7 +404,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
         "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
       ],
-      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
+      whenAutolinking: [])
   }
   func tryTouchingOther(_ checkDiagnostics: Bool) {
     touch("other")
@@ -423,7 +423,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Starting Linking theModule",
         "Finished Linking theModule",
     ],
-    whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
+    whenAutolinking: autolinkLifecycleExpectations)
   }
 
   func tryReplacingMain(_ checkDiagnostics: Bool) {
@@ -448,7 +448,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Starting Linking theModule",
         "Finished Linking theModule",
       ],
-      whenAutolinking: autolinkIncrementalExpectations + autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectations)
   }
 
   func touch(_ name: String) {
