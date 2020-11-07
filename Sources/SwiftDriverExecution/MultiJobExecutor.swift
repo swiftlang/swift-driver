@@ -102,6 +102,16 @@ public final class MultiJobExecutor {
       diagnosticsEngine: DiagnosticsEngine,
       processType: ProcessProtocol.Type = Process.self
     ) {
+      (
+        jobs: self.jobs,
+        producerMap: self.producerMap,
+        primaryIndices: self.primaryIndices,
+        tertiaryIndices: self.tertiaryIndices
+      ) = Self.fillInJobsAndProducers(
+        nonincrementalJobs: nonincrementalJobs,
+        incrementalCompilationState: incrementalCompilationState
+      )
+
       self.incrementalCompilationState = incrementalCompilationState
       self.argsResolver = argsResolver
       self.env = env
@@ -113,35 +123,61 @@ public final class MultiJobExecutor {
       self.recordedInputModificationDates = recordedInputModificationDates
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
+    }
 
-      let primaryJobCount =
-        (incrementalCompilationState?.primaryJobsInOrder ?? nonincrementalJobs).count
-      self.primaryIndices = 0 ..< primaryJobCount
-      self.tertiaryIndices = primaryJobCount ..< nonincrementalJobs.count
-
+    private static func fillInJobsAndProducers(
+      nonincrementalJobs: [Job],
+      incrementalCompilationState: IncrementalCompilationState?
+    ) -> (jobs: [Job],
+          producerMap: [VirtualPath: Int],
+          primaryIndices: Range<Int>,
+          tertiaryIndices: Range<Int>)
+    {
+      var jobs = [Job]()
+      var producerMap = [VirtualPath: Int]()
+      let primaryIndices, tertiaryIndices: Range<Int>
       if let incrementalCompilationState = incrementalCompilationState {
-        addJobs(Array(incrementalCompilationState.primaryJobsInOrder))
-        addJobs(incrementalCompilationState.tertiaryJobs)
+        primaryIndices = Self.addJobs(
+          incrementalCompilationState.primaryJobsInOrder,
+          to: &jobs,
+          producing: &producerMap
+          )
+        tertiaryIndices = Self.addJobs(
+          incrementalCompilationState.tertiaryJobs,
+          to: &jobs,
+          producing: &producerMap)
       }
       else {
-        addJobs(nonincrementalJobs)
+        primaryIndices = Self.addJobs(
+          nonincrementalJobs,
+          to: &jobs,
+          producing: &producerMap)
+        tertiaryIndices = 0 ..< 0
       }
+      return ( jobs: jobs,
+               producerMap: producerMap,
+               primaryIndices: primaryIndices,
+               tertiaryIndices: tertiaryIndices )
     }
 
     /// Allow for dynamically adding jobs, since secondary jobs are added dynamically.
     /// Return the indices into `jobs` of the added jobs.
     @discardableResult
-    fileprivate func addJobs(_ js: [Job]) -> Range<Int> {
+    fileprivate static func addJobs(
+      _ js: [Job],
+      to jobs: inout [Job],
+      producing producerMap: inout [VirtualPath: Int]
+    ) -> Range<Int> {
       let initialCount = jobs.count
       for job in js {
-        addProducts(of: job, index: jobs.count)
+        addProducts(of: job, index: jobs.count, to: &producerMap)
         jobs.append(job)
       }
       return initialCount ..< jobs.count
     }
 
     ///  Update the producer map when adding a job.
-    private func addProducts(of job: Job, index: Int) {
+    private static func addProducts(of job: Job, index: Int, to producerMap: inout [VirtualPath: Int]) {
       for output in job.outputs {
         if let _ = producerMap.updateValue(index, forKey: output.file) {
           fatalError("multiple producers for output \(output): \(job) \(producerMap[output.file]!)")
@@ -166,7 +202,7 @@ public final class MultiJobExecutor {
       }
       if let newJobs = incrementalCompilationState?
           .getSecondaryJobsAfterFinishing(job: job, result: result) {
-        let newJobIndices = addJobs(newJobs)
+        let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
         needInputFor(indices: newJobIndices)
       }
       else {
