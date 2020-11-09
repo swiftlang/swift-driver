@@ -47,7 +47,7 @@ extension DarwinToolchain {
   func addLinkRuntimeLibraryRPath(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    targetTriple: Triple,
+    targetInfo: FrontendTargetInfo,
     darwinLibName: String
   ) throws {
     // Adding the rpaths might negatively interact when other rpaths are involved,
@@ -66,7 +66,7 @@ extension DarwinToolchain {
 
 
     let clangPath = try clangLibraryPath(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions)
     commandLine.appendFlag("-rpath")
     commandLine.appendPath(clangPath)
@@ -75,7 +75,7 @@ extension DarwinToolchain {
   func addLinkSanitizerLibArgsForDarwin(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    targetTriple: Triple,
+    targetInfo: FrontendTargetInfo,
     sanitizer: Sanitizer,
     isShared: Bool
   ) throws {
@@ -87,13 +87,13 @@ extension DarwinToolchain {
 
     let sanitizerName = try runtimeLibraryName(
       for: sanitizer,
-      targetTriple: targetTriple,
+      targetTriple: targetInfo.target.triple,
       isShared: isShared
     )
     try addLinkRuntimeLibrary(
       named: sanitizerName,
       to: &commandLine,
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions
     )
 
@@ -101,7 +101,7 @@ extension DarwinToolchain {
       try addLinkRuntimeLibraryRPath(
         to: &commandLine,
         parsedOptions: &parsedOptions,
-        targetTriple: targetTriple,
+        targetInfo: targetInfo,
         darwinLibName: sanitizerName
       )
     }
@@ -110,13 +110,13 @@ extension DarwinToolchain {
   private func addProfileGenerationArgs(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    targetTriple: Triple
+    targetInfo: FrontendTargetInfo
   ) throws {
     guard parsedOptions.hasArgument(.profileGenerate) else { return }
-    let clangPath = try clangLibraryPath(for: targetTriple,
+    let clangPath = try clangLibraryPath(for: targetInfo,
                                          parsedOptions: &parsedOptions)
 
-    for runtime in targetTriple.darwinPlatform!.profileLibraryNameSuffixes {
+    for runtime in targetInfo.target.triple.darwinPlatform!.profileLibraryNameSuffixes {
       let clangRTPath = clangPath
         .appending(component: "libclang_rt.profile_\(runtime).a")
       commandLine.appendPath(clangRTPath)
@@ -221,7 +221,7 @@ extension DarwinToolchain {
           targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
       let compilerRTPath =
         try clangLibraryPath(
-          for: targetTriple,
+          for: targetInfo,
           parsedOptions: &parsedOptions)
         .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
       if try fileSystem.exists(compilerRTPath) {
@@ -244,7 +244,7 @@ extension DarwinToolchain {
         try addLinkSanitizerLibArgsForDarwin(
           to: &commandLine,
           parsedOptions: &parsedOptions,
-          targetTriple: targetTriple,
+          targetInfo: targetInfo,
           sanitizer: sanitizer,
           isShared: sanitizer != .fuzzer
         )
@@ -282,7 +282,7 @@ extension DarwinToolchain {
       try addProfileGenerationArgs(
         to: &commandLine,
         parsedOptions: &parsedOptions,
-        targetTriple: targetTriple
+        targetInfo: targetInfo
       )
 
       commandLine.appendFlags(

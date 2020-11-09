@@ -439,10 +439,6 @@ public struct Driver {
       parsedOptions: &parsedOptions,
       showJobLifecycle: showJobLifecycle)
 
-    // Local variable to alias the target triple, because self.targetTriple
-    // is not available until the end of this initializer.
-    let targetTriple = self.frontendTargetInfo.target.triple
-
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
                                                                                compilerMode: compilerMode,
@@ -453,7 +449,7 @@ public struct Driver {
       &parsedOptions,
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
-      targetTriple: targetTriple)
+      targetInfo: frontendTargetInfo)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
@@ -1446,7 +1442,7 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     toolchain: Toolchain,
-    targetTriple: Triple
+    targetInfo: FrontendTargetInfo
   ) throws -> Set<Sanitizer> {
 
     var set = Set<Sanitizer>()
@@ -1459,6 +1455,8 @@ extension Driver {
     if args.isEmpty {
       return set
     }
+
+    let targetTriple = targetInfo.target.triple
     // Find the sanitizer kind.
     for arg in args {
       guard let sanitizer = Sanitizer(rawValue: arg) else {
@@ -1473,7 +1471,7 @@ extension Driver {
       //        enabled.
       var sanitizerSupported = try toolchain.runtimeLibraryExists(
         for: sanitizer,
-        targetTriple: targetTriple,
+        targetInfo: targetInfo,
         parsedOptions: &parsedOptions,
         isShared: sanitizer != .fuzzer
       )
@@ -1954,6 +1952,16 @@ extension Driver {
       resourceDirPath = nil
     }
 
+    var useStaticResourceDir = false
+    if parsedOptions.hasFlag(positive: .staticExecutable,
+                            negative: .noStaticExecutable,
+                            default: false) ||
+       parsedOptions.hasFlag(positive: .staticStdlib,
+                            negative: .noStaticStdlib,
+                            default: false) {
+      useStaticResourceDir = true
+    }
+
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
     // Find tools directory and pass it down to the toolchain
@@ -1997,6 +2005,7 @@ extension Driver {
           sdkPath: sdkPath, resourceDirPath: resourceDirPath,
           runtimeCompatibilityVersion:
             parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+          useStaticResourceDir: useStaticResourceDir,
           swiftCompilerPrefixArgs: swiftCompilerPrefixArgs
         ),
         capturingJSONOutputAs: FrontendTargetInfo.self,

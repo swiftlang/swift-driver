@@ -97,12 +97,12 @@ extension SwiftVersion: Codable {
     let librariesRequireRPath: Bool
   }
 
-  struct Paths: Codable {
+  @_spi(Testing) public struct Paths: Codable {
     /// The path to the SDK, if provided.
-    let sdkPath: TextualVirtualPath?
-    let runtimeLibraryPaths: [TextualVirtualPath]
-    let runtimeLibraryImportPaths: [TextualVirtualPath]
-    let runtimeResourcePath: TextualVirtualPath
+    public let sdkPath: TextualVirtualPath?
+    public let runtimeLibraryPaths: [TextualVirtualPath]
+    public let runtimeLibraryImportPaths: [TextualVirtualPath]
+    public let runtimeResourcePath: TextualVirtualPath
   }
 
   var compilerVersion: String
@@ -113,7 +113,7 @@ extension SwiftVersion: Codable {
 
 // Make members of `FrontendTargetInfo.Paths` accessible on `FrontendTargetInfo`.
 extension FrontendTargetInfo {
-  subscript<T>(dynamicMember dynamicMember: KeyPath<FrontendTargetInfo.Paths, T>) -> T {
+  @_spi(Testing) public subscript<T>(dynamicMember dynamicMember: KeyPath<FrontendTargetInfo.Paths, T>) -> T {
     self.paths[keyPath: dynamicMember]
   }
 }

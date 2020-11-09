@@ -3856,6 +3856,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+      XCTAssertEqual(driver.frontendTargetInfo.runtimeResourcePath.path.basename, "swift")
     }
 
     do {
@@ -3863,6 +3864,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+      XCTAssertEqual(driver.frontendTargetInfo.runtimeResourcePath.path.basename, "swift")
     }
 
     do {
@@ -3870,6 +3872,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertFalse(job.commandLine.contains(.flag("-use-static-resource-dir")))
+      XCTAssertEqual(driver.frontendTargetInfo.runtimeResourcePath.path.basename, "swift")
     }
 
     do {
@@ -3877,6 +3880,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
+      XCTAssertEqual(driver.frontendTargetInfo.runtimeResourcePath.path.basename, "swift_static")
     }
 
     do {
@@ -3884,6 +3888,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertTrue(job.commandLine.contains(.flag("-use-static-resource-dir")))
+      XCTAssertEqual(driver.frontendTargetInfo.runtimeResourcePath.path.basename, "swift_static")
     }
   }
 

@@ -45,15 +45,12 @@ extension Toolchain {
   }
 
   func clangLibraryPath(
-    for triple: Triple,
+    for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws -> VirtualPath {
-    return try computeResourceDirPath(for: triple,
-                                      parsedOptions: &parsedOptions,
-                                      isShared: true)
-      .parentDirectory // Remove platform name.
+    return targetInfo.runtimeResourcePath.path
       .appending(components: "clang", "lib",
-                 triple.platformName(conflatingDarwin: true)!)
+                 targetInfo.target.triple.platformName(conflatingDarwin: true)!)
   }
 
   func runtimeLibraryPaths(
@@ -88,11 +85,11 @@ extension Toolchain {
   func addLinkRuntimeLibrary(
     named name: String,
     to commandLine: inout [Job.ArgTemplate],
-    for triple: Triple,
+    for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws {
     let path = try clangLibraryPath(
-      for: triple,
+      for: targetInfo,
       parsedOptions: &parsedOptions)
       .appending(component: name)
     commandLine.appendPath(path)
@@ -100,17 +97,17 @@ extension Toolchain {
 
   func runtimeLibraryExists(
     for sanitizer: Sanitizer,
-    targetTriple: Triple,
+    targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions,
     isShared: Bool
   ) throws -> Bool {
     let runtimeName = try runtimeLibraryName(
       for: sanitizer,
-      targetTriple: targetTriple,
+      targetTriple: targetInfo.target.triple,
       isShared: isShared
     )
     let path = try clangLibraryPath(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions
     ).appending(component: runtimeName)
     return try fileSystem.exists(path)
@@ -131,11 +128,9 @@ extension DarwinToolchain {
 
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
-    let resourceDirPath = try computeResourceDirPath(for: targetTriple,
-                                                     parsedOptions: &parsedOptions,
-                                                     isShared: true)
     func addArgsForBackDeployLib(_ libName: String) throws {
-      let backDeployLibPath = resourceDirPath.appending(component: libName)
+      let backDeployLibPath = targetInfo.runtimeResourcePath.path
+        .appending(components: targetTriple.platformName() ?? "", libName)
       if try fileSystem.exists(backDeployLibPath) {
         commandLine.append(.flag("-force_load"))
         commandLine.appendPath(backDeployLibPath)

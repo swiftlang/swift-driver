@@ -149,15 +149,11 @@ extension GenericUnixToolchain {
         }
       }
 
-      let sharedResourceDirPath = try computeResourceDirPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions,
-        isShared: true
-      )
-
-      let swiftrtPath = sharedResourceDirPath
+      let swiftrtPath = targetInfo.runtimeResourcePath.path
         .appending(
-          components: String(majorArchitectureName(for: targetTriple)), "swiftrt.o"
+          components: targetTriple.platformName() ?? "",
+          String(majorArchitectureName(for: targetTriple)),
+          "swiftrt.o"
         )
       commandLine.appendPath(swiftrtPath)
 
@@ -199,11 +195,8 @@ extension GenericUnixToolchain {
       // Link the standard library. In two paths, we do this using a .lnk file
       // if we're going that route, we'll set `linkFilePath` to the path to that
       // file.
-      var linkFilePath: VirtualPath? = try computeResourceDirPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions,
-        isShared: false
-      )
+      var linkFilePath: VirtualPath? = targetInfo.runtimeResourcePath.path
+        .appending(component: targetTriple.platformName() ?? "")
 
       if staticExecutable {
         linkFilePath = linkFilePath?.appending(component: "static-executable-args.lnk")
@@ -241,8 +234,7 @@ extension GenericUnixToolchain {
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {
-        let libProfile = sharedResourceDirPath
-          .parentDirectory // remove platform name
+        let libProfile = targetInfo.runtimeResourcePath.path
           .appending(components: "clang", "lib", targetTriple.osName,
                                  "libclang_rt.profile-\(targetTriple.archName).a")
         commandLine.appendPath(libProfile)
