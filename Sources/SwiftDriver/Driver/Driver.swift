@@ -126,6 +126,9 @@ public struct Driver {
     frontendTargetInfo.targetVariant?.triple
   }
 
+  /// `true` if the driver should use the static resource directory.
+  let useStaticResourceDir: Bool
+
   /// The kind of driver.
   let driverKind: DriverKind
 
@@ -342,12 +345,21 @@ public struct Driver {
       try Self.applyWorkingDirectory(workingDirectory, to: &self.parsedOptions)
     }
 
+    let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
+                                                 negative: .noStaticExecutable,
+                                                 default: false)
+    let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
+                                             negative: .noStaticStdlib,
+                                             default: false)
+    self.useStaticResourceDir = staticExecutable || staticStdlib
+
     // Build the toolchain and determine target information.
     (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
         try Self.computeToolchain(
           &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
           compilerMode: self.compilerMode, env: env,
-          executor: self.executor, fileSystem: fileSystem)
+          executor: self.executor, fileSystem: fileSystem,
+          useStaticResourceDir: self.useStaticResourceDir)
 
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
@@ -1933,7 +1945,8 @@ extension Driver {
     compilerMode: CompilerMode,
     env: [String: String],
     executor: DriverExecutor,
-    fileSystem: FileSystem
+    fileSystem: FileSystem,
+    useStaticResourceDir: Bool
   ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
@@ -1950,16 +1963,6 @@ extension Driver {
       resourceDirPath = try VirtualPath(path: resourceDirArg.asSingle)
     } else {
       resourceDirPath = nil
-    }
-
-    var useStaticResourceDir = false
-    if parsedOptions.hasFlag(positive: .staticExecutable,
-                            negative: .noStaticExecutable,
-                            default: false) ||
-       parsedOptions.hasFlag(positive: .staticStdlib,
-                            negative: .noStaticStdlib,
-                            default: false) {
-      useStaticResourceDir = true
     }
 
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??

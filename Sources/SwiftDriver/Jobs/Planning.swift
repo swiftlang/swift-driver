@@ -438,15 +438,6 @@ extension Driver {
     if parsedOptions.hasArgument(.printTargetInfo) {
       let sdkPath = try parsedOptions.getLastArgument(.sdk).map { try VirtualPath(path: $0.asSingle) }
       let resourceDirPath = try parsedOptions.getLastArgument(.resourceDir).map { try VirtualPath(path: $0.asSingle) }
-      var useStaticResourceDir = false
-      if parsedOptions.hasFlag(positive: .staticExecutable,
-                              negative: .noStaticExecutable,
-                              default: false) ||
-         parsedOptions.hasFlag(positive: .staticStdlib,
-                              negative: .noStaticStdlib,
-                              default: false) {
-        useStaticResourceDir = true
-      }
 
       return try toolchain.printTargetInfoJob(target: targetTriple,
                                               targetVariant: targetVariantTriple,

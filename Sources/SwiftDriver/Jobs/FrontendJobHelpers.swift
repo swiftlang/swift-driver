@@ -193,12 +193,7 @@ extension Driver {
     commandLine.appendFlag(.resourceDir)
     commandLine.appendPath(frontendTargetInfo.runtimeResourcePath.path)
 
-    if parsedOptions.hasFlag(positive: .staticExecutable,
-                             negative: .noStaticExecutable,
-                             default: false) ||
-       parsedOptions.hasFlag(positive: .staticStdlib,
-                             negative: .noStaticStdlib,
-                             default: false) {
+    if self.useStaticResourceDir {
       commandLine.appendFlag("-use-static-resource-dir")
     }
 
