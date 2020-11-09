@@ -38,7 +38,7 @@ extension Driver {
 
     let extraEnvironment = try toolchain.platformSpecificInterpreterEnvironmentVariables(
       env: self.env, parsedOptions: &parsedOptions,
-      sdkPath: frontendTargetInfo.sdkPath?.path, targetTriple: self.targetTriple)
+      sdkPath: frontendTargetInfo.sdkPath?.path, targetInfo: self.frontendTargetInfo)
 
     return Job(
       moduleName: moduleOutputInfo.name,

@@ -35,11 +35,11 @@ extension DarwinToolchain {
     env: [String : String],
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath?,
-    targetTriple: Triple) throws -> [String: String] {
+    targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
       isShared: true
@@ -63,11 +63,11 @@ extension GenericUnixToolchain {
     env: [String : String],
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath?,
-    targetTriple: Triple) throws -> [String: String] {
+    targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
       isShared: true

@@ -132,7 +132,7 @@ extension GenericUnixToolchain {
       let hasRuntimeArgs = !(staticStdlib || staticExecutable)
 
       let runtimePaths = try runtimeLibraryPaths(
-        for: targetTriple,
+        for: targetInfo,
         parsedOptions: &parsedOptions,
         sdkPath: targetInfo.sdkPath?.path,
         isShared: hasRuntimeArgs

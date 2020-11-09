@@ -15,30 +15,6 @@ import SwiftOptions
 extension Toolchain {
   // MARK: - Path computation
 
-  func computeResourceDirPath(
-    for triple: Triple,
-    parsedOptions: inout ParsedOptions,
-    isShared: Bool
-  ) throws -> VirtualPath {
-    // FIXME: This almost certainly won't be an absolute path in practice...
-    let resourceDirBase: VirtualPath
-    if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-      resourceDirBase = try VirtualPath(path: resourceDir.asSingle)
-    } else if !triple.isDarwin && triple.os != .wasi,
-      let sdk = parsedOptions.getLastArgument(.sdk),
-      let sdkPath = try? VirtualPath(path: sdk.asSingle) {
-      resourceDirBase = sdkPath
-        .appending(components: "usr", "lib",
-                   isShared ? "swift" : "swift_static")
-    } else {
-      resourceDirBase = .absolute(try getToolPath(.swiftCompiler)
-                                    .parentDirectory // remove /swift
-                                    .parentDirectory // remove /bin
-                                    .appending(components: "lib", isShared ? "swift" : "swift_static"))
-    }
-    return resourceDirBase.appending(component: triple.platformName() ?? "")
-  }
-
   func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: VirtualPath) -> VirtualPath? {
     guard triple.isMacCatalyst else { return nil }
     return primaryPath.parentDirectory.appending(component: "macosx")
@@ -54,15 +30,13 @@ extension Toolchain {
   }
 
   func runtimeLibraryPaths(
-    for triple: Triple,
+    for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath?,
     isShared: Bool
   ) throws -> [VirtualPath] {
-    let resourceDirPath = try computeResourceDirPath(
-      for: triple,
-      parsedOptions: &parsedOptions,
-      isShared: isShared)
+    let triple = targetInfo.target.triple
+    let resourceDirPath = targetInfo.runtimeResourcePath.path.appending(component: triple.platformName() ?? "")
     var result = [resourceDirPath]
 
     let secondaryResourceDir = computeSecondaryResourceDirPath(for: triple, primaryPath: resourceDirPath)
@@ -156,7 +130,7 @@ extension DarwinToolchain {
     // Add the runtime library link path, which is platform-specific and found
     // relative to the compiler.
     let runtimePaths = try runtimeLibraryPaths(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions,
       sdkPath: targetInfo.sdkPath?.path,
       isShared: true

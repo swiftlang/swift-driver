@@ -83,7 +83,7 @@ public enum Tool: Hashable {
     env: [String: String],
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath?,
-    targetTriple: Triple) throws -> [String: String]
+    targetInfo: FrontendTargetInfo) throws -> [String: String]
 
   func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
