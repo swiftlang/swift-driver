@@ -32,7 +32,8 @@ public class IncrementalCompilationState {
   private var pendingInputs = Set<TypedVirtualPath>()
 
   /// Input files that were skipped.
-  /// May shrink if one of these moves into pendingInputs.
+  /// May shrink if one of these moves into pendingInputs. In that case, it will be an input to a
+  /// "secondary" job.
   private(set) var skippedCompilationInputs: Set<TypedVirtualPath>
 
   /// Job groups that were skipped.
@@ -40,7 +41,7 @@ public class IncrementalCompilationState {
   /// treated as a unit.
   private var skippedCompileGroups = [TypedVirtualPath: [Job]]()
 
-  /// Jobs to run after the last compile
+  /// Jobs to run *after* the last compile, for instance, link-editing.
   public private(set) var tertiaryJobs = [Job]()
 
   /// A check for reentrancy.
