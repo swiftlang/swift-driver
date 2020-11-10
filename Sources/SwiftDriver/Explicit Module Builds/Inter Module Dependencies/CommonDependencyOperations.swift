@@ -20,7 +20,22 @@
   }
 }
 
-internal extension InterModuleDependencyGraph {
+// This is a backwards-compatibility shim 
+public extension InterModuleDependencyGraph {
+  // This is a shim for backwards-compatibility with existing API used by SwiftPM.
+  // TODO: After SwiftPM switches to using the oracle, this should be deleted.
+  static func mergeModules(
+    from dependencyGraph: InterModuleDependencyGraph,
+    into discoveredModules: inout ModuleInfoMap
+  ) throws {
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      try mergeModule(moduleId, moduleInfo, into: &discoveredModules)
+    }
+  }
+}
+
+
+@_spi(Testing) public extension InterModuleDependencyGraph {
   /// Merge a module with a given ID and Info into a ModuleInfoMap
   static func mergeModule(_ moduleId: ModuleDependencyId,
                           _ moduleInfo: ModuleInfo,

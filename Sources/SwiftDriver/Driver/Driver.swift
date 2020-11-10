@@ -257,11 +257,11 @@ public struct Driver {
   var forceEmitModuleBeforeCompile: Bool = false
 
   // FIXME: We should soon be able to remove this from being in the Driver's state.
-  // Its only remaining use outside of actual dependency-build planning is in
-  // command-line option generation for the main module compile.
+  // Its only remaining use outside of actual dependency build planning is in
+  // command-line input option generation for the explicit main module compile job.
   /// Planner for constructing module build jobs using Explicit Module Builds.
-  /// Constructed during the planning phase only when all modules will be prebuilt and treated
-  /// as explicit by the various compilation jobs.
+  /// Constructed during the planning phase only when all module dependencies will be prebuilt and treated
+  /// as explicit inputs by the various compilation jobs.
   @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
 
   /// An oracle for querying inter-module dependencies
