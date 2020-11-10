@@ -256,11 +256,21 @@ public struct Driver {
   /// dependencies in parallel builds.
   var forceEmitModuleBeforeCompile: Bool = false
 
+  // FIXME: We should soon be able to remove this from being in the Driver's state.
+  // Its only remaining use outside of actual dependency-build planning is in
+  // command-line option generation for the main module compile.
   /// Planner for constructing module build jobs using Explicit Module Builds.
   /// Constructed during the planning phase only when all modules will be prebuilt and treated
   /// as explicit by the various compilation jobs.
   @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
 
+  /// An oracle for querying inter-module dependencies
+  /// Can either be an argument to the driver in many-module contexts where dependency information
+  /// is shared across many targets; otherwise, a new instance is created by the driver itself.
+  @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
+
+  // TODO: Once the clients have transitioned to using the InterModuleDependencyOracle API,
+  // this must convey information about the externally-prebuilt targets only
   /// All external artifacts a build system (e.g. SwiftPM) may pass in as input to the explicit
   /// build of the current module. Consists of a map of externally-built targets, and a map of all previously
   /// discovered/scanned modules and their infos.
@@ -311,7 +321,8 @@ public struct Driver {
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
-    externalBuildArtifacts: ExternalBuildArtifacts? = nil
+    externalBuildArtifacts: ExternalBuildArtifacts? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
@@ -370,9 +381,18 @@ public struct Driver {
         guard let modTime = try? fileSystem
           .getFileInfo($0.file).modTime else { return nil }
         return ($0, modTime)
-      })
+    })
 
-    do {
+    // Create an instance of an inter-module dependency oracle, if the driver's
+    // client did not provide one. The clients are expected to provide an oracle
+    // when they wish to share module dependency information across targets.
+    if let dependencyOracle = interModuleDependencyOracle {
+      self.interModuleDependencyOracle = dependencyOracle
+    } else {
+      self.interModuleDependencyOracle = InterModuleDependencyOracle()
+    }
+    
+    do {    
       let outputFileMap: OutputFileMap?
       // Initialize an empty output file map, which will be populated when we start creating jobs.
       if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
@@ -382,14 +402,12 @@ public struct Driver {
         } catch {
           throw Error.unableToLoadOutputFileMap(outputFileMapArg)
         }
-      } else {
-        outputFileMap = nil
-      }
 
-      if let workingDirectory = self.workingDirectory {
-        self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
-      } else {
-        self.outputFileMap = outputFileMap
+        if let workingDirectory = self.workingDirectory {
+          self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
+        } else {
+          self.outputFileMap = outputFileMap
+        }
       }
     }
 

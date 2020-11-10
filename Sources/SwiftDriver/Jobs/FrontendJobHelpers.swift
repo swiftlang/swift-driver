@@ -428,10 +428,7 @@ extension Driver {
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
   /// such as Swift modules built from .swiftmodule files and Clang PCMs.
   public func isExplicitMainModuleJob(job: Job) -> Bool {
-    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
-      fatalError("No dependency planner in Explicit Module Build mode.")
-    }
-    return job.moduleName == dependencyPlanner.dependencyGraph.mainModuleName
+    return job.moduleName == moduleOutputInfo.name
   }
 }
 

@@ -65,6 +65,9 @@ internal extension Driver {
   }
 }
 
+/// Resolution of versioned clang dependencies.
+/// FIXME: This code currently operates on instances of InterModuleDependencyGraph,
+/// It should be transitioned to operate on an instance of an InterModuleDependencyOracle.
 private extension InterModuleDependencyGraph {
   /// For each module scanned at multiple target versions, combine their dependencies across version-specific graphs.
   mutating func resolveVersionedClangModules(using versionedGraphMap: ModuleVersionedGraphMap)
@@ -108,24 +111,35 @@ private extension InterModuleDependencyGraph {
                pathPCMArtSet: Set<[String]>,
                pcmArgSetMap: inout [ModuleDependencyId : Set<[String]>])
     throws {
+      guard let moduleInfo = modules[moduleId] else {
+        throw Driver.Error.missingModuleDependency(moduleId.moduleName)
+      }
       switch moduleId {
         case .swift:
+          guard case .swift(let swiftModuleDetails) = moduleInfo.details else {
+            throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                         "no Swift `details` object")
+          }
           // Add extraPCMArgs of the visited node to the current path set
           // and proceed to visit all direct dependencies
-          let modulePCMArgs = try swiftModulePCMArgs(of: moduleId)
+          let modulePCMArgs = swiftModuleDetails.extraPcmArgs
           var newPathPCMArgSet = pathPCMArtSet
           newPathPCMArgSet.insert(modulePCMArgs)
-          for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+          for dependencyId in moduleInfo.directDependencies! {
             try visit(dependencyId,
                       pathPCMArtSet: newPathPCMArgSet,
                       pcmArgSetMap: &pcmArgSetMap)
           }
         case .clang:
+          guard case .clang(let clangModuleDetails) = moduleInfo.details else {
+            throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                         "no Clang `details` object")
+          }
           // The details of this module contain information on which sets of PCMArgs are already
           // captured in the described dependencies of this module. Only re-scan at PCMArgs not
           // already captured.
-          let moduleDetails = try clangModuleDetails(of: moduleId)
-          let alreadyCapturedPCMArgs = moduleDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+          let alreadyCapturedPCMArgs =
+            clangModuleDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
           let newPCMArgSet = pathPCMArtSet.filter { !alreadyCapturedPCMArgs.contains($0) }
           // Add current path's PCMArgs to the SetMap and stop traversal
           if pcmArgSetMap[moduleId] != nil {
@@ -138,7 +152,7 @@ private extension InterModuleDependencyGraph {
           // We can rely on the fact that this pre-built module already has its
           // versioned-PCM dependencies satisfied, so we do not need to add additional
           // arguments. Proceed traversal to its dependencies.
-          for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+          for dependencyId in moduleInfo.directDependencies! {
             try visit(dependencyId,
                       pathPCMArtSet: pathPCMArtSet,
                       pcmArgSetMap: &pcmArgSetMap)
@@ -159,57 +173,19 @@ private extension InterModuleDependencyGraph {
                                                         [ModuleDependencyId : Set<[String]>]
   ) throws {
     for (moduleId, newPCMArgs) in pcmArgSetMap {
-      var moduleDetails = try clangModuleDetails(of: moduleId)
-      if moduleDetails.dependenciesCapturedPCMArgs == nil {
-        moduleDetails.dependenciesCapturedPCMArgs = Set<[String]>()
+      guard let moduleInfo = modules[moduleId] else {
+        throw Driver.Error.missingModuleDependency(moduleId.moduleName)
       }
-      newPCMArgs.forEach { moduleDetails.dependenciesCapturedPCMArgs!.insert($0) }
-      modules[moduleId]!.details = .clang(moduleDetails)
+      guard case .clang(var clangModuleDetails) = moduleInfo.details else {
+        throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                     "no Clang `details` object")
+      }
+      if clangModuleDetails.dependenciesCapturedPCMArgs == nil {
+        clangModuleDetails.dependenciesCapturedPCMArgs = Set<[String]>()
+      }
+      newPCMArgs.forEach { clangModuleDetails.dependenciesCapturedPCMArgs!.insert($0) }
+      modules[moduleId]!.details = .clang(clangModuleDetails)
     }
   }
 }
 
-public extension InterModuleDependencyGraph {
-  /// Given two moduleInfos of clang modules, merge them by combining their directDependencies and
-  /// dependenciesCapturedPCMArgs and sourceFiles fields. These fields may differ across the same module
-  /// scanned at different PCMArgs (e.g. -target option).
-  static func mergeClangModuleInfoDependencies(_ firstInfo: ModuleInfo, _ secondInfo:ModuleInfo
-  ) -> ModuleInfo {
-    guard case .clang(let firstDetails) = firstInfo.details,
-          case .clang(let secondDetails) = secondInfo.details
-    else {
-      fatalError("mergeClangModules expected two valid ClangModuleDetails objects.")
-    }
-
-    // As far as their dependencies go, these module infos are identical
-    if firstInfo.directDependencies == secondInfo.directDependencies,
-       firstDetails.dependenciesCapturedPCMArgs == secondDetails.dependenciesCapturedPCMArgs,
-       firstInfo.sourceFiles == secondInfo.sourceFiles {
-      return firstInfo
-    }
-
-    // Create a new moduleInfo that represents this module with combined dependency information
-    let firstModuleSources = firstInfo.sourceFiles ?? []
-    let secondModuleSources = secondInfo.sourceFiles ?? []
-    let combinedSourceFiles = Array(Set(firstModuleSources + secondModuleSources))
-
-    let firstModuleDependencies = firstInfo.directDependencies ?? []
-    let secondModuleDependencies = secondInfo.directDependencies ?? []
-    let combinedDependencies = Array(Set(firstModuleDependencies + secondModuleDependencies))
-
-    let firstModuleCapturedPCMArgs = firstDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
-    let secondModuleCapturedPCMArgs = secondDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
-    let combinedCapturedPCMArgs = firstModuleCapturedPCMArgs.union(secondModuleCapturedPCMArgs)
-
-    let combinedModuleDetails =
-      ClangModuleDetails(moduleMapPath: firstDetails.moduleMapPath,
-                         dependenciesCapturedPCMArgs: combinedCapturedPCMArgs,
-                         contextHash: firstDetails.contextHash,
-                         commandLine: firstDetails.commandLine)
-
-    return ModuleInfo(modulePath: firstInfo.modulePath,
-                      sourceFiles: combinedSourceFiles,
-                      directDependencies: combinedDependencies,
-                      details: .clang(combinedModuleDetails))
-  }
-}

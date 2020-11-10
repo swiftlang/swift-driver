@@ -379,14 +379,19 @@ extension Driver {
   /// Preprocess the graph by resolving placeholder dependencies, if any are present and
   /// by re-scanning all Clang modules against all possible targets they will be built against.
   public mutating func generateExplicitModuleDependenciesJobs() throws -> [Job] {
-    let dependencyGraph = try generateInterModuleDependencyGraph()
+    // Run the dependency scanner and update the dependency oracle with the results
+    try gatherModuleDependencies(into: interModuleDependencyOracle)
+
+    // Plan build jobs for all direct and transitive module dependencies of the current target
     explicitDependencyBuildPlanner =
-        try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
-                                       toolchain: toolchain)
+      try ExplicitDependencyBuildPlanner(mainModuleId: .swift(moduleOutputInfo.name),
+                                         dependencyOracle: interModuleDependencyOracle,
+                                         toolchain: toolchain)
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
-  private mutating func generateInterModuleDependencyGraph() throws -> InterModuleDependencyGraph {
+  private mutating func gatherModuleDependencies(into dependencyOracle: InterModuleDependencyOracle)
+  throws {
     let dependencyScannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
 
@@ -407,7 +412,8 @@ extension Driver {
     // Set dependency modules' paths to be saved in the module cache.
     try updateDependencyModulesWithModuleCachePath(dependencyGraph: &dependencyGraph)
 
-    return dependencyGraph
+    // Update the dependency oracle, adding this new dependency graph to its store
+    try dependencyOracle.mergeModules(from: dependencyGraph)
   }
 
   /// Update the given inter-module dependency graph to set module paths to be within the module cache,

@@ -9,12 +9,13 @@
 add_library(SwiftDriver
   "Explicit Module Builds/ClangModuleBuildJobCache.swift"
   "Explicit Module Builds/ClangVersionedDependencyResolution.swift"
-  "Explicit Module Builds/CommonDependencyGraphOperations.swift"
   "Explicit Module Builds/ExplicitDependencyBuildPlanner.swift"
-  "Explicit Module Builds/InterModuleDependencyGraph.swift"
   "Explicit Module Builds/ModuleDependencyScanning.swift"
   "Explicit Module Builds/PlaceholderDependencyResolution.swift"
   "Explicit Module Builds/SerializableModuleArtifacts.swift"
+  "Explicit Module Builds/Inter Module Dependencies/CommonDependencyOperations.swift"
+  "Explicit Module Builds/Inter Module Dependencies/InterModuleDependencyGraph.swift"
+  "Explicit Module Builds/Inter Module Dependencies/InterModuleDependencyOracle.swift"
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
