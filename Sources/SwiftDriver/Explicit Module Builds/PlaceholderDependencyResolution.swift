@@ -69,11 +69,9 @@ import Foundation
     while !placeholderModules.isEmpty {
       let moduleId = placeholderModules.first!
       let swiftModuleId = ModuleDependencyId.swift(moduleId.moduleName)
-
-      guard dependencyOracle.getModuleInfo(of: swiftModuleId) != nil else {
+      guard let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId) else {
         throw Driver.Error.missingExternalDependency(moduleId.moduleName)
       }
-      let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId)!
 
       // Insert the resolved module, replacing the placeholder.
       try Self.mergeModule(swiftModuleId, moduleInfo, into: &modules)
@@ -111,17 +109,18 @@ fileprivate extension InterModuleDependencyGraph {
     // in the multi-module build planning context.
     let swiftModuleId = ModuleDependencyId.swift(placeholderId.moduleName)
     let swiftPrebuiltModuleId = ModuleDependencyId.swiftPrebuiltExternal(placeholderId.moduleName)
-
     let externalModuleId: ModuleDependencyId
-    if dependencyOracle.getModuleInfo(of: swiftModuleId) != nil {
+    let externalModuleInfo: ModuleInfo
+    if let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId) {
       externalModuleId = swiftModuleId
-    } else if dependencyOracle.getModuleInfo(of: swiftPrebuiltModuleId) != nil {
+      externalModuleInfo = moduleInfo
+    } else if let prebuiltModuleInfo = dependencyOracle.getModuleInfo(of: swiftPrebuiltModuleId) {
       externalModuleId = swiftPrebuiltModuleId
+      externalModuleInfo = prebuiltModuleInfo
     } else {
       throw Driver.Error.missingExternalDependency(placeholderId.moduleName)
     }
 
-    let externalModuleInfo = dependencyOracle.getModuleInfo(of: externalModuleId)!
     let newExternalModuleDetails =
       SwiftPrebuiltExternalModuleDetails(compiledModulePath: placeholderPath.description)
     let newInfo = ModuleInfo(modulePath: placeholderPath.description,
