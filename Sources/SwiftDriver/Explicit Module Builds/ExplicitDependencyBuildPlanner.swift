@@ -449,9 +449,18 @@ extension ExplicitDependencyBuildPlanner {
   /// is to be constructed with.
   public static func targetEncodedClangModuleName(for moduleName: String,
                                                   pcmArgs: [String]) throws -> String {
-    var hasher = Hasher()
-    pcmArgs.forEach { hasher.combine($0) }
-    return moduleName + String(hasher.finalize())
+    let hashInput = pcmArgs.sorted().joined()
+    let hashedArguments: String
+    #if os(macOS)
+    if #available(macOS 10.15, iOS 13, *) {
+      hashedArguments = CryptoKitSHA256().hash(hashInput).hexadecimalRepresentation
+    } else {
+      hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
+    }
+    #else
+    hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
+    #endif
+    return moduleName + hashedArguments
   }
 }
 
