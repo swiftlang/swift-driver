@@ -18,6 +18,14 @@
       try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
     }
   }
+
+  // This is a backwards-compatibility shim to handle existing ModuleInfoMap-based API
+  // used by SwiftPM
+  func mergeModules(from moduleInfoMap: ModuleInfoMap) throws {
+    for (moduleId, moduleInfo) in moduleInfoMap {
+      try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+    }
+  }
 }
 
 public extension InterModuleDependencyGraph {

@@ -390,6 +390,14 @@ public struct Driver {
       self.interModuleDependencyOracle = dependencyOracle
     } else {
       self.interModuleDependencyOracle = InterModuleDependencyOracle()
+
+      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
+      // used by SwiftPM
+      if let externalArtifacts = externalBuildArtifacts {
+        if !externalArtifacts.1.isEmpty {
+          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
+        }
+      }
     }
     
     do {    

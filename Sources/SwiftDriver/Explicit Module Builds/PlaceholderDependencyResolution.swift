@@ -45,7 +45,6 @@ import Foundation
                                                using dependencyOracle: InterModuleDependencyOracle)
   throws {
     let externalTargetModulePathMap = externalBuildArtifacts.0
-    //let externalModuleInfoMap = externalBuildArtifacts.1
     let placeholderFilter : (ModuleDependencyId) -> Bool = {
       if case .swiftPlaceholder(_) = $0 {
         return true
