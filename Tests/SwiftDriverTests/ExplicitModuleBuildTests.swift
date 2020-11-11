@@ -204,10 +204,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
-
       let targetModulePathMap: ExternalTargetModulePathMap =
         [ModuleDependencyId.swiftPlaceholder("B"):AbsolutePath("/Somewhere/B.swiftmodule")]
-      let externalModuleInfoMap: ModuleInfoMap = inputDependencyGraph.modules
+      let dependencyOracle = InterModuleDependencyOracle()
+      try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
       // Construct a module dependency graph that will contain .swiftPlaceholder("B"),
       // .swiftPlaceholder("Swift"), .swiftPlaceholder("SwiftOnoneSupport")
@@ -224,12 +224,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                              fileSystem: localFileSystem,
                                              env: ProcessEnv.vars)
       var driver = try Driver(args: commandLine, executor: executor,
-                              externalBuildArtifacts: (targetModulePathMap, externalModuleInfoMap))
+                              externalBuildArtifacts: (targetModulePathMap, [:]),
+                              interModuleDependencyOracle: dependencyOracle)
 
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
-      try moduleDependencyGraph.resolvePlaceholderDependencies(
-        using: (targetModulePathMap, externalModuleInfoMap))
+      try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
+                                                               using: dependencyOracle)
 
       // Ensure the graph no longer contains any placeholders
       XCTAssertFalse(moduleDependencyGraph.modules.keys.contains {
@@ -239,7 +240,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         return false
       })
 
-      let dependencyOracle = InterModuleDependencyOracle()
+      // Merge the resolved version of the graph into the oracle
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(mainModuleId: .swift("A"),

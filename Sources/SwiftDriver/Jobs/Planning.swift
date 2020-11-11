@@ -403,7 +403,8 @@ extension Driver {
 
     // Resolve placeholder dependencies in the dependency graph, if any.
     if externalBuildArtifacts != nil {
-      try dependencyGraph.resolvePlaceholderDependencies(using: externalBuildArtifacts!)
+      try dependencyGraph.resolvePlaceholderDependencies(for: externalBuildArtifacts!,
+                                                         using: dependencyOracle)
     }
 
     // Re-scan Clang modules at all the targets they will be built against.

@@ -47,8 +47,8 @@ public class InterModuleDependencyOracle {
   /// The complete set of modules discovered so far, spanning potentially multiple targets
   internal var modules: ModuleInfoMap = [:]
 
-  /// Override the default initializer's access level for test access
-  @_spi(Testing) public init() {}
+  /// Allow external clients to instantiate the oracle
+  public init() {}
 }
 
 // This is a shim for backwards-compatibility with existing API used by SwiftPM.

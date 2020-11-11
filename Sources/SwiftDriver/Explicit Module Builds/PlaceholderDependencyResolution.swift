@@ -41,10 +41,11 @@ import Foundation
   // which the driver will then resolve using B's full dependency graph provided by the client.
 
   /// Resolve all placeholder dependencies using external dependency information provided by the client
-  mutating func resolvePlaceholderDependencies(using externalBuildArtifacts: ExternalBuildArtifacts)
+  mutating func resolvePlaceholderDependencies(for externalBuildArtifacts: ExternalBuildArtifacts,
+                                               using dependencyOracle: InterModuleDependencyOracle)
   throws {
     let externalTargetModulePathMap = externalBuildArtifacts.0
-    let externalModuleInfoMap = externalBuildArtifacts.1
+    //let externalModuleInfoMap = externalBuildArtifacts.1
     let placeholderFilter : (ModuleDependencyId) -> Bool = {
       if case .swiftPlaceholder(_) = $0 {
         return true
@@ -61,7 +62,7 @@ import Foundation
       }
       try resolveTargetPlaceholder(placeholderId: moduleId,
                                    placeholderPath: placeholderModulePath,
-                                   externalModuleInfoMap: externalModuleInfoMap)
+                                   dependencyOracle: dependencyOracle)
     }
 
     // Process remaining placeholders until there are none left
@@ -70,17 +71,17 @@ import Foundation
       let moduleId = placeholderModules.first!
       let swiftModuleId = ModuleDependencyId.swift(moduleId.moduleName)
 
-      guard externalModuleInfoMap[swiftModuleId] != nil else {
+      guard dependencyOracle.getModuleInfo(of: swiftModuleId) != nil else {
         throw Driver.Error.missingExternalDependency(moduleId.moduleName)
       }
-      let moduleInfo = externalModuleInfoMap[swiftModuleId]!
+      let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId)!
 
       // Insert the resolved module, replacing the placeholder.
       try Self.mergeModule(swiftModuleId, moduleInfo, into: &modules)
 
       // Traverse and add all of this external module's dependencies to the current graph.
       try resolvePlaceholderModuleDependencies(moduleId: swiftModuleId,
-                                               externalModuleInfoMap: externalModuleInfoMap)
+                                               dependencyOracle: dependencyOracle)
 
       // Update the set of remaining placeholders to resolve
       placeholderModules = modules.keys.filter(placeholderFilter)
@@ -92,7 +93,7 @@ fileprivate extension InterModuleDependencyGraph {
   /// Resolve a placeholder dependency that is an external target.
   mutating func resolveTargetPlaceholder(placeholderId: ModuleDependencyId,
                                          placeholderPath: AbsolutePath,
-                                         externalModuleInfoMap: ModuleInfoMap)
+                                         dependencyOracle: InterModuleDependencyOracle)
   throws {
     // For this placeholder dependency, generate a new module info containing only the pre-compiled
     // module path, and insert it into the current module's dependency graph,
@@ -113,15 +114,15 @@ fileprivate extension InterModuleDependencyGraph {
     let swiftPrebuiltModuleId = ModuleDependencyId.swiftPrebuiltExternal(placeholderId.moduleName)
 
     let externalModuleId: ModuleDependencyId
-    if externalModuleInfoMap[swiftModuleId] != nil {
+    if dependencyOracle.getModuleInfo(of: swiftModuleId) != nil {
       externalModuleId = swiftModuleId
-    } else if externalModuleInfoMap[swiftPrebuiltModuleId] != nil {
+    } else if dependencyOracle.getModuleInfo(of: swiftPrebuiltModuleId) != nil {
       externalModuleId = swiftPrebuiltModuleId
     } else {
       throw Driver.Error.missingExternalDependency(placeholderId.moduleName)
     }
 
-    let externalModuleInfo = externalModuleInfoMap[externalModuleId]!
+    let externalModuleInfo = dependencyOracle.getModuleInfo(of: externalModuleId)!
     let newExternalModuleDetails =
       SwiftPrebuiltExternalModuleDetails(compiledModulePath: placeholderPath.description)
     let newInfo = ModuleInfo(modulePath: placeholderPath.description,
@@ -134,13 +135,14 @@ fileprivate extension InterModuleDependencyGraph {
 
     // Traverse and add all of this external target's dependencies to the current graph.
     try resolvePlaceholderModuleDependencies(moduleId: externalModuleId,
-                                             externalModuleInfoMap: externalModuleInfoMap)
+                                             dependencyOracle: dependencyOracle)
   }
 
   /// Resolve all dependencies of a placeholder module (direct and transitive), but merging them into the current graph.
   mutating func resolvePlaceholderModuleDependencies(moduleId: ModuleDependencyId,
-                                                     externalModuleInfoMap: ModuleInfoMap) throws {
-    guard let resolvingModuleInfo = externalModuleInfoMap[moduleId] else {
+                                                     dependencyOracle: InterModuleDependencyOracle)
+  throws {
+    guard let resolvingModuleInfo = dependencyOracle.getModuleInfo(of: moduleId) else {
       throw Driver.Error.missingExternalDependency(moduleId.moduleName)
     }
 
@@ -151,7 +153,7 @@ fileprivate extension InterModuleDependencyGraph {
     while let currentId = toVisit[currentIndex...].first {
       currentIndex += 1
       visited.insert(currentId)
-      guard let currentInfo = externalModuleInfoMap[currentId] else {
+      guard let currentInfo = dependencyOracle.getModuleInfo(of: currentId) else {
         throw Driver.Error.missingExternalDependency(currentId.moduleName)
       }
 
