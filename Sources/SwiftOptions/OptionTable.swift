@@ -37,6 +37,7 @@ extension OptionTable {
 
     for option in options {
       if option.isAlias { continue }
+      if option.attributes.contains(.noDriver) { continue }
       if option.isHelpHidden && !includeHidden { continue }
       guard option.isAccepted(by: driverKind) else { continue }
       guard let helpText = option.helpText else { continue }

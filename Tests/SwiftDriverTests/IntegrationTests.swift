@@ -34,17 +34,21 @@ func makeDriverSymlinks(
   try makeDirectories(tempBinDir)
 
   let swift = tempBinDir.appending(component: "swift")
-  try createSymlink(swift, pointingAt: driver, relative: false)
+  try localFileSystem.createSymbolicLink(swift, pointingAt: driver, relative: false)
 
   let swiftc = tempBinDir.appending(components: "swiftc")
-  try createSymlink(swiftc, pointingAt: driver, relative: false)
+  try localFileSystem.createSymbolicLink(swiftc, pointingAt: driver, relative: false)
+
+  let swiftHelp = binDir.appending(component: "swift-help")
+  let swiftHelpSimlink = tempBinDir.appending(component: "swift-help")
+  try localFileSystem.createSymbolicLink(swiftHelpSimlink, pointingAt: swiftHelp, relative: false)
 
   // If we've been given a build dir, link in its lib folder so we can find its
   // resource directory.
   if let swiftBuildDir = swiftBuildDir {
     let libDir = swiftBuildDir.appending(component: "lib")
     let tempLibDir = tempDir.appending(component: "lib" )
-    try createSymlink(tempLibDir, pointingAt: libDir, relative: false)
+    try localFileSystem.createSymbolicLink(tempLibDir, pointingAt: libDir, relative: false)
   }
 
   return (swift: swift, swiftc: swiftc)
