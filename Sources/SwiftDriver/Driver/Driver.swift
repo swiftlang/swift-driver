@@ -126,6 +126,9 @@ public struct Driver {
     frontendTargetInfo.targetVariant?.triple
   }
 
+  /// `true` if the driver should use the static resource directory.
+  let useStaticResourceDir: Bool
+
   /// The kind of driver.
   let driverKind: DriverKind
 
@@ -342,12 +345,21 @@ public struct Driver {
       try Self.applyWorkingDirectory(workingDirectory, to: &self.parsedOptions)
     }
 
+    let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
+                                                 negative: .noStaticExecutable,
+                                                 default: false)
+    let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
+                                             negative: .noStaticStdlib,
+                                             default: false)
+    self.useStaticResourceDir = staticExecutable || staticStdlib
+
     // Build the toolchain and determine target information.
     (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
         try Self.computeToolchain(
           &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
           compilerMode: self.compilerMode, env: env,
-          executor: self.executor, fileSystem: fileSystem)
+          executor: self.executor, fileSystem: fileSystem,
+          useStaticResourceDir: self.useStaticResourceDir)
 
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
@@ -439,10 +451,6 @@ public struct Driver {
       parsedOptions: &parsedOptions,
       showJobLifecycle: showJobLifecycle)
 
-    // Local variable to alias the target triple, because self.targetTriple
-    // is not available until the end of this initializer.
-    let targetTriple = self.frontendTargetInfo.target.triple
-
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
                                                                                compilerMode: compilerMode,
@@ -453,7 +461,7 @@ public struct Driver {
       &parsedOptions,
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
-      targetTriple: targetTriple)
+      targetInfo: frontendTargetInfo)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
@@ -1446,7 +1454,7 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     toolchain: Toolchain,
-    targetTriple: Triple
+    targetInfo: FrontendTargetInfo
   ) throws -> Set<Sanitizer> {
 
     var set = Set<Sanitizer>()
@@ -1459,6 +1467,8 @@ extension Driver {
     if args.isEmpty {
       return set
     }
+
+    let targetTriple = targetInfo.target.triple
     // Find the sanitizer kind.
     for arg in args {
       guard let sanitizer = Sanitizer(rawValue: arg) else {
@@ -1473,7 +1483,7 @@ extension Driver {
       //        enabled.
       var sanitizerSupported = try toolchain.runtimeLibraryExists(
         for: sanitizer,
-        targetTriple: targetTriple,
+        targetInfo: targetInfo,
         parsedOptions: &parsedOptions,
         isShared: sanitizer != .fuzzer
       )
@@ -1935,7 +1945,8 @@ extension Driver {
     compilerMode: CompilerMode,
     env: [String: String],
     executor: DriverExecutor,
-    fileSystem: FileSystem
+    fileSystem: FileSystem,
+    useStaticResourceDir: Bool
   ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
@@ -1997,6 +2008,7 @@ extension Driver {
           sdkPath: sdkPath, resourceDirPath: resourceDirPath,
           runtimeCompatibilityVersion:
             parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+          useStaticResourceDir: useStaticResourceDir,
           swiftCompilerPrefixArgs: swiftCompilerPrefixArgs
         ),
         capturingJSONOutputAs: FrontendTargetInfo.self,

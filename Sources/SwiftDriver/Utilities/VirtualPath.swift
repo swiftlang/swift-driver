@@ -263,15 +263,15 @@ extension VirtualPath: Codable {
 }
 
 /// A wrapper for easier decoding of absolute or relative VirtualPaths from strings.
-struct TextualVirtualPath: Codable {
-  var path: VirtualPath
+@_spi(Testing) public struct TextualVirtualPath: Codable {
+  public var path: VirtualPath
 
-  init(from decoder: Decoder) throws {
+  public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
     path = try VirtualPath(path: container.decode(String.self))
   }
 
-  func encode(to encoder: Encoder) throws {
+  public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
     switch path {
     case .absolute(let path):

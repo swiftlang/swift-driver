@@ -123,7 +123,10 @@ import SwiftOptions
     throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
   }
 
-  public func platformSpecificInterpreterEnvironmentVariables(env: [String : String], parsedOptions: inout ParsedOptions, sdkPath: VirtualPath?, targetTriple: Triple) throws -> [String : String] {
-    throw Error.interactiveModeUnsupportedForTarget(targetTriple.triple)
+  public func platformSpecificInterpreterEnvironmentVariables(env: [String : String],
+                                                              parsedOptions: inout ParsedOptions,
+                                                              sdkPath: VirtualPath?,
+                                                              targetInfo: FrontendTargetInfo) throws -> [String : String] {
+    throw Error.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)
   }
 }

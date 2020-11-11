@@ -72,21 +72,17 @@ extension WebAssemblyToolchain {
       }
 
       let runtimePaths = try runtimeLibraryPaths(
-        for: targetTriple,
+        for: targetInfo,
         parsedOptions: &parsedOptions,
         sdkPath: targetInfo.sdkPath?.path,
         isShared: false
       )
 
-      let resourceDirPath = try computeResourceDirPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions,
-        isShared: false
-      )
-
-      let swiftrtPath = resourceDirPath
+      let swiftrtPath = targetInfo.runtimeResourcePath.path
         .appending(
-          components: targetTriple.archName, "swiftrt.o"
+          components: targetTriple.platformName() ?? "",
+          targetTriple.archName,
+          "swiftrt.o"
         )
       commandLine.appendPath(swiftrtPath)
 
@@ -114,8 +110,11 @@ extension WebAssemblyToolchain {
       }
 
       // Link the standard library.
-      let linkFilePath: VirtualPath = resourceDirPath
-        .appending(components: "static-executable-args.lnk")
+      let linkFilePath: VirtualPath = targetInfo.runtimeResourcePath.path
+        .appending(
+          components: targetTriple.platformName() ?? "",
+          "static-executable-args.lnk"
+        )
 
       guard try fileSystem.exists(linkFilePath) else {
         fatalError("\(linkFilePath) not found")
