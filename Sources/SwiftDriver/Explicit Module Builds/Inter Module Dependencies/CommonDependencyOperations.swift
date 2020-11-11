@@ -20,7 +20,6 @@
   }
 }
 
-// This is a backwards-compatibility shim 
 public extension InterModuleDependencyGraph {
   // This is a shim for backwards-compatibility with existing API used by SwiftPM.
   // TODO: After SwiftPM switches to using the oracle, this should be deleted.

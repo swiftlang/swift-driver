@@ -65,9 +65,6 @@ internal extension Driver {
   }
 }
 
-/// Resolution of versioned clang dependencies.
-/// FIXME: This code currently operates on instances of InterModuleDependencyGraph,
-/// It should be transitioned to operate on an instance of an InterModuleDependencyOracle.
 private extension InterModuleDependencyGraph {
   /// For each module scanned at multiple target versions, combine their dependencies across version-specific graphs.
   mutating func resolveVersionedClangModules(using versionedGraphMap: ModuleVersionedGraphMap)

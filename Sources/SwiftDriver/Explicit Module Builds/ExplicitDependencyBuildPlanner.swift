@@ -23,11 +23,8 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
 @_spi(Testing) public struct ExplicitDependencyBuildPlanner {
-  /// The module ID of the main module for the current target
-  public let mainModuleId: ModuleDependencyId
-
-  /// The module dependency oracle.
-  public let dependencyOracle: InterModuleDependencyOracle
+  /// The module dependency graph.
+  public var dependencyGraph: InterModuleDependencyGraph
 
   /// Cache Clang modules for which a build job has already been constructed with a given
   /// target triple.
@@ -39,11 +36,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
-  public init(mainModuleId: ModuleDependencyId,
-              dependencyOracle: InterModuleDependencyOracle,
+  public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain) throws {
-    self.mainModuleId = mainModuleId
-    self.dependencyOracle = dependencyOracle
+    self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
   }
 
@@ -121,9 +116,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// inputs and command line flags.
   mutating public func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
                                                      commandLine: inout [Job.ArgTemplate]) throws {
+    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
     try resolveExplicitModuleDependencies(moduleId: mainModuleId,
-                                          pcmArgs:
-                                            try dependencyOracle.getSwiftModulePCMArgs(of: mainModuleId),
+                                          pcmArgs: try dependencyGraph.swiftModulePCMArgs(of: mainModuleId),
                                           inputs: &inputs,
                                           commandLine: &commandLine)
   }
@@ -132,9 +127,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// Resolving a module's dependencies will ensure that the dependencies' build jobs are also
   /// generated.
   mutating private func genSwiftModuleBuildJob(moduleId: ModuleDependencyId) throws {
-    guard let moduleInfo = dependencyOracle.getModuleInfo(of: moduleId) else {
-      throw Driver.Error.missingModuleDependency(moduleId.moduleName)
-    }
+    let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
     var inputs: [TypedVirtualPath] = []
     let outputs: [TypedVirtualPath] = [
       TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .swiftModule)
@@ -142,13 +135,12 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     var commandLine: [Job.ArgTemplate] = []
 
     // First, take the command line options provided in the dependency information
-    let moduleDetails = try dependencyOracle.getSwiftModuleDetails(of: moduleId)
+    let moduleDetails = try dependencyGraph.swiftModuleDetails(of: moduleId)
     moduleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
 
     // Resolve all dependency module inputs for this Swift module
     try resolveExplicitModuleDependencies(moduleId: moduleId,
-                                          pcmArgs:
-                                            dependencyOracle.getSwiftModulePCMArgs(of: moduleId),
+                                          pcmArgs: dependencyGraph.swiftModulePCMArgs(of: moduleId),
                                           inputs: &inputs, commandLine: &commandLine)
 
     // Build the .swiftinterfaces file using a list of command line options specified in the
@@ -191,15 +183,13 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// generated.
   mutating private func genClangModuleBuildJob(moduleId: ModuleDependencyId,
                                                pcmArgs: [String]) throws {
-    guard let moduleInfo = dependencyOracle.getModuleInfo(of: moduleId) else {
-      throw Driver.Error.missingModuleDependency(moduleId.moduleName)
-    }
+    let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
     var commandLine: [Job.ArgTemplate] = []
 
     // First, take the command line options provided in the dependency information
-    let moduleDetails = try dependencyOracle.getClangModuleDetails(of: moduleId)
+    let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
     moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
 
     // Add the `-target` option as inherited from the dependent Swift module's PCM args
@@ -305,7 +295,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
                                               clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                               swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
-    for dependencyId in dependencyOracle.getDependencies(of: moduleId)! {
+    for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies! {
       guard addedDependenciesSet.insert(dependencyId).inserted else {
         continue
       }
@@ -346,9 +336,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
                                                  swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
     // Add it as an explicit dependency
-    guard let dependencyInfo = dependencyOracle.getModuleInfo(of: dependencyId) else {
-      throw Driver.Error.missingModuleDependency(moduleId.moduleName)
-    }
+    let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
     let swiftModulePath: TypedVirtualPath
     let isFramework: Bool
 
@@ -359,7 +347,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     }
     swiftModulePath = .init(file: try VirtualPath(path: dependencyInfo.modulePath),
                             type: .swiftModule)
-    isFramework = try dependencyOracle.getSwiftModuleDetails(of: dependencyId).isFramework
+    isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework
 
     // Collect the required information about this module
     // TODO: add .swiftdoc and .swiftsourceinfo for this module.
@@ -393,10 +381,8 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     }
 
     // Add it as an explicit dependency
-    guard let dependencyInfo = dependencyOracle.getModuleInfo(of: dependencyId) else {
-      throw Driver.Error.missingModuleDependency(moduleId.moduleName)
-    }
-    let dependencyClangModuleDetails = try dependencyOracle.getClangModuleDetails(of: dependencyId)
+    let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
+    let dependencyClangModuleDetails = try dependencyGraph.clangModuleDetails(of: dependencyId)
     let clangModulePath =
       try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: dependencyInfo,
                                                                       pcmArgs: pcmArgs)
@@ -423,8 +409,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
                                                    swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
     // Add it as an explicit dependency
-    let compiledModulePath =
-      try dependencyOracle.getSwiftPrebuiltDetails(of: dependencyId).compiledModulePath
+    let compiledModulePath = try dependencyGraph
+                                   .swiftPrebuiltDetails(of: dependencyId)
+                                   .compiledModulePath
     let swiftModulePath: TypedVirtualPath = .init(file: try VirtualPath(path: compiledModulePath),
                                                   type: .swiftModule)
 
@@ -479,33 +466,50 @@ extension ExplicitDependencyBuildPlanner {
 
 /// Encapsulates some of the common queries of the ExplicitDependencyBuildPlanner with error-checking
 /// on the dependency graph's structure.
-internal extension InterModuleDependencyOracle {
-  func getSwiftModuleDetails(of moduleId: ModuleDependencyId) throws -> SwiftModuleDetails {
-    guard case .swift(let swiftModuleDetails) = getModuleInfo(of: moduleId)?.details else {
+internal extension InterModuleDependencyGraph {
+  func moduleInfo(of moduleId: ModuleDependencyId) throws -> ModuleInfo {
+    guard let moduleInfo = modules[moduleId] else {
+      throw Driver.Error.missingModuleDependency(moduleId.moduleName)
+    }
+    return moduleInfo
+  }
+
+  func swiftModuleDetails(of moduleId: ModuleDependencyId) throws -> SwiftModuleDetails {
+    guard case .swift(let swiftModuleDetails) = try moduleInfo(of: moduleId).details else {
       throw Driver.Error.malformedModuleDependency(moduleId.moduleName, "no Swift `details` object")
     }
     return swiftModuleDetails
   }
 
-  func getSwiftPrebuiltDetails(of moduleId: ModuleDependencyId)
+  func swiftPrebuiltDetails(of moduleId: ModuleDependencyId)
   throws -> SwiftPrebuiltExternalModuleDetails {
     guard case .swiftPrebuiltExternal(let prebuiltModuleDetails) =
-            getModuleInfo(of: moduleId)?.details else {
+            try moduleInfo(of: moduleId).details else {
       throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
                                                    "no SwiftPrebuiltExternal `details` object")
     }
     return prebuiltModuleDetails
   }
 
-  func getClangModuleDetails(of moduleId: ModuleDependencyId) throws -> ClangModuleDetails {
-    guard case .clang(let clangModuleDetails) = getModuleInfo(of: moduleId)?.details else {
+  func clangModuleDetails(of moduleId: ModuleDependencyId) throws -> ClangModuleDetails {
+    guard case .clang(let clangModuleDetails) = try moduleInfo(of: moduleId).details else {
       throw Driver.Error.malformedModuleDependency(moduleId.moduleName, "no Clang `details` object")
     }
     return clangModuleDetails
   }
 
-  func getSwiftModulePCMArgs(of moduleId: ModuleDependencyId) throws -> [String] {
-    let moduleDetails = try getSwiftModuleDetails(of: moduleId)
+  func swiftModulePCMArgs(of moduleId: ModuleDependencyId) throws -> [String] {
+    let moduleDetails = try swiftModuleDetails(of: moduleId)
     return moduleDetails.extraPcmArgs
+  }
+}
+
+// InterModuleDependencyGraph printing, useful for debugging
+internal extension InterModuleDependencyGraph {
+  func prettyPrintString() throws -> String {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted]
+    let contents = try encoder.encode(self)
+    return String(data: contents, encoding: .utf8)!
   }
 }
