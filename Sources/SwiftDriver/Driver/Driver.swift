@@ -321,7 +321,10 @@ public struct Driver {
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
+    // FIXME: Duplication with externalBuildArtifacts and externalTargetModulePathMap
+    // is a temporary backwards-compatibility shim to help transition SwiftPM to the new API
     externalBuildArtifacts: ExternalBuildArtifacts? = nil,
+    externalTargetModulePathMap: ExternalTargetModulePathMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     self.env = env
@@ -330,7 +333,11 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
-    self.externalBuildArtifacts = externalBuildArtifacts
+    if let externalArtifacts = externalBuildArtifacts {
+      self.externalBuildArtifacts = externalArtifacts
+    } else if let externalTargetPaths = externalTargetModulePathMap {
+      self.externalBuildArtifacts = (externalTargetPaths, [:])
+    }
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -399,8 +406,8 @@ public struct Driver {
         }
       }
     }
-    
-    do {    
+
+    do {
       let outputFileMap: OutputFileMap?
       // Initialize an empty output file map, which will be populated when we start creating jobs.
       if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
@@ -410,12 +417,14 @@ public struct Driver {
         } catch {
           throw Error.unableToLoadOutputFileMap(outputFileMapArg)
         }
+      } else {
+        outputFileMap = nil
+      }
 
-        if let workingDirectory = self.workingDirectory {
-          self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
-        } else {
-          self.outputFileMap = outputFileMap
-        }
+      if let workingDirectory = self.workingDirectory {
+        self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
+      } else {
+        self.outputFileMap = outputFileMap
       }
     }
 
