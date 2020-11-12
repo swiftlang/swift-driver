@@ -138,12 +138,12 @@ public final class MultiJobExecutor {
       let primaryIndices, tertiaryIndices: Range<Int>
       if let incrementalCompilationState = incrementalCompilationState {
         primaryIndices = Self.addJobs(
-          incrementalCompilationState.primaryJobsInOrder,
+          incrementalCompilationState.mandatoryPreOrCompileJobsInOrder,
           to: &jobs,
           producing: &producerMap
           )
         tertiaryIndices = Self.addJobs(
-          incrementalCompilationState.tertiaryJobs,
+          incrementalCompilationState.postCompileJobs,
           to: &jobs,
           producing: &producerMap)
       }
@@ -201,7 +201,7 @@ public final class MultiJobExecutor {
         return
       }
       if let newJobs = incrementalCompilationState?
-          .getSecondaryJobsAfterFinishing(job: job, result: result) {
+          .getJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
         let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
         needInputFor(indices: newJobIndices)
       }

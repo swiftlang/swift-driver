@@ -67,8 +67,8 @@ extension Driver {
                                debugInfo: debugInfo,
                                addJob: addPostCompileJob)
 
-    incrementalCompilationState?.addPrimaryOrSkippedJobGroups(preAndCompileJobGroups)
-    incrementalCompilationState?.addTertiaryJobs(postCompileJobs)
+    incrementalCompilationState?.addPreOrCompileJobGroups(preAndCompileJobGroups)
+    incrementalCompilationState?.addPostCompileJobs(postCompileJobs)
 
     return try formBatchedJobs(allJobs, forIncremental: false)
   }
