@@ -121,6 +121,11 @@ public final class MultiJobExecutor {
       self.processType = processType
     }
 
+    deinit {
+      // break a potential cycle
+      executeAllJobsTaskBuildEngine = nil
+    }
+
     private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
     ) -> (jobs: [Job],
           producerMap: [VirtualPath: Int],
@@ -169,17 +174,21 @@ public final class MultiJobExecutor {
     ) -> Range<Int> {
       let initialCount = jobs.count
       for job in js {
-        addProducts(of: job, index: jobs.count, to: &producerMap)
+        addProducts(of: job, index: jobs.count, knownJobs: jobs, to: &producerMap)
         jobs.append(job)
       }
       return initialCount ..< jobs.count
     }
 
     ///  Update the producer map when adding a job.
-    private static func addProducts(of job: Job, index: Int, to producerMap: inout [VirtualPath: Int]) {
+    private static func addProducts(of job: Job,
+                                    index: Int,
+                                    knownJobs: [Job],
+                                    to producerMap: inout [VirtualPath: Int]
+    ) {
       for output in job.outputs {
-        if let _ = producerMap.updateValue(index, forKey: output.file) {
-          fatalError("multiple producers for output \(output): \(job) \(producerMap[output.file]!)")
+        if let otherJobIndex = producerMap.updateValue(index, forKey: output.file) {
+          fatalError("multiple producers for output \(output): \(job) & \(knownJobs[otherJobIndex])")
         }
         producerMap[output.file] = index
       }
