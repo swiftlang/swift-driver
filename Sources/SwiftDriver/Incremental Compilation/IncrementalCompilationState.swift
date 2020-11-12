@@ -439,7 +439,7 @@ extension IncrementalCompilationState {
     if finishedJob.kind == .compile {
       finishedJob.primaryInputs.forEach {
         if pendingInputs.remove($0) == nil {
-          fatalError("should have been pending")
+          fatalError("\($0) input to newly-finished \(finishedJob) should have been pending")
         }
       }
     }
