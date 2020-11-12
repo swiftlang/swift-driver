@@ -366,26 +366,31 @@ extension IncrementalCompilationState {
   /// Remember a job (group) that is before a compile or a compile itself.
   /// (A group also includes the "backend" jobs for bitcode.)
   /// Decide if  a job can be skipped, and register accordingly
-  func addPreOrCompileJobGroups(_ groups: [[Job]]) {
+  func addPreOrCompileJobGroups(_ groups: [[Job]],
+                                formBatchedJobs: ([Job]) throws -> [Job]
+  ) throws {
     for group in groups {
       if let firstJob = group.first, isSkipped(firstJob) {
         recordSkippedGroup(group)
       }
       else {
-        scheduleMandatoryPreOrCompile(group: group)
+        try scheduleMandatoryPreOrCompile(group: group, formBatchedJobs: formBatchedJobs)
       }
     }
   }
 
   /// Remember that `group` (a compilation and possibly bitcode generation)
   /// must definitely be executed.
-  private func scheduleMandatoryPreOrCompile(group: [Job]) {
+  private func scheduleMandatoryPreOrCompile(
+    group: [Job],
+    formBatchedJobs: ([Job]) throws -> [Job]
+  ) throws {
     if let report = reportIncrementalDecision {
       for job in group {
         report("Queuing \(job.descriptionForLifecycle)", nil)
       }
     }
-    mandatoryPreOrCompileJobsInOrder.append(contentsOf: group)
+    mandatoryPreOrCompileJobsInOrder.append(contentsOf: try formBatchedJobs(group))
     unfinishedMandatoryJobs.formUnion(group)
     let mandantoryCompilationInputs = group
       .flatMap {$0.kind == .compile ? $0.primaryInputs : []}
