@@ -21,12 +21,20 @@ extension Driver {
   }
 
   mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {
-    guard inputs.count > 0 && isAutolinkExtractJobNeeded else {
+    guard let firstInput = inputs.first, isAutolinkExtractJobNeeded else {
       return nil
     }
 
     var commandLine = [Job.ArgTemplate]()
-    let output = VirtualPath.temporary(RelativePath("\(moduleOutputInfo.name).autolink"))
+    // Put output in same place as first .o, following legacy driver.
+    // (See `constructInvocation(const AutolinkExtractJobAction` in `UnixToolChains.cpp`.)
+    let outputBasename = "\(moduleOutputInfo.name).autolink"
+    let dir = firstInput.file.parentDirectory
+    // Go through a bit of extra rigmarole to keep the "./" out of the name for
+    // the sake of the tests.
+    let output: VirtualPath = dir == .temporary(RelativePath("."))
+      ? .temporary(RelativePath(outputBasename))
+      : dir.appending(component: outputBasename)
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })
     commandLine.appendFlag(.o)
