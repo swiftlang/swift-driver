@@ -374,7 +374,7 @@ extension IncrementalCompilationState {
         recordSkippedGroup(group)
       }
       else {
-        try scheduleMandatoryPreOrCompile(group: group, formBatchedJobs: formBatchedJobs)
+        try scheduleMandatoryPreOrCompile(group: group)
       }
     }
   }
@@ -382,19 +382,17 @@ extension IncrementalCompilationState {
   /// Remember that `group` (a compilation and possibly bitcode generation)
   /// must definitely be executed.
   private func scheduleMandatoryPreOrCompile(
-    group: [Job],
-    formBatchedJobs: ([Job]) throws -> [Job]
-  ) throws {
+    group: [Job]) {
     if let report = reportIncrementalDecision {
       for job in group {
         report("Queuing \(job.descriptionForLifecycle)", nil)
       }
     }
-    mandatoryPreOrCompileJobsInOrder.append(contentsOf: try formBatchedJobs(group))
+    mandatoryPreOrCompileJobsInOrder.append(contentsOf: group)
     unfinishedMandatoryJobs.formUnion(group)
-    let mandantoryCompilationInputs = group
+    let mandatoryCompilationInputs = group
       .flatMap {$0.kind == .compile ? $0.primaryInputs : []}
-    pendingInputs.formUnion(mandantoryCompilationInputs)
+    pendingInputs.formUnion(mandatoryCompilationInputs)
   }
 
   /// Decide if this job does not need to run, unless some yet-to-be-discovered dependency changes.
