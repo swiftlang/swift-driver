@@ -190,17 +190,18 @@ final class NonincrementalCompilationTests: XCTestCase {
 
     XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: file2 )]!.status,
                    .needsCascadingBuild)
-    XCTAssert(try! isCloseEnough(buildRecord.inputInfos[VirtualPath(path: file2 )]!
-                                  .previousModTime.legacyDriverSecsAndNanos,
-                                 [1570318778, 0]))
-    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: gazorp)]!.status,
+    XCTAssert(try! isCloseEnough(
+                XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: file2 )])
+                  .previousModTime.legacyDriverSecsAndNanos,
+                [1570318778, 0]))
+    XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp)]).status,
                    .needsNonCascadingBuild)
-    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: gazorp)]!
+    XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp)])
                     .previousModTime.legacyDriverSecsAndNanos,
                    [0, 0])
-    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: main  )]!.status,
+    XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )]).status,
                    .upToDate)
-    XCTAssert(try! isCloseEnough( buildRecord.inputInfos[VirtualPath(path: main  )]!
+    XCTAssert(try! isCloseEnough( XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )])
                                     .previousModTime.legacyDriverSecsAndNanos,
                                   [1570083660, 0]))
 
@@ -488,13 +489,13 @@ final class IncrementalCompilationTests: XCTestCase {
 
   func touch(_ name: String) {
     print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
-    let (path, contents) = inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first!
+    let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
     try! localFileSystem.writeFileContents(path) { $0 <<< contents }
   }
 
   private func replace(contentsOf name: String, with replacement: String ) {
     print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
-    let path = inputPathsAndContents.filter {$0.0.pathString.contains("/" + name + ".swift")}.first!.0
+    let path = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains("/" + name + ".swift")}.first).0
     let previousContents = try! localFileSystem.readFileContents(path).cString
     try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
     let newContents = try! localFileSystem.readFileContents(path).cString
@@ -559,9 +560,10 @@ final class IncrementalCompilationTests: XCTestCase {
         + ["-emit-library", "-target", "x86_64-unknown-linux"],
       env: env)
     let plannedJobs = try! driver.planBuild()
-    let autolinkExtractJob = plannedJobs
-      .filter { $0.kind == .autolinkExtract }
-      .first!
+    let autolinkExtractJob = try! XCTUnwrap(
+      plannedJobs
+        .filter { $0.kind == .autolinkExtract }
+        .first)
     let autoOuts = autolinkExtractJob.outputs.filter {$0.type == .autolink}
     XCTAssertEqual(autoOuts.count, 1)
     let autoOut = autoOuts[0]
