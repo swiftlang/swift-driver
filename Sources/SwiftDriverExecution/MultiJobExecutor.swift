@@ -92,8 +92,7 @@ public final class MultiJobExecutor {
       argsResolver: ArgsResolver,
       env: [String: String],
       fileSystem: TSCBasic.FileSystem,
-      nonincrementalJobs: [Job],
-      incrementalCompilationState: IncrementalCompilationState?,
+      workload: DriverExecutorWorkload,
       executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
@@ -106,13 +105,10 @@ public final class MultiJobExecutor {
         jobs: self.jobs,
         producerMap: self.producerMap,
         primaryIndices: self.primaryIndices,
-        tertiaryIndices: self.tertiaryIndices
-      ) = Self.fillInJobsAndProducers(
-        nonincrementalJobs: nonincrementalJobs,
-        incrementalCompilationState: incrementalCompilationState
-      )
+        tertiaryIndices: self.tertiaryIndices,
+        incrementalCompilationState: self.incrementalCompilationState
+      ) = Self.fillInJobsAndProducers(workload)
 
-      self.incrementalCompilationState = incrementalCompilationState
       self.argsResolver = argsResolver
       self.env = env
       self.fileSystem = fileSystem
@@ -125,29 +121,31 @@ public final class MultiJobExecutor {
       self.processType = processType
     }
 
-    private static func fillInJobsAndProducers(
-      nonincrementalJobs: [Job],
-      incrementalCompilationState: IncrementalCompilationState?
+    private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
     ) -> (jobs: [Job],
           producerMap: [VirtualPath: Int],
           primaryIndices: Range<Int>,
-          tertiaryIndices: Range<Int>)
+          tertiaryIndices: Range<Int>,
+          incrementalCompilationState: IncrementalCompilationState?)
     {
       var jobs = [Job]()
       var producerMap = [VirtualPath: Int]()
       let primaryIndices, tertiaryIndices: Range<Int>
-      if let incrementalCompilationState = incrementalCompilationState {
+      let incrementalCompilationState: IncrementalCompilationState?
+      switch workload {
+      case let .incremental(ics):
+        incrementalCompilationState = ics
         primaryIndices = Self.addJobs(
-          incrementalCompilationState.mandatoryPreOrCompileJobsInOrder,
+          ics.mandatoryPreOrCompileJobsInOrder,
           to: &jobs,
           producing: &producerMap
           )
         tertiaryIndices = Self.addJobs(
-          incrementalCompilationState.postCompileJobs,
+          ics.postCompileJobs,
           to: &jobs,
           producing: &producerMap)
-      }
-      else {
+      case let .all(nonincrementalJobs):
+        incrementalCompilationState = nil
         primaryIndices = Self.addJobs(
           nonincrementalJobs,
           to: &jobs,
@@ -157,7 +155,8 @@ public final class MultiJobExecutor {
       return ( jobs: jobs,
                producerMap: producerMap,
                primaryIndices: primaryIndices,
-               tertiaryIndices: tertiaryIndices )
+               tertiaryIndices: tertiaryIndices,
+               incrementalCompilationState: incrementalCompilationState)
     }
 
     /// Allow for dynamically adding jobs, since secondary jobs are added dynamically.
@@ -219,10 +218,8 @@ public final class MultiJobExecutor {
     }
   }
 
-  /// The list of jobs that we may need to run.
-  private let nonincrementalJobs: [Job]
-
-  private let incrementalCompilationState: IncrementalCompilationState?
+  /// The work to be done.
+  private let workload: DriverExecutorWorkload
 
   /// The argument resolver.
   private let argsResolver: ArgsResolver
@@ -249,8 +246,7 @@ public final class MultiJobExecutor {
   private let processType: ProcessProtocol.Type
 
   public init(
-    jobs: [Job],
-    incrementalCompilationState: IncrementalCompilationState? = nil,
+    workload: DriverExecutorWorkload,
     resolver: ArgsResolver,
     executorDelegate: JobExecutionDelegate,
     diagnosticsEngine: DiagnosticsEngine,
@@ -260,8 +256,7 @@ public final class MultiJobExecutor {
     recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
     processType: ProcessProtocol.Type = Process.self
   ) {
-    self.nonincrementalJobs = jobs
-    self.incrementalCompilationState = incrementalCompilationState
+    self.workload = workload
     self.argsResolver = resolver
     self.executorDelegate = executorDelegate
     self.diagnosticsEngine = diagnosticsEngine
@@ -297,8 +292,7 @@ public final class MultiJobExecutor {
       argsResolver: argsResolver,
       env: env,
       fileSystem: fileSystem,
-      nonincrementalJobs: nonincrementalJobs,
-      incrementalCompilationState: incrementalCompilationState,
+      workload: workload,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
       processSet: processSet,

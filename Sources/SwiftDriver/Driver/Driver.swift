@@ -881,8 +881,7 @@ extension Driver {
     forceResponseFiles: Bool
   ) throws {
     try executor.execute(
-      jobs: allJobs,
-      incrementalCompilationState: incrementalCompilationState,
+      workload: .init(allJobs, incrementalCompilationState),
       delegate: createToolExecutionDelegate(),
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,

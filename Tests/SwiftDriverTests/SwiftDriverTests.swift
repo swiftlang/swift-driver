@@ -2842,8 +2842,7 @@ final class SwiftDriverTests: XCTestCase {
         func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
-        func execute(jobs: [Job],
-                     incrementalCompilationState: IncrementalCompilationState?,
+        func execute(workload: DriverExecutorWorkload,
                      delegate: JobExecutionDelegate,
                      numParallelJobs: Int,
                      forceResponseFiles: Bool,
