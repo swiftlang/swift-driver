@@ -169,7 +169,7 @@ fileprivate extension IncrementalCompilationState {
 }
 
 extension Diagnostic.Message {
-  static var warning_incremental_requires_output_file_map: Diagnostic.Message {
+  fileprivate static var warning_incremental_requires_output_file_map: Diagnostic.Message {
     .warning("ignoring -incremental (currently requires an output file map)")
   }
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
@@ -178,10 +178,10 @@ extension Diagnostic.Message {
         "output file map has no master dependencies entry under \(FileType.swiftDeps)"
     )
   }
-  static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
+  fileprivate static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation has been disabled, because \(why)")
   }
-  static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
+  fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
   }
 }
@@ -379,7 +379,7 @@ extension IncrementalCompilationState {
 
   /// Remember that `group` (a compilation and possibly bitcode generation)
   /// must definitely be executed.
-  func scheduleMandatoryPreOrCompile(group: [Job]) {
+  private func scheduleMandatoryPreOrCompile(group: [Job]) {
     if let report = reportIncrementalDecision {
       for job in group {
         report("Queuing \(job.descriptionForLifecycle)", nil)
@@ -393,7 +393,7 @@ extension IncrementalCompilationState {
   }
 
   /// Decide if this job does not need to run, unless some yet-to-be-discovered dependency changes.
-  func isSkipped(_ job: Job) -> Bool {
+  private func isSkipped(_ job: Job) -> Bool {
     guard job.kind == .compile else {
       return false
     }
@@ -402,7 +402,7 @@ extension IncrementalCompilationState {
   }
 
   /// Remember that this job-group will be skipped (but may be needed later)
-  func recordSkippedGroup(_ group: [Job]) {
+  private func recordSkippedGroup(_ group: [Job]) {
     let job = group.first!
     for input in job.primaryInputs {
       if let _ = skippedCompileGroups.updateValue(group, forKey: input) {
