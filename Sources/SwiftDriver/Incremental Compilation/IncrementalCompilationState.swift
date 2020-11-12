@@ -12,20 +12,28 @@
 import TSCBasic
 import Foundation
 import SwiftOptions
-@_spi(Testing) public class IncrementalCompilationState {
+public class IncrementalCompilationState {
 
   /// The oracle for deciding what depends on what. Applies to this whole module.
-  public let moduleDependencyGraph: ModuleDependencyGraph
+  private let moduleDependencyGraph: ModuleDependencyGraph
 
   /// If non-null outputs information for `-driver-show-incremental` for input path
   public let reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+
+  /// All of the pre-compile or compilation job (groups) known to be required, preserving planning order
+  public private (set) var mandatoryPreOrCompileJobsInOrder = [Job]()
+
+  /// All the  pre- or compilation job (groups) known to be required, which have not finished yet.
+  /// (Changes as jobs complete.)
+  private var unfinishedMandatoryJobs = Set<Job>()
 
   /// Inputs that must be compiled, and swiftDeps processed.
   /// When empty, the compile phase is done.
   private var pendingInputs = Set<TypedVirtualPath>()
 
   /// Input files that were skipped.
-  /// May shrink if one of these moves into pendingInputs.
+  /// May shrink if one of these moves into pendingInputs. In that case, it will be an input to a
+  /// "newly-discovered" job.
   private(set) var skippedCompilationInputs: Set<TypedVirtualPath>
 
   /// Job groups that were skipped.
@@ -33,19 +41,15 @@ import SwiftOptions
   /// treated as a unit.
   private var skippedCompileGroups = [TypedVirtualPath: [Job]]()
 
-  /// Accumulates jobs to be run through compilation
-  public var preOrCompileJobs = SynchronizedQueue<[Job]?>()
-
-  /// Jobs to run after the last compile
-  /// Nonnil means planning has informed me
-  internal private(set) var postCompileJobs: [Job]? = nil
+  /// Jobs to run *after* the last compile, for instance, link-editing.
+  public private(set) var postCompileJobs = [Job]()
 
   /// A check for reentrancy.
   private var amHandlingJobCompletion = false
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
-  public init?(
+  @_spi(Testing) public init?(
     buildRecordInfo: BuildRecordInfo?,
     compilerMode: CompilerMode,
     diagnosticEngine: DiagnosticsEngine,
@@ -165,7 +169,7 @@ fileprivate extension IncrementalCompilationState {
 }
 
 extension Diagnostic.Message {
-  static var warning_incremental_requires_output_file_map: Diagnostic.Message {
+  fileprivate static var warning_incremental_requires_output_file_map: Diagnostic.Message {
     .warning("ignoring -incremental (currently requires an output file map)")
   }
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
@@ -174,18 +178,20 @@ extension Diagnostic.Message {
         "output file map has no master dependencies entry under \(FileType.swiftDeps)"
     )
   }
-  static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
+  fileprivate static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation has been disabled, because \(why)")
   }
-  static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
+  fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
   }
 }
 
 
-// MARK: - Scheduling the first wave
+// MARK: - Scheduling the first wave, i.e. the mandatory pre- and compile jobs
 
 extension IncrementalCompilationState {
+
+  /// Figure out which compilation inputs are *not* mandatory
   private static func computeSkippedCompilationInputs(
     inputFiles: [TypedVirtualPath],
     buildRecordInfo: BuildRecordInfo,
@@ -357,43 +363,49 @@ extension IncrementalCompilationState {
 
 // MARK: - Scheduling
 extension IncrementalCompilationState {
+  /// Remember a job (group) that is before a compile or a compile itself.
+  /// (A group also includes the "backend" jobs for bitcode.)
   /// Decide if  a job can be skipped, and register accordingly
-  func addPreOrCompileJobGroups(_ groups: [[Job]]) {
-    var wereAnyJobsScheduled = false
-    for group in groups {
+  func addPreOrCompileJobGroups(_ groups: [[Job]],
+                                formBatchedJobs: ([Job]) throws -> [Job]
+  ) throws {
+    let mandatoryPreOrCompileJobs = groups.flatMap { group -> [Job] in
       if let firstJob = group.first, isSkipped(firstJob) {
         recordSkippedGroup(group)
+        return []
       }
-      else {
-        schedule(group: group)
-        wereAnyJobsScheduled = true
-      }
+      return group
     }
-    if !wereAnyJobsScheduled {
-      finishedWithCompilations()
-    }
+    let batchedMandatoryPreOrCompileJobs = try formBatchedJobs(mandatoryPreOrCompileJobs)
+    scheduleMandatoryPreOrCompile(jobs: batchedMandatoryPreOrCompileJobs)
   }
 
-  func isSkipped(_ job: Job) -> Bool {
+  /// Remember that `group` (a compilation and possibly bitcode generation)
+  /// must definitely be executed.
+  private func scheduleMandatoryPreOrCompile(jobs: [Job]) {
+    if let report = reportIncrementalDecision {
+      for job in jobs {
+        report("Queuing \(job.descriptionForLifecycle)", nil)
+      }
+    }
+    mandatoryPreOrCompileJobsInOrder.append(contentsOf: jobs)
+    unfinishedMandatoryJobs.formUnion(jobs)
+    let mandatoryCompilationInputs = jobs
+      .flatMap {$0.kind == .compile ? $0.primaryInputs : []}
+    pendingInputs.formUnion(mandatoryCompilationInputs)
+  }
+
+  /// Decide if this job does not need to run, unless some yet-to-be-discovered dependency changes.
+  private func isSkipped(_ job: Job) -> Bool {
     guard job.kind == .compile else {
       return false
     }
-    func isInputSkipped(_ p: TypedVirtualPath) -> Bool {
-      skippedCompilationInputs.contains(p)
-    }
-    guard let jobCanBeSkipped = job.primaryInputs.first.map(isInputSkipped)
-    else {
-      return false
-    }
-    // Should only be one primary here, but check anyway
-    assert(
-      job.primaryInputs.dropFirst().allSatisfy {
-        isInputSkipped($0) == jobCanBeSkipped}
-    )
-    return jobCanBeSkipped
+    assert(job.primaryInputs.count <= 1, "Jobs should not be batched here.")
+    return job.primaryInputs.first.map(skippedCompilationInputs.contains) ?? false
   }
 
-  func recordSkippedGroup(_ group: [Job]) {
+  /// Remember that this job-group will be skipped (but may be needed later)
+  private func recordSkippedGroup(_ group: [Job]) {
     let job = group.first!
     for input in job.primaryInputs {
       if let _ = skippedCompileGroups.updateValue(group, forKey: input) {
@@ -402,26 +414,9 @@ extension IncrementalCompilationState {
     }
   }
 
-  func schedule(group: [Job]) {
-    schedule(preOrCompileJobs: group)
-  }
-  /// Put job in queue for execution
-  func schedule(preOrCompileJobs jobs: [Job]) {
-    if let report = reportIncrementalDecision {
-      for job in jobs {
-        report("Queuing \(job.descriptionForLifecycle)", nil)
-      }
-    }
-    let primaryCompilationInputs = jobs
-      .flatMap {$0.kind == .compile ? $0.primaryInputs : []}
-    pendingInputs.formUnion(primaryCompilationInputs)
-    preOrCompileJobs.enqueue(jobs)
-  }
-
-  /// Remember a job that runs after all compile jobs
+  /// Remember a job that runs after all compile jobs, e.g., ld
   func addPostCompileJobs(_ jobs: [Job]) {
-    assert(postCompileJobs == nil, "Should only be called once")
-    postCompileJobs = jobs
+    self.postCompileJobs = jobs
     for job in jobs {
       if let report = reportIncrementalDecision {
         for input in job.primaryInputs {
@@ -431,31 +426,48 @@ extension IncrementalCompilationState {
     }
   }
 
-  /// Update the incremental build state when a job finishes:
-  /// Read it's swiftDeps files and queue up any required discovered jobs.
-  func jobFinished(job finishedJob: Job, result: ProcessResult) {
+  /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
+  /// If no more compiles are needed, return nil.
+  /// Careful: job may not be primary.
+  public func getJobsDiscoveredToBeNeededAfterFinishing(
+    job finishedJob: Job, result: ProcessResult)
+  -> [Job]? {
     defer {
       amHandlingJobCompletion = false
     }
     assert(!amHandlingJobCompletion, "was reentered, need to synchronize")
     amHandlingJobCompletion = true
 
+    unfinishedMandatoryJobs.remove(finishedJob)
+    if finishedJob.kind == .compile {
+      finishedJob.primaryInputs.forEach {
+        if pendingInputs.remove($0) == nil {
+          fatalError("\($0) input to newly-finished \(finishedJob) should have been pending")
+        }
+      }
+    }
+
+    // Find and deal with inputs that how need to be compiled
     let discoveredInputs = collectInputsDiscovered(from: finishedJob)
+    assert(Set(discoveredInputs).isDisjoint(with: finishedJob.primaryInputs),
+           "Primaries should not overlap secondaries.")
+    skippedCompilationInputs.subtract(discoveredInputs)
+    pendingInputs.formUnion(discoveredInputs)
+
     if let report = reportIncrementalDecision {
       for input in discoveredInputs {
         report("Queuing because of dependencies discovered later:", input)
       }
     }
-    schedule(compilationInputs: discoveredInputs)
-    finishedJob.primaryInputs.forEach {pendingInputs.remove($0)}
-    if pendingInputs.isEmpty {
-      finishedWithCompilations()
+    if pendingInputs.isEmpty && unfinishedMandatoryJobs.isEmpty {
+      // no more compilations are possible
+      return nil
     }
+    return getJobsFor(discoveredCompilationInputs: discoveredInputs)
  }
 
-  private func collectInputsDiscovered(
-    from job: Job
-  ) -> [TypedVirtualPath] {
+  /// After `job` finished find out which inputs must compiled that were not known to need compilation before
+  private func collectInputsDiscovered(from job: Job)  -> [TypedVirtualPath] {
     Array(
       Set(
         job.primaryInputs.flatMap {
@@ -467,11 +479,15 @@ extension IncrementalCompilationState {
     .sorted {$0.file.name < $1.file.name}
   }
 
-  private func schedule(compilationInputs inputs: [TypedVirtualPath]) {
-    let jobs = inputs.flatMap { input -> [Job] in
+  /// Find the jobs that now must be run that were not originally known to be needed.
+  private func getJobsFor(
+    discoveredCompilationInputs inputs: [TypedVirtualPath]
+  ) -> [Job] {
+    inputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input) {
         let primaryInputs = group.first!.primaryInputs
-        skippedCompilationInputs.subtract(primaryInputs)
+        assert(primaryInputs.count == 1)
+        assert(primaryInputs[0] == input)
         reportIncrementalDecision?("Scheduling discovered", input)
         return group
       }
@@ -480,11 +496,5 @@ extension IncrementalCompilationState {
         return []
       }
     }
-    schedule(preOrCompileJobs: jobs)
-  }
-
-  func finishedWithCompilations() {
-    preOrCompileJobs.enqueue(nil)
   }
 }
-

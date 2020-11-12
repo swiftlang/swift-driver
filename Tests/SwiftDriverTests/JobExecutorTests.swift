@@ -188,7 +188,8 @@ final class JobExecutorTests: XCTestCase {
       )
 
       let delegate = JobCollectingDelegate()
-      let executor = MultiJobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
+      let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link]),
+                                      resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
@@ -221,7 +222,7 @@ final class JobExecutorTests: XCTestCase {
 
     let delegate = JobCollectingDelegate()
     let executor = MultiJobExecutor(
-      jobs: [job], resolver: try ArgsResolver(fileSystem: localFileSystem),
+      workload: .all([job]), resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
       diagnosticsEngine: DiagnosticsEngine(),
       processType: JobCollectingDelegate.StubProcess.self

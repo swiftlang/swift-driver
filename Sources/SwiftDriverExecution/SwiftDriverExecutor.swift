@@ -57,20 +57,21 @@ public final class SwiftDriverExecutor: DriverExecutor {
     }
   }
 
-  public func execute(jobs: [Job],
+  public func execute(workload: DriverExecutorWorkload,
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) throws {
-    let llbuildExecutor = MultiJobExecutor(jobs: jobs,
-                                           resolver: resolver,
-                                           executorDelegate: delegate,
-                                           diagnosticsEngine: diagnosticsEngine,
-                                           numParallelJobs: numParallelJobs,
-                                           processSet: processSet,
-                                           forceResponseFiles: forceResponseFiles,
-                                           recordedInputModificationDates: recordedInputModificationDates)
+    let llbuildExecutor = MultiJobExecutor(
+      workload: workload,
+      resolver: resolver,
+      executorDelegate: delegate,
+      diagnosticsEngine: diagnosticsEngine,
+      numParallelJobs: numParallelJobs,
+      processSet: processSet,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates)
     try llbuildExecutor.execute(env: env, fileSystem: fileSystem)
   }
 

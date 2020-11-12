@@ -29,13 +29,25 @@ import SwiftDriver
 public final class MultiJobExecutor {
 
   /// The context required during job execution.
-  struct Context {
+  /// Must be a class because the producer map can grow as  jobs are added.
+  class Context {
 
     /// This contains mapping from an output to the index(in the jobs array) of the job that produces that output.
-    let producerMap: [VirtualPath: Int]
+    /// Can grow dynamically as  jobs are added.
+    var producerMap: [VirtualPath: Int] = [:]
 
     /// All the jobs being executed.
-    let jobs: [Job]
+    var jobs: [Job] = []
+
+    /// The indices into `jobs` for the primary jobs; those that must be run before the full set of
+    /// secondaries can be determined. Basically compilations.
+    let primaryIndices: Range<Int>
+
+    /// The indices into `jobs` of the jobs that must run *after* all compilations.
+    let postCompileIndices: Range<Int>
+
+    /// If non-null, the driver is performing an incremental compilation.
+    let incrementalCompilationState: IncrementalCompilationState?
 
     /// The resolver for argument template.
     let argsResolver: ArgsResolver
@@ -70,12 +82,17 @@ public final class MultiJobExecutor {
     /// The type to use when launching new processes. This mostly serves as an override for testing.
     let processType: ProcessProtocol.Type
 
+    /// Records the task build engine for the `ExecuteAllJobs` rule (and task) so that when a
+    /// mandatory job finishes, and new jobs are discovered, inputs can be added to that rule for
+    /// any newly-required job. Set only once.
+    private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
+
+
     init(
       argsResolver: ArgsResolver,
       env: [String: String],
       fileSystem: TSCBasic.FileSystem,
-      producerMap: [VirtualPath: Int],
-      jobs: [Job],
+      workload: DriverExecutorWorkload,
       executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
@@ -84,8 +101,14 @@ public final class MultiJobExecutor {
       diagnosticsEngine: DiagnosticsEngine,
       processType: ProcessProtocol.Type = Process.self
     ) {
-      self.producerMap = producerMap
-      self.jobs = jobs
+      (
+        jobs: self.jobs,
+        producerMap: self.producerMap,
+        primaryIndices: self.primaryIndices,
+        postCompileIndices: self.postCompileIndices,
+        incrementalCompilationState: self.incrementalCompilationState
+      ) = Self.fillInJobsAndProducers(workload)
+
       self.argsResolver = argsResolver
       self.env = env
       self.fileSystem = fileSystem
@@ -97,37 +120,142 @@ public final class MultiJobExecutor {
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
     }
+
+    deinit {
+      // break a potential cycle
+      executeAllJobsTaskBuildEngine = nil
+    }
+
+    private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
+    ) -> (jobs: [Job],
+          producerMap: [VirtualPath: Int],
+          primaryIndices: Range<Int>,
+          postCompileIndices: Range<Int>,
+          incrementalCompilationState: IncrementalCompilationState?)
+    {
+      var jobs = [Job]()
+      var producerMap = [VirtualPath: Int]()
+      let primaryIndices, postCompileIndices: Range<Int>
+      let incrementalCompilationState: IncrementalCompilationState?
+      switch workload {
+      case let .incremental(ics):
+        incrementalCompilationState = ics
+        primaryIndices = Self.addJobs(
+          ics.mandatoryPreOrCompileJobsInOrder,
+          to: &jobs,
+          producing: &producerMap
+          )
+        postCompileIndices = Self.addJobs(
+          ics.postCompileJobs,
+          to: &jobs,
+          producing: &producerMap)
+      case let .all(nonincrementalJobs):
+        incrementalCompilationState = nil
+        primaryIndices = Self.addJobs(
+          nonincrementalJobs,
+          to: &jobs,
+          producing: &producerMap)
+        postCompileIndices = 0 ..< 0
+      }
+      return ( jobs: jobs,
+               producerMap: producerMap,
+               primaryIndices: primaryIndices,
+               postCompileIndices: postCompileIndices,
+               incrementalCompilationState: incrementalCompilationState)
+    }
+
+    /// Allow for dynamically adding jobs, since some compile  jobs are added dynamically.
+    /// Return the indices into `jobs` of the added jobs.
+    @discardableResult
+    fileprivate static func addJobs(
+      _ js: [Job],
+      to jobs: inout [Job],
+      producing producerMap: inout [VirtualPath: Int]
+    ) -> Range<Int> {
+      let initialCount = jobs.count
+      for job in js {
+        addProducts(of: job, index: jobs.count, knownJobs: jobs, to: &producerMap)
+        jobs.append(job)
+      }
+      return initialCount ..< jobs.count
+    }
+
+    ///  Update the producer map when adding a job.
+    private static func addProducts(of job: Job,
+                                    index: Int,
+                                    knownJobs: [Job],
+                                    to producerMap: inout [VirtualPath: Int]
+    ) {
+      for output in job.outputs {
+        if let otherJobIndex = producerMap.updateValue(index, forKey: output.file) {
+          fatalError("multiple producers for output \(output): \(job) & \(knownJobs[otherJobIndex])")
+        }
+        producerMap[output.file] = index
+      }
+    }
+
+    fileprivate func setExecuteAllJobsTaskBuildEngine(_ engine: LLTaskBuildEngine) {
+      assert(executeAllJobsTaskBuildEngine == nil)
+      executeAllJobsTaskBuildEngine = engine
+    }
+
+    /// After a job finishes, an incremental build may discover more jobs are needed, or if all compilations
+    /// are done, will need to then add in the post-compilation rules.
+    fileprivate func addRuleBeyondMandatoryCompiles(
+      finishedJob job: Job,
+      result: ProcessResult
+    ) {
+      guard job.kind.isCompile else {
+        return
+      }
+      if let newJobs = incrementalCompilationState?
+          .getJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
+        let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
+        needInputFor(indices: newJobIndices)
+      }
+      else {
+        needInputFor(indices: postCompileIndices)
+      }
+    }
+    fileprivate func needInputFor<Indices: Collection>(indices: Indices)
+    where Indices.Element == Int
+    {
+      for index in indices {
+        let key = ExecuteJobRule.RuleKey(index: index)
+        executeAllJobsTaskBuildEngine!.taskNeedsInput(key, inputID: index)
+      }
+    }
   }
 
-  /// The list of jobs that we may need to run.
-  let jobs: [Job]
+  /// The work to be done.
+  private let workload: DriverExecutorWorkload
 
   /// The argument resolver.
-  let argsResolver: ArgsResolver
+  private let argsResolver: ArgsResolver
 
   /// The job executor delegate.
-  let executorDelegate: JobExecutionDelegate
+  private let executorDelegate: JobExecutionDelegate
 
   /// The number of jobs to run in parallel.
-  let numParallelJobs: Int
+  private let numParallelJobs: Int
 
   /// The process set to use when launching new processes.
-  let processSet: ProcessSet?
+  private let processSet: ProcessSet?
 
   /// If true, always use response files to pass command line arguments.
-  let forceResponseFiles: Bool
+  private let forceResponseFiles: Bool
 
   /// The last time each input file was modified, recorded at the start of the build.
-  public let recordedInputModificationDates: [TypedVirtualPath: Date]
+  private let recordedInputModificationDates: [TypedVirtualPath: Date]
 
   /// The diagnostics engine to use when reporting errors.
-  let diagnosticsEngine: DiagnosticsEngine
+  private let diagnosticsEngine: DiagnosticsEngine
 
   /// The type to use when launching new processes. This mostly serves as an override for testing.
-  let processType: ProcessProtocol.Type
+  private let processType: ProcessProtocol.Type
 
   public init(
-    jobs: [Job],
+    workload: DriverExecutorWorkload,
     resolver: ArgsResolver,
     executorDelegate: JobExecutionDelegate,
     diagnosticsEngine: DiagnosticsEngine,
@@ -137,7 +265,7 @@ public final class MultiJobExecutor {
     recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
     processType: ProcessProtocol.Type = Process.self
   ) {
-    self.jobs = jobs
+    self.workload = workload
     self.argsResolver = resolver
     self.executorDelegate = executorDelegate
     self.diagnosticsEngine = diagnosticsEngine
@@ -150,7 +278,7 @@ public final class MultiJobExecutor {
 
   /// Execute all jobs.
   public func execute(env: [String: String], fileSystem: TSCBasic.FileSystem) throws {
-    let context = createContext(jobs, env: env, fileSystem: fileSystem)
+    let context = createContext(env: env, fileSystem: fileSystem)
 
     let delegate = JobExecutorBuildDelegate(context)
     let engine = LLBuildEngine(delegate: delegate)
@@ -164,15 +292,7 @@ public final class MultiJobExecutor {
   }
 
   /// Create the context required during the execution.
-  func createContext(_ jobs: [Job], env: [String: String], fileSystem: TSCBasic.FileSystem) -> Context {
-    var producerMap: [VirtualPath: Int] = [:]
-    for (index, job) in jobs.enumerated() {
-      for output in job.outputs {
-        assert(!producerMap.keys.contains(output.file), "multiple producers for output \(output): \(job) \(producerMap[output.file]!)")
-        producerMap[output.file] = index
-      }
-    }
-
+  private func createContext(env: [String: String], fileSystem: TSCBasic.FileSystem) -> Context {
     let jobQueue = OperationQueue()
     jobQueue.name = "org.swift.driver.job-execution"
     jobQueue.maxConcurrentOperationCount = numParallelJobs
@@ -181,8 +301,7 @@ public final class MultiJobExecutor {
       argsResolver: argsResolver,
       env: env,
       fileSystem: fileSystem,
-      producerMap: producerMap,
-      jobs: jobs,
+      workload: workload,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
       processSet: processSet,
@@ -205,7 +324,7 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
   func lookupRule(rule: String, key: Key) -> Rule {
     switch rule {
     case ExecuteAllJobsRule.ruleName:
-      return ExecuteAllJobsRule(key, jobs: context.jobs, fileSystem: context.fileSystem)
+      return ExecuteAllJobsRule(context: context)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key, context: context)
     default:
@@ -239,23 +358,20 @@ class ExecuteAllJobsRule: LLBuildRule {
 
   override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
 
-  private let key: RuleKey
-  private let jobs: [Job]
+  private let context: MultiJobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
-  init(_ key: Key, jobs: [Job], fileSystem: TSCBasic.FileSystem) {
-    self.key = RuleKey(key)
-    self.jobs = jobs
-    super.init(fileSystem: fileSystem)
+
+  init(context: MultiJobExecutor.Context) {
+    self.context = context
+    super.init(fileSystem: context.fileSystem)
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    for index in jobs.indices {
-      let key = ExecuteJobRule.RuleKey(index: index)
-      engine.taskNeedsInput(key, inputID: index)
-    }
+    context.setExecuteAllJobsTaskBuildEngine(engine)
+    context.needInputFor(indices: context.primaryIndices)
   }
 
   override func isResultValid(_ priorValue: Value) -> Bool {
@@ -306,7 +422,7 @@ class ExecuteJobRule: LLBuildRule {
     return false
   }
 
-  override func provideValue(_ engine: LLTaskBuildEngine, inputID _: Int, value: Value) {
+  override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
     rememberIfInputSucceeded(engine, value: value)
   }
 
@@ -391,12 +507,12 @@ class ExecuteJobRule: LLBuildRule {
 #endif
         }
       }
+      context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
-
       value = .jobExecution(success: success)
     } catch {
       if error is DiagnosticData {

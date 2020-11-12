@@ -32,6 +32,7 @@ extension IncrementalCompilationTests {
     // to regenerate.
     static let __allTests__IncrementalCompilationTests = [
         ("testIncremental", testIncremental),
+        ("testIncrementalDiagnostics", testIncrementalDiagnostics),
     ]
 }
 
@@ -117,6 +118,7 @@ extension NonincrementalCompilationTests {
     static let __allTests__NonincrementalCompilationTests = [
         ("testBuildRecordReading", testBuildRecordReading),
         ("testDateConversion", testDateConversion),
+        ("testExtractSourceFileDependencyGraphFromSwiftModule", testExtractSourceFileDependencyGraphFromSwiftModule),
         ("testNoIncremental", testNoIncremental),
         ("testReadAndWriteBuildRecord", testReadAndWriteBuildRecord),
         ("testReadBinarySourceFileDependencyGraph", testReadBinarySourceFileDependencyGraph),
@@ -176,12 +178,14 @@ extension SwiftDriverTests {
         ("testDarwinToolchainArgumentValidation", testDarwinToolchainArgumentValidation),
         ("testDashDashPassingDownInput", testDashDashPassingDownInput),
         ("testDebugSettings", testDebugSettings),
+        ("testDeriveSwiftDocPath", testDeriveSwiftDocPath),
         ("testDiagnosticOptions", testDiagnosticOptions),
         ("testDOTFileEmission", testDOTFileEmission),
         ("testDriverKindParsing", testDriverKindParsing),
         ("testDSYMGeneration", testDSYMGeneration),
         ("testDumpASTOverride", testDumpASTOverride),
         ("testEmbedBitcode", testEmbedBitcode),
+        ("testEmitModuleSeparately", testEmitModuleSeparately),
         ("testEmitModuleTrace", testEmitModuleTrace),
         ("testEnvironmentInferenceWarning", testEnvironmentInferenceWarning),
         ("testExecutableFallbackPath", testExecutableFallbackPath),
@@ -195,6 +199,7 @@ extension SwiftDriverTests {
         ("testJoinedPathOptions", testJoinedPathOptions),
         ("testLEqualPassedDownToLinkerInvocation", testLEqualPassedDownToLinkerInvocation),
         ("testLinking", testLinking),
+        ("testLTOLibraryArg", testLTOLibraryArg),
         ("testLTOOption", testLTOOption),
         ("testLTOOutputs", testLTOOutputs),
         ("testMergeModuleEmittingDependencies", testMergeModuleEmittingDependencies),
@@ -222,6 +227,7 @@ extension SwiftDriverTests {
         ("testPrintOutputFileMap", testPrintOutputFileMap),
         ("testPrintTargetInfo", testPrintTargetInfo),
         ("testProfileArgValidation", testProfileArgValidation),
+        ("testProfileLinkerArgs", testProfileLinkerArgs),
         ("testRecordedInputModificationDates", testRecordedInputModificationDates),
         ("testRegressions", testRegressions),
         ("testRelativeOptionOrdering", testRelativeOptionOrdering),

@@ -23,19 +23,37 @@ public protocol DriverExecutor {
                recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
   
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
+  /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
+  func execute(workload: DriverExecutorWorkload,
+               delegate: JobExecutionDelegate,
+               numParallelJobs: Int,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath: Date]
+  ) throws
+
+  /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws
-  
+
   /// Launch a process with the given command line and report the result.
   @discardableResult
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
 
   /// Returns a textual description of the job as it would be run by the executor.
   func description(of job: Job, forceResponseFiles: Bool) throws -> String
+}
+
+public enum DriverExecutorWorkload {
+  case all([Job])
+  case incremental(IncrementalCompilationState)
+
+  init(_ allJobs: [Job], _ incrementalCompilationState: IncrementalCompilationState?) {
+    self = incrementalCompilationState.map {.incremental($0)} ?? .all(allJobs)
+  }
 }
 
 enum JobExecutionError: Error {
@@ -68,6 +86,21 @@ extension DriverExecutor {
     catch let err as DecodingError {
       throw JobExecutionError.decodingError(err, outputData, result)
     }
+  }
+
+  public func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputModificationDates: [TypedVirtualPath: Date]
+  ) throws {
+    try execute(
+      workload: .all(jobs),
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates)
   }
 
   static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {
