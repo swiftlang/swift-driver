@@ -368,6 +368,7 @@ final class IncrementalCompilationTests: XCTestCase {
     #if true // sometimes want to skip for debugging
     tryNoChange(checkDiagnostics)
     tryTouchingOther(checkDiagnostics)
+    tryTouchingBoth(checkDiagnostics)
     #endif
     tryReplacingMain(checkDiagnostics)
   }
@@ -417,9 +418,39 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
         "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+        "Found 1 batchable job",
+        "Forming into 1 batch",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 1 constituents: other.swift",
         "Incremental compilation: Queuing Compiling other.swift",
         "Starting Compiling other.swift",
         "Finished Compiling other.swift",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
+    ],
+    whenAutolinking: autolinkLifecycleExpectations)
+  }
+  func tryTouchingBoth(_ checkDiagnostics: Bool) {
+    touch("main")
+    touch("other")
+    try! doABuild(
+      "non-propagating, both touched",
+      checkDiagnostics: checkDiagnostics,
+      expectingRemarks: [
+        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
+        "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
+        "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
+        "Found 2 batchable jobs",
+        "Forming into 1 batch",
+        "Adding {compile: main.swift} to batch 0",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 2 constituents: main.swift, other.swift",
+        "Incremental compilation: Queuing Compiling main.swift, other.swift",
+        "Starting Compiling main.swift, other.swift",
+        "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
     ],
@@ -437,6 +468,10 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
         "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Found 1 batchable job",
+        "Forming into 1 batch",
+        "Adding {compile: main.swift} to batch 0",
+        "Forming batch job from 1 constituents: main.swift",
         "Incremental compilation: Queuing Compiling main.swift",
         "Starting Compiling main.swift",
         "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",

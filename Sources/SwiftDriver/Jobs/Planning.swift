@@ -599,14 +599,14 @@ extension Driver {
           diagnosticEngine
             .emit(
               .remark(
-                "Adding {compile: \($0.file.basename)} to batch \(idx)\n"))
+                "Adding {compile: \($0.file.basename)} to batch \(idx)"))
         }
 
         let constituents = primaryInputs.map {$0.file.basename}.joined(separator: ", ")
         diagnosticEngine
           .emit(
             .remark(
-              "Forming batch job from \(primaryInputs.count) constituents: \(constituents)\n"))
+              "Forming batch job from \(primaryInputs.count) constituents: \(constituents)"))
       }
       let constituentsEmittedModuleTrace = !inputsRequiringModuleTrace.intersection(primaryInputs).isEmpty
       // no need to add job outputs again

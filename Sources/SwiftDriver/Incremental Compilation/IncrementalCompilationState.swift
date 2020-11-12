@@ -369,28 +369,28 @@ extension IncrementalCompilationState {
   func addPreOrCompileJobGroups(_ groups: [[Job]],
                                 formBatchedJobs: ([Job]) throws -> [Job]
   ) throws {
-    for group in groups {
+    let mandatoryPreOrCompileJobs = groups.flatMap { group -> [Job] in
       if let firstJob = group.first, isSkipped(firstJob) {
         recordSkippedGroup(group)
+        return []
       }
-      else {
-        try scheduleMandatoryPreOrCompile(group: group)
-      }
+      return group
     }
+    let batchedMandatoryPreOrCompileJobs = try formBatchedJobs(mandatoryPreOrCompileJobs)
+    scheduleMandatoryPreOrCompile(jobs: batchedMandatoryPreOrCompileJobs)
   }
 
   /// Remember that `group` (a compilation and possibly bitcode generation)
   /// must definitely be executed.
-  private func scheduleMandatoryPreOrCompile(
-    group: [Job]) {
+  private func scheduleMandatoryPreOrCompile(jobs: [Job]) {
     if let report = reportIncrementalDecision {
-      for job in group {
+      for job in jobs {
         report("Queuing \(job.descriptionForLifecycle)", nil)
       }
     }
-    mandatoryPreOrCompileJobsInOrder.append(contentsOf: group)
-    unfinishedMandatoryJobs.formUnion(group)
-    let mandatoryCompilationInputs = group
+    mandatoryPreOrCompileJobsInOrder.append(contentsOf: jobs)
+    unfinishedMandatoryJobs.formUnion(jobs)
+    let mandatoryCompilationInputs = jobs
       .flatMap {$0.kind == .compile ? $0.primaryInputs : []}
     pendingInputs.formUnion(mandatoryCompilationInputs)
   }
