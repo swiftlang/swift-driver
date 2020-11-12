@@ -33,7 +33,7 @@ public class IncrementalCompilationState {
 
   /// Input files that were skipped.
   /// May shrink if one of these moves into pendingInputs. In that case, it will be an input to a
-  /// "secondary" job.
+  /// "newly-discovered" job.
   private(set) var skippedCompilationInputs: Set<TypedVirtualPath>
 
   /// Job groups that were skipped.

@@ -29,11 +29,11 @@ import SwiftDriver
 public final class MultiJobExecutor {
 
   /// The context required during job execution.
-  /// Must be a class because the producer map can grow as secondary jobs are added.
+  /// Must be a class because the producer map can grow as  jobs are added.
   class Context {
 
     /// This contains mapping from an output to the index(in the jobs array) of the job that produces that output.
-    /// Can grow dynamically as secondary jobs are added.
+    /// Can grow dynamically as  jobs are added.
     var producerMap: [VirtualPath: Int] = [:]
 
     /// All the jobs being executed.
@@ -44,7 +44,7 @@ public final class MultiJobExecutor {
     let primaryIndices: Range<Int>
 
     /// The indices into `jobs` of the jobs that must run *after* all compilations.
-    let tertiaryIndices: Range<Int>
+    let postCompileIndices: Range<Int>
 
     /// If non-null, the driver is performing an incremental compilation.
     let incrementalCompilationState: IncrementalCompilationState?
@@ -83,8 +83,8 @@ public final class MultiJobExecutor {
     let processType: ProcessProtocol.Type
 
     /// Records the task build engine for the `ExecuteAllJobs` rule (and task) so that when a
-    /// primary job finishes, and secondaries are discovered, inputs can be added to that rule for
-    /// any required secondary. Set only once.
+    /// mandatory job finishes, and new jobs are discovered, inputs can be added to that rule for
+    /// any newly-required job. Set only once.
     private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
 
 
@@ -105,7 +105,7 @@ public final class MultiJobExecutor {
         jobs: self.jobs,
         producerMap: self.producerMap,
         primaryIndices: self.primaryIndices,
-        tertiaryIndices: self.tertiaryIndices,
+        postCompileIndices: self.postCompileIndices,
         incrementalCompilationState: self.incrementalCompilationState
       ) = Self.fillInJobsAndProducers(workload)
 
@@ -125,12 +125,12 @@ public final class MultiJobExecutor {
     ) -> (jobs: [Job],
           producerMap: [VirtualPath: Int],
           primaryIndices: Range<Int>,
-          tertiaryIndices: Range<Int>,
+          postCompileIndices: Range<Int>,
           incrementalCompilationState: IncrementalCompilationState?)
     {
       var jobs = [Job]()
       var producerMap = [VirtualPath: Int]()
-      let primaryIndices, tertiaryIndices: Range<Int>
+      let primaryIndices, postCompileIndices: Range<Int>
       let incrementalCompilationState: IncrementalCompilationState?
       switch workload {
       case let .incremental(ics):
@@ -140,7 +140,7 @@ public final class MultiJobExecutor {
           to: &jobs,
           producing: &producerMap
           )
-        tertiaryIndices = Self.addJobs(
+        postCompileIndices = Self.addJobs(
           ics.postCompileJobs,
           to: &jobs,
           producing: &producerMap)
@@ -150,16 +150,16 @@ public final class MultiJobExecutor {
           nonincrementalJobs,
           to: &jobs,
           producing: &producerMap)
-        tertiaryIndices = 0 ..< 0
+        postCompileIndices = 0 ..< 0
       }
       return ( jobs: jobs,
                producerMap: producerMap,
                primaryIndices: primaryIndices,
-               tertiaryIndices: tertiaryIndices,
+               postCompileIndices: postCompileIndices,
                incrementalCompilationState: incrementalCompilationState)
     }
 
-    /// Allow for dynamically adding jobs, since secondary jobs are added dynamically.
+    /// Allow for dynamically adding jobs, since some compile  jobs are added dynamically.
     /// Return the indices into `jobs` of the added jobs.
     @discardableResult
     fileprivate static func addJobs(
@@ -192,7 +192,7 @@ public final class MultiJobExecutor {
 
     /// After a job finishes, an incremental build may discover more jobs are needed, or if all compilations
     /// are done, will need to then add in the post-compilation rules.
-    fileprivate func addSecondaryOrTertiaryRules(
+    fileprivate func addRuleBeyondMandatoryCompiles(
       finishedJob job: Job,
       result: ProcessResult
     ) {
@@ -205,7 +205,7 @@ public final class MultiJobExecutor {
         needInputFor(indices: newJobIndices)
       }
       else {
-        needInputFor(indices: tertiaryIndices)
+        needInputFor(indices: postCompileIndices)
       }
     }
     fileprivate func needInputFor<Indices: Collection>(indices: Indices)
@@ -498,7 +498,7 @@ class ExecuteJobRule: LLBuildRule {
 #endif
         }
       }
-      context.addSecondaryOrTertiaryRules(finishedJob: job, result: result)
+      context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
