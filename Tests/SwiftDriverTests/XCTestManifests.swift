@@ -31,6 +31,7 @@ extension IncrementalCompilationTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__IncrementalCompilationTests = [
+        ("testAutolinkOutputPath", testAutolinkOutputPath),
         ("testIncremental", testIncremental),
         ("testIncrementalDiagnostics", testIncrementalDiagnostics),
     ]
