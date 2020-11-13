@@ -57,7 +57,7 @@ extension Driver {
       TypedVirtualPath(file: moduleOutputPath, type: .swiftModule)
     ]
 
-    commandLine.appendFlags("-frontend", "-emit-module", "-experimental-skip-non-inlinable-function-bodies")
+    commandLine.appendFlags("-frontend", "-emit-module", "-experimental-skip-non-inlinable-function-bodies-without-types")
 
     let swiftInputFiles = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
 
