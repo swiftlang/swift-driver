@@ -195,7 +195,7 @@ public struct Driver {
   /// Info needed to write and maybe read the build record.
   /// Only present when the driver will be writing the record.
   /// Only used for reading when compiling incrementally.
-  @_spi(Testing) public let buildRecordInfo: BuildRecordInfo?
+  let buildRecordInfo: BuildRecordInfo?
 
   /// Code & data for incremental compilation. Nil if not running in incremental mode
   @_spi(Testing) public let incrementalCompilationState: IncrementalCompilationState?

@@ -14,21 +14,21 @@ import TSCBasic
 
 // MARK: - SwiftDeps
 extension ModuleDependencyGraph {
-  @_spi(Testing) public struct SwiftDeps: Hashable, CustomStringConvertible {
+  struct SwiftDeps: Hashable, CustomStringConvertible {
 
     let file: VirtualPath
 
-    @_spi(Testing) public init?(_ typedFile: TypedVirtualPath) {
+    init?(_ typedFile: TypedVirtualPath) {
       guard typedFile.type == .swiftDeps else { return nil }
       self.init(typedFile.file)
     }
     init(_ file: VirtualPath) {
       self.file = file
     }
-    @_spi(Testing) public init(mock i: Int) {
+    init(mock i: Int) {
       self.file = try! VirtualPath(path: String(i))
     }
-    @_spi(Testing) public var mockID: Int {
+    var mockID: Int {
        Int(file.name)!
     }
     public var description: String {
@@ -39,10 +39,10 @@ extension ModuleDependencyGraph {
 
 // MARK: - testing
 extension ModuleDependencyGraph.SwiftDeps {
-  @_spi(Testing) public var sourceFileProvideNameForMockSwiftDeps: String {
+  var sourceFileProvideNameForMockSwiftDeps: String {
     file.name
   }
-  @_spi(Testing) public var interfaceHashForMockSwiftDeps: String {
+  var interfaceHashForMockSwiftDeps: String {
     file.name
   }
 }

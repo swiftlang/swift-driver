@@ -14,8 +14,8 @@ import TSCBasic
 
 public struct InputInfo: Equatable {
 
-  @_spi(Testing) public let status: Status
-  @_spi(Testing) public let previousModTime: Date
+  let status: Status
+  let previousModTime: Date
 
   public init(status: Status, previousModTime: Date) {
     self.status = status

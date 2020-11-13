@@ -2,13 +2,13 @@
 import Foundation
 
 /// A filename from another module
-@_spi(Testing) public struct ExternalDependency: Hashable, CustomStringConvertible {
+struct ExternalDependency: Hashable, CustomStringConvertible {
   let fileName: String
 
   var file: VirtualPath? {
     try? VirtualPath(path: fileName)
   }
-  @_spi(Testing) public init(_ path: String) {
+  init(_ path: String) {
     self.fileName = path
   }
   public var description: String {
@@ -18,7 +18,7 @@ import Foundation
 
 
 
-@_spi(Testing) public struct DependencyKey: Hashable {
+public struct DependencyKey: Hashable {
   /// Instead of the status quo scheme of two kinds of "Depends", cascading and
   /// non-cascading this code represents each entity ("Provides" in the status
   /// quo), by a pair of nodes. One node represents the "implementation." If the
@@ -31,7 +31,7 @@ import Foundation
   /// implementations white. Each node holds an instance variable describing which
   /// aspect of the entity it represents.
 
-  @_spi(Testing) public enum DeclAspect {
+  enum DeclAspect {
     case interface, implementation
   }
 
@@ -39,7 +39,7 @@ import Foundation
   /// graph, splitting the current *member* into \ref member and \ref
   /// potentialMember and adding \ref sourceFileProvide.
   ///
-  @_spi(Testing) public enum Designator: Hashable {
+  enum Designator: Hashable {
     case
       topLevel(name: String),
       dynamicLookup(name: String),
@@ -60,13 +60,13 @@ import Foundation
       default:
         return nil}
     }
- }
+  }
 
-  @_spi(Testing) public let aspect: DeclAspect
-  @_spi(Testing) public let designator: Designator
+  let aspect: DeclAspect
+  let designator: Designator
 
 
-  @_spi(Testing) public init(
+  init(
     aspect: DeclAspect,
     designator: Designator)
   {
@@ -75,7 +75,7 @@ import Foundation
   }
 
 
-  @_spi(Testing) public var correspondingImplementation: Self {
+  var correspondingImplementation: Self {
     assert(aspect == .interface)
     return Self(aspect: .implementation, designator: designator)
   }

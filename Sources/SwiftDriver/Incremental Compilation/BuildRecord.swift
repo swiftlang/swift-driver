@@ -163,7 +163,7 @@ extension BuildRecord {
     )
   }
 
-  @_spi(Testing) public func encode() throws -> String {
+   func encode() throws -> String {
       let pathsAndInfos = try inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
         guard let path = input.absolutePath else {

@@ -15,13 +15,13 @@ import TSCBasic
 extension ModuleDependencyGraph {
 
 /// Trace dependencies through the graph
-  @_spi(Testing) public struct Tracer {
-    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
+  struct Tracer {
+    typealias Graph = ModuleDependencyGraph
 
     let startingPoints: [Node]
     let graph: ModuleDependencyGraph
 
-    @_spi(Testing) public private(set) var tracedUses: [Node] = []
+    private(set) var tracedUses: [Node] = []
 
     /// Record the paths taking so that  -driver-show-incremental can explain why things are recompiled
     /// If tracing dependencies, holds a vector used to hold the current path
@@ -37,7 +37,7 @@ extension ModuleDependencyGraph.Tracer {
 
   /// Find all uses of `defs` that have not already been traced.
   /// (If already traced, jobs have already been scheduled.)
-  @_spi(Testing) public static func findPreviouslyUntracedUsesOf<Nodes: Sequence> (
+  static func findPreviouslyUntracedUsesOf<Nodes: Sequence> (
     defs: Nodes,
     in graph: ModuleDependencyGraph,
     diagnosticEngine: DiagnosticsEngine
