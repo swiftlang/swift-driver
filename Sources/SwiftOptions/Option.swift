@@ -135,9 +135,9 @@ extension Option {
   public func isAccepted(by driverKind: DriverKind) -> Bool {
     switch driverKind {
     case .batch:
-      return !attributes.contains(.noBatch)
+      return attributes.isDisjoint(with: [.noDriver, .noBatch])
     case .interactive:
-      return !attributes.contains(.noInteractive)
+      return attributes.isDisjoint(with: [.noDriver, .noInteractive])
     }
   }
 }
