@@ -17,7 +17,7 @@ extension ModuleDependencyGraph {
   /// The core information for the ModuleDependencyGraph
   /// Isolate in a sub-structure in order to faciliate invariant maintainance
   struct NodeFinder {
-    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
+    typealias Graph = ModuleDependencyGraph
     
     /// Maps swiftDeps files and DependencyKeys to Nodes
     fileprivate typealias NodeMap = TwoDMap<SwiftDeps?, DependencyKey, Node>

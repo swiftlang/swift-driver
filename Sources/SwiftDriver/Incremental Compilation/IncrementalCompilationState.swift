@@ -49,7 +49,7 @@ public class IncrementalCompilationState {
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
-  @_spi(Testing) public init?(
+  init?(
     buildRecordInfo: BuildRecordInfo?,
     compilerMode: CompilerMode,
     diagnosticEngine: DiagnosticsEngine,

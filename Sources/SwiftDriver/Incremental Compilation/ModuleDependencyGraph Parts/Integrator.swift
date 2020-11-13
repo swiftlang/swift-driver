@@ -17,12 +17,12 @@ extension ModuleDependencyGraph {
   // MARK: Integrator - state & creation
 
   /// Integrates a \c SourceFileDependencyGraph into a \c ModuleDependencyGraph
-  @_spi(Testing) public struct Integrator {
+  struct Integrator {
 
     // Shorthands
-    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
+    typealias Graph = ModuleDependencyGraph
 
-    @_spi(Testing) public  typealias Changes = Set<Node>
+    typealias Changes = Set<Node>
 
     let source: SourceFileDependencyGraph
     let swiftDeps: SwiftDeps
@@ -55,7 +55,7 @@ extension ModuleDependencyGraph.Integrator {
     case notSwiftDeps
   }
   /// returns nil for error
-  @_spi(Testing) public static func integrate(
+  static func integrate(
     swiftDeps: Graph.SwiftDeps,
     into destination: Graph,
     diagnosticEngine: DiagnosticsEngine
@@ -76,7 +76,7 @@ extension ModuleDependencyGraph.Integrator {
   /// Integrate a SourceFileDepGraph into the receiver.
   /// Integration happens when the driver needs to read SourceFileDepGraph.
   /// Returns changed nodes
-  @_spi(Testing) public static func integrate(
+  static func integrate(
     from g: SourceFileDependencyGraph,
     swiftDeps: Graph.SwiftDeps,
     into destination: Graph

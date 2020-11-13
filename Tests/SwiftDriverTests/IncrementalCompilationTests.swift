@@ -12,7 +12,7 @@
 import XCTest
 import TSCBasic
 
-@_spi(Testing) import SwiftDriver
+@testable import SwiftDriver
 
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {

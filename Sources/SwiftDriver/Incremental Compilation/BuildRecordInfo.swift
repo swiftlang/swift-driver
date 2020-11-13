@@ -16,7 +16,7 @@ import SwiftOptions
 
 /// Holds information required to read and write the build record (aka compilation record)
 /// This info is always written, but only read for incremental compilation.
-@_spi(Testing) public class BuildRecordInfo {
+ class BuildRecordInfo {
   let buildRecordPath: VirtualPath
   let fileSystem: FileSystem
   let argsHash: String

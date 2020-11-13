@@ -16,24 +16,24 @@ import SwiftOptions
 
 // MARK: - ModuleDependencyGraph
 
-@_spi(Testing) public final class ModuleDependencyGraph {
+final class ModuleDependencyGraph {
   
-  internal var nodeFinder = NodeFinder()
+  var nodeFinder = NodeFinder()
   
   /// When integrating a change, want to find untraced nodes so we can kick off jobs that have not been
   /// kicked off yet
   private var tracedNodes = Set<Node>()
   
-  @_spi(Testing) public var sourceSwiftDepsMap = BidirectionalMap<TypedVirtualPath, SwiftDeps>()
+  private(set) var sourceSwiftDepsMap = BidirectionalMap<TypedVirtualPath, SwiftDeps>()
 
   // Supports requests from the driver to getExternalDependencies.
-  @_spi(Testing) public internal(set) var externalDependencies = Set<ExternalDependency>()
+  public internal(set) var externalDependencies = Set<ExternalDependency>()
   
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
   let reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   
-  @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
+  private let diagnosticEngine: DiagnosticsEngine
   
   public init(
     diagnosticEngine: DiagnosticsEngine,
@@ -89,7 +89,7 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   /// Find all the sources that depend on `sourceFile`. For some source files, these will be
   /// speculatively scheduled in the first wave.
-  @_spi(Testing) public func findDependentSourceFiles(
+  func findDependentSourceFiles(
     of sourceFile: TypedVirtualPath,
     _ reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   ) -> [TypedVirtualPath] {
@@ -113,7 +113,7 @@ extension ModuleDependencyGraph {
 
   /// Find all the swiftDeps files that depend on `swiftDeps`.
   /// Really private, except for testing.
-  @_spi(Testing) public func findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(
+  func findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(
     _ swiftDeps: SwiftDeps
   ) -> Set<SwiftDeps> {
     let nodes = nodeFinder.findNodes(for: swiftDeps) ?? [:]
@@ -126,7 +126,7 @@ extension ModuleDependencyGraph {
   /// After `source` has been compiled, figure out what other source files need compiling.
   /// Used to schedule the 2nd wave.
   /// Return nil in case of an error.
-  @_spi(Testing) public func findSourcesToCompileAfterCompiling(
+  func findSourcesToCompileAfterCompiling(
     _ source: TypedVirtualPath
   ) -> [TypedVirtualPath]? {
     findSourcesToCompileAfterIntegrating( sourceSwiftDepsMap[source] )
@@ -152,7 +152,7 @@ extension ModuleDependencyGraph {
 // MARK: - Scheduling either wave
 extension ModuleDependencyGraph {
   /// Find all the swiftDeps affected when the nodes change.
-  @_spi(Testing) public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
+  func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
     _ nodes: Nodes
   ) -> Set<SwiftDeps>
   where Nodes.Element == Node
@@ -165,7 +165,7 @@ extension ModuleDependencyGraph {
     return Set(affectedNodes.compactMap {$0.swiftDeps})
   }
 
-  @_spi(Testing) public  func forEachUntracedSwiftDepsDirectlyDependent(
+  func forEachUntracedSwiftDepsDirectlyDependent(
     on externalSwiftDeps: ExternalDependency,
     _ fn: (SwiftDeps) -> Void
   ) {
@@ -205,7 +205,7 @@ extension ModuleDependencyGraph {
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   /// Testing only
-  @_spi(Testing) public func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
+  func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
     let swiftDeps = SwiftDeps(mock: i)
     // optimization
     if let fileNode = nodeFinder.findFileInterfaceNode(forMock: swiftDeps),

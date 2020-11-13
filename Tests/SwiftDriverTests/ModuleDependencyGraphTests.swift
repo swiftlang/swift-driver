@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-@_spi(Testing) import SwiftDriver
+@testable import SwiftDriver
 import TSCBasic
 
 class ModuleDependencyGraphTests: XCTestCase {
@@ -949,7 +949,7 @@ extension ModuleDependencyGraph {
   }
 
   /// Can return duplicates
-  private func findUntracedSwiftDepsDependent(
+  func findUntracedSwiftDepsDependent(
     on externalDependency: ExternalDependency
   ) -> [SwiftDeps] {
     var foundSwiftDeps = [SwiftDeps]()
