@@ -368,9 +368,12 @@ final class IncrementalCompilationTests: XCTestCase {
   func testIncremental(checkDiagnostics: Bool) throws {
     tryInitial(checkDiagnostics)
     #if true // sometimes want to skip for debugging
-//    tryNoChange(checkDiagnostics)
-    tryTouchingOther(checkDiagnostics)
-    tryTouchingBoth(checkDiagnostics)
+    //    tryNoChange(checkDiagnostics)
+    for i in 0..<20  {
+    //  print("***", i, to: &stderrStream); stderrStream.flush()
+      tryTouchingOther(checkDiagnostics)
+      tryTouchingBoth(checkDiagnostics)
+    }
     #endif
 //    tryReplacingMain(checkDiagnostics)
   }
