@@ -269,6 +269,9 @@ extension IncrementalCompilationState {
       // has some inaccuracy.
       // Use outOfDateBuildRecord.buildTime instead
       case .upToDate where modDate < outOfDateBuildRecord.buildTime:
+        if input.file.basename.contains("other") {
+          fatalError("other was not new enough")
+        }
         reportIncrementalDecision?("May skip current input:", input)
         return nil
 

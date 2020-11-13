@@ -357,9 +357,7 @@ final class IncrementalCompilationTests: XCTestCase {
 
   // FIXME: why does it fail on Linux in CI?
   func testIncrementalDiagnostics() throws {
-    #if !os(Linux)
     try testIncremental(checkDiagnostics: true)
-    #endif
   }
 
   func testIncremental() throws {
@@ -370,11 +368,11 @@ final class IncrementalCompilationTests: XCTestCase {
   func testIncremental(checkDiagnostics: Bool) throws {
     tryInitial(checkDiagnostics)
     #if true // sometimes want to skip for debugging
-    tryNoChange(checkDiagnostics)
+//    tryNoChange(checkDiagnostics)
     tryTouchingOther(checkDiagnostics)
     tryTouchingBoth(checkDiagnostics)
     #endif
-    tryReplacingMain(checkDiagnostics)
+//    tryReplacingMain(checkDiagnostics)
   }
 
 
@@ -399,18 +397,18 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
-  func tryNoChange(_ checkDiagnostics: Bool) {
-    try! doABuild(
-      "no-change",
-      checkDiagnostics: checkDiagnostics,
-      expectingRemarks: [
-        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
-      ],
-      whenAutolinking: [])
-  }
+//  func tryNoChange(_ checkDiagnostics: Bool) {
+//    try! doABuild(
+//      "no-change",
+//      checkDiagnostics: checkDiagnostics,
+//      expectingRemarks: [
+//        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
+//        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
+//        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+//        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+//      ],
+//      whenAutolinking: [])
+//  }
   func tryTouchingOther(_ checkDiagnostics: Bool) {
     touch("other")
     try! doABuild(
@@ -460,40 +458,43 @@ final class IncrementalCompilationTests: XCTestCase {
     ],
     whenAutolinking: autolinkLifecycleExpectations)
   }
-
-  func tryReplacingMain(_ checkDiagnostics: Bool) {
-    replace(contentsOf: "main", with: "let foo = \"hello\"")
-    try! doABuild(
-      "propagating into 2nd wave",
-      checkDiagnostics: checkDiagnostics,
-      expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
-        "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
-        "Found 1 batchable job",
-        "Forming into 1 batch",
-        "Adding {compile: main.swift} to batch 0",
-        "Forming batch job from 1 constituents: main.swift",
-        "Incremental compilation: Queuing Compiling main.swift",
-        "Starting Compiling main.swift",
-        "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
-        "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
-        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
-        "Finished Compiling main.swift",
-        "Starting Compiling other.swift",
-        "Finished Compiling other.swift",
-        "Starting Linking theModule",
-        "Finished Linking theModule",
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
-  }
+//
+//  func tryReplacingMain(_ checkDiagnostics: Bool) {
+//    replace(contentsOf: "main", with: "let foo = \"hello\"")
+//    try! doABuild(
+//      "propagating into 2nd wave",
+//      checkDiagnostics: checkDiagnostics,
+//      expectingRemarks: [
+//        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
+//        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
+//        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+//        "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
+//        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+//        "Found 1 batchable job",
+//        "Forming into 1 batch",
+//        "Adding {compile: main.swift} to batch 0",
+//        "Forming batch job from 1 constituents: main.swift",
+//        "Incremental compilation: Queuing Compiling main.swift",
+//        "Starting Compiling main.swift",
+//        "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
+//        "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
+//        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
+//        "Finished Compiling main.swift",
+//        "Starting Compiling other.swift",
+//        "Finished Compiling other.swift",
+//        "Starting Linking theModule",
+//        "Finished Linking theModule",
+//      ],
+//      whenAutolinking: autolinkLifecycleExpectations)
+//  }
 
   func touch(_ name: String) {
     print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
     let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
+    let oldModTime = try! localFileSystem.getFileInfo(path).modTime
     try! localFileSystem.writeFileContents(path) { $0 <<< contents }
+    let newModTime = try! localFileSystem.getFileInfo(path).modTime
+    XCTAssert(newModTime.timeIntervalSince1970 > oldModTime.timeIntervalSince1970, "touch failed")
   }
 
   private func replace(contentsOf name: String, with replacement: String ) {
