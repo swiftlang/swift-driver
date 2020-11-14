@@ -1,0 +1,181 @@
+Audit of Failing Driver Integration Tests
+
+validation-test/Driver:
+  Swift(macosx-x86_64) :: Driver/Dependencies/rdar23148987.swift
+    Required changes to test for spaces and json ordering. There is warning and skipped jobs aren't being skipped.
+  Swift(macosx-x86_64) :: Driver/Dependencies/rdar25405605.swift
+    Required changes to test for spaces and json ordering. Still failing.
+  Swift(macosx-x86_64) :: Driver/batch_mode_size_limit.swift
+    -enable-only-one-dependency-file, Feature not brought to swift-driver on purpose: https://github.com/apple/swift-driver/pull/74
+
+test/Driver:
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-provides-before-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/malformed-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-provides-after-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/private-after-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-external-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-parseable-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-while-editing-fine.swift
+  Swift(macosx-x86_64) :: Driver/filelists.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-parallel-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/mutual-interface-hash-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-depends-after-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/nominal-members-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-merge-module-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/malformed-but-valid-yaml-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-simple-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-external-delete-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-depends-before-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/independent-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/embed-bitcode-parallel-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/file-added-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/private-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/independent-parseable-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/mutual-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-new-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-chained-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/check-interface-implementation-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/crash-simple-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-with-bad-deps-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-added-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-after-multiple-nominal-members-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-mutual-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-after-multiple-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-interface-hash-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/crash-new-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-after-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-swift-version-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-after-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/crash-added-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/chained-additional-kinds-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/dependencies-preservation-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-arguments-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-conflicting-arguments-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-malformed-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-inputs-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/whole-module-build-record.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/independent-half-dirty-fine.swift
+  Swift(macosx-x86_64) :: Driver/bad_exec.swift
+    -print-frontend-info: https://github.com/apple/swift/pull/34405
+
+  Swift(macosx-x86_64) :: Driver/bindings.swift
+    Missing .swiftdeps
+
+  Swift(macosx-x86_64) :: Driver/parseable_output.swift
+  Swift(macosx-x86_64) :: Driver/parseable_output_unicode.swift
+    JSON formatting - Potentially just easy test fix
+
+  Swift(macosx-x86_64) :: Driver/Dependencies/bindings-build-record.swift
+  Swift(macosx-x86_64) :: Driver/working-directory.swift
+  Swift(macosx-x86_64) :: Driver/multi-threaded.swift
+    ./ path difference - Potentially easy test fix
+
+  Swift(macosx-x86_64) :: Driver/emit-module-summary.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/only-skip-once.swift
+    Exit Code non-zero (no output)
+
+  Swift(macosx-x86_64) :: Driver/driver-time-compilation.swift
+    No output - Implementing would require rebuilding llvm::Timer
+
+  Swift(macosx-x86_64) :: Driver/cross_module.swift
+    Looks like swift-driver bug that could be fixed
+
+  Swift(macosx-x86_64) :: Driver/tools_directory.swift
+  Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
+    Test expects specific parameter ordering
+
+  Swift(macosx-x86_64) :: Driver/static-archive.swift
+  Swift(macosx-x86_64) :: Driver/link-time-opt.swift
+  Swift(macosx-x86_64) :: Driver/verbose.swift
+  Swift(macosx-x86_64) :: Driver/profiling.swift
+  Swift(macosx-x86_64) :: Driver/sanitizers.swift
+  Swift(macosx-x86_64) :: Driver/windows-libc-options.swift
+  Swift(macosx-x86_64) :: Driver/sanitize_scudo.swift
+    Windows
+
+  Swift(macosx-x86_64) :: Driver/merge-module.swift
+  Swift(macosx-x86_64) :: Driver/batch_mode_aux_file_order.swift
+    Temporary file name postfix (-######). swift-driver doesn't do this, c++ driver does, functionality comes from llvm.
+
+  Swift(macosx-x86_64) :: Driver/batch_mode_dependencies_make_wrong_order.swift
+  Swift(macosx-x86_64) :: Driver/advanced_output_file_map.swift
+  Swift(macosx-x86_64) :: Driver/supplementary-filelist-empty.swift
+    Unable to read file map
+
+  Swift(macosx-x86_64) :: Driver/bridging-pch.swift
+  Swift(macosx-x86_64) :: Driver/actions-dsym.swift
+  Swift(macosx-x86_64) :: Driver/actions.swift
+    -driver-print-actions bug
+
+  Swift(macosx-x86_64) :: Driver/options-repl.swift
+    Expecting an error about no input files, got error saying to use lldb repl
+
+  Swift(macosx-x86_64) :: Driver/options-repl-darwin.swift
+    Expecting integrated repl
+  
+  Swift(macosx-x86_64) :: Driver/sdk-apple.swift
+    Error about repl integrated repl being removed
+
+  Swift(macosx-x86_64) :: Driver/options.swift
+    Expected: error: unknown argument: '-crazy-option-that-does-not-exist'
+    Got:      error: option '-crazy-option-that-does-not-exist' is not supported by 'swift'; did you mean to use 'swiftc'?
+
+  Swift(macosx-x86_64) :: Driver/driver-compile.swift
+    Missing -emit-reference-dependencies-path
+
+  Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output-fine.swift
+  Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output_cancellation.swift
+  Swift(macosx-x86_64) :: Driver/batch_mode_bridging_pch.swift
+    Crash: Multiple jobs producing same output file
+
+  Swift(macosx-x86_64) :: Driver/android-link.swift
+    Target armv7-unknown-linux-androideabi vs armv7-none-linux-androidhf
+
+  Swift(macosx-x86_64) :: Driver/driver_migration.swift
+    Missing -emit-remap-file-path
+
+  Swift(macosx-x86_64) :: Driver/sdk.swift
+    Missing {{-syslibroot|--sysroot}}
+
+  Swift(macosx-x86_64) :: Driver/SourceRanges/range-incremental-no-build-record.swift
+    Same error messsage is worded differently
+  
+  Swift(macosx-x86_64) :: Driver/temp-files.swift
+    swift-driver has no -save-temps support
+
+  Swift(macosx-x86_64) :: Driver/batch_mode.swift
+    Linking failed
+
+  Swift(macosx-x86_64) :: Driver/autolink-force-load-no-comdat.swift
+    Different error than expected
+
+  Swift(macosx-x86_64) :: Driver/sanitize_coverage.swift
+    swift-driver missing parameter compatability checking
+
+  Swift(macosx-x86_64) :: Driver/embed-bitcode.swift
+  Swift(macosx-x86_64) :: Driver/modulewrap.swift
+    Missing -emit-module-path
+
+  Swift(macosx-x86_64) :: Driver/driver-use-frontend.swift
+    swift-driver checks that frontend exists, c++ driver does not
+
+  Swift(macosx-x86_64) :: Driver/continue-building-after-errors.swift
+    Found unexpected output
+
+  Swift(macosx-x86_64) :: Driver/emit-module-from-sib.swift
+    Output is missing some types
+
+  Swift(macosx-x86_64) :: Driver/help.swift
+    https://github.com/apple/swift-driver/pull/357
+
+  Swift(macosx-x86_64) :: Driver/options-interpreter.swift
+    Missing validation of SDKROOT
+
+  Swift(macosx-x86_64) :: Driver/pipe_round_robin.swift.gyb
+    name 'NumDriverPipeReads' is not defined
+
+  Swift(macosx-x86_64) :: Driver/response-file.swift
+    Potentially -debug-crash-immediately not being handled
