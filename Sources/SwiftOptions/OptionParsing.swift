@@ -76,11 +76,13 @@ extension OptionTable {
           index: index - 1, argument: argument)
       }
 
-      // Make sure this option is supported by the current driver kind.
-      guard option.isAccepted(by: driverKind) else {
-        throw OptionParseError.unsupportedOption(
-          index: index - 1, argument: argument, option: option,
-          currentDriverKind: driverKind)
+      let verifyOptionIsAcceptedByDriverKind = {
+        // Make sure this option is supported by the current driver kind.
+        guard option.isAccepted(by: driverKind) else {
+          throw OptionParseError.unsupportedOption(
+            index: index - 1, argument: argument, option: option,
+            currentDriverKind: driverKind)
+        }
       }
 
       // Translate the argument
@@ -90,6 +92,7 @@ extension OptionTable {
 
       case .commaJoined:
         // Comma-separated list of arguments follows the option spelling.
+        try verifyOptionIsAcceptedByDriverKind()
         let rest = argument.dropFirst(option.spelling.count)
         parsedOptions.addOption(
           option,
@@ -101,16 +104,19 @@ extension OptionTable {
           throw OptionParseError.unknownOption(
             index: index - 1, argument: argument)
         }
+        try verifyOptionIsAcceptedByDriverKind()
         parsedOptions.addOption(option, argument: .none)
 
       case .joined:
         // Argument text follows the option spelling.
+        try verifyOptionIsAcceptedByDriverKind()
         parsedOptions.addOption(
           option,
           argument: .single(String(argument.dropFirst(option.spelling.count))))
 
       case .joinedOrSeparate:
         // Argument text follows the option spelling.
+        try verifyOptionIsAcceptedByDriverKind()
         let arg = argument.dropFirst(option.spelling.count)
         if !arg.isEmpty {
           parsedOptions.addOption(option, argument: .single(String(arg)))
@@ -131,6 +137,12 @@ extension OptionTable {
         index = arguments.endIndex
 
       case .separate:
+        if argument != option.spelling {
+          throw OptionParseError.unknownOption(
+            index: index - 1, argument: argument)
+        }
+        try verifyOptionIsAcceptedByDriverKind()
+
         if index == arguments.endIndex {
           throw OptionParseError.missingArgument(
             index: index - 1, argument: argument)
