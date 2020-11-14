@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if false
 import XCTest
+// FIXME: Disabled due to testable import
 @testable import SwiftDriver
 
 class TwoDMapTests: XCTestCase {
@@ -106,3 +108,4 @@ class TwoDMapTests: XCTestCase {
   }
 
 }
+#endif
