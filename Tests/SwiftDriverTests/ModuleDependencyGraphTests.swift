@@ -11,6 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
+
+#if false
+// FIXME: Disabled due to @testable import
 @testable import SwiftDriver
 import TSCBasic
 
@@ -1365,3 +1368,4 @@ fileprivate extension Set where Element == ExternalDependency {
     contains(s.asExternal)
   }
 }
+#endif

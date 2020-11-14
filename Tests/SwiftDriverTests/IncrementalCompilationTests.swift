@@ -12,6 +12,8 @@
 import XCTest
 import TSCBasic
 
+#if false
+// FIXME: Disabled due to @testable import
 @testable import SwiftDriver
 
 final class NonincrementalCompilationTests: XCTestCase {
@@ -616,3 +618,4 @@ final class IncrementalCompilationTests: XCTestCase {
     try! localFileSystem.writeFileContents(dst, bytes: ByteString(d))
   }
 }
+#endif
