@@ -382,9 +382,9 @@ def build_using_cmake(args, toolchain_bin, build_dir):
   else:
     swift_flags.append('-O')
 
+  base_cmake_flags = []
   for target in targets:
     swift_flags.append('-target %s' % target)
-    base_cmake_flags = ['-DCMAKE_Swift_FLAGS=' + ' '.join(swift_flags)]
     if platform.system() == 'Darwin':
       base_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
 
@@ -394,17 +394,22 @@ def build_using_cmake(args, toolchain_bin, build_dir):
     dependencies_dir = os.path.join(driver_dir, 'dependencies')
 
     # LLBuild
-    build_llbuild_using_cmake(args, target, swiftc_exec, dependencies_dir, base_cmake_flags)
+    build_llbuild_using_cmake(args, target, swiftc_exec, dependencies_dir,
+                              base_cmake_flags, swift_flags)
     # TSC
-    build_tsc_using_cmake(args, target, swiftc_exec, dependencies_dir, base_cmake_flags)
+    build_tsc_using_cmake(args, target, swiftc_exec, dependencies_dir,
+                          base_cmake_flags, swift_flags)
     # Argument Parser
-    build_argument_parser_using_cmake(args, target, swiftc_exec, dependencies_dir, base_cmake_flags)
+    build_argument_parser_using_cmake(args, target, swiftc_exec, dependencies_dir,
+                                      base_cmake_flags, swift_flags)
     # Yams
-    build_yams_using_cmake(args, target, swiftc_exec, dependencies_dir, base_cmake_flags)
+    build_yams_using_cmake(args, target, swiftc_exec, dependencies_dir,
+                           base_cmake_flags, swift_flags)
     # SwiftDriver
-    build_swift_driver_using_cmake(args, target, swiftc_exec, driver_dir, base_cmake_flags)
+    build_swift_driver_using_cmake(args, target, swiftc_exec, driver_dir,
+                                   base_cmake_flags, swift_flags)
 
-def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
+def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
   print('Building llbuild for target: %s' % target)
   llbuild_source_dir = os.path.join(os.path.dirname(args.package_path), 'llbuild')
   llbuild_build_dir = os.path.join(build_dir, 'llbuild')
@@ -426,73 +431,81 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_f
     # on some machines. This is also Darwin-specific...
     if platform.system() == 'Darwin':
       llbuild_cmake_flags.append('-DSQLite3_LIBRARY=%s/usr/lib/libsqlite3.tbd' % args.sysroot)
+  llbuild_swift_flags = swift_flags[:]
 
   # Build only a subset of llbuild (in particular skipping tests)
-  cmake_build(args, swiftc_exec, llbuild_cmake_flags, llbuild_source_dir, llbuild_build_dir, 'products/all')
+  cmake_build(args, swiftc_exec, llbuild_cmake_flags, llbuild_swift_flags,
+              llbuild_source_dir, llbuild_build_dir, 'products/all')
 
-def build_tsc_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
+def build_tsc_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
   print('Building TSC for target: %s' % target)
   tsc_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-tools-support-core')
   tsc_build_dir = os.path.join(build_dir, 'swift-tools-support-core')
-  cmake_build(args, swiftc_exec, base_cmake_flags, tsc_source_dir, tsc_build_dir)
+  tsc_swift_flags = swift_flags[:]
+  cmake_build(args, swiftc_exec, base_cmake_flags, tsc_swift_flags,
+              tsc_source_dir, tsc_build_dir)
 
-def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
+def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
   print('Building Yams for target: %s' % target)
   yams_source_dir = os.path.join(os.path.dirname(args.package_path), 'yams')
   yams_build_dir = os.path.join(build_dir, 'yams')
-  yams_flags = base_cmake_flags + [
+  yams_cmake_flags = base_cmake_flags + [
       '-DCMAKE_C_COMPILER:=clang',
       '-DBUILD_SHARED_LIBS=OFF']
 
   if platform.system() == 'Darwin':
-    yams_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
-    yams_flags.append('-DCMAKE_C_FLAGS=-target %s' % target)
+    yams_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
+    yams_cmake_flags.append('-DCMAKE_C_FLAGS=-target %s' % target)
   else:
-    yams_flags.append('-DCMAKE_C_FLAGS=-fPIC -target %s' % target)
+    yams_cmake_flags.append('-DCMAKE_C_FLAGS=-fPIC -target %s' % target)
     if args.dispatch_build_dir:
-      yams_flags.append(get_dispatch_cmake_arg(args))
+      yams_cmake_flags.append(get_dispatch_cmake_arg(args))
 
     if args.foundation_build_dir:
-      yams_flags.append(get_foundation_cmake_arg(args))
+      yams_cmake_flags.append(get_foundation_cmake_arg(args))
+  yams_swift_flags = swift_flags[:]
+  cmake_build(args, swiftc_exec, yams_cmake_flags, yams_swift_flags,
+              yams_source_dir, yams_build_dir)
 
-  cmake_build(args, swiftc_exec, yams_flags, yams_source_dir, yams_build_dir)
-
-def build_argument_parser_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
+def build_argument_parser_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
   print('Building Argument Parser for target: %s' % target)
   parser_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-argument-parser')
   parser_build_dir = os.path.join(build_dir, 'swift-argument-parser')
   custom_flags = ['-DBUILD_TESTING=NO', '-DBUILD_EXAMPLES=NO']
-  parser_flags = base_cmake_flags + custom_flags
-  cmake_build(args, swiftc_exec, parser_flags, parser_source_dir, parser_build_dir)
+  parser_cmake_flags = base_cmake_flags + custom_flags
+  parser_swift_flags = swift_flags[:]
+  cmake_build(args, swiftc_exec, parser_cmake_flags, parser_swift_flags,
+              parser_source_dir, parser_build_dir)
   return
 
-def build_swift_driver_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags):
+def build_swift_driver_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
   print('Building Swift Driver for target: %s' % target)
   driver_source_dir = args.package_path
   driver_build_dir = build_dir
   dependencies_dir = os.path.join(build_dir, 'dependencies')
   # TODO: Enable Library Evolution
-  swift_flags = ''
+  driver_swift_flags = swift_flags[:]
   flags = [
         '-DLLBuild_DIR=' + os.path.join(os.path.join(dependencies_dir, 'llbuild'), 'cmake/modules'),
         '-DTSC_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-tools-support-core'), 'cmake/modules'),
         '-DYams_DIR=' + os.path.join(os.path.join(dependencies_dir, 'yams'), 'cmake/modules'),
-        '-DArgumentParser_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-argument-parser'), 'cmake/modules'),
-        swift_flags
-    ]
+        '-DArgumentParser_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-argument-parser'), 'cmake/modules')]
+  #FIXME: Building with testing enable to allow @testable import of SwiftDriver
+  driver_swift_flags.append('-enable-testing')
   driver_cmake_flags = base_cmake_flags + flags
-  cmake_build(args, swiftc_exec, driver_cmake_flags, driver_source_dir, driver_build_dir)
+  cmake_build(args, swiftc_exec, driver_cmake_flags, driver_swift_flags,
+              driver_source_dir, driver_build_dir)
 
-def cmake_build(args, swiftc_exec, cmake_args, source_path, build_dir, ninja_target=None):
+def cmake_build(args, swiftc_exec, cmake_args, swift_flags, source_path,
+                build_dir, ninja_target=None):
   """Configure with CMake and build with Ninja"""
-  swift_flags = ''
   if args.sysroot:
-    swift_flags = '-sdk %s' % args.sysroot
+    swift_flags.append('-sdk %s' % args.sysroot)
   cmd = [
     args.cmake_bin, '-G', 'Ninja',
     '-DCMAKE_MAKE_PROGRAM=%s' % args.ninja_bin,
     '-DCMAKE_BUILD_TYPE:=Release',
-    '-DCMAKE_Swift_FLAGS=' + swift_flags,
+    '-DCMAKE_Swift_FLAGS=' + ' '.join(swift_flags),
     '-DCMAKE_Swift_COMPILER:=%s' % (swiftc_exec),
   ] + cmake_args + [source_path]
   if args.verbose:
