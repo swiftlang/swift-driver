@@ -378,7 +378,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-gdwarf-types", "-debug-info-format=codeview") {
-      $1.expect(.error("argument 'codeview' is not allowed with '-gdwarf-types'"))
+      $1.expect(.error("argument '-debug-info-format=codeview' is not allowed with '-gdwarf-types'"))
     }
   }
 
@@ -423,7 +423,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(driver.moduleOutputInfo.name, "main")
     }
 
-    try assertNoDriverDiagnostics(args: "swift", "-repl") { driver in
+    try assertDriverDiagnostics(args: "swift", "-repl") { driver, verifier in
+      verifier.expect(.warning("unnecessary option '-repl'; this is the default for 'swift' with no input files"))
       XCTAssertNil(driver.moduleOutputInfo.output)
       XCTAssertEqual(driver.moduleOutputInfo.name, "REPL")
     }

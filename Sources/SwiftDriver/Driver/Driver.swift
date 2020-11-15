@@ -1051,7 +1051,12 @@ extension Driver {
       case .emitImportedModules:
         return .singleCompile
 
-      case .repl, .lldbRepl:
+      case .repl:
+        if driverKind == .interactive, !parsedOptions.hasAnyInput {
+          diagnosticsEngine.emit(.warning_unnecessary_repl_mode(option: outputOption.option, kind: driverKind))
+        }
+        fallthrough
+      case .lldbRepl:
         return .repl
 
       case .deprecatedIntegratedRepl:
@@ -1116,6 +1121,10 @@ extension Driver {
 }
 
 extension Diagnostic.Message {
+  static func warning_unnecessary_repl_mode(option: Option, kind: DriverKind) -> Diagnostic.Message {
+    .warning("unnecessary option '\(option.spelling)'; this is the default for '\(kind.rawValue)' with no input files")
+  }
+
   static func warn_ignoring_batch_mode(_ option: Option) -> Diagnostic.Message {
     .warning("ignoring '-enable-batch-mode' because '\(option.spelling)' was also specified")
   }
@@ -1248,7 +1257,7 @@ extension Driver {
         compilerOutputType = nil
 
       case .i:
-        diagnosticsEngine.emit(.error_i_mode(driverKind))
+        diagnosticsEngine.emit(.error_i_mode)
 
       case .repl, .deprecatedIntegratedRepl, .lldbRepl:
         compilerOutputType = nil
@@ -1287,11 +1296,11 @@ extension Driver {
 }
 
 extension Diagnostic.Message {
-  static func error_i_mode(_ driverKind: DriverKind) -> Diagnostic.Message {
+  static var error_i_mode: Diagnostic.Message {
     .error(
       """
       the flag '-i' is no longer required and has been removed; \
-      use '\(driverKind.usage) input-filename'
+      use '\(DriverKind.interactive.usage) input-filename'
       """
     )
   }
@@ -1420,7 +1429,8 @@ extension Driver {
 
     if format == .codeView && (level == .lineTables || level == .dwarfTypes) {
       let levelOption = parsedOptions.getLast(in: .g)!.option
-      diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: format.rawValue, other: levelOption.spelling))
+      let fullNotAllowedOption = Option.debugInfoFormat.spelling + format.rawValue
+      diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: fullNotAllowedOption, other: levelOption.spelling))
     }
 
     return DebugInfo(format: format, level: level, shouldVerify: shouldVerify)
