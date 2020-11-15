@@ -132,6 +132,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/android-link.swift
     Target armv7-unknown-linux-androideabi vs armv7-none-linux-androidhf
+    ^ https://github.com/apple/swift-driver/pull/370
 
   Swift(macosx-x86_64) :: Driver/driver_migration.swift
     Missing -emit-remap-file-path
@@ -150,6 +151,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/sanitize_coverage.swift
     swift-driver missing parameter compatability checking
+    ^ https://github.com/apple/swift-driver/pull/369
 
   Swift(macosx-x86_64) :: Driver/embed-bitcode.swift
   Swift(macosx-x86_64) :: Driver/modulewrap.swift
