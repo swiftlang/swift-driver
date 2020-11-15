@@ -1558,7 +1558,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testMergeModulesOnly() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-doc-path", "/foo/bar/Test.swiftdoc", "-emit-module-source-info-path", "/foo/bar/Test.swiftsourceinfo"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-source-info-path", "/foo/bar/Test.swiftsourceinfo"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
@@ -1578,7 +1578,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[2].outputs.count, 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
+      XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("-import-objc-header")))
     }
@@ -1608,7 +1608,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Make sure the swiftdoc path is correct for an inferred module
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-doc", "-emit-module"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
@@ -2714,7 +2714,6 @@ final class SwiftDriverTests: XCTestCase {
                                        "foo.swift",
                                        "-index-file-path", "foo.swift",
                                        "-index-store-path", "store/path",
-                                       "-index-ignore-stdlib", "-index-system-modules",
                                        "-index-ignore-system-modules"]) {
       $1.expect(.warning("ignoring '-index-file' because '-dump-ast' was also specified"))
       let jobs = try $0.planBuild()
@@ -3805,15 +3804,6 @@ final class SwiftDriverTests: XCTestCase {
   }
   
   func testSourceInfoFileEmitOption() throws {
-    do {
-      var driver = try Driver(args: ["swiftc", "-emit-module-source-info", "foo.swift"])
-      let plannedJobs = try driver.planBuild()
-      let compileJob = plannedJobs[0]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-emit-module-source-info-path")))
-      XCTAssertEqual(compileJob.outputs.count, 2)
-      XCTAssertEqual(compileJob.outputs[0].file, .temporary(RelativePath("foo.o")))
-      XCTAssertEqual(compileJob.outputs[1].file, .temporary(RelativePath("foo.swiftsourceinfo")))
-    }
     // implicit
     do {
       var driver = try Driver(args: ["swiftc", "-emit-module", "foo.swift"])
