@@ -1048,7 +1048,7 @@ extension Driver {
     // Some output flags affect the compiler mode.
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
-      case .emitPch, .emitImportedModules:
+      case .emitImportedModules:
         return .singleCompile
 
       case .repl, .lldbRepl:
@@ -1090,8 +1090,6 @@ extension Driver {
       parsedOptions.eraseArgument(.indexFile)
       parsedOptions.eraseArgument(.indexFilePath)
       parsedOptions.eraseArgument(.indexStorePath)
-      parsedOptions.eraseArgument(.indexIgnoreStdlib)
-      parsedOptions.eraseArgument(.indexSystemModules)
       parsedOptions.eraseArgument(.indexIgnoreSystemModules)
       return .standardCompile
     }
@@ -1230,9 +1228,6 @@ extension Driver {
 
       case .dumpAst:
         compilerOutputType = .ast
-
-      case .emitPch:
-        compilerOutputType = .pch
 
       case .emitPcm:
         compilerOutputType = .pcm
