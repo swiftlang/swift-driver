@@ -66,12 +66,13 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/parseable_output.swift
   Swift(macosx-x86_64) :: Driver/parseable_output_unicode.swift
-    JSON formatting - Potentially just easy test fix
+    JSON formatting - Not simple fix, it's full JSON blobs being compared. Best option is probably parsing them in python or `REQUIRES: cplusplus_driver`.
 
   Swift(macosx-x86_64) :: Driver/Dependencies/bindings-build-record.swift
-  Swift(macosx-x86_64) :: Driver/working-directory.swift
+    Missing error: 'Disabling incremental build: could not read build record'
+    
   Swift(macosx-x86_64) :: Driver/multi-threaded.swift
-    ./ path difference - Potentially easy test fix
+    Output file map isn't being respected
 
   Swift(macosx-x86_64) :: Driver/emit-module-summary.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/only-skip-once.swift
@@ -117,6 +118,7 @@ test/Driver:
     Expecting integrated repl
   
   Swift(macosx-x86_64) :: Driver/sdk-apple.swift
+  Swift(macosx-x86_64) :: Driver/working-directory.swift
     Error about repl integrated repl being removed
 
   Swift(macosx-x86_64) :: Driver/options.swift
