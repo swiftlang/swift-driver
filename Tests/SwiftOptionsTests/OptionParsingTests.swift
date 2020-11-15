@@ -32,6 +32,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-unrecognized"))
     }
 
+    // Ensure we check for an unexpected suffix on flags before checking if they are accepted by the current mode.
+    XCTAssertThrowsError(try options.parse(["-c-NOT"], for: .interactive)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-c-NOT"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-module-name-NOT", "foo"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-module-name-NOT"))
+    }
+
     XCTAssertThrowsError(try options.parse(["-I"], for: .batch)) { error in
       XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-I"))
     }
