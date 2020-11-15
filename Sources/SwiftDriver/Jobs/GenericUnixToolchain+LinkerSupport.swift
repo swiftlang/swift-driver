@@ -43,6 +43,27 @@ extension GenericUnixToolchain {
     return triple.archName
   }
 
+  private func getTargetForLinker(targetTriple: Triple) -> String {
+    if targetTriple.isAndroid, let arch = targetTriple.arch {
+      switch arch {
+      case .arm, .thumb:
+        // Current Android NDK versions only support ARMv7+.  Always assume ARMv7+
+        // for the arm/thumb target.
+        return "armv7-unknown-linux-androideabi";
+      case .aarch64:
+        return "aarch64-unknown-linux-android";
+      case .x86:
+        return "i686-unknown-linux-android";
+      case .x86_64:
+        return "x86_64-unknown-linux-android";
+      default:
+        // FIXME: we should just abort on an unsupported target
+        return targetTriple.triple
+      }
+    }
+    return targetTriple.triple
+  }
+
   public func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
@@ -61,9 +82,10 @@ extension GenericUnixToolchain {
       commandLine.appendFlag("-shared")
       fallthrough
     case .executable:
-      if !targetTriple.triple.isEmpty {
+      let target = getTargetForLinker(targetTriple: targetTriple)
+      if !target.isEmpty {
         commandLine.appendFlag("-target")
-        commandLine.appendFlag(targetTriple.triple)
+        commandLine.appendFlag(target)
       }
 
         // Select the linker to use.

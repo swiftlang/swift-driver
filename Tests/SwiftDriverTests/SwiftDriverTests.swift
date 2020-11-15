@@ -4082,6 +4082,48 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
     }
   }
+
+  func testAndroidLink() throws {
+    var env = ProcessEnv.vars
+    // Don't crash on macOS when looking for swift-autolink-extract
+    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "armv7-none-linux-androideabihf", "-emit-executable", "test.swift"],
+                              env: env)
+
+      let plannedJobs = try driver.planBuild()
+      let linkJobs = plannedJobs.filter { $0.kind == .link }
+      XCTAssertEqual(linkJobs.count, 1)
+      let linkJob = try XCTUnwrap(linkJobs.first)
+      XCTAssertEqual(linkJob.tool.basenameWithoutExt, "clang")
+      XCTAssert(linkJob.commandLine.contains(subsequence: ["-target", "armv7-unknown-linux-androideabi"]))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "aarch64-mone-linux-androideabi", "-emit-executable", "test.swift"],
+                              env: env)
+
+      let plannedJobs = try driver.planBuild()
+      let linkJobs = plannedJobs.filter { $0.kind == .link }
+      XCTAssertEqual(linkJobs.count, 1)
+      let linkJob = try XCTUnwrap(linkJobs.first)
+      XCTAssertEqual(linkJob.tool.basenameWithoutExt, "clang")
+      XCTAssert(linkJob.commandLine.contains(subsequence: ["-target", "aarch64-unknown-linux-android"]))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-none-linux-androideabi", "-emit-executable", "test.swift"],
+                              env: env)
+
+      let plannedJobs = try driver.planBuild()
+      let linkJobs = plannedJobs.filter { $0.kind == .link }
+      XCTAssertEqual(linkJobs.count, 1)
+      let linkJob = try XCTUnwrap(linkJobs.first)
+      XCTAssertEqual(linkJob.tool.basenameWithoutExt, "clang")
+      XCTAssert(linkJob.commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-android"]))
+    }
+  }
 }
 
 func assertString(

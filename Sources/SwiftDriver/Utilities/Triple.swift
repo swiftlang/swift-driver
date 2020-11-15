@@ -1643,6 +1643,10 @@ extension Triple {
 // MARK: - Catalyst
 
 extension Triple {
+  public var isAndroid: Bool {
+    environment == .android
+  }
+
   @_spi(Testing) public var isMacCatalyst: Bool {
     return self.isiOS && !self.isTvOS && environment == .macabi
   }
