@@ -82,7 +82,7 @@ test/Driver:
     No output - Implementing would require rebuilding llvm::Timer
 
   Swift(macosx-x86_64) :: Driver/cross_module.swift
-    Looks like swift-driver bug that could be fixed
+    Experimental feature not yet implemented in swift-driver
 
   Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
     Test expects specific parameter ordering
