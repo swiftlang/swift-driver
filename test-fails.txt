@@ -84,7 +84,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/cross_module.swift
     Looks like swift-driver bug that could be fixed
 
-  Swift(macosx-x86_64) :: Driver/tools_directory.swift
   Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
     Test expects specific parameter ordering
 
@@ -95,6 +94,7 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/sanitizers.swift
   Swift(macosx-x86_64) :: Driver/windows-libc-options.swift
   Swift(macosx-x86_64) :: Driver/sanitize_scudo.swift
+  Swift(macosx-x86_64) :: Driver/sdk.swift
     Windows
 
   Swift(macosx-x86_64) :: Driver/merge-module.swift
@@ -119,12 +119,8 @@ test/Driver:
   
   Swift(macosx-x86_64) :: Driver/sdk-apple.swift
   Swift(macosx-x86_64) :: Driver/working-directory.swift
-    Error about repl integrated repl being removed
-
   Swift(macosx-x86_64) :: Driver/options.swift
-    Expected: error: unknown argument: '-crazy-option-that-does-not-exist'
-    Got:      error: option '-crazy-option-that-does-not-exist' is not supported by 'swift'; did you mean to use 'swiftc'?
-    ^ should be fixed by https://github.com/apple/swift-driver/pull/366
+    Error about repl integrated repl being removed
 
   Swift(macosx-x86_64) :: Driver/driver-compile.swift
     Missing -emit-reference-dependencies-path
@@ -139,9 +135,6 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/driver_migration.swift
     Missing -emit-remap-file-path
-
-  Swift(macosx-x86_64) :: Driver/sdk.swift
-    Missing {{-syslibroot|--sysroot}}
 
   Swift(macosx-x86_64) :: Driver/SourceRanges/range-incremental-no-build-record.swift
     Same error messsage is worded differently
@@ -170,9 +163,6 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/emit-module-from-sib.swift
     Output is missing some types
-
-  Swift(macosx-x86_64) :: Driver/help.swift
-    https://github.com/apple/swift-driver/pull/357
 
   Swift(macosx-x86_64) :: Driver/options-interpreter.swift
     Input validation order difference. swift-driver does SDKROOT validation first, c++ driver does objc runtime library validation first.
