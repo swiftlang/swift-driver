@@ -38,7 +38,8 @@ extension OptionTable {
   public func parse(_ arguments: [String],
                     for driverKind: DriverKind) throws -> ParsedOptions {
     var trie = PrefixTrie<Option>()
-    for opt in options {
+    // Add all options, ignoring the .noDriver ones
+    for opt in options where !opt.attributes.contains(.noDriver) {
       trie[opt.spelling] = opt
     }
 
