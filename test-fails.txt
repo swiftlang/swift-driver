@@ -124,6 +124,7 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/options.swift
     Expected: error: unknown argument: '-crazy-option-that-does-not-exist'
     Got:      error: option '-crazy-option-that-does-not-exist' is not supported by 'swift'; did you mean to use 'swiftc'?
+    ^ should be fixed by https://github.com/apple/swift-driver/pull/366
 
   Swift(macosx-x86_64) :: Driver/driver-compile.swift
     Missing -emit-reference-dependencies-path
