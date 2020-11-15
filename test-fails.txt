@@ -175,7 +175,8 @@ test/Driver:
     https://github.com/apple/swift-driver/pull/357
 
   Swift(macosx-x86_64) :: Driver/options-interpreter.swift
-    Missing validation of SDKROOT
+    Input validation order difference. swift-driver does SDKROOT validation first, c++ driver does objc runtime library validation first.
+    swift-driver needs sdk root early because it uses it to get target info.
 
   Swift(macosx-x86_64) :: Driver/pipe_round_robin.swift.gyb
     name 'NumDriverPipeReads' is not defined
