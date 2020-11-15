@@ -17,12 +17,20 @@ extension Diagnostic.Message {
     .error("-static may not be used with -emit-executable")
   }
 
-  static func error_option_missing_required_argument(option: Option, requiredArg: Option) -> Diagnostic.Message {
-    .error("option '\(option.spelling)' is missing a required argument (\(requiredArg.spelling))")
+  static func error_option_missing_required_argument(option: Option, requiredArg: String) -> Diagnostic.Message {
+    .error("option '\(option.spelling)' is missing a required argument (\(requiredArg))")
   }
 
   static func error_opt_invalid_mapping(option: Option, value: String) -> Diagnostic.Message {
     .error("values for '\(option.spelling)' must be in the format 'original=remapped', but '\(value)' was provided")
+  }
+
+  static func error_unsupported_argument(argument: String, option: Option) -> Diagnostic.Message {
+    .error("unsupported argument '\(argument)' to option '\(option.spelling)'")
+  }
+
+  static func error_option_requires_sanitizer(option: Option) -> Diagnostic.Message {
+    .error("option '\(option.spelling)' requires a sanitizer to be enabled. Use -sanitize= to enable a sanitizer")
   }
 
   static func error_invalid_arg_value(arg: Option, value: String) -> Diagnostic.Message {

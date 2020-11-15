@@ -463,6 +463,10 @@ public struct Driver {
       toolchain: toolchain,
       targetInfo: frontendTargetInfo)
 
+    Self.validateSanitizerCoverageArgs(&parsedOptions,
+                                       anySanitizersEnabled: !enabledSanitizers.isEmpty,
+                                       diagnosticsEngine: diagnosticsEngine)
+
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .dependencies, isOutputOptions: [.emitDependencies],
@@ -1411,7 +1415,7 @@ extension Driver {
       }
 
       if !parsedOptions.contains(in: .g) {
-        diagnosticsEngine.emit(.error_option_missing_required_argument(option: .debugInfoFormat, requiredArg: .g))
+        diagnosticsEngine.emit(.error_option_missing_required_argument(option: .debugInfoFormat, requiredArg: "-g"))
       }
     } else {
       // Default to DWARF.
@@ -1883,6 +1887,28 @@ extension Driver {
       if parts.count != 2 {
         diagnosticsEngine.emit(.error_opt_invalid_mapping(option: coveragePrefixMap.option, value: value))
       }
+    }
+  }
+
+  private static func validateSanitizerCoverageArgs(_ parsedOptions: inout ParsedOptions,
+                                                    anySanitizersEnabled: Bool,
+                                                    diagnosticsEngine: DiagnosticsEngine) {
+    var foundRequiredArg = false
+    for arg in parsedOptions.arguments(for: .sanitizeCoverageEQ).flatMap(\.argument.asMultiple) {
+      if ["func", "bb", "edge"].contains(arg) {
+        foundRequiredArg = true
+      } else if !["indirect-calls", "trace-bb", "trace-cmp", "8bit-counters", "trace-pc", "trace-pc-guard"].contains(arg) {
+        diagnosticsEngine.emit(.error_unsupported_argument(argument: arg, option: .sanitizeCoverageEQ))
+      }
+
+      if !foundRequiredArg {
+        diagnosticsEngine.emit(.error_option_missing_required_argument(option: .sanitizeCoverageEQ,
+                                                                       requiredArg: #""func", "bb", "edge""#))
+      }
+    }
+
+    if parsedOptions.hasArgument(.sanitizeCoverageEQ) && !anySanitizersEnabled {
+      diagnosticsEngine.emit(.error_option_requires_sanitizer(option: .sanitizeCoverageEQ))
     }
   }
 }
