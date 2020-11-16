@@ -60,6 +60,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
   public func execute(workload: DriverExecutorWorkload,
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
+                      continueBuildingAfterErrors: Bool,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) throws {
@@ -69,6 +70,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
       executorDelegate: delegate,
       diagnosticsEngine: diagnosticsEngine,
       numParallelJobs: numParallelJobs,
+      continueBuildingAfterErrors: continueBuildingAfterErrors,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)

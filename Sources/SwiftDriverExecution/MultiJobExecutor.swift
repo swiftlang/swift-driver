@@ -67,6 +67,9 @@ public final class MultiJobExecutor {
     /// Operation queue for executing tasks in parallel.
     let jobQueue: OperationQueue
 
+    /// Whether jobs should continue being scheduled after one fails.
+    let continueBuildingAfterErrors: Bool
+
     /// The process set to use when launching new processes.
     let processSet: ProcessSet?
 
@@ -87,6 +90,9 @@ public final class MultiJobExecutor {
     /// any newly-required job. Set only once.
     private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
 
+    /// Should new jobs immediately fail.
+    private(set) var isCancelled: Bool = false
+
 
     init(
       argsResolver: ArgsResolver,
@@ -95,6 +101,7 @@ public final class MultiJobExecutor {
       workload: DriverExecutorWorkload,
       executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
+      continueBuildingAfterErrors: Bool,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
       recordedInputModificationDates: [TypedVirtualPath: Date],
@@ -114,6 +121,7 @@ public final class MultiJobExecutor {
       self.fileSystem = fileSystem
       self.executorDelegate = executorDelegate
       self.jobQueue = jobQueue
+      self.continueBuildingAfterErrors = continueBuildingAfterErrors
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
       self.recordedInputModificationDates = recordedInputModificationDates
@@ -199,6 +207,10 @@ public final class MultiJobExecutor {
       executeAllJobsTaskBuildEngine = engine
     }
 
+    fileprivate func cancel() {
+      isCancelled = true
+    }
+
     /// After a job finishes, an incremental build may discover more jobs are needed, or if all compilations
     /// are done, will need to then add in the post-compilation rules.
     fileprivate func addRuleBeyondMandatoryCompiles(
@@ -239,6 +251,9 @@ public final class MultiJobExecutor {
   /// The number of jobs to run in parallel.
   private let numParallelJobs: Int
 
+  /// Whether jobs should continue being scheduled after one fails.
+  private let continueBuildingAfterErrors: Bool
+
   /// The process set to use when launching new processes.
   private let processSet: ProcessSet?
 
@@ -260,6 +275,7 @@ public final class MultiJobExecutor {
     executorDelegate: JobExecutionDelegate,
     diagnosticsEngine: DiagnosticsEngine,
     numParallelJobs: Int? = nil,
+    continueBuildingAfterErrors: Bool = false,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
     recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
@@ -270,6 +286,7 @@ public final class MultiJobExecutor {
     self.executorDelegate = executorDelegate
     self.diagnosticsEngine = diagnosticsEngine
     self.numParallelJobs = numParallelJobs ?? 1
+    self.continueBuildingAfterErrors = continueBuildingAfterErrors
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
     self.recordedInputModificationDates = recordedInputModificationDates
@@ -304,6 +321,7 @@ public final class MultiJobExecutor {
       workload: workload,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
+      continueBuildingAfterErrors: continueBuildingAfterErrors,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates,
@@ -428,11 +446,14 @@ class ExecuteJobRule: LLBuildRule {
 
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
     // Return early any of the input failed.
-    guard allInputsSucceeded else {
+    guard allInputsSucceeded, !context.isCancelled else {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
 
     context.jobQueue.addOperation {
+      guard !self.context.isCancelled else {
+        return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
+      }
       self.executeJob(engine)
     }
   }
@@ -532,6 +553,11 @@ class ExecuteJobRule: LLBuildRule {
     }
 
     engine.taskIsComplete(value)
+
+    if !value.success, !context.continueBuildingAfterErrors {
+      // Allow currently running jobs to finish, but don't execute anymore
+      context.cancel()
+    }
   }
 }
 

@@ -80,6 +80,15 @@ extension CompilerMode {
     }
   }
 
+  var isBatchCompile: Bool {
+    switch self {
+    case .batchCompile:
+      return true
+    case .singleCompile, .standardCompile, .compilePCM, .immediate, .repl:
+      return false
+    }
+  }
+
   // Whether this compilation mode supports the use of bridging pre-compiled
   // headers.
   public var supportsBridgingPCH: Bool {

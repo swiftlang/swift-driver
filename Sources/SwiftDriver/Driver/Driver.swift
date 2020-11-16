@@ -183,6 +183,9 @@ public struct Driver {
   /// The specified maximum number of parallel jobs to execute.
   @_spi(Testing) public let numParallelJobs: Int?
 
+  /// Whether jobs should continue to be executed after a failure.
+  @_spi(Testing) public let continueBuildingAfterErrors: Bool
+
   /// The set of sanitizers that were requested
   let enabledSanitizers: Set<Sanitizer>
 
@@ -407,6 +410,8 @@ public struct Driver {
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
+
+    self.continueBuildingAfterErrors = Self.computeContinueBuildingAfterErrors(&parsedOptions, compilerMode: compilerMode)
 
     Self.validateWarningControlArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateProfilingArgs(&parsedOptions,
@@ -896,6 +901,7 @@ extension Driver {
       workload: .init(allJobs, incrementalCompilationState),
       delegate: createToolExecutionDelegate(),
       numParallelJobs: numParallelJobs ?? 1,
+      continueBuildingAfterErrors: continueBuildingAfterErrors,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)
   }
@@ -1356,6 +1362,25 @@ extension Driver {
     }
 
     return numJobs
+  }
+
+  static func computeContinueBuildingAfterErrors(
+    _ parsedOptions: inout ParsedOptions,
+    compilerMode: CompilerMode
+  ) -> Bool {
+    // Note: Batch mode handling of serialized diagnostics requires that all
+    // batches get to run, in order to make sure that all diagnostics emitted
+    // during the compilation end up in at least one serialized diagnostic file.
+    // Therefore, treat batch mode as implying -continue-building-after-errors.
+    // (This behavior could be limited to only when serialized diagnostics are
+    // being emitted, but this seems more consistent and less surprising for
+    // users.)
+    // FIXME: We don't really need (or want) a full ContinueBuildingAfterErrors.
+    // If we fail to precompile a bridging header, for example, there's no need
+    // to go on to compilation of source files, and if compilation of source files
+    // fails, we shouldn't try to link. Instead, we'd want to let all jobs finish
+    // but not schedule any new ones.
+    return compilerMode.isBatchCompile || parsedOptions.contains(.continueBuildingAfterErrors)
   }
 }
 

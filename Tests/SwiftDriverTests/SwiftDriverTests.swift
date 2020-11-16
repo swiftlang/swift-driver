@@ -1466,6 +1466,11 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testBatchModeContinueAfterErrors() throws {
+    let driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode"])
+    XCTAssert(driver.continueBuildingAfterErrors)
+  }
+
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
     var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface"])
     let plannedJobs = try driver1.planBuild()
@@ -2861,6 +2866,7 @@ final class SwiftDriverTests: XCTestCase {
         func execute(workload: DriverExecutorWorkload,
                      delegate: JobExecutionDelegate,
                      numParallelJobs: Int,
+                     continueBuildingAfterErrors: Bool,
                      forceResponseFiles: Bool,
                      recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
           fatalError()

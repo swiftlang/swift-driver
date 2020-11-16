@@ -306,11 +306,95 @@ final class JobExecutorTests: XCTestCase {
           $0 <<< "let bar = 3"
         }
 
-        // FIXME: It's unfortunate we diagnose this twice, once for each job which uses the input.
-        verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         XCTAssertThrowsError(try driver.run(jobs: jobs))
       }
+    }
+  }
+
+  func testStopAfterError() throws {
+    try withTemporaryDirectory { path in
+      let foo = path.appending(component: "foo.swift")
+      try localFileSystem.writeFileContents(foo) {
+        $0 <<< """
+          struct Foo {
+            let bar: Int
+            init() {
+              self.bar = self.bar
+            }
+          }
+          """
+      }
+      let bar = path.appending(component: "bar.swift")
+      try localFileSystem.writeFileContents(bar) {
+        $0 <<< """
+          struct Bar {
+            let baz: Int
+            init() {
+              self.baz = self.baz
+            }
+          }
+          """
+      }
+      
+      // Replace the error stream with one we capture here.
+      let errorStream = stderrStream
+      let errorOutputFile = path.appending(component: "dummy_error_stream")
+      TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
+      // Restore the error stream to what it was
+      defer { TSCBasic.stderrStream = errorStream }
+
+      try assertNoDriverDiagnostics(args: "swiftc", foo.pathString, bar.pathString) { driver in
+        let jobs = try driver.planBuild()
+        XCTAssertThrowsError(try driver.run(jobs: jobs))
+      }
+
+      let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
+      XCTAssertTrue(invocationError.contains("self.bar = self.bar"))
+      XCTAssertFalse(invocationError.contains("self.baz = self.baz"))
+    }
+  }
+
+  func testContinueAfterError() throws {
+    try withTemporaryDirectory { path in
+      let foo = path.appending(component: "foo.swift")
+      try localFileSystem.writeFileContents(foo) {
+        $0 <<< """
+          struct Foo {
+            let bar: Int
+            init() {
+              self.bar = self.bar
+            }
+          }
+          """
+      }
+      let bar = path.appending(component: "bar.swift")
+      try localFileSystem.writeFileContents(bar) {
+        $0 <<< """
+          struct Bar {
+            let baz: Int
+            init() {
+              self.baz = self.baz
+            }
+          }
+          """
+      }
+
+      // Replace the error stream with one we capture here.
+      let errorStream = stderrStream
+      let errorOutputFile = path.appending(component: "dummy_error_stream")
+      TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
+      // Restore the error stream to what it was
+      defer { TSCBasic.stderrStream = errorStream }
+
+      try assertNoDriverDiagnostics(args: "swiftc", "-continue-building-after-errors", foo.pathString, bar.pathString) { driver in
+        let jobs = try driver.planBuild()
+        XCTAssertThrowsError(try driver.run(jobs: jobs))
+      }
+
+      let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
+      XCTAssertTrue(invocationError.contains("self.bar = self.bar"))
+      XCTAssertTrue(invocationError.contains("self.baz = self.baz"))
     }
   }
 

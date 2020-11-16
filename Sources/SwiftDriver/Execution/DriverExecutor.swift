@@ -27,6 +27,7 @@ public protocol DriverExecutor {
   func execute(workload: DriverExecutorWorkload,
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
+               continueBuildingAfterErrors: Bool,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws
@@ -35,6 +36,7 @@ public protocol DriverExecutor {
   func execute(jobs: [Job],
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
+               continueBuildingAfterErrors: Bool,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws
@@ -92,6 +94,7 @@ extension DriverExecutor {
     jobs: [Job],
     delegate: JobExecutionDelegate,
     numParallelJobs: Int,
+    continueBuildingAfterErrors: Bool,
     forceResponseFiles: Bool,
     recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws {
@@ -99,6 +102,7 @@ extension DriverExecutor {
       workload: .all(jobs),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
+      continueBuildingAfterErrors: continueBuildingAfterErrors,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)
   }
