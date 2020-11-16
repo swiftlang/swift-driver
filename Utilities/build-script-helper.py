@@ -175,6 +175,7 @@ def handle_invocation(toolchain_bin, args):
             env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (tool_path)
     env['SWIFT_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
+    test_args += ['-Xswiftc', '-enable-testing']
     if should_test_parallel():
       test_args += ['--parallel']
     swiftpm('test', swift_exec, test_args, env)
@@ -379,8 +380,6 @@ def build_using_cmake(args, toolchain_bin, build_dir):
   if args.configuration == 'debug':
     swift_flags.append('-Onone')
     swift_flags.append('-DDEBUG')
-  else:
-    swift_flags.append('-O')
 
   base_cmake_flags = []
   for target in targets:
