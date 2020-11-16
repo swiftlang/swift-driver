@@ -101,16 +101,10 @@ fileprivate extension InterModuleDependencyGraph {
     // For all dependencies of this placeholder (direct and transitive), insert them
     // into this module's graph.
     //   - Swift dependencies are inserted as-is
-    //   - Clang dependencies, because PCM modules file names encode the specific pcmArguments
-    //     of their dependees, we cannot use pre-built files here because we do not always know
-    //     which target they corrspond to, nor do we have a way to map from a certain target to a
-    //     specific pcm file. Because of this, all PCM dependencies, direct and transitive, have to
-    //     be built for all modules. We merge moduleInfos of such dependencies with ones that are
-    //     already in the current graph, in order to obtain a super-set of their dependencies
-    //     at all possible PCMArgs variants.
-    // FIXME: Implement a stable hash for generated .pcm filenames in order to be able to re-use
-    // modules built by external dependencies here.
-
+    //   - Clang dependencies are inserted as-is, if a matching Clang module is already found
+    //     in this module's graph, we merge moduleInfos of the two modules, in order to obtain
+    //     a super-set of their dependencies at all possible PCMArgs variants.
+    //
     // The placeholder is resolved into a .swiftPrebuiltExternal module in the dependency graph.
     // The placeholder's corresponding module may appear in the externalModuleInfoMap as either
     // a .swift module or a .swiftPrebuiltExternal module if it had been resolved earlier

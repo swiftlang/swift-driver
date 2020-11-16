@@ -65,7 +65,15 @@ import SwiftOptions
       .map { $0.option.spelling }
       .sorted()
       .joined()
+    #if os(macOS)
+    if #available(macOS 10.15, iOS 13, *) {
+      return CryptoKitSHA256().hash(hashInput).hexadecimalRepresentation
+    } else {
+      return SHA256().hash(hashInput).hexadecimalRepresentation
+    }
+    #else
     return SHA256().hash(hashInput).hexadecimalRepresentation
+    #endif
   }
 
   /// Determine the input and output path for the build record
