@@ -149,10 +149,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/autolink-force-load-no-comdat.swift
     Different error than expected
 
-  Swift(macosx-x86_64) :: Driver/sanitize_coverage.swift
-    swift-driver missing parameter compatability checking
-    ^ https://github.com/apple/swift-driver/pull/369
-
   Swift(macosx-x86_64) :: Driver/embed-bitcode.swift
   Swift(macosx-x86_64) :: Driver/modulewrap.swift
     Missing -emit-module-path
@@ -162,6 +158,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/continue-building-after-errors.swift
     Found unexpected output
+    ^ https://github.com/apple/swift-driver/pull/371
 
   Swift(macosx-x86_64) :: Driver/emit-module-from-sib.swift
     Output is missing some types
