@@ -259,7 +259,7 @@ extension Driver {
         diagnosticEngine.emit(.error_unexpected_input_file(input.file))
       }
 
-    case .swiftModule, .swiftDocumentation:
+    case .swiftModule:
       if moduleOutputInfo.output != nil && linkerOutputType == nil {
         // When generating a .swiftmodule as a top-level output (as opposed
         // to, for example, linking an image), treat .swiftmodule files as
@@ -347,7 +347,10 @@ extension Driver {
       addJob(wrapJob)
       wrapJob.outputs.forEach(addLinkerInput)
     } else {
-      mergeJob.outputs.forEach(addLinkerInput)
+      let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
+      assert(mergeModuleOutputs.count == 1,
+             "Merge module job should only have one swiftmodule output")
+      addLinkerInput(mergeModuleOutputs[0])
     }
   }
 

@@ -825,7 +825,7 @@ extension Driver {
       // Print actions using the same style as the old C++ driver
       // This is mostly for testing purposes. We should print semantically
       // equivalent actions as the old driver.
-      Driver.printActions(jobs, inputs: inputFiles)
+      printActions(jobs)
       return
     }
 
@@ -920,82 +920,71 @@ extension Driver {
   /// The swift-driver doesn't have actions, so the logic here takes the jobs and tries
   /// to mimic the actions that would be created by the C++ driver and
   /// prints them in *hopefully* the same order.
-  private static func printActions(_ jobs: [Job], inputs allInputs: [TypedVirtualPath]) {
+  private func printActions(_ jobs: [Job]) {
     defer {
       stdoutStream.flush()
     }
+
+    // Put bridging header as first input if we have it
+    let allInputs: [TypedVirtualPath]
+    if let objcHeader = importedObjCHeader, bridgingPrecompiledHeader != nil {
+      allInputs = [TypedVirtualPath(file: objcHeader, type: .objcHeader)] + inputFiles
+    } else {
+      allInputs = inputFiles
+    }
+
     var jobIdMap = Dictionary<Job, UInt>()
     // The C++ driver treats each input as an action, we should print them as
     // an action too for testing purposes.
     var inputIdMap = Dictionary<TypedVirtualPath, UInt>()
     var nextId: UInt = 0
+    var allInputsIterator = allInputs.makeIterator()
     for job in jobs {
+      // After "module input" jobs, print any left over inputs
+      switch job.kind {
+      case .generatePCH, .compile, .backend:
+        break
+      default:
+        while let input = allInputsIterator.next() {
+          Self.printInputIfNew(input, inputIdMap: &inputIdMap, nextId: &nextId)
+        }
+      }
       // All input action IDs for this action.
-      var inputIds = Set<UInt>()
-      // Collect input job IDs and parsed inputs.
-      var inputsToFind = Set<TypedVirtualPath>()
-      var foundInputFromPreviousJobOutput = false
+      var inputIds = [UInt]()
+      // Collect input job IDs.
       for input in job.displayInputs.isEmpty ? job.inputs : job.displayInputs {
         if let id = inputIdMap[input] {
-          inputIds.insert(id)
+          inputIds.append(id)
           continue
         }
         var foundInput = false
         for (prevJob, id) in jobIdMap {
           if prevJob.outputs.contains(input) {
             foundInput = true
-            foundInputFromPreviousJobOutput = true
-            inputIds.insert(id)
+            inputIds.append(id)
             break
           }
         }
-        if (!foundInput) {
-          inputsToFind.insert(input)
-        }
-      }
-      // Print inputs until we have found enough to satisfy the job
-      // Additionally if this job contains inputs that were outputs of previous job
-      // finish printing all the inputs. The C++ will print all inputs before printing
-      // actions that depend on non-input actions.
-      // --
-      // Example of driver printing inputs in order even if they aren't needed until later.
-      // Here 0 isn't needed until 6, but it's still printed first.
-      //   swiftc -driver-print-actions a.o b.swift c.o d.swift
-      //     0: input, "a.o", object
-      //     1: input, "b.swift", swift
-      //     2: compile, {1}, object
-      //     3: input, "c.o", object
-      //     4: input, "d.swift", swift
-      //     5: compile, {4}, object
-      //     6: link, {0, 2, 3, 5}, image
-      // --
-      // Example of driver printing inputs before actions that depend on non-input actions.
-      // If we just printed in job order, 6 would be inserted after 1.
-      //   swiftc -driver-print-actions c.swift a.o b.o a.swiftmodule b.swiftmodule -o main
-      //     0: input, "c.swift", swift
-      //     1: compile, {0}, object
-      //     2: input, "a.o", object
-      //     3: input, "b.o", object
-      //     4: input, "a.swiftmodule", swiftmodule
-      //     5: input, "b.swiftmodule", swiftmodule
-      //     6: merge-module, {1}, swiftmodule
-      //     7: link, {1, 2, 3, 4, 5, 6}, image
-      //     8: generate-dSYM, {7}, dSYM
-      if !inputsToFind.isEmpty || foundInputFromPreviousJobOutput {
-        for input in allInputs {
-          if inputsToFind.isEmpty, !foundInputFromPreviousJobOutput { break }
-          // If inputsToFind contained input, add the id to the list for the job
-          if inputsToFind.remove(input) != nil {
-            inputIds.insert(nextId)
+        if !foundInput {
+          while let nextInputAction = allInputsIterator.next() {
+            Self.printInputIfNew(nextInputAction, inputIdMap: &inputIdMap, nextId: &nextId)
+            if let id = inputIdMap[input] {
+              inputIds.append(id)
+              break
+            }
           }
-          printInputIfNew(input, inputIdMap: &inputIdMap, nextId: &nextId)
         }
       }
 
       // Print current Job
       stdoutStream <<< nextId <<< ": " <<< job.kind.rawValue <<< ", {"
-      stdoutStream <<< inputIds.sorted().map({ $0.description })
-          .joined(separator: ", ")
+      switch job.kind {
+      // Don't sort for compile jobs. Puts pch last
+      case .compile:
+        stdoutStream <<< inputIds.map(\.description).joined(separator: ", ")
+      default:
+        stdoutStream <<< inputIds.sorted().map(\.description).joined(separator: ", ")
+      }
       var typeName = job.outputs.first?.type.name
       if typeName == nil {
         typeName = "none"
