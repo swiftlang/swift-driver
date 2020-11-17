@@ -340,8 +340,9 @@ final class IncrementalCompilationTests: XCTestCase {
     try? localFileSystem.removeFileTree(tempDir)
   }
 
-  override func setUp() {
-    self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
+  func prepare(line: Int = #line) {
+    // ensure tempDir is unique by using line prefix
+    self.tempDir = try! withTemporaryDirectory(prefix: line.description, removeTreeOnDeinit: false) {$0}
     try! localFileSystem.createDirectory(derivedDataPath)
     writeOutputFileMapData(module: module,
                            inputPaths: inputPathsAndContents.map {$0.0},
@@ -358,11 +359,13 @@ final class IncrementalCompilationTests: XCTestCase {
   // FIXME: why does it fail on Linux in CI?
   func testIncrementalDiagnostics() throws {
     #if !os(Linux)
+    prepare()
     try testIncremental(checkDiagnostics: true)
     #endif
   }
 
   func testIncremental() throws {
+    prepare()
     try testIncremental(checkDiagnostics: false)
   }
 
@@ -553,6 +556,7 @@ final class IncrementalCompilationTests: XCTestCase {
   /// autolink job.
   /// Much of the code below is taking from testLinking(), but uses the output file map code here.
   func testAutolinkOutputPath() {
+    prepare()
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
