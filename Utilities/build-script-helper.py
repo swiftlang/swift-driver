@@ -382,6 +382,9 @@ def build_using_cmake(args, toolchain_bin, build_dir):
   else:
     swift_flags.append('-O')
 
+  # Ensure we are not sharing the module cache with concurrent builds in CI
+  swift_flags.append('-module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache')))
+
   for target in targets:
     swift_flags.append('-target %s' % target)
     base_cmake_flags = ['-DCMAKE_Swift_FLAGS=' + ' '.join(swift_flags)]
