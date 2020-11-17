@@ -358,10 +358,8 @@ final class IncrementalCompilationTests: XCTestCase {
 
   // FIXME: why does it fail on Linux in CI?
   func testIncrementalDiagnostics() throws {
-    #if !os(Linux)
     prepare()
     try testIncremental(checkDiagnostics: true)
-    #endif
   }
 
   func testIncremental() throws {
