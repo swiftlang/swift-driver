@@ -825,7 +825,7 @@ extension Driver {
       // Print actions using the same style as the old C++ driver
       // This is mostly for testing purposes. We should print semantically
       // equivalent actions as the old driver.
-      Driver.printActions(jobs)
+      Driver.printActions(jobs, inputs: inputFiles)
       return
     }
 
@@ -915,7 +915,12 @@ extension Driver {
     stdoutStream.flush()
   }
 
-  private static func printActions(_ jobs: [Job]) {
+  /// This handles -driver-print-actions flag. The C++ driver has a concept of actions
+  /// which it builds up a list of actions before then creating them into jobs.
+  /// The swift-driver doesn't have actions, so the logic here takes the jobs and tries
+  /// to mimic the actions that would be created by the C++ driver and
+  /// prints them in *hopefully* the same order.
+  private static func printActions(_ jobs: [Job], inputs allInputs: [TypedVirtualPath]) {
     defer {
       stdoutStream.flush()
     }
@@ -927,25 +932,66 @@ extension Driver {
     for job in jobs {
       // All input action IDs for this action.
       var inputIds = Set<UInt>()
-      // Collect input job IDs.
+      // Collect input job IDs and parsed inputs.
+      var inputsToFind = Set<TypedVirtualPath>()
+      var foundInputFromPreviousJobOutput = false
       for input in job.displayInputs.isEmpty ? job.inputs : job.displayInputs {
+        if let id = inputIdMap[input] {
+          inputIds.insert(id)
+          continue
+        }
         var foundInput = false
         for (prevJob, id) in jobIdMap {
           if prevJob.outputs.contains(input) {
             foundInput = true
+            foundInputFromPreviousJobOutput = true
             inputIds.insert(id)
+            break
           }
         }
         if (!foundInput) {
-          if inputIdMap[input] == nil {
-            stdoutStream <<< nextId <<< ": " <<< "input, "
-            stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
-            inputIdMap[input] = nextId
-            nextId += 1
-          }
-          inputIds.insert(inputIdMap[input]!)
+          inputsToFind.insert(input)
         }
       }
+      // Print inputs until we have found enough to satisfy the job
+      // Additionally if this job contains inputs that were outputs of previous job
+      // finish printing all the inputs. The C++ will print all inputs before printing
+      // actions that depend on non-input actions.
+      // --
+      // Example of driver printing inputs in order even if they aren't needed until later.
+      // Here 0 isn't needed until 6, but it's still printed first.
+      //   swiftc -driver-print-actions a.o b.swift c.o d.swift
+      //     0: input, "a.o", object
+      //     1: input, "b.swift", swift
+      //     2: compile, {1}, object
+      //     3: input, "c.o", object
+      //     4: input, "d.swift", swift
+      //     5: compile, {4}, object
+      //     6: link, {0, 2, 3, 5}, image
+      // --
+      // Example of driver printing inputs before actions that depend on non-input actions.
+      // If we just printed in job order, 6 would be inserted after 1.
+      //   swiftc -driver-print-actions c.swift a.o b.o a.swiftmodule b.swiftmodule -o main
+      //     0: input, "c.swift", swift
+      //     1: compile, {0}, object
+      //     2: input, "a.o", object
+      //     3: input, "b.o", object
+      //     4: input, "a.swiftmodule", swiftmodule
+      //     5: input, "b.swiftmodule", swiftmodule
+      //     6: merge-module, {1}, swiftmodule
+      //     7: link, {1, 2, 3, 4, 5, 6}, image
+      //     8: generate-dSYM, {7}, dSYM
+      if !inputsToFind.isEmpty || foundInputFromPreviousJobOutput {
+        for input in allInputs {
+          if inputsToFind.isEmpty, !foundInputFromPreviousJobOutput { break }
+          // If inputsToFind contained input, add the id to the list for the job
+          if inputsToFind.remove(input) != nil {
+            inputIds.insert(nextId)
+          }
+          printInputIfNew(input, inputIdMap: &inputIdMap, nextId: &nextId)
+        }
+      }
+
       // Print current Job
       stdoutStream <<< nextId <<< ": " <<< job.kind.rawValue <<< ", {"
       stdoutStream <<< inputIds.sorted().map({ $0.description })
@@ -956,6 +1002,15 @@ extension Driver {
       }
       stdoutStream <<< "}, " <<< typeName! <<< "\n"
       jobIdMap[job] = nextId
+      nextId += 1
+    }
+  }
+
+  private static func printInputIfNew(_ input: TypedVirtualPath, inputIdMap: inout [TypedVirtualPath: UInt], nextId: inout UInt) {
+    if inputIdMap[input] == nil {
+      stdoutStream <<< nextId <<< ": " <<< "input, "
+      stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
+      inputIdMap[input] = nextId
       nextId += 1
     }
   }
