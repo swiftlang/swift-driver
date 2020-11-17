@@ -175,7 +175,7 @@ extension Diagnostic.Message {
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
     .warning(
       "ignoring -incremental; " +
-        "output file map has no master dependencies entry under \(FileType.swiftDeps)"
+        "output file map has no master dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
     )
   }
   fileprivate static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
