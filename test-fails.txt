@@ -99,6 +99,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/merge-module.swift
   Swift(macosx-x86_64) :: Driver/batch_mode_aux_file_order.swift
+  Swift(macosx-x86_64) :: Driver/bridging-pch.swift
     Temporary file name postfix (-######). swift-driver doesn't do this, c++ driver does, functionality comes from llvm.
 
   Swift(macosx-x86_64) :: Driver/batch_mode_dependencies_make_wrong_order.swift
@@ -106,10 +107,10 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/supplementary-filelist-empty.swift
     Unable to read file map
 
-  Swift(macosx-x86_64) :: Driver/bridging-pch.swift
   Swift(macosx-x86_64) :: Driver/actions-dsym.swift
   Swift(macosx-x86_64) :: Driver/actions.swift
     -driver-print-actions bug
+    ^ https://github.com/apple/swift-driver/pull/372
 
   Swift(macosx-x86_64) :: Driver/options-repl.swift
     Expecting an error about no input files, got error saying to use lldb repl
