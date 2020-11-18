@@ -142,10 +142,10 @@ test/Driver:
     Same error messsage is worded differently
   
   Swift(macosx-x86_64) :: Driver/temp-files.swift
-    swift-driver has no -save-temps support
+    swift-driver has no -save-temps support, and if an environment variable like `TMP` is set, swift-driver places temporary files in a subdirectory instead of immediately inside the specified one
 
   Swift(macosx-x86_64) :: Driver/batch_mode.swift
-    Linking failed
+    Linking failed (`-driver-skip-execution should prevent it from attempting the link in the first place, but isn't implemented yet`)
 
   Swift(macosx-x86_64) :: Driver/autolink-force-load-no-comdat.swift
     Different error than expected
@@ -169,7 +169,7 @@ test/Driver:
     swift-driver needs sdk root early because it uses it to get target info.
 
   Swift(macosx-x86_64) :: Driver/pipe_round_robin.swift.gyb
-    name 'NumDriverPipeReads' is not defined
+    name 'NumDriverPipeReads' is not defined (This test depends on the driver's performance counters, which aren't implemented yet)
 
   Swift(macosx-x86_64) :: Driver/response-file.swift
     Temporary directory additional level, `TMPDIR` vs `TMPDIR/TemporaryDirectory.#####/`
