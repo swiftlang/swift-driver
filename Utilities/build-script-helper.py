@@ -381,6 +381,9 @@ def build_using_cmake(args, toolchain_bin, build_dir):
     swift_flags.append('-Onone')
     swift_flags.append('-DDEBUG')
 
+  # Ensure we are not sharing the module cache with concurrent builds in CI
+  swift_flags.append('-module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache')))
+
   base_cmake_flags = []
   for target in targets:
     swift_flags.append('-target %s' % target)
