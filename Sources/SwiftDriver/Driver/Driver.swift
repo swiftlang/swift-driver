@@ -825,7 +825,7 @@ extension Driver {
       // Print actions using the same style as the old C++ driver
       // This is mostly for testing purposes. We should print semantically
       // equivalent actions as the old driver.
-      Driver.printActions(jobs)
+      printActions(jobs)
       return
     }
 
@@ -915,47 +915,91 @@ extension Driver {
     stdoutStream.flush()
   }
 
-  private static func printActions(_ jobs: [Job]) {
+  /// This handles -driver-print-actions flag. The C++ driver has a concept of actions
+  /// which it builds up a list of actions before then creating them into jobs.
+  /// The swift-driver doesn't have actions, so the logic here takes the jobs and tries
+  /// to mimic the actions that would be created by the C++ driver and
+  /// prints them in *hopefully* the same order.
+  private func printActions(_ jobs: [Job]) {
     defer {
       stdoutStream.flush()
     }
+
+    // Put bridging header as first input if we have it
+    let allInputs: [TypedVirtualPath]
+    if let objcHeader = importedObjCHeader, bridgingPrecompiledHeader != nil {
+      allInputs = [TypedVirtualPath(file: objcHeader, type: .objcHeader)] + inputFiles
+    } else {
+      allInputs = inputFiles
+    }
+
     var jobIdMap = Dictionary<Job, UInt>()
     // The C++ driver treats each input as an action, we should print them as
     // an action too for testing purposes.
     var inputIdMap = Dictionary<TypedVirtualPath, UInt>()
     var nextId: UInt = 0
+    var allInputsIterator = allInputs.makeIterator()
     for job in jobs {
+      // After "module input" jobs, print any left over inputs
+      switch job.kind {
+      case .generatePCH, .compile, .backend:
+        break
+      default:
+        while let input = allInputsIterator.next() {
+          Self.printInputIfNew(input, inputIdMap: &inputIdMap, nextId: &nextId)
+        }
+      }
       // All input action IDs for this action.
-      var inputIds = Set<UInt>()
+      var inputIds = [UInt]()
       // Collect input job IDs.
       for input in job.displayInputs.isEmpty ? job.inputs : job.displayInputs {
+        if let id = inputIdMap[input] {
+          inputIds.append(id)
+          continue
+        }
         var foundInput = false
         for (prevJob, id) in jobIdMap {
           if prevJob.outputs.contains(input) {
             foundInput = true
-            inputIds.insert(id)
+            inputIds.append(id)
+            break
           }
         }
-        if (!foundInput) {
-          if inputIdMap[input] == nil {
-            stdoutStream <<< nextId <<< ": " <<< "input, "
-            stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
-            inputIdMap[input] = nextId
-            nextId += 1
+        if !foundInput {
+          while let nextInputAction = allInputsIterator.next() {
+            Self.printInputIfNew(nextInputAction, inputIdMap: &inputIdMap, nextId: &nextId)
+            if let id = inputIdMap[input] {
+              inputIds.append(id)
+              break
+            }
           }
-          inputIds.insert(inputIdMap[input]!)
         }
       }
+
       // Print current Job
       stdoutStream <<< nextId <<< ": " <<< job.kind.rawValue <<< ", {"
-      stdoutStream <<< inputIds.sorted().map({ $0.description })
-          .joined(separator: ", ")
+      switch job.kind {
+      // Don't sort for compile jobs. Puts pch last
+      case .compile:
+        stdoutStream <<< inputIds.map(\.description).joined(separator: ", ")
+      default:
+        stdoutStream <<< inputIds.sorted().map(\.description).joined(separator: ", ")
+      }
       var typeName = job.outputs.first?.type.name
       if typeName == nil {
         typeName = "none"
       }
       stdoutStream <<< "}, " <<< typeName! <<< "\n"
       jobIdMap[job] = nextId
+      nextId += 1
+    }
+  }
+
+  private static func printInputIfNew(_ input: TypedVirtualPath, inputIdMap: inout [TypedVirtualPath: UInt], nextId: inout UInt) {
+    if inputIdMap[input] == nil {
+      stdoutStream <<< nextId <<< ": " <<< "input, "
+      stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
+      inputIdMap[input] = nextId
       nextId += 1
     }
   }
