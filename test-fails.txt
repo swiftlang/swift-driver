@@ -107,11 +107,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/supplementary-filelist-empty.swift
     Unable to read file map
 
-  Swift(macosx-x86_64) :: Driver/actions-dsym.swift
-  Swift(macosx-x86_64) :: Driver/actions.swift
-    -driver-print-actions bug
-    ^ https://github.com/apple/swift-driver/pull/372
-
   Swift(macosx-x86_64) :: Driver/options-repl.swift
     Expecting an error about no input files, got error saying to use lldb repl
 
