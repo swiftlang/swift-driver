@@ -289,7 +289,7 @@ final class NonincrementalCompilationTests: XCTestCase {
 
 final class IncrementalCompilationTests: XCTestCase {
 
-  var tempDir: AbsolutePath = AbsolutePath("/tmp")
+  let tempDir: AbsolutePath
 
   let module = "theModule"
   var OFM: AbsolutePath {
@@ -336,17 +336,19 @@ final class IncrementalCompilationTests: XCTestCase {
     ]
     + inputPathsAndContents.map {$0.0.pathString} .sorted()
   }
+
+  override init(selector: Selector) {
+    // Prefix directory with test name to ensure directory name is unique when
+    // testing in parallel.
+    self.tempDir = try! withTemporaryDirectory(prefix: selector.description,  removeTreeOnDeinit: false) {$0}
+    super.init(selector: selector)
+  }
+
   deinit {
     try? localFileSystem.removeFileTree(tempDir)
   }
 
   override func setUp() {
-    // Prefix directory with test name to ensure directory name is unique when
-    // testing in parallel.
-    // name returns e.g. "[SwiftDriverTests.IncrementalCompilationTests testIncremental]
-    // but we just want "testIncremental"
-    let testName = name.split(separator: " ").last!.dropLast()
-    self.tempDir = try! withTemporaryDirectory(prefix: String(testName),  removeTreeOnDeinit: false) {$0}
     try! localFileSystem.createDirectory(derivedDataPath)
     writeOutputFileMapData(module: module,
                            inputPaths: inputPathsAndContents.map {$0.0},
