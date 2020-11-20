@@ -845,7 +845,7 @@ extension Driver {
       // Print the driver source version first before we print the compiler
       // versions.
       if job.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
-        stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< "\n"
+        stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< " "
         stderrStream.flush()
       }
       // Require in-place execution for all single job plans.
