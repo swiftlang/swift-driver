@@ -179,7 +179,7 @@ extension Diagnostic.Message {
     )
   }
   fileprivate static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
-    .remark("Incremental compilation has been disabled, because \(why)")
+    .remark("Disabling incremental build: \(why)")
   }
   fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
