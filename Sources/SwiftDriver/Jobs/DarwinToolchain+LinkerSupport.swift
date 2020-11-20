@@ -202,127 +202,52 @@ extension DarwinToolchain {
     switch linkerOutputType {
     case .dynamicLibrary:
       // Same as an executable, but with the -dylib flag
+      linkerTool = .dynamicLinker
       commandLine.appendFlag("-dylib")
-      fallthrough
+      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                    commandLine: &commandLine,
+                    inputs: inputs,
+                    linkerOutputType: linkerOutputType)
+      try addDynamicLinkerFlags(targetInfo: targetInfo,
+                                parsedOptions: &parsedOptions,
+                                commandLine: &commandLine,
+                                sanitizers: sanitizers,
+                                linkerOutputType: linkerOutputType,
+                                lto: lto)
+
     case .executable:
       linkerTool = .dynamicLinker
-      
-      // FIXME: If we used Clang as a linker instead of going straight to ld,
-      // we wouldn't have to replicate a bunch of Clang's logic here.
-
-      // Always link the regular compiler_rt if it's present. Note that the
-      // regular libclang_rt.a uses a fat binary for device and simulator; this is
-      // not true for all compiler_rt build products.
-      //
-      // Note: Normally we'd just add this unconditionally, but it's valid to build
-      // Swift and use it as a linker without building compiler_rt.
-      let targetTriple = targetInfo.target.triple
-      let darwinPlatformSuffix =
-          targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
-      let compilerRTPath =
-        try clangLibraryPath(
-          for: targetInfo,
-          parsedOptions: &parsedOptions)
-        .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
-      if try fileSystem.exists(compilerRTPath) {
-        commandLine.append(.path(compilerRTPath))
-      }
-
-      let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
-      for opt in fSystemArgs {
-        commandLine.appendFlag(.F)
-        commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
-      }
-
-      // Linking sanitizers will add rpaths, which might negatively interact when
-      // other rpaths are involved, so we should make sure we add the rpaths after
-      // all user-specified rpaths.
-      for sanitizer in sanitizers {
-        if sanitizer == .fuzzer {
-          guard linkerOutputType == .executable else { continue }
-        }
-        try addLinkSanitizerLibArgsForDarwin(
-          to: &commandLine,
-          parsedOptions: &parsedOptions,
-          targetInfo: targetInfo,
-          sanitizer: sanitizer,
-          isShared: sanitizer != .fuzzer
-        )
-      }
-
-      commandLine.appendFlag("-arch")
-      commandLine.appendFlag(targetTriple.archName)
-
-      try addArgsToLinkStdlib(
-        to: &commandLine,
-        parsedOptions: &parsedOptions,
-        targetInfo: targetInfo,
-        linkerOutputType: linkerOutputType,
-        fileSystem: fileSystem
-      )
-
-      try addArgsToLinkARCLite(
-        to: &commandLine,
-        parsedOptions: &parsedOptions,
-        targetTriple: targetTriple
-      )
-
-      if lto != nil {
-        try addLTOLibArgs(to: &commandLine)
-      }
-
-      let targetVariantTriple = targetInfo.targetVariant?.triple
-      addDeploymentTargetArgs(
-        to: &commandLine,
-        targetTriple: targetTriple,
-        targetVariantTriple: targetVariantTriple,
-        sdkPath: targetInfo.sdkPath?.path
-      )
-
-      try addProfileGenerationArgs(
-        to: &commandLine,
-        parsedOptions: &parsedOptions,
-        targetInfo: targetInfo
-      )
-
-      commandLine.appendFlags(
-        "-lobjc",
-        "-lSystem",
-        "-no_objc_category_merging"
-      )
-
-      // Add the SDK path
-      if let sdkPath = targetInfo.sdkPath?.path {
-        commandLine.appendFlag("-syslibroot")
-        commandLine.appendPath(sdkPath)
-      }
-
-      if parsedOptions.contains(.embedBitcode) ||
-        parsedOptions.contains(.embedBitcodeMarker) {
-        commandLine.appendFlag("-bitcode_bundle")
-      }
-
-      if parsedOptions.contains(.enableAppExtension) {
-        commandLine.appendFlag("-application_extension")
-      }
-
-      // On Darwin, we only support libc++.
-      if parsedOptions.contains(.enableExperimentalCxxInterop) {
-        commandLine.appendFlag("-lc++")
-      }
-
-      // These custom arguments should be right before the object file at the
-      // end.
-      try commandLine.append(
-        contentsOf: parsedOptions.arguments(in: .linkerOption)
-      )
-      try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
+      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                    commandLine: &commandLine,
+                    inputs: inputs,
+                    linkerOutputType: linkerOutputType)
+      try addDynamicLinkerFlags(targetInfo: targetInfo,
+                                parsedOptions: &parsedOptions,
+                                commandLine: &commandLine,
+                                sanitizers: sanitizers,
+                                linkerOutputType: linkerOutputType,
+                                lto: lto)
 
     case .staticLibrary:
       linkerTool = .staticLinker(lto)
       commandLine.appendFlag(.static)
+      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                    commandLine: &commandLine,
+                    inputs: inputs,
+                    linkerOutputType: linkerOutputType)
     }
 
+    // Add the output
+    commandLine.appendFlag("-o")
+    commandLine.appendPath(outputFile)
+
+    return try getToolPath(linkerTool)
+  }
+
+  private func addLinkInputs(shouldUseInputFileList: Bool,
+                             commandLine: inout [Job.ArgTemplate],
+                             inputs: [TypedVirtualPath],
+                             linkerOutputType: LinkOutputType) {
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
@@ -363,12 +288,125 @@ extension DarwinToolchain {
         }
       })
     }
+  }
 
-    // Add the output
-    commandLine.appendFlag("-o")
-    commandLine.appendPath(outputFile)
+  private func addDynamicLinkerFlags(targetInfo: FrontendTargetInfo,
+                                     parsedOptions: inout ParsedOptions,
+                                     commandLine: inout [Job.ArgTemplate],
+                                     sanitizers: Set<Sanitizer>,
+                                     linkerOutputType: LinkOutputType,
+                                     lto: LTOKind?) throws {
+    // FIXME: If we used Clang as a linker instead of going straight to ld,
+    // we wouldn't have to replicate a bunch of Clang's logic here.
 
-    return try getToolPath(linkerTool)
+    // Always link the regular compiler_rt if it's present. Note that the
+    // regular libclang_rt.a uses a fat binary for device and simulator; this is
+    // not true for all compiler_rt build products.
+    //
+    // Note: Normally we'd just add this unconditionally, but it's valid to build
+    // Swift and use it as a linker without building compiler_rt.
+    let targetTriple = targetInfo.target.triple
+    let darwinPlatformSuffix =
+      targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
+    let compilerRTPath =
+      try clangLibraryPath(
+        for: targetInfo,
+        parsedOptions: &parsedOptions)
+      .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
+    if try fileSystem.exists(compilerRTPath) {
+      commandLine.append(.path(compilerRTPath))
+    }
+
+    try addArgsToLinkARCLite(
+      to: &commandLine,
+      parsedOptions: &parsedOptions,
+      targetTriple: targetTriple
+    )
+
+    if lto != nil {
+      try addLTOLibArgs(to: &commandLine)
+    }
+
+    let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
+    for opt in fSystemArgs {
+      commandLine.appendFlag(.F)
+      commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
+    }
+
+    if parsedOptions.contains(.enableAppExtension) {
+      commandLine.appendFlag("-application_extension")
+    }
+
+    // Linking sanitizers will add rpaths, which might negatively interact when
+    // other rpaths are involved, so we should make sure we add the rpaths after
+    // all user-specified rpaths.
+    for sanitizer in sanitizers {
+      if sanitizer == .fuzzer {
+        guard linkerOutputType == .executable else { continue }
+      }
+      try addLinkSanitizerLibArgsForDarwin(
+        to: &commandLine,
+        parsedOptions: &parsedOptions,
+        targetInfo: targetInfo,
+        sanitizer: sanitizer,
+        isShared: sanitizer != .fuzzer
+      )
+    }
+
+    if parsedOptions.contains(.embedBitcode) ||
+        parsedOptions.contains(.embedBitcodeMarker) {
+      commandLine.appendFlag("-bitcode_bundle")
+    }
+
+    // Add the SDK path
+    if let sdkPath = targetInfo.sdkPath?.path {
+      commandLine.appendFlag("-syslibroot")
+      commandLine.appendPath(sdkPath)
+    }
+
+    commandLine.appendFlags(
+      "-lobjc",
+      "-lSystem"
+    )
+
+    commandLine.appendFlag("-arch")
+    commandLine.appendFlag(targetTriple.archName)
+
+    // On Darwin, we only support libc++.
+    if parsedOptions.contains(.enableExperimentalCxxInterop) {
+      commandLine.appendFlag("-lc++")
+    }
+
+    try addArgsToLinkStdlib(
+      to: &commandLine,
+      parsedOptions: &parsedOptions,
+      targetInfo: targetInfo,
+      linkerOutputType: linkerOutputType,
+      fileSystem: fileSystem
+    )
+
+    try addProfileGenerationArgs(
+      to: &commandLine,
+      parsedOptions: &parsedOptions,
+      targetInfo: targetInfo
+    )
+
+    let targetVariantTriple = targetInfo.targetVariant?.triple
+    addDeploymentTargetArgs(
+      to: &commandLine,
+      targetTriple: targetTriple,
+      targetVariantTriple: targetVariantTriple,
+      sdkPath: targetInfo.sdkPath?.path
+    )
+
+    commandLine.appendFlag("-no_objc_category_merging")
+
+    // These custom arguments should be right before the object file at the
+    // end.
+    try commandLine.append(
+      contentsOf: parsedOptions.arguments(in: .linkerOption)
+    )
+    try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
   }
 }
 
