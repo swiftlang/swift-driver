@@ -371,23 +371,25 @@ public struct Driver {
         return ($0, modTime)
     })
 
-    let outputFileMap: OutputFileMap?
-    // Initialize an empty output file map, which will be populated when we start creating jobs.
-    if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
-      do {
-        let path = try VirtualPath(path: outputFileMapArg)
-        outputFileMap = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
-      } catch {
-        throw Error.unableToLoadOutputFileMap(outputFileMapArg)
+    do {
+      let outputFileMap: OutputFileMap?
+      // Initialize an empty output file map, which will be populated when we start creating jobs.
+      if let outputFileMapArg = parsedOptions.getLastArgument(.outputFileMap)?.asSingle {
+        do {
+          let path = try VirtualPath(path: outputFileMapArg)
+          outputFileMap = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
+        } catch {
+          throw Error.unableToLoadOutputFileMap(outputFileMapArg)
+        }
+      } else {
+        outputFileMap = nil
       }
-    } else {
-      outputFileMap = nil
-    }
 
-    if let workingDirectory = self.workingDirectory {
-      self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
-    } else {
-      self.outputFileMap = outputFileMap
+      if let workingDirectory = self.workingDirectory {
+        self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
+      } else {
+        self.outputFileMap = outputFileMap
+      }
     }
 
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
