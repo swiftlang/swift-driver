@@ -176,6 +176,8 @@ public struct Triple {
                                              os: parsedOS?.value)
     }
   }
+
+  static let dummyForTesting = Triple("")
 }
 
 extension Triple: Codable {

@@ -782,7 +782,8 @@ extension Driver {
     case "swiftc":
       return .batch
     default:
-      throw Error.invalidDriverName(driverName)
+      return .batch
+      //throw Error.invalidDriverName(driverName)
     }
   }
 
@@ -2051,6 +2052,9 @@ extension Driver {
     } else {
       swiftCompilerPrefixArgs = []
     }
+    var hasFrontendBeenRedirectedForTesting: Bool {
+      return !swiftCompilerPrefixArgs.isEmpty
+    }
 
     // Find the SDK, if any.
     let sdkPath: VirtualPath? = Self.computeSDKPath(
@@ -2059,8 +2063,11 @@ extension Driver {
       diagnosticsEngine: diagnosticsEngine, env: env)
 
     // Query the frontend for target information.
+    // If there's a dummy frontend, don't query it.
     do {
-      var info = try executor.execute(
+      var info = hasFrontendBeenRedirectedForTesting
+        ? FrontendTargetInfo.dummyForTesting
+        : try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
           sdkPath: sdkPath, resourceDirPath: resourceDirPath,
