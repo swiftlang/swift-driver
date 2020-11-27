@@ -265,10 +265,8 @@ extension IncrementalCompilationState {
         .inputInfos[input.file]?.status ?? .newlyAdded
 
       switch previousCompilationStatus {
-      // Using outOfDateBuildRecord.inputInfos[input.file]?.previousModTime
-      // has some inaccuracy.
-      // Use outOfDateBuildRecord.buildTime instead
-      case .upToDate where modDate < outOfDateBuildRecord.buildTime:
+
+      case .upToDate where modDate == outOfDateBuildRecord.inputInfos[input.file]?.previousModTime:
         reportIncrementalDecision?("May skip current input:", input)
         return nil
 
