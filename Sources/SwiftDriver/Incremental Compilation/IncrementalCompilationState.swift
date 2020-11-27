@@ -261,12 +261,20 @@ extension IncrementalCompilationState {
       }
       let modDate = buildRecordInfo.compilationInputModificationDates[input]
         ?? Date.distantFuture
-      let previousCompilationStatus = outOfDateBuildRecord
-        .inputInfos[input.file]?.status ?? .newlyAdded
+      let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
+      let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
+      let previousModTime = inputInfo?.previousModTime
+
+      // Because legacy driver reads/writes dates wrt 1970,
+      // and because converting time intervals to/from Dates from 1970
+      // exceeds Double precision, must not compare dates directly
+      var datesMatch: Bool {
+        modDate.timeIntervalSince1970 == previousModTime?.timeIntervalSince1970
+      }
 
       switch previousCompilationStatus {
 
-      case .upToDate where modDate == outOfDateBuildRecord.inputInfos[input.file]?.previousModTime:
+      case .upToDate where datesMatch:
         reportIncrementalDecision?("May skip current input:", input)
         return nil
 

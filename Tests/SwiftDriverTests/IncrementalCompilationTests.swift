@@ -366,6 +366,14 @@ final class IncrementalCompilationTests: XCTestCase {
     try testIncremental(checkDiagnostics: false)
   }
 
+  func testAccuracy() throws {
+    (1...10) .forEach { n in
+      tryInitial(false)
+      tryNoChange(true)
+    }
+  }
+
+
 
   func testIncremental(checkDiagnostics: Bool) throws {
     tryInitial(checkDiagnostics)
