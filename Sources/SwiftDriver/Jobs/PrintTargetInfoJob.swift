@@ -96,13 +96,16 @@ extension SwiftVersion: Codable {
     /// location (/usr/lib/swift) via rpath.
     let librariesRequireRPath: Bool
 
-    static let dummyForTesting = Self(
-      triple: .dummyForTesting,
-      unversionedTriple: .dummyForTesting,
-      moduleTriple: .dummyForTesting,
-      swiftRuntimeCompatibilityVersion: nil,
-      compatibilityLibraries: [],
-      librariesRequireRPath: false)
+    static func dummyForTesting(_ toolchain: Toolchain) -> Self {
+      let dummyForTestingTriple = Triple.dummyForTesting(toolchain)
+      return Self(
+        triple: dummyForTestingTriple,
+        unversionedTriple: dummyForTestingTriple,
+        moduleTriple: dummyForTestingTriple,
+        swiftRuntimeCompatibilityVersion: nil,
+        compatibilityLibraries: [],
+        librariesRequireRPath: false)
+    }
   }
 
   @_spi(Testing) public struct Paths: Codable {
@@ -124,11 +127,12 @@ extension SwiftVersion: Codable {
   var targetVariant: Target?
   let paths: Paths
 
-  static let dummyForTesting =
-    FrontendTargetInfo(compilerVersion: "dummy",
-                       target: .dummyForTesting,
-                       targetVariant: nil,
-                       paths: .dummyForTesting)
+  static func dummyForTesting(_ toolchain: Toolchain) -> Self {
+    Self(compilerVersion: "dummy",
+         target: .dummyForTesting(toolchain),
+         targetVariant: nil,
+         paths: .dummyForTesting)
+  }
 }
 
 // Make members of `FrontendTargetInfo.Paths` accessible on `FrontendTargetInfo`.

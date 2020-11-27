@@ -2066,7 +2066,7 @@ extension Driver {
     // If there's a dummy frontend, don't query it.
     do {
       var info = hasFrontendBeenRedirectedForTesting
-        ? FrontendTargetInfo.dummyForTesting
+        ? FrontendTargetInfo.dummyForTesting(toolchain)
         : try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
