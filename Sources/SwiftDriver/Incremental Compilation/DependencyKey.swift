@@ -2,13 +2,13 @@
 import Foundation
 
 /// A filename from another module
-struct ExternalDependency: Hashable, CustomStringConvertible {
+/*@_spi(Testing)*/ public struct ExternalDependency: Hashable, CustomStringConvertible {
   let fileName: String
 
   var file: VirtualPath? {
     try? VirtualPath(path: fileName)
   }
-  init(_ path: String) {
+  /*@_spi(Testing)*/ public init(_ path: String) {
     self.fileName = path
   }
   public var description: String {
@@ -18,7 +18,7 @@ struct ExternalDependency: Hashable, CustomStringConvertible {
 
 
 
-public struct DependencyKey: Hashable {
+/*@_spi(Testing)*/ public  struct DependencyKey: Hashable {
   /// Instead of the status quo scheme of two kinds of "Depends", cascading and
   /// non-cascading this code represents each entity ("Provides" in the status
   /// quo), by a pair of nodes. One node represents the "implementation." If the
@@ -31,7 +31,7 @@ public struct DependencyKey: Hashable {
   /// implementations white. Each node holds an instance variable describing which
   /// aspect of the entity it represents.
 
-  enum DeclAspect {
+  /*@_spi(Testing)*/ public enum DeclAspect {
     case interface, implementation
   }
 
@@ -39,7 +39,7 @@ public struct DependencyKey: Hashable {
   /// graph, splitting the current *member* into \ref member and \ref
   /// potentialMember and adding \ref sourceFileProvide.
   ///
-  enum Designator: Hashable {
+  /*@_spi(Testing)*/ public enum Designator: Hashable {
     case
       topLevel(name: String),
       dynamicLookup(name: String),
@@ -62,11 +62,11 @@ public struct DependencyKey: Hashable {
     }
   }
 
-  let aspect: DeclAspect
-  let designator: Designator
+  /*@_spi(Testing)*/ public let aspect: DeclAspect
+  /*@_spi(Testing)*/ public let designator: Designator
 
 
-  init(
+  /*@_spi(Testing)*/ public init(
     aspect: DeclAspect,
     designator: Designator)
   {
@@ -75,7 +75,7 @@ public struct DependencyKey: Hashable {
   }
 
 
-  var correspondingImplementation: Self {
+  /*@_spi(Testing)*/ public var correspondingImplementation: Self {
     assert(aspect == .interface)
     return Self(aspect: .implementation, designator: designator)
   }

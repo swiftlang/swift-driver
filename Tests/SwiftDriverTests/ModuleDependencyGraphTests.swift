@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-@testable import SwiftDriver
+/*@testable*/ import SwiftDriver
 import TSCBasic
 
 class ModuleDependencyGraphTests: XCTestCase {

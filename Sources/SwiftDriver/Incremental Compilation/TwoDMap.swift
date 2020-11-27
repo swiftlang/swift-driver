@@ -12,7 +12,7 @@
 
 
 /// A map with 2 keys that can iterate in a number of ways
-struct TwoDMap<Key1: Hashable, Key2: Hashable, Value: Equatable>: MutableCollection {
+public struct TwoDMap<Key1: Hashable, Key2: Hashable, Value: Equatable>: MutableCollection {
 
   private var map1 = DictionaryOfDictionaries<Key1, Key2, Value>()
   private var map2 = DictionaryOfDictionaries<Key2, Key1, Value>()

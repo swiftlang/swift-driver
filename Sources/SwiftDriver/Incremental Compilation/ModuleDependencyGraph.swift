@@ -16,7 +16,7 @@ import SwiftOptions
 
 // MARK: - ModuleDependencyGraph
 
-final class ModuleDependencyGraph {
+/*@_spi(Testing)*/ public final class ModuleDependencyGraph {
   
   var nodeFinder = NodeFinder()
   
@@ -113,7 +113,7 @@ extension ModuleDependencyGraph {
 
   /// Find all the swiftDeps files that depend on `swiftDeps`.
   /// Really private, except for testing.
-  func findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(
+  /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(
     _ swiftDeps: SwiftDeps
   ) -> Set<SwiftDeps> {
     let nodes = nodeFinder.findNodes(for: swiftDeps) ?? [:]
@@ -152,7 +152,7 @@ extension ModuleDependencyGraph {
 // MARK: - Scheduling either wave
 extension ModuleDependencyGraph {
   /// Find all the swiftDeps affected when the nodes change.
-  func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
+  /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
     _ nodes: Nodes
   ) -> Set<SwiftDeps>
   where Nodes.Element == Node
@@ -165,7 +165,7 @@ extension ModuleDependencyGraph {
     return Set(affectedNodes.compactMap {$0.swiftDeps})
   }
 
-  func forEachUntracedSwiftDepsDirectlyDependent(
+  /*@_spi(Testing)*/ public func forEachUntracedSwiftDepsDirectlyDependent(
     on externalSwiftDeps: ExternalDependency,
     _ fn: (SwiftDeps) -> Void
   ) {
@@ -205,7 +205,7 @@ extension ModuleDependencyGraph {
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   /// Testing only
-  func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
+  /*@_spi(Testing)*/ public func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
     let swiftDeps = SwiftDeps(mock: i)
     // optimization
     if let fileNode = nodeFinder.findFileInterfaceNode(forMock: swiftDeps),

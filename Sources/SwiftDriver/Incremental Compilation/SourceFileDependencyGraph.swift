@@ -12,7 +12,7 @@
 import Foundation
 import TSCUtility
 
-struct SourceFileDependencyGraph {
+/*@_spi(Testing)*/ public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
   public static let sourceFileProvidesImplementationSequenceNumber: Int = 1
   
@@ -62,7 +62,7 @@ extension SourceFileDependencyGraph {
     public var defsIDependUpon: [Int]
     public var isProvides: Bool
     
-    init(
+    /*@_spi(Testing)*/ public init(
       key: DependencyKey,
       fingerprint: String?,
       sequenceNumber: Int,
@@ -126,7 +126,7 @@ extension SourceFileDependencyGraph {
     return try self.init(pathString: path.pathString)
   }
   
-  init(nodesForTesting: [Node]) {
+  /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
     majorVersion = 0
     minorVersion = 0
     compilerVersionString = ""
@@ -134,12 +134,12 @@ extension SourceFileDependencyGraph {
   }
 
   // FIXME: This should accept a FileSystem parameter.
-  init(pathString: String) throws {
+  /*@_spi(Testing)*/ public init(pathString: String) throws {
     let data = try Data(contentsOf: URL(fileURLWithPath: pathString))
     try self.init(data: data)
   }
 
-  init(data: Data,
+  /*@_spi(Testing)*/ public init(data: Data,
        fromSwiftModule extractFromSwiftModule: Bool = false) throws {
     struct Visitor: BitstreamVisitor {
       let extractFromSwiftModule: Bool

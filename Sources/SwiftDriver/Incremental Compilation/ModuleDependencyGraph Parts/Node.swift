@@ -24,9 +24,9 @@ extension ModuleDependencyGraph {
   ///
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
-  final class Node {
+  /*@_spi(Testing)*/ public final class Node {
 
-    typealias Graph = ModuleDependencyGraph
+    /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
     /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
     let dependencyKey: DependencyKey
