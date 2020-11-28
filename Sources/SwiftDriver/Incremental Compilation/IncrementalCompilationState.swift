@@ -91,7 +91,7 @@ public class IncrementalCompilationState {
       ? { Self.reportIncrementalDecisionFn($0, $1, outputFileMap, diagnosticEngine) }
       : nil
 
-    guard let moduleDependencyGraph =
+    guard let (moduleDependencyGraph, inputsWithUnreadableSwiftDeps) =
             ModuleDependencyGraph.buildInitialGraph(
               diagnosticEngine: diagnosticEngine,
               inputs: buildRecordInfo.compilationInputModificationDates.keys,
@@ -104,12 +104,13 @@ public class IncrementalCompilationState {
     }
 
     self.skippedCompilationInputs = Self.computeSkippedCompilationInputs(
-        inputFiles: inputFiles,
-        buildRecordInfo: buildRecordInfo,
-        moduleDependencyGraph: moduleDependencyGraph,
-        outOfDateBuildRecord: outOfDateBuildRecord,
-        alwaysRebuildDependents: parsedOptions.contains(.driverAlwaysRebuildDependents),
-        reportIncrementalDecision: reportIncrementalDecision)
+      inputFiles: inputFiles,
+      inputsWithUnreadableSwiftDeps: inputsWithUnreadableSwiftDeps,
+      buildRecordInfo: buildRecordInfo,
+      moduleDependencyGraph: moduleDependencyGraph,
+      outOfDateBuildRecord: outOfDateBuildRecord,
+      alwaysRebuildDependents: parsedOptions.contains(.driverAlwaysRebuildDependents),
+      reportIncrementalDecision: reportIncrementalDecision)
 
     self.moduleDependencyGraph = moduleDependencyGraph
     self.reportIncrementalDecision = reportIncrementalDecision
@@ -195,6 +196,7 @@ extension IncrementalCompilationState {
   /// Figure out which compilation inputs are *not* mandatory
   private static func computeSkippedCompilationInputs(
     inputFiles: [TypedVirtualPath],
+    inputsWithUnreadableSwiftDeps: [TypedVirtualPath],
     buildRecordInfo: BuildRecordInfo,
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
@@ -215,7 +217,7 @@ extension IncrementalCompilationState {
       reportIncrementalDecision: reportIncrementalDecision)
 
     // Combine to obtain the inputs that definitely must be recompiled.
-    let definitelyRequiredInputs = Set(changedInputs.map {$0.0} + externalDependents)
+    let definitelyRequiredInputs = Set(changedInputs.map {$0.0} + externalDependents + inputsWithUnreadableSwiftDeps)
     if let report = reportIncrementalDecision {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
         report("Queuing (initial):", scheduledInput)
@@ -486,8 +488,12 @@ extension IncrementalCompilationState {
     Array(
       Set(
         job.primaryInputs.flatMap {
-          moduleDependencyGraph.findSourcesToCompileAfterCompiling($0)
-            ?? Array(skippedCompilationInputs)
+          input -> [TypedVirtualPath] in
+          if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input) {
+            return found
+          }
+          reportIncrementalDecision?("Failed to read some swiftdeps; compiling everything", input)
+          return Array(skippedCompilationInputs)
         }
       )
     )
