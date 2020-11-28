@@ -59,7 +59,7 @@ extension ModuleDependencyGraph {
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-  ) -> (ModuleDependencyGraph, [TypedVirtualPath])?
+  ) -> (ModuleDependencyGraph, [(TypedVirtualPath, VirtualPath)])?
   where Inputs.Element == TypedVirtualPath
   {
     let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
@@ -82,7 +82,7 @@ extension ModuleDependencyGraph {
       return nil
     }
     let inputsWithUnreadableSwiftDeps = inputsAndSwiftdeps.compactMap {
-      input, swiftDepsFile -> TypedVirtualPath? in
+      input, swiftDepsFile -> (TypedVirtualPath, VirtualPath)? in
       guard let swiftDepsFile = swiftDepsFile
       else {
         return nil
@@ -94,7 +94,7 @@ extension ModuleDependencyGraph {
                                          input: input,
                                          reportIncrementalDecision: reportIncrementalDecision,
                                          diagnosticEngine: diagnosticEngine)
-      return changes == nil ? input : nil
+      return changes == nil ? (input, swiftDepsFile) : nil
     }
     return (graph, inputsWithUnreadableSwiftDeps)
   }

@@ -102,10 +102,19 @@ public class IncrementalCompilationState {
     else {
       return nil
     }
+    // preserve legacy behavior
+    if let badSwiftDeps = inputsWithUnreadableSwiftDeps.first?.1 {
+      diagnosticEngine.emit(
+        .remark_incremental_compilation_disabled(
+          because: "malformed swift dependencies file '\(badSwiftDeps)'")
+      )
+      return nil
+    }
 
+    // But someday, just ensure inputsWithUnreadableSwiftDeps are compiled
     self.skippedCompilationInputs = Self.computeSkippedCompilationInputs(
       inputFiles: inputFiles,
-      inputsWithUnreadableSwiftDeps: inputsWithUnreadableSwiftDeps,
+      inputsWithUnreadableSwiftDeps: inputsWithUnreadableSwiftDeps.map {$0.0},
       buildRecordInfo: buildRecordInfo,
       moduleDependencyGraph: moduleDependencyGraph,
       outOfDateBuildRecord: outOfDateBuildRecord,
