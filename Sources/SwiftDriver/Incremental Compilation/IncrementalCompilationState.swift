@@ -108,6 +108,7 @@ public class IncrementalCompilationState {
         buildRecordInfo: buildRecordInfo,
         moduleDependencyGraph: moduleDependencyGraph,
         outOfDateBuildRecord: outOfDateBuildRecord,
+        alwaysRebuildDependents: parsedOptions.contains(.driverAlwaysRebuildDependents),
         reportIncrementalDecision: reportIncrementalDecision)
 
     self.moduleDependencyGraph = moduleDependencyGraph
@@ -197,6 +198,7 @@ extension IncrementalCompilationState {
     buildRecordInfo: BuildRecordInfo,
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
+    alwaysRebuildDependents: Bool,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   ) -> Set<TypedVirtualPath> {
 
@@ -227,6 +229,7 @@ extension IncrementalCompilationState {
     let speculativeInputs = computeSpeculativeInputs(
       changedInputs: changedInputs,
       moduleDependencyGraph: moduleDependencyGraph,
+      alwaysRebuildDependents: alwaysRebuildDependents,
       reportIncrementalDecision: reportIncrementalDecision)
       .subtracting(definitelyRequiredInputs)
 
@@ -325,26 +328,31 @@ extension IncrementalCompilationState {
   private static func computeSpeculativeInputs(
     changedInputs: [(TypedVirtualPath, InputInfo.Status)],
     moduleDependencyGraph: ModuleDependencyGraph,
+    alwaysRebuildDependents: Bool,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
     ) -> Set<TypedVirtualPath> {
     // Collect the files that will be compiled whose dependents should be schedule
     let cascadingFiles: [TypedVirtualPath] = changedInputs.compactMap { input, status in
       let basename = input.file.basename
-      switch status {
-      case .needsCascadingBuild:
-        reportIncrementalDecision?(
-          "scheduling dependents of \(basename); needed cascading build", nil)
-        return input
+      switch (status, alwaysRebuildDependents) {
 
-      case .upToDate: // Must be building because it changed
+      case (.upToDate, _): // Must be building because it changed
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename); unknown changes", nil)
         return nil
-       case .newlyAdded:
+      case (_, true):
+        reportIncrementalDecision?(
+          "scheduling dependents of \(basename); -driver-always-rebuild-dependents", nil)
+        return input
+      case (.needsCascadingBuild, false):
+        reportIncrementalDecision?(
+          "scheduling dependents of \(basename); needed cascading build", nil)
+        return input
+       case (.newlyAdded, false):
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename): no entry in build record or dependency graph", nil)
         return nil
-      case .needsNonCascadingBuild:
+      case (.needsNonCascadingBuild, false):
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename): does not need cascading build", nil)
         return nil

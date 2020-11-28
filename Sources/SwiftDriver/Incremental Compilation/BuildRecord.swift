@@ -166,10 +166,7 @@ extension BuildRecord {
   /*@_spi(Testing)*/ public func encode() throws -> String {
       let pathsAndInfos = try inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
-        guard let path = input.absolutePath else {
-          throw Errors.notAbsolutePath(input)
-        }
-        return (path.pathString, inputInfo)
+        return (input.name, inputInfo)
       }
       let inputInfosNode = Yams.Node(
         pathsAndInfos
