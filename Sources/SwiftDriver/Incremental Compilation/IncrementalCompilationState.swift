@@ -336,11 +336,7 @@ extension IncrementalCompilationState {
       let basename = input.file.basename
       switch (status, alwaysRebuildDependents) {
 
-      case (.upToDate, _): // Must be building because it changed
-        reportIncrementalDecision?(
-          "not scheduling dependents of \(basename); unknown changes", nil)
-        return nil
-      case (_, true):
+       case (_, true):
         reportIncrementalDecision?(
           "scheduling dependents of \(basename); -driver-always-rebuild-dependents", nil)
         return input
@@ -348,6 +344,11 @@ extension IncrementalCompilationState {
         reportIncrementalDecision?(
           "scheduling dependents of \(basename); needed cascading build", nil)
         return input
+
+      case (.upToDate, false): // was up to date, but changed
+        reportIncrementalDecision?(
+          "not scheduling dependents of \(basename); unknown changes", nil)
+        return nil
        case (.newlyAdded, false):
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename): no entry in build record or dependency graph", nil)
