@@ -338,7 +338,7 @@ public struct Driver {
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
       let cwd = fileSystem.currentWorkingDirectory
       return try cwd.map{ AbsolutePath(workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
-    }  ?? fileSystem.currentWorkingDirectory
+    }
 
     // Apply the working directory to the parsed options.
     if let workingDirectory = self.workingDirectory {
@@ -435,7 +435,7 @@ public struct Driver {
     self.buildRecordInfo = BuildRecordInfo(
       actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
       compilerOutputType: compilerOutputType,
-      workingDirectory: self.workingDirectory,
+      workingDirectory: self.workingDirectory ?? fileSystem.currentWorkingDirectory,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
       moduleOutputInfo: moduleOutputInfo,
