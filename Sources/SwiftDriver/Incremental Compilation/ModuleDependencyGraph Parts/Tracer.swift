@@ -18,7 +18,6 @@ extension ModuleDependencyGraph {
   struct Tracer {
     typealias Graph = ModuleDependencyGraph
 
-    let startingPoints: [Node]
     let graph: ModuleDependencyGraph
 
     private(set) var tracedUses: [Node] = []
@@ -44,25 +43,25 @@ extension ModuleDependencyGraph.Tracer {
   ) -> Self
   where Nodes.Element == ModuleDependencyGraph.Node
   {
-    var tracer = Self(findingUsesOf: defs,
-                      in: graph,
+    var tracer = Self(in: graph,
                       diagnosticEngine: diagnosticEngine)
-    tracer.findPreviouslyUntracedDependents()
+    tracer.findPreviouslyUntracedDependents(startingAt: defs)
     return tracer
   }
 
-  private init<Nodes: Sequence>(findingUsesOf defs: Nodes,
-               in graph: ModuleDependencyGraph,
+  private init(in graph: ModuleDependencyGraph,
                diagnosticEngine: DiagnosticsEngine)
-  where Nodes.Element == ModuleDependencyGraph.Node
   {
     self.graph = graph
-    self.startingPoints = Array(defs)
     self.currentPathIfTracing = graph.reportIncrementalDecision != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
   
-  private mutating func findPreviouslyUntracedDependents() {
+  private mutating func findPreviouslyUntracedDependents<Nodes: Sequence>(
+    startingAt startingPoints: Nodes
+  )
+  where Nodes.Element == ModuleDependencyGraph.Node
+  {
     for n in startingPoints {
       findNextPreviouslyUntracedDependent(of: n)
     }
