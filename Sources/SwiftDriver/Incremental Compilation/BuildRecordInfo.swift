@@ -172,7 +172,7 @@ import SwiftOptions
   }
 
   func jobFinished(job: Job, result: ProcessResult) {
-    // REDUNDANT?
+    // Is the check redundant?
     if let _ = finishedJobResults.updateValue(result, forKey: job) {
       fatalError("job finished twice?!")
     }
