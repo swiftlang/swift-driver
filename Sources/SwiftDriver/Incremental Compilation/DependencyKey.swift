@@ -94,8 +94,10 @@ import Foundation
   }
 
 
-  /*@_spi(Testing)*/ public var correspondingImplementation: Self {
-    assert(aspect == .interface)
+  /*@_spi(Testing)*/ public var correspondingImplementation: Self? {
+    guard aspect == .interface  else {
+      return nil
+    }
     return Self(aspect: .implementation, designator: designator)
   }
 
