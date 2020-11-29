@@ -18,7 +18,7 @@ import Foundation
 
 
 
-/*@_spi(Testing)*/ public  struct DependencyKey: Hashable {
+/*@_spi(Testing)*/ public  struct DependencyKey: Hashable, CustomStringConvertible {
   /// Instead of the status quo scheme of two kinds of "Depends", cascading and
   /// non-cascading this code represents each entity ("Provides" in the status
   /// quo), by a pair of nodes. One node represents the "implementation." If the
@@ -39,7 +39,7 @@ import Foundation
   /// graph, splitting the current *member* into \ref member and \ref
   /// potentialMember and adding \ref sourceFileProvide.
   ///
-  /*@_spi(Testing)*/ public enum Designator: Hashable {
+  /*@_spi(Testing)*/ public enum Designator: Hashable, CustomStringConvertible {
     case
       topLevel(name: String),
       dynamicLookup(name: String),
@@ -60,6 +60,25 @@ import Foundation
       default:
         return nil}
     }
+
+    public var description: String {
+      switch self {
+      case let .topLevel(name: name):
+        return "top-level name \(name)"
+      case let .nominal(context: context):
+        return "type \(context)"
+      case let .potentialMember(context: context):
+        return "potential members of \(context)"
+      case let .member(context: context, name: name):
+        return "member \(name) of \(context)"
+      case let .dynamicLookup(name: name):
+        return "AnyObject member \(name)"
+      case let .externalDepend(externalDependency):
+        return "module \(externalDependency)"
+      case let .sourceFileProvide(name: name):
+        return (try? VirtualPath(path: name).basename) ?? name
+      }
+    }
   }
 
   /*@_spi(Testing)*/ public let aspect: DeclAspect
@@ -78,6 +97,10 @@ import Foundation
   /*@_spi(Testing)*/ public var correspondingImplementation: Self {
     assert(aspect == .interface)
     return Self(aspect: .implementation, designator: designator)
+  }
+
+  public var description: String {
+    "\(aspect) of \(designator)"
   }
 
   @discardableResult

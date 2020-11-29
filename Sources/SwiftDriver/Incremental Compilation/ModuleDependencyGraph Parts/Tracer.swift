@@ -123,38 +123,11 @@ extension ModuleDependencyGraph.Tracer {
           .compactMap { node in
             node.swiftDeps
               .flatMap {graph.sourceSwiftDepsMap[$0] }
-              .map (node.dependencyKey.descriptionForPath(from:))
+              .map { "\(node.dependencyKey) from: \($0.file.basename)"}
           }
           .joined(separator: " -> ")
       ].joined(separator: " "),
       nil
     )
-  }
-}
-
-fileprivate extension DependencyKey {
-  func descriptionForPath(from sourceFile: TypedVirtualPath) -> String {
-    "\(aspect) of \(designator.descriptionForPath(from: sourceFile))"
-  }
-}
-
-fileprivate extension DependencyKey.Designator {
-  func descriptionForPath(from sourceFile: TypedVirtualPath) -> String {
-    switch self {
-    case let .topLevel(name: name):
-      return "top-level name \(name)"
-    case let .nominal(context: context):
-      return "type \(context)"
-    case let .potentialMember(context: context):
-      return "potential members of \(context)"
-    case let .member(context: context, name: name):
-      return "member \(name) of \(context)"
-    case let .dynamicLookup(name: name):
-      return "AnyObject member \(name)"
-    case let .externalDepend(externalDependency):
-      return "module \(externalDependency)"
-    case let .sourceFileProvide(name: name):
-      return (try? VirtualPath(path: name).basename) ?? name
-    }
   }
 }
