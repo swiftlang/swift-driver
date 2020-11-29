@@ -859,12 +859,14 @@ extension Driver {
                            recordedInputModificationDates: recordedInputModificationDates)
       return
     }
-
-    try performTheBuild(allJobs: jobs, forceResponseFiles: forceResponseFiles)
-
-    buildRecordInfo?.writeBuildRecord(
-      jobs,
-      incrementalCompilationState?.skippedCompilationInputs)
+    do {
+      defer {
+        buildRecordInfo?.writeBuildRecord(
+          jobs,
+          incrementalCompilationState?.skippedCompilationInputs)
+      }
+      try performTheBuild(allJobs: jobs, forceResponseFiles: forceResponseFiles)
+    }
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
     if parsedOptions.hasArgument(.driverWarnUnusedOptions) {
