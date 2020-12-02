@@ -87,6 +87,12 @@ public final class MultiJobExecutor {
     /// any newly-required job. Set only once.
     private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
 
+    /// If a job fails, the driver needs to stop running jobs.
+    private(set) var shouldStopRunningJobs = false
+
+    /// The value of the option
+    let continueBuildingAfterErrors: Bool
+
 
     init(
       argsResolver: ArgsResolver,
@@ -106,7 +112,8 @@ public final class MultiJobExecutor {
         producerMap: self.producerMap,
         primaryIndices: self.primaryIndices,
         postCompileIndices: self.postCompileIndices,
-        incrementalCompilationState: self.incrementalCompilationState
+        incrementalCompilationState: self.incrementalCompilationState,
+        continueBuildingAfterErrors: self.continueBuildingAfterErrors
       ) = Self.fillInJobsAndProducers(workload)
 
       self.argsResolver = argsResolver
@@ -131,20 +138,21 @@ public final class MultiJobExecutor {
           producerMap: [VirtualPath: Int],
           primaryIndices: Range<Int>,
           postCompileIndices: Range<Int>,
-          incrementalCompilationState: IncrementalCompilationState?)
+          incrementalCompilationState: IncrementalCompilationState?,
+          continueBuildingAfterErrors: Bool)
     {
       var jobs = [Job]()
       var producerMap = [VirtualPath: Int]()
       let primaryIndices, postCompileIndices: Range<Int>
       let incrementalCompilationState: IncrementalCompilationState?
-      switch workload {
+      switch workload.kind {
       case let .incremental(ics):
         incrementalCompilationState = ics
         primaryIndices = Self.addJobs(
           ics.mandatoryPreOrCompileJobsInOrder,
           to: &jobs,
           producing: &producerMap
-          )
+        )
         postCompileIndices = Self.addJobs(
           ics.postCompileJobs,
           to: &jobs,
@@ -161,7 +169,8 @@ public final class MultiJobExecutor {
                producerMap: producerMap,
                primaryIndices: primaryIndices,
                postCompileIndices: postCompileIndices,
-               incrementalCompilationState: incrementalCompilationState)
+               incrementalCompilationState: incrementalCompilationState,
+               continueBuildingAfterErrors: workload.continueBuildingAfterErrors)
     }
 
     /// Allow for dynamically adding jobs, since some compile  jobs are added dynamically.
@@ -223,6 +232,19 @@ public final class MultiJobExecutor {
       for index in indices {
         let key = ExecuteJobRule.RuleKey(index: index)
         executeAllJobsTaskBuildEngine!.taskNeedsInput(key, inputID: index)
+      }
+    }
+
+    fileprivate func decideIfShouldStopRunningJobs(_ result: ProcessResult) {
+      switch (result.exitStatus, continueBuildingAfterErrors) {
+      case (.terminated(let code), false) where code != EXIT_SUCCESS:
+         shouldStopRunningJobs = true
+       #if !os(Windows)
+       case (.signalled, _):
+         shouldStopRunningJobs = true
+       #endif
+      default:
+        break
       }
     }
   }
@@ -472,6 +494,10 @@ class ExecuteJobRule: LLBuildRule {
     let value: DriverBuildValue
     var pid = 0
     do {
+      if context.shouldStopRunningJobs {
+        engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
+        return
+      }
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  forceResponseFiles: context.forceResponseFiles)
 
@@ -514,10 +540,9 @@ class ExecuteJobRule: LLBuildRule {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
       value = .jobExecution(success: success)
+
+      context.decideIfShouldStopRunningJobs(result)
     } catch {
-      if error is DiagnosticData {
-        context.diagnosticsEngine.emit(error)
-      }
       context.delegateQueue.async {
         let result = ProcessResult(
           arguments: [],

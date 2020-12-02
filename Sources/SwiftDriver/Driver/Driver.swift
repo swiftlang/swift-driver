@@ -898,8 +898,11 @@ extension Driver {
     allJobs: [Job],
     forceResponseFiles: Bool
   ) throws {
+    let continueBuildingAfterErrors = parsedOptions.contains(.continueBuildingAfterErrors)
     try executor.execute(
-      workload: .init(allJobs, incrementalCompilationState),
+      workload: .init(allJobs,
+                      incrementalCompilationState,
+                      continueBuildingAfterErrors: continueBuildingAfterErrors),
       delegate: createToolExecutionDelegate(),
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,

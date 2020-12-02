@@ -47,12 +47,26 @@ public protocol DriverExecutor {
   func description(of job: Job, forceResponseFiles: Bool) throws -> String
 }
 
-public enum DriverExecutorWorkload {
-  case all([Job])
-  case incremental(IncrementalCompilationState)
+public struct DriverExecutorWorkload {
+  public let continueBuildingAfterErrors: Bool
+  public enum Kind {
+    case all([Job])
+    case incremental(IncrementalCompilationState)
+  }
+  public let kind: Kind
 
-  init(_ allJobs: [Job], _ incrementalCompilationState: IncrementalCompilationState?) {
-    self = incrementalCompilationState.map {.incremental($0)} ?? .all(allJobs)
+  public init(_ allJobs: [Job],
+       _ incrementalCompilationState: IncrementalCompilationState?,
+       continueBuildingAfterErrors: Bool
+  ) {
+      self.continueBuildingAfterErrors = continueBuildingAfterErrors
+      self.kind = incrementalCompilationState
+        .map {.incremental($0)}
+        ?? .all(allJobs)
+  }
+
+  static public func all(_ jobs: [Job]) -> Self {
+    .init(jobs, nil, continueBuildingAfterErrors: false)
   }
 }
 
