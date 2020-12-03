@@ -219,6 +219,10 @@ final class SwiftDriverTests: XCTestCase {
   }
   #endif
 
+  func testRuntimeCompatibilityVersion() throws {
+    try assertNoDriverDiagnostics(args: "swiftc", "a.swift", "-runtime-compatibility-version", "none")
+  }
+
   func testInputFiles() throws {
     let driver1 = try Driver(args: ["swiftc", "a.swift", "/tmp/b.swift"])
     XCTAssertEqual(driver1.inputFiles,
