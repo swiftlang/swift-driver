@@ -146,7 +146,7 @@ import SwiftOptions
       outOfDateBuildRecord  = try BuildRecord(contents: contents)
     }
     catch {
-      failed("incremental compilation could not read build record at \(buildRecordPath): \(error.localizedDescription).")
+      failed("could not read build record at \(buildRecordPath): \(error.localizedDescription).")
       return nil
     }
     guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion else {
