@@ -2082,7 +2082,8 @@ extension Driver {
         if let version = SwiftVersion(string: versionString) {
           info.target.swiftRuntimeCompatibilityVersion = version
           info.targetVariant?.swiftRuntimeCompatibilityVersion = version
-        } else {
+        } else if (versionString != "none") {
+          // "none" was accepted by the old driver, diagnose other values.
           diagnosticsEngine.emit(
             .error_invalid_arg_value(
               arg: .runtimeCompatibilityVersion, value: versionString))
