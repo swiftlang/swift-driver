@@ -36,10 +36,12 @@ let package = Package(
       targets: ["SwiftDriverExecution"]),
   ],
   targets: [
+    .target(name: "_CSwiftDriver"),
+
     /// The driver library.
     .target(
       name: "SwiftDriver",
-      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "Yams"]),
+      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "Yams", "_CSwiftDriver"]),
 
     /// The execution library.
     .target(
