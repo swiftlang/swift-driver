@@ -96,7 +96,9 @@ import SwiftOptions
       diagnosticEngine.emit(.warning_incremental_requires_build_record_entry)
       return nil
     }
-    return partialBuildRecordPath.resolveRelativePath(workingDirectory)
+    return workingDirectory
+      .map(partialBuildRecordPath.resolvedRelativePath(base:))
+      ?? partialBuildRecordPath
   }
 
   /// Write out the build record.
@@ -175,15 +177,6 @@ import SwiftOptions
     // REDUNDANT?
     if let _ = finishedJobResults.updateValue(result, forKey: job) {
       fatalError("job finished twice?!")
-    }
-  }
-}
-
-extension VirtualPath {
-  fileprivate func resolveRelativePath(_ workingDirectory: AbsolutePath?) -> VirtualPath {
-    switch (workingDirectory, self) {
-    case let (wd?, .relative(relPath)): return .absolute(.init(wd, relPath))
-    default: return self
     }
   }
 }

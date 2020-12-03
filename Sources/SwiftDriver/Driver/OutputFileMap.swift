@@ -246,10 +246,3 @@ extension String {
     return self + "." + ext
   }
 }
-
-extension VirtualPath {
-  fileprivate func resolvedRelativePath(base: AbsolutePath) -> VirtualPath {
-    guard case let .relative(relPath) = self else { return self }
-    return .absolute(.init(base, relPath))
-  }
-}
