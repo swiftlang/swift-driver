@@ -346,6 +346,14 @@ extension VirtualPath {
   }
 }
 
+extension VirtualPath {
+  /// Resolve a relative path into an absolute one, if possible.
+  public func resolvedRelativePath(base: AbsolutePath) -> VirtualPath {
+    guard case let .relative(relPath) = self else { return self }
+    return .absolute(.init(base, relPath))
+  }
+}
+
 private extension String {
   func withoutExt(_ ext: String?) -> String {
     if let ext = ext {

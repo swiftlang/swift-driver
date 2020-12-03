@@ -30,6 +30,7 @@ import SwiftOptions
   init?(
     actualSwiftVersion: String,
     compilerOutputType: FileType?,
+    workingDirectory: AbsolutePath?,
     diagnosticEngine: DiagnosticsEngine,
     fileSystem: FileSystem,
     moduleOutputInfo: ModuleOutputInfo,
@@ -41,6 +42,7 @@ import SwiftOptions
     guard let buildRecordPath = Self.computeBuildRecordPath(
             outputFileMap: outputFileMap,
             compilerOutputType: compilerOutputType,
+            workingDirectory: workingDirectory,
             diagnosticEngine: diagnosticEngine)
     else {
       return nil
@@ -80,6 +82,7 @@ import SwiftOptions
   private static func computeBuildRecordPath(
     outputFileMap: OutputFileMap?,
     compilerOutputType: FileType?,
+    workingDirectory: AbsolutePath?,
     diagnosticEngine: DiagnosticsEngine
   ) -> VirtualPath? {
     // FIXME: This should work without an output file map. We should have
@@ -93,7 +96,9 @@ import SwiftOptions
       diagnosticEngine.emit(.warning_incremental_requires_build_record_entry)
       return nil
     }
-    return partialBuildRecordPath
+    return workingDirectory
+      .map(partialBuildRecordPath.resolvedRelativePath(base:))
+      ?? partialBuildRecordPath
   }
 
   /// Write out the build record.

@@ -436,6 +436,7 @@ public struct Driver {
     self.buildRecordInfo = BuildRecordInfo(
       actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
       compilerOutputType: compilerOutputType,
+      workingDirectory: self.workingDirectory ?? fileSystem.currentWorkingDirectory,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
       moduleOutputInfo: moduleOutputInfo,
