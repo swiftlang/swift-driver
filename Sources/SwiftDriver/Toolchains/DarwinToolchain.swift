@@ -32,6 +32,8 @@ import SwiftOptions
   // An externally provided path from where we should find tools like ld
   public let toolDirectory: AbsolutePath?
 
+  public let dummyForTestingObjectFormat = Triple.ObjectFormat.macho
+
   public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor

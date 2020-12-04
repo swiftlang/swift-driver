@@ -90,6 +90,8 @@ public enum Tool: Hashable {
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo
   ) throws
+
+  var dummyForTestingObjectFormat: Triple.ObjectFormat {get}
 }
 
 extension Toolchain {

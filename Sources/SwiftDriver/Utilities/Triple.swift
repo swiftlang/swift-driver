@@ -176,6 +176,20 @@ public struct Triple {
                                              os: parsedOS?.value)
     }
   }
+
+  private init(dummyForTesting toolchain: Toolchain) {
+    self.triple = ""
+    self.arch = nil
+    self.subArch = nil
+    self.vendor = nil
+    self.os = nil
+    self.environment = nil
+    self.objectFormat = toolchain.dummyForTestingObjectFormat
+  }
+
+  static func dummyForTesting(_ toolchain: Toolchain) -> Self {
+    Self(dummyForTesting: toolchain)
+  }
 }
 
 extension Triple: Codable {
