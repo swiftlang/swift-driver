@@ -136,11 +136,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(0)
-      XCTAssertEqual(1, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
-    }
+
     XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
@@ -1058,8 +1054,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
     if case .sourceFileProvide = interfaceKey.designator, !allNodes.isEmpty {
       return getSourceFileNodePair()
     }
-    assert(interfaceKey.aspect == .interface)
-    let implementationKey = interfaceKey.correspondingImplementation
+    let implementationKey = try! XCTUnwrap(interfaceKey.correspondingImplementation)
     let nodePair = NodePair(
       interface: findExistingNodeOrCreateIfNew(interfaceKey, fingerprint,
                                                isProvides: true),

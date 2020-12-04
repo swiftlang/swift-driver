@@ -47,6 +47,10 @@ extension ModuleDependencyGraph.NodeFinder {
   func findNode(_ mapKey: (Graph.SwiftDeps?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
+  func findCorrespondingImplementation(of n: Graph.Node) -> Graph.Node? {
+    n.dependencyKey.correspondingImplementation
+      .flatMap {findNode((n.swiftDeps, $0))}
+  }
   
   func findNodes(for swiftDeps: Graph.SwiftDeps?) -> [DependencyKey: Graph.Node]? {
     nodeMap[swiftDeps]
@@ -55,21 +59,18 @@ extension ModuleDependencyGraph.NodeFinder {
     nodeMap[key]
   }
   
-  /// Since uses must be somewhere, pass inthe swiftDeps to the function here
-  func forEachUse(_ fn: (DependencyKey, Graph.Node, Graph.SwiftDeps) -> Void) {
-    usesByDef.forEach {
-      def, use in
-      fn(def, use, useMustHaveSwiftDeps(use))
+  func forEachUse(of def: Graph.Node, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
+    func fnVerifyingSwiftDeps(_ use: Graph.Node) {
+      fn(use, useMustHaveSwiftDeps(use))
     }
-  }
-  func forEachUse(of def: DependencyKey, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
-    usesByDef[def].map {
-      $0.values.forEach { use in
-        fn(use, useMustHaveSwiftDeps(use))
-      }
+    usesByDef[def.dependencyKey].map {
+      $0.values.forEach(fnVerifyingSwiftDeps)
     }
+    // Add in implicit interface->implementation dependency
+    findCorrespondingImplementation(of: def)
+      .map(fnVerifyingSwiftDeps)
   }
-  
+
   func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)]
   {
     nodeMap.compactMap {
