@@ -478,7 +478,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Forming batch job from 1 constituents: main.swift",
         "Incremental compilation: Queuing Compiling main.swift",
         "Starting Compiling main.swift",
-        "Incremental compilation: Traced: interface of main.swiftdeps -> interface of top-level name foo -> implementation of other.swiftdeps",
+        "Incremental compilation: Traced: interface of main.swiftdeps from: main.swift -> interface of top-level name foo from: main.swift -> implementation of other.swiftdeps from: other.swift",
         "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
         "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
         "Finished Compiling main.swift",
