@@ -65,7 +65,7 @@ extension InputInfo.Status {
   }
 
   /// Construct a status to write at the end of the compilation.
-  /// The status will be read for the nextr driver invocaiton and will control the scheduling of that job.
+  /// The status will be read for the next driver invocation and will control the scheduling of that job.
   /// `upToDate` means only that the file was up to date when the build record was written.
   init( wasSkipped: Bool?, jobResult: ProcessResult? ) {
     if let exitStatus = jobResult?.exitStatus,
