@@ -80,6 +80,10 @@ extension CompilerMode {
     }
   }
 
+  public var isBatchCompile: Bool {
+    batchModeInfo != nil
+  }
+
   // Whether this compilation mode supports the use of bridging pre-compiled
   // headers.
   public var supportsBridgingPCH: Bool {

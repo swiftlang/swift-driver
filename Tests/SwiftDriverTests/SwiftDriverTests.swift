@@ -1471,6 +1471,31 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testBatchModeContinueAfterErrors() throws {
+    struct MockExecutor: DriverExecutor {
+      let resolver = try! ArgsResolver(fileSystem: localFileSystem)
+
+      func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
+        fatalError()
+      }
+      func execute(workload: DriverExecutorWorkload,
+                   delegate: JobExecutionDelegate,
+                   numParallelJobs: Int,
+                   forceResponseFiles: Bool,
+                   recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
+        XCTAssert(workload.continueBuildingAfterErrors)
+      }
+      func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
+        fatalError()
+      }
+      func description(of job: Job, forceResponseFiles: Bool) throws -> String {
+        fatalError()
+      }
+    }
+
+    let driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/bin/echo"], executor: MockExecutor())
+  }
+
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
     var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface"])
     let plannedJobs = try driver1.planBuild()

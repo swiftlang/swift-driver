@@ -88,7 +88,7 @@ public final class MultiJobExecutor {
     private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
 
     /// If a job fails, the driver needs to stop running jobs.
-    private(set) var shouldStopRunningJobs = false
+    private(set) var isBuildCancelled = false
 
     /// The value of the option
     let continueBuildingAfterErrors: Bool
@@ -235,13 +235,13 @@ public final class MultiJobExecutor {
       }
     }
 
-    fileprivate func decideIfShouldStopRunningJobs(_ result: ProcessResult) {
+    fileprivate func cancelBuildIfNeeded(_ result: ProcessResult) {
       switch (result.exitStatus, continueBuildingAfterErrors) {
       case (.terminated(let code), false) where code != EXIT_SUCCESS:
-         shouldStopRunningJobs = true
+         isBuildCancelled = true
        #if !os(Windows)
        case (.signalled, _):
-         shouldStopRunningJobs = true
+         isBuildCancelled = true
        #endif
       default:
         break
@@ -448,9 +448,9 @@ class ExecuteJobRule: LLBuildRule {
     rememberIfInputSucceeded(engine, value: value)
   }
 
+  /// Called when the build engine thinks all inputs are available in order to run the job.
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-    // Return early any of the input failed.
-    guard allInputsSucceeded else {
+    guard allInputsSucceeded, !context.isBuildCancelled else {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
 
@@ -486,6 +486,7 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   private func executeJob(_ engine: LLTaskBuildEngine) {
+    precondition(!context.isBuildCancelled)
     let context = self.context
     let resolver = context.argsResolver
     let job = myJob
@@ -494,10 +495,6 @@ class ExecuteJobRule: LLBuildRule {
     let value: DriverBuildValue
     var pid = 0
     do {
-      if context.shouldStopRunningJobs {
-        engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
-        return
-      }
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  forceResponseFiles: context.forceResponseFiles)
 
@@ -541,7 +538,7 @@ class ExecuteJobRule: LLBuildRule {
       }
       value = .jobExecution(success: success)
 
-      context.decideIfShouldStopRunningJobs(result)
+      context.cancelBuildIfNeeded(result)
     } catch {
       if error is DiagnosticData {
         context.diagnosticsEngine.emit(error)
