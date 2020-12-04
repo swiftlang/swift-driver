@@ -1475,8 +1475,10 @@ final class SwiftDriverTests: XCTestCase {
     struct MockExecutor: DriverExecutor {
       let resolver = try! ArgsResolver(fileSystem: localFileSystem)
 
+      struct ShouldNeverGetHere: LocalizedError {}
+
       func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
-        fatalError()
+        throw ShouldNeverGetHere()
       }
       func execute(workload: DriverExecutorWorkload,
                    delegate: JobExecutionDelegate,
@@ -1486,11 +1488,11 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssert(workload.continueBuildingAfterErrors)
       }
       func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-        fatalError()
+        throw ShouldNeverGetHere()
       }
       func description(of job: Job, forceResponseFiles: Bool) throws -> String {
-        fatalError()
-      }
+        throw ShouldNeverGetHere()
+       }
     }
 
     let driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/bin/echo"], executor: MockExecutor())
