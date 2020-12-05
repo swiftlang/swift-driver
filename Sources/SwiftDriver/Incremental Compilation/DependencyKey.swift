@@ -94,8 +94,10 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   }
 
 
-  var correspondingImplementation: Self {
-    assert(aspect == .interface)
+var correspondingImplementation: Self? {
+    guard aspect == .interface  else {
+      return nil
+    }
     return Self(aspect: .implementation, designator: designator)
   }
 
