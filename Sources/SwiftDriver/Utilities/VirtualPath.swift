@@ -271,6 +271,12 @@ extension VirtualPath: Codable {
     path = try VirtualPath(path: container.decode(String.self))
   }
 
+  private init(path: VirtualPath) {
+    self.path = path
+  }
+
+  static let dummyForTesting = Self(path: try! .init(path: ""))
+
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
     switch path {

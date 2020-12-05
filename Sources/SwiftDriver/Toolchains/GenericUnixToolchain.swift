@@ -26,6 +26,8 @@ import TSCBasic
 
   public let toolDirectory: AbsolutePath?
 
+  public let dummyForTestingObjectFormat = Triple.ObjectFormat.elf
+
   public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
