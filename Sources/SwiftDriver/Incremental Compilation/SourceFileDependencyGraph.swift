@@ -111,7 +111,6 @@ extension SourceFileDependencyGraph {
     case malformedSourceFileDepGraphNodeRecord
     case unknownRecord
     case unexpectedSubblock
-    case notAbsolutePath
     case bogusNameOrContext
     case unknownKind
   }
@@ -119,11 +118,7 @@ extension SourceFileDependencyGraph {
   // FIXME: This should accept a FileSystem parameter.
   static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) throws -> Self {
-    guard let path = swiftDeps.file.absolutePath
-    else {
-      throw ReadError.notAbsolutePath
-    }
-    return try self.init(pathString: path.pathString)
+    try self.init(pathString: swiftDeps.file.name)
   }
   
   init(nodesForTesting: [Node]) {
