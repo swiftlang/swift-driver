@@ -58,11 +58,14 @@ extension ModuleDependencyGraph.Integrator {
   static func integrate(
     swiftDeps: Graph.SwiftDeps,
     into destination: Graph,
+    input: TypedVirtualPath,
+    reportIncrementalDecision: ((String, TypedVirtualPath) -> Void)?,
     diagnosticEngine: DiagnosticsEngine
   ) -> Changes? {
     guard let sfdg = try? SourceFileDependencyGraph.read(
             from: swiftDeps)
     else {
+      reportIncrementalDecision?("Could not read \(swiftDeps)", input)
       return nil
     }
     return integrate(from: sfdg,

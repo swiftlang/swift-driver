@@ -49,6 +49,9 @@ final class ModuleDependencyGraph {
 }
 // MARK: - initial build only
 extension ModuleDependencyGraph {
+  /// Builds a graph
+  /// Returns nil if some input has no place to put a swiftdeps file
+  /// Returns a list of inputs whose swiftdeps files could not be read
   static func buildInitialGraph<Inputs: Sequence>(
     diagnosticEngine: DiagnosticsEngine,
     inputs: Inputs,
@@ -56,33 +59,44 @@ extension ModuleDependencyGraph {
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-  ) -> Self?
+  ) -> (ModuleDependencyGraph, [(TypedVirtualPath, VirtualPath)])?
   where Inputs.Element == TypedVirtualPath
   {
     let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
     let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
-    let r = Self (
+    let graph = Self (
       diagnosticEngine: diagnosticEngine,
       reportIncrementalDecision: reportIncrementalDecision,
       emitDependencyDotFileAfterEveryImport: parsedOptions.contains(emitOpt),
       verifyDependencyGraphAfterEveryImport: parsedOptions.contains(veriOpt))
-    for input in inputs {
-      guard let swiftDepsFile = outputFileMap?.existingOutput(
-              inputFile: input.file,
-              outputType: .swiftDeps)
+
+    let inputsAndSwiftdeps = inputs.map {input in
+      (input, outputFileMap?.existingOutput( inputFile: input.file,
+                                             outputType: .swiftDeps)
+      )
+    }
+    for isd in inputsAndSwiftdeps where isd.1 == nil {
+      diagnosticEngine.emit(
+        remarkDisabled("\(isd.0.file.basename) has no swiftDeps file")
+      )
+      return nil
+    }
+    let inputsWithUnreadableSwiftDeps = inputsAndSwiftdeps.compactMap {
+      input, swiftDepsFile -> (TypedVirtualPath, VirtualPath)? in
+      guard let swiftDepsFile = swiftDepsFile
       else {
-        diagnosticEngine.emit(
-          remarkDisabled("\(input.file.basename) has no swiftDeps file")
-        )
         return nil
       }
       let swiftDeps = SwiftDeps(swiftDepsFile)
-      r.sourceSwiftDepsMap[input] = swiftDeps
-      _ = Integrator.integrate(swiftDeps: swiftDeps,
-                               into: r,
-                               diagnosticEngine: diagnosticEngine)
+      graph.sourceSwiftDepsMap[input] = swiftDeps
+      let changes = Integrator.integrate(swiftDeps: swiftDeps,
+                                         into: graph,
+                                         input: input,
+                                         reportIncrementalDecision: reportIncrementalDecision,
+                                         diagnosticEngine: diagnosticEngine)
+      return changes == nil ? (input, swiftDepsFile) : nil
     }
-    return r
+    return (graph, inputsWithUnreadableSwiftDeps)
   }
 }
 // MARK: - Scheduling the first wave
@@ -129,17 +143,25 @@ extension ModuleDependencyGraph {
   func findSourcesToCompileAfterCompiling(
     _ source: TypedVirtualPath
   ) -> [TypedVirtualPath]? {
-    findSourcesToCompileAfterIntegrating( sourceSwiftDepsMap[source] )
+    findSourcesToCompileAfterIntegrating(
+      input: source,
+      swiftDeps: sourceSwiftDepsMap[source],
+      reportIncrementalDecision: reportIncrementalDecision
+    )
   }
 
   /// After a compile job has finished, read its swiftDeps file and return the source files needing
   /// recompilation.
   /// Return nil in case of an error.
   private func findSourcesToCompileAfterIntegrating(
-    _ swiftDeps: SwiftDeps
+    input: TypedVirtualPath,
+    swiftDeps: SwiftDeps,
+    reportIncrementalDecision: ((String, TypedVirtualPath) -> Void)?
   ) -> [TypedVirtualPath]? {
     Integrator.integrate(swiftDeps: swiftDeps,
                          into: self,
+                         input: input,
+                         reportIncrementalDecision: reportIncrementalDecision,
                          diagnosticEngine: diagnosticEngine)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
