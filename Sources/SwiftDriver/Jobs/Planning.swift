@@ -545,7 +545,7 @@ extension Driver {
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
   /// compilation. But `compileJob` intermixes the output computation with other stuff.
   mutating func formBatchedJobs(_ jobs: [Job], forIncremental: Bool) throws -> [Job] {
-    guard let _ = compilerMode.batchModeInfo else {
+    guard compilerMode.isBatchCompile else {
       // Don't even go through the logic so as to not print out confusing
       // "batched foobar" messages.
       return jobs

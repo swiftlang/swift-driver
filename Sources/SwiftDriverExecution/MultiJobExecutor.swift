@@ -87,6 +87,12 @@ public final class MultiJobExecutor {
     /// any newly-required job. Set only once.
     private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
 
+    /// If a job fails, the driver needs to stop running jobs.
+    private(set) var isBuildCancelled = false
+
+    /// The value of the option
+    let continueBuildingAfterErrors: Bool
+
 
     init(
       argsResolver: ArgsResolver,
@@ -106,7 +112,8 @@ public final class MultiJobExecutor {
         producerMap: self.producerMap,
         primaryIndices: self.primaryIndices,
         postCompileIndices: self.postCompileIndices,
-        incrementalCompilationState: self.incrementalCompilationState
+        incrementalCompilationState: self.incrementalCompilationState,
+        continueBuildingAfterErrors: self.continueBuildingAfterErrors
       ) = Self.fillInJobsAndProducers(workload)
 
       self.argsResolver = argsResolver
@@ -131,20 +138,21 @@ public final class MultiJobExecutor {
           producerMap: [VirtualPath: Int],
           primaryIndices: Range<Int>,
           postCompileIndices: Range<Int>,
-          incrementalCompilationState: IncrementalCompilationState?)
+          incrementalCompilationState: IncrementalCompilationState?,
+          continueBuildingAfterErrors: Bool)
     {
       var jobs = [Job]()
       var producerMap = [VirtualPath: Int]()
       let primaryIndices, postCompileIndices: Range<Int>
       let incrementalCompilationState: IncrementalCompilationState?
-      switch workload {
+      switch workload.kind {
       case let .incremental(ics):
         incrementalCompilationState = ics
         primaryIndices = Self.addJobs(
           ics.mandatoryPreOrCompileJobsInOrder,
           to: &jobs,
           producing: &producerMap
-          )
+        )
         postCompileIndices = Self.addJobs(
           ics.postCompileJobs,
           to: &jobs,
@@ -161,7 +169,8 @@ public final class MultiJobExecutor {
                producerMap: producerMap,
                primaryIndices: primaryIndices,
                postCompileIndices: postCompileIndices,
-               incrementalCompilationState: incrementalCompilationState)
+               incrementalCompilationState: incrementalCompilationState,
+               continueBuildingAfterErrors: workload.continueBuildingAfterErrors)
     }
 
     /// Allow for dynamically adding jobs, since some compile  jobs are added dynamically.
@@ -223,6 +232,19 @@ public final class MultiJobExecutor {
       for index in indices {
         let key = ExecuteJobRule.RuleKey(index: index)
         executeAllJobsTaskBuildEngine!.taskNeedsInput(key, inputID: index)
+      }
+    }
+
+    fileprivate func cancelBuildIfNeeded(_ result: ProcessResult) {
+      switch (result.exitStatus, continueBuildingAfterErrors) {
+      case (.terminated(let code), false) where code != EXIT_SUCCESS:
+         isBuildCancelled = true
+       #if !os(Windows)
+       case (.signalled, _):
+         isBuildCancelled = true
+       #endif
+      default:
+        break
       }
     }
   }
@@ -426,8 +448,8 @@ class ExecuteJobRule: LLBuildRule {
     rememberIfInputSucceeded(engine, value: value)
   }
 
+  /// Called when the build engine thinks all inputs are available in order to run the job.
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-    // Return early any of the input failed.
     guard allInputsSucceeded else {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
@@ -464,6 +486,10 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   private func executeJob(_ engine: LLTaskBuildEngine) {
+    if context.isBuildCancelled {
+      engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
+      return
+    }
     let context = self.context
     let resolver = context.argsResolver
     let job = myJob
@@ -514,6 +540,8 @@ class ExecuteJobRule: LLBuildRule {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
       value = .jobExecution(success: success)
+
+      context.cancelBuildIfNeeded(result)
     } catch {
       if error is DiagnosticData {
         context.diagnosticsEngine.emit(error)
