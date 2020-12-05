@@ -16,7 +16,7 @@ import TSCBasic
 // argument input file to the linker.
 // FIXME: Also handle Cygwin and MinGW
 extension Driver {
-  var isAutolinkExtractJobNeeded: Bool {
+  /*@_spi(Testing)*/ public var isAutolinkExtractJobNeeded: Bool {
     [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil
   }
 
