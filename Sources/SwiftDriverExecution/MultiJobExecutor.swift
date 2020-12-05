@@ -450,7 +450,7 @@ class ExecuteJobRule: LLBuildRule {
 
   /// Called when the build engine thinks all inputs are available in order to run the job.
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-    guard allInputsSucceeded, !context.isBuildCancelled else {
+    guard allInputsSucceeded else {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
 
@@ -486,7 +486,10 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   private func executeJob(_ engine: LLTaskBuildEngine) {
-    precondition(!context.isBuildCancelled)
+    if context.isBuildCancelled {
+      engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
+      return
+    }
     let context = self.context
     let resolver = context.argsResolver
     let job = myJob
