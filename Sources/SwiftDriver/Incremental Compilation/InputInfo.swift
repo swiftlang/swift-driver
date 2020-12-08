@@ -86,8 +86,7 @@ fileprivate extension ProcessResult {
     if case let .terminated(exitCode) = exitStatus, exitCode == 0 {
       return true
     }
-    else {return false}
-  }
+    return false
 }
 
 // MARK: - reading
