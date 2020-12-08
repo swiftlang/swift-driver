@@ -2061,8 +2061,10 @@ extension Driver {
                                        toolDirectory: toolDir)
 
     // Find the Swift compiler executable.
+    let hasFrontendBeenRedirectedForTesting: Bool
     let swiftCompilerPrefixArgs: [String]
     if let frontendPath = parsedOptions.getLastArgument(.driverUseFrontendPath){
+      hasFrontendBeenRedirectedForTesting = true
       var frontendCommandLine =
         frontendPath.asSingle.split(separator: ";").map { String($0) }
       if frontendCommandLine.isEmpty {
@@ -2075,10 +2077,8 @@ extension Driver {
         swiftCompilerPrefixArgs = frontendCommandLine
       }
     } else {
+      hasFrontendBeenRedirectedForTesting = false
       swiftCompilerPrefixArgs = []
-    }
-    var hasFrontendBeenRedirectedForTesting: Bool {
-      return !swiftCompilerPrefixArgs.isEmpty
     }
 
     // Find the SDK, if any.

@@ -1472,7 +1472,6 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testBatchModeContinueAfterErrors() throws {
-    throw XCTSkip("This test requires the fix to honoring -driver-use-frontend-path")
     struct MockExecutor: DriverExecutor {
       let resolver = try! ArgsResolver(fileSystem: localFileSystem)
 
