@@ -68,26 +68,25 @@ extension InputInfo.Status {
   /// The status will be read for the next driver invocation and will control the scheduling of that job.
   /// `upToDate` means only that the file was up to date when the build record was written.
   init( wasSkipped: Bool?, jobResult: ProcessResult? ) {
-    if let exitStatus = jobResult?.exitStatus,
-       case let .terminated(exitCode) = exitStatus,
-       exitCode == 0 {
-      self = .upToDate // File was compiled successfully.
-      return
+    if let _ = jobResult, wasSkipped == true {
+      fatalError("Skipped job cannot have finished")
     }
-    switch wasSkipped {
-    case true?:
-      // Incremental compilation decided to skip this file.
-      self = .upToDate
-    case false?:
-      // Incremental compilation decided to compile this file, but the
-      // compilation was not successful.
-      self = .needsNonCascadingBuild
-    case nil:
-      // The driver was not run incrementally, and the compilation was
-      // not sucessful.
-      // TODO: Look for a better heuristic for these last two cases.
-      self = .needsCascadingBuild
+    let ok = wasSkipped == true || jobResult?.finishedWithoutError == true
+    let incrementally = wasSkipped != nil
+    switch (ok, incrementally) {
+    case (true,      _): self = .upToDate
+    case (false,  true): self = .needsNonCascadingBuild
+    case (false, false): self = .needsCascadingBuild
     }
+  }
+}
+
+fileprivate extension ProcessResult {
+  var finishedWithoutError: Bool {
+    if case let .terminated(exitCode) = exitStatus, exitCode == 0 {
+      return true
+    }
+    return false
   }
 }
 
