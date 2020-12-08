@@ -57,7 +57,8 @@ extension ModuleDependencyGraph.Tracer {
   where Nodes.Element == ModuleDependencyGraph.Node
   {
     self.graph = graph
-    self.startingPoints = Array(defs)
+    // Sort so "Tracing" diagnostics are deterministically ordered
+    self.startingPoints = defs.sorted()
     self.currentPathIfTracing = graph.reportIncrementalDecision != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
@@ -83,7 +84,7 @@ extension ModuleDependencyGraph.Tracer {
     let pathLengthAfterArrival = traceArrival(at: definition);
     
     // If this use also provides something, follow it
-    graph.nodeFinder.forEachUse(of: definition) { use, _ in
+    graph.nodeFinder.forEachUseInOrder(of: definition) { use, _ in
       findNextPreviouslyUntracedDependent(of: use)
     }
     traceDeparture(pathLengthAfterArrival);
