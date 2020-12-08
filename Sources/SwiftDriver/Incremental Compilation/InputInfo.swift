@@ -87,6 +87,7 @@ fileprivate extension ProcessResult {
       return true
     }
     return false
+  }
 }
 
 // MARK: - reading
