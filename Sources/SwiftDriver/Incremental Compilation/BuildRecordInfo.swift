@@ -14,6 +14,15 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
+struct JobResult {
+  let j: Job
+  let result: ProcessResult
+  init(_ j: Job, _ result: ProcessResult) {
+    self.j = j
+    self.result = result
+  }
+}
+
 /// Holds information required to read and write the build record (aka compilation record)
 /// This info is always written, but only read for incremental compilation.
  class BuildRecordInfo {
@@ -25,7 +34,7 @@ import SwiftOptions
   let diagnosticEngine: DiagnosticsEngine
   let compilationInputModificationDates: [TypedVirtualPath: Date]
 
-  var finishedJobResults  = [Job: ProcessResult]()
+  var finishedJobResults  = [JobResult]()
 
   init?(
     actualSwiftVersion: String,
@@ -175,8 +184,6 @@ import SwiftOptions
 
   func jobFinished(job: Job, result: ProcessResult) {
     // REDUNDANT?
-    if let _ = finishedJobResults.updateValue(result, forKey: job) {
-      fatalError("job finished twice?!")
-    }
+    finishedJobResults.append(JobResult(job, result))
   }
 }
