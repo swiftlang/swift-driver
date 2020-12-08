@@ -1601,20 +1601,8 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
-    XCTAssertTrue(plannedJobs[0].inputs.contains { $0.type == .fileList })
     print(plannedJobs[0].commandLine.joinedArguments)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
-  }
-
-  func testInputFileListAsInput() throws {
-    var driver1 = try Driver(args: [
-      "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-emit-module-interface", "-driver-filelist-threshold=0"
-    ])
-    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
-    XCTAssertEqual(plannedJobs.count, 2)
-    XCTAssertEqual(plannedJobs[0].kind, .compile)
-    XCTAssertTrue(plannedJobs[0].inputs.contains { $0.type == .fileList })
   }
 
   func testMergeModulesOnly() throws {
