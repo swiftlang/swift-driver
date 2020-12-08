@@ -362,6 +362,14 @@ final class IncrementalCompilationTests: XCTestCase {
     #endif
   }
 
+  // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
+  func testAlwaysRebuildDependents() throws {
+    #if !os(Linux)
+    tryInitial(true)
+    tryTouchingMainAlwaysRebuildDependents(true)
+    #endif
+  }
+
   func testIncremental() throws {
     try testIncremental(checkDiagnostics: false)
   }
@@ -499,6 +507,36 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
+  func tryTouchingMainAlwaysRebuildDependents(_ checkDiagnostics: Bool) {
+    touch("main")
+    let extraArgument = "-driver-always-rebuild-dependents"
+    try! doABuild(
+      "non-propagating but \(extraArgument)",
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: [extraArgument],
+      expectingRemarks: [
+        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
+        "Incremental compilation: Traced: interface of top-level name foo from: main.swift -> implementation of other.swiftdeps from: other.swift",
+        "Incremental compilation: Found dependent of main.swift: {compile: other.o <= other.swift}",
+        "Incremental compilation: Immediately scheduling dependent on main.swift {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (dependent): {compile: other.o <= other.swift}",
+        "Found 2 batchable jobs",
+        "Forming into 1 batch",
+        "Adding {compile: main.swift} to batch 0",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 2 constituents: main.swift, other.swift",
+        "Incremental compilation: Queuing Compiling main.swift, other.swift",
+        "Starting Compiling main.swift, other.swift",
+        "Finished Compiling main.swift, other.swift",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
+      ],
+      whenAutolinking: autolinkLifecycleExpectations)
+  }
+
 
   func touch(_ name: String) {
     print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
@@ -517,17 +555,20 @@ final class IncrementalCompilationTests: XCTestCase {
   }
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
+                extraArguments: [String] = [],
                 expectingRemarks texts: [String],
                 whenAutolinking: [String]) throws {
     try doABuild(
       message,
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expecting: texts.map {.remark($0)},
       expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
   }
 
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
+                extraArguments: [String] = [],
                 expecting expectations: [Diagnostic.Message],
                 expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
@@ -537,8 +578,9 @@ final class IncrementalCompilationTests: XCTestCase {
       try? driver.run(jobs: jobs)
     }
 
+    let allArgs = args + extraArguments
     if checkDiagnostics {
-      try assertDriverDiagnostics(args: args) {driver, verifier in
+      try assertDriverDiagnostics(args: allArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
         expectations.forEach {verifier.expect($0)}
         if driver.isAutolinkExtractJobNeeded {
@@ -551,7 +593,7 @@ final class IncrementalCompilationTests: XCTestCase {
       let diagnosticEngine = DiagnosticsEngine(handlers: [
         {print($0, to: &stderrStream); stderrStream.flush()}
       ])
-      var driver = try Driver(args: args, env: ProcessEnv.vars,
+      var driver = try Driver(args: allArgs, env: ProcessEnv.vars,
                               diagnosticsEngine: diagnosticEngine,
                               fileSystem: localFileSystem)
       doIt(&driver)
