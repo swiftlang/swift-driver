@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.15.1)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
-project(SwiftDriver LANGUAGES Swift C)
+project(SwiftDriver LANGUAGES C Swift)
 
 set(SWIFT_VERSION 5)
 set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
