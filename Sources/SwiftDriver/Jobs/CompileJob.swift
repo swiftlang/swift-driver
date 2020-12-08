@@ -77,7 +77,7 @@ extension Driver {
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, nil:
+         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, .fileList, nil:
       return false
     }
   }
@@ -98,6 +98,7 @@ extension Driver {
       useInputFileList = true
       commandLine.appendFlag(.filelist)
       commandLine.appendPath(allSourcesFileList)
+      inputs.append(TypedVirtualPath(file: allSourcesFileList, type: .fileList))
     } else {
       useInputFileList = false
     }
@@ -355,7 +356,7 @@ extension FileType {
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
          .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts:
+         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts, .fileList:
       fatalError("Output type can never be a primary output")
     }
   }

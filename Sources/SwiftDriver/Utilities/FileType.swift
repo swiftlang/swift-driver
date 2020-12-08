@@ -130,6 +130,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// Clang Module Map
   case clangModuleMap = "modulemap"
+
+  /// file used in -filelist
+  case fileList
 }
 
 extension FileType: CustomStringConvertible {
@@ -137,7 +140,7 @@ extension FileType: CustomStringConvertible {
     switch self {
     case .swift, .sil, .sib, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
-         .remap, .tbd, .pcm, .pch, .clangModuleMap:
+         .remap, .tbd, .pcm, .pch, .clangModuleMap, .fileList:
       return rawValue
     case .object:
       return "object"
@@ -204,7 +207,7 @@ extension FileType {
   /// a Swift or SIL source file.
   public var isPartOfSwiftCompilation: Bool {
     switch self {
-    case .swift, .raw_sil, .sil, .raw_sib, .sib:
+    case .swift, .raw_sil, .sil, .raw_sib, .sib, .fileList:
       return true
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
@@ -302,6 +305,8 @@ extension FileType {
       return "bitstream-opt-record"
     case .diagnostics:
       return "diagnostics"
+    case .fileList:
+      return "fileList"
     }
   }
 }
@@ -313,7 +318,7 @@ extension FileType {
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .jsonClangDependencies:
+         .jsonClangDependencies, .fileList:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -333,7 +338,7 @@ extension FileType {
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
+         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, .fileList:
       return false
     }
   }
