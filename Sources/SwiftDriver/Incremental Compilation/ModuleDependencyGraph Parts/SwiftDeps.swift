@@ -46,3 +46,9 @@ extension ModuleDependencyGraph.SwiftDeps {
     file.name
   }
 }
+// MARK: - comparing
+extension ModuleDependencyGraph.SwiftDeps: Comparable {
+  static func < (lhs: Self, rhs: Self) -> Bool {
+    lhs.file.name < rhs.file.name
+  }
+}

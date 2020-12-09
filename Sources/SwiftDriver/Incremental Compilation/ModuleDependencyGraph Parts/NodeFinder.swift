@@ -71,6 +71,14 @@ extension ModuleDependencyGraph.NodeFinder {
       .map(fnVerifyingSwiftDeps)
   }
 
+  func forEachUseInOrder(of def: Graph.Node, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
+    var uses = [(Graph.Node, Graph.SwiftDeps)]()
+    forEachUse(of: def) {
+      uses.append(($0, $1))
+    }
+    uses.sorted {$0.0 < $1.0} .forEach { fn($0.0, $0.1) }
+  }
+
   func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)]
   {
     nodeMap.compactMap {

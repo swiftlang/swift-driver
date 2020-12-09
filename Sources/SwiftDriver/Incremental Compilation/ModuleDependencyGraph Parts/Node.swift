@@ -80,6 +80,22 @@ extension ModuleDependencyGraph.Node: Equatable, Hashable {
   }
 }
 
+extension ModuleDependencyGraph.Node: Comparable {
+  static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
+    func lt<T: Comparable> (_ a: T?, _ b: T?) -> Bool {
+      switch (a, b) {
+      case let (x?, y?): return x < y
+      case (nil, nil): return false
+      case (nil, _?): return true
+      case (_?, nil): return false
+      }
+    }
+    return lhs.dependencyKey != rhs.dependencyKey ? lhs.dependencyKey < rhs.dependencyKey :
+      lhs.swiftDeps != rhs.swiftDeps ? lt(lhs.swiftDeps, rhs.swiftDeps)
+      : lt(lhs.fingerprint, rhs.fingerprint)
+  }
+}
+
 
 extension ModuleDependencyGraph.Node: CustomStringConvertible {
   public var description: String {

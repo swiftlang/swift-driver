@@ -2,7 +2,7 @@
 import Foundation
 
 /// A filename from another module
-struct ExternalDependency: Hashable, CustomStringConvertible {
+struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
   let fileName: String
 
   var file: VirtualPath? {
@@ -13,6 +13,10 @@ struct ExternalDependency: Hashable, CustomStringConvertible {
   }
   public var description: String {
     fileName.description
+  }
+
+  public static func < (lhs: Self, rhs: Self) -> Bool {
+    lhs.fileName < rhs.fileName
   }
 }
 
@@ -31,7 +35,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   /// implementations white. Each node holds an instance variable describing which
   /// aspect of the entity it represents.
 
-  enum DeclAspect {
+  enum DeclAspect: Comparable {
     case interface, implementation
   }
 
@@ -110,5 +114,17 @@ var correspondingImplementation: Self? {
     // This space reserved for future use.
     return true
   }
+}
+
+// MARK: - Comparing
+/// Needed to sort nodes to make tracing deterministic to test against emitted diagnostics
+extension DependencyKey: Comparable {
+  public static func < (lhs: Self, rhs: Self) -> Bool {
+    lhs.aspect != rhs.aspect ? lhs.aspect < rhs.aspect :
+      lhs.designator < rhs.designator
+  }
+}
+
+extension DependencyKey.Designator: Comparable {
 }
 
