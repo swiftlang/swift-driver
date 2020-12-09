@@ -366,6 +366,16 @@ final class IncrementalCompilationTests: XCTestCase {
     try testIncremental(checkDiagnostics: false)
   }
 
+  /// Ensure that the mod date of the input comes back exactly the same via the build-record.
+  /// Otherwise the up-to-date calculation in `IncrementalCompilationState` will fail.
+  func testBuildRecordDateAccuracy() throws {
+    tryInitial(false)
+    (1...10).forEach { n in
+      tryNoChange(true)
+    }
+  }
+
+
 
   func testIncremental(checkDiagnostics: Bool) throws {
     tryInitial(checkDiagnostics)
