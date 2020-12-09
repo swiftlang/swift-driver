@@ -507,6 +507,7 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
+
   func tryTouchingMainAlwaysRebuildDependents(_ checkDiagnostics: Bool) {
     touch("main")
     let extraArgument = "-driver-always-rebuild-dependents"
@@ -536,7 +537,6 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
-
 
   func touch(_ name: String) {
     print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
