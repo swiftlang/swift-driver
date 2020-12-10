@@ -81,7 +81,7 @@ extension ModuleDependencyGraph.Node: Equatable, Hashable {
 }
 
 extension ModuleDependencyGraph.Node: Comparable {
-  static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
+  public static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
     func lt<T: Comparable> (_ a: T?, _ b: T?) -> Bool {
       switch (a, b) {
       case let (x?, y?): return x < y
