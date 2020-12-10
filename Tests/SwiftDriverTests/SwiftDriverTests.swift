@@ -1813,6 +1813,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testInstallAPI() throws {
+    let modulePath = "/tmp/FooMod.swiftmodule"
+    var driver = try Driver(args: ["swiftc", "foo.swift", "-whole-module-optimization",
+                                   "-module-name", "FooMod",
+                                   "-emit-tbd", "-emit-tbd-path", "/tmp/FooMod.tbd",
+                                   "-emit-module", "-emit-module-path", modulePath])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-frontend")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-module")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: modulePath))))
+  }
+
   func testImmediateMode() throws {
     do {
       var driver = try Driver(args: ["swift", "foo.swift"])
