@@ -130,6 +130,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// Clang Module Map
   case clangModuleMap = "modulemap"
+
+  /// Python script (used for tests)
+  case python = "py"
 }
 
 extension FileType: CustomStringConvertible {
@@ -137,7 +140,7 @@ extension FileType: CustomStringConvertible {
     switch self {
     case .swift, .sil, .sib, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
-         .remap, .tbd, .pcm, .pch, .clangModuleMap:
+         .remap, .tbd, .pcm, .pch, .clangModuleMap, .python:
       return rawValue
     case .object:
       return "object"
@@ -211,7 +214,8 @@ extension FileType {
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
-         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
+         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies,
+         .python:
       return false
     }
   }
@@ -302,6 +306,8 @@ extension FileType {
       return "bitstream-opt-record"
     case .diagnostics:
       return "diagnostics"
+    case .python:
+      return "python"
     }
   }
 }
@@ -313,7 +319,7 @@ extension FileType {
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .jsonClangDependencies:
+         .jsonClangDependencies, .python:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -333,8 +339,13 @@ extension FileType {
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
+         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, .python:
       return false
     }
   }
+
+  static func isFrontendExtensionForTesting(_ extension: String?) -> Bool {
+    python.rawValue == `extension`
+  }
+
 }

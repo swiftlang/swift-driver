@@ -2062,23 +2062,24 @@ extension Driver {
 
     // Find the Swift compiler executable.
     let swiftCompilerPrefixArgs: [String]
+    let hasFrontendBeenRedirectedForTesting: Bool
     if let frontendPath = parsedOptions.getLastArgument(.driverUseFrontendPath){
       var frontendCommandLine =
         frontendPath.asSingle.split(separator: ";").map { String($0) }
       if frontendCommandLine.isEmpty {
         diagnosticsEngine.emit(.error_no_swift_frontend)
         swiftCompilerPrefixArgs = []
+        hasFrontendBeenRedirectedForTesting = false
       } else {
-        let frontendPath = frontendCommandLine.removeFirst()
-        toolchain.overrideToolPath(
-          .swiftCompiler, path: try AbsolutePath(validating: frontendPath))
+        let frontendPathString = frontendCommandLine.removeFirst()
+        let frontendPath = try AbsolutePath(validating: frontendPathString)
+        toolchain.overrideToolPath(.swiftCompiler, path: frontendPath)
         swiftCompilerPrefixArgs = frontendCommandLine
+        hasFrontendBeenRedirectedForTesting = FileType.isFrontendExtensionForTesting(frontendPath.extension)
       }
     } else {
       swiftCompilerPrefixArgs = []
-    }
-    var hasFrontendBeenRedirectedForTesting: Bool {
-      return !swiftCompilerPrefixArgs.isEmpty
+      hasFrontendBeenRedirectedForTesting = false
     }
 
     // Find the SDK, if any.
