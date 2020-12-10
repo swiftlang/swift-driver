@@ -38,6 +38,8 @@ extension Driver {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
       } else if compilerOutputType?.isTextual == true {
         return TypedVirtualPath(file: .standardOutput, type: outputType)
+      } else if outputType == .swiftModule, let moduleOutput = moduleOutputInfo.output {
+        return TypedVirtualPath(file: moduleOutput.outputPath, type: outputType)
       }
     }
 
