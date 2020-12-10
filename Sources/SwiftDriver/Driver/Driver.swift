@@ -402,7 +402,9 @@ public struct Driver {
     if let dependencyOracle = interModuleDependencyOracle {
       self.interModuleDependencyOracle = dependencyOracle
     } else {
-      self.interModuleDependencyOracle = InterModuleDependencyOracle()
+      self.interModuleDependencyOracle =
+        try InterModuleDependencyOracle(fileSystem: fileSystem,
+                                        toolchainPath: AbsolutePath("/Volumes/Data/GHWorkspace2/build/Ninja-RelWithDebInfoAssert/swift-macosx-x86_64"))
 
       // This is a shim for backwards-compatibility with ModuleInfoMap-based API
       // used by SwiftPM

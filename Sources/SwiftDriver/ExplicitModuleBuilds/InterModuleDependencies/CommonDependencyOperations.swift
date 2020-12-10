@@ -12,12 +12,12 @@
 import TSCBasic
 
 @_spi(Testing) public extension InterModuleDependencyOracle {
-  /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main modules/targets
-  /// into a single collection of discovered modules.
+  /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main externalModules/targets
+  /// into a single collection of discovered externalModules.
   func mergeModules(from dependencyGraph: InterModuleDependencyGraph) throws {
     try self.lock.withLock {
       for (moduleId, moduleInfo) in dependencyGraph.modules {
-        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &externalModules)
       }
     }
   }
@@ -27,7 +27,7 @@ import TSCBasic
   func mergeModules(from moduleInfoMap: ModuleInfoMap) throws {
     try self.lock.withLock {
       for (moduleId, moduleInfo) in moduleInfoMap {
-        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &externalModules)
       }
     }
   }
@@ -93,12 +93,12 @@ extension InterModuleDependencyGraph {
           ModuleDependencyId.swiftPlaceholder(moduleId.moduleName)
         if moduleInfoMap[prebuiltExternalModuleEquivalentId] != nil ||
             moduleInfoMap[moduleId] != nil {
-          // If the set of discovered modules contains a .swiftPrebuiltExternal or .swift module
+          // If the set of discovered externalModules contains a .swiftPrebuiltExternal or .swift module
           // with the same name, do not replace it.
           break
         } else if moduleInfoMap[placeholderEquivalentId] != nil {
           // Replace the placeholder module with a full .swift ModuleInfo
-          // and fixup other modules' dependencies
+          // and fixup other externalModules' dependencies
           replaceModule(originalId: placeholderEquivalentId, replacementId: moduleId,
                         replacementInfo: moduleInfo, in: &moduleInfoMap)
         } else {
@@ -107,18 +107,18 @@ extension InterModuleDependencyGraph {
         }
 
       case .swiftPrebuiltExternal:
-        // If the set of discovered modules contains a .swift module with the same name,
-        // replace it with the prebuilt version and fixup other modules' dependencies
+        // If the set of discovered externalModules contains a .swift module with the same name,
+        // replace it with the prebuilt version and fixup other externalModules' dependencies
         let swiftModuleEquivalentId = ModuleDependencyId.swift(moduleId.moduleName)
         let swiftPlaceholderEquivalentId = ModuleDependencyId.swiftPlaceholder(moduleId.moduleName)
         if moduleInfoMap[swiftModuleEquivalentId] != nil {
           // If the ModuleInfoMap contains an equivalent .swift module, replace it with the prebuilt
-          // version and update all other modules' dependencies
+          // version and update all other externalModules' dependencies
           replaceModule(originalId: swiftModuleEquivalentId, replacementId: moduleId,
                         replacementInfo: moduleInfo, in: &moduleInfoMap)
         } else if moduleInfoMap[swiftPlaceholderEquivalentId] != nil {
           // If the moduleInfoMap contains an equivalent .swiftPlaceholder module, replace it with
-          // the prebuilt version and update all other modules' dependencies
+          // the prebuilt version and update all other externalModules' dependencies
           replaceModule(originalId: swiftPlaceholderEquivalentId, replacementId: moduleId,
                         replacementInfo: moduleInfo, in: &moduleInfoMap)
         } else {
@@ -155,7 +155,7 @@ extension InterModuleDependencyGraph {
     }
   }
 
-  /// Replace all references to the original module in other modules' dependencies with the new module.
+  /// Replace all references to the original module in other externalModules' dependencies with the new module.
   static func updateDependencies(from originalId: ModuleDependencyId,
                                  to replacementId: ModuleDependencyId,
                                  in moduleInfoMap: inout ModuleInfoMap) {
@@ -172,7 +172,7 @@ extension InterModuleDependencyGraph {
     }
   }
 
-  /// Given two moduleInfos of clang modules, merge them by combining their directDependencies and
+  /// Given two moduleInfos of clang externalModules, merge them by combining their directDependencies and
   /// dependenciesCapturedPCMArgs and sourceFiles fields. These fields may differ across the same module
   /// scanned at different PCMArgs (e.g. -target option).
   static func mergeClangModuleInfoDependencies(_ firstInfo: ModuleInfo, _ secondInfo:ModuleInfo

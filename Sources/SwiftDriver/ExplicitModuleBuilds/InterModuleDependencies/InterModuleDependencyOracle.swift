@@ -26,35 +26,58 @@ import TSCBasic
 //
 /// An abstraction of a cache and query-engine of inter-module dependencies
 public class InterModuleDependencyOracle {
+  /// Allow external clients to instantiate the oracle
+  public init(fileSystem: FileSystem,
+              toolchainPath: AbsolutePath) throws {
+    guard fileSystem.exists(toolchainPath) else {
+      fatalError("Path to specified toolchain does not exist: \(toolchainPath.description)")
+    }
+
+    let swiftScanLibPath = toolchainPath.appending(component: "lib")
+                                        .appending(component: "lib_InternalSwiftScan.dylib")
+    guard fileSystem.exists(toolchainPath) else {
+      fatalError("Could not find libSwiftScan at: \(swiftScanLibPath.description)")
+    }
+
+    swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
+  }
+
   /// Query the ModuleInfo of a module with a given ID
-  @_spi(Testing) public func getModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
+  internal func getExternalModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
     self.lock.withLock {
-      return modules[moduleId]
+      return externalModules[moduleId]
     }
   }
 
-  /// Query the direct dependencies of a module with a given ID
-  @_spi(Testing) public func getDependencies(of moduleId: ModuleDependencyId)
-  -> [ModuleDependencyId]? {
-    return getModuleInfo(of: moduleId)?.directDependencies
+  internal func getDependencies(workingDirectory: AbsolutePath,
+                                commandLine: [String]) throws -> InterModuleDependencyGraph {
+    try self.lock.withLock {
+      return try swiftScanLibInstance.scanDependencies(workingDirectory: workingDirectory,
+                                                       invocationCommand: commandLine)
+    }
   }
 
-  // TODO: This will require a SwiftDriver entry-point for scanning a module given
-  // a command invocation and a set of source-files. As-is, the driver itself is responsible
-  // for executing individual module dependency-scanning actions and updating oracle state.
-  // (Implemented with InterModuleDependencyOracle::mergeModules extension)
-  //
-  // func getFullDependencies(inputs: [TypedVirtualPath],
-  //                          commandLine: [Job.ArgTemplate]) -> InterModuleDependencyGraph {}
-  //
+  internal func getBatchDependencies(workingDirectory: AbsolutePath,
+                                     commandLine: [String],
+                                     batchInfos: [BatchScanModuleInfo])
+  throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
+    try self.lock.withLock {
+      return try swiftScanLibInstance.batchScanDependencies(workingDirectory: workingDirectory,
+                                                            invocationCommand: commandLine,
+                                                            batchInfos: batchInfos)
+    }
+  }
 
   internal let lock = Lock()
 
-  /// The complete set of modules discovered so far, spanning potentially multiple targets
-  internal var modules: ModuleInfoMap = [:]
+  /// The complete set of modules discovered so far, spanning potentially multiple targets,
+  /// accumulated across builds of multiple targets.
+  /// TODO: This is currently only used for placeholder resolution. libSwiftScan should allow us to move away
+  /// from the concept of a placeholder module so we should be able to get rid of this in the future.
+  internal var externalModules: ModuleInfoMap = [:]
 
-  /// Allow external clients to instantiate the oracle
-  public init() {}
+  /// A reference to an instance of the compiler's libSwiftScan shared library
+  private let swiftScanLibInstance: SwiftScan
 }
 
 // This is a shim for backwards-compatibility with existing API used by SwiftPM.
@@ -66,7 +89,7 @@ extension Driver {
       InterModuleDependencyGraph(mainModuleName: moduleOutputInfo.name)
 
     addModule(moduleId: mainModuleId,
-              moduleInfo: interModuleDependencyOracle.getModuleInfo(of: mainModuleId)!,
+              moduleInfo: interModuleDependencyOracle.getExternalModuleInfo(of: mainModuleId)!,
               into: &mainModuleDependencyGraph)
     return mainModuleDependencyGraph
   }
@@ -77,7 +100,7 @@ extension Driver {
     dependencyGraph.modules[moduleId] = moduleInfo
     moduleInfo.directDependencies?.forEach { dependencyId in
       addModule(moduleId: dependencyId,
-                moduleInfo: interModuleDependencyOracle.getModuleInfo(of: dependencyId)!,
+                moduleInfo: interModuleDependencyOracle.getExternalModuleInfo(of: dependencyId)!,
                 into: &dependencyGraph)
     }
   }

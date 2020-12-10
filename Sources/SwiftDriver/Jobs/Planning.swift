@@ -478,7 +478,7 @@ extension Driver {
   /// by re-scanning all Clang modules against all possible targets they will be built against.
   public mutating func generateExplicitModuleDependenciesJobs() throws -> [Job] {
     // Run the dependency scanner and update the dependency oracle with the results
-    let dependencyGraph = try gatherModuleDependencies(into: interModuleDependencyOracle)
+    let dependencyGraph = try gatherModuleDependencies()
 
     // Plan build jobs for all direct and transitive module dependencies of the current target
     explicitDependencyBuildPlanner =
@@ -490,32 +490,25 @@ extension Driver {
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
-  private mutating func gatherModuleDependencies(into dependencyOracle: InterModuleDependencyOracle)
+  private mutating func gatherModuleDependencies()
   throws -> InterModuleDependencyGraph {
-    let dependencyScannerJob = try dependencyScanningJob()
-    let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
-
-    var dependencyGraph =
-      try self.executor.execute(job: dependencyScannerJob,
-                                capturingJSONOutputAs: InterModuleDependencyGraph.self,
-                                forceResponseFiles: forceResponseFiles,
-                                recordedInputModificationDates: recordedInputModificationDates)
+    var dependencyGraph = try performDependencyScan()
 
     // Resolve placeholder dependencies in the dependency graph, if any.
+    // TODO: Should be deprecated once switched over to libSwiftScan
     if externalBuildArtifacts != nil {
       try dependencyGraph.resolvePlaceholderDependencies(for: externalBuildArtifacts!,
-                                                         using: dependencyOracle)
+                                                         using: interModuleDependencyOracle)
     }
 
     // Re-scan Clang modules at all the targets they will be built against.
-    // TODO: Should be deprecated once switched over to libSwiftScan
     try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
 
     // Set dependency modules' paths to be saved in the module cache.
     try updateDependencyModulesWithModuleCachePath(dependencyGraph: &dependencyGraph)
 
     // Update the dependency oracle, adding this new dependency graph to its store
-    try dependencyOracle.mergeModules(from: dependencyGraph)
+    try interModuleDependencyOracle.mergeModules(from: dependencyGraph)
 
     return dependencyGraph
   }

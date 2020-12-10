@@ -1,0 +1,4 @@
+module _InternalLibSwiftScan {
+  header "swiftscan_header.h"
+  export *
+}

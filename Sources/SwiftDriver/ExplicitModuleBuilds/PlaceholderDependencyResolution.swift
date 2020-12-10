@@ -69,7 +69,7 @@ import Foundation
     while !placeholderModules.isEmpty {
       let moduleId = placeholderModules.first!
       let swiftModuleId = ModuleDependencyId.swift(moduleId.moduleName)
-      guard let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId) else {
+      guard let moduleInfo = dependencyOracle.getExternalModuleInfo(of: swiftModuleId) else {
         throw Driver.Error.missingExternalDependency(moduleId.moduleName)
       }
 
@@ -111,10 +111,10 @@ fileprivate extension InterModuleDependencyGraph {
     let swiftPrebuiltModuleId = ModuleDependencyId.swiftPrebuiltExternal(placeholderId.moduleName)
     let externalModuleId: ModuleDependencyId
     let externalModuleInfo: ModuleInfo
-    if let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId) {
+    if let moduleInfo = dependencyOracle.getExternalModuleInfo(of: swiftModuleId) {
       externalModuleId = swiftModuleId
       externalModuleInfo = moduleInfo
-    } else if let prebuiltModuleInfo = dependencyOracle.getModuleInfo(of: swiftPrebuiltModuleId) {
+    } else if let prebuiltModuleInfo = dependencyOracle.getExternalModuleInfo(of: swiftPrebuiltModuleId) {
       externalModuleId = swiftPrebuiltModuleId
       externalModuleInfo = prebuiltModuleInfo
     } else {
@@ -140,7 +140,7 @@ fileprivate extension InterModuleDependencyGraph {
   mutating func resolvePlaceholderModuleDependencies(moduleId: ModuleDependencyId,
                                                      dependencyOracle: InterModuleDependencyOracle)
   throws {
-    guard let resolvingModuleInfo = dependencyOracle.getModuleInfo(of: moduleId) else {
+    guard let resolvingModuleInfo = dependencyOracle.getExternalModuleInfo(of: moduleId) else {
       throw Driver.Error.missingExternalDependency(moduleId.moduleName)
     }
 
@@ -151,7 +151,7 @@ fileprivate extension InterModuleDependencyGraph {
     while let currentId = toVisit[currentIndex...].first {
       currentIndex += 1
       visited.insert(currentId)
-      guard let currentInfo = dependencyOracle.getModuleInfo(of: currentId) else {
+      guard let currentInfo = dependencyOracle.getExternalModuleInfo(of: currentId) else {
         throw Driver.Error.missingExternalDependency(currentId.moduleName)
       }
 

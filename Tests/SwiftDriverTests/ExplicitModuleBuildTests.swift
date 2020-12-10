@@ -21,7 +21,7 @@ private func checkExplicitModuleBuildJob(job: Job,
                                          pcmArgs: [String],
                                          moduleId: ModuleDependencyId,
                                          dependencyOracle: InterModuleDependencyOracle) throws {
-  let moduleInfo = dependencyOracle.getModuleInfo(of: moduleId)!
+  let moduleInfo = dependencyOracle.getExternalModuleInfo(of: moduleId)!
   var downstreamPCMArgs = pcmArgs
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
@@ -69,7 +69,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      dependencyOracle: InterModuleDependencyOracle
 ) throws {
   for dependencyId in moduleInfo.directDependencies! {
-    let dependencyInfo = dependencyOracle.getModuleInfo(of: dependencyId)!
+    let dependencyInfo = dependencyOracle.getExternalModuleInfo(of: dependencyId)!
     switch dependencyInfo.details {
       case .swift(let swiftDetails):
         // Load the dependency JSON and verify this dependency was encoded correctly
@@ -134,7 +134,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     // Ensure all transitive dependencies got added as well.
     for transitiveDependencyId in dependencyInfo.directDependencies! {
       try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
-                                                  moduleInfo: dependencyOracle.getModuleInfo(of: transitiveDependencyId)!,
+                                                  moduleInfo: dependencyOracle.getExternalModuleInfo(of: transitiveDependencyId)!,
                                                   dependencyOracle: dependencyOracle)
 
     }
@@ -297,7 +297,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Figure out which Triples to use.
       let dependencyOracle = driver.interModuleDependencyOracle
       let mainModuleInfo =
-        dependencyOracle.getModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
+        dependencyOracle.getExternalModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
       guard case .swift(let mainModuleSwiftDetails) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
         return

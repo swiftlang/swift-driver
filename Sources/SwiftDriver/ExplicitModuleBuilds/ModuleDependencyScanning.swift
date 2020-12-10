@@ -13,16 +13,33 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
-extension Driver {
+internal extension Driver {
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// dependency graph including all Swift and C module files and
   /// source files.
   mutating func dependencyScanningJob() throws -> Job {
-    var inputs: [TypedVirtualPath] = []
+    let (inputs, commandLine) = try dependencyScannerInvocationCommand()
 
+    // Construct the scanning job.
+    return Job(moduleName: moduleOutputInfo.name,
+               kind: .scanDependencies,
+               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               commandLine: commandLine,
+               displayInputs: inputs,
+               inputs: inputs,
+               primaryInputs: [],
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
+               supportsResponseFiles: true)
+  }
+
+  /// Generate a full command-line invocation to be used for the dependency scanning action
+  /// on the target module.
+  mutating func dependencyScannerInvocationCommand()
+  throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
     // Aggregate the fast dependency scanner arguments
+    var inputs: [TypedVirtualPath] = []
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    commandLine.appendFlag("-frontend")
+
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
                                  bridgingHeaderHandling: .precompiled,
@@ -39,17 +56,7 @@ extension Driver {
 
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file)})
-
-    // Construct the scanning job.
-    return Job(moduleName: moduleOutputInfo.name,
-               kind: .scanDependencies,
-               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
-               commandLine: commandLine,
-               displayInputs: inputs,
-               inputs: inputs,
-               primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
-               supportsResponseFiles: true)
+    return (inputs, commandLine)
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
@@ -81,44 +88,53 @@ extension Driver {
                                        contents)
   }
 
+  mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
+    // FIXME: It is a bit hack to have to generate a job and then ask the executor to
+    // generate a canonical command line for it. Can do better.
+    let scannerJob = try dependencyScanningJob()
+    let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
+//    print("Scan:")
+//    print(try self.executor.description(of: scannerJob,
+//                                        forceResponseFiles: forceResponseFiles))
+    print(" _______________________________________________________________")
+    print("|                                                               |")
+    print("|                       DEPENDENCY SCAN                         |")
+    let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+    var command = try self.executor.description(of: scannerJob,
+                                                forceResponseFiles: forceResponseFiles)
+                                               .components(separatedBy: " ")
+    // Remove the tool executable to only leave the arguments
+    command.removeFirst()
+    let dependencyGraph =
+      try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+                                                      commandLine: command)
+    print("|                          SUCCESSFUL                           |")
+    print("|_______________________________________________________________|")
+    return dependencyGraph
+  }
+
   mutating func performBatchDependencyScan(moduleInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     let batchScanningJob = try batchDependencyScanningJob(for: moduleInfos)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
-    let batchScanResult =
-      try self.executor.execute(job: batchScanningJob,
-                                forceResponseFiles: forceResponseFiles,
-                                recordedInputModificationDates: recordedInputModificationDates)
-    let success = batchScanResult.exitStatus == .terminated(code: EXIT_SUCCESS)
-    guard success else {
-      throw JobExecutionError.jobFailedWithNonzeroExitCode(
-        type(of: executor).computeReturnCode(exitStatus: batchScanResult.exitStatus),
-        try batchScanResult.utf8stderrOutput())
-    }
-
-    // Decode the resulting dependency graphs and build a dictionary from a moduleId to
-    // a set of dependency graphs that were built for it
+//    print("Batch Scan:")
+//    print(try self.executor.description(of: batchScanningJob,
+//                                        forceResponseFiles: forceResponseFiles))
+    print(" _______________________________________________________________")
+    print("|                                                               |")
+    print("|                     BATCH DEPENDENCY SCAN                     |")
+    let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+    var command = try self.executor.description(of: batchScanningJob,
+                                                forceResponseFiles: forceResponseFiles)
+                                               .components(separatedBy: " ")
+    // Remove the tool executable to only leave the arguments
+    command.removeFirst()
     let moduleVersionedGraphMap =
-      try moduleInfos.reduce(into: [ModuleDependencyId: [InterModuleDependencyGraph]]()) {
-      let moduleId: ModuleDependencyId
-      let dependencyGraphPath: VirtualPath
-      switch $1 {
-        case .swift(let swiftModuleBatchScanInfo):
-          moduleId = .swift(swiftModuleBatchScanInfo.swiftModuleName)
-          dependencyGraphPath = try VirtualPath(path: swiftModuleBatchScanInfo.output)
-        case .clang(let clangModuleBatchScanInfo):
-          moduleId = .clang(clangModuleBatchScanInfo.clangModuleName)
-          dependencyGraphPath = try VirtualPath(path: clangModuleBatchScanInfo.output)
-      }
-      let contents = try fileSystem.readFileContents(dependencyGraphPath)
-      let decodedGraph = try JSONDecoder().decode(InterModuleDependencyGraph.self,
-                                            from: Data(contents.contents))
-      if $0[moduleId] != nil {
-        $0[moduleId]!.append(decodedGraph)
-      } else {
-        $0[moduleId] = [decodedGraph]
-      }
-    }
+      try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
+                                                           commandLine: command,
+                                                           batchInfos: moduleInfos)
+    print("|                          SUCCESSFUL                           |")
+    print("|_______________________________________________________________|")
     return moduleVersionedGraphMap
   }
 
@@ -128,7 +144,7 @@ extension Driver {
 
     // Aggregate the fast dependency scanner arguments
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-    commandLine.appendFlag("-frontend")
+
     // The dependency scanner automatically operates in batch mode if -batch-scan-input-file
     // is present.
     commandLine.appendFlag("-scan-dependencies")
