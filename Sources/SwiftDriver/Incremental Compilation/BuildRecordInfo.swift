@@ -183,7 +183,6 @@ struct JobResult {
   }
 
   func jobFinished(job: Job, result: ProcessResult) {
-    // REDUNDANT?
     finishedJobResults.append(JobResult(job, result))
   }
 }

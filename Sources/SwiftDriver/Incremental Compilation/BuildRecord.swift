@@ -162,7 +162,7 @@ extension BuildRecord {
   }
 
    func encode() throws -> String {
-      let pathsAndInfos = try inputInfos.map {
+      let pathsAndInfos = inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
         return (input.name, inputInfo)
       }
