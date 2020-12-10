@@ -1472,7 +1472,6 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testBatchModeContinueAfterErrors() throws {
-    throw XCTSkip("This test requires the fix to honoring -driver-use-frontend-path")
     struct MockExecutor: DriverExecutor {
       let resolver = try! ArgsResolver(fileSystem: localFileSystem)
 
@@ -1496,7 +1495,7 @@ final class SwiftDriverTests: XCTestCase {
        }
     }
 
-    let driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/bin/echo"], executor: MockExecutor())
+    let driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/dummy.py"], executor: MockExecutor())
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
