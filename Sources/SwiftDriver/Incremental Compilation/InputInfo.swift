@@ -12,18 +12,18 @@
 import Foundation
 import TSCBasic
 
-/*@_spi(Testing)*/ public  struct InputInfo: Equatable {
+/*@_spi(Testing)*/ public struct InputInfo: Equatable {
 
   /*@_spi(Testing)*/ public let status: Status
   /*@_spi(Testing)*/ public let previousModTime: Date
 
-  /*@_spi(Testing)*/ public  init(status: Status, previousModTime: Date) {
+  /*@_spi(Testing)*/ public init(status: Status, previousModTime: Date) {
     self.status = status
     self.previousModTime = previousModTime
   }
 }
 
-/*@_spi(Testing)*/ public  extension InputInfo {
+/*@_spi(Testing)*/ public extension InputInfo {
   enum Status: Equatable {
     case upToDate,
          needsCascadingBuild,
