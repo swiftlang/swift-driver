@@ -37,6 +37,31 @@ final class NonincrementalCompilationTests: XCTestCase {
                        ])
   }
 
+  func testBuildRecordWithoutOptionsReading() throws {
+    let hash = "abbbfbcaf36b93e58efaadd8271ff142"
+    let buildRecord = try! BuildRecord(
+      contents: Inputs.buildRecordWithoutOptions,
+      defaultArgsHash: hash)
+    XCTAssertEqual(buildRecord.swiftVersion,
+                   "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
+    XCTAssertEqual(buildRecord.argsHash, hash)
+
+    try XCTAssertEqual(buildRecord.buildTime,
+                       Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
+    try XCTAssertEqual(buildRecord.inputInfos,
+                       [
+                        VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
+                          InputInfo(status: .needsCascadingBuild,
+                                    previousModTime: Date(legacyDriverSecsAndNanos: [1570318778, 0])),
+                        VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"):
+                          InputInfo(status: .upToDate,
+                                    previousModTime: Date(legacyDriverSecsAndNanos: [1570083660, 0])),
+                        VirtualPath(path: "/Volumes/gazorp.swift"):
+                          InputInfo(status: .needsNonCascadingBuild,
+                                    previousModTime:  Date(legacyDriverSecsAndNanos: [0, 0]))
+                       ])
+  }
+
   func testReadBinarySourceFileDependencyGraph() throws {
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()

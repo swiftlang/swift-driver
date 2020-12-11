@@ -152,12 +152,14 @@ struct JobResult {
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
   func populateOutOfDateBuildRecord(
     inputFiles: [TypedVirtualPath],
+    defaultArgsHash: String?,
     failed: (String) -> Void
   ) -> BuildRecord? {
     let outOfDateBuildRecord: BuildRecord
     do {
       let contents = try fileSystem.readFileContents(buildRecordPath).cString
-      outOfDateBuildRecord  = try BuildRecord(contents: contents)
+      outOfDateBuildRecord  = try BuildRecord(contents: contents,
+                                              defaultArgsHash: defaultArgsHash)
     }
     catch {
       failed("could not read build record at \(buildRecordPath): \(error.localizedDescription).")

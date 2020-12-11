@@ -77,11 +77,12 @@ public struct BuildRecord {
 
 // MARK: - Reading the old map and deciding whether to use it
 public extension BuildRecord {
-  init(contents: String) throws {
+  init(contents: String, defaultArgsHash: String? = nil) throws {
     guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
       .singleRoot()?.mapping
       else { throw SimpleErrors.couldNotDecodeBuildRecord }
-    var argsHash, swiftVersion: String?
+    var argsHash: String? = defaultArgsHash
+    var swiftVersion: String?
     var buildTime: Date?
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
