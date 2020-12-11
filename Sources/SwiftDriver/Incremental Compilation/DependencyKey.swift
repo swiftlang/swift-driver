@@ -2,13 +2,13 @@
 import Foundation
 
 /// A filename from another module
-struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
+/*@_spi(Testing)*/ public struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
   let fileName: String
 
   var file: VirtualPath? {
     try? VirtualPath(path: fileName)
   }
-  init(_ path: String) {
+  /*@_spi(Testing)*/ public init(_ path: String) {
     self.fileName = path
   }
   public var description: String {
@@ -35,7 +35,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   /// implementations white. Each node holds an instance variable describing which
   /// aspect of the entity it represents.
 
-  enum DeclAspect: Comparable {
+  /*@_spi(Testing)*/ public enum DeclAspect: Comparable {
     case interface, implementation
   }
 
@@ -43,7 +43,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   /// graph, splitting the current *member* into \ref member and \ref
   /// potentialMember and adding \ref sourceFileProvide.
   ///
-  enum Designator: Hashable, CustomStringConvertible {
+  /*@_spi(Testing)*/ public enum Designator: Hashable, CustomStringConvertible {
     case
       topLevel(name: String),
       dynamicLookup(name: String),
@@ -85,11 +85,11 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
     }
   }
 
-  let aspect: DeclAspect
-  let designator: Designator
+  /*@_spi(Testing)*/ public let aspect: DeclAspect
+  /*@_spi(Testing)*/ public let designator: Designator
 
 
-  init(
+  /*@_spi(Testing)*/ public init(
     aspect: DeclAspect,
     designator: Designator)
   {
@@ -98,7 +98,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   }
 
 
-var correspondingImplementation: Self? {
+  /*@_spi(Testing)*/ public var correspondingImplementation: Self? {
     guard aspect == .interface  else {
       return nil
     }

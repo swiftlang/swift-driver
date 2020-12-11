@@ -24,9 +24,9 @@ extension ModuleDependencyGraph {
   ///
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
-  final class Node {
+  /*@_spi(Testing)*/ public final class Node {
 
-    typealias Graph = ModuleDependencyGraph
+    /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
     /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
     let dependencyKey: DependencyKey
@@ -81,7 +81,7 @@ extension ModuleDependencyGraph.Node: Equatable, Hashable {
 }
 
 extension ModuleDependencyGraph.Node: Comparable {
-  static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
+  public static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
     func lt<T: Comparable> (_ a: T?, _ b: T?) -> Bool {
       switch (a, b) {
       case let (x?, y?): return x < y

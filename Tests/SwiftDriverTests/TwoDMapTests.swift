@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-@testable import SwiftDriver
+import SwiftDriver
 
 class TwoDMapTests: XCTestCase {
 

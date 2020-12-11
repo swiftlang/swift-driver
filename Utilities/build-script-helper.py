@@ -492,8 +492,6 @@ def build_swift_driver_using_cmake(args, target, swiftc_exec, build_dir, base_cm
         '-DTSC_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-tools-support-core'), 'cmake/modules'),
         '-DYams_DIR=' + os.path.join(os.path.join(dependencies_dir, 'yams'), 'cmake/modules'),
         '-DArgumentParser_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-argument-parser'), 'cmake/modules')]
-  #FIXME: Building with testing enable to allow @testable import of SwiftDriver
-  driver_swift_flags.append('-enable-testing')
   driver_cmake_flags = base_cmake_flags + flags
   cmake_build(args, swiftc_exec, driver_cmake_flags, driver_swift_flags,
               driver_source_dir, driver_build_dir)
