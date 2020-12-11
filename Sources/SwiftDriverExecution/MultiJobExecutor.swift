@@ -533,7 +533,9 @@ class ExecuteJobRule: LLBuildRule {
 #endif
         }
       }
-      context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
+      if case .terminated = result.exitStatus {
+        context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
+      }
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {

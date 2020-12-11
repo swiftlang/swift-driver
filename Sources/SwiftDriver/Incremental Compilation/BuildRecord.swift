@@ -69,6 +69,10 @@ public struct BuildRecord {
 
     var serializedName: String { rawValue }
   }
+
+  var allInputs: Set<VirtualPath> {
+    Set( inputInfos.map {$0.key} )
+  }
 }
 
 // MARK: - Reading the old map and deciding whether to use it

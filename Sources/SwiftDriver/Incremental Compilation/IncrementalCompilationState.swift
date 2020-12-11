@@ -95,6 +95,7 @@ public class IncrementalCompilationState {
             ModuleDependencyGraph.buildInitialGraph(
               diagnosticEngine: diagnosticEngine,
               inputs: buildRecordInfo.compilationInputModificationDates.keys,
+              previousInputs: outOfDateBuildRecord.allInputs,
               outputFileMap: outputFileMap,
               parsedOptions: &parsedOptions,
               remarkDisabled: Diagnostic.Message.remark_incremental_compilation_disabled,
