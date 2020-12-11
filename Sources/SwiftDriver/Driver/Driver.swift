@@ -2075,7 +2075,9 @@ extension Driver {
         let frontendPath = try AbsolutePath(validating: frontendPathString)
         toolchain.overrideToolPath(.swiftCompiler, path: frontendPath)
         swiftCompilerPrefixArgs = frontendCommandLine
-        hasFrontendBeenRedirectedForTesting = FileType.isFrontendExtensionForTesting(frontendPath.extension)
+        // The tests in Driver/Dependencies redirect the frontend to a python
+        // script, so don't ask the frontend for target info in that case.
+        hasFrontendBeenRedirectedForTesting = frontendPath.basename == "Python"
       }
     } else {
       swiftCompilerPrefixArgs = []

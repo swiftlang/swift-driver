@@ -1495,7 +1495,8 @@ final class SwiftDriverTests: XCTestCase {
        }
     }
 
-    let driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/dummy.py"], executor: MockExecutor())
+    var driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/Python"], executor: MockExecutor())
+    try! driver.run(jobs: [])
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
