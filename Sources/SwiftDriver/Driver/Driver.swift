@@ -1269,7 +1269,7 @@ extension Driver {
         compilerOutputType = objectLikeFileType
 
       case .emitObject, .c:
-        compilerOutputType = .object
+        compilerOutputType = objectLikeFileType
 
       case .emitAssembly, .S:
         compilerOutputType = .assembly

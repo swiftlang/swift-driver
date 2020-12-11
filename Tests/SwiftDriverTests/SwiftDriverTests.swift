@@ -281,6 +281,32 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver5.compilerOutputType, .llvmBitcode)
   }
 
+  func testLtoOutputModeClash() throws {
+    let driver1 = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-static",
+                                    "-emit-library", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver1.compilerOutputType, .llvmBitcode)
+
+    let driver2 = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full",
+                                    "-emit-library", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver2.compilerOutputType, .llvmBitcode)
+
+    let driver3 = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full",
+                                    "c", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver3.compilerOutputType, .llvmBitcode)
+
+    let driver4 = try Driver(args: ["swiftc", "foo.swift", "-c","-lto=llvm-full",
+                                    "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver4.compilerOutputType, .llvmBitcode)
+
+    let driver5 = try Driver(args: ["swiftc", "foo.swift", "-c","-lto=llvm-full",
+                                    "-emit-bc", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver5.compilerOutputType, .llvmBitcode)
+
+    let driver6 = try Driver(args: ["swiftc", "foo.swift", "-emit-bc", "-c","-lto=llvm-full",
+                                    "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver6.compilerOutputType, .llvmBitcode)
+  }
+
   func testPrimaryOutputKindsDiagnostics() throws {
       try assertDriverDiagnostics(args: "swift", "-i") {
         $1.expect(.error("the flag '-i' is no longer required and has been removed; use 'swift input-filename'"))
