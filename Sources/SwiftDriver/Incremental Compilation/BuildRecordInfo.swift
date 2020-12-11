@@ -157,7 +157,7 @@ struct JobResult {
   /// Added for the sake of compatibility with the legacy driver.
   private func preservePreviousBuildRecord(_ oldPath: AbsolutePath) {
     let newPath = oldPath.withTilde()
-    try! fileSystem.move(from: oldPath, to: newPath)
+    try? fileSystem.move(from: oldPath, to: newPath)
   }
 
 
