@@ -83,7 +83,8 @@ public extension BuildRecord {
       else { throw SimpleErrors.couldNotDecodeBuildRecord }
     var argsHash: String? = defaultArgsHash
     var swiftVersion: String?
-    var buildTime: Date?
+    // Legacy driver does not disable incremental if no buildTime field.
+    var buildTime: Date = .distantPast
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else { throw SimpleErrors.sectionNameNotString }
