@@ -114,6 +114,13 @@ struct JobResult {
   /// `Jobs` must include all of the compilation jobs.
   /// `Inputs` will hold all the primary inputs that were not compiled because of incremental compilation
   func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>? ) {
+    guard let absPath = buildRecordPath.absolutePath else {
+      diagnosticEngine.emit(
+        .warning_could_not_write_build_record_not_absolutePath(buildRecordPath))
+      return
+    }
+    preservePreviousBuildRecord(absPath)
+
     let buildRecord = BuildRecord(
       jobs: jobs,
       finishedJobResults: finishedJobResults,
@@ -134,11 +141,6 @@ struct JobResult {
       diagnosticEngine.emit(.warning_could_not_serialize_build_record(error))
       return
     }
-    guard let absPath = buildRecordPath.absolutePath else {
-      diagnosticEngine.emit(
-        .warning_could_not_write_build_record_not_absolutePath(buildRecordPath))
-      return
-    }
     do {
       try fileSystem.writeFileContents(absPath,
                                        bytes: ByteString(encodingAsUTF8: contents))
@@ -148,6 +150,16 @@ struct JobResult {
       return
     }
  }
+
+  /// Before writing to the dependencies file path, preserve any previous file
+  /// that may have been there. No error handling -- this is just a nicety, it
+  /// doesn't matter if it fails.
+  /// Added for the sake of compatibility with the legacy driver.
+  private func preservePreviousBuildRecord(_ oldPath: AbsolutePath) {
+    let newPath = oldPath.withTilde()
+    try! fileSystem.move(from: oldPath, to: newPath)
+  }
+
 
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
   func populateOutOfDateBuildRecord(
@@ -184,5 +196,11 @@ struct JobResult {
 
   func jobFinished(job: Job, result: ProcessResult) {
     finishedJobResults.append(JobResult(job, result))
+  }
+}
+
+fileprivate extension AbsolutePath {
+  func withTilde() -> Self {
+    parentDirectory.appending(component: basename + "~")
   }
 }
