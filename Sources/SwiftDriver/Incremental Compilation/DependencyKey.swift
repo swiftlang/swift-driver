@@ -68,19 +68,19 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
     public var description: String {
       switch self {
       case let .topLevel(name: name):
-        return "top-level name \(name)"
+        return "top-level name '\(name)'"
       case let .nominal(context: context):
-        return "type \(context)"
+        return "type '\(context)'"
       case let .potentialMember(context: context):
-        return "potential members of \(context)"
+        return "potential members of '\(context)'"
       case let .member(context: context, name: name):
-        return "member \(name) of \(context)"
+        return "member '\(name)' of '\(context)'"
       case let .dynamicLookup(name: name):
-        return "AnyObject member \(name)"
+        return "AnyObject member '\(name)'"
       case let .externalDepend(externalDependency):
-        return "module \(externalDependency)"
+        return "module '\(externalDependency)'"
       case let .sourceFileProvide(name: name):
-        return (try? VirtualPath(path: name).basename) ?? name
+        return "source file '\((try? VirtualPath(path: name).basename) ?? name)'"
       }
     }
   }

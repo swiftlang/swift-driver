@@ -99,7 +99,7 @@ extension ModuleDependencyGraph.Node: Comparable {
 
 extension ModuleDependencyGraph.Node: CustomStringConvertible {
   public var description: String {
-    "\(dependencyKey)\( swiftDeps?.description ?? "<expat>")"
+    "\(dependencyKey) \( swiftDeps.map { "in \($0.description)" } ?? "<expat>" )"
   }
 }
 
