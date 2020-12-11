@@ -55,6 +55,7 @@ extension ModuleDependencyGraph {
   static func buildInitialGraph<Inputs: Sequence>(
     diagnosticEngine: DiagnosticsEngine,
     inputs: Inputs,
+    previousInputs: Set<VirtualPath>,
     outputFileMap: OutputFileMap?,
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
@@ -81,7 +82,7 @@ extension ModuleDependencyGraph {
       )
       return nil
     }
-    let inputsWithUnreadableSwiftDeps = inputsAndSwiftdeps.compactMap {
+    let previousInputsWithMalformedSwiftDeps = inputsAndSwiftdeps.compactMap {
       input, swiftDepsFile -> (TypedVirtualPath, VirtualPath)? in
       guard let swiftDepsFile = swiftDepsFile
       else {
@@ -89,6 +90,11 @@ extension ModuleDependencyGraph {
       }
       let swiftDeps = SwiftDeps(swiftDepsFile)
       graph.sourceSwiftDepsMap[input] = swiftDeps
+      guard previousInputs.contains(input.file)
+      else {
+        // do not try to read swiftdeps of a new input
+        return nil
+      }
       let changes = Integrator.integrate(swiftDeps: swiftDeps,
                                          into: graph,
                                          input: input,
@@ -96,7 +102,7 @@ extension ModuleDependencyGraph {
                                          diagnosticEngine: diagnosticEngine)
       return changes == nil ? (input, swiftDepsFile) : nil
     }
-    return (graph, inputsWithUnreadableSwiftDeps)
+    return (graph, previousInputsWithMalformedSwiftDeps)
   }
 }
 // MARK: - Scheduling the first wave
