@@ -51,8 +51,11 @@ extension Driver {
     }
 
     if !isTopLevel {
-      return TypedVirtualPath(file:VirtualPath.temporary(.init(baseName.appendingFileTypeExtension(outputType))),
-                              type: outputType)
+      return TypedVirtualPath(
+        file: .temporary(.init(createTemporaryFileName(prefix: baseName)
+                                .appendingFileTypeExtension(outputType))),
+        type: outputType
+      )
     }
     return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
   }

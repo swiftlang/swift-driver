@@ -465,9 +465,9 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo.o")))
+    XCTAssertTrue(plannedJobs[0].outputs.first!.file.isTemporary(prefix: "foo", extension: .object))
     XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary(RelativePath("bar.o")))
+    XCTAssertTrue(plannedJobs[1].outputs.first!.file.isTemporary(prefix: "bar", extension: .object))
     XCTAssertTrue(plannedJobs[2].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
@@ -892,11 +892,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(linkJob.kind, .link)
 
       let cmd = linkJob.commandLine
-      XCTAssertTrue(linkJob.inputs.contains(.init(file: .temporary(.init("foo.o")), type: .object)))
-      XCTAssertTrue(linkJob.inputs.contains(.init(file: .temporary(.init("bar.o")), type: .object)))
+      XCTAssertTrue(linkJob.inputs.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(linkJob.inputs.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(linkJob.inputs.contains(.init(file: .relative(.init("baz.o")), type: .object)))
-      XCTAssertTrue(cmd.contains(.path(.temporary(.init("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(.init("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(cmd.contains(.path(.relative(.init("baz.o")))))
     }
 
@@ -914,8 +914,8 @@ final class SwiftDriverTests: XCTestCase {
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-static")))
       XCTAssertTrue(cmd.contains(.flag("-o")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
 
       // The regular Swift driver doesn't pass Xlinker flags to the static
@@ -942,8 +942,8 @@ final class SwiftDriverTests: XCTestCase {
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-static")))
       XCTAssertTrue(cmd.contains(.flag("-o")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.bc")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.bc")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .llvmBitcode))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .llvmBitcode))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
 
       // The regular Swift driver doesn't pass Xlinker flags to the static
@@ -973,8 +973,8 @@ final class SwiftDriverTests: XCTestCase {
 
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-o")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -1021,8 +1021,8 @@ final class SwiftDriverTests: XCTestCase {
 
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-o")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(cmd.contains(subsequence: [.flag("-add_ast_path"), .path(.relative(.init("Test.swiftmodule")))]))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
@@ -1042,8 +1042,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
 
       let autolinkCmd = autolinkExtractJob.commandLine
-      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
 
       let linkJob = plannedJobs[3]
@@ -1051,8 +1051,8 @@ final class SwiftDriverTests: XCTestCase {
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-o")))
       XCTAssertTrue(cmd.contains(.flag("-shared")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(cmd.contains(.responseFilePath(.temporary(RelativePath("Test.autolink")))))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.so"))
 
@@ -1071,16 +1071,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
 
       let autolinkCmd = autolinkExtractJob.commandLine
-      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
 
       let linkJob = plannedJobs[3]
       let cmd = linkJob.commandLine
       // we'd expect "ar crs libTest.a foo.o bar.o"
       XCTAssertTrue(cmd.contains(.flag("crs")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
 
       XCTAssertFalse(cmd.contains(.flag("-o")))
@@ -1100,16 +1100,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
 
       let autolinkCmd = autolinkExtractJob.commandLine
-      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
 
       let linkJob = plannedJobs[3]
       let cmd = linkJob.commandLine
       // we'd expect "ar crs libTest.a foo.o bar.o"
       XCTAssertTrue(cmd.contains(.flag("crs")))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.a"))
 
       XCTAssertFalse(cmd.contains(.flag("-o")))
@@ -1135,8 +1135,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
 
         let autolinkCmd = autolinkExtractJob.commandLine
-        XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
-        XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+        XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "foo", extension: .object))
+        XCTAssertTrue(autolinkCmd.containsTemporary(prefix: "bar", extension: .object))
         XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
 
         let linkJob = plannedJobs[3]
@@ -1144,8 +1144,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(subsequence: ["-target", "wasm32-unknown-wasi"]))
         XCTAssertTrue(cmd.contains(subsequence: ["--sysroot", .path(.absolute(.init("/sdk/path")))]))
         XCTAssertTrue(cmd.contains(.path(.absolute(path.appending(components: "wasi", "wasm32", "swiftrt.o")))))
-        XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
-        XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+        XCTAssertTrue(cmd.containsTemporary(prefix: "foo", extension: .object))
+        XCTAssertTrue(cmd.containsTemporary(prefix: "bar", extension: .object))
         XCTAssertTrue(cmd.contains(.responseFilePath(.temporary(RelativePath("Test.autolink")))))
         XCTAssertTrue(cmd.contains(.responseFilePath(.absolute(path.appending(components: "wasi", "static-executable-args.lnk")))))
         XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
@@ -1448,11 +1448,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo1.o")))
+      XCTAssertTrue(plannedJobs[0].outputs.first!.file.isTemporary(prefix: "foo1", extension: .object))
       XCTAssertEqual(plannedJobs[1].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[1].outputs.first!.file, VirtualPath.temporary(RelativePath("foo3.o")))
+      XCTAssertTrue(plannedJobs[1].outputs.first!.file.isTemporary(prefix: "foo3", extension: .object))
       XCTAssertEqual(plannedJobs[2].outputs.count, 3)
-      XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.temporary(RelativePath("foo5.o")))
+      XCTAssertTrue(plannedJobs[2].outputs.first!.file.isTemporary(prefix: "foo5", extension: .object))
       XCTAssertTrue(plannedJobs[3].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
       XCTAssertEqual(plannedJobs[3].outputs.count, 1)
       XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
@@ -1505,7 +1505,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-    XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("Test.o")))
+    XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "Test", extension: .object))
     XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.relative(RelativePath("Test-Swift.h")))
     XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.relative(RelativePath("Test.swiftinterface")))
     XCTAssertEqual(plannedJobs[0].outputs[3].file, VirtualPath.relative(RelativePath("Test.private.swiftinterface")))
@@ -1526,9 +1526,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertEqual(plannedJobs[0].outputs.count, 3)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "foo", extension: .object))
+      XCTAssertTrue(plannedJobs[0].outputs[1].file.isTemporary(prefix: "bar", extension: .object))
+      XCTAssertTrue(plannedJobs[0].outputs[2].file.isTemporary(prefix: "wibble", extension: .object))
       XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
@@ -1583,9 +1583,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(plannedJobs.count, 2)
         XCTAssertEqual(plannedJobs[0].kind, .compile)
         XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-        XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.temporary(RelativePath("foo.o")))
-        XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.temporary(RelativePath("bar.o")))
-        XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.temporary(RelativePath("wibble.o")))
+        XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "foo", extension: .object))
+        XCTAssertTrue(plannedJobs[0].outputs[1].file.isTemporary(prefix: "bar", extension: .object))
+        XCTAssertTrue(plannedJobs[0].outputs[2].file.isTemporary(prefix: "wibble", extension: .object))
         XCTAssertEqual(plannedJobs[0].outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
         XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
@@ -1612,17 +1612,17 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("foo.swiftmodule")))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, .temporary(RelativePath("foo.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[0].outputs[3].file, .temporary(RelativePath("foo.d")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "foo", extension: .swiftModule))
+      XCTAssertTrue(plannedJobs[0].outputs[1].file.isTemporary(prefix: "foo", extension: .swiftDocumentation))
+      XCTAssertTrue(plannedJobs[0].outputs[2].file.isTemporary(prefix: "foo", extension: .swiftSourceInfoFile))
+      XCTAssertTrue(plannedJobs[0].outputs[3].file.isTemporary(prefix: "foo", extension: .dependencies))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertEqual(plannedJobs[1].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("bar.swiftmodule")))
-      XCTAssertEqual(plannedJobs[1].outputs[1].file, .temporary(RelativePath("bar.swiftdoc")))
-      XCTAssertEqual(plannedJobs[1].outputs[2].file, .temporary(RelativePath("bar.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[1].outputs[3].file, .temporary(RelativePath("bar.d")))
+      XCTAssertTrue(plannedJobs[1].outputs[0].file.isTemporary(prefix: "bar", extension: .swiftModule))
+      XCTAssertTrue(plannedJobs[1].outputs[1].file.isTemporary(prefix: "bar", extension: .swiftDocumentation))
+      XCTAssertTrue(plannedJobs[1].outputs[2].file.isTemporary(prefix: "bar", extension: .swiftSourceInfoFile))
+      XCTAssertTrue(plannedJobs[1].outputs[3].file.isTemporary(prefix: "bar", extension: .dependencies))
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
@@ -1675,9 +1675,9 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("input.swiftmodule")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "input", extension: .swiftModule))
       XCTAssertEqual(plannedJobs[1].kind, .mergeModule)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("input.swiftmodule")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "input", extension: .swiftModule))
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(AbsolutePath("/tmp/test.swiftmodule")))
     }
   }
@@ -3091,8 +3091,8 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-bc")))
-      XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.temporary(RelativePath("foo.bc")))
-      XCTAssertEqual(plannedJobs[1].inputs.first!.file, VirtualPath.temporary(RelativePath("foo.bc")))
+      XCTAssertTrue(plannedJobs[0].outputs.first!.file.isTemporary(prefix: "foo", extension: .llvmBitcode))
+      XCTAssertTrue(plannedJobs[1].inputs.first!.file.isTemporary(prefix: "foo", extension: .llvmBitcode))
     }
   }
 
@@ -3283,7 +3283,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try VirtualPath(path: "foo.swift"))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("foo.bc")))
+      XCTAssertTrue(plannedJobs[1].outputs[0].file.isTemporary(prefix: "foo", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[2].kind, .backend)
     }
@@ -3494,13 +3494,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("embed-bitcode.o")))
+      XCTAssertTrue(plannedJobs[1].outputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .object))
 
       XCTAssertEqual(plannedJobs[2].kind, .link)
       XCTAssertEqual(plannedJobs[2].outputs.count, 1)
@@ -3517,26 +3517,26 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("main.swift")))
       XCTAssertEqual(plannedJobs[0].inputs[1].file, .relative(RelativePath("hi.swift")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "main", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "main", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("main.o")))
+      XCTAssertTrue(plannedJobs[1].outputs[0].file.isTemporary(prefix: "main", extension: .object))
 
       XCTAssertEqual(plannedJobs[2].kind, .compile)
       XCTAssertEqual(plannedJobs[2].inputs.count, 2)
       XCTAssertEqual(plannedJobs[2].inputs[0].file, .relative(RelativePath("main.swift")))
       XCTAssertEqual(plannedJobs[2].inputs[1].file, .relative(RelativePath("hi.swift")))
       XCTAssertEqual(plannedJobs[2].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .temporary(RelativePath("hi.bc")))
+      XCTAssertTrue(plannedJobs[2].outputs[0].file.isTemporary(prefix: "hi", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[3].kind, .backend)
       XCTAssertEqual(plannedJobs[3].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[3].inputs[0].file, .temporary(RelativePath("hi.bc")))
+      XCTAssertTrue(plannedJobs[3].inputs[0].file.isTemporary(prefix: "hi", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[3].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[3].outputs[0].file, .temporary(RelativePath("hi.o")))
+      XCTAssertTrue(plannedJobs[3].outputs[0].file.isTemporary(prefix: "hi", extension: .object))
 
       XCTAssertEqual(plannedJobs[4].kind, .link)
     }
@@ -3550,20 +3550,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, .temporary(RelativePath("embed-bitcode.swiftmodule")))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, .temporary(RelativePath("embed-bitcode.swiftdoc")))
-      XCTAssertEqual(plannedJobs[0].outputs[3].file, .temporary(RelativePath("embed-bitcode.swiftsourceinfo")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .llvmBitcode))
+      XCTAssertTrue(plannedJobs[0].outputs[1].file.isTemporary(prefix: "embed-bitcode", extension: .swiftModule))
+      XCTAssertTrue(plannedJobs[0].outputs[2].file.isTemporary(prefix: "embed-bitcode", extension: .swiftDocumentation))
+      XCTAssertTrue(plannedJobs[0].outputs[3].file.isTemporary(prefix: "embed-bitcode", extension: .swiftSourceInfoFile))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
 
       XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
       XCTAssertEqual(plannedJobs[2].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[2].inputs[0].file, .temporary(RelativePath("embed-bitcode.swiftmodule")))
+      XCTAssertTrue(plannedJobs[2].inputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .swiftModule))
       XCTAssertEqual(plannedJobs[2].outputs.count, 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("main.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("main.swiftdoc")))
@@ -3579,13 +3579,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "main", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("main.bc")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "main", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .temporary(RelativePath("main.o")))
+      XCTAssertTrue(plannedJobs[1].outputs[0].file.isTemporary(prefix: "main", extension: .object))
 
       XCTAssertEqual(plannedJobs[2].kind, .link)
       XCTAssertEqual(plannedJobs[2].outputs.count, 1)
@@ -3599,28 +3599,28 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("embed-bitcode.bc")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
 
       XCTAssertEqual(plannedJobs[2].kind, .compile)
       XCTAssertEqual(plannedJobs[2].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .temporary(RelativePath("empty.bc")))
+      XCTAssertTrue(plannedJobs[2].outputs[0].file.isTemporary(prefix: "empty", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[3].kind, .backend)
       XCTAssertEqual(plannedJobs[3].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[3].inputs[0].file, .temporary(RelativePath("empty.bc")))
+      XCTAssertTrue(plannedJobs[3].inputs[0].file.isTemporary(prefix: "empty", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[3].outputs.count, 1)
       XCTAssertEqual(plannedJobs[3].outputs[0].file, .relative(RelativePath("empty.o")))
 
       XCTAssertEqual(plannedJobs[4].kind, .mergeModule)
       XCTAssertEqual(plannedJobs[4].inputs.count, 2)
-      XCTAssertEqual(plannedJobs[4].inputs[0].file, .temporary(RelativePath("embed-bitcode.swiftmodule")))
-      XCTAssertEqual(plannedJobs[4].inputs[1].file, .temporary(RelativePath("empty.swiftmodule")))
+      XCTAssertTrue(plannedJobs[4].inputs[0].file.isTemporary(prefix: "embed-bitcode", extension: .swiftModule))
+      XCTAssertTrue(plannedJobs[4].inputs[1].file.isTemporary(prefix: "empty", extension: .swiftModule))
       XCTAssertEqual(plannedJobs[4].outputs.count, 3)
       XCTAssertEqual(plannedJobs[4].outputs[0].file, .relative(RelativePath("ABC.swiftmodule")))
       XCTAssertEqual(plannedJobs[4].outputs[1].file, .relative(RelativePath("ABC.swiftdoc")))
@@ -3636,11 +3636,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .temporary(RelativePath("Swift.bc")))
+      XCTAssertTrue(plannedJobs[0].outputs[0].file.isTemporary(prefix: "Swift", extension: .llvmBitcode))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
       XCTAssertEqual(plannedJobs[1].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("Swift.bc")))
+      XCTAssertTrue(plannedJobs[1].inputs[0].file.isTemporary(prefix: "Swift", extension: .llvmBitcode))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("Swift.o")))
     }
@@ -3876,9 +3876,9 @@ final class SwiftDriverTests: XCTestCase {
       let compileJob = plannedJobs[0]
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-emit-module-source-info-path")))
       XCTAssertEqual(compileJob.outputs.count, 3)
-      XCTAssertEqual(compileJob.outputs[0].file, .temporary(RelativePath("foo.swiftmodule")))
-      XCTAssertEqual(compileJob.outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
-      XCTAssertEqual(compileJob.outputs[2].file, .temporary(RelativePath("foo.swiftsourceinfo")))
+      XCTAssertTrue(compileJob.outputs[0].file.isTemporary(prefix: "foo", extension: .swiftModule))
+      XCTAssertTrue(compileJob.outputs[1].file.isTemporary(prefix: "foo", extension: .swiftDocumentation))
+      XCTAssertTrue(compileJob.outputs[2].file.isTemporary(prefix: "foo", extension: .swiftSourceInfoFile))
     }
     // implicit with Project/ Directory
     do {
@@ -3904,8 +3904,8 @@ final class SwiftDriverTests: XCTestCase {
       let compileJob = plannedJobs[0]
       XCTAssertFalse(compileJob.commandLine.contains(.flag("-emit-module-source-info-path")))
       XCTAssertEqual(compileJob.outputs.count, 2)
-      XCTAssertEqual(compileJob.outputs[0].file, .temporary(RelativePath("foo.swiftmodule")))
-      XCTAssertEqual(compileJob.outputs[1].file, .temporary(RelativePath("foo.swiftdoc")))
+      XCTAssertTrue(compileJob.outputs[0].file.isTemporary(prefix: "foo", extension: .swiftModule))
+      XCTAssertTrue(compileJob.outputs[1].file.isTemporary(prefix: "foo", extension: .swiftDocumentation))
     }
   }
 
@@ -4110,7 +4110,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't List")
         return
       }
-      XCTAssertEqual(outputs, [.temporary(RelativePath("a.bc")), .temporary(RelativePath("b.bc")), .temporary(RelativePath("c.bc"))])
+      XCTAssertTrue(outputs.containsTemporary(prefix: "a", extension: .llvmBitcode))
+      XCTAssertTrue(outputs.containsTemporary(prefix: "b", extension: .llvmBitcode))
+      XCTAssertTrue(outputs.containsTemporary(prefix: "c", extension: .llvmBitcode))
     }
 
     do {
@@ -4127,7 +4129,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't List")
         return
       }
-      XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
+      XCTAssertTrue(inputs.containsTemporary(prefix: "a", extension: .object))
+      XCTAssertTrue(inputs.containsTemporary(prefix: "b", extension: .object))
+      XCTAssertTrue(inputs.containsTemporary(prefix: "c", extension: .object))
     }
 
     do {
@@ -4144,7 +4148,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't List")
         return
       }
-      XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
+      XCTAssertTrue(inputs.containsTemporary(prefix: "a", extension: .object))
+      XCTAssertTrue(inputs.containsTemporary(prefix: "b", extension: .object))
+      XCTAssertTrue(inputs.containsTemporary(prefix: "c", extension: .object))
     }
   }
 }
@@ -4207,5 +4213,37 @@ private extension Array where Element == Job.ArgTemplate {
         return false
       }
     }
+  }
+}
+
+extension VirtualPath {
+  func isTemporary(prefix: String, extension: FileType) -> Bool {
+    guard case .temporary(let path) = self else { return false }
+    return path.pathString.hasPrefix(prefix) && path.pathString.hasSuffix(`extension`.rawValue)
+  }
+}
+
+extension Array where Element == VirtualPath {
+  func containsTemporary(prefix: String, extension: FileType) -> Bool {
+    return contains(where: {
+      $0.isTemporary(prefix: prefix, extension: `extension`)
+    })
+  }
+}
+
+extension Array where Element == TypedVirtualPath {
+  func containsTemporary(prefix: String, extension: FileType) -> Bool {
+    return contains(where: {
+      $0.file.isTemporary(prefix: prefix, extension: `extension`) && $0.type == `extension`
+    })
+  }
+}
+
+extension Array where Element == Job.ArgTemplate {
+  func containsTemporary(prefix: String, extension: FileType) -> Bool {
+    return contains(where: {
+      guard case .path(let path) = $0 else { return false }
+      return path.isTemporary(prefix: prefix, extension: `extension`)
+    })
   }
 }

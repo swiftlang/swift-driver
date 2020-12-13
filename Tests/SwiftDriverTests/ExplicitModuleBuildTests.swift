@@ -359,7 +359,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
                                             moduleDependencyGraph: dependencyGraph)
-          case .temporary(RelativePath("testExplicitModuleBuildJobs.o")):
+          case .temporary(let path) where path.basename.hasPrefix("testExplicitModuleBuildJobs") && path.extension == "o":
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
               XCTFail("Main module does not have Swift details field")
