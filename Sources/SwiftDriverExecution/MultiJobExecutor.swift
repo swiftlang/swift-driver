@@ -149,12 +149,12 @@ public final class MultiJobExecutor {
       case let .incremental(ics):
         incrementalCompilationState = ics
         primaryIndices = Self.addJobs(
-          ics.mandatoryPreOrCompileJobsInOrder,
+          ics.mandatoryJobsInOrder,
           to: &jobs,
           producing: &producerMap
         )
         postCompileIndices = Self.addJobs(
-          ics.postCompileJobs,
+          ics.jobsAfterCompiles,
           to: &jobs,
           producing: &producerMap)
       case let .all(nonincrementalJobs):
@@ -213,11 +213,11 @@ public final class MultiJobExecutor {
     fileprivate func addRuleBeyondMandatoryCompiles(
       finishedJob job: Job,
       result: ProcessResult
-    ) {
+    ) throws {
       guard job.kind.isCompile else {
         return
       }
-      if let newJobs = incrementalCompilationState?
+      if let newJobs = try incrementalCompilationState?
           .getJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
         let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
         needInputFor(indices: newJobIndices)
@@ -534,7 +534,7 @@ class ExecuteJobRule: LLBuildRule {
         }
       }
       if case .terminated = result.exitStatus {
-        context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
+        try context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
       }
 
       // Inform the delegate about job finishing.
