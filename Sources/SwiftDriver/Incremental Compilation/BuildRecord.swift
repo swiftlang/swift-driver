@@ -77,12 +77,14 @@ public struct BuildRecord {
 
 // MARK: - Reading the old map and deciding whether to use it
 public extension BuildRecord {
-  init(contents: String) throws {
+  init(contents: String, defaultArgsHash: String? = nil) throws {
     guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
       .singleRoot()?.mapping
       else { throw SimpleErrors.couldNotDecodeBuildRecord }
-    var argsHash, swiftVersion: String?
-    var buildTime: Date?
+    var argsHash: String? = defaultArgsHash
+    var swiftVersion: String?
+    // Legacy driver does not disable incremental if no buildTime field.
+    var buildTime: Date = .distantPast
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else { throw SimpleErrors.sectionNameNotString }

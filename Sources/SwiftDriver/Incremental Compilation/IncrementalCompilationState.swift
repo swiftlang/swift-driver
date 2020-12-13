@@ -74,10 +74,15 @@ public class IncrementalCompilationState {
       return nil
     }
 
+    // Mimic the legacy driver for testing ease: If no `argsHash` section,
+    // record still matches.
+    let defaultArgsHash = buildRecordInfo.argsHash
+
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     guard let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
             inputFiles: inputFiles,
+            defaultArgsHash: defaultArgsHash,
             failed: {
               diagnosticEngine.emit(
                 .remark_incremental_compilation_disabled(because: $0))
