@@ -14,16 +14,20 @@
   /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main modules/targets
   /// into a single collection of discovered modules.
   func mergeModules(from dependencyGraph: InterModuleDependencyGraph) throws {
-    for (moduleId, moduleInfo) in dependencyGraph.modules {
-      try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+    try self.lock.withLock {
+      for (moduleId, moduleInfo) in dependencyGraph.modules {
+        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+      }
     }
   }
 
   // This is a backwards-compatibility shim to handle existing ModuleInfoMap-based API
   // used by SwiftPM
   func mergeModules(from moduleInfoMap: ModuleInfoMap) throws {
-    for (moduleId, moduleInfo) in moduleInfoMap {
-      try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+    try self.lock.withLock {
+      for (moduleId, moduleInfo) in moduleInfoMap {
+        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+      }
     }
   }
 }

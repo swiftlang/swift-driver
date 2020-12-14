@@ -407,6 +407,7 @@ extension Driver {
     }
 
     // Re-scan Clang modules at all the targets they will be built against.
+    // TODO: Should be deprecated once switched over to libSwiftScan
     try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
 
     // Set dependency modules' paths to be saved in the module cache.

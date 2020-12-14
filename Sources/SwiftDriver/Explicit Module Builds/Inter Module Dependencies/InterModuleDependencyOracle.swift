@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
+
 // An inter-module dependency oracle, responsible for responding to queries about
 // dependencies of a given module, caching already-discovered dependencies along the way.
 //
@@ -26,13 +28,15 @@
 public class InterModuleDependencyOracle {
   /// Query the ModuleInfo of a module with a given ID
   @_spi(Testing) public func getModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
-    return modules[moduleId]
+    self.lock.withLock {
+      return modules[moduleId]
+    }
   }
 
   /// Query the direct dependencies of a module with a given ID
   @_spi(Testing) public func getDependencies(of moduleId: ModuleDependencyId)
   -> [ModuleDependencyId]? {
-    return modules[moduleId]?.directDependencies
+    return getModuleInfo(of: moduleId)?.directDependencies
   }
 
   // TODO: This will require a SwiftDriver entry-point for scanning a module given
@@ -43,6 +47,8 @@ public class InterModuleDependencyOracle {
   // func getFullDependencies(inputs: [TypedVirtualPath],
   //                          commandLine: [Job.ArgTemplate]) -> InterModuleDependencyGraph {}
   //
+
+  internal let lock = Lock()
 
   /// The complete set of modules discovered so far, spanning potentially multiple targets
   internal var modules: ModuleInfoMap = [:]
