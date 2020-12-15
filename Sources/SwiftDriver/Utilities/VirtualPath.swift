@@ -162,13 +162,21 @@ public enum VirtualPath: Hashable {
   }
 
   public func appending(components: String...) -> VirtualPath {
-    // FIXME: TSC should add non-variadic overloads of appending(components:)
-    // so we can forward arguments here instead of appending components one-by-one.
-    var result = self
-    components.forEach {
-      result = result.appending(component: $0)
+    switch self {
+    case .absolute(let path):
+      return .absolute(path.appending(components: components))
+    case .relative(let path):
+      return .relative(path.appending(components: components))
+    case .temporary(let path):
+      return .temporary(path.appending(components: components))
+    case let .temporaryWithKnownContents(path, contents):
+      return .temporaryWithKnownContents(path.appending(components: components), contents)
+    case .fileList(let path, let content):
+      return .fileList(path.appending(components: components), content)
+    case .standardInput, .standardOutput:
+      assertionFailure("Can't append path component to standard in/out")
+      return self
     }
-    return result
   }
 
   /// Returns the virtual path with an additional suffix appended to base name.
