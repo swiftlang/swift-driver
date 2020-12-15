@@ -1,4 +1,4 @@
-//===-------------- CommonDependencyGraphOperations.swift -----------------===//
+//===----------------- CommonDependencyOperations.swift -------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -10,9 +10,31 @@
 //
 //===----------------------------------------------------------------------===//
 
-public extension InterModuleDependencyGraph {
+@_spi(Testing) public extension InterModuleDependencyOracle {
   /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main modules/targets
   /// into a single collection of discovered modules.
+  func mergeModules(from dependencyGraph: InterModuleDependencyGraph) throws {
+    try self.lock.withLock {
+      for (moduleId, moduleInfo) in dependencyGraph.modules {
+        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+      }
+    }
+  }
+
+  // This is a backwards-compatibility shim to handle existing ModuleInfoMap-based API
+  // used by SwiftPM
+  func mergeModules(from moduleInfoMap: ModuleInfoMap) throws {
+    try self.lock.withLock {
+      for (moduleId, moduleInfo) in moduleInfoMap {
+        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &modules)
+      }
+    }
+  }
+}
+
+public extension InterModuleDependencyGraph {
+  // This is a shim for backwards-compatibility with existing API used by SwiftPM.
+  // TODO: After SwiftPM switches to using the oracle, this should be deleted.
   static func mergeModules(
     from dependencyGraph: InterModuleDependencyGraph,
     into discoveredModules: inout ModuleInfoMap
@@ -23,7 +45,8 @@ public extension InterModuleDependencyGraph {
   }
 }
 
-internal extension InterModuleDependencyGraph {
+
+@_spi(Testing) public extension InterModuleDependencyGraph {
   /// Merge a module with a given ID and Info into a ModuleInfoMap
   static func mergeModule(_ moduleId: ModuleDependencyId,
                           _ moduleInfo: ModuleInfo,
@@ -113,5 +136,48 @@ internal extension InterModuleDependencyGraph {
         moduleInfoMap[moduleId] = moduleInfo
       }
     }
+  }
+
+  /// Given two moduleInfos of clang modules, merge them by combining their directDependencies and
+  /// dependenciesCapturedPCMArgs and sourceFiles fields. These fields may differ across the same module
+  /// scanned at different PCMArgs (e.g. -target option).
+  static func mergeClangModuleInfoDependencies(_ firstInfo: ModuleInfo, _ secondInfo:ModuleInfo
+  ) -> ModuleInfo {
+    guard case .clang(let firstDetails) = firstInfo.details,
+          case .clang(let secondDetails) = secondInfo.details
+    else {
+      fatalError("mergeClangModules expected two valid ClangModuleDetails objects.")
+    }
+
+    // As far as their dependencies go, these module infos are identical
+    if firstInfo.directDependencies == secondInfo.directDependencies,
+       firstDetails.dependenciesCapturedPCMArgs == secondDetails.dependenciesCapturedPCMArgs,
+       firstInfo.sourceFiles == secondInfo.sourceFiles {
+      return firstInfo
+    }
+
+    // Create a new moduleInfo that represents this module with combined dependency information
+    let firstModuleSources = firstInfo.sourceFiles ?? []
+    let secondModuleSources = secondInfo.sourceFiles ?? []
+    let combinedSourceFiles = Array(Set(firstModuleSources + secondModuleSources))
+
+    let firstModuleDependencies = firstInfo.directDependencies ?? []
+    let secondModuleDependencies = secondInfo.directDependencies ?? []
+    let combinedDependencies = Array(Set(firstModuleDependencies + secondModuleDependencies))
+
+    let firstModuleCapturedPCMArgs = firstDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+    let secondModuleCapturedPCMArgs = secondDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+    let combinedCapturedPCMArgs = firstModuleCapturedPCMArgs.union(secondModuleCapturedPCMArgs)
+
+    let combinedModuleDetails =
+      ClangModuleDetails(moduleMapPath: firstDetails.moduleMapPath,
+                         dependenciesCapturedPCMArgs: combinedCapturedPCMArgs,
+                         contextHash: firstDetails.contextHash,
+                         commandLine: firstDetails.commandLine)
+
+    return ModuleInfo(modulePath: firstInfo.modulePath,
+                      sourceFiles: combinedSourceFiles,
+                      directDependencies: combinedDependencies,
+                      details: .clang(combinedModuleDetails))
   }
 }

@@ -83,27 +83,27 @@ public struct BridgingHeader: Codable {
 /// Details specific to Swift modules.
 public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
-  @_spi(Testing) public var moduleInterfacePath: String?
+  public var moduleInterfacePath: String?
 
   /// The paths of potentially ready-to-use compiled modules for the interface.
-  @_spi(Testing) public var compiledModuleCandidates: [String]?
+  public var compiledModuleCandidates: [String]?
 
   /// The bridging header, if any.
-  var bridgingHeaderPath: String?
+  public var bridgingHeaderPath: String?
 
   /// The source files referenced by the bridging header.
-  var bridgingSourceFiles: [String]? = []
+  public var bridgingSourceFiles: [String]? = []
 
   /// Options to the compile command
-  var commandLine: [String]? = []
+  public var commandLine: [String]? = []
 
   /// To build a PCM to be used by this Swift module, we need to append these
   /// arguments to the generic PCM build arguments reported from the dependency
   /// graph.
-  @_spi(Testing) public var extraPcmArgs: [String]
+  public var extraPcmArgs: [String]
 
   /// A flag to indicate whether or not this module is a framework.
-  @_spi(Testing) public var isFramework: Bool
+  public var isFramework: Bool
 }
 
 /// Details specific to Swift placeholder dependencies.
@@ -119,29 +119,47 @@ public struct SwiftPlaceholderModuleDetails: Codable {
 public struct SwiftPrebuiltExternalModuleDetails: Codable {
   /// The path to the already-compiled module that must be used instead of
   /// generating a job to build this module.
-  @_spi(Testing) public var compiledModulePath: String
+  public var compiledModulePath: String
 
   /// The path to the .swiftModuleDoc file.
-  var moduleDocPath: String?
+  public var moduleDocPath: String?
 
   /// The path to the .swiftSourceInfo file.
-  var moduleSourceInfoPath: String?
+  public var moduleSourceInfoPath: String?
+
+  public init(compiledModulePath: String,
+              moduleDocPath: String? = nil,
+              moduleSourceInfoPath: String? = nil) {
+    self.compiledModulePath = compiledModulePath
+    self.moduleDocPath = moduleDocPath
+    self.moduleSourceInfoPath = moduleSourceInfoPath
+  }
 }
 
 /// Details specific to Clang modules.
 public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
-  @_spi(Testing) public var moduleMapPath: String
+  public var moduleMapPath: String
 
   /// Set of PCM Arguments of depending modules which
   /// are covered by the directDependencies info of this module
   public var dependenciesCapturedPCMArgs: Set<[String]>?
 
   /// clang-generated context hash
-  var contextHash: String
+  public var contextHash: String
 
   /// Options to the compile command
-  var commandLine: [String] = []
+  public var commandLine: [String] = []
+
+  public init(moduleMapPath: String,
+              dependenciesCapturedPCMArgs: Set<[String]>?,
+              contextHash: String,
+              commandLine: [String]) {
+    self.moduleMapPath = moduleMapPath
+    self.dependenciesCapturedPCMArgs = dependenciesCapturedPCMArgs
+    self.contextHash = contextHash
+    self.commandLine = commandLine
+  }
 }
 
 public struct ModuleInfo: Codable {
@@ -172,6 +190,16 @@ public struct ModuleInfo: Codable {
 
     /// Clang modules are built from a module map file.
     case clang(ClangModuleDetails)
+  }
+
+  public init(modulePath: String,
+              sourceFiles: [String]?,
+              directDependencies: [ModuleDependencyId]?,
+              details: Details) {
+    self.modulePath = modulePath
+    self.sourceFiles = sourceFiles
+    self.directDependencies = directDependencies
+    self.details = details
   }
 }
 

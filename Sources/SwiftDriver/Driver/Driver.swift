@@ -256,11 +256,21 @@ public struct Driver {
   /// dependencies in parallel builds.
   var forceEmitModuleBeforeCompile: Bool = false
 
+  // FIXME: We should soon be able to remove this from being in the Driver's state.
+  // Its only remaining use outside of actual dependency build planning is in
+  // command-line input option generation for the explicit main module compile job.
   /// Planner for constructing module build jobs using Explicit Module Builds.
-  /// Constructed during the planning phase only when all modules will be prebuilt and treated
-  /// as explicit by the various compilation jobs.
+  /// Constructed during the planning phase only when all module dependencies will be prebuilt and treated
+  /// as explicit inputs by the various compilation jobs.
   @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
 
+  /// An oracle for querying inter-module dependencies
+  /// Can either be an argument to the driver in many-module contexts where dependency information
+  /// is shared across many targets; otherwise, a new instance is created by the driver itself.
+  @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
+
+  // TODO: Once the clients have transitioned to using the InterModuleDependencyOracle API,
+  // this must convey information about the externally-prebuilt targets only
   /// All external artifacts a build system (e.g. SwiftPM) may pass in as input to the explicit
   /// build of the current module. Consists of a map of externally-built targets, and a map of all previously
   /// discovered/scanned modules and their infos.
@@ -311,7 +321,11 @@ public struct Driver {
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
-    externalBuildArtifacts: ExternalBuildArtifacts? = nil
+    // FIXME: Duplication with externalBuildArtifacts and externalTargetModulePathMap
+    // is a temporary backwards-compatibility shim to help transition SwiftPM to the new API
+    externalBuildArtifacts: ExternalBuildArtifacts? = nil,
+    externalTargetModulePathMap: ExternalTargetModulePathMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
@@ -319,7 +333,11 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
-    self.externalBuildArtifacts = externalBuildArtifacts
+    if let externalArtifacts = externalBuildArtifacts {
+      self.externalBuildArtifacts = externalArtifacts
+    } else if let externalTargetPaths = externalTargetModulePathMap {
+      self.externalBuildArtifacts = (externalTargetPaths, [:])
+    }
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -370,7 +388,24 @@ public struct Driver {
         guard let modTime = try? fileSystem
           .getFileInfo($0.file).modTime else { return nil }
         return ($0, modTime)
-      })
+    })
+
+    // Create an instance of an inter-module dependency oracle, if the driver's
+    // client did not provide one. The clients are expected to provide an oracle
+    // when they wish to share module dependency information across targets.
+    if let dependencyOracle = interModuleDependencyOracle {
+      self.interModuleDependencyOracle = dependencyOracle
+    } else {
+      self.interModuleDependencyOracle = InterModuleDependencyOracle()
+
+      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
+      // used by SwiftPM
+      if let externalArtifacts = externalBuildArtifacts {
+        if !externalArtifacts.1.isEmpty {
+          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
+        }
+      }
+    }
 
     do {
       let outputFileMap: OutputFileMap?
