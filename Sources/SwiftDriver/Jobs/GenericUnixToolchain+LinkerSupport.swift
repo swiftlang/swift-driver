@@ -61,11 +61,6 @@ extension GenericUnixToolchain {
       commandLine.appendFlag("-shared")
       fallthrough
     case .executable:
-      if !targetTriple.triple.isEmpty {
-        commandLine.appendFlag("-target")
-        commandLine.appendFlag(targetTriple.triple)
-      }
-
         // Select the linker to use.
       var linker: String?
       if let arg = parsedOptions.getLastArgument(.useLd) {
