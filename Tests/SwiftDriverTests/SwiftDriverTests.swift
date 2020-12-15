@@ -1716,7 +1716,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 5)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compileGroups, .mergeModule, .autolinkExtract, .moduleWrap, .link]))
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .moduleWrap, .link]))
       let wrapJob = plannedJobs.filter {$0.kind == .moduleWrap} .first!
       XCTAssertEqual(wrapJob.inputs.count, 1)
       XCTAssertTrue(wrapJob.commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
@@ -1730,7 +1730,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       // No merge module/module wrap jobs.
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compileGroups, .autolinkExtract, .link]))
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .autolinkExtract, .link]))
     }
 
     do {
@@ -1738,7 +1738,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       // Merge module, but no module wrapping.
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compileGroups, .mergeModule, .autolinkExtract, .link]))
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .link]))
     }
     #endif
     // dsymutil won't be found on other platforms
@@ -2156,7 +2156,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertEqual(plannedJobs[0].kind, .compileGroups)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
       XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
