@@ -17,12 +17,13 @@ import Foundation
 /// A.k.a. BuildRecord was the legacy name
 public struct BuildRecord {
   public let swiftVersion: String
-  public let argsHash: String
+  /// When testing, the argsHash may be missing from the build record
+  public let argsHash: String?
   public let buildTime: Date
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
-  public init(  argsHash: String,
+  public init(  argsHash: String?,
                 swiftVersion: String,
                 buildTime: Date,
                 inputInfos: [VirtualPath: InputInfo]) {
@@ -77,11 +78,11 @@ public struct BuildRecord {
 
 // MARK: - Reading the old map and deciding whether to use it
 public extension BuildRecord {
-  init(contents: String, defaultArgsHash: String? = nil) throws {
+  init(contents: String) throws {
     guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
       .singleRoot()?.mapping
       else { throw SimpleErrors.couldNotDecodeBuildRecord }
-    var argsHash: String? = defaultArgsHash
+    var argsHash: String? = nil
     var swiftVersion: String?
     // Legacy driver does not disable incremental if no buildTime field.
     var buildTime: Date = .distantPast
@@ -92,7 +93,8 @@ public extension BuildRecord {
       case SectionName.swiftVersion.serializedName:
         swiftVersion = value.string
       case SectionName.argsHash.serializedName:
-        argsHash = value.string
+        guard let a = value.string else { throw SimpleErrors.noArgsHash }
+        argsHash = a
       case SectionName.buildTime.serializedName:
         buildTime = try Self.decodeDate(value)
       case SectionName.inputInfos.serializedName:
@@ -106,12 +108,14 @@ public extension BuildRecord {
 
   private init(argsHash: String?, swiftVersion: String?, buildTime: Date?,
                inputInfos: [VirtualPath: InputInfo]?)
-    throws {
-      guard let a = argsHash else { throw SimpleErrors.noArgsHash }
-      guard let s = swiftVersion else { throw SimpleErrors.noVersion }
-      guard let b = buildTime else { throw SimpleErrors.noBuildTime }
-      guard let i = inputInfos else { throw SimpleErrors.noInputInfos }
-      self.init(argsHash: a, swiftVersion: s, buildTime: b, inputInfos: i)
+  throws {
+    // The legacy driver allows argHash to be absent to ease testing.
+    // Mimic the legacy driver for testing ease: If no `argsHash` section,
+    // record still matches.
+    guard let s = swiftVersion else { throw SimpleErrors.noVersion }
+    guard let b = buildTime else { throw SimpleErrors.noBuildTime }
+    guard let i = inputInfos else { throw SimpleErrors.noInputInfos }
+    self.init(argsHash: argsHash, swiftVersion: s, buildTime: b, inputInfos: i)
   }
 
   private static func decodeDate(_ node: Yams.Node) throws -> Date {
@@ -145,7 +149,7 @@ extension BuildRecord {
        skippedInputs: Set<TypedVirtualPath>?,
        compilationInputModificationDates: [TypedVirtualPath: Date],
        actualSwiftVersion: String,
-       argsHash: String,
+       argsHash: String!,
        timeBeforeFirstJob: Date
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
@@ -167,7 +171,8 @@ extension BuildRecord {
     )
   }
 
-  /*@_spi(Testing)*/ public func encode() throws -> String {
+  /// Pass in `currentArgsHash` to ensure it is non-nil
+  /*@_spi(Testing)*/ public func encode(currentArgsHash: String) throws -> String {
       let pathsAndInfos = inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
         return (input.name, inputInfo)
@@ -178,8 +183,8 @@ extension BuildRecord {
           .map {(Yams.Node($0.0, .implicit, .doubleQuoted), Self.encode($0.1))}
       )
     let fieldNodes = [
-      (SectionName.swiftVersion, Yams.Node(swiftVersion, .implicit, .doubleQuoted)),
-      (SectionName.argsHash,     Yams.Node(argsHash, .implicit, .doubleQuoted)),
+      (SectionName.swiftVersion, Yams.Node(swiftVersion,    .implicit, .doubleQuoted)),
+      (SectionName.argsHash,     Yams.Node(currentArgsHash, .implicit, .doubleQuoted)),
       (SectionName.buildTime,    Self.encode(buildTime)),
       (SectionName.inputInfos,   inputInfosNode )
       ] .map { (Yams.Node($0.0.serializedName), $0.1) }

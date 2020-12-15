@@ -38,13 +38,11 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testBuildRecordWithoutOptionsReading() throws {
-    let hash = "abbbfbcaf36b93e58efaadd8271ff142"
     let buildRecord = try! BuildRecord(
-      contents: Inputs.buildRecordWithoutOptions,
-      defaultArgsHash: hash)
+      contents: Inputs.buildRecordWithoutOptions)
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(buildRecord.argsHash, hash)
+    XCTAssertEqual(buildRecord.argsHash, nil)
 
     try XCTAssertEqual(buildRecord.buildTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
@@ -230,7 +228,7 @@ final class NonincrementalCompilationTests: XCTestCase {
                                     .previousModTime.legacyDriverSecsAndNanos,
                                   [1570083660, 0]))
 
-    let outputString = try buildRecord.encode()
+    let outputString = try buildRecord.encode(currentArgsHash: options)
     XCTAssertEqual(inputString, outputString)
   }
   /// The date conversions are not exact

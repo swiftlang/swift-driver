@@ -127,8 +127,10 @@ extension SwiftVersion: Codable {
   var targetVariant: Target?
   let paths: Paths
 
+  static let dummyVersion = "dummy"
+
   static func dummyForTesting(_ toolchain: Toolchain) -> Self {
-    Self(compilerVersion: "dummy",
+    Self(compilerVersion: Self.dummyVersion,
          target: .dummyForTesting(toolchain),
          targetVariant: nil,
          paths: .dummyForTesting)

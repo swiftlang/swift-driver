@@ -28,7 +28,7 @@ struct JobResult {
  class BuildRecordInfo {
   let buildRecordPath: VirtualPath
   let fileSystem: FileSystem
-  let argsHash: String
+  let currentArgsHash: String
   let actualSwiftVersion: String
   let timeBeforeFirstJob: Date
   let diagnosticEngine: DiagnosticsEngine
@@ -57,7 +57,7 @@ struct JobResult {
       return nil
     }
     self.actualSwiftVersion = actualSwiftVersion
-    self.argsHash = Self.computeArgsHash(parsedOptions)
+    self.currentArgsHash = Self.computeArgsHash(parsedOptions)
     self.buildRecordPath = buildRecordPath
     self.compilationInputModificationDates =
       recordedInputModificationDates.filter { input, _ in
@@ -127,11 +127,11 @@ struct JobResult {
       skippedInputs: skippedInputs,
       compilationInputModificationDates: compilationInputModificationDates,
       actualSwiftVersion: actualSwiftVersion,
-      argsHash: argsHash,
+      argsHash: currentArgsHash,
       timeBeforeFirstJob: timeBeforeFirstJob)
 
     let contents: String
-    do {  contents = try buildRecord.encode() }
+    do {  contents = try buildRecord.encode(currentArgsHash: currentArgsHash) }
     catch let BuildRecord.Errors.notAbsolutePath(p) {
       diagnosticEngine.emit(
         .warning_could_not_write_build_record_not_absolutePath(p))
@@ -164,26 +164,27 @@ struct JobResult {
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
   func populateOutOfDateBuildRecord(
     inputFiles: [TypedVirtualPath],
-    defaultArgsHash: String?,
     failed: (String) -> Void
   ) -> BuildRecord? {
     let outOfDateBuildRecord: BuildRecord
     do {
       let contents = try fileSystem.readFileContents(buildRecordPath).cString
-      outOfDateBuildRecord  = try BuildRecord(contents: contents,
-                                              defaultArgsHash: defaultArgsHash)
+      outOfDateBuildRecord  = try BuildRecord(contents: contents)
     }
     catch {
       failed("could not read build record at \(buildRecordPath): \(error.localizedDescription).")
       return nil
     }
-    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion else {
+    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion
+            || actualSwiftVersion == FrontendTargetInfo.dummyVersion
+    else {
       failed(
         "the compiler version has changed from \(outOfDateBuildRecord.swiftVersion) to \(actualSwiftVersion)"
       )
       return nil
     }
-    guard argsHash == outOfDateBuildRecord.argsHash else {
+    guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true
+    else {
       failed( "different arguments were passed to the compiler" )
       return nil
     }
