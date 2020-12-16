@@ -51,14 +51,17 @@ public class IncrementalCompilationState {
       return nil
     }
 
+    let reportIncrementalDecision = driver.computeReportIncrementalDecision()
+
     guard let (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
-            = try Self.getBuildInfo(driver)
+            = try driver.getBuildInfo(
+              reportIncrementalDecision.map {
+                report in {report($0, nil)}
+              }
+            )
     else {
       return nil
     }
-
-    let reportIncrementalDecision =
-      Self.computeReportIncrementalDecision(&driver, outputFileMap)
 
     guard let (moduleDependencyGraph,
                inputsHavingMalformedSwiftDeps: inputsHavingMalformedSwiftDeps) =
@@ -89,54 +92,6 @@ public class IncrementalCompilationState {
     self.driver = driver
   }
 
-  /// Decide if an incremental compilation is possible, and return needed values if so.
-  private static func getBuildInfo(_ driver: Driver)
-  throws -> ( OutputFileMap, BuildRecordInfo, BuildRecord )?
-  {
-    let diagnosticEngine = driver.diagnosticEngine
-    guard let outputFileMap = driver.outputFileMap,
-          let buildRecordInfo = driver.buildRecordInfo
-    else {
-      diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
-      return nil
-    }
-    // FIXME: This should work without an output file map. We should have
-    // another way to specify a build record and where to put intermediates.
-    guard let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
-            inputFiles: driver.inputFiles,
-            failed: {
-              diagnosticEngine.emit(
-                .remark_incremental_compilation_disabled(because: $0))
-            })
-    else {
-      return nil
-    }
-
-    return (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
-  }
-
-  private static func computeReportIncrementalDecision(
-    _ driver: inout Driver,
-    _ outputFileMap: OutputFileMap
-  ) -> ( (String, TypedVirtualPath?) -> Void )?
-  {
-    guard driver.parsedOptions.hasArgument(.driverShowIncremental) || driver.showJobLifecycle
-    else {
-      return nil
-    }
-    let diagnosticEngine = driver.diagnosticEngine
-    return { (s: String, path: TypedVirtualPath?) in
-      let inputAndOutput = path.flatMap {
-        $0.type == .swift ? $0.file : outputFileMap.getInput(outputFile: $0.file)
-      }
-      .map {($0.basename,
-             outputFileMap.getOutput(inputFile: $0, outputType: .object).basename
-      )}
-      let pathPart = inputAndOutput.map { " {compile: \($0.1) <= \($0.0)}" }
-      let message = "\(s)\(pathPart ?? "")"
-      diagnosticEngine.emit(.remark_incremental_compilation(because: message))
-    }
-  }
 
   private static func computeModuleDependencyGraph(
     _ buildRecordInfo: BuildRecordInfo,
@@ -155,7 +110,7 @@ public class IncrementalCompilationState {
               previousInputs: outOfDateBuildRecord.allInputs,
               outputFileMap: outputFileMap,
               parsedOptions: &driver.parsedOptions,
-              remarkDisabled: Diagnostic.Message.remark_incremental_compilation_disabled,
+              remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
               reportIncrementalDecision: reportIncrementalDecision)
     else {
       return nil
@@ -164,7 +119,7 @@ public class IncrementalCompilationState {
     // but someday, just ensure inputsWithUnreadableSwiftDeps are compiled
     if let badSwiftDeps = inputsWithMalformedSwiftDeps.first?.1 {
       diagnosticEngine.emit(
-        .remark_incremental_compilation_disabled(
+        .remark_incremental_compilation_has_been_disabled(
           because: "malformed swift dependencies file '\(badSwiftDeps)'")
       )
       return nil
@@ -229,13 +184,13 @@ fileprivate extension Driver {
     }
     guard compilerMode.supportsIncrementalCompilation else {
       diagnosticEngine.emit(
-        .remark_incremental_compilation_disabled(
+        .remark_incremental_compilation_has_been_disabled(
           because: "it is not compatible with \(compilerMode)"))
       return false
     }
     guard !parsedOptions.hasArgument(.embedBitcode) else {
       diagnosticEngine.emit(
-        .remark_incremental_compilation_disabled(
+        .remark_incremental_compilation_has_been_disabled(
           because: "is not currently compatible with embedding LLVM IR bitcode"))
       return false
     }
@@ -243,6 +198,68 @@ fileprivate extension Driver {
   }
 
 
+  mutating func computeReportIncrementalDecision(
+  ) -> ( (String, TypedVirtualPath?) -> Void )?
+  {
+    guard parsedOptions.hasArgument(.driverShowIncremental) || showJobLifecycle
+    else {
+      return nil
+    }
+     return {  [diagnosticEngine, outputFileMap] (s: String, path: TypedVirtualPath?) in
+      guard let outputFileMap = outputFileMap,
+            let path = path,
+            let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
+      else {
+        diagnosticEngine.emit(.remark_incremental_compilation(because: s))
+        return
+      }
+      let output = outputFileMap.getOutput(inputFile: path.file, outputType: .object)
+      let compiling = " {compile: \(output.basename) <= \(input.basename)}"
+      diagnosticEngine.emit(.remark_incremental_compilation(because: "\(s) \(compiling)"))
+    }
+  }
+
+
+  /// Decide if an incremental compilation is possible, and return needed values if so.
+  func getBuildInfo(
+    _ reportIncrementalDecision: ( (String) -> Void)? )
+  throws -> ( OutputFileMap, BuildRecordInfo, BuildRecord )?
+  {
+    guard let outputFileMap = outputFileMap
+    else {
+      diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
+      return nil
+    }
+    func reportDisablingIncrementalBuild(_ why: String) {
+      guard let report = reportIncrementalDecision else { return }
+      report("Disabling incremental build: \(why)")
+    }
+    guard let buildRecordInfo = buildRecordInfo else {
+      reportDisablingIncrementalBuild("no build record path")
+      return nil
+    }
+    // FIXME: This should work without an output file map. We should have
+    // another way to specify a build record and where to put intermediates.
+    guard  let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
+      inputFiles: inputFiles,
+      reportIncrementalDecision: reportIncrementalDecision ?? {_ in },
+      reportDisablingIncrementalBuild: reportDisablingIncrementalBuild
+    )
+    else {
+      return nil
+    }
+    if let report = reportIncrementalDecision {
+      let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(inputFiles.map {$0.file})
+      guard missingInputs.isEmpty else {
+        report(
+          "Incremental compilation has been disabled, " +
+          " because  the following inputs were used in the previous compilation but not in this one: "
+            + missingInputs.map {$0.basename} .joined(separator: ", "))
+        return nil
+      }
+    }
+    return (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
+  }
 }
 
 fileprivate extension CompilerMode {
@@ -264,14 +281,13 @@ extension Diagnostic.Message {
         "output file map has no master dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
     )
   }
-  fileprivate static func remark_incremental_compilation_disabled(because why: String) -> Diagnostic.Message {
-    // For the sake of legacy compatibility testing, use different prefixes
-    let prefix = why.hasPrefix("could not read build record")
-      ? "Disabling incremental build"
-      : "Incremental compilation has been disabled"
-
-    return .remark("\(prefix): \(why)")
+  fileprivate static func remark_disabling_incremental_build(because why: String) -> Diagnostic.Message {
+    return .remark("Disabling incremental build: \(why)")
   }
+  fileprivate static func remark_incremental_compilation_has_been_disabled(because why: String) -> Diagnostic.Message {
+    return .remark("Incremental compilation has been disabled: \(why)")
+  }
+
   fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
   }
@@ -330,7 +346,7 @@ extension IncrementalCompilationState {
 
     if let report = reportIncrementalDecision {
       for dependent in speculativeInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        report("Queuing (dependent):", dependent)
+        report("Queuing because of the initial set:", dependent)
       }
     }
     let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs)

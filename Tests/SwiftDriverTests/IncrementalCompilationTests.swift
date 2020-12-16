@@ -16,7 +16,9 @@ import SwiftDriver
 
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {
-    let buildRecord = try! BuildRecord(contents: Inputs.buildRecord)
+    let buildRecord = try XCTUnwrap(
+      BuildRecord(contents: Inputs.buildRecord,
+                                  failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
@@ -38,8 +40,10 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testBuildRecordWithoutOptionsReading() throws {
-    let buildRecord = try! BuildRecord(
-      contents: Inputs.buildRecordWithoutOptions)
+    let buildRecord = try XCTUnwrap(
+      BuildRecord(
+        contents: Inputs.buildRecordWithoutOptions,
+        failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, nil)
@@ -204,7 +208,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         "\(gazorp)": !private [0, 0]
 
       """
-    let buildRecord = try BuildRecord(contents: inputString)
+    let buildRecord = try XCTUnwrap (BuildRecord(contents: inputString, failedToReadOutOfDateMap: {_ in}))
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)
@@ -228,7 +232,8 @@ final class NonincrementalCompilationTests: XCTestCase {
                                     .previousModTime.legacyDriverSecsAndNanos,
                                   [1570083660, 0]))
 
-    let outputString = try buildRecord.encode(currentArgsHash: options)
+    let outputString = try XCTUnwrap (buildRecord.encode(currentArgsHash: options,
+                                                         diagnosticEngine: DiagnosticsEngine()))
     XCTAssertEqual(inputString, outputString)
   }
   /// The date conversions are not exact
@@ -547,7 +552,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: Traced: interface of top-level name 'foo' from: main.swift -> implementation of source file 'other.swiftdeps' from: other.swift",
         "Incremental compilation: Found dependent of main.swift: {compile: other.o <= other.swift}",
         "Incremental compilation: Immediately scheduling dependent on main.swift {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (dependent): {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing because of the initial set: {compile: other.o <= other.swift}",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",

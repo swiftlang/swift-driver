@@ -80,7 +80,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
       case let .externalDepend(externalDependency):
         return "module '\(externalDependency)'"
       case let .sourceFileProvide(name: name):
-        return "source file '\((try? VirtualPath(path: name).basename) ?? name)'"
+        return "source file \((try? VirtualPath(path: name).basename) ?? name)"
       }
     }
   }

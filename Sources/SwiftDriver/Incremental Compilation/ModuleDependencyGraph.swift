@@ -77,6 +77,7 @@ extension ModuleDependencyGraph {
       )
     }
     for isd in inputsAndSwiftdeps where isd.1 == nil {
+      // The legacy driver fails silently here.
       diagnosticEngine.emit(
         remarkDisabled("\(isd.0.file.basename) has no swiftDeps file")
       )
