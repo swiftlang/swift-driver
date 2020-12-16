@@ -34,6 +34,8 @@ struct JobResult {
   let diagnosticEngine: DiagnosticsEngine
   let compilationInputModificationDates: [TypedVirtualPath: Date]
 
+  /// Avoid racing on `finishedJobResults` by waiting for any running jobs
+  let finishedJobResultsReady = DispatchSemaphore(value: 1)
   var finishedJobResults  = [JobResult]()
 
   init?(
@@ -114,6 +116,7 @@ struct JobResult {
   /// `Jobs` must include all of the compilation jobs.
   /// `Inputs` will hold all the primary inputs that were not compiled because of incremental compilation
   func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>? ) {
+    finishedJobResultsReady.wait()
     guard let absPath = buildRecordPath.absolutePath else {
       diagnosticEngine.emit(
         .warning_could_not_write_build_record_not_absolutePath(buildRecordPath))
@@ -196,8 +199,13 @@ struct JobResult {
     return outOfDateBuildRecord
   }
 
+  func jobStarted(job: Job, arguments: [String], pid: Int) {
+    finishedJobResultsReady.wait()
+  }
+
   func jobFinished(job: Job, result: ProcessResult) {
     finishedJobResults.append(JobResult(job, result))
+    finishedJobResultsReady.signal()
   }
 }
 

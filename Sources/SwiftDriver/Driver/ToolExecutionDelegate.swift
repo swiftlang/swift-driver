@@ -36,8 +36,9 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   public let showJobLifecycle: Bool
   public let diagnosticEngine: DiagnosticsEngine
 
-
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
+    buildRecordInfo?.jobStarted(job: job, arguments: arguments, pid: pid)
+
     if showJobLifecycle {
       diagnosticEngine.emit(.remark_job_lifecycle("Starting", job))
     }
