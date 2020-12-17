@@ -533,17 +533,16 @@ class ExecuteJobRule: LLBuildRule {
 #endif
         }
       }
-      if case .terminated = result.exitStatus {
-        try context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
-      }
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
-      value = .jobExecution(success: success)
-
       context.cancelBuildIfNeeded(result)
+      if !context.isBuildCancelled {
+        try context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
+      }
+      value = .jobExecution(success: success)
     } catch {
       if error is DiagnosticData {
         context.diagnosticsEngine.emit(error)

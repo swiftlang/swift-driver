@@ -512,6 +512,10 @@ extension IncrementalCompilationState {
 
     unfinishedJobs.remove(finishedJob)
 
+    guard case .terminated = result.exitStatus else {
+      return []
+    }
+
     // Find and deal with inputs that how need to be compiled
     let discoveredInputs = collectInputsDiscovered(from: finishedJob)
     assert(Set(discoveredInputs).isDisjoint(with: finishedJob.primaryInputs),
