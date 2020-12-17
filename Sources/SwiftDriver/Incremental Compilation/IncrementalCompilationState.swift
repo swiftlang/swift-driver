@@ -329,9 +329,17 @@ extension IncrementalCompilationState {
       moduleDependencyGraph: moduleDependencyGraph,
       reportIncrementalDecision: reportIncrementalDecision)
 
+    let inputsMissingOutputs = allGroups.compactMap {
+      $0.outputs.contains {(try? !fileSystem.exists($0.file)) ?? true}
+        ? $0.primaryInput
+        : nil
+    }
+
     // Combine to obtain the inputs that definitely must be recompiled.
     let definitelyRequiredInputs =
-      Set(changedInputs.map {$0.0} + externalDependents + inputsHavingMalformedSwiftDeps)
+      Set(changedInputs.map {$0.0} + externalDependents +
+            inputsHavingMalformedSwiftDeps
+            + inputsMissingOutputs)
     if let report = reportIncrementalDecision {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
         report("Queuing (initial):", scheduledInput)
@@ -390,13 +398,9 @@ extension IncrementalCompilationState {
         modDate.timeIntervalSince1970 == previousModTime?.timeIntervalSince1970
       }
 
-      var outputsExist: Bool {
-        group.outputs.allSatisfy {(try? fileSystem.exists($0.file)) ?? false}
-      }
-
       switch previousCompilationStatus {
 
-      case .upToDate where datesMatch && outputsExist:
+      case .upToDate where datesMatch:
         reportIncrementalDecision?("May skip current input:", input)
         return nil
 
