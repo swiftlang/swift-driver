@@ -433,7 +433,7 @@ extension IncrementalCompilationState {
       if extModTime >= buildTime {
         moduleDependencyGraph.forEachUntracedSwiftDepsDirectlyDependent(on: extDep) {
           reportIncrementalDecision?(
-            "Scheduling externally-dependent on newer  \(extDep.file?.basename ?? "extDep?")",
+            "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
             TypedVirtualPath(file: $0.file, type: .swiftDeps))
           externallyDependentSwiftDeps.insert($0)
         }
