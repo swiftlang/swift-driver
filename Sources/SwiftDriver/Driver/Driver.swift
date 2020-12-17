@@ -2081,11 +2081,13 @@ extension Driver {
     }
 
     // Find the SDK, if any.
-    let sdkPath: VirtualPath? = Self.computeSDKPath(
-      &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
-      targetTriple: explicitTarget, fileSystem: fileSystem,
-      diagnosticsEngine: diagnosticsEngine, env: env)
-
+    let sdkPath: VirtualPath? = hasFrontendBeenRedirectedForTesting
+    ? nil
+      : Self.computeSDKPath(
+        &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
+        targetTriple: explicitTarget, fileSystem: fileSystem,
+        diagnosticsEngine: diagnosticsEngine, env: env)
+    
     // Query the frontend for target information.
     // If there's a dummy frontend, don't query it.
     do {

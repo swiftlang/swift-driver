@@ -234,6 +234,10 @@ fileprivate extension Driver {
       guard let report = reportIncrementalDecision else { return }
       report("Disabling incremental build: \(why)")
     }
+    func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
+      guard let report = reportIncrementalDecision else { return }
+      report("Incremental compilation has been disabled, \(why)")
+    }
     guard let buildRecordInfo = buildRecordInfo else {
       reportDisablingIncrementalBuild("no build record path")
       return nil
@@ -243,7 +247,8 @@ fileprivate extension Driver {
     guard  let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
       inputFiles: inputFiles,
       reportIncrementalDecision: reportIncrementalDecision ?? {_ in },
-      reportDisablingIncrementalBuild: reportDisablingIncrementalBuild
+      reportDisablingIncrementalBuild: reportDisablingIncrementalBuild,
+      reportIncrementalCompilationHasBeenDisabled: reportIncrementalCompilationHasBeenDisabled
     )
     else {
       return nil

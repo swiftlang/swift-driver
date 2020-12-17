@@ -158,7 +158,8 @@ struct JobResult {
   func populateOutOfDateBuildRecord(
     inputFiles: [TypedVirtualPath],
     reportIncrementalDecision: (String) -> Void,
-    reportDisablingIncrementalBuild: (String) -> Void
+    reportDisablingIncrementalBuild: (String) -> Void,
+    reportIncrementalCompilationHasBeenDisabled: (String) -> Void
   ) -> BuildRecord? {
     let contents: String
     do {
@@ -180,8 +181,22 @@ struct JobResult {
     else {
       return nil
     }
-
-
+    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion ||
+            actualSwiftVersion == FrontendTargetInfo.dummyVersion
+    else {
+      let why = "compiler version mismatch. Compiling with \(actualSwiftVersion), previously with \(outOfDateBuildRecord.swiftVersion)"
+      // mimic legacy
+      reportIncrementalCompilationHasBeenDisabled("due to a " + why)
+      reportDisablingIncrementalBuild(why)
+      return nil
+    }
+    guard outOfDateBuildRecord.argsHash.map({$0 == currentArgsHash}) ?? true else {
+      let why = "different arguments were passed to the compiler"
+      // mimic legacy
+      reportIncrementalCompilationHasBeenDisabled(" because " + why)
+      reportDisablingIncrementalBuild(why)
+      return nil
+    }
     return outOfDateBuildRecord
   }
 
