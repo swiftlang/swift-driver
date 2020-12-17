@@ -352,6 +352,7 @@ extension IncrementalCompilationState {
     // as each first wave job finished.
     let speculativeInputs = computeSpeculativeInputs(
       changedInputs: changedInputs,
+      externalDependents: externalDependents,
       moduleDependencyGraph: moduleDependencyGraph,
       alwaysRebuildDependents: alwaysRebuildDependents,
       reportIncrementalDecision: reportIncrementalDecision)
@@ -450,12 +451,13 @@ extension IncrementalCompilationState {
   /// before the whole frontend job finished.
   private static func computeSpeculativeInputs(
     changedInputs: [(TypedVirtualPath, InputInfo.Status)],
+    externalDependents: [TypedVirtualPath],
     moduleDependencyGraph: ModuleDependencyGraph,
     alwaysRebuildDependents: Bool,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
     ) -> Set<TypedVirtualPath> {
     // Collect the files that will be compiled whose dependents should be schedule
-    let cascadingFiles: [TypedVirtualPath] = changedInputs.compactMap { input, status in
+    let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap { input, status in
       let basename = input.file.basename
       switch (status, alwaysRebuildDependents) {
 
@@ -482,10 +484,11 @@ extension IncrementalCompilationState {
         return nil
       }
     }
+    let cascadingExternalDependents = alwaysRebuildDependents ? externalDependents : []
     // Collect the dependent files to speculatively schedule
     var dependentFiles = Set<TypedVirtualPath>()
-    let cascadingFileSet = Set(cascadingFiles)
-    for cascadingFile in cascadingFiles {
+    let cascadingFileSet = Set(cascadingChangedInputs).union(cascadingExternalDependents)
+    for cascadingFile in cascadingFileSet {
        let dependentsOfOneFile = moduleDependencyGraph
         .findDependentSourceFiles(of: cascadingFile, reportIncrementalDecision)
       for dep in dependentsOfOneFile where !cascadingFileSet.contains(dep) {
