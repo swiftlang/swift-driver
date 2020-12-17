@@ -186,7 +186,7 @@ extension BuildRecord {
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
       finishedJobResults.flatMap { entry in
-        entry.j.primaryInputs.map { ($0, entry.result) }
+        entry.j.inputsGeneratingCode.map { ($0, entry.result) }
     })
     let inputInfosArray = compilationInputModificationDates
       .map { input, modDate -> (VirtualPath, InputInfo) in

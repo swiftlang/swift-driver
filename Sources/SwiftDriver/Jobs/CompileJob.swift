@@ -315,6 +315,18 @@ extension Driver {
   }
 }
 
+extension Job {
+  /// In whole-module-optimization mode (WMO), there are no primary inputs and every input generates
+  /// code.
+  public var inputsGeneratingCode: [TypedVirtualPath] {
+    kind != .compile
+      ? []
+      : !primaryInputs.isEmpty
+      ? primaryInputs
+      : inputs.filter {$0.type.isPartOfSwiftCompilation}
+  }
+}
+
 extension FileType {
   /// Determine the frontend compile option that corresponds to the given output type.
   fileprivate var frontendCompileOption: Option {

@@ -200,7 +200,7 @@ extension Job : CustomStringConvertible {
   public var descriptionForLifecycle: String {
     switch kind {
     case .compile:
-      return "Compiling \(displayInputs.map {$0.file.basename}.joined(separator: ", "))"
+      return "Compiling \(inputsGeneratingCode.map {$0.file.basename}.joined(separator: ", "))"
     default:
       return description
     }
