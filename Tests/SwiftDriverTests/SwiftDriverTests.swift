@@ -4146,6 +4146,55 @@ final class SwiftDriverTests: XCTestCase {
       }
       XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
     }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "a.swift", "b.swift", "-driver-filelist-threshold=0"])
+      let plannedJobs = try driver.planBuild()
+
+      let jobA = plannedJobs[0]
+      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
+      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapA) = fileListA else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      XCTAssertEqual(mapA.entries, [.relative(.init("a.swift")): [:]])
+
+      let jobB = plannedJobs[1]
+      let flagB = jobB.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentB = jobB.commandLine[jobB.commandLine.index(after: flagB)]
+      guard case let .path(.fileList(_, fileListB)) = fileListArgumentB else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapB) = fileListB else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      XCTAssertEqual(mapB.entries, [.relative(.init("b.swift")): [:]])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-wmo", "a.swift", "b.swift", "-driver-filelist-threshold=0"])
+      let plannedJobs = try driver.planBuild()
+
+      let jobA = plannedJobs[0]
+      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
+      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapA) = fileListA else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      XCTAssertEqual(mapA.entries, [.relative(.init("a.swift")): [:]])
+    }
   }
 }
 

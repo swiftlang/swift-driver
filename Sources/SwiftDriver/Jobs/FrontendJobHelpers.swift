@@ -378,15 +378,28 @@ extension Driver {
                                       output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
-    let allInputsCount = primaryInputs.count + flaggedInputOutputPairs.count
+    // This calculation treats all the files in a WMO compile as a single input
+    let allInputsCount = max(primaryInputs.count, 1)
     // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
     if allInputsCount * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath: [FileType: VirtualPath]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input] {
           addEntry(&entries, input: input, output: output)
+        } else {
+          // Primary inputs are expected to appear in the output file map even
+          // if they have no corresponding outputs.
+          entries[input.file] = [:]
         }
       }
+
+      if primaryInputs.isEmpty {
+        // To match the legacy driver behavior, make sure we add the first input file
+        // to the output file map if compiling without primary inputs (WMO), even
+        // if there aren't any corresponding outputs.
+        entries[inputFiles[0].file] = [:]
+      }
+
       for flaggedPair in flaggedInputOutputPairs {
         addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
       }
