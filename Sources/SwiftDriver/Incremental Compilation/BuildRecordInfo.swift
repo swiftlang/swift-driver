@@ -28,7 +28,7 @@ struct JobResult {
  class BuildRecordInfo {
   let buildRecordPath: VirtualPath
   let fileSystem: FileSystem
-  let argsHash: String
+  let currentArgsHash: String
   let actualSwiftVersion: String
   let timeBeforeFirstJob: Date
   let diagnosticEngine: DiagnosticsEngine
@@ -57,7 +57,7 @@ struct JobResult {
       return nil
     }
     self.actualSwiftVersion = actualSwiftVersion
-    self.argsHash = Self.computeArgsHash(parsedOptions)
+    self.currentArgsHash = Self.computeArgsHash(parsedOptions)
     self.buildRecordPath = buildRecordPath
     self.compilationInputModificationDates =
       recordedInputModificationDates.filter { input, _ in
@@ -127,18 +127,12 @@ struct JobResult {
       skippedInputs: skippedInputs,
       compilationInputModificationDates: compilationInputModificationDates,
       actualSwiftVersion: actualSwiftVersion,
-      argsHash: argsHash,
+      argsHash: currentArgsHash,
       timeBeforeFirstJob: timeBeforeFirstJob)
 
-    let contents: String
-    do {  contents = try buildRecord.encode() }
-    catch let BuildRecord.Errors.notAbsolutePath(p) {
-      diagnosticEngine.emit(
-        .warning_could_not_write_build_record_not_absolutePath(p))
-      return
-    }
-    catch {
-      diagnosticEngine.emit(.warning_could_not_serialize_build_record(error))
+    guard let contents = buildRecord.encode(currentArgsHash: currentArgsHash,
+                                            diagnosticEngine: diagnosticEngine)
+    else {
       return
     }
     do {
@@ -147,7 +141,6 @@ struct JobResult {
     }
     catch {
       diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
-      return
     }
  }
 
@@ -164,33 +157,44 @@ struct JobResult {
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
   func populateOutOfDateBuildRecord(
     inputFiles: [TypedVirtualPath],
-    defaultArgsHash: String?,
-    failed: (String) -> Void
+    reportIncrementalDecision: (String) -> Void,
+    reportDisablingIncrementalBuild: (String) -> Void,
+    reportIncrementalCompilationHasBeenDisabled: (String) -> Void
   ) -> BuildRecord? {
-    let outOfDateBuildRecord: BuildRecord
+    let contents: String
     do {
-      let contents = try fileSystem.readFileContents(buildRecordPath).cString
-      outOfDateBuildRecord  = try BuildRecord(contents: contents,
-                                              defaultArgsHash: defaultArgsHash)
-    }
+      contents = try fileSystem.readFileContents(buildRecordPath).cString
+     }
     catch {
-      failed("could not read build record at \(buildRecordPath): \(error.localizedDescription).")
+      reportIncrementalDecision("Incremental compilation could not read build record at \(buildRecordPath)")
+      reportDisablingIncrementalBuild("could not read build record")
       return nil
     }
-    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion else {
-      failed(
-        "the compiler version has changed from \(outOfDateBuildRecord.swiftVersion) to \(actualSwiftVersion)"
-      )
+    func failedToReadOutOfDateMap(_ reason: String? = nil) {
+      let why = "malformed build record file\(reason.map {" " + $0} ?? "")"
+      reportIncrementalDecision(
+        "Incremental compilation has been disabled due to \(why) '\(buildRecordPath)'")
+        reportDisablingIncrementalBuild(why)
+    }
+    guard let outOfDateBuildRecord = BuildRecord(contents: contents,
+                                                 failedToReadOutOfDateMap: failedToReadOutOfDateMap)
+    else {
       return nil
     }
-    guard argsHash == outOfDateBuildRecord.argsHash else {
-      failed( "different arguments were passed to the compiler" )
+    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion ||
+            actualSwiftVersion == FrontendTargetInfo.dummyVersion
+    else {
+      let why = "compiler version mismatch. Compiling with \(actualSwiftVersion), previously with \(outOfDateBuildRecord.swiftVersion)"
+      // mimic legacy
+      reportIncrementalCompilationHasBeenDisabled("due to a " + why)
+      reportDisablingIncrementalBuild(why)
       return nil
     }
-    let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(inputFiles.map {$0.file})
-    guard missingInputs.isEmpty else {
-      failed( "the following inputs were used in the previous compilation but not in this one: "
-                + missingInputs.map {$0.basename} .joined(separator: ", "))
+    guard outOfDateBuildRecord.argsHash.map({$0 == currentArgsHash}) ?? true else {
+      let why = "different arguments were passed to the compiler"
+      // mimic legacy
+      reportIncrementalCompilationHasBeenDisabled(" because " + why)
+      reportDisablingIncrementalBuild(why)
       return nil
     }
     return outOfDateBuildRecord

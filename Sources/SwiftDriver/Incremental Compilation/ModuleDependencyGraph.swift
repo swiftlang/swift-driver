@@ -60,7 +60,7 @@ extension ModuleDependencyGraph {
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-  ) -> (ModuleDependencyGraph, [(TypedVirtualPath, VirtualPath)])?
+  ) -> (ModuleDependencyGraph, inputsWithMalformedSwiftDeps: [(TypedVirtualPath, VirtualPath)])?
   where Inputs.Element == TypedVirtualPath
   {
     let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
@@ -77,12 +77,13 @@ extension ModuleDependencyGraph {
       )
     }
     for isd in inputsAndSwiftdeps where isd.1 == nil {
+      // The legacy driver fails silently here.
       diagnosticEngine.emit(
         remarkDisabled("\(isd.0.file.basename) has no swiftDeps file")
       )
       return nil
     }
-    let previousInputsWithMalformedSwiftDeps = inputsAndSwiftdeps.compactMap {
+    let inputsWithMalformedSwiftDeps = inputsAndSwiftdeps.compactMap {
       input, swiftDepsFile -> (TypedVirtualPath, VirtualPath)? in
       guard let swiftDepsFile = swiftDepsFile
       else {
@@ -102,7 +103,7 @@ extension ModuleDependencyGraph {
                                          diagnosticEngine: diagnosticEngine)
       return changes == nil ? (input, swiftDepsFile) : nil
     }
-    return (graph, previousInputsWithMalformedSwiftDeps)
+    return (graph, inputsWithMalformedSwiftDeps)
   }
 }
 // MARK: - Scheduling the first wave

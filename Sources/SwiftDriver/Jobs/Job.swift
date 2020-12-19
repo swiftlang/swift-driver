@@ -126,9 +126,8 @@ extension Job {
 
   public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date], fileSystem: FileSystem) throws {
     for input in inputs {
-      if case .absolute(let absolutePath) = input.file,
-        let recordedModificationTime = recordedInputModificationDates[input],
-        try fileSystem.getFileInfo(absolutePath).modTime != recordedModificationTime {
+      if let recordedModificationTime = recordedInputModificationDates[input],
+         try fileSystem.getFileInfo(input.file).modTime != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }
     }
@@ -200,7 +199,7 @@ extension Job : CustomStringConvertible {
   public var descriptionForLifecycle: String {
     switch kind {
     case .compile:
-      return "Compiling \(displayInputs.map {$0.file.basename}.joined(separator: ", "))"
+      return "Compiling \(inputsGeneratingCode.map {$0.file.basename}.joined(separator: ", "))"
     default:
       return description
     }

@@ -198,8 +198,9 @@ public struct Driver {
   /// Only used for reading when compiling incrementally.
   let buildRecordInfo: BuildRecordInfo?
 
-  /// Code & data for incremental compilation. Nil if not running in incremental mode
-  @_spi(Testing) public let incrementalCompilationState: IncrementalCompilationState?
+  /// Code & data for incremental compilation. Nil if not running in incremental mode.
+  /// Set during planning because needs the jobs to look at outputs.
+  @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
 
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
@@ -479,17 +480,6 @@ public struct Driver {
       parsedOptions: parsedOptions,
       recordedInputModificationDates: recordedInputModificationDates)
 
-    // Determine the state for incremental compilation
-    self.incrementalCompilationState = IncrementalCompilationState(
-      buildRecordInfo: buildRecordInfo,
-      compilerMode: compilerMode,
-      diagnosticEngine: diagnosticEngine,
-      fileSystem: fileSystem,
-      inputFiles: inputFiles,
-      outputFileMap: outputFileMap,
-      parsedOptions: &parsedOptions,
-      showJobLifecycle: showJobLifecycle)
-
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
     self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
                                                                                compilerMode: compilerMode,
@@ -602,6 +592,12 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+  }
+
+  public mutating func planBuild() throws -> [Job] {
+    let (jobs, incrementalCompilationState) = try planPossiblyIncrementalBuild()
+    self.incrementalCompilationState = incrementalCompilationState
+    return jobs
   }
 }
 
@@ -2120,11 +2116,13 @@ extension Driver {
     }
 
     // Find the SDK, if any.
-    let sdkPath: VirtualPath? = Self.computeSDKPath(
-      &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
-      targetTriple: explicitTarget, fileSystem: fileSystem,
-      diagnosticsEngine: diagnosticsEngine, env: env)
-
+    let sdkPath: VirtualPath? = hasFrontendBeenRedirectedForTesting
+    ? nil
+      : Self.computeSDKPath(
+        &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
+        targetTriple: explicitTarget, fileSystem: fileSystem,
+        diagnosticsEngine: diagnosticsEngine, env: env)
+    
     // Query the frontend for target information.
     // If there's a dummy frontend, don't query it.
     do {

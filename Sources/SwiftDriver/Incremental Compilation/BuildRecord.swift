@@ -17,12 +17,13 @@ import Foundation
 /// A.k.a. BuildRecord was the legacy name
 public struct BuildRecord {
   public let swiftVersion: String
-  public let argsHash: String
+  /// When testing, the argsHash may be missing from the build record
+  public let argsHash: String?
   public let buildTime: Date
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
-  public init(  argsHash: String,
+  public init(  argsHash: String?,
                 swiftVersion: String,
                 buildTime: Date,
                 inputInfos: [VirtualPath: InputInfo]) {
@@ -32,34 +33,6 @@ public struct BuildRecord {
     self.inputInfos = inputInfos
   }
 
-  enum SimpleErrors: String, LocalizedError {
-    case
-    couldNotDecodeBuildRecord,
-    sectionNameNotString,
-    dateValuesNotSequence,
-    dateValuesNotDuo,
-    dateValuesNotInts,
-    inputInfosNotAMap,
-    inputNotString,
-    noVersion,
-    noArgsHash,
-    noBuildTime,
-    noInputInfos
-
-    var localizedDescription: String { return rawValue }
-  }
-  enum Errors: LocalizedError {
-    case
-    unexpectedSection(String),
-    notAbsolutePath(VirtualPath)
-
-    public var localizedDescription: String {
-      switch self {
-      case .unexpectedSection(let s): return "unexpected section \(s)"
-      case .notAbsolutePath(let p): return "not absolute path \(p)"
-      }
-    }
-  }
   private enum SectionName: String, CaseIterable {
   case
     swiftVersion = "version",
@@ -77,64 +50,127 @@ public struct BuildRecord {
 
 // MARK: - Reading the old map and deciding whether to use it
 public extension BuildRecord {
-  init(contents: String, defaultArgsHash: String? = nil) throws {
-    guard let sections = try Parser(yaml: contents, resolver: .basic, encoding: .utf8)
-      .singleRoot()?.mapping
-      else { throw SimpleErrors.couldNotDecodeBuildRecord }
-    var argsHash: String? = defaultArgsHash
+  init?(contents: String, failedToReadOutOfDateMap: (String?) -> Void) {
+    guard let sections = try? Parser(yaml: contents, resolver: .basic, encoding: .utf8)
+            .singleRoot()?.mapping
+    else {
+      failedToReadOutOfDateMap(nil)
+      return nil
+    }
+    var argsHash: String?
     var swiftVersion: String?
     // Legacy driver does not disable incremental if no buildTime field.
     var buildTime: Date = .distantPast
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
-      guard let k = key.string else { throw SimpleErrors.sectionNameNotString }
+      guard let k = key.string else {
+        failedToReadOutOfDateMap(nil)
+        return nil
+      }
       switch k {
       case SectionName.swiftVersion.serializedName:
-        swiftVersion = value.string
+        // There's a test that uses "" for an illegal value
+        guard let s = value.string, s != "" else {
+          failedToReadOutOfDateMap("Malformed value for key '\(k)'")
+          return nil
+        }
+        swiftVersion = s
       case SectionName.argsHash.serializedName:
-        argsHash = value.string
-      case SectionName.buildTime.serializedName:
-        buildTime = try Self.decodeDate(value)
+        guard let s = value.string, s != "" else {
+          failedToReadOutOfDateMap("no name node in build record")
+          return nil
+        }
+        argsHash = s
+     case SectionName.buildTime.serializedName:
+      guard let d = Self.decodeDate(value,
+                                    forInputInfo: false,
+                                    failedToReadOutOfDateMap)
+      else {
+        return nil
+      }
+      buildTime = d
       case SectionName.inputInfos.serializedName:
-        inputInfos = try Self.decodeInputInfos(value)
-      default: throw Errors.unexpectedSection(k)
+        guard let ii = Self.decodeInputInfos(value, failedToReadOutOfDateMap) else {
+          return nil
+        }
+        inputInfos = ii
+      default:
+        failedToReadOutOfDateMap("Unexpected key '\(k)'")
+        return nil
       }
     }
-    try self.init(argsHash: argsHash, swiftVersion: swiftVersion, buildTime: buildTime,
-                  inputInfos: inputInfos)
+    // The legacy driver allows argHash to be absent to ease testing.
+    // Mimic the legacy driver for testing ease: If no `argsHash` section,
+    // record still matches.
+    guard let sv = swiftVersion else {
+      failedToReadOutOfDateMap("Malformed value for key '\(SectionName.swiftVersion.serializedName)'")
+      return nil
+    }
+    guard let iis = inputInfos else {
+      failedToReadOutOfDateMap("Malformed value for key '\(SectionName.inputInfos.serializedName)'")
+      return nil
+    }
+    self.init(argsHash: argsHash,
+              swiftVersion: sv,
+              buildTime: buildTime,
+              inputInfos: iis)
   }
 
-  private init(argsHash: String?, swiftVersion: String?, buildTime: Date?,
-               inputInfos: [VirtualPath: InputInfo]?)
-    throws {
-      guard let a = argsHash else { throw SimpleErrors.noArgsHash }
-      guard let s = swiftVersion else { throw SimpleErrors.noVersion }
-      guard let b = buildTime else { throw SimpleErrors.noBuildTime }
-      guard let i = inputInfos else { throw SimpleErrors.noInputInfos }
-      self.init(argsHash: a, swiftVersion: s, buildTime: b, inputInfos: i)
-  }
-
-  private static func decodeDate(_ node: Yams.Node) throws -> Date {
-    guard let vals = node.sequence else { throw SimpleErrors.dateValuesNotSequence }
-    guard vals.count == 2 else {throw SimpleErrors.dateValuesNotDuo}
-    guard let secs = vals[0].int, let ns = vals[1].int
-    else {throw SimpleErrors.dateValuesNotInts}
+  private static func decodeDate(
+    _ node: Yams.Node,
+    forInputInfo: Bool,
+    _ failedToReadOutOfDateMap: (String) -> Void
+  ) -> Date? {
+    guard let vals = node.sequence else {
+      failedToReadOutOfDateMap(
+        forInputInfo
+          ? "no sequence node for input entry in build record"
+          : "could not read time value in build record")
+      return nil
+    }
+    guard vals.count == 2,
+          let secs = vals[0].int,
+          let ns = vals[1].int
+    else {
+      failedToReadOutOfDateMap("could not read time value in build record")
+      return nil
+    }
     return Date(legacyDriverSecs: secs, nanos: ns)
   }
 
-  private static func decodeInputInfos(_ node: Yams.Node) throws -> [VirtualPath: InputInfo] {
-    guard let map = node.mapping else { throw SimpleErrors.inputInfosNotAMap }
-    return try Dictionary(uniqueKeysWithValues:
-      map.map {
-        keyNode, valueNode in
-        guard let path = keyNode.string else { throw SimpleErrors.inputNotString }
-        return try (
-          VirtualPath(path: path),
-          InputInfo(tag: valueNode.tag.description, previousModTime: decodeDate(valueNode))
-        )
+  private static func decodeInputInfos(
+    _ node: Yams.Node,
+    _ failedToReadOutOfDateMap: (String) -> Void
+  ) -> [VirtualPath: InputInfo]? {
+    guard let map = node.mapping else {
+      failedToReadOutOfDateMap(
+        "Malformed value for key '\(SectionName.inputInfos.serializedName)'")
+      return nil
+    }
+    var infos = [VirtualPath: InputInfo]()
+    for (keyNode, valueNode) in map {
+      guard let pathString = keyNode.string,
+            let path = try? VirtualPath(path: pathString)
+      else {
+        failedToReadOutOfDateMap("no input entry in build record")
+        return nil
       }
-    )
-  }
+      guard let previousModTime = decodeDate(valueNode,
+                                             forInputInfo: true,
+                                             failedToReadOutOfDateMap)
+      else {
+        return nil
+      }
+      guard let inputInfo = InputInfo(tag: valueNode.tag.description,
+                                      previousModTime: previousModTime,
+                                      failedToReadOutOfDateMap: failedToReadOutOfDateMap)
+      else {
+        return nil
+      }
+      infos[path] = inputInfo
+    }
+    return infos
+   }
 }
 
 // MARK: - Creating and writing a new map
@@ -145,12 +181,12 @@ extension BuildRecord {
        skippedInputs: Set<TypedVirtualPath>?,
        compilationInputModificationDates: [TypedVirtualPath: Date],
        actualSwiftVersion: String,
-       argsHash: String,
+       argsHash: String!,
        timeBeforeFirstJob: Date
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
       finishedJobResults.flatMap { entry in
-        entry.j.primaryInputs.map { ($0, entry.result) }
+        entry.j.inputsGeneratingCode.map { ($0, entry.result) }
     })
     let inputInfosArray = compilationInputModificationDates
       .map { input, modDate -> (VirtualPath, InputInfo) in
@@ -167,7 +203,10 @@ extension BuildRecord {
     )
   }
 
-  /*@_spi(Testing)*/ public func encode() throws -> String {
+  /// Pass in `currentArgsHash` to ensure it is non-nil
+  /*@_spi(Testing)*/ public func encode(currentArgsHash: String,
+                                        diagnosticEngine: DiagnosticsEngine
+  ) -> String? {
       let pathsAndInfos = inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
         return (input.name, inputInfo)
@@ -178,17 +217,23 @@ extension BuildRecord {
           .map {(Yams.Node($0.0, .implicit, .doubleQuoted), Self.encode($0.1))}
       )
     let fieldNodes = [
-      (SectionName.swiftVersion, Yams.Node(swiftVersion, .implicit, .doubleQuoted)),
-      (SectionName.argsHash,     Yams.Node(argsHash, .implicit, .doubleQuoted)),
+      (SectionName.swiftVersion, Yams.Node(swiftVersion,    .implicit, .doubleQuoted)),
+      (SectionName.argsHash,     Yams.Node(currentArgsHash, .implicit, .doubleQuoted)),
       (SectionName.buildTime,    Self.encode(buildTime)),
       (SectionName.inputInfos,   inputInfosNode )
       ] .map { (Yams.Node($0.0.serializedName), $0.1) }
 
     let buildRecordNode = Yams.Node(fieldNodes, .implicit, .block)
    // let options = Yams.Emitter.Options(canonical: true)
-    return try Yams.serialize(node: buildRecordNode,
-                              width: -1,
-                              sortKeys: false)
+    do {
+      return try Yams.serialize(node: buildRecordNode,
+                                width: -1,
+                                sortKeys: false)
+    }
+    catch {
+      diagnosticEngine.emit(.warning_could_not_serialize_build_record(error))
+      return nil
+    }
   }
 
   private static func encode(_ date: Date, tag tagString: String? = nil) -> Yams.Node {

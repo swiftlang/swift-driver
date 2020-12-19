@@ -36,17 +36,22 @@ import TSCBasic
 extension InputInfo.Status {
   public init?(identifier: String) {
     switch identifier {
-    case "": self = .upToDate
-    case "!dirty": self = .needsCascadingBuild
-    case "!private": self = .needsNonCascadingBuild
-    default: return nil
+    case "":
+      self = .upToDate
+    case "!dirty":
+      self = .needsCascadingBuild
+    case "!private":
+      self = .needsNonCascadingBuild
+    default:
+      // See Tag.swift in YAMS
+      // This is what an absent tag looks like.
+      if identifier.hasPrefix("tag:yaml.org") {
+        self = .upToDate
+        return
+      }
+      return nil
     }
     assert(self.identifier == identifier, "Ensure reversibility")
-  }
-
-  init(tag: String) {
-    // The Yams tag can be other values if there is no tag in the file
-    self = Self(identifier: tag) ?? Self(identifier: "")!
   }
 }
 
@@ -92,8 +97,14 @@ fileprivate extension ProcessResult {
 
 // MARK: - reading
 public extension InputInfo {
-  init(tag: String, previousModTime: Date) {
-    self.init(status: Status(tag: tag), previousModTime: previousModTime)
+  init?(tag: String, previousModTime: Date,
+        failedToReadOutOfDateMap: (String) -> Void
+  ) {
+    guard let status = Status(identifier: tag) else {
+      failedToReadOutOfDateMap("no previous build state in build record")
+      return nil
+    }
+    self.init(status: status, previousModTime: previousModTime)
   }
 }
 

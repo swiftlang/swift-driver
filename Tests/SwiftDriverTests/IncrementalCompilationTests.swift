@@ -16,7 +16,9 @@ import SwiftDriver
 
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {
-    let buildRecord = try! BuildRecord(contents: Inputs.buildRecord)
+    let buildRecord = try XCTUnwrap(
+      BuildRecord(contents: Inputs.buildRecord,
+                                  failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
@@ -38,13 +40,13 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testBuildRecordWithoutOptionsReading() throws {
-    let hash = "abbbfbcaf36b93e58efaadd8271ff142"
-    let buildRecord = try! BuildRecord(
-      contents: Inputs.buildRecordWithoutOptions,
-      defaultArgsHash: hash)
+    let buildRecord = try XCTUnwrap(
+      BuildRecord(
+        contents: Inputs.buildRecordWithoutOptions,
+        failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(buildRecord.argsHash, hash)
+    XCTAssertEqual(buildRecord.argsHash, nil)
 
     try XCTAssertEqual(buildRecord.buildTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
@@ -206,7 +208,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         "\(gazorp)": !private [0, 0]
 
       """
-    let buildRecord = try BuildRecord(contents: inputString)
+    let buildRecord = try XCTUnwrap (BuildRecord(contents: inputString, failedToReadOutOfDateMap: {_ in}))
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)
@@ -230,7 +232,8 @@ final class NonincrementalCompilationTests: XCTestCase {
                                     .previousModTime.legacyDriverSecsAndNanos,
                                   [1570083660, 0]))
 
-    let outputString = try buildRecord.encode()
+    let outputString = try XCTUnwrap (buildRecord.encode(currentArgsHash: options,
+                                                         diagnosticEngine: DiagnosticsEngine()))
     XCTAssertEqual(inputString, outputString)
   }
   /// The date conversions are not exact
@@ -429,7 +432,8 @@ final class IncrementalCompilationTests: XCTestCase {
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
         // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-        "Disabling incremental build: could not read build record at",
+        "Incremental compilation: Incremental compilation could not read build record at",
+        "Incremental compilation: Disabling incremental build: could not read build record",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
@@ -447,10 +451,10 @@ final class IncrementalCompilationTests: XCTestCase {
       "no-change",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
-        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
       ],
       whenAutolinking: [])
   }
@@ -460,16 +464,15 @@ final class IncrementalCompilationTests: XCTestCase {
       "non-propagating",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
-        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
         "Forming batch job from 1 constituents: other.swift",
-        "Incremental compilation: Queuing Compiling other.swift",
         "Starting Compiling other.swift",
         "Finished Compiling other.swift",
         "Starting Linking theModule",
@@ -484,10 +487,10 @@ final class IncrementalCompilationTests: XCTestCase {
       "non-propagating, both touched",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
-        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
         "Found 2 batchable jobs",
@@ -495,7 +498,6 @@ final class IncrementalCompilationTests: XCTestCase {
         "Adding {compile: main.swift} to batch 0",
         "Adding {compile: other.swift} to batch 0",
         "Forming batch job from 2 constituents: main.swift, other.swift",
-        "Incremental compilation: Queuing Compiling main.swift, other.swift",
         "Starting Compiling main.swift, other.swift",
         "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",
@@ -510,21 +512,24 @@ final class IncrementalCompilationTests: XCTestCase {
       "propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
         "Forming batch job from 1 constituents: main.swift",
-        "Incremental compilation: Queuing Compiling main.swift",
         "Starting Compiling main.swift",
-        "Incremental compilation: Traced: interface of source file 'main.swiftdeps' from: main.swift -> interface of top-level name 'foo' from: main.swift -> implementation of source file 'other.swiftdeps' from: other.swift",
-        "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
-        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
         "Finished Compiling main.swift",
+        "Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
+        "Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduling discovered  {compile: other.o <= other.swift}",
+        "Found 1 batchable job",
+        "Forming into 1 batch",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 1 constituents: other.swift",
         "Starting Compiling other.swift",
         "Finished Compiling other.swift",
         "Starting Linking theModule",
@@ -541,20 +546,19 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
       expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
-        "Incremental compilation: Traced: interface of top-level name 'foo' from: main.swift -> implementation of source file 'other.swiftdeps' from: other.swift",
-        "Incremental compilation: Found dependent of main.swift: {compile: other.o <= other.swift}",
-        "Incremental compilation: Immediately scheduling dependent on main.swift {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (dependent): {compile: other.o <= other.swift}",
+        "Incremental compilation: Traced: interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
+        "Incremental compilation: Found dependent of main.swift:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: Immediately scheduling dependent on main.swift  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing because of the initial set:  {compile: other.o <= other.swift}",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
         "Adding {compile: other.swift} to batch 0",
         "Forming batch job from 2 constituents: main.swift, other.swift",
-        "Incremental compilation: Queuing Compiling main.swift, other.swift",
         "Starting Compiling main.swift, other.swift",
         "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",

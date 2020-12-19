@@ -124,7 +124,7 @@ extension ModuleDependencyGraph.Tracer {
           .compactMap { node in
             node.swiftDeps
               .flatMap {graph.sourceSwiftDepsMap[$0] }
-              .map { "\(node.dependencyKey) from: \($0.file.basename)"}
+              .map { "\(node.dependencyKey) in \($0.file.basename)"}
           }
           .joined(separator: " -> ")
       ].joined(separator: " "),
