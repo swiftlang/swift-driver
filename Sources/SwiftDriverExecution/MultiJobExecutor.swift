@@ -197,7 +197,7 @@ public final class MultiJobExecutor {
     ) {
       for output in job.outputs {
         if let otherJobIndex = producerMap.updateValue(index, forKey: output.file) {
-          fatalError("multiple producers for output \(output): \(job) & \(knownJobs[otherJobIndex])")
+          fatalError("multiple producers for output \(output.file): \(job) & \(knownJobs[otherJobIndex])")
         }
         producerMap[output.file] = index
       }
