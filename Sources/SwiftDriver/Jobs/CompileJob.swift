@@ -217,9 +217,14 @@ extension Driver {
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
+    let inputsGeneratingCodeCount = primaryInputs.isEmpty
+      ? inputs.count
+      : primaryInputs.count
+
     outputs += try addFrontendSupplementaryOutputArguments(
       commandLine: &commandLine,
       primaryInputs: primaryInputs,
+      inputsGeneratingCodeCount: inputsGeneratingCodeCount,
       inputOutputMap: inputOutputMap,
       includeModuleTracePath: emitModuleTrace)
 
