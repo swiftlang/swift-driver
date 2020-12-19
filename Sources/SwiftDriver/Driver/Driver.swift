@@ -280,7 +280,7 @@ public struct Driver {
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream
     if !(diagnostic.location is UnknownLocation) {
-        stream <<< diagnostic.location.description <<< ": "
+      stream <<< diagnostic.location.description <<< ": "
     }
 
     switch diagnostic.message.behavior {
@@ -293,7 +293,7 @@ public struct Driver {
     case .remark:
       stream <<< "remark: "
     case .ignored:
-        break
+      break
     }
 
     stream <<< diagnostic.localizedDescription <<< "\n"

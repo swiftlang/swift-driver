@@ -102,15 +102,13 @@ extension WindowsToolchain {
         isShared: hasRuntimeArgs
       )
 
-      let sharedResourceDirPath = try computeResourceDirPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions,
-        isShared: true
-      )
-
-      let swiftrtPath = sharedResourceDirPath.appending(
-        components: archName(for: targetTriple), "swiftrt.obj"
-      )
+      guard let swiftrtPath = targetInfo.sdkPath?.path
+        .appending(
+          components: "usr", "lib", "swift", "windows",
+          targetTriple.archName,
+          "swiftrt.obj") else {
+        throw ToolchainValidationError.sdkNotFound
+      }
       commandLine.appendPath(swiftrtPath)
 
       let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
@@ -138,7 +136,7 @@ extension WindowsToolchain {
       // Add the runtime library link paths.
       for path in runtimePaths {
         commandLine.appendFlag(.L)
-        commandLine.appendPath(path.appending(component: archName(for: targetTriple)))
+        commandLine.appendPath(path.appending(component: targetTriple.archName))
       }
 
       if hasRuntimeArgs {

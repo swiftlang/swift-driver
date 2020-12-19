@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -31,9 +31,9 @@ do {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.
     #if os(Windows)
-    let filename = subcommand + ".exe"
+      let filename = subcommand + ".exe"
     #else
-    let filename = subcommand
+      let filename = subcommand
     #endif
     let subcommandPath = Process.findExecutable(arguments[0])?.parentDirectory.appending(component: filename)
                          ?? Process.findExecutable(filename)

@@ -27,27 +27,15 @@ import SwiftOptions
     
   // An externally provided path from where we should find tools like ld
   public let toolDirectory: AbsolutePath?
-    
-    public let dummyForTestingObjectFormat = Triple.ObjectFormat.coff
 
-  public func archName(for triple: Triple) -> String {
-    switch triple.arch {
-    case .aarch64: return "aarch64"
-    case .arm: return "armv7"
-    case .x86: return "i386"
-    case nil, .x86_64: return "x86_64"
-    default: fatalError("unknown arch \(triple.archName) for Windows")
-    }
+  public let dummyForTestingObjectFormat = Triple.ObjectFormat.coff
+
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
+    self.env = env
+    self.executor = executor
+    self.fileSystem = fileSystem
+    self.toolDirectory = toolDirectory
   }
-
-    public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
-      self.env = env
-      self.executor = executor
-      self.fileSystem = fileSystem
-      self.toolDirectory = toolDirectory
-    }
-
-  
 
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
@@ -68,7 +56,6 @@ import SwiftOptions
     case .staticLinker:
       return try lookup(executable: "lib")
     case .dynamicLinker:
-      // FIXME: This needs to look in the tools_directory first.
       return try lookup(executable: "link")
     case .clang:
       return try lookup(executable: "clang")
@@ -88,19 +75,19 @@ import SwiftOptions
   public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
     toolPaths[tool] = path
   }
-    
-    /// Path to the StdLib inside the SDK.
-    public func sdkStdlib(sdk: AbsolutePath, triple: Triple) -> AbsolutePath {
-        sdk.appending(RelativePath("usr/lib/swift/windows")).appending(component: archName(for: triple))
+
+  /// Path to the StdLib inside the SDK.
+  public func sdkStdlib(sdk: AbsolutePath, triple: Triple) -> AbsolutePath {
+    sdk.appending(RelativePath("usr/lib/swift/windows")).appending(component: triple.archName)
+  }
+
+  public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
+    switch type {
+    case .executable: return "\(moduleName).exe"
+    case .dynamicLibrary: return "\(moduleName).dll"
+    case .staticLibrary: return "lib\(moduleName).lib"
     }
-    
-    public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
-      switch type {
-      case .executable: return "\(moduleName).exe"
-      case .dynamicLibrary: return "\(moduleName).dll"
-      case .staticLibrary: return "lib\(moduleName).lib"
-      }
-    }
+  }
 
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     return nil
@@ -113,7 +100,7 @@ import SwiftOptions
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String {
-    return "clang_rt.\(sanitizer.libraryName)-\(archName(for: targetTriple)).lib"
+    return "clang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).lib"
   }
 }
 
@@ -141,6 +128,7 @@ extension WindowsToolchain {
   public enum ToolchainValidationError: Error, DiagnosticData {
     case argumentNotSupported(String)
     case illegalCrtName(String)
+    case sdkNotFound
 
     public var description: String {
       switch self {
@@ -148,6 +136,8 @@ extension WindowsToolchain {
         return "\(argument) is not supported for Windows"
       case .illegalCrtName(let argument):
         return "\(argument) is not a valid C Runtime for Windows"
+      case .sdkNotFound:
+        return "swift development on Windows always requires SDK of the target platform"
       }
     }
   }
