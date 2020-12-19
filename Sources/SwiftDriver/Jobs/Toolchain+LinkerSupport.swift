@@ -15,36 +15,6 @@ import SwiftOptions
 extension Toolchain {
   // MARK: - Path computation
 
-  func computeResourceDirPath(
-    for triple: Triple,
-    parsedOptions: inout ParsedOptions,
-    isShared: Bool
-  ) throws -> AbsolutePath {
-    // FIXME: This almost certainly won't be an absolute path in practice...
-    let resourceDirBase: AbsolutePath
-    if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-      resourceDirBase = try AbsolutePath(validating: resourceDir.asSingle)
-    } else if !triple.isDarwin,
-      let sdk = parsedOptions.getLastArgument(.sdk),
-      let sdkPath = try? AbsolutePath(validating: sdk.asSingle) {
-      resourceDirBase = sdkPath
-        .appending(components: "usr", "lib",
-                   isShared ? "swift" : "swift_static")
-    } else if triple.isWindows,
-      let SDKROOT = env["SDKROOT"],
-      let sdkPath = try? AbsolutePath(validating: SDKROOT) {
-      resourceDirBase = sdkPath
-        .appending(components: "usr", "lib",
-                   isShared ? "swift" : "swift_static")
-    } else {
-      resourceDirBase = try getToolPath(.swiftCompiler)
-        .parentDirectory // remove /swift
-        .parentDirectory // remove /bin
-        .appending(components: "lib", isShared ? "swift" : "swift_static")
-    }
-    return resourceDirBase.appending(components: triple.platformName() ?? "")
-  }
-  
   func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: VirtualPath) -> VirtualPath? {
     guard triple.isMacCatalyst else { return nil }
     return primaryPath.parentDirectory.appending(component: "macosx")
