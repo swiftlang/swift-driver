@@ -109,6 +109,13 @@ extension WindowsToolchain {
                            targetTriple: Triple,
                            targetVariantTriple: Triple?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
+    // The default linker `LINK.exe` can use `/LTCG:INCREMENTAL` to enable LTO,
+    // and LLVM LTOs are available through `lld-link`. Both LTO methods still need
+    // additional work to be integrated, so disable this option for now.
+    if parsedOptions.hasArgument(.lto) {
+      // TODO: LTO support on Windows
+      throw ToolchainValidationError.argumentNotSupported("-lto=")
+    }
     // Windows executables should be profiled with ETW, whose support needs to be
     // implemented before we can enable the option.
     if parsedOptions.hasArgument(.profileGenerate) {
@@ -137,7 +144,7 @@ extension WindowsToolchain {
       case .illegalCrtName(let argument):
         return "\(argument) is not a valid C Runtime for Windows"
       case .sdkNotFound:
-        return "swift development on Windows always requires SDK of the target platform"
+        return "swift development on Windows always requires the SDK of target platform"
       }
     }
   }
