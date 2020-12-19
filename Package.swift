@@ -25,17 +25,33 @@ let package = Package(
       name: "SwiftDriver",
       targets: ["SwiftDriver"]),
     .library(
+      name: "SwiftDriverDynamic",
+      type: .dynamic,
+      targets: ["SwiftDriver"]),
+    .library(
       name: "SwiftOptions",
       targets: ["SwiftOptions"]),
+    .library(
+      name: "SwiftDriverExecution",
+      targets: ["SwiftDriverExecution"]),
   ],
   targets: [
+    .target(name: "_CSwiftDriver"),
+
     /// The driver library.
     .target(
       name: "SwiftDriver",
-      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "Yams"]),
+      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto", "Yams", "_CSwiftDriver"]),
+
+    /// The execution library.
+    .target(
+      name: "SwiftDriverExecution",
+      dependencies: ["SwiftDriver", "SwiftToolsSupport-auto"]),
+
+    /// Driver tests.
     .testTarget(
       name: "SwiftDriverTests",
-      dependencies: ["SwiftDriver", "swift-driver"]),
+      dependencies: ["SwiftDriver", "SwiftDriverExecution", "swift-driver"]),
 
     /// The options library.
     .target(
@@ -48,7 +64,7 @@ let package = Package(
     /// The primary driver executable.
     .target(
       name: "swift-driver",
-      dependencies: ["SwiftDriver"]),
+      dependencies: ["SwiftDriverExecution", "SwiftDriver"]),
 
     /// The help executable.
     .target(
@@ -66,7 +82,7 @@ let package = Package(
 if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("main")),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
@@ -75,21 +91,21 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
             .package(path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SwiftDriver" })!.dependencies += ["llbuildSwift"]
+    package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += ["llbuildSwift"]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
-    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("main")),
     .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "4.0.0")),
     // The 'swift-argument-parser' version declared here must match that
     // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
     // dependency version changes here with those projects.
-    .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.3.1")),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", .branch("main")),
     ]
 } else {
     package.dependencies += [
-        .package(path: "../swiftpm/swift-tools-support-core"),
+        .package(path: "../swift-tools-support-core"),
         .package(path: "../yams"),
         .package(path: "../swift-argument-parser"),
     ]

@@ -130,7 +130,7 @@ final class DiagnosticVerifier {
   fileprivate var permitted: Set<Diagnostic.Behavior> = [.note, .remark, .ignored]
 
   /// Callback for the diagnostic engine or driver to use.
-  fileprivate func emit(_ diag: Diagnostic) {
+  func emit(_ diag: Diagnostic) {
     guard let queue = queue else {
       fatalError("Diagnostic emitted after the test was complete! \(diag)")
     }
@@ -193,7 +193,7 @@ final class DiagnosticVerifier {
     queue!.sync {
       for diag in self.actual where !self.permitted.contains(diag.behavior) {
         failures.append((
-          "Driver emitted unexpected diagnostic: \(diag)",
+          "Driver emitted unexpected diagnostic \(diag.behavior): \(diag)",
           file, line
         ))
       }

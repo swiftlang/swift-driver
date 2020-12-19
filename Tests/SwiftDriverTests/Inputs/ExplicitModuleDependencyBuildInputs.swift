@@ -265,10 +265,10 @@ enum ModuleDependenciesInputs {
               "swiftPlaceholder": "B"
             },
             {
-              "swift": "Swift"
+              "swiftPlaceholder": "Swift"
             },
             {
-              "swift": "SwiftOnoneSupport"
+              "swiftPlaceholder": "SwiftOnoneSupport"
             }
           ],
           "details": {
@@ -290,13 +290,17 @@ enum ModuleDependenciesInputs {
         },
         {
           "modulePath": "/Volumes/Data/Current/Driver/ExplicitPMTest/.build/x86_64-apple-macosx/debug/B.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies" : [
+          ],
           "details": {
             "swiftPlaceholder": {
             }
           }
         },
         {
-          "swift": "Swift"
+          "swiftPlaceholder": "Swift"
         },
         {
           "modulePath": "Swift.swiftmodule",
@@ -305,27 +309,55 @@ enum ModuleDependenciesInputs {
           "directDependencies": [
           ],
           "details": {
+            "swiftPlaceholder": {
+            }
+          }
+        },
+        {
+          "swiftPlaceholder": "SwiftOnoneSupport"
+        },
+        {
+          "modulePath": "SwiftOnoneSupport.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies": [
+          ],
+          "details": {
+            "swiftPlaceholder": {
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
+  static var mergeGraphInput1: String {
+    """
+    {
+      "mainModuleName": "A",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+            "/A/A.swift"
+          ],
+          "directDependencies": [
+            {
+              "clang": "B"
+            }
+          ],
+          "details": {
             "swift": {
-              "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
-              "contextHash": "30OCBGKPNG64V",
-              "commandLine": [
-                "-frontend",
-                "-compile-module-from-interface",
-                "-target",
-                "x86_64-apple-macosx10.10",
-                "-swift-version",
-                "5",
-                "-module-name",
-                "Swift"
-              ],
-              "compiledModuleCandidates": [
-              ],
               "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
                 "-Xcc",
-                "x86_64-apple-macosx10.9",
+                "x86_64-apple-macosx10.10",
                 "-Xcc",
                 "-fapinotes-swift-version=5"
               ]
@@ -333,39 +365,92 @@ enum ModuleDependenciesInputs {
           }
         },
         {
-          "swift": "SwiftOnoneSupport"
+          "clang": "B"
         },
         {
-          "modulePath": "SwiftOnoneSupport.swiftmodule",
+          "modulePath": "B.pcm",
           "sourceFiles": [
+            "/B/module.map",
+            "/B/include/b.h"
+          ],
+          "directDependencies": [
+               {
+                 "clang": "D"
+               }
+          ],
+          "details": {
+            "clang": {
+              "moduleMapPath": "/B/module.map",
+              "contextHash": "2QEMRLNY63H2N",
+              "commandLine": [
+                "-remove-preceeding-explicit-module-build-incompatible-options",
+                "-fno-implicit-modules",
+                "-emit-module",
+                "-fmodule-name=c_simd"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
+  static var mergeGraphInput2: String {
+    """
+    {
+      "mainModuleName": "A",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+            "/A/A.swift"
           ],
           "directDependencies": [
             {
-              "swift": "Swift"
-            }
+              "clang": "B"
+            },
           ],
           "details": {
             "swift": {
-              "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
-              "contextHash": "3GKS4RKE3GDZA",
               "isFramework": false,
-              "commandLine": [
-                "-frontend",
-                "-compile-module-from-interface",
-                "-target",
-                "x86_64-apple-macosx10.10",
-                "-swift-version",
-                "5",
-                "-module-name",
-                "SwiftOnoneSupport"
-              ],
               "extraPcmArgs": [
                 "-Xcc",
                 "-target",
                 "-Xcc",
-                "x86_64-apple-macosx10.9",
+                "x86_64-apple-macosx10.10",
                 "-Xcc",
                 "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "clang": "B"
+        },
+        {
+          "modulePath": "B.pcm",
+          "sourceFiles": [
+            "/B/module.map",
+            "/B/include/b.h"
+          ],
+          "directDependencies": [
+               {
+                 "clang": "C"
+               }
+          ],
+          "details": {
+            "clang": {
+              "moduleMapPath": "/B/module.map",
+              "contextHash": "2QEMRLNY63H2N",
+              "commandLine": [
+                "-remove-preceeding-explicit-module-build-incompatible-options",
+                "-fno-implicit-modules",
+                "-emit-module",
+                "-fmodule-name=c_simd"
               ]
             }
           }
@@ -415,10 +500,13 @@ enum ModuleDependenciesInputs {
         },
         {
           "modulePath" : "Swift.swiftmodule",
+          "sourceFiles": [
+          ],
           "directDependencies" : [
           ],
           "details" : {
             "swift" : {
+              "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
               "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",
@@ -437,6 +525,8 @@ enum ModuleDependenciesInputs {
         },
         {
           "modulePath" : "SwiftOnoneSupport.swiftmodule",
+          "sourceFiles": [
+          ],
           "directDependencies" : [
             {
               "swift" : "Swift"
@@ -444,6 +534,7 @@ enum ModuleDependenciesInputs {
           ],
           "details" : {
             "swift" : {
+              "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
               "isFramework": false,
               "extraPcmArgs": [
                 "-Xcc",

@@ -31,6 +31,8 @@ internal extension Driver {
     // to all Clang modules, and compute a set of distinct PCMArgs across all paths to a
     // given Clang module in the graph.
     let modulePCMArgsSetMap = try dependencyGraph.computePCMArgSetsForClangModules()
+
+    // Set up the batch scan input
     let temporaryDirectory = try determineTempDirectory()
     let batchScanInputList =
       try modulePCMArgsSetMap.compactMap { (moduleId, pcmArgsSet) throws -> [BatchScanModuleInfo] in
@@ -53,10 +55,13 @@ internal extension Driver {
         return moduleInfos
       }.reduce([], +)
 
-    // Batch scan all clang modules for each discovered unique set of PCMArgs, per module
+    // Batch scan all clang modules for each discovered new, unique set of PCMArgs, per module
     let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]] =
       try performBatchDependencyScan(moduleInfos: batchScanInputList)
+
+    // Update the dependency graph to reflect the newly-discovered dependencies
     try dependencyGraph.resolveVersionedClangModules(using: moduleVersionedGraphMap)
+    try dependencyGraph.updateCapturedPCMArgClangDependencies(using: modulePCMArgsSetMap)
   }
 }
 
@@ -103,26 +108,52 @@ private extension InterModuleDependencyGraph {
                pathPCMArtSet: Set<[String]>,
                pcmArgSetMap: inout [ModuleDependencyId : Set<[String]>])
     throws {
+      guard let moduleInfo = modules[moduleId] else {
+        throw Driver.Error.missingModuleDependency(moduleId.moduleName)
+      }
       switch moduleId {
         case .swift:
+          guard case .swift(let swiftModuleDetails) = moduleInfo.details else {
+            throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                         "no Swift `details` object")
+          }
           // Add extraPCMArgs of the visited node to the current path set
           // and proceed to visit all direct dependencies
-          let modulePCMArgs = try swiftModulePCMArgs(of: moduleId)
+          let modulePCMArgs = swiftModuleDetails.extraPcmArgs
           var newPathPCMArgSet = pathPCMArtSet
           newPathPCMArgSet.insert(modulePCMArgs)
-          for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+          for dependencyId in moduleInfo.directDependencies! {
             try visit(dependencyId,
                       pathPCMArtSet: newPathPCMArgSet,
                       pcmArgSetMap: &pcmArgSetMap)
           }
         case .clang:
+          guard case .clang(let clangModuleDetails) = moduleInfo.details else {
+            throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                         "no Clang `details` object")
+          }
+          // The details of this module contain information on which sets of PCMArgs are already
+          // captured in the described dependencies of this module. Only re-scan at PCMArgs not
+          // already captured.
+          let alreadyCapturedPCMArgs =
+            clangModuleDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+          let newPCMArgSet = pathPCMArtSet.filter { !alreadyCapturedPCMArgs.contains($0) }
           // Add current path's PCMArgs to the SetMap and stop traversal
           if pcmArgSetMap[moduleId] != nil {
-            pathPCMArtSet.forEach { pcmArgSetMap[moduleId]!.insert($0) }
+            newPCMArgSet.forEach { pcmArgSetMap[moduleId]!.insert($0) }
           } else {
-            pcmArgSetMap[moduleId] = pathPCMArtSet
+            pcmArgSetMap[moduleId] = newPCMArgSet
           }
           return
+        case .swiftPrebuiltExternal:
+          // We can rely on the fact that this pre-built module already has its
+          // versioned-PCM dependencies satisfied, so we do not need to add additional
+          // arguments. Proceed traversal to its dependencies.
+          for dependencyId in moduleInfo.directDependencies! {
+            try visit(dependencyId,
+                      pathPCMArtSet: pathPCMArtSet,
+                      pcmArgSetMap: &pcmArgSetMap)
+          }
         case .swiftPlaceholder:
           fatalError("Unresolved placeholder dependencies at planning stage: \(moduleId)")
       }
@@ -133,4 +164,25 @@ private extension InterModuleDependencyGraph {
               pcmArgSetMap: &pcmArgSetMap)
     return pcmArgSetMap
   }
+
+  /// Update the set of all PCMArgs against which a given clang module was re-scanned
+  mutating func updateCapturedPCMArgClangDependencies(using pcmArgSetMap:
+                                                        [ModuleDependencyId : Set<[String]>]
+  ) throws {
+    for (moduleId, newPCMArgs) in pcmArgSetMap {
+      guard let moduleInfo = modules[moduleId] else {
+        throw Driver.Error.missingModuleDependency(moduleId.moduleName)
+      }
+      guard case .clang(var clangModuleDetails) = moduleInfo.details else {
+        throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                     "no Clang `details` object")
+      }
+      if clangModuleDetails.dependenciesCapturedPCMArgs == nil {
+        clangModuleDetails.dependenciesCapturedPCMArgs = Set<[String]>()
+      }
+      newPCMArgs.forEach { clangModuleDetails.dependenciesCapturedPCMArgs!.insert($0) }
+      modules[moduleId]!.details = .clang(clangModuleDetails)
+    }
+  }
 }
+

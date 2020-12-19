@@ -23,13 +23,22 @@ public protocol DriverExecutor {
                recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
   
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
+  /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
+  func execute(workload: DriverExecutorWorkload,
+               delegate: JobExecutionDelegate,
+               numParallelJobs: Int,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath: Date]
+  ) throws
+
+  /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws
-  
+
   /// Launch a process with the given command line and report the result.
   @discardableResult
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
@@ -38,9 +47,34 @@ public protocol DriverExecutor {
   func description(of job: Job, forceResponseFiles: Bool) throws -> String
 }
 
+public struct DriverExecutorWorkload {
+  public let continueBuildingAfterErrors: Bool
+  public enum Kind {
+    case all([Job])
+    case incremental(IncrementalCompilationState)
+  }
+  public let kind: Kind
+
+  public init(_ allJobs: [Job],
+       _ incrementalCompilationState: IncrementalCompilationState?,
+       continueBuildingAfterErrors: Bool
+  ) {
+      self.continueBuildingAfterErrors = continueBuildingAfterErrors
+      self.kind = incrementalCompilationState
+        .map {.incremental($0)}
+        ?? .all(allJobs)
+  }
+
+  static public func all(_ jobs: [Job]) -> Self {
+    .init(jobs, nil, continueBuildingAfterErrors: false)
+  }
+}
+
 enum JobExecutionError: Error {
   case jobFailedWithNonzeroExitCode(Int, String)
   case failedToReadJobOutput
+  // A way to pass more information to the catch point
+  case decodingError(DecodingError, Data, ProcessResult)
 }
 
 extension DriverExecutor {
@@ -59,8 +93,28 @@ extension DriverExecutor {
     guard let outputData = try? Data(result.utf8Output().utf8) else {
       throw JobExecutionError.failedToReadJobOutput
     }
-    
-    return try JSONDecoder().decode(outputType, from: outputData)
+
+    do {
+      return try JSONDecoder().decode(outputType, from: outputData)
+    }
+    catch let err as DecodingError {
+      throw JobExecutionError.decodingError(err, outputData, result)
+    }
+  }
+
+  public func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputModificationDates: [TypedVirtualPath: Date]
+  ) throws {
+    try execute(
+      workload: .all(jobs),
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates)
   }
 
   static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {
@@ -83,88 +137,4 @@ public protocol JobExecutionDelegate {
   
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
-}
-
-public final class SwiftDriverExecutor: DriverExecutor {
-  let diagnosticsEngine: DiagnosticsEngine
-  let processSet: ProcessSet
-  let fileSystem: FileSystem
-  public let resolver: ArgsResolver
-  let env: [String: String]
-  
-  public init(diagnosticsEngine: DiagnosticsEngine,
-              processSet: ProcessSet,
-              fileSystem: FileSystem,
-              env: [String: String]) throws {
-    self.diagnosticsEngine = diagnosticsEngine
-    self.processSet = processSet
-    self.fileSystem = fileSystem
-    self.env = env
-    self.resolver = try ArgsResolver(fileSystem: fileSystem)
-  }
-  
-  public func execute(job: Job,
-                      forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
-    let arguments: [String] = try resolver.resolveArgumentList(for: job,
-                                                               forceResponseFiles: forceResponseFiles)
-    
-    try job.verifyInputsNotModified(since: recordedInputModificationDates,
-                                    fileSystem: fileSystem)
-    
-    if job.requiresInPlaceExecution {
-      for (envVar, value) in job.extraEnvironment {
-        try ProcessEnv.setVar(envVar, value: value)
-      }
-
-      try exec(path: arguments[0], args: arguments)
-      fatalError("unreachable, exec always throws on failure")
-    } else {
-      var childEnv = env
-      childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
-
-      let process = try Process.launchProcess(arguments: arguments, env: childEnv)
-      return try process.waitUntilExit()
-    }
-  }
-  
-  public func execute(jobs: [Job],
-                      delegate: JobExecutionDelegate,
-                      numParallelJobs: Int = 1,
-                      forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
-  ) throws {
-    let llbuildExecutor = MultiJobExecutor(jobs: jobs,
-                                           resolver: resolver,
-                                           executorDelegate: delegate,
-                                           diagnosticsEngine: diagnosticsEngine,
-                                           numParallelJobs: numParallelJobs,
-                                           processSet: processSet,
-                                           forceResponseFiles: forceResponseFiles,
-                                           recordedInputModificationDates: recordedInputModificationDates)
-    try llbuildExecutor.execute(env: env, fileSystem: fileSystem)
-  }
-  
-  @discardableResult
-  public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
-    return try Process.checkNonZeroExit(arguments: args, environment: environment)
-  }
-
-  public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
-    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
-    var result = args.joined(separator: " ")
-
-    if usedResponseFile {
-      // Print the response file arguments as a comment.
-      result += " # \(job.commandLine.joinedArguments)"
-    }
-
-    if !job.extraEnvironment.isEmpty {
-      result += " #"
-      for (envVar, val) in job.extraEnvironment {
-        result += " \(envVar)=\(val)"
-      }
-    }
-    return result
-  }
 }

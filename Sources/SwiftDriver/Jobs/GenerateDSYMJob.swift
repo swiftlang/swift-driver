@@ -29,6 +29,7 @@ extension Driver {
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
+      primaryInputs: [],
       outputs: [.init(file: outputPath, type: .dSYM)]
     )
   }

@@ -18,7 +18,7 @@ public protocol ProcessProtocol {
   /// Clients that don't really launch a process can return
   /// a negative number to represent a "quasi-pid".
   ///
-  /// - SeeAlso: https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst#quasi-pids
+  /// - SeeAlso: https://github.com/apple/swift/blob/main/docs/DriverParseableOutput.rst#quasi-pids
   var processID: Process.ProcessID { get }
 
   /// Wait for the process to finish execution.

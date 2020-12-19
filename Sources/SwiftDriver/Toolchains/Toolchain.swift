@@ -13,9 +13,9 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
-public enum Tool {
+public enum Tool: Hashable {
   case swiftCompiler
-  case staticLinker
+  case staticLinker(LTOKind?)
   case dynamicLinker
   case clang
   case swiftAutolinkExtract
@@ -27,8 +27,8 @@ public enum Tool {
 
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
-public protocol Toolchain {
-  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem)
+@_spi(Testing) public protocol Toolchain {
+  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, toolDirectory: AbsolutePath?)
 
   var env: [String: String] { get }
 
@@ -37,6 +37,8 @@ public protocol Toolchain {
   var searchPaths: [AbsolutePath] { get }
 
   var executor: DriverExecutor { get }
+
+  var toolDirectory: AbsolutePath? { get }
 
   /// Retrieve the absolute path to a particular tool.
   func getToolPath(_ tool: Tool) throws -> AbsolutePath
@@ -66,7 +68,7 @@ public protocol Toolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
-    sdkPath: String?,
+    lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath
@@ -80,14 +82,16 @@ public protocol Toolchain {
   func platformSpecificInterpreterEnvironmentVariables(
     env: [String: String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
-    targetTriple: Triple) throws -> [String: String]
+    sdkPath: VirtualPath?,
+    targetInfo: FrontendTargetInfo) throws -> [String: String]
 
   func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo
   ) throws
+
+  var dummyForTestingObjectFormat: Triple.ObjectFormat {get}
 }
 
 extension Toolchain {
@@ -137,6 +141,10 @@ extension Toolchain {
     #endif
     if let overrideString = envVar(forExecutable: executable) {
       return try AbsolutePath(validating: overrideString)
+    } else if let toolDir = toolDirectory,
+              let path = lookupExecutablePath(filename: filename, searchPaths: [toolDir]) {
+      // Looking for tools from the tools directory.
+      return path
     } else if let path = lookupExecutablePath(filename: filename, searchPaths: [executableDir]) {
       return path
     } else if let path = try? xcrunFind(executable: executable) {
@@ -184,6 +192,6 @@ extension Toolchain {
   ) throws {}
 }
 
-public enum ToolchainError: Swift.Error {
+@_spi(Testing) public enum ToolchainError: Swift.Error {
   case unableToFind(tool: String)
 }

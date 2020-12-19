@@ -14,7 +14,8 @@ extension Driver {
   /// options for the paths of various module files.
   mutating func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
-      outputs: inout [TypedVirtualPath]
+      outputs: inout [TypedVirtualPath],
+      isMergeModule: Bool
   ) {
     // Add supplemental outputs.
     func addSupplementalOutput(path: VirtualPath?, flag: String, type: FileType) {
@@ -28,10 +29,15 @@ extension Driver {
     addSupplementalOutput(path: moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
     addSupplementalOutput(path: moduleSourceInfoPath, flag: "-emit-module-source-info-path", type: .swiftSourceInfoFile)
     addSupplementalOutput(path: swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
-    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
+    addSupplementalOutput(path: swiftPrivateInterfacePath, flag: "-emit-private-module-interface-path", type: .privateSwiftInterface)
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
 
+    if isMergeModule || shouldCreateEmitModuleJob {
+      return
+    }
+    // Add outputs that can't be merged
+    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
     if let dependenciesFilePath = dependenciesFilePath {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
@@ -51,7 +57,7 @@ extension Driver {
       TypedVirtualPath(file: moduleOutputPath, type: .swiftModule)
     ]
 
-    commandLine.appendFlags("-frontend", "-emit-module")
+    commandLine.appendFlags("-frontend", "-emit-module", "-experimental-skip-non-inlinable-function-bodies-without-types")
 
     let swiftInputFiles = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
 
@@ -61,10 +67,14 @@ extension Driver {
       inputs.append(input)
     }
 
+    if let pchPath = bridgingPrecompiledHeader {
+      inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
+    }
+
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
+    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputPath)
@@ -75,14 +85,14 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs
     )
   }
 
   /// Returns true if the emit module job should be created.
   var shouldCreateEmitModuleJob: Bool {
-    return forceEmitModuleInSingleInvocation
-      && compilerOutputType != .swiftModule
-      && moduleOutputInfo.output != nil
+    return forceEmitModuleBeforeCompile
+      || parsedOptions.hasArgument(.emitModuleSeparately)
   }
 }

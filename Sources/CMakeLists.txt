@@ -6,7 +6,9 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+add_subdirectory(_CSwiftDriver)
 add_subdirectory(SwiftOptions)
 add_subdirectory(SwiftDriver)
+add_subdirectory(SwiftDriverExecution)
 add_subdirectory(swift-driver)
 add_subdirectory(swift-help)

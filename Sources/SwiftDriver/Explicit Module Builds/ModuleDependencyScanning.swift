@@ -29,11 +29,10 @@ extension Driver {
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
-    // Pass in external dependencies to be treated as placeholder dependencies by the scanner
-    if let externalDependencyArtifactMap = externalDependencyArtifactMap {
+    // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
+    if let externalBuildArtifacts = externalBuildArtifacts {
       let dependencyPlaceholderMapFile =
-        try serializeExternalDependencyArtifacts(externalDependencyArtifactMap:
-                                                  externalDependencyArtifactMap)
+        try serializeExternalDependencyArtifacts(externalBuildArtifacts: externalBuildArtifacts)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
@@ -48,28 +47,37 @@ extension Driver {
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
+               primaryInputs: [],
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
                supportsResponseFiles: true)
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-  func serializeExternalDependencyArtifacts(externalDependencyArtifactMap: ExternalDependencyArtifactMap)
-  throws -> AbsolutePath {
-    let temporaryDirectory = try determineTempDirectory()
-    let placeholderMapFilePath =
-      temporaryDirectory.appending(component: "\(moduleOutputInfo.name)-placeholder-modules.json")
-
+  func serializeExternalDependencyArtifacts(externalBuildArtifacts: ExternalBuildArtifacts)
+  throws -> VirtualPath {
+    let (externalTargetModulePathMap, externalModuleInfoMap)  = externalBuildArtifacts
     var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
-    for (moduleId, dependencyInfo) in externalDependencyArtifactMap {
+
+    // Explicit external targets
+    for (moduleId, binaryModulePath) in externalTargetModulePathMap {
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: dependencyInfo.0.description))
+                                  modulePath: binaryModulePath.description))
+    }
+
+    // All other already-scanned Swift modules
+    for (moduleId, moduleInfo) in externalModuleInfoMap
+    where !externalTargetModulePathMap.keys.contains(moduleId) {
+      guard case .swift(_) = moduleId else { continue }
+      placeholderArtifacts.append(
+          SwiftModuleArtifactInfo(name: moduleId.moduleName,
+                                  modulePath: moduleInfo.modulePath))
     }
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(placeholderArtifacts)
-    try fileSystem.writeFileContents(placeholderMapFilePath, bytes: ByteString(contents))
-    return placeholderMapFilePath
+    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"),
+                                       contents)
   }
 
   mutating func performBatchDependencyScan(moduleInfos: [BatchScanModuleInfo])
@@ -83,7 +91,7 @@ extension Driver {
     let success = batchScanResult.exitStatus == .terminated(code: EXIT_SUCCESS)
     guard success else {
       throw JobExecutionError.jobFailedWithNonzeroExitCode(
-        SwiftDriverExecutor.computeReturnCode(exitStatus: batchScanResult.exitStatus),
+        type(of: executor).computeReturnCode(exitStatus: batchScanResult.exitStatus),
         try batchScanResult.utf8stderrOutput())
     }
 
@@ -156,21 +164,18 @@ extension Driver {
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
+               primaryInputs: [],
                outputs: outputs,
                supportsResponseFiles: true)
   }
 
   /// Serialize a collection of modules into an input format expected by the batch module dependency scanner.
   func serializeBatchScanningModuleArtifacts(moduleInfos: [BatchScanModuleInfo])
-  throws -> AbsolutePath {
-    let temporaryDirectory = try determineTempDirectory()
-    let batchScanInputFilePath =
-      temporaryDirectory.appending(component: "\(moduleOutputInfo.name)-batch-module-scan.json")
-
+  throws -> VirtualPath {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(moduleInfos)
-    try fileSystem.writeFileContents(batchScanInputFilePath, bytes: ByteString(contents))
-    return batchScanInputFilePath
+    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
+                                       contents)
   }
 }

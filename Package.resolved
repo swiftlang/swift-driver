@@ -5,17 +5,17 @@
         "package": "swift-argument-parser",
         "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {
-          "branch": null,
-          "revision": "92646c0cdbaca076c8d3d0207891785b3379cbff",
-          "version": "0.3.1"
+          "branch": "main",
+          "revision": "4273ad222e6c51969e8585541f9da5187ad94e47",
+          "version": null
         }
       },
       {
         "package": "llbuild",
         "repositoryURL": "https://github.com/apple/swift-llbuild.git",
         "state": {
-          "branch": "master",
-          "revision": "0816cf594c2e4d890d1f188271da667f99763fa9",
+          "branch": "main",
+          "revision": "eb56a00ed9dfd62c2ce4ec86183ff0bc0afda997",
           "version": null
         }
       },
@@ -23,8 +23,8 @@
         "package": "swift-tools-support-core",
         "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
         "state": {
-          "branch": "master",
-          "revision": "25fc6eaec5d9f79b79419c5bdaa04e434cbcd568",
+          "branch": "main",
+          "revision": "c98cfc216d22798dce7ce7b9cc171565371e967e",
           "version": null
         }
       },

@@ -53,10 +53,10 @@ extension Driver {
     commandLine.appendFlag(.disableDiagnosticPasses)
     commandLine.appendFlag(.disableSilPerfOptzns)
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .parsed)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs)
+    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputInfo.output!.outputPath)
@@ -67,6 +67,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: outputs,
       supportsResponseFiles: true
     )

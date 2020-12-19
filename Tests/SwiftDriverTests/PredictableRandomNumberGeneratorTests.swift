@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 
 /// This generator is deterministic and platform independent, so the sequence for each seed should remain constant.
 final class PredictableRandomNumberGeneratorTests: XCTestCase {

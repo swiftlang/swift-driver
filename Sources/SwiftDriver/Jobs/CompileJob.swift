@@ -38,6 +38,8 @@ extension Driver {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
       } else if compilerOutputType?.isTextual == true {
         return TypedVirtualPath(file: .standardOutput, type: outputType)
+      } else if outputType == .swiftModule, let moduleOutput = moduleOutputInfo.output {
+        return TypedVirtualPath(file: moduleOutput.outputPath, type: outputType)
       }
     }
 
@@ -52,8 +54,7 @@ extension Driver {
       return TypedVirtualPath(file:VirtualPath.temporary(.init(baseName.appendingFileTypeExtension(outputType))),
                               type: outputType)
     }
-
-    return TypedVirtualPath(file: .relative(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
+    return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
   }
 
   /// Is this compile job top-level
@@ -64,10 +65,17 @@ extension Driver {
       return true
     case .object:
       return (linkerOutputType == nil)
+    case .llvmBitcode:
+      if compilerOutputType != .llvmBitcode {
+        // The compiler output isn't bitcode, so bitcode isn't top-level (-embed-bitcode).
+        return false
+      } else {
+        // When -lto is set, .bc will be used for linking. Otherwise, .bc is
+        // top-level output (-emit-bc)
+        return lto == nil
+      }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .llvmBitcode:
-      return compilerOutputType == type
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
@@ -79,6 +87,7 @@ extension Driver {
   /// Add the compiler inputs for a frontend compilation job, and return the
   /// corresponding primary set of outputs.
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
+                                 indexFilePath: TypedVirtualPath?,
                                  inputs: inout [TypedVirtualPath],
                                  inputOutputMap: inout [TypedVirtualPath: TypedVirtualPath],
                                  outputType: FileType?,
@@ -107,9 +116,21 @@ extension Driver {
 
     // If we will be passing primary files via -primary-file, form a set of primary input files so
     // we can check more quickly.
-    let usesPrimaryFileInputs = compilerMode.usesPrimaryFileInputs
-    assert(!usesPrimaryFileInputs || !primaryInputs.isEmpty)
-    let primaryInputFiles = usesPrimaryFileInputs ? Set(primaryInputs) : Set()
+    let usesPrimaryFileInputs: Bool
+    let primaryInputFiles: Set<TypedVirtualPath>
+    if compilerMode.usesPrimaryFileInputs {
+      assert(!primaryInputs.isEmpty)
+      usesPrimaryFileInputs = true
+      primaryInputFiles = Set(primaryInputs)
+    } else if let path = indexFilePath {
+      // If -index-file is used, we perform a single compile but pass the
+      // -index-file-path as a primary input file.
+      usesPrimaryFileInputs = true
+      primaryInputFiles = [path]
+    } else {
+      usesPrimaryFileInputs = false
+      primaryInputFiles = []
+    }
 
     let isMultithreaded = numThreads > 0
 
@@ -157,8 +178,11 @@ extension Driver {
   }
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
-  mutating func compileJob(primaryInputs: [TypedVirtualPath], outputType: FileType?,
-                           allOutputs: inout [TypedVirtualPath]) throws -> Job {
+  mutating func compileJob(primaryInputs: [TypedVirtualPath],
+                           outputType: FileType?,
+                           addJobOutputs: ([TypedVirtualPath]) -> Void,
+                           emitModuleTrace: Bool)
+  throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
@@ -167,7 +191,17 @@ extension Driver {
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
+
+    let indexFilePath: TypedVirtualPath?
+    if let indexFileArg = parsedOptions.getLastArgument(.indexFilePath)?.asSingle {
+      let path = try VirtualPath(path: indexFileArg)
+      indexFilePath = inputFiles.first { $0.file == path }
+    } else {
+      indexFilePath = nil
+    }
+
     let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs,
+                                          indexFilePath: indexFilePath,
                                           inputs: &inputs,
                                           inputOutputMap: &inputOutputMap,
                                           outputType: outputType,
@@ -183,9 +217,11 @@ extension Driver {
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
-    outputs += try addFrontendSupplementaryOutputArguments(commandLine: &commandLine,
-                                                           primaryInputs: primaryInputs,
-                                                           inputOutputMap: inputOutputMap)
+    outputs += try addFrontendSupplementaryOutputArguments(
+      commandLine: &commandLine,
+      primaryInputs: primaryInputs,
+      inputOutputMap: inputOutputMap,
+      includeModuleTracePath: emitModuleTrace)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
@@ -249,20 +285,30 @@ extension Driver {
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
 
-    allOutputs += outputs
+    addJobOutputs(outputs)
 
-    // If we're creating emit module job, order the compile jobs after that.
-    if shouldCreateEmitModuleJob {
+    // If we're prioritizing the emit module job, schedule the compile jobs
+    // after that.
+    if forceEmitModuleBeforeCompile {
       inputs.append(TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule))
     }
 
+    var displayInputs = primaryInputs
+
+    // Bridging header is needed for compiling these .swift sources.
+    if let pchPath = bridgingPrecompiledHeader {
+      let pchInput = TypedVirtualPath(file: pchPath, type: .pch)
+      inputs.append(pchInput)
+      displayInputs.append(pchInput)
+    }
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
-      displayInputs: primaryInputs,
+      displayInputs: displayInputs,
       inputs: inputs,
+      primaryInputs: primaryInputs,
       outputs: outputs,
       supportsResponseFiles: true
     )

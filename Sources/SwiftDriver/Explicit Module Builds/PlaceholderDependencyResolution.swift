@@ -41,132 +41,128 @@ import Foundation
   // which the driver will then resolve using B's full dependency graph provided by the client.
 
   /// Resolve all placeholder dependencies using external dependency information provided by the client
-  mutating func resolvePlaceholderDependencies(using externalDependencyMap: ExternalDependencyArtifactMap)
+  mutating func resolvePlaceholderDependencies(for externalBuildArtifacts: ExternalBuildArtifacts,
+                                               using dependencyOracle: InterModuleDependencyOracle)
   throws {
-    let placeholderModules = modules.keys.filter {
+    let externalTargetModulePathMap = externalBuildArtifacts.0
+    let placeholderFilter : (ModuleDependencyId) -> Bool = {
       if case .swiftPlaceholder(_) = $0 {
         return true
       }
       return false
     }
+    var placeholderModules = modules.keys.filter(placeholderFilter)
 
-    // Resolve all placeholder modules
-    for moduleId in placeholderModules {
-      guard let (placeholderModulePath, placeholderDependencyGraph) =
-              externalDependencyMap[moduleId] else {
+    // Resolve all target placeholder modules
+    let placeholderTargetModules = placeholderModules.filter { externalTargetModulePathMap[$0] != nil }
+    for moduleId in placeholderTargetModules {
+      guard let placeholderModulePath = externalTargetModulePathMap[moduleId] else {
         throw Driver.Error.missingExternalDependency(moduleId.moduleName)
       }
-      try resolvePlaceholderDependency(placeholderModulePath: placeholderModulePath,
-                                       placeholderDependencyGraph: placeholderDependencyGraph)
+      try resolveTargetPlaceholder(placeholderId: moduleId,
+                                   placeholderPath: placeholderModulePath,
+                                   dependencyOracle: dependencyOracle)
+    }
+
+    // Process remaining placeholders until there are none left
+    placeholderModules = modules.keys.filter(placeholderFilter)
+    while !placeholderModules.isEmpty {
+      let moduleId = placeholderModules.first!
+      let swiftModuleId = ModuleDependencyId.swift(moduleId.moduleName)
+      guard let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId) else {
+        throw Driver.Error.missingExternalDependency(moduleId.moduleName)
+      }
+
+      // Insert the resolved module, replacing the placeholder.
+      try Self.mergeModule(swiftModuleId, moduleInfo, into: &modules)
+
+      // Traverse and add all of this external module's dependencies to the current graph.
+      try resolvePlaceholderModuleDependencies(moduleId: swiftModuleId,
+                                               dependencyOracle: dependencyOracle)
+
+      // Update the set of remaining placeholders to resolve
+      placeholderModules = modules.keys.filter(placeholderFilter)
     }
   }
 }
 
 fileprivate extension InterModuleDependencyGraph {
-  /// Merge a given external module's dependency graph in place of a placeholder dependency
-  mutating func resolvePlaceholderDependency(placeholderModulePath: AbsolutePath,
-                                             placeholderDependencyGraph: InterModuleDependencyGraph)
+  /// Resolve a placeholder dependency that is an external target.
+  mutating func resolveTargetPlaceholder(placeholderId: ModuleDependencyId,
+                                         placeholderPath: AbsolutePath,
+                                         dependencyOracle: InterModuleDependencyOracle)
   throws {
-    // For every Swift module in the placeholder dependency graph, generate a new module info
-    // containing only the pre-compiled module path, and insert it into the current module's
-    // dependency graph, replacing equivalent (non pre-built) modules, if necessary.
+    // For this placeholder dependency, generate a new module info containing only the pre-compiled
+    // module path, and insert it into the current module's dependency graph,
+    // replacing equivalent placeholder module.
     //
-    // For every Clang module in the placeholder dependency graph, because PCM modules file names
-    // encode the specific pcmArguments of their dependees, we cannot use pre-built files here
-    // because we do not always know which target they corrspond to, nor do we have a way to map
-    // from a certain target to a specific pcm file. Because of this, all PCM dependencies, direct
-    // and transitive, have to be built for all modules.
-    for (moduleId, moduleInfo) in placeholderDependencyGraph.modules {
-      switch moduleId {
-        case .swift(_):
-          // Compute the compiled module path for this module.
-          // If this module is the placeholder itself, this information was passed from SwiftPM
-          // If this module is any other swift module, then the compiled module path is
-          // a part of the details field.
-          // Otherwise (for most other dependencies), it is the modulePath of the moduleInfo node.
-          let compiledModulePath : String
-          if moduleId.moduleName == placeholderDependencyGraph.mainModuleName {
-            compiledModulePath = placeholderModulePath.description
-          } else if case .swift(let details) = moduleInfo.details,
-                    let explicitModulePath = details.explicitCompiledModulePath {
-            compiledModulePath = explicitModulePath
-          } else {
-            compiledModulePath = moduleInfo.modulePath.description
-          }
-
-          // We require the extraPCMArgs of all swift modules in order to
-          // re-scan their clang module dependencies.
-          let extraPCMArgs : [String] =
-                      try placeholderDependencyGraph.swiftModulePCMArgs(of: moduleId)
-
-          let swiftDetails =
-            SwiftModuleDetails(compiledModulePath: compiledModulePath,
-                               extraPcmArgs: extraPCMArgs)
-          let newInfo = ModuleInfo(modulePath: moduleInfo.modulePath.description,
-                                   sourceFiles: nil,
-                                   directDependencies: moduleInfo.directDependencies,
-                                   details: ModuleInfo.Details.swift(swiftDetails))
-          try insertOrReplaceModule(moduleId: moduleId, moduleInfo: newInfo)
-        case .clang(_):
-          if modules[moduleId] == nil {
-            modules[moduleId] = moduleInfo
-          }
-        case .swiftPlaceholder(_):
-          try insertOrReplaceModule(moduleId: moduleId, moduleInfo: moduleInfo)
-      }
-    }
-  }
-
-  /// Insert a module into the handler's dependency graph. If a module with this identifier already exists,
-  /// replace it's module with a moduleInfo that contains a path to an existing prebuilt .swiftmodule
-  mutating func insertOrReplaceModule(moduleId: ModuleDependencyId,
-                                             moduleInfo: ModuleInfo) throws {
-    // Check for placeholders to be replaced
-    if modules[ModuleDependencyId.swiftPlaceholder(moduleId.moduleName)] != nil {
-      try replaceModule(originalId: .swiftPlaceholder(moduleId.moduleName), replacementId: moduleId,
-                        replacementInfo: moduleInfo)
-    }
-    // Check for modules with the same Identifier, and replace if found
-    else if modules[moduleId] != nil {
-      try replaceModule(originalId: moduleId, replacementId: moduleId, replacementInfo: moduleInfo)
-    // This module is new to the current dependency graph
+    // For all dependencies of this placeholder (direct and transitive), insert them
+    // into this module's graph.
+    //   - Swift dependencies are inserted as-is
+    //   - Clang dependencies are inserted as-is, if a matching Clang module is already found
+    //     in this module's graph, we merge moduleInfos of the two modules, in order to obtain
+    //     a super-set of their dependencies at all possible PCMArgs variants.
+    //
+    // The placeholder is resolved into a .swiftPrebuiltExternal module in the dependency graph.
+    // The placeholder's corresponding module may appear in the externalModuleInfoMap as either
+    // a .swift module or a .swiftPrebuiltExternal module if it had been resolved earlier
+    // in the multi-module build planning context.
+    let swiftModuleId = ModuleDependencyId.swift(placeholderId.moduleName)
+    let swiftPrebuiltModuleId = ModuleDependencyId.swiftPrebuiltExternal(placeholderId.moduleName)
+    let externalModuleId: ModuleDependencyId
+    let externalModuleInfo: ModuleInfo
+    if let moduleInfo = dependencyOracle.getModuleInfo(of: swiftModuleId) {
+      externalModuleId = swiftModuleId
+      externalModuleInfo = moduleInfo
+    } else if let prebuiltModuleInfo = dependencyOracle.getModuleInfo(of: swiftPrebuiltModuleId) {
+      externalModuleId = swiftPrebuiltModuleId
+      externalModuleInfo = prebuiltModuleInfo
     } else {
-      modules[moduleId] = moduleInfo
+      throw Driver.Error.missingExternalDependency(placeholderId.moduleName)
     }
+
+    let newExternalModuleDetails =
+      SwiftPrebuiltExternalModuleDetails(compiledModulePath: placeholderPath.description)
+    let newInfo = ModuleInfo(modulePath: placeholderPath.description,
+                             sourceFiles: [],
+                             directDependencies: externalModuleInfo.directDependencies,
+                             details: .swiftPrebuiltExternal(newExternalModuleDetails))
+
+    // Insert the resolved module, replacing the placeholder.
+    try Self.mergeModule(swiftPrebuiltModuleId, newInfo, into: &modules)
+
+    // Traverse and add all of this external target's dependencies to the current graph.
+    try resolvePlaceholderModuleDependencies(moduleId: externalModuleId,
+                                             dependencyOracle: dependencyOracle)
   }
 
-  /// Replace a module with a new one. Replace all references to the original module in other modules' dependencies
-  /// with the new module.
-  mutating func replaceModule(originalId: ModuleDependencyId,
-                                     replacementId: ModuleDependencyId,
-                                     replacementInfo: ModuleInfo) throws {
-    modules.removeValue(forKey: originalId)
-    modules[replacementId] = replacementInfo
-    for moduleId in modules.keys {
-      var moduleInfo = modules[moduleId]!
-      // Skip over other placeholders, they do not have dependencies
-      if case .swiftPlaceholder(_) = moduleId {
-        continue
-      }
-      if let originalModuleIndex = moduleInfo.directDependencies?.firstIndex(of: originalId) {
-        moduleInfo.directDependencies![originalModuleIndex] = replacementId;
-      }
-      modules[moduleId] = moduleInfo
+  /// Resolve all dependencies of a placeholder module (direct and transitive), but merging them into the current graph.
+  mutating func resolvePlaceholderModuleDependencies(moduleId: ModuleDependencyId,
+                                                     dependencyOracle: InterModuleDependencyOracle)
+  throws {
+    guard let resolvingModuleInfo = dependencyOracle.getModuleInfo(of: moduleId) else {
+      throw Driver.Error.missingExternalDependency(moduleId.moduleName)
     }
-  }
-}
 
-/// Used for creating new module infos during placeholder dependency resolution
-/// Modules created this way only contain a path to a pre-built module file.
-private extension SwiftModuleDetails {
-  init(compiledModulePath: String, extraPcmArgs: [String]) {
-    self.moduleInterfacePath = nil
-    self.compiledModuleCandidates = nil
-    self.explicitCompiledModulePath = compiledModulePath
-    self.bridgingHeaderPath = nil
-    self.bridgingSourceFiles = nil
-    self.commandLine = nil
-    self.extraPcmArgs = extraPcmArgs
-    self.isFramework = false
+    // Breadth-first traversal of all the dependencies of this module
+    var visited: Set<ModuleDependencyId> = []
+    var toVisit: [ModuleDependencyId] = resolvingModuleInfo.directDependencies ?? []
+    var currentIndex = 0
+    while let currentId = toVisit[currentIndex...].first {
+      currentIndex += 1
+      visited.insert(currentId)
+      guard let currentInfo = dependencyOracle.getModuleInfo(of: currentId) else {
+        throw Driver.Error.missingExternalDependency(currentId.moduleName)
+      }
+
+      try Self.mergeModule(currentId, currentInfo, into: &modules)
+
+      let currentDependencies = currentInfo.directDependencies ?? []
+      for childId in currentDependencies where !visited.contains(childId) {
+        if !toVisit.contains(childId) {
+          toVisit.append(childId)
+        }
+      }
+    }
   }
 }

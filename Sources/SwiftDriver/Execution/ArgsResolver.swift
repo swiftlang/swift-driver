@@ -84,14 +84,22 @@ public final class ArgsResolver {
     // Return the path from the temporary directory if this is a temporary file.
     if path.isTemporary {
       let actualPath = temporaryDirectory.appending(component: path.name)
-      if case let .fileList(_, fileList) = path {
-        switch fileList {
-        case let .list(items):
-          try createFileList(path: actualPath, contents: items)
-        case let .outputFileMap(map):
-          try createFileList(path: actualPath, outputFileMap: map)
+      switch path {
+      case .temporary:
+        break // No special behavior required.
+      case let .temporaryWithKnownContents(_, contents):
+        // FIXME: Need a way to support this for distributed build systems...
+        if let absolutePath = actualPath.absolutePath {
+          try fileSystem.writeFileContents(absolutePath, bytes: .init(contents))
         }
+      case let .fileList(_, .list(items)):
+        try createFileList(path: actualPath, contents: items)
+      case let .fileList(_, .outputFileMap(map)):
+        try createFileList(path: actualPath, outputFileMap: map)
+      case .relative, .absolute, .standardInput, .standardOutput:
+        fatalError("Not a temporary path.")
       }
+
       let result = actualPath.name
       pathMapping[path] = result
       return result
@@ -133,7 +141,9 @@ public final class ArgsResolver {
 
   private func quoteAndEscape(path: VirtualPath) -> String {
     let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path), Tag(.str), .doubleQuoted))
-    let string = try! Yams.serialize(node: inputNode)
+    // Width parameter of -1 sets preferred line-width to unlimited so that no extraneous
+    // line-breaks will be inserted during serialization.
+    let string = try! Yams.serialize(node: inputNode, width: -1)
     // Remove the newline from the end
     return string.trimmingCharacters(in: .whitespacesAndNewlines)
   }

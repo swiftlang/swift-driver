@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -44,42 +44,29 @@ extension Toolchain {
     }
     return resourceDirBase.appending(components: triple.platformName() ?? "")
   }
-
-  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: AbsolutePath) -> AbsolutePath? {
+  
+  func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: VirtualPath) -> VirtualPath? {
     guard triple.isMacCatalyst else { return nil }
     return primaryPath.parentDirectory.appending(component: "macosx")
   }
 
   func clangLibraryPath(
-    for triple: Triple,
+    for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
-  ) throws -> AbsolutePath {
-    #if os(Windows)
-      return try getToolPath(.swiftCompiler)
-        .parentDirectory // remove /swift
-        .parentDirectory // remove /bin
-        .appending(components: "lib", "swift", "clang", "lib",
-                   triple.platformName(conflatingDarwin: true)!)
-    #else
-      return try computeResourceDirPath(for: triple,
-                                        parsedOptions: &parsedOptions,
-                                        isShared: true)
-        .parentDirectory // Remove platform name.
-        .appending(components: "clang", "lib",
-                   triple.platformName(conflatingDarwin: true)!)
-    #endif
+  ) throws -> VirtualPath {
+    return targetInfo.runtimeResourcePath.path
+      .appending(components: "clang", "lib",
+                 targetInfo.target.triple.platformName(conflatingDarwin: true)!)
   }
 
   func runtimeLibraryPaths(
-    for triple: Triple,
+    for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
+    sdkPath: VirtualPath?,
     isShared: Bool
-  ) throws -> [AbsolutePath] {
-    let resourceDirPath = try computeResourceDirPath(
-      for: triple,
-      parsedOptions: &parsedOptions,
-      isShared: isShared)
+  ) throws -> [VirtualPath] {
+    let triple = targetInfo.target.triple
+    let resourceDirPath = targetInfo.runtimeResourcePath.path.appending(component: triple.platformName() ?? "")
     var result = [resourceDirPath]
 
     let secondaryResourceDir = computeSecondaryResourceDirPath(for: triple, primaryPath: resourceDirPath)
@@ -87,14 +74,17 @@ extension Toolchain {
       result.append(path)
     }
 
-    if let path = sdkPath {
-      let sdkPath = AbsolutePath(path)
+    if let sdkPath = sdkPath {
       // If we added the secondary resource dir, we also need the iOSSupport directory.
       if secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
       }
 
-      result.append(sdkPath.appending(RelativePath("usr/lib/swift")))
+      if (triple.isWindows) {
+        result.append(sdkPath.appending(components: "usr", "lib", "swift", "windows"))
+      } else {
+        result.append(sdkPath.appending(components: "usr", "lib", "swift"))
+      }
     }
 
     return result
@@ -103,11 +93,11 @@ extension Toolchain {
   func addLinkRuntimeLibrary(
     named name: String,
     to commandLine: inout [Job.ArgTemplate],
-    for triple: Triple,
+    for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws {
     let path = try clangLibraryPath(
-      for: triple,
+      for: targetInfo,
       parsedOptions: &parsedOptions)
       .appending(component: name)
     commandLine.appendPath(path)
@@ -115,20 +105,20 @@ extension Toolchain {
 
   func runtimeLibraryExists(
     for sanitizer: Sanitizer,
-    targetTriple: Triple,
+    targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions,
     isShared: Bool
   ) throws -> Bool {
     let runtimeName = try runtimeLibraryName(
       for: sanitizer,
-      targetTriple: targetTriple,
+      targetTriple: targetInfo.target.triple,
       isShared: isShared
     )
     let path = try clangLibraryPath(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions
     ).appending(component: runtimeName)
-    return fileSystem.exists(path)
+    return try fileSystem.exists(path)
   }
 }
 
@@ -138,7 +128,6 @@ extension DarwinToolchain {
   func addArgsToLinkStdlib(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
     targetInfo: FrontendTargetInfo,
     linkerOutputType: LinkOutputType,
     fileSystem: FileSystem
@@ -147,12 +136,10 @@ extension DarwinToolchain {
 
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
-    let resourceDirPath = try computeResourceDirPath(for: targetTriple,
-                                                     parsedOptions: &parsedOptions,
-                                                     isShared: true)
-    func addArgsForBackDeployLib(_ libName: String) {
-      let backDeployLibPath = resourceDirPath.appending(component: libName)
-      if fileSystem.exists(backDeployLibPath) {
+    func addArgsForBackDeployLib(_ libName: String) throws {
+      let backDeployLibPath = targetInfo.runtimeResourcePath.path
+        .appending(components: targetTriple.platformName() ?? "", libName)
+      if try fileSystem.exists(backDeployLibPath) {
         commandLine.append(.flag("-force_load"))
         commandLine.appendPath(backDeployLibPath)
       }
@@ -170,16 +157,16 @@ extension DarwinToolchain {
       }
 
       if shouldLink {
-        addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a")
+        try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a")
       }
     }
 
     // Add the runtime library link path, which is platform-specific and found
     // relative to the compiler.
     let runtimePaths = try runtimeLibraryPaths(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions,
-      sdkPath: sdkPath,
+      sdkPath: targetInfo.sdkPath?.path,
       isShared: true
     )
     for path in runtimePaths {
@@ -259,12 +246,12 @@ extension DarwinToolchain {
       }
     }
 
-    func paths(runtimeLibraryPaths: [AbsolutePath]) -> [AbsolutePath] {
+    func paths(runtimeLibraryPaths: [VirtualPath]) -> [VirtualPath] {
       switch self {
       case .toolchain:
         return runtimeLibraryPaths
       case .os:
-        return [AbsolutePath("/usr/lib/swift")]
+        return [.absolute(.init("/usr/lib/swift"))]
       case .none:
         return []
       }

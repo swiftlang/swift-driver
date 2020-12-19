@@ -62,7 +62,8 @@ extension SwiftVersion: Codable {
 }
 
 /// Describes information about the target as provided by the Swift frontend.
-public struct FrontendTargetInfo: Codable {
+@dynamicMemberLookup
+@_spi(Testing) public struct FrontendTargetInfo: Codable {
   struct CompatibilityLibrary: Codable {
     enum Filter: String, Codable {
       case all
@@ -94,20 +95,51 @@ public struct FrontendTargetInfo: Codable {
     /// Whether the Swift libraries need to be referenced in their system
     /// location (/usr/lib/swift) via rpath.
     let librariesRequireRPath: Bool
+
+    static func dummyForTesting(_ toolchain: Toolchain) -> Self {
+      let dummyForTestingTriple = Triple.dummyForTesting(toolchain)
+      return Self(
+        triple: dummyForTestingTriple,
+        unversionedTriple: dummyForTestingTriple,
+        moduleTriple: dummyForTestingTriple,
+        swiftRuntimeCompatibilityVersion: nil,
+        compatibilityLibraries: [],
+        librariesRequireRPath: false)
+    }
   }
 
-  struct Paths: Codable {
+  @_spi(Testing) public struct Paths: Codable {
     /// The path to the SDK, if provided.
-    let sdkPath: String?
-    let runtimeLibraryPaths: [String]
-    let runtimeLibraryImportPaths: [String]
-    let runtimeResourcePath: String
+    public let sdkPath: TextualVirtualPath?
+    public let runtimeLibraryPaths: [TextualVirtualPath]
+    public let runtimeLibraryImportPaths: [TextualVirtualPath]
+    public let runtimeResourcePath: TextualVirtualPath
+
+    static let dummyForTesting = Paths(
+      sdkPath: nil,
+      runtimeLibraryPaths: [],
+      runtimeLibraryImportPaths: [],
+      runtimeResourcePath: .dummyForTesting)
   }
 
   var compilerVersion: String
   var target: Target
   var targetVariant: Target?
   let paths: Paths
+
+  static func dummyForTesting(_ toolchain: Toolchain) -> Self {
+    Self(compilerVersion: "dummy",
+         target: .dummyForTesting(toolchain),
+         targetVariant: nil,
+         paths: .dummyForTesting)
+  }
+}
+
+// Make members of `FrontendTargetInfo.Paths` accessible on `FrontendTargetInfo`.
+extension FrontendTargetInfo {
+  @_spi(Testing) public subscript<T>(dynamicMember dynamicMember: KeyPath<FrontendTargetInfo.Paths, T>) -> T {
+    self.paths[keyPath: dynamicMember]
+  }
 }
 
 extension Toolchain {
@@ -117,9 +149,11 @@ extension Toolchain {
                           resourceDirPath: VirtualPath? = nil,
                           runtimeCompatibilityVersion: String? = nil,
                           requiresInPlaceExecution: Bool = false,
-                          useStaticResourceDir: Bool = false) throws -> Job {
-    var commandLine: [Job.ArgTemplate] = [.flag("-frontend"),
-                                          .flag("-print-target-info")]
+                          useStaticResourceDir: Bool = false,
+                          swiftCompilerPrefixArgs: [String]) throws -> Job {
+    var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
+    commandLine.append(contentsOf: [.flag("-frontend"),
+                                    .flag("-print-target-info")])
     // If we were given a target, include it. Otherwise, let the frontend
     // tell us the host target.
     if let target = target {
@@ -157,6 +191,7 @@ extension Toolchain {
       commandLine: commandLine,
       displayInputs: [],
       inputs: [],
+      primaryInputs: [],
       outputs: [.init(file: .standardOutput, type: .jsonTargetInfo)],
       requiresInPlaceExecution: requiresInPlaceExecution,
       supportsResponseFiles: false

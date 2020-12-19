@@ -13,7 +13,8 @@ import XCTest
 import TSCBasic
 import TSCUtility
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
+import SwiftDriverExecution
 
 extension Job.ArgTemplate: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
@@ -112,6 +113,11 @@ final class JobExecutorTests: XCTestCase {
         .relative(RelativePath("main")): exec.pathString,
       ]
 
+      let inputs: [String: TypedVirtualPath] = [
+        "foo" : .init(file: .relative(RelativePath( "foo.swift")), type: .swift),
+        "main": .init(file: .relative(RelativePath("main.swift")), type: .swift)
+      ]
+
       let compileFoo = Job(
         moduleName: "main",
         kind: .compile,
@@ -120,8 +126,8 @@ final class JobExecutorTests: XCTestCase {
           "-frontend",
           "-c",
           "-primary-file",
-          .path(.relative(RelativePath("foo.swift"))),
-          .path(.relative(RelativePath("main.swift"))),
+          .path(inputs[ "foo"]!.file),
+          .path(inputs["main"]!.file),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
@@ -129,10 +135,8 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("foo.o"))),
         ],
-        inputs: [
-          .init(file: .relative(RelativePath("foo.swift")), type: .swift),
-          .init(file: .relative(RelativePath("main.swift")), type: .swift),
-        ],
+        inputs: Array(inputs.values),
+        primaryInputs: [inputs["foo"]!],
         outputs: [.init(file: .temporary(RelativePath("foo.o")), type: .object)]
       )
 
@@ -145,7 +149,7 @@ final class JobExecutorTests: XCTestCase {
           "-c",
           .path(.relative(RelativePath("foo.swift"))),
           "-primary-file",
-          .path(.relative(RelativePath("main.swift"))),
+          .path(inputs["main"]!.file),
           "-target", "x86_64-apple-darwin18.7.0",
           "-enable-objc-interop",
           "-sdk",
@@ -153,10 +157,8 @@ final class JobExecutorTests: XCTestCase {
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("main.o"))),
         ],
-        inputs: [
-          .init(file: .relative(RelativePath("foo.swift")), type: .swift),
-          .init(file: .relative(RelativePath("main.swift")), type: .swift),
-        ],
+        inputs: Array(inputs.values),
+        primaryInputs: [inputs["main"]!],
         outputs: [.init(file: .temporary(RelativePath("main.o")), type: .object)]
       )
 
@@ -181,11 +183,13 @@ final class JobExecutorTests: XCTestCase {
           .init(file: .temporary(RelativePath("foo.o")), type: .object),
           .init(file: .temporary(RelativePath("main.o")), type: .object),
         ],
+        primaryInputs: [],
         outputs: [.init(file: .relative(RelativePath("main")), type: .image)]
       )
 
       let delegate = JobCollectingDelegate()
-      let executor = MultiJobExecutor(jobs: [compileFoo, compileMain, link], resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
+      let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link]),
+                                      resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
@@ -201,18 +205,24 @@ final class JobExecutorTests: XCTestCase {
   }
 
   func testStubProcessProtocol() throws {
+    // This test fails intermittently on Linux
+    // rdar://70067844
+    #if !os(macOS)
+      throw XCTSkip()
+    #endif
     let job = Job(
       moduleName: "main",
       kind: .compile,
       tool: .absolute(AbsolutePath("/usr/bin/swift")),
       commandLine: [.flag("something")],
       inputs: [],
+      primaryInputs: [],
       outputs: [.init(file: .temporary(RelativePath("main")), type: .object)]
     )
 
     let delegate = JobCollectingDelegate()
     let executor = MultiJobExecutor(
-      jobs: [job], resolver: try ArgsResolver(fileSystem: localFileSystem),
+      workload: .all([job]), resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
       diagnosticsEngine: DiagnosticsEngine(),
       processType: JobCollectingDelegate.StubProcess.self
@@ -301,6 +311,20 @@ final class JobExecutorTests: XCTestCase {
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         XCTAssertThrowsError(try driver.run(jobs: jobs))
       }
+    }
+  }
+
+  func testTemporaryFileWriting() throws {
+    try withTemporaryDirectory { path in
+      let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
+      let tmpPath = VirtualPath.temporaryWithKnownContents(.init("one.txt"), "hello, world!".data(using: .utf8)!)
+      let resolvedOnce = try resolver.resolve(.path(tmpPath))
+      let readContents = try localFileSystem.readFileContents(.init(validating: resolvedOnce))
+      XCTAssertEqual(readContents, "hello, world!")
+      let resolvedTwice = try resolver.resolve(.path(tmpPath))
+      XCTAssertEqual(resolvedOnce, resolvedTwice)
+      let readContents2 = try localFileSystem.readFileContents(.init(validating: resolvedTwice))
+      XCTAssertEqual(readContents2, readContents)
     }
   }
 }

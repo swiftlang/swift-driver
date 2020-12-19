@@ -21,3 +21,11 @@ public enum LinkOutputType {
   /// A static library (e.g., .a or .lib)
   case staticLibrary
 }
+
+/// Describes the kind of link-time-optimization we expect to perform.
+public enum LTOKind: String, Hashable {
+  /// Perform LLVM ThinLTO.
+  case llvmThin = "llvm-thin"
+  /// Perform LLVM full LTO.
+  case llvmFull = "llvm-full"
+}

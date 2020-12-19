@@ -8,12 +8,14 @@
 
 add_library(SwiftDriver
   "Explicit Module Builds/ClangModuleBuildJobCache.swift"
-  "Explicit Module Builds/ExplicitModuleBuildHandler.swift"
-  "Explicit Module Builds/PlaceholderDependencyResolution.swift"
   "Explicit Module Builds/ClangVersionedDependencyResolution.swift"
-  "Explicit Module Builds/InterModuleDependencyGraph.swift"
+  "Explicit Module Builds/ExplicitDependencyBuildPlanner.swift"
   "Explicit Module Builds/ModuleDependencyScanning.swift"
+  "Explicit Module Builds/PlaceholderDependencyResolution.swift"
   "Explicit Module Builds/SerializableModuleArtifacts.swift"
+  "Explicit Module Builds/Inter Module Dependencies/CommonDependencyOperations.swift"
+  "Explicit Module Builds/Inter Module Dependencies/InterModuleDependencyGraph.swift"
+  "Explicit Module Builds/Inter Module Dependencies/InterModuleDependencyOracle.swift"
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
@@ -22,18 +24,29 @@ add_library(SwiftDriver
   Driver/ModuleOutputInfo.swift
   Driver/OutputFileMap.swift
   Driver/ToolExecutionDelegate.swift
+  Driver/DriverVersion.swift
 
   Execution/ArgsResolver.swift
-  Execution/MultiJobExecutor.swift
   Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
-  Execution/llbuild.swift
 
+  "Incremental Compilation/ModuleDependencyGraph Parts/Integrator.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/Node.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/NodeFinder.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/SwiftDeps.swift"
+  "Incremental Compilation/ModuleDependencyGraph Parts/Tracer.swift"
+  "Incremental Compilation/BidirectionalMap.swift"
+  "Incremental Compilation/BuildRecord.swift"
+  "Incremental Compilation/BuildRecordInfo.swift"
+  "Incremental Compilation/DependencyKey.swift"
+  "Incremental Compilation/DictionaryOfDictionaries.swift"
   "Incremental Compilation/IncrementalCompilationState.swift"
-  "Incremental Compilation/InputIInfoMap.swift"
   "Incremental Compilation/InputInfo.swift"
+  "Incremental Compilation/ModuleDependencyGraph.swift"
+  "Incremental Compilation/Multidictionary.swift"
   "Incremental Compilation/SourceFileDependencyGraph.swift"
+  "Incremental Compilation/TwoDMap.swift"
 
   Jobs/AutolinkExtractJob.swift
   Jobs/BackendJob.swift
@@ -59,14 +72,14 @@ add_library(SwiftDriver
   Jobs/VerifyDebugInfoJob.swift
   Jobs/VerifyModuleInterfaceJob.swift
   Jobs/WindowsToolchain+LinkerSupport.swift
+  Jobs/WebAssemblyToolchain+LinkerSupport.swift
 
   Toolchains/DarwinToolchain.swift
   Toolchains/GenericUnixToolchain.swift
   Toolchains/Toolchain.swift
   Toolchains/WindowsToolchain.swift
+  Toolchains/WebAssemblyToolchain.swift
 
-  Utilities/Bits.swift
-  Utilities/Bitstream.swift
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
@@ -86,11 +99,11 @@ add_library(SwiftDriver
 target_link_libraries(SwiftDriver PUBLIC
   TSCBasic
   TSCUtility
-  SwiftOptions
-  llbuildSwift)
+  SwiftOptions)
 target_link_libraries(SwiftDriver PRIVATE
   CYaml
-  Yams)
+  Yams
+  CSwiftDriver)
 
 set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriver)
 

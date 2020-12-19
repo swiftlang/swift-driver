@@ -12,6 +12,7 @@
 
 import Foundation
 @_spi(Testing) import SwiftDriver
+import SwiftDriverExecution
 import TSCBasic
 import XCTest
 
@@ -19,12 +20,12 @@ import XCTest
 private func checkExplicitModuleBuildJob(job: Job,
                                          pcmArgs: [String],
                                          moduleId: ModuleDependencyId,
-                                         moduleDependencyGraph: InterModuleDependencyGraph) throws {
-  let moduleInfo = moduleDependencyGraph.modules[moduleId]!
+                                         dependencyOracle: InterModuleDependencyOracle) throws {
+  let moduleInfo = dependencyOracle.getModuleInfo(of: moduleId)!
   var downstreamPCMArgs = pcmArgs
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
-      downstreamPCMArgs = swiftModuleDetails.extraPcmArgs!
+      downstreamPCMArgs = swiftModuleDetails.extraPcmArgs
       let moduleInterfacePath =
         TypedVirtualPath(file: try VirtualPath(path: swiftModuleDetails.moduleInterfacePath!),
                          type: .swiftInterface)
@@ -41,16 +42,14 @@ private func checkExplicitModuleBuildJob(job: Job,
         XCTAssertTrue(job.commandLine.filter {$0 == .flag("-candidate-module-file")}.count == compiledCandidateList.count)
       }
     case .clang(let clangModuleDetails):
-      guard case .swift = moduleDependencyGraph.mainModule.details else {
-        XCTFail("Main module does not have Swift details field")
-        return
-      }
       let moduleMapPath =
         TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
                          type: .clangModuleMap)
       XCTAssertEqual(job.kind, .generatePCM)
       XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
       XCTAssertTrue(job.inputs.contains(moduleMapPath))
+    case .swiftPrebuiltExternal(_):
+      XCTFail("Unexpected prebuilt external module dependency found.")
     case .swiftPlaceholder(_):
       XCTFail("Placeholder dependency found.")
   }
@@ -59,7 +58,7 @@ private func checkExplicitModuleBuildJob(job: Job,
   XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
   try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: downstreamPCMArgs,
                                               moduleInfo: moduleInfo,
-                                              moduleDependencyGraph: moduleDependencyGraph)
+                                              dependencyOracle: dependencyOracle)
 }
 
 /// Checks that the build job for the specified module contains the required options and inputs
@@ -67,12 +66,33 @@ private func checkExplicitModuleBuildJob(job: Job,
 private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      pcmArgs: [String],
                                                      moduleInfo : ModuleInfo,
-                                                     moduleDependencyGraph: InterModuleDependencyGraph
+                                                     dependencyOracle: InterModuleDependencyOracle
 ) throws {
   for dependencyId in moduleInfo.directDependencies! {
-    let dependencyInfo = moduleDependencyGraph.modules[dependencyId]!
+    let dependencyInfo = dependencyOracle.getModuleInfo(of: dependencyId)!
     switch dependencyInfo.details {
       case .swift(let swiftDetails):
+        // Load the dependency JSON and verify this dependency was encoded correctly
+        let explicitDepsFlag =
+          SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
+        XCTAssert(job.commandLine.contains(explicitDepsFlag))
+        let jsonDepsPathIndex = job.commandLine.firstIndex(of: explicitDepsFlag)
+        let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
+        guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
+          XCTFail("No JSON dependency file path found.")
+          return
+        }
+        guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
+          XCTFail("Unexpected path type")
+          return
+        }
+        let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
+                                                      from: contents)
+        let dependencyArtifacts =
+          dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
+        XCTAssertEqual(dependencyArtifacts!.modulePath, dependencyInfo.modulePath)
+        XCTAssertEqual(dependencyArtifacts!.isFramework, swiftDetails.isFramework)
+      case .swiftPrebuiltExternal(let prebuiltModuleDetails):
         // Load the dependency JSON and verify this dependency was encoded correctly
         let explicitDepsFlag =
           SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
@@ -89,11 +109,10 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                       from: Data(contents.contents))
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
-        XCTAssertEqual(dependencyArtifacts!.modulePath, swiftDetails.explicitCompiledModulePath ?? dependencyInfo.modulePath)
-        XCTAssertEqual(dependencyArtifacts!.isFramework, swiftDetails.isFramework)
+        XCTAssertEqual(dependencyArtifacts!.modulePath, prebuiltModuleDetails.compiledModulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
-          try ExplicitModuleBuildHandler.targetEncodedClangModuleFilePath(
+          try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(
           for: dependencyInfo, pcmArgs: pcmArgs)
         let clangDependencyModulePath =
           TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
@@ -114,8 +133,8 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     // Ensure all transitive dependencies got added as well.
     for transitiveDependencyId in dependencyInfo.directDependencies! {
       try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
-                                                  moduleInfo: moduleDependencyGraph.modules[transitiveDependencyId]!,
-                                                  moduleDependencyGraph: moduleDependencyGraph)
+                                                  moduleInfo: dependencyOracle.getModuleInfo(of: transitiveDependencyId)!,
+                                                  dependencyOracle: dependencyOracle)
 
     }
   }
@@ -124,7 +143,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
 private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmArgs: [String]
 ) throws -> RelativePath {
   return RelativePath(
-    try ExplicitModuleBuildHandler.targetEncodedClangModuleName(for: moduleName,
+    try ExplicitDependencyBuildPlanner.targetEncodedClangModuleName(for: moduleName,
                                                                 pcmArgs: pcmArgs) + ".pcm")
 }
 
@@ -132,7 +151,7 @@ private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmAr
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-driver-print-module-dependencies-jobs",
+      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
                                      "-module-name", "testModuleDependencyBuildCommandGeneration",
                                      "test.swift"])
       let pcmArgs = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.15"]
@@ -140,11 +159,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
-      driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
-                                                                         toolchain: driver.toolchain,
-                                                                         fileSystem: localFileSystem)
+      let dependencyOracle = InterModuleDependencyOracle()
+      try dependencyOracle.mergeModules(from: moduleDependencyGraph)
+      driver.explicitDependencyBuildPlanner =
+        try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
+                                           toolchain: driver.toolchain)
       let modulePrebuildJobs =
-        try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+        try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
       for job in modulePrebuildJobs {
         XCTAssertEqual(job.outputs.count, 1)
@@ -154,19 +175,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .clang("SwiftShims"),
-                                            moduleDependencyGraph: moduleDependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "c_simd", with: pcmArgs)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .clang("c_simd"),
-                                            moduleDependencyGraph: moduleDependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(RelativePath("Swift.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("Swift"),
-                                            moduleDependencyGraph: moduleDependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("SwiftOnoneSupport"),
-                                            moduleDependencyGraph: moduleDependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           default:
             XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
         }
@@ -181,63 +202,64 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
-      var targetDependencyMap :[ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)] = [:]
-      targetDependencyMap[ModuleDependencyId.swiftPlaceholder("B")] =
-        (AbsolutePath("/Somewhere/B.swiftmodule"), inputDependencyGraph)
+      let targetModulePathMap: ExternalTargetModulePathMap =
+        [ModuleDependencyId.swiftPlaceholder("B"):AbsolutePath("/Somewhere/B.swiftmodule")]
+      let dependencyOracle = InterModuleDependencyOracle()
+      try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
-      // Construct a module dependency graph that will contain .swiftPlaceholder("B")
+      // Construct a module dependency graph that will contain .swiftPlaceholder("B"),
+      // .swiftPlaceholder("Swift"), .swiftPlaceholder("SwiftOnoneSupport")
       var moduleDependencyGraph =
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerPlaceholderOutput.data(using: .utf8)!)
 
       // Construct the driver with explicit external dependency input
-      var commandLine = ["swiftc", "-driver-print-module-dependencies-jobs",
+      let commandLine = ["swiftc", "-experimental-explicit-module-build",
                          "test.swift", "-module-name", "A", "-g"]
-      commandLine.append("-experimental-explicit-module-build")
       let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
                                              processSet: ProcessSet(),
                                              fileSystem: localFileSystem,
                                              env: ProcessEnv.vars)
       var driver = try Driver(args: commandLine, executor: executor,
-                              externalModuleDependencies: targetDependencyMap)
+                              externalBuildArtifacts: (targetModulePathMap, [:]),
+                              interModuleDependencyOracle: dependencyOracle)
 
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
-      try moduleDependencyGraph.resolvePlaceholderDependencies(using: targetDependencyMap)
-      driver.explicitModuleBuildHandler = try ExplicitModuleBuildHandler(dependencyGraph: moduleDependencyGraph,
-                                                                         toolchain: driver.toolchain,
-                                                                         fileSystem: localFileSystem)
-      let modulePrebuildJobs =
-        try driver.explicitModuleBuildHandler!.generateExplicitModuleDependenciesBuildJobs()
+      try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
+                                                               using: dependencyOracle)
 
-      // Verify that the dependency graph contains only 1 module to be built.
-      for (moduleId, _) in driver.interModuleDependencyGraph!.modules {
-        switch moduleId {
-          case .swift(_):
-            continue
-          case .clang(_):
-            continue
-          case .swiftPlaceholder(_):
-            XCTFail("Placeholder dependency found.")
+      // Ensure the graph no longer contains any placeholders
+      XCTAssertFalse(moduleDependencyGraph.modules.keys.contains {
+        if case .swiftPlaceholder(_) = $0 {
+          return true
         }
-      }
+        return false
+      })
 
-      // After module resolution all the dependencies are already satisfied.
-      XCTAssertEqual(modulePrebuildJobs.count, 0)
+      // Merge the resolved version of the graph into the oracle
+      try dependencyOracle.mergeModules(from: moduleDependencyGraph)
+      driver.explicitDependencyBuildPlanner =
+        try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
+                                           toolchain: driver.toolchain)
+      let modulePrebuildJobs =
+        try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
+
+      XCTAssertEqual(modulePrebuildJobs.count, 2)
       let mainModuleJob = try driver.emitModuleJob()
       XCTAssertEqual(mainModuleJob.inputs.count, 5)
       for input in mainModuleJob.inputs {
         switch (input.file) {
-          case .relative(RelativePath("M/Swift.swiftmodule")):
+          case .relative(RelativePath("Swift.swiftmodule")):
             continue
-          case .relative(RelativePath("S/SwiftOnoneSupport.swiftmodule")):
+          case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             continue
           case .relative(RelativePath("test.swift")):
             continue
           case .absolute(AbsolutePath("/Somewhere/B.swiftmodule")):
             continue
-          case .absolute(let filePath):
+          case .temporaryWithKnownContents(let filePath, _):
             XCTAssertEqual(filePath.basename, "A-dependencies.json")
             continue
           default:
@@ -272,12 +294,15 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
-      let dependencyGraph = driver.explicitModuleBuildHandler!.dependencyGraph
-      guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
+      let dependencyOracle = driver.interModuleDependencyOracle
+      let mainModuleInfo =
+        dependencyOracle.getModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
+      guard case .swift(let mainModuleSwiftDetails) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
         return
       }
-      let pcmArgsCurrent = mainModuleSwiftDetails.extraPcmArgs!
+
+      let pcmArgsCurrent = mainModuleSwiftDetails.extraPcmArgs
       var pcmArgs9 = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.9"]
       if driver.targetTriple.isDarwin {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
@@ -287,58 +312,54 @@ final class ExplicitModuleBuildTests: XCTestCase {
         switch (job.outputs[0].file) {
           case .relative(RelativePath("A.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(RelativePath("E.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("E"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(RelativePath("G.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("G"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(RelativePath("Swift.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("G"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgs9)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("G"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           // Module X is a dependency from Clang module "G" discovered only via versioned PCM
           // re-scan. 
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("X"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgs9)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("X"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
-                                            moduleDependencyGraph: dependencyGraph)
+                                            dependencyOracle: dependencyOracle)
           case .temporary(RelativePath("testExplicitModuleBuildJobs.o")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-            guard case .swift(let mainModuleSwiftDetails) = dependencyGraph.mainModule.details else {
-              XCTFail("Main module does not have Swift details field")
-              return
-            }
-            let pcmArgs = mainModuleSwiftDetails.extraPcmArgs!
+            let pcmArgs = mainModuleSwiftDetails.extraPcmArgs
             try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs,
-                                                        moduleInfo: dependencyGraph.mainModule,
-                                                        moduleDependencyGraph: dependencyGraph)
+                                                        moduleInfo: mainModuleInfo,
+                                                        dependencyOracle: dependencyOracle)
           case .relative(RelativePath("testExplicitModuleBuildJobs")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             XCTAssertEqual(job.kind, .link)
@@ -384,6 +405,32 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif
+  }
+
+  func testDependencyGraphMerge() throws {
+    let moduleDependencyGraph1 =
+          try JSONDecoder().decode(
+            InterModuleDependencyGraph.self,
+            from: ModuleDependenciesInputs.mergeGraphInput1.data(using: .utf8)!)
+    let moduleDependencyGraph2 =
+          try JSONDecoder().decode(
+            InterModuleDependencyGraph.self,
+            from: ModuleDependenciesInputs.mergeGraphInput2.data(using: .utf8)!)
+
+    var accumulatingModuleInfoMap: [ModuleDependencyId: ModuleInfo] = [:]
+
+    try InterModuleDependencyGraph.mergeModules(from: moduleDependencyGraph1,
+                                                into: &accumulatingModuleInfoMap)
+    try InterModuleDependencyGraph.mergeModules(from: moduleDependencyGraph2,
+                                                into: &accumulatingModuleInfoMap)
+
+    // Ensure the dependencies of the diplicate clang "B" module are merged
+    let clangIDs = accumulatingModuleInfoMap.keys.filter { $0.moduleName == "B" }
+    XCTAssertTrue(clangIDs.count == 1)
+    let clangBInfo = accumulatingModuleInfoMap[clangIDs[0]]!
+    XCTAssertTrue(clangBInfo.directDependencies!.count == 2)
+    XCTAssertTrue(clangBInfo.directDependencies!.contains(ModuleDependencyId.clang("D")))
+    XCTAssertTrue(clangBInfo.directDependencies!.contains(ModuleDependencyId.clang("C")))
   }
 
   func testExplicitSwiftModuleMap() throws {

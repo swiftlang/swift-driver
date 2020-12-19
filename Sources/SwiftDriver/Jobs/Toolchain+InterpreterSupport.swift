@@ -34,16 +34,16 @@ extension DarwinToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
-    targetTriple: Triple) throws -> [String: String] {
+    sdkPath: VirtualPath?,
+    targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
       isShared: true
-    ).map { $0.pathString }
+    ).map { $0.name }
 
     addPathEnvironmentVariableIfNeeded("DYLD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
@@ -62,16 +62,16 @@ extension GenericUnixToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
-    targetTriple: Triple) throws -> [String: String] {
+    sdkPath: VirtualPath?,
+    targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
-      for: targetTriple,
+      for: targetInfo,
       parsedOptions: &parsedOptions,
       sdkPath: sdkPath,
       isShared: true
-    ).map { $0.pathString }
+    ).map { $0.name }
 
     addPathEnvironmentVariableIfNeeded("LD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
@@ -86,8 +86,8 @@ extension WindowsToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: String?,
-    targetTriple: Triple) throws -> [String: String] {
+    sdkPath: VirtualPath?,
+    targetInfo: FrontendTargetInfo) throws -> [String: String] {
     // TODO: See whether Windows needs `platformSpecificInterpreterEnvironmentVariables`
     return [:]
   }

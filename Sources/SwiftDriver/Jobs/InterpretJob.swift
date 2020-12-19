@@ -37,8 +37,8 @@ extension Driver {
     try commandLine.appendLast(.DASHDASH, from: &parsedOptions)
 
     let extraEnvironment = try toolchain.platformSpecificInterpreterEnvironmentVariables(
-      env: self.env, parsedOptions: &parsedOptions, sdkPath: self.sdkPath,
-      targetTriple: self.targetTriple)
+      env: self.env, parsedOptions: &parsedOptions,
+      sdkPath: frontendTargetInfo.sdkPath?.path, targetInfo: self.frontendTargetInfo)
 
     return Job(
       moduleName: moduleOutputInfo.name,
@@ -46,6 +46,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: [],
       extraEnvironment: extraEnvironment,
       requiresInPlaceExecution: true,

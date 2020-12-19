@@ -12,17 +12,6 @@
 import TSCBasic
 
 extension RelativePath {
-  /// Retrieve the basename of the relative path without the extension.
-  ///
-  /// FIXME: Probably belongs in TSC
-  var basenameWithoutExt: String {
-    if let ext = self.extension {
-      return String(basename.dropLast(ext.count + 1))
-    }
-
-    return basename
-  }
-
   /// Retrieve the basename of the relative path without any extensions,
   /// even if there are several, and without any leading dots. Roughly
   /// equivalent to the regex `/[^.]+/`.

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The debug information produced by the driver.
-public struct DebugInfo {
+@_spi(Testing) public struct DebugInfo {
 
   /// Describes the format used for debug information.
   public enum Format: String {

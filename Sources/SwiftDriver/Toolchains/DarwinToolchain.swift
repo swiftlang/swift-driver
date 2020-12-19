@@ -17,7 +17,7 @@ import SwiftOptions
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
-public final class DarwinToolchain: Toolchain {
+@_spi(Testing) public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
 
   /// The executor used to run processes used to find tools and retrieve target info.
@@ -29,10 +29,16 @@ public final class DarwinToolchain: Toolchain {
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
+  // An externally provided path from where we should find tools like ld
+  public let toolDirectory: AbsolutePath?
+
+  public let dummyForTestingObjectFormat = Triple.ObjectFormat.macho
+
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.toolDirectory = toolDirectory
   }
 
   /// Retrieve the absolute path for a given tool.
@@ -290,7 +296,7 @@ public final class DarwinToolchain: Toolchain {
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo
   ) throws {
-    guard let sdkPath = try frontendTargetInfo.paths.sdkPath.map(VirtualPath.init(path:)),
+    guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
 
     commandLine.append(.flag("-target-sdk-version"))

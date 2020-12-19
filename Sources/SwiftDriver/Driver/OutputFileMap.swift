@@ -12,8 +12,6 @@
 import TSCBasic
 import Foundation
 
-public typealias FileSystem = TSCBasic.FileSystem
-
 /// Mapping of input file paths to specific output files.
 public struct OutputFileMap: Hashable, Codable {
   static let singleInputKey = VirtualPath.relative(RelativePath(""))
@@ -44,7 +42,16 @@ public struct OutputFileMap: Hashable, Codable {
   }
 
   public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {
-    entries[inputFile]?[outputType]
+    if let path = entries[inputFile]?[outputType] {
+      return path
+    }
+    switch outputType {
+    case .swiftDocumentation, .swiftSourceInfoFile:
+      // Infer paths for these entities using .swiftmodule path.
+      return entries[inputFile]?[.swiftModule]?.replacingExtension(with: outputType)
+    default:
+      return nil
+    }
   }
 
   public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath? {
@@ -70,8 +77,19 @@ public struct OutputFileMap: Hashable, Codable {
     }))
   }
 
+  /// Slow, but only for debugging output
+  public func getInput(outputFile: VirtualPath) -> VirtualPath? {
+    entries
+      .compactMap {
+        $0.value.values.contains(outputFile)
+          ? $0.key
+          : nil
+      }
+      .first
+  }
+
   /// Load the output file map at the given path.
-  public static func load(
+  @_spi(Testing) public static func load(
     fileSystem: FileSystem,
     file: VirtualPath,
     diagnosticEngine: DiagnosticsEngine
@@ -140,7 +158,7 @@ fileprivate struct OutputFileMapJSON: Codable {
   }
 
   /// The data associated with an input file.
-  /// \c fileprivate so that the \c store method above can see it
+  /// `fileprivate` so that the `store` method above can see it
   fileprivate struct Entry: Codable {
 
     private struct CodingKeys: CodingKey {
@@ -184,7 +202,7 @@ fileprivate struct OutputFileMapJSON: Codable {
   }
 
   /// The parsed entries
-  /// \c fileprivate so that the \c store method above can see it
+  /// `fileprivate` so that the `store` method above can see it
   fileprivate let entries: [String: Entry]
 
   init(from decoder: Decoder) throws {
@@ -226,12 +244,5 @@ extension String {
     if ext.isEmpty { return self }
 
     return self + "." + ext
-  }
-}
-
-extension VirtualPath {
-  fileprivate func resolvedRelativePath(base: AbsolutePath) -> VirtualPath {
-    guard case let .relative(relPath) = self else { return self }
-    return .absolute(.init(base, relPath))
   }
 }

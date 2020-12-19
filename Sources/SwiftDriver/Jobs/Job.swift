@@ -19,7 +19,7 @@ public struct Job: Codable, Equatable, Hashable {
     case backend
     case mergeModule = "merge-module"
     case link
-    case generateDSYM = "generate-dsym"
+    case generateDSYM = "generate-dSYM"
     case autolinkExtract = "autolink-extract"
     case emitModule = "emit-module"
     case generatePCH = "generate-pch"
@@ -70,6 +70,9 @@ public struct Job: Codable, Equatable, Hashable {
   /// The list of inputs for this job.
   public var inputs: [TypedVirtualPath]
 
+  /// The primary inputs for compile jobs
+  public var primaryInputs: [TypedVirtualPath]
+
   /// The outputs produced by the job.
   public var outputs: [TypedVirtualPath]
 
@@ -89,6 +92,7 @@ public struct Job: Codable, Equatable, Hashable {
     commandLine: [ArgTemplate],
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
+    primaryInputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
     extraEnvironment: [String: String] = [:],
     requiresInPlaceExecution: Bool = false,
@@ -100,6 +104,7 @@ public struct Job: Codable, Equatable, Hashable {
     self.commandLine = commandLine
     self.displayInputs = displayInputs ?? []
     self.inputs = inputs
+    self.primaryInputs = primaryInputs
     self.outputs = outputs
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
@@ -189,6 +194,15 @@ extension Job : CustomStringConvertible {
 
     case .verifyModuleInterface:
       return "Verifying emitted module interface for module \(moduleName)"
+    }
+  }
+
+  public var descriptionForLifecycle: String {
+    switch kind {
+    case .compile:
+      return "Compiling \(displayInputs.map {$0.file.basename}.joined(separator: ", "))"
+    default:
+      return description
     }
   }
 }

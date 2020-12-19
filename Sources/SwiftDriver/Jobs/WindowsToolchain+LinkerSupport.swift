@@ -20,7 +20,7 @@ extension WindowsToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
-    sdkPath: String?,
+    lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
@@ -75,18 +75,16 @@ extension WindowsToolchain {
       }
       commandLine.appendFlag("-fuse-ld=\(linker)")
 
-      // FIXME: Do we really need `oldnames`?
-      commandLine.appendFlags("-autolink-library", "oldnames")
       if let crt = parsedOptions.getLastArgument(.libc) {
         switch crt.asSingle {
-        case "MT": commandLine.appendFlags("-autolink-library", "libcmt")
-        case "MTd": commandLine.appendFlags("-autolink-library", "libcmtd")
-        case "MD": commandLine.appendFlags("-autolink-library", "msvcrt")
-        case "MDd": commandLine.appendFlags("-autolink-library", "msvcrtd")
+        case "MT": commandLine.appendFlags("-Xlinker", "-defaultlib:libcmt")
+        case "MTd": commandLine.appendFlags("-Xlinker", "-defaultlib:libcmtd")
+        case "MD": commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrt")
+        case "MDd": commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrtd")
         default: fatalError("Invalid C runtime value should be filtered")
         }
       } else {
-        commandLine.appendFlags("-autolink-library", "msvcrt")
+        commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrt")
       }
 
       let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
@@ -98,9 +96,9 @@ extension WindowsToolchain {
       let hasRuntimeArgs = !(staticStdlib || staticExecutable)
 
       let runtimePaths = try runtimeLibraryPaths(
-        for: targetTriple,
+        for: targetInfo,
         parsedOptions: &parsedOptions,
-        sdkPath: sdkPath,
+        sdkPath: targetInfo.sdkPath?.path,
         isShared: hasRuntimeArgs
       )
 
@@ -111,7 +109,7 @@ extension WindowsToolchain {
       )
 
       let swiftrtPath = sharedResourceDirPath.appending(
-        components: targetTriple.archName, "swiftrt.obj"
+        components: archName(for: targetTriple), "swiftrt.obj"
       )
       commandLine.appendPath(swiftrtPath)
 
@@ -140,7 +138,7 @@ extension WindowsToolchain {
       // Add the runtime library link paths.
       for path in runtimePaths {
         commandLine.appendFlag(.L)
-        commandLine.appendPath(path)
+        commandLine.appendPath(path.appending(component: archName(for: targetTriple)))
       }
 
       if hasRuntimeArgs {
@@ -184,7 +182,7 @@ extension WindowsToolchain {
     case .staticLibrary:
       commandLine.append(.joinedOptionAndPath("-out:", outputFile))
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
-      return try getToolPath(.staticLinker)
+      return try getToolPath(.staticLinker(lto))
     }
   }
 }

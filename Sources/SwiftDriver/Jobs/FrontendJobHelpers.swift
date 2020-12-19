@@ -103,9 +103,9 @@ extension Driver {
     // Handle the CPU and its preferences.
     try commandLine.appendLast(.targetCpu, from: &parsedOptions)
 
-    if let sdkPath = sdkPath {
+    if let sdkPath = frontendTargetInfo.sdkPath?.path {
       commandLine.appendFlag(.sdk)
-      commandLine.append(.path(try .init(path: sdkPath)))
+      commandLine.append(.path(sdkPath))
     }
 
     try commandLine.appendAll(.I, from: &parsedOptions)
@@ -136,7 +136,6 @@ extension Driver {
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
-    try commandLine.appendLast(.resourceDir, from: &parsedOptions)
     try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
     try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
@@ -162,21 +161,18 @@ extension Driver {
     try commandLine.appendLast(.packageDescriptionVersion, from: &parsedOptions)
     try commandLine.appendLast(.serializeDiagnosticsPath, from: &parsedOptions)
     try commandLine.appendLast(.debugDiagnosticNames, from: &parsedOptions)
-    try commandLine.appendLast(.enableAstscopeLookup, from: &parsedOptions)
-    try commandLine.appendLast(.disableAstscopeLookup, from: &parsedOptions)
     try commandLine.appendLast(.disableParserLookup, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
     try commandLine.appendLast(.scanClangDependencies, from: &parsedOptions)
-    try commandLine.appendLast(.fineGrainedDependencyIncludeIntrafile, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
     try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
     try commandLine.appendLast(.diagnosticStyle, from: &parsedOptions)
-    try commandLine.appendLast(.enableDirectIntramoduleDependencies, .disableDirectIntramoduleDependencies, from: &parsedOptions)
     try commandLine.appendLast(.locale, from: &parsedOptions)
     try commandLine.appendLast(.localizationPath, from: &parsedOptions)
     try commandLine.appendLast(.requireExplicitAvailability, from: &parsedOptions)
     try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
+    try commandLine.appendLast(.lto, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
@@ -195,15 +191,9 @@ extension Driver {
 
     // Resource directory.
     commandLine.appendFlag(.resourceDir)
-    commandLine.appendPath(
-      try AbsolutePath(validating: frontendTargetInfo.paths.runtimeResourcePath))
+    commandLine.appendPath(frontendTargetInfo.runtimeResourcePath.path)
 
-    if parsedOptions.hasFlag(positive: .staticExecutable,
-                             negative: .noStaticExecutable,
-                             default: false) ||
-       parsedOptions.hasFlag(positive: .staticStdlib,
-                             negative: .noStaticStdlib,
-                             default: false) {
+    if self.useStaticResourceDir {
       commandLine.appendFlag("-use-static-resource-dir")
     }
 
@@ -259,7 +249,8 @@ extension Driver {
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
                                                         primaryInputs: [TypedVirtualPath],
-                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath]) throws -> [TypedVirtualPath] {
+                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath],
+                                                        includeModuleTracePath: Bool) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
@@ -295,7 +286,7 @@ extension Driver {
 
     /// Add all of the outputs needed for a given input.
     func addAllOutputsFor(input: TypedVirtualPath?) {
-      if !forceEmitModuleInSingleInvocation {
+      if !shouldCreateEmitModuleJob {
         addOutputOfType(
           outputType: .swiftModule,
           finalOutputPath: moduleOutputInfo.output?.outputPath,
@@ -311,11 +302,22 @@ extension Driver {
           finalOutputPath: moduleSourceInfoPath,
           input: input,
           flag: "-emit-module-source-info-path")
+      }
+
+      addOutputOfType(
+        outputType: .dependencies,
+        finalOutputPath: dependenciesFilePath,
+        input: input,
+        flag: "-emit-dependencies-path")
+
+      if let input = input, let outputFileMap = outputFileMap {
+        let referenceDependenciesPath =
+          outputFileMap.existingOutput(inputFile: input.file, outputType: .swiftDeps)
         addOutputOfType(
-          outputType: .dependencies,
-          finalOutputPath: dependenciesFilePath,
+          outputType: .swiftDeps,
+          finalOutputPath: referenceDependenciesPath,
           input: input,
-          flag: "-emit-dependencies-path")
+          flag: "-emit-reference-dependencies-path")
       }
 
       addOutputOfType(
@@ -358,14 +360,27 @@ extension Driver {
         flag: "-emit-module-interface-path")
 
       addOutputOfType(
+        outputType: .privateSwiftInterface,
+        finalOutputPath: swiftPrivateInterfacePath,
+        input: nil,
+        flag: "-emit-private-module-interface-path")
+
+      addOutputOfType(
         outputType: .tbd,
         finalOutputPath: tbdPath,
         input: nil,
         flag: "-emit-tbd-path")
     }
 
+    if includeModuleTracePath, let tracePath = loadedModuleTracePath {
+      flaggedInputOutputPairs.append((flag: "-emit-loaded-module-trace-path",
+                                      input: nil,
+                                      output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
+    }
+
+    let allInputsCount = primaryInputs.count + flaggedInputOutputPairs.count
     // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
-    if primaryInputs.count * FileType.allCases.count > fileListThreshold {
+    if allInputsCount * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath: [FileType: VirtualPath]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input] {
@@ -404,19 +419,16 @@ extension Driver {
   /// to inputs and command line arguments of a compile job.
   func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
                                        commandLine: inout [Job.ArgTemplate]) throws {
-    guard var handler = explicitModuleBuildHandler else {
-      fatalError("No handler in Explicit Module Build mode.")
+    guard var dependencyPlanner = explicitDependencyBuildPlanner else {
+      fatalError("No dependency planner in Explicit Module Build mode.")
     }
-    try handler.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
+    try dependencyPlanner.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
   /// such as Swift modules built from .swiftmodule files and Clang PCMs.
   public func isExplicitMainModuleJob(job: Job) -> Bool {
-    guard let handler = explicitModuleBuildHandler else {
-      fatalError("No handler in Explicit Module Build mode.")
-    }
-    return job.moduleName == handler.dependencyGraph.mainModuleName
+    return job.moduleName == moduleOutputInfo.name
   }
 }
 

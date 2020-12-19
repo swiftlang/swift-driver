@@ -75,12 +75,7 @@ extension ParsedOption: CustomStringConvertible {
       return option.spelling + " " + argument.asSingle.spm_shellEscaped()
 
     case .remaining:
-      let args = argument.asMultiple
-      if args.isEmpty {
-        return option.spelling
-      }
-
-      return option.spelling + " " + argument.asMultiple.map { $0.spm_shellEscaped() }.joined(separator: " ")
+      return argument.asSingle
     }
   }
 }
@@ -306,6 +301,7 @@ extension ParsedOptions {
   }
 
   /// Get the last parsed option within the given option group.
+  /// FIXME: Should mark the gotten option as "used". That's why must be `mutating`
   public mutating func getLast(in group: Option.Group) -> ParsedOption? {
     return groupIndex[group]?.last
   }

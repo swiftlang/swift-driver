@@ -13,7 +13,7 @@ import TSCBasic
 import SwiftOptions
 
 /// Toolchain for Windows.
-public final class WindowsToolchain: Toolchain {
+@_spi(Testing) public final class WindowsToolchain: Toolchain {
   public let env: [String: String]
 
   /// The executor used to run processes used to find tools and retrieve target info.
@@ -24,6 +24,11 @@ public final class WindowsToolchain: Toolchain {
 
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
+    
+  // An externally provided path from where we should find tools like ld
+  public let toolDirectory: AbsolutePath?
+    
+    public let dummyForTestingObjectFormat = Triple.ObjectFormat.coff
 
   public func archName(for triple: Triple) -> String {
     switch triple.arch {
@@ -35,19 +40,14 @@ public final class WindowsToolchain: Toolchain {
     }
   }
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
-    self.env = env
-    self.executor = executor
-    self.fileSystem = fileSystem
-  }
-
-  public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
-    switch type {
-    case .executable: return "\(moduleName).exe"
-    case .dynamicLibrary: return "\(moduleName).dll"
-    case .staticLibrary: return "lib\(moduleName).lib"
+    public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
+      self.env = env
+      self.executor = executor
+      self.fileSystem = fileSystem
+      self.toolDirectory = toolDirectory
     }
-  }
+
+  
 
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
@@ -88,6 +88,19 @@ public final class WindowsToolchain: Toolchain {
   public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
     toolPaths[tool] = path
   }
+    
+    /// Path to the StdLib inside the SDK.
+    public func sdkStdlib(sdk: AbsolutePath, triple: Triple) -> AbsolutePath {
+        sdk.appending(RelativePath("usr/lib/swift/windows")).appending(component: archName(for: triple))
+    }
+    
+    public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
+      switch type {
+      case .executable: return "\(moduleName).exe"
+      case .dynamicLibrary: return "\(moduleName).dll"
+      case .staticLibrary: return "lib\(moduleName).lib"
+      }
+    }
 
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     return nil

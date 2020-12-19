@@ -12,7 +12,7 @@
 import TSCBasic
 
 /// Toolchain for Unix-like systems.
-public final class GenericUnixToolchain: Toolchain {
+@_spi(Testing) public final class GenericUnixToolchain: Toolchain {
   public let env: [String: String]
 
   /// The executor used to run processes used to find tools and retrieve target info.
@@ -24,10 +24,15 @@ public final class GenericUnixToolchain: Toolchain {
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem) {
+  public let toolDirectory: AbsolutePath?
+
+  public let dummyForTestingObjectFormat = Triple.ObjectFormat.elf
+
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.toolDirectory = toolDirectory
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -54,8 +59,11 @@ public final class GenericUnixToolchain: Toolchain {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
-    case .staticLinker:
+    case .staticLinker(nil):
       return try lookup(executable: "ar")
+    case .staticLinker(.llvmFull),
+         .staticLinker(.llvmThin):
+      return try lookup(executable: "llvm-ar")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
       return try lookup(executable: "clang")

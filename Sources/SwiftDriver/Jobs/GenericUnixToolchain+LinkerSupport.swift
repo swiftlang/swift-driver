@@ -50,7 +50,7 @@ extension GenericUnixToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
-    sdkPath: String?,
+    lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> AbsolutePath {
@@ -70,6 +70,8 @@ extension GenericUnixToolchain {
       var linker: String?
       if let arg = parsedOptions.getLastArgument(.useLd) {
         linker = arg.asSingle
+      } else if lto != nil {
+        linker = "lld"
       } else {
         linker = defaultLinker(for: targetTriple)
       }
@@ -130,9 +132,9 @@ extension GenericUnixToolchain {
       let hasRuntimeArgs = !(staticStdlib || staticExecutable)
 
       let runtimePaths = try runtimeLibraryPaths(
-        for: targetTriple,
+        for: targetInfo,
         parsedOptions: &parsedOptions,
-        sdkPath: sdkPath,
+        sdkPath: targetInfo.sdkPath?.path,
         isShared: hasRuntimeArgs
       )
 
@@ -147,15 +149,11 @@ extension GenericUnixToolchain {
         }
       }
 
-      let sharedResourceDirPath = try computeResourceDirPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions,
-        isShared: true
-      )
-
-      let swiftrtPath = sharedResourceDirPath
+      let swiftrtPath = targetInfo.runtimeResourcePath.path
         .appending(
-          components: String(majorArchitectureName(for: targetTriple)), "swiftrt.o"
+          components: targetTriple.platformName() ?? "",
+          String(majorArchitectureName(for: targetTriple)),
+          "swiftrt.o"
         )
       commandLine.appendPath(swiftrtPath)
 
@@ -164,6 +162,8 @@ extension GenericUnixToolchain {
         if input.type == .autolink {
           return .responseFilePath(input.file)
         } else if input.type == .object {
+          return .path(input.file)
+        } else if lto != nil && input.type == .llvmBitcode {
           return .path(input.file)
         } else {
           return nil
@@ -181,9 +181,9 @@ extension GenericUnixToolchain {
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
-      if let path = sdkPath {
+      if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
-        commandLine.appendFlag(path)
+        commandLine.appendPath(path)
       }
 
       // Add the runtime library link paths.
@@ -195,11 +195,8 @@ extension GenericUnixToolchain {
       // Link the standard library. In two paths, we do this using a .lnk file
       // if we're going that route, we'll set `linkFilePath` to the path to that
       // file.
-      var linkFilePath: AbsolutePath? = try computeResourceDirPath(
-        for: targetTriple,
-        parsedOptions: &parsedOptions,
-        isShared: false
-      )
+      var linkFilePath: VirtualPath? = targetInfo.runtimeResourcePath.path
+        .appending(component: targetTriple.platformName() ?? "")
 
       if staticExecutable {
         linkFilePath = linkFilePath?.appending(component: "static-executable-args.lnk")
@@ -211,10 +208,10 @@ extension GenericUnixToolchain {
       }
 
       if let linkFile = linkFilePath {
-        guard fileSystem.isFile(linkFile) else {
-          fatalError("\(linkFile.pathString) not found")
+        guard try fileSystem.exists(linkFile) else {
+          fatalError("\(linkFile) not found")
         }
-        commandLine.append(.responseFilePath(.absolute(linkFile)))
+        commandLine.append(.responseFilePath(linkFile))
       }
 
       // Explicitly pass the target to the linker
@@ -237,14 +234,22 @@ extension GenericUnixToolchain {
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {
-        let libProfile = sharedResourceDirPath
-          .parentDirectory // remove platform name
+        let libProfile = targetInfo.runtimeResourcePath.path
           .appending(components: "clang", "lib", targetTriple.osName,
-                                 "libclangrt_profile-\(targetTriple.archName).a")
+                                 "libclang_rt.profile-\(targetTriple.archName).a")
         commandLine.appendPath(libProfile)
 
         // HACK: Hard-coded from llvm::getInstrProfRuntimeHookVarName()
         commandLine.appendFlag("-u__llvm_profile_runtime")
+      }
+
+      if let lto = lto {
+        switch lto {
+        case .llvmFull:
+          commandLine.appendFlag("-flto=full")
+        case .llvmThin:
+          commandLine.appendFlag("-flto=thin")
+        }
       }
 
       // Run clang++ in verbose mode if "-v" is set
@@ -268,7 +273,7 @@ extension GenericUnixToolchain {
       commandLine.appendPath(outputFile)
 
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
-      return try getToolPath(.staticLinker)
+      return try getToolPath(.staticLinker(lto))
     }
 
   }

@@ -11,18 +11,30 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 
+// On ELF/WASM platforms there's no built in autolinking mechanism, so we
+// pull the info we need from the .o files directly and pass them as an
+// argument input file to the linker.
+// FIXME: Also handle Cygwin and MinGW
 extension Driver {
+  /*@_spi(Testing)*/ public var isAutolinkExtractJobNeeded: Bool {
+    [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil
+  }
+
   mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {
-    // On ELF platforms there's no built in autolinking mechanism, so we
-    // pull the info we need from the .o files directly and pass them as an
-    // argument input file to the linker.
-    // FIXME: Also handle Cygwin and MinGW
-    guard inputs.count > 0 && targetTriple.objectFormat == .elf else {
+    guard let firstInput = inputs.first, isAutolinkExtractJobNeeded else {
       return nil
     }
 
     var commandLine = [Job.ArgTemplate]()
-    let output = VirtualPath.temporary(RelativePath("\(moduleOutputInfo.name).autolink"))
+    // Put output in same place as first .o, following legacy driver.
+    // (See `constructInvocation(const AutolinkExtractJobAction` in `UnixToolChains.cpp`.)
+    let outputBasename = "\(moduleOutputInfo.name).autolink"
+    let dir = firstInput.file.parentDirectory
+    // Go through a bit of extra rigmarole to keep the "./" out of the name for
+    // the sake of the tests.
+    let output: VirtualPath = dir == .temporary(RelativePath("."))
+      ? .temporary(RelativePath(outputBasename))
+      : dir.appending(component: outputBasename)
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })
     commandLine.appendFlag(.o)
@@ -34,6 +46,7 @@ extension Driver {
       tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
       commandLine: commandLine,
       inputs: inputs,
+      primaryInputs: [],
       outputs: [.init(file: output, type: .autolink)],
       supportsResponseFiles: true
     )

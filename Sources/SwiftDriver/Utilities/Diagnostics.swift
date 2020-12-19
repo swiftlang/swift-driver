@@ -12,24 +12,33 @@
 import TSCBasic
 import SwiftOptions
 
-public typealias Diagnostic = TSCBasic.Diagnostic
-public typealias DiagnosticData = TSCBasic.DiagnosticData
-
 extension Diagnostic.Message {
   static var error_static_emit_executable_disallowed: Diagnostic.Message {
     .error("-static may not be used with -emit-executable")
   }
 
-  static func error_option_missing_required_argument(option: Option, requiredArg: Option) -> Diagnostic.Message {
-    .error("option '\(option.spelling)' is missing a required argument (\(requiredArg.spelling))")
+  static func error_option_missing_required_argument(option: Option, requiredArg: String) -> Diagnostic.Message {
+    .error("option '\(option.spelling)' is missing a required argument (\(requiredArg))")
   }
 
   static func error_opt_invalid_mapping(option: Option, value: String) -> Diagnostic.Message {
     .error("values for '\(option.spelling)' must be in the format 'original=remapped', but '\(value)' was provided")
   }
 
+  static func error_unsupported_argument(argument: String, option: Option) -> Diagnostic.Message {
+    .error("unsupported argument '\(argument)' to option '\(option.spelling)'")
+  }
+
+  static func error_option_requires_sanitizer(option: Option) -> Diagnostic.Message {
+    .error("option '\(option.spelling)' requires a sanitizer to be enabled. Use -sanitize= to enable a sanitizer")
+  }
+
   static func error_invalid_arg_value(arg: Option, value: String) -> Diagnostic.Message {
     .error("invalid value '\(value)' in '\(arg.spelling)'")
+  }
+
+  static func warning_inferring_simulator_target(originalTriple: Triple, inferredTriple: Triple) -> Diagnostic.Message {
+    .warning("inferring simulator environment for target '\(originalTriple.triple)'; use '-target \(inferredTriple.triple)' instead")
   }
 
   static func error_argument_not_allowed_with(arg: String, other: String) -> Diagnostic.Message {
@@ -42,6 +51,10 @@ extension Diagnostic.Message {
 
   static var error_mode_cannot_emit_module: Diagnostic.Message {
     .error("this mode does not support emitting modules")
+  }
+
+  static func error_cannot_read_swiftdeps(file: VirtualPath, reason: String) -> Diagnostic.Message {
+    .error("cannot read swiftdeps: \(reason), file: \(file)")
   }
 
   static func error_bad_module_name(
@@ -78,5 +91,9 @@ extension Diagnostic.Message {
 
   static func error_unknown_target(_ target: String) -> Diagnostic.Message {
     .error("unknown target '\(target)'")
+  }
+
+  static func warning_option_overrides_another(overridingOption: Option, overridenOption: Option) -> Diagnostic.Message {
+    .warning("ignoring '\(overridenOption.spelling)' because '\(overridingOption.spelling)' was also specified")
   }
 }

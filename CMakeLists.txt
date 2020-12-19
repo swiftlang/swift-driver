@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.15.1)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
-project(SwiftDriver LANGUAGES Swift)
+project(SwiftDriver LANGUAGES C Swift)
 
 set(SWIFT_VERSION 5)
 set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
@@ -18,6 +18,9 @@ if(CMAKE_VERSION VERSION_LESS 3.16)
     add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>${SWIFT_VERSION}>)
     set(CMAKE_LINK_LIBRARY_FLAG "-l")
 endif()
+
+# ensure Swift compiler can find _CSwiftDriver
+add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-I$<SEMICOLON>${CMAKE_CURRENT_SOURCE_DIR}/Sources/_CSwiftDriver/include>)
 
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
 
