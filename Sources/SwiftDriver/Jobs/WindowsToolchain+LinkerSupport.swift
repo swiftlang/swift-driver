@@ -28,7 +28,7 @@ extension WindowsToolchain {
 
     switch linkerOutputType {
     case .dynamicLibrary:
-      commandLine.appendFlags("-Xlinker", "-dll")
+      commandLine.appendFlags("-shared")
       fallthrough
     case .executable:
       if !targetTriple.triple.isEmpty {
@@ -75,6 +75,11 @@ extension WindowsToolchain {
       }
       commandLine.appendFlag("-fuse-ld=\(linker)")
 
+      // Rely on `-libc` to correctly identify the MSVC Runtime Library.  We use
+      // `-nostartfiles` as that limits the difference to just the
+      // `-defaultlib:libcmt` which is passed unconditionally with the `clang`
+      // driver rather than the `clang-cl` driver.
+      commandLine.appendFlag("-nostartfiles")
       if let crt = parsedOptions.getLastArgument(.libc) {
         switch crt.asSingle {
         case "MT": commandLine.appendFlags("-Xlinker", "-defaultlib:libcmt")
@@ -143,9 +148,6 @@ extension WindowsToolchain {
         commandLine.appendFlag("-lswiftCore")
       }
 
-      // Explicitly pass the target to the linker
-      commandLine.appendFlags("-target", targetTriple.triple)
-
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
       if linkerOutputType == .executable && !sanitizers.isEmpty {
@@ -178,6 +180,7 @@ extension WindowsToolchain {
       commandLine.appendPath(outputFile)
       return clangPath
     case .staticLibrary:
+      commandLine.appendFlags("-nologo")
       commandLine.append(.joinedOptionAndPath("-out:", outputFile))
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
       return try getToolPath(.staticLinker(lto))
