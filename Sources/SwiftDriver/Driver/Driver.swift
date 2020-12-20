@@ -2091,56 +2091,30 @@ extension Driver {
                                        fileSystem: fileSystem,
                                        toolDirectory: toolDir)
 
-    // Find the Swift compiler executable.
-    let swiftCompilerPrefixArgs: [String]
-    let hasFrontendBeenRedirectedForTesting: Bool
-    if let frontendPath = parsedOptions.getLastArgument(.driverUseFrontendPath){
-      var frontendCommandLine =
-        frontendPath.asSingle.split(separator: ";").map { String($0) }
-      if frontendCommandLine.isEmpty {
-        diagnosticsEngine.emit(.error_no_swift_frontend)
-        swiftCompilerPrefixArgs = []
-        hasFrontendBeenRedirectedForTesting = false
-      } else {
-        let frontendPathString = frontendCommandLine.removeFirst()
-        let frontendPath = try AbsolutePath(validating: frontendPathString)
-        toolchain.overrideToolPath(.swiftCompiler, path: frontendPath)
-        swiftCompilerPrefixArgs = frontendCommandLine
-        // The tests in Driver/Dependencies redirect the frontend to a python
-        // script, so don't ask the frontend for target info in that case.
-        hasFrontendBeenRedirectedForTesting = frontendPath.basename == "Python"
-      }
-    } else {
-      swiftCompilerPrefixArgs = []
-      hasFrontendBeenRedirectedForTesting = false
-    }
+    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
 
     // Find the SDK, if any.
-    let sdkPath: VirtualPath? = hasFrontendBeenRedirectedForTesting
-    ? nil
-      : Self.computeSDKPath(
-        &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
-        targetTriple: explicitTarget, fileSystem: fileSystem,
-        diagnosticsEngine: diagnosticsEngine, env: env)
-    
+    let sdkPath: VirtualPath? = Self.computeSDKPath(
+      &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
+      targetTriple: explicitTarget, fileSystem: fileSystem,
+      diagnosticsEngine: diagnosticsEngine, env: env)
+
+
     // Query the frontend for target information.
-    // If there's a dummy frontend, don't query it.
     do {
-      var info = hasFrontendBeenRedirectedForTesting
-        ? FrontendTargetInfo.dummyForTesting(toolchain)
-        : try executor.execute(
+      frontendOverride.setUpForTargetInfo(toolchain)
+      var info: FrontendTargetInfo = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
           sdkPath: sdkPath, resourceDirPath: resourceDirPath,
           runtimeCompatibilityVersion:
             parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
           useStaticResourceDir: useStaticResourceDir,
-          swiftCompilerPrefixArgs: swiftCompilerPrefixArgs
+          swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo
         ),
         capturingJSONOutputAs: FrontendTargetInfo.self,
         forceResponseFiles: false,
         recordedInputModificationDates: [:])
-
 
       // Parse the runtime compatibility version. If present, it will override
       // what is reported by the frontend.
@@ -2163,8 +2137,8 @@ extension Driver {
         diagnosticsEngine.emit(.warning_inferring_simulator_target(originalTriple: explicitTarget,
                                                                    inferredTriple: info.target.triple))
       }
-
-      return (toolchain, info, swiftCompilerPrefixArgs)
+      frontendOverride.setUpForCompilation(toolchain)
+      return (toolchain, info, frontendOverride.prefixArgs)
     } catch let JobExecutionError.decodingError(decodingError,
                                                 dataToDecode,
                                                 processResult) {
@@ -2192,6 +2166,49 @@ extension Driver {
       throw Error.unableToReadFrontendTargetInfo
     } catch {
       throw Error.failedToRetrieveFrontendTargetInfo
+    }
+  }
+
+  private struct FrontendOverride {
+    private let path: AbsolutePath?
+    let prefixArgs: [String]
+
+    init() {
+      path = nil
+      prefixArgs = []
+    }
+
+    init(_ parsedOptions: inout ParsedOptions, _ diagnosticsEngine: DiagnosticsEngine) throws {
+      guard let arg = parsedOptions.getLastArgument(.driverUseFrontendPath)
+      else {
+        self = Self()
+        return
+      }
+      let frontendCommandLine = arg.asSingle.split(separator: ";").map { String($0) }
+      guard let pathString = frontendCommandLine.first else {
+        diagnosticsEngine.emit(.error_no_swift_frontend)
+        self = Self()
+        return
+      }
+      path = try AbsolutePath(validating: pathString)
+      prefixArgs = frontendCommandLine.dropFirst().map {String($0)}
+    }
+
+    var appliesToFetchingTargetInfo: Bool {
+      path?.basename != "Python"
+    }
+    func setUpForTargetInfo(_ toolchain: Toolchain) {
+      if appliesToFetchingTargetInfo {
+        setUpForCompilation(toolchain)
+      }
+    }
+    var prefixArgsForTargetInfo: [String] {
+      appliesToFetchingTargetInfo ? prefixArgs : []
+    }
+    func setUpForCompilation(_ toolchain: Toolchain) {
+      if let path = path {
+        toolchain.overrideToolPath(.swiftCompiler, path: path)
+      }
     }
   }
 }

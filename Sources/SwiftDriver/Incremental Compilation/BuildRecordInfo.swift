@@ -181,10 +181,9 @@ struct JobResult {
     else {
       return nil
     }
-    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion ||
-            actualSwiftVersion == FrontendTargetInfo.dummyVersion
+    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion
     else {
-      let why = "compiler version mismatch. Compiling with \(actualSwiftVersion), previously with \(outOfDateBuildRecord.swiftVersion)"
+      let why = "compiler version mismatch. Compiling with: \(actualSwiftVersion). Previously compiled with: \(outOfDateBuildRecord.swiftVersion)"
       // mimic legacy
       reportIncrementalCompilationHasBeenDisabled("due to a " + why)
       reportDisablingIncrementalBuild(why)
