@@ -37,8 +37,7 @@ public class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
-  /// A check for reentrancy.
-  private var amHandlingJobCompletion = false
+  private let getJobsDiscoveredToBeNeededAfterFinishingSema = DispatchSemaphore(value: 1)
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
@@ -517,15 +516,14 @@ extension IncrementalCompilationState {
   /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
   /// If no more compiles are needed, return nil.
   /// Careful: job may not be primary.
+
   public func getJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job, result: ProcessResult
    ) throws -> [Job]? {
+    getJobsDiscoveredToBeNeededAfterFinishingSema.wait()
     defer {
-      amHandlingJobCompletion = false
+      getJobsDiscoveredToBeNeededAfterFinishingSema.signal()
     }
-    assert(!amHandlingJobCompletion, "was reentered, need to synchronize")
-    amHandlingJobCompletion = true
-
     unfinishedJobs.remove(finishedJob)
 
     guard case .terminated = result.exitStatus else {
