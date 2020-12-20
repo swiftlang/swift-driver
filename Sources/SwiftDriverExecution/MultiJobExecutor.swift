@@ -247,6 +247,12 @@ public final class MultiJobExecutor {
         break
       }
     }
+
+    fileprivate func reportSkippedJobs() {
+      for job in incrementalCompilationState?.skippedJobs ?? [] {
+        executorDelegate.jobSkipped(job: job)
+      }
+    }
   }
 
   /// The work to be done.
@@ -306,6 +312,8 @@ public final class MultiJobExecutor {
     let engine = LLBuildEngine(delegate: delegate)
 
     let result = try engine.build(key: ExecuteAllJobsRule.RuleKey())
+
+    context.reportSkippedJobs()
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {

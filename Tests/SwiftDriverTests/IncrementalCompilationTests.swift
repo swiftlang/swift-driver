@@ -455,6 +455,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
+        "Skipped Compiling main.swift",
+        "Skipped Compiling other.swift",
       ],
       whenAutolinking: [])
   }
@@ -477,6 +479,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Finished Compiling other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
+        "Skipped Compiling main.swift",
     ],
     whenAutolinking: autolinkLifecycleExpectations)
   }

@@ -102,6 +102,20 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
     }
   }
 
+  public func jobSkipped(job: Job) {
+    if showJobLifecycle {
+      diagnosticEngine.emit(.remark_job_lifecycle("Skipped", job))
+    }
+    switch mode {
+    case .regular, .verbose:
+      break
+    case .parsableOutput:
+      let skippedMessage = SkippedMessage(inputs: job.displayInputs.map{ $0.file.name })
+      let message = ParsableMessage(name: job.kind.rawValue, kind: .skipped(skippedMessage))
+      emit(message)
+    }
+  }
+
   private func emit(_ message: ParsableMessage) {
     // FIXME: Do we need to do error handling here? Can this even fail?
     guard let json = try? message.toJSON() else { return }

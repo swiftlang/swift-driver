@@ -137,4 +137,7 @@ public protocol JobExecutionDelegate {
   
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
+
+  /// Called when a job is skipped.
+  func jobSkipped(job: Job)
 }

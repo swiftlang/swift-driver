@@ -597,5 +597,10 @@ extension IncrementalCompilationState {
   var skippedCompilationInputs: Set<TypedVirtualPath> {
     Set(skippedCompileGroups.keys)
   }
+  public var skippedJobs: [Job] {
+    skippedCompileGroups.values
+      .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
+      .flatMap {$0.allJobs()}
+  }
 }
 
