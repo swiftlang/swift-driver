@@ -124,12 +124,6 @@ extension WindowsToolchain {
     if parsedOptions.hasArgument(.profileUse) {
       throw ToolchainValidationError.argumentNotSupported("-profile-use=")
     }
-    
-    if let crt = parsedOptions.getLastArgument(.libc) {
-      if !["MT", "MTd", "MD", "MDd"].contains(crt.asSingle) {
-        throw ToolchainValidationError.illegalCrtName(crt.asSingle)
-      }
-    }
   }
 
   public enum ToolchainValidationError: Error, DiagnosticData {

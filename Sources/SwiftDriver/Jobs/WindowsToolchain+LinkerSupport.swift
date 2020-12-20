@@ -82,13 +82,21 @@ extension WindowsToolchain {
       commandLine.appendFlag("-nostartfiles")
       if let crt = parsedOptions.getLastArgument(.libc) {
         switch crt.asSingle {
-        case "MT": commandLine.appendFlags("-Xlinker", "-defaultlib:libcmt")
-        case "MTd": commandLine.appendFlags("-Xlinker", "-defaultlib:libcmtd")
-        case "MD": commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrt")
-        case "MDd": commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrtd")
-        default: fatalError("Invalid C runtime value should be filtered")
+        case "MT", "MultiThreaded", "static-ucrt":
+          commandLine.appendFlags("-Xlinker", "-defaultlib:libcmt")
+        case "MTd", "MultiThreadedDebug", "static-debug-ucrt":
+          commandLine.appendFlags("-Xlinker", "-defaultlib:libcmtd")
+        case "MD", "MultiThreadedDLL", "shared-ucrt":
+          commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrt")
+        case "MDd", "MultiThreadedDebugDLL", "shared-debug-ucrt":
+          commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrtd")
+        default:
+          throw ToolchainValidationError.illegalCrtName(crt.asSingle)
         }
       } else {
+        // NOTE: default to `/MD` like Visual Studio 2015 and newer.
+        // This is far more useful of a mode since the `/MT` mode requires
+        // that everything is statically linked.
         commandLine.appendFlags("-Xlinker", "-defaultlib:msvcrt")
       }
 
