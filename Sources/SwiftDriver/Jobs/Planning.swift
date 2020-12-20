@@ -598,7 +598,10 @@ extension Driver {
       return ([try replJob()], nil)
 
     case .immediate:
-      return ([try interpretJob(inputs: inputFiles)], nil)
+      var jobs: [Job] = []
+      try addPrecompileModuleDependenciesJobs(addJob: { jobs.append($0) })
+      jobs.append(try interpretJob(inputs: inputFiles))
+      return (jobs, nil)
 
     case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()

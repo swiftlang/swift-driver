@@ -4209,7 +4209,7 @@ func assertString(
                 """, file: file, line: line)
 }
 
-fileprivate extension Array where Element: Equatable {
+extension Array where Element: Equatable {
   /// Returns true if the receiver contains the given elements as a subsequence
   /// (i.e., all elements are present, contiguous, and in the same order).
   ///

@@ -375,6 +375,85 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testImmediateModeExplicitModuleBuild() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C\n"
+      }
+
+      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+      let testInputsPath = packageRootPath + "/TestInputs"
+      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
+      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      var driver = try Driver(args: ["swift",
+                                     "-target", "x86_64-apple-macosx11.0",
+                                     "-I", cHeadersPath,
+                                     "-I", swiftModuleInterfacesPath,
+                                     "-experimental-explicit-module-build",
+                                     main.pathString])
+
+      let jobs = try driver.planBuild()
+
+      let interpretJobs = jobs.filter { $0.kind == .interpret }
+      XCTAssertEqual(interpretJobs.count, 1)
+      let interpretJob = interpretJobs[0]
+      XCTAssertTrue(interpretJob.requiresInPlaceExecution)
+      XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-frontend", "-interpret"]))
+      XCTAssertTrue(interpretJob.commandLine.contains("-disable-implicit-swift-modules"))
+      XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-Xcc", "-Xclang", "-Xcc", "-fno-implicit-modules"]))
+
+      // Figure out which Triples to use.
+      let dependencyOracle = driver.interModuleDependencyOracle
+      let mainModuleInfo =
+        dependencyOracle.getModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
+      guard case .swift(let mainModuleSwiftDetails) = mainModuleInfo.details else {
+        XCTFail("Main module does not have Swift details field")
+        return
+      }
+
+      let pcmArgsCurrent = mainModuleSwiftDetails.extraPcmArgs
+      var pcmArgs9 = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.9"]
+      if driver.targetTriple.isDarwin {
+        pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
+      }
+
+      for job in jobs {
+        guard job.kind != .interpret else { continue }
+        XCTAssertEqual(job.outputs.count, 1)
+        switch (job.outputs[0].file) {
+          case .relative(RelativePath("A.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(RelativePath("Swift.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(try pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent)):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(try pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent)):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(try pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent)):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9)):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
+                                            dependencyOracle: dependencyOracle)
+          case .relative(try pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent)):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
+                                            dependencyOracle: dependencyOracle)
+          default:
+            XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
+        }
+      }
+    }
+  }
+
   func testExplicitModuleBuildEndToEnd() throws {
     // The macOS-only restriction is temporary while Clang's dependency scanner
     // is gaining the ability to perform name-based module lookup.

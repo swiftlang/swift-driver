@@ -871,32 +871,50 @@ extension Driver {
       return
     }
 
-    if jobs.contains(where: { $0.requiresInPlaceExecution })
+    // Jobs which are run as child processes of the driver.
+    var childJobs: [Job]
+    // A job which runs in-place, replacing the driver.
+    var inPlaceJob: Job?
+
+    if jobs.contains(where: { $0.requiresInPlaceExecution }) {
+      childJobs = jobs.filter { !$0.requiresInPlaceExecution }
+      let inPlaceJobs = jobs.filter(\.requiresInPlaceExecution)
+      assert(inPlaceJobs.count == 1,
+             "Cannot execute multiple jobs in-place")
+      inPlaceJob = inPlaceJobs.first
+    } else if jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput) &&
+                buildRecordInfo == nil {
       // Only one job and no cleanup required, e.g. not writing build record
-      || (jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput) &&
-      buildRecordInfo == nil) {
-      assert(jobs.count == 1, "Cannot execute in place for multi-job build plans")
-      var job = jobs[0]
+      inPlaceJob = jobs[0]
+      childJobs = []
+    } else {
+      childJobs = jobs
+      inPlaceJob = nil
+    }
+    inPlaceJob?.requiresInPlaceExecution = true
+
+    if !childJobs.isEmpty {
+      do {
+        defer {
+          buildRecordInfo?.writeBuildRecord(
+            jobs,
+            incrementalCompilationState?.skippedCompilationInputs)
+        }
+        try performTheBuild(allJobs: childJobs, forceResponseFiles: forceResponseFiles)
+      }
+    }
+
+    // If we have a job to run in-place, do so at the end.
+    if let inPlaceJob = inPlaceJob {
       // Print the driver source version first before we print the compiler
       // versions.
-      if job.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
+      if inPlaceJob.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
         stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< " "
         stderrStream.flush()
       }
-      // Require in-place execution for all single job plans.
-      job.requiresInPlaceExecution = true
-      try executor.execute(job: job,
+      try executor.execute(job: inPlaceJob,
                            forceResponseFiles: forceResponseFiles,
                            recordedInputModificationDates: recordedInputModificationDates)
-      return
-    }
-    do {
-      defer {
-        buildRecordInfo?.writeBuildRecord(
-          jobs,
-          incrementalCompilationState?.skippedCompilationInputs)
-      }
-      try performTheBuild(allJobs: jobs, forceResponseFiles: forceResponseFiles)
     }
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
