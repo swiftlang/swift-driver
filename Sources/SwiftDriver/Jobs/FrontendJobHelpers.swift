@@ -249,6 +249,7 @@ extension Driver {
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
                                                         primaryInputs: [TypedVirtualPath],
+                                                        inputsGeneratingCodeCount: Int,
                                                         inputOutputMap: [TypedVirtualPath: TypedVirtualPath],
                                                         includeModuleTracePath: Bool) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
@@ -378,10 +379,7 @@ extension Driver {
                                       output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
-    // This calculation treats all the files in a WMO compile as a single input
-    let allInputsCount = max(primaryInputs.count, 1)
-    // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
-    if allInputsCount * FileType.allCases.count > fileListThreshold {
+    if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath: [FileType: VirtualPath]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input] {

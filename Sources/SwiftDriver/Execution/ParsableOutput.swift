@@ -17,7 +17,7 @@ import Foundation
     case began(BeganMessage)
     case finished(FinishedMessage)
     case signalled(SignalledMessage)
-    case skipped
+    case skipped(SkippedMessage)
   }
 
   public let name: String
@@ -76,6 +76,18 @@ import Foundation
     case outputs
     case commandExecutable = "command_executable"
     case commandArguments = "command_arguments"
+  }
+}
+
+@_spi(Testing) public struct SkippedMessage: Encodable {
+  public let inputs: [String]
+
+  public init( inputs: [String] ) {
+    self.inputs = inputs
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case inputs
   }
 }
 
@@ -144,8 +156,10 @@ import Foundation
     case .signalled(let msg):
       try container.encode("signalled", forKey: .kind)
       try msg.encode(to: encoder)
-    case .skipped:
-      break
+    case .skipped(let msg):
+      try container.encode("skipped", forKey: .kind)
+      try msg.encode(to: encoder)
+
     }
   }
 }

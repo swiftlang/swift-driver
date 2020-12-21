@@ -197,7 +197,7 @@ public final class MultiJobExecutor {
     ) {
       for output in job.outputs {
         if let otherJobIndex = producerMap.updateValue(index, forKey: output.file) {
-          fatalError("multiple producers for output \(output): \(job) & \(knownJobs[otherJobIndex])")
+          fatalError("multiple producers for output \(output.file): \(job) & \(knownJobs[otherJobIndex])")
         }
         producerMap[output.file] = index
       }
@@ -245,6 +245,12 @@ public final class MultiJobExecutor {
        #endif
       default:
         break
+      }
+    }
+
+    fileprivate func reportSkippedJobs() {
+      for job in incrementalCompilationState?.skippedJobs ?? [] {
+        executorDelegate.jobSkipped(job: job)
       }
     }
   }
@@ -306,6 +312,8 @@ public final class MultiJobExecutor {
     let engine = LLBuildEngine(delegate: delegate)
 
     let result = try engine.build(key: ExecuteAllJobsRule.RuleKey())
+
+    context.reportSkippedJobs()
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {

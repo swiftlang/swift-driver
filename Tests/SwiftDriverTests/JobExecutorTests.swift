@@ -51,6 +51,8 @@ class JobCollectingDelegate: JobExecutionDelegate {
   func jobStarted(job: Job, arguments: [String], pid: Int) {
     started.append(job)
   }
+
+  func jobSkipped(job: Job) {}
 }
 
 extension DarwinToolchain {

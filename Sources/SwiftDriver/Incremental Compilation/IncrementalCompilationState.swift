@@ -37,8 +37,7 @@ public class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
-  /// A check for reentrancy.
-  private var amHandlingJobCompletion = false
+  private let getJobsDiscoveredToBeNeededAfterFinishingSema = DispatchSemaphore(value: 1)
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
@@ -314,7 +313,7 @@ extension IncrementalCompilationState {
     alwaysRebuildDependents: Bool,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
   ) -> Set<TypedVirtualPath> {
-    let changedInputs: [(TypedVirtualPath, InputInfo.Status)] =
+    let changedInputs: [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)] =
       computeChangedInputs(
         groups: allGroups,
         buildRecordInfo: buildRecordInfo,
@@ -353,6 +352,7 @@ extension IncrementalCompilationState {
     let speculativeInputs = computeSpeculativeInputs(
       changedInputs: changedInputs,
       externalDependents: externalDependents,
+      inputsMissingOutputs: Set(inputsMissingOutputs),
       moduleDependencyGraph: moduleDependencyGraph,
       alwaysRebuildDependents: alwaysRebuildDependents,
       reportIncrementalDecision: reportIncrementalDecision)
@@ -383,7 +383,7 @@ extension IncrementalCompilationState {
     outOfDateBuildRecord: BuildRecord,
     fileSystem: FileSystem,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-   ) -> [(TypedVirtualPath, InputInfo.Status)] {
+  ) -> [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)] {
     groups.compactMap { group in
       let input = group.primaryInput
       let modDate = buildRecordInfo.compilationInputModificationDates[input]
@@ -414,7 +414,7 @@ extension IncrementalCompilationState {
       case .needsNonCascadingBuild:
         reportIncrementalDecision?("Scheduling noncascading build", input)
       }
-      return (input, previousCompilationStatus)
+      return (input, previousCompilationStatus, datesMatch)
     }
   }
 
@@ -450,35 +450,43 @@ extension IncrementalCompilationState {
   /// TODO: something better, e.g. return nothing here, but process changed swiftDeps
   /// before the whole frontend job finished.
   private static func computeSpeculativeInputs(
-    changedInputs: [(TypedVirtualPath, InputInfo.Status)],
+    changedInputs: [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)],
     externalDependents: [TypedVirtualPath],
+    inputsMissingOutputs: Set<TypedVirtualPath>,
     moduleDependencyGraph: ModuleDependencyGraph,
     alwaysRebuildDependents: Bool,
     reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
     ) -> Set<TypedVirtualPath> {
     // Collect the files that will be compiled whose dependents should be schedule
-    let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap { input, status in
+    let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap {
+      input, status, datesMatch in
       let basename = input.file.basename
-      switch (status, alwaysRebuildDependents) {
+      switch (status, alwaysRebuildDependents,
+              datesMatch && !inputsMissingOutputs.contains(input)) {
 
-       case (_, true):
+       case (_, true, false):
         reportIncrementalDecision?(
           "scheduling dependents of \(basename); -driver-always-rebuild-dependents", nil)
         return input
-      case (.needsCascadingBuild, false):
+      case(_, true, true):
+        reportIncrementalDecision?(
+          "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date", nil)
+        return nil
+
+      case (.needsCascadingBuild, false, _):
         reportIncrementalDecision?(
           "scheduling dependents of \(basename); needed cascading build", nil)
         return input
 
-      case (.upToDate, false): // was up to date, but changed
+      case (.upToDate, false, _): // was up to date, but changed
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename); unknown changes", nil)
         return nil
-       case (.newlyAdded, false):
+       case (.newlyAdded, false, _):
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename): no entry in build record or dependency graph", nil)
         return nil
-      case (.needsNonCascadingBuild, false):
+      case (.needsNonCascadingBuild, false, _):
         reportIncrementalDecision?(
           "not scheduling dependents of \(basename): does not need cascading build", nil)
         return nil
@@ -508,15 +516,14 @@ extension IncrementalCompilationState {
   /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
   /// If no more compiles are needed, return nil.
   /// Careful: job may not be primary.
+
   public func getJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job, result: ProcessResult
    ) throws -> [Job]? {
+    getJobsDiscoveredToBeNeededAfterFinishingSema.wait()
     defer {
-      amHandlingJobCompletion = false
+      getJobsDiscoveredToBeNeededAfterFinishingSema.signal()
     }
-    assert(!amHandlingJobCompletion, "was reentered, need to synchronize")
-    amHandlingJobCompletion = true
-
     unfinishedJobs.remove(finishedJob)
 
     guard case .terminated = result.exitStatus else {
@@ -587,6 +594,11 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   var skippedCompilationInputs: Set<TypedVirtualPath> {
     Set(skippedCompileGroups.keys)
+  }
+  public var skippedJobs: [Job] {
+    skippedCompileGroups.values
+      .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
+      .flatMap {$0.allJobs()}
   }
 }
 
