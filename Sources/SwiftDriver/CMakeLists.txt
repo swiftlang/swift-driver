@@ -7,15 +7,15 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftDriver
-  "Explicit Module Builds/ClangModuleBuildJobCache.swift"
-  "Explicit Module Builds/ClangVersionedDependencyResolution.swift"
-  "Explicit Module Builds/ExplicitDependencyBuildPlanner.swift"
-  "Explicit Module Builds/ModuleDependencyScanning.swift"
-  "Explicit Module Builds/PlaceholderDependencyResolution.swift"
-  "Explicit Module Builds/SerializableModuleArtifacts.swift"
-  "Explicit Module Builds/Inter Module Dependencies/CommonDependencyOperations.swift"
-  "Explicit Module Builds/Inter Module Dependencies/InterModuleDependencyGraph.swift"
-  "Explicit Module Builds/Inter Module Dependencies/InterModuleDependencyOracle.swift"
+  "ExplicitModuleBuilds/ClangModuleBuildJobCache.swift"
+  "ExplicitModuleBuilds/ClangVersionedDependencyResolution.swift"
+  "ExplicitModuleBuilds/ExplicitDependencyBuildPlanner.swift"
+  "ExplicitModuleBuilds/ModuleDependencyScanning.swift"
+  "ExplicitModuleBuilds/PlaceholderDependencyResolution.swift"
+  "ExplicitModuleBuilds/SerializableModuleArtifacts.swift"
+  "ExplicitModuleBuilds/InterModuleDependencies/CommonDependencyOperations.swift"
+  "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyGraph.swift"
+  "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyOracle.swift"
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
@@ -31,22 +31,22 @@ add_library(SwiftDriver
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
 
-  "Incremental Compilation/ModuleDependencyGraph Parts/Integrator.swift"
-  "Incremental Compilation/ModuleDependencyGraph Parts/Node.swift"
-  "Incremental Compilation/ModuleDependencyGraph Parts/NodeFinder.swift"
-  "Incremental Compilation/ModuleDependencyGraph Parts/SwiftDeps.swift"
-  "Incremental Compilation/ModuleDependencyGraph Parts/Tracer.swift"
-  "Incremental Compilation/BidirectionalMap.swift"
-  "Incremental Compilation/BuildRecord.swift"
-  "Incremental Compilation/BuildRecordInfo.swift"
-  "Incremental Compilation/DependencyKey.swift"
-  "Incremental Compilation/DictionaryOfDictionaries.swift"
-  "Incremental Compilation/IncrementalCompilationState.swift"
-  "Incremental Compilation/InputInfo.swift"
-  "Incremental Compilation/ModuleDependencyGraph.swift"
-  "Incremental Compilation/Multidictionary.swift"
-  "Incremental Compilation/SourceFileDependencyGraph.swift"
-  "Incremental Compilation/TwoDMap.swift"
+  "IncrementalCompilation/ModuleDependencyGraphParts/Integrator.swift"
+  "IncrementalCompilation/ModuleDependencyGraphParts/Node.swift"
+  "IncrementalCompilation/ModuleDependencyGraphParts/NodeFinder.swift"
+  "IncrementalCompilation/ModuleDependencyGraphParts/SwiftDeps.swift"
+  "IncrementalCompilation/ModuleDependencyGraphParts/Tracer.swift"
+  "IncrementalCompilation/BidirectionalMap.swift"
+  "IncrementalCompilation/BuildRecord.swift"
+  "IncrementalCompilation/BuildRecordInfo.swift"
+  "IncrementalCompilation/DependencyKey.swift"
+  "IncrementalCompilation/DictionaryOfDictionaries.swift"
+  "IncrementalCompilation/IncrementalCompilationState.swift"
+  "IncrementalCompilation/InputInfo.swift"
+  "IncrementalCompilation/ModuleDependencyGraph.swift"
+  "IncrementalCompilation/Multidictionary.swift"
+  "IncrementalCompilation/SourceFileDependencyGraph.swift"
+  "IncrementalCompilation/TwoDMap.swift"
 
   Jobs/AutolinkExtractJob.swift
   Jobs/BackendJob.swift
