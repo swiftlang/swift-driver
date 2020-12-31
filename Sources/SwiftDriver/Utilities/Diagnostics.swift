@@ -17,6 +17,10 @@ extension Diagnostic.Message {
     .error("-static may not be used with -emit-executable")
   }
 
+  static func error_update_code_not_supported(in mode: CompilerMode) -> Diagnostic.Message {
+    .error("using '-update-code' in \(mode) mode is not supported")
+  }
+
   static func error_option_missing_required_argument(option: Option, requiredArg: String) -> Diagnostic.Message {
     .error("option '\(option.spelling)' is missing a required argument (\(requiredArg))")
   }
