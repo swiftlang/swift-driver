@@ -11,6 +11,40 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 
+@_spi(Testing) public extension InterModuleDependencyGraph {
+  /// For targets that are built alongside the driver's current module, the scanning action will report them as
+  /// textual targets to be built from source. Because we can rely on these targets to have been built prior
+  /// to the driver's current target, we resolve such external targets as prebuilt binary modules, in the graph.
+  mutating func resolveExternalDependencies(for externalBuildArtifacts: ExternalBuildArtifacts)
+  throws {
+    let externalTargetModulePathMap = externalBuildArtifacts.0
+
+    for (externalModuleId, externalModulePath) in externalTargetModulePathMap {
+      // Replace the occurence of a Swift module to-be-built from source-file
+      // to an info that describes a pre-built binary module.
+      let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
+      guard let currentInfo = modules[swiftModuleId] else {
+        // If the build system specifies a certain target to be an external dependency,
+        // but the dependency graph does not contain a corresponding module, it may be possible
+        // that this is a faux-dependency. For example, a SwiftPM package manifest specifies
+        // a dependency on a target that is not actually used.
+        continue
+      }
+
+      let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
+      let newExternalModuleDetails =
+        SwiftPrebuiltExternalModuleDetails(compiledModulePath: externalModulePath.description)
+      let newInfo = ModuleInfo(modulePath: externalModulePath.description,
+                               sourceFiles: [],
+                               directDependencies: currentInfo.directDependencies,
+                               details: .swiftPrebuiltExternal(newExternalModuleDetails))
+
+      Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
+                         replacementInfo: newInfo, in: &modules)
+    }
+  }
+}
+
 @_spi(Testing) public extension InterModuleDependencyOracle {
   /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main externalModules/targets
   /// into a single collection of discovered externalModules.

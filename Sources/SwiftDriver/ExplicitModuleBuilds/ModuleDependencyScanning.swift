@@ -46,14 +46,6 @@ internal extension Driver {
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
-    // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalBuildArtifacts = externalBuildArtifacts {
-      let dependencyPlaceholderMapFile =
-        try serializeExternalDependencyArtifacts(externalBuildArtifacts: externalBuildArtifacts)
-      commandLine.appendFlag("-placeholder-dependency-module-map-file")
-      commandLine.appendPath(dependencyPlaceholderMapFile)
-    }
-
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file)})
     return (inputs, commandLine)

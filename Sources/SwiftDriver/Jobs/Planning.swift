@@ -494,11 +494,10 @@ extension Driver {
   throws -> InterModuleDependencyGraph {
     var dependencyGraph = try performDependencyScan()
 
-    // Resolve placeholder dependencies in the dependency graph, if any.
-    // TODO: Should be deprecated once switched over to libSwiftScan
+    // Resolve external dependencies in the dependency graph to be treated as pre-built
+    // binary modules.
     if externalBuildArtifacts != nil {
-      try dependencyGraph.resolvePlaceholderDependencies(for: externalBuildArtifacts!,
-                                                         using: interModuleDependencyOracle)
+      try dependencyGraph.resolveExternalDependencies(for: externalBuildArtifacts!)
     }
 
     // Re-scan Clang modules at all the targets they will be built against.
