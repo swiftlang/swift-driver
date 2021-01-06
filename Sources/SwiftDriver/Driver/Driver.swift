@@ -1353,10 +1353,6 @@ extension Driver {
       case .indexFile:
         compilerOutputType = .indexData
 
-      case .updateCode:
-        compilerOutputType = .remap
-        linkerOutputType = nil
-
       case .parse, .resolveImports, .typecheck, .dumpParse, .emitSyntax,
            .printAst, .dumpTypeRefinementContexts, .dumpScopeMaps,
            .dumpInterfaceHash, .dumpTypeInfo, .verifyDebugInfo:

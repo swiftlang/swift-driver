@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import TSCUtility
 
 /// Whether we should produce color diagnostics by default.
 fileprivate func shouldColorDiagnostics() -> Bool {
@@ -332,11 +333,6 @@ extension Driver {
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
         flag: "-serialize-diagnostics-path")
-
-      #if false
-      // FIXME: handle -update-code
-      addOutputOfType(outputType: .remap, input: input, flag: "-emit-remap-file-path")
-      #endif
     }
 
     if compilerMode.usesPrimaryFileInputs {
@@ -371,6 +367,28 @@ extension Driver {
         finalOutputPath: tbdPath,
         input: nil,
         flag: "-emit-tbd-path")
+    }
+
+    if parsedOptions.hasArgument(.updateCode) {
+      guard compilerMode == .standardCompile else {
+        diagnosticEngine.emit(.error_update_code_not_supported(in: compilerMode))
+        throw Diagnostics.fatalError
+      }
+      assert(primaryInputs.count == 1, "Standard compile job had more than one primary input")
+      let input = primaryInputs[0]
+      let remapOutputPath: VirtualPath
+      if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: .remap) {
+        remapOutputPath = outputFileMapPath
+      } else if let output = inputOutputMap[input], output.file != .standardOutput {
+        // Alongside primary output
+        remapOutputPath = output.file.replacingExtension(with: .remap)
+      } else {
+        remapOutputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
+      }
+
+      flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",
+                                      input: input,
+                                      output: TypedVirtualPath(file: remapOutputPath, type: .remap)))
     }
 
     if includeModuleTracePath, let tracePath = loadedModuleTracePath {

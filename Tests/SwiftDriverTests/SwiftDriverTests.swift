@@ -1578,6 +1578,44 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
   }
 
+  func testUpdateCode() throws {
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-update-code", "foo.swift", "bar.swift"
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .compile, .link])
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-remap-file-path", .path(.temporary(.init("foo.remap")))]))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-remap-file-path", .path(.temporary(.init("bar.remap")))]))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "-update-code", "foo.swift", "bar.swift", "-enable-batch-mode", "-driver-batch-count", "1"]
+    ) {
+      _ = try? $0.planBuild()
+      $1.expect(.error("using '-update-code' in batch compilation mode is not supported"))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "-update-code", "foo.swift", "bar.swift", "-wmo"]
+    ) {
+      _ = try? $0.planBuild()
+      $1.expect(.error("using '-update-code' in whole module optimization mode is not supported"))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-update-code", "foo.swift", "-migrate-keep-objc-visibility"
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-remap-file-path", .path(.temporary(.init("foo.remap")))]))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains("-migrate-keep-objc-visibility"))
+    }
+  }
+
   func testMergeModulesOnly() throws {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-source-info-path", "/foo/bar/Test.swiftsourceinfo"])
