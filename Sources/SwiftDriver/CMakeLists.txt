@@ -102,7 +102,7 @@ target_link_libraries(SwiftDriver PUBLIC
 target_link_libraries(SwiftDriver PRIVATE
   CYaml
   Yams
-  CSwiftDriver)
+  CSwiftScan)
 
 set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriver)
 

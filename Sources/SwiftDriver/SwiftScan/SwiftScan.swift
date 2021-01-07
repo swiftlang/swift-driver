@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 // AC: Consider making this implementation-only
-@_implementationOnly import _InternalLibSwiftScan
+@_implementationOnly import CSwiftScan
 
 import TSCUtility
 import TSCBasic

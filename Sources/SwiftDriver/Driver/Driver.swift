@@ -13,7 +13,6 @@ import TSCBasic
 import TSCUtility
 import Foundation
 import SwiftOptions
-@_implementationOnly import _CSwiftDriver
 
 /// The Swift driver.
 public struct Driver {

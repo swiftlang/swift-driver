@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import _InternalLibSwiftScan
+@_implementationOnly import CSwiftScan
 
 internal extension SwiftScan {
   /// From a reference to a binary-format dependency graph returned by libSwiftScan,

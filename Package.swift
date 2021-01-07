@@ -36,7 +36,6 @@ let package = Package(
       targets: ["SwiftDriverExecution"]),
   ],
   targets: [
-    .target(name: "_CSwiftDriver"),
 
     /// C modules wrapper for _InternalLibSwiftScan.
     .target(name: "CSwiftScan"),
@@ -45,8 +44,7 @@ let package = Package(
     .target(
       name: "SwiftDriver",
       dependencies: ["SwiftOptions", "SwiftToolsSupport-auto",
-                     "CSwiftScan",
-                     "Yams", "_CSwiftDriver"]),
+                     "CSwiftScan", "Yams"]),
 
     /// The execution library.
     .target(
