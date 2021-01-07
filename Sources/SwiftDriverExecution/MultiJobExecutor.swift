@@ -504,6 +504,7 @@ class ExecuteJobRule: LLBuildRule {
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
+    var knownPId = Set<Int>()
     var pid = 0
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
@@ -524,6 +525,7 @@ class ExecuteJobRule: LLBuildRule {
       // Inform the delegate.
       context.delegateQueue.async {
         context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
+        knownPId.insert(pid)
       }
 
       let result = try process.waitUntilExit()
@@ -555,15 +557,19 @@ class ExecuteJobRule: LLBuildRule {
       if error is DiagnosticData {
         context.diagnosticsEngine.emit(error)
       }
-      context.delegateQueue.async {
-        let result = ProcessResult(
-          arguments: [],
-          environment: env,
-          exitStatus: .terminated(code: EXIT_FAILURE),
-          output: Result.success([]),
-          stderrOutput: Result.success([])
-        )
-        context.executorDelegate.jobFinished(job: job, result: result, pid: 0)
+      // Only inform finished job if the job has been started, otherwise the build
+      // system may complain about malformed output
+      if (knownPId.contains(pid)) {
+        context.delegateQueue.async {
+          let result = ProcessResult(
+            arguments: [],
+            environment: env,
+            exitStatus: .terminated(code: EXIT_FAILURE),
+            output: Result.success([]),
+            stderrOutput: Result.success([])
+          )
+          context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
+        }
       }
       value = .jobExecution(success: false)
     }
