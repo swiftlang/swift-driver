@@ -46,8 +46,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
   }
 }
 
-/// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dependency scanning
-/// queries.
+/// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
 internal final class SwiftScan {
   /// The path to the libSwiftScan dylib.
   let path: AbsolutePath
@@ -66,6 +65,7 @@ internal final class SwiftScan {
 
   init(dylib path: AbsolutePath) throws {
     self.path = path
+    print("OPENINGNG : \(path.description)")
     #if os(Windows)
     self.dylib = try dlopen(path.pathString, mode: [])
     #else
@@ -169,10 +169,8 @@ internal final class SwiftScan {
     let resultGraphMap = try constructBatchResultGraphs(for: batchInfos,
                                                         from: batchResultRef.pointee)
     // Free the memory allocated for the in-memory representation of the batch scan
-    // restult, now that we have translated it.
-
-    // TODO: This segfaults, WHY?
-    //api.swiftscan_batch_scan_result_dispose(batchResultRefOrNull)
+    // result, now that we have translated it.
+    api.swiftscan_batch_scan_result_dispose(batchResultRefOrNull)
     return resultGraphMap
   }
 }
@@ -184,14 +182,14 @@ private extension swiftscan_functions_t {
     // MARK: Optional Methods
     // Future optional methods can be queried here
 
+
+    // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
       guard let sym: T = dlsym(swiftscan, symbol: symbol) else {
         throw DependencyScanningError.missingRequiredSymbol(symbol)
       }
       return sym
     }
-
-    // MARK: Required Methods
 
     self.swiftscan_scanner_create =
       try loadRequired("swiftscan_scanner_create")
