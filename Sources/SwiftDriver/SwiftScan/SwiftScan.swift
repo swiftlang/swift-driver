@@ -86,7 +86,7 @@ internal final class SwiftScan {
   }
 
   func scanDependencies(workingDirectory: AbsolutePath,
-                               invocationCommand: [String]) throws -> InterModuleDependencyGraph {
+                        invocationCommand: [String]) throws -> InterModuleDependencyGraph {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
     defer { api.swiftscan_scan_invocation_dispose(invocation) }

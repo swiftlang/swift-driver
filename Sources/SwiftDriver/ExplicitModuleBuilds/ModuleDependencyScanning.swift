@@ -46,6 +46,14 @@ internal extension Driver {
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
+    // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
+    if let externalBuildArtifacts = externalBuildArtifacts {
+      let dependencyPlaceholderMapFile =
+        try serializeExternalDependencyArtifacts(externalBuildArtifacts: externalBuildArtifacts)
+      commandLine.appendFlag("-placeholder-dependency-module-map-file")
+      commandLine.appendPath(dependencyPlaceholderMapFile)
+    }
+
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file)})
     return (inputs, commandLine)
@@ -80,28 +88,28 @@ internal extension Driver {
                                        contents)
   }
 
+  fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
+                                      using resolver: ArgsResolver) throws -> [String] {
+    let (args, _) = try resolver.resolveArgumentList(for: job,
+                                                     forceResponseFiles: forceResponseFiles,
+                                                     quotePaths: true)
+    return args
+  }
+
   mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
     // FIXME: It is a bit hack to have to generate a job and then ask the executor to
     // generate a canonical command line for it. Can do better.
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
-//    print("Scan:")
-//    print(try self.executor.description(of: scannerJob,
-//                                        forceResponseFiles: forceResponseFiles))
-    print(" _______________________________________________________________")
-    print("|                                                               |")
-    print("|                       DEPENDENCY SCAN                         |")
     let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-    var command = try self.executor.description(of: scannerJob,
-                                                forceResponseFiles: forceResponseFiles)
-                                               .components(separatedBy: " ")
+    var command = try itemizedJobCommand(of: scannerJob,
+                                         forceResponseFiles: forceResponseFiles,
+                                         using: executor.resolver)
     // Remove the tool executable to only leave the arguments
     command.removeFirst()
     let dependencyGraph =
       try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
                                                       commandLine: command)
-    print("|                          SUCCESSFUL                           |")
-    print("|_______________________________________________________________|")
     return dependencyGraph
   }
 
@@ -109,24 +117,16 @@ internal extension Driver {
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     let batchScanningJob = try batchDependencyScanningJob(for: moduleInfos)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
-//    print("Batch Scan:")
-//    print(try self.executor.description(of: batchScanningJob,
-//                                        forceResponseFiles: forceResponseFiles))
-    print(" _______________________________________________________________")
-    print("|                                                               |")
-    print("|                     BATCH DEPENDENCY SCAN                     |")
     let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-    var command = try self.executor.description(of: batchScanningJob,
-                                                forceResponseFiles: forceResponseFiles)
-                                               .components(separatedBy: " ")
+    var command = try itemizedJobCommand(of: batchScanningJob,
+                                         forceResponseFiles: forceResponseFiles,
+                                         using: executor.resolver)
     // Remove the tool executable to only leave the arguments
     command.removeFirst()
     let moduleVersionedGraphMap =
       try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
                                                            commandLine: command,
                                                            batchInfos: moduleInfos)
-    print("|                          SUCCESSFUL                           |")
-    print("|_______________________________________________________________|")
     return moduleVersionedGraphMap
   }
 

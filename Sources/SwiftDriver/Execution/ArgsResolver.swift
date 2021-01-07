@@ -44,41 +44,45 @@ public final class ArgsResolver {
     }
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> [String] {
-    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+                                  quotePaths: Bool = false) throws -> [String] {
+    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles,
+                                                 quotePaths: quotePaths)
     return arguments
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool) throws -> ([String], usingResponseFile: Bool) {
-    let tool = try resolve(.path(job.tool))
-    var arguments = [tool] + (try job.commandLine.map { try resolve($0) })
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+                                  quotePaths: Bool = false) throws -> ([String], usingResponseFile: Bool) {
+    let tool = try resolve(.path(job.tool), quotePaths: quotePaths)
+    var arguments = [tool] + (try job.commandLine.map { try resolve($0, quotePaths: quotePaths) })
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
                                                            forceResponseFiles: forceResponseFiles)
     return (arguments, usingResponseFile)
   }
 
   /// Resolve the given argument.
-  public func resolve(_ arg: Job.ArgTemplate) throws -> String {
+  public func resolve(_ arg: Job.ArgTemplate,
+                      quotePaths: Bool = false) throws -> String {
     switch arg {
     case .flag(let flag):
       return flag
 
     case .path(let path):
       return try lock.withLock {
-        return try unsafeResolve(path: path)
+        return try unsafeResolve(path: path, quotePaths: quotePaths)
       }
     case .responseFilePath(let path):
-      return "@\(try resolve(.path(path)))"
+      return "@\(try resolve(.path(path), quotePaths: quotePaths))"
     case let .joinedOptionAndPath(option, path):
-      return option + (try resolve(.path(path)))
+      return option + (try resolve(.path(path), quotePaths: quotePaths))
     }
   }
 
   /// Needs to be done inside of `lock`. Marked unsafe to make that more obvious.
-  private func unsafeResolve(path: VirtualPath) throws -> String {
+  private func unsafeResolve(path: VirtualPath, quotePaths: Bool) throws -> String {
     // If there was a path mapping, use it.
     if let actualPath = pathMapping[path] {
-      return actualPath
+      return quotePaths ? "'\(actualPath)'" : actualPath
     }
 
     // Return the path from the temporary directory if this is a temporary file.
@@ -93,36 +97,37 @@ public final class ArgsResolver {
           try fileSystem.writeFileContents(absolutePath, bytes: .init(contents))
         }
       case let .fileList(_, .list(items)):
-        try createFileList(path: actualPath, contents: items)
+        try createFileList(path: actualPath, contents: items, quotePaths: quotePaths)
       case let .fileList(_, .outputFileMap(map)):
-        try createFileList(path: actualPath, outputFileMap: map)
+        try createFileList(path: actualPath, outputFileMap: map, quotePaths: quotePaths)
       case .relative, .absolute, .standardInput, .standardOutput:
         fatalError("Not a temporary path.")
       }
 
       let result = actualPath.name
       pathMapping[path] = result
-      return result
+      return quotePaths ? "'\(result)'" : result
     }
 
     // Otherwise, return the path.
     let result = path.name
     pathMapping[path] = result
-    return result
+    return quotePaths ? "'\(result)'" : result
   }
 
-  private func createFileList(path: VirtualPath, contents: [VirtualPath]) throws {
+  private func createFileList(path: VirtualPath, contents: [VirtualPath], quotePaths: Bool) throws {
     // FIXME: Need a way to support this for distributed build systems...
     if let absPath = path.absolutePath {
       try fileSystem.writeFileContents(absPath) { out in
         for path in contents {
-          try! out <<< unsafeResolve(path: path) <<< "\n"
+          try! out <<< unsafeResolve(path: path, quotePaths: quotePaths) <<< "\n"
         }
       }
     }
   }
 
-  private func createFileList(path: VirtualPath, outputFileMap: OutputFileMap) throws {
+  private func createFileList(path: VirtualPath, outputFileMap: OutputFileMap, quotePaths: Bool)
+  throws {
     // FIXME: Need a way to support this for distributed build systems...
     if let absPath = path.absolutePath {
       // This uses Yams to escape and quote strings, but not to output the whole yaml file because
@@ -130,13 +135,13 @@ public final class ArgsResolver {
       // and the frontend (llvm) only seems to support implicit block format.
       try fileSystem.writeFileContents(absPath) { out in
         for (input, map) in outputFileMap.entries {
-          out <<< quoteAndEscape(path: input) <<< ":"
+          out <<< quoteAndEscape(path: input, quotePaths: quotePaths) <<< ":"
           if map.isEmpty {
             out <<< " {}\n"
           } else {
             out <<< "\n"
             for (type, output) in map {
-              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: output) <<< "\n"
+              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: output, quotePaths: quotePaths) <<< "\n"
             }
           }
         }
@@ -144,8 +149,9 @@ public final class ArgsResolver {
     }
   }
 
-  private func quoteAndEscape(path: VirtualPath) -> String {
-    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path), Tag(.str), .doubleQuoted))
+  private func quoteAndEscape(path: VirtualPath, quotePaths: Bool) -> String {
+    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path, quotePaths: quotePaths),
+                                            Tag(.str), .doubleQuoted))
     // Width parameter of -1 sets preferred line-width to unlimited so that no extraneous
     // line-breaks will be inserted during serialization.
     let string = try! Yams.serialize(node: inputNode, width: -1)
