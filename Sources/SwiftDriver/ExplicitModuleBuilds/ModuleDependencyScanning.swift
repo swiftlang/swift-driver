@@ -97,8 +97,6 @@ internal extension Driver {
   }
 
   mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
-    // FIXME: It is a bit hack to have to generate a job and then ask the executor to
-    // generate a canonical command line for it. Can do better.
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!

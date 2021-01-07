@@ -19,7 +19,7 @@ import TSCBasic
   throws {
     let externalTargetModulePathMap = externalBuildArtifacts.0
 
-    for (externalModuleId, externalModulePath) in externalTargetModulePathMap {
+     for (externalModuleId, externalModulePath) in externalTargetModulePathMap {
       // Replace the occurence of a Swift module to-be-built from source-file
       // to an info that describes a pre-built binary module.
       let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
@@ -31,7 +31,7 @@ import TSCBasic
         continue
       }
 
-      let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
+       let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
       let newExternalModuleDetails =
         SwiftPrebuiltExternalModuleDetails(compiledModulePath: externalModulePath.description)
       let newInfo = ModuleInfo(modulePath: externalModulePath.description,
@@ -39,7 +39,7 @@ import TSCBasic
                                directDependencies: currentInfo.directDependencies,
                                details: .swiftPrebuiltExternal(newExternalModuleDetails))
 
-      Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
+       Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
                          replacementInfo: newInfo, in: &modules)
     }
   }
