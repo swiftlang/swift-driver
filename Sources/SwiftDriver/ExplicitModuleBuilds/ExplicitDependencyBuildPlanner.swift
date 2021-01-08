@@ -39,10 +39,18 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
+  /// Whether we are using the integrated driver via libSwiftDriver.dylib
+  private let integratedDriver: Bool
+
+  private let mainModuleName: String?
   public init(dependencyGraph: InterModuleDependencyGraph,
-              toolchain: Toolchain) throws {
+              toolchain: Toolchain,
+              integratedDriver: Bool = true,
+              mainModuleName: String? = nil) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
+    self.integratedDriver = integratedDriver
+    self.mainModuleName = mainModuleName
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -205,7 +213,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     // Encode the target triple pcm args into the output `.pcm` filename
     let targetEncodedModulePath =
       try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: moduleInfo,
-                                                                      pcmArgs: pcmArgs)
+        hashParts: getPCMHashParts(pcmArgs: pcmArgs))
     outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
     commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                             "-o", targetEncodedModulePath.description)
@@ -366,6 +374,23 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
   }
 
+  private func getPCMHashParts(pcmArgs: [String]) -> [String] {
+    if integratedDriver {
+      return pcmArgs
+    }
+    var results = pcmArgs
+    // We need this to enable explict modules in the driver-as-executable mode. For instance,
+    // we have two Swift targets A and B, where A depends on X.pcm which in turn depends on Y.pcm, and
+    // B only depends on Y.pcm. In the driver-as-executable mode, the build system isn't aware
+    // of the shared dependency of Y.pcm so it will be generated multiple times. If all these Y.pcm
+    // share the same name, X.pcm may fail to be loaded because its dependency Y.pcm may have a changed mod time.
+    //
+    // We only differentiate these PCM names in the non-integrated mode due to the lacking of
+    // inter-module planning.
+    results.append(mainModuleName!)
+    return results
+  }
+
   /// Add a specific Clang module dependency as an input and a corresponding command
   /// line flag.
   /// Check the module build job cache for whether a build job has already been
@@ -388,7 +413,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     let dependencyClangModuleDetails = try dependencyGraph.clangModuleDetails(of: dependencyId)
     let clangModulePath =
       try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: dependencyInfo,
-                                                                      pcmArgs: pcmArgs)
+                                                                          hashParts: getPCMHashParts(pcmArgs: pcmArgs))
 
     // Collect the requried information about this module
     clangDependencyArtifacts.append(
@@ -437,11 +462,11 @@ extension ExplicitDependencyBuildPlanner {
   /// Compute a full path to the resulting .pcm file for a given Clang module, with the
   /// target triple encoded in the name.
   public static func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
-                                                      pcmArgs: [String]) throws -> VirtualPath {
+                                                      hashParts: [String]) throws -> VirtualPath {
     let plainModulePath = try VirtualPath(path: moduleInfo.modulePath)
     let targetEncodedBaseName =
       try targetEncodedClangModuleName(for: plainModulePath.basenameWithoutExt,
-                                       pcmArgs: pcmArgs)
+                                       hashParts: hashParts)
     let modifiedModulePath =
       moduleInfo.modulePath.replacingOccurrences(of: plainModulePath.basenameWithoutExt,
                                                  with: targetEncodedBaseName)
@@ -451,8 +476,8 @@ extension ExplicitDependencyBuildPlanner {
   /// Compute the name of a given Clang module, along with a hash of extra PCM build arguments it
   /// is to be constructed with.
   public static func targetEncodedClangModuleName(for moduleName: String,
-                                                  pcmArgs: [String]) throws -> String {
-    let hashInput = pcmArgs.sorted().joined()
+                                                  hashParts: [String]) throws -> String {
+    let hashInput = hashParts.sorted().joined()
     let hashedArguments: String
     #if os(macOS)
     if #available(macOS 10.15, iOS 13, *) {

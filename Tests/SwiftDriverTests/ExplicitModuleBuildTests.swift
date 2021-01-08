@@ -113,7 +113,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(
-          for: dependencyInfo, pcmArgs: pcmArgs)
+          for: dependencyInfo, hashParts: pcmArgs)
         let clangDependencyModulePath =
           TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
         let clangDependencyModuleMapPath =
@@ -144,7 +144,7 @@ private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmAr
 ) throws -> RelativePath {
   return RelativePath(
     try ExplicitDependencyBuildPlanner.targetEncodedClangModuleName(for: moduleName,
-                                                                pcmArgs: pcmArgs) + ".pcm")
+                                                                hashParts: pcmArgs) + ".pcm")
 }
 
 /// Test that for the given JSON module dependency graph, valid jobs are generated
