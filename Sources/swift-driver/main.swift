@@ -51,7 +51,8 @@ do {
                                          env: ProcessEnv.vars)
   var driver = try Driver(args: arguments,
                           diagnosticsEngine: diagnosticsEngine,
-                          executor: executor)
+                          executor: executor,
+                          integratedDriver: false)
   // FIXME: The following check should be at the end of Driver.init, but current
   // usage of the DiagnosticVerifier in tests makes this difficult.
   guard !driver.diagnosticEngine.hasErrors else { throw Diagnostics.fatalError }

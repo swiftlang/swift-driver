@@ -104,6 +104,9 @@ public struct Driver {
   /// it should be identical to the real environment.
   public let env: [String: String]
 
+  /// Whether we are using the driver as the integrated driver via libSwiftDriver
+  public let integratedDriver: Bool
+
   /// The file system which we should interact with.
   let fileSystem: FileSystem
 
@@ -322,6 +325,7 @@ public struct Driver {
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
+    integratedDriver: Bool = true,
     // FIXME: Duplication with externalBuildArtifacts and externalTargetModulePathMap
     // is a temporary backwards-compatibility shim to help transition SwiftPM to the new API
     externalBuildArtifacts: ExternalBuildArtifacts? = nil,
@@ -330,6 +334,7 @@ public struct Driver {
   ) throws {
     self.env = env
     self.fileSystem = fileSystem
+    self.integratedDriver = integratedDriver
 
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor

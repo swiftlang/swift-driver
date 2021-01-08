@@ -460,7 +460,9 @@ extension Driver {
     // Plan build jobs for all direct and transitive module dependencies of the current target
     explicitDependencyBuildPlanner =
       try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
-                                         toolchain: toolchain)
+                                         toolchain: toolchain,
+                                         integratedDriver: integratedDriver,
+                                         mainModuleName: moduleOutputInfo.name)
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
