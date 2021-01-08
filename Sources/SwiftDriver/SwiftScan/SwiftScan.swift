@@ -1,4 +1,4 @@
-//===--- MultiJobExecutor.swift - Builtin DriverExecutor implementation ---===//
+//===------------------------ SwiftScan.swift -----------------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// AC: Consider making this implementation-only
 @_implementationOnly import CSwiftScan
 
 import TSCUtility
@@ -65,7 +64,6 @@ internal final class SwiftScan {
 
   init(dylib path: AbsolutePath) throws {
     self.path = path
-    print("OPENINGNG : \(path.description)")
     #if os(Windows)
     self.dylib = try dlopen(path.pathString, mode: [])
     #else

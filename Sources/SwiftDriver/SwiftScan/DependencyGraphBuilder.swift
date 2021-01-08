@@ -42,12 +42,16 @@ internal extension SwiftScan {
     return resultGraph
   }
 
+  /// From a reference to a binary-format dependency graph collection returned by libSwiftScan batch scan query,
+  /// corresponding to the specified batch scan input (`BatchScanModuleInfo`), construct instances of
+  /// `InterModuleDependencyGraph` for each result.
   func constructBatchResultGraphs(for batchInfos: [BatchScanModuleInfo],
                                   from batchResultRef: swiftscan_batch_scan_result_t) throws
   -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     var resultMap: [ModuleDependencyId: [InterModuleDependencyGraph]] = [:]
     let resultGraphRefArray = Array(UnsafeBufferPointer(start: batchResultRef.results,
                                                         count: Int(batchResultRef.count)))
+    // Note, respective indeces of the batch scan input and the returned result must be aligned.
     for (index, resultGraphRefOrNull) in resultGraphRefArray.enumerated() {
       guard let resultGraphRef = resultGraphRefOrNull else {
         throw DependencyScanningError.dependencyScanFailed
@@ -61,6 +65,7 @@ internal extension SwiftScan {
         case .clang(let clangModuleBatchScanInfo):
           moduleId = .clang(clangModuleBatchScanInfo.clangModuleName)
       }
+      // Update the map with either yet another graph or create an entry for this module
       if resultMap[moduleId] != nil {
         resultMap[moduleId]!.append(decodedGraph)
       } else {
@@ -72,8 +77,7 @@ internal extension SwiftScan {
 }
 
 private extension SwiftScan {
-
-  /// From a reference to a binary-format module dependency info returned by libSwiftScan,
+  /// From a reference to a binary-format module dependency module info returned by libSwiftScan,
   /// construct an instance of an `ModuleInfo` as used by the driver
   func constructModuleInfo(from moduleInfoRef: swiftscan_dependency_info_t)
   throws -> (ModuleDependencyId, ModuleInfo) {
@@ -82,6 +86,7 @@ private extension SwiftScan {
       try toSwiftString(api.swiftscan_module_info_get_module_name(moduleInfoRef))
     let moduleId = try decodeModuleNameAndKind(from: encodedModuleName)
 
+    // Decode module path and source file locations
     let modulePath = try toSwiftString(api.swiftscan_module_info_get_module_path(moduleInfoRef))
     let sourceFiles: [String]?
     if let sourceFilesSetRef = api.swiftscan_module_info_get_source_files(moduleInfoRef) {
@@ -90,6 +95,7 @@ private extension SwiftScan {
       sourceFiles = nil
     }
 
+    // Decode all dependencies of this module
     let directDependencies: [ModuleDependencyId]?
     if let encodedDirectDepsRef = api.swiftscan_module_info_get_direct_dependencies(moduleInfoRef) {
       let encodedDirectDependencies = try toSwiftStringArray(encodedDirectDepsRef.pointee)

@@ -395,25 +395,6 @@ public struct Driver {
         return ($0, modTime)
     })
 
-    // Create an instance of an inter-module dependency oracle, if the driver's
-    // client did not provide one. The clients are expected to provide an oracle
-    // when they wish to share module dependency information across targets.
-    if let dependencyOracle = interModuleDependencyOracle {
-      self.interModuleDependencyOracle = dependencyOracle
-    } else {
-      self.interModuleDependencyOracle =
-        try InterModuleDependencyOracle(fileSystem: fileSystem,
-                                        toolchainPath: AbsolutePath("/Volumes/Data/GHWorkspace2/build/Ninja-RelWithDebInfoAssert/swift-macosx-x86_64"))
-
-      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
-      // used by SwiftPM
-      if let externalArtifacts = externalBuildArtifacts {
-        if !externalArtifacts.1.isEmpty {
-          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
-        }
-      }
-    }
-
     do {
       let outputFileMap: OutputFileMap?
       // Initialize an empty output file map, which will be populated when we start creating jobs.
@@ -432,6 +413,29 @@ public struct Driver {
         self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
       } else {
         self.outputFileMap = outputFileMap
+      }
+    }
+
+    // Create an instance of an inter-module dependency oracle, if the driver's
+    // client did not provide one. The clients are expected to provide an oracle
+    // when they wish to share module dependency information across targets.
+    if let dependencyOracle = interModuleDependencyOracle {
+      self.interModuleDependencyOracle = dependencyOracle
+    } else {
+      // For now, we expect to find the library in the same toolchain as the compiler itself
+      let toolchainRootPath: AbsolutePath = try toolchain.getToolPath(.swiftCompiler)
+                                                              .parentDirectory // bin
+                                                              .parentDirectory // toolchain root
+      self.interModuleDependencyOracle =
+        try InterModuleDependencyOracle(fileSystem: fileSystem,
+                                        toolchainPath: toolchainRootPath)
+
+      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
+      // used by SwiftPM
+      if let externalArtifacts = externalBuildArtifacts {
+        if !externalArtifacts.1.isEmpty {
+          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
+        }
       }
     }
 

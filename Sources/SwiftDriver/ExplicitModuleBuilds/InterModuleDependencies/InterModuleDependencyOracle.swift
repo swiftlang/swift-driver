@@ -42,24 +42,17 @@ public class InterModuleDependencyOracle {
     swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
   }
 
-  /// Query the ModuleInfo of a module with a given ID
-  internal func getExternalModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
-    self.lock.withLock {
-      return externalModules[moduleId]
-    }
-  }
-
-  internal func getDependencies(workingDirectory: AbsolutePath,
-                                commandLine: [String]) throws -> InterModuleDependencyGraph {
+  public func getDependencies(workingDirectory: AbsolutePath,
+                              commandLine: [String]) throws -> InterModuleDependencyGraph {
     try self.lock.withLock {
       return try swiftScanLibInstance.scanDependencies(workingDirectory: workingDirectory,
                                                        invocationCommand: commandLine)
     }
   }
 
-  internal func getBatchDependencies(workingDirectory: AbsolutePath,
-                                     commandLine: [String],
-                                     batchInfos: [BatchScanModuleInfo])
+  public func getBatchDependencies(workingDirectory: AbsolutePath,
+                                   commandLine: [String],
+                                   batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     try self.lock.withLock {
       return try swiftScanLibInstance.batchScanDependencies(workingDirectory: workingDirectory,
@@ -70,14 +63,22 @@ public class InterModuleDependencyOracle {
 
   internal let lock = Lock()
 
+  /// A reference to an instance of the compiler's libSwiftScan shared library
+  private let swiftScanLibInstance: SwiftScan
+
+  // The below API is a legacy implementation of the oracle that is in-place to allow clients to
+  // transition to the new API. It is to be removed once that transition is complete.
   /// The complete set of modules discovered so far, spanning potentially multiple targets,
   /// accumulated across builds of multiple targets.
   /// TODO: This is currently only used for placeholder resolution. libSwiftScan should allow us to move away
   /// from the concept of a placeholder module so we should be able to get rid of this in the future.
   internal var externalModules: ModuleInfoMap = [:]
-
-  /// A reference to an instance of the compiler's libSwiftScan shared library
-  private let swiftScanLibInstance: SwiftScan
+  /// Query the ModuleInfo of a module with a given ID
+  public func getExternalModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
+    self.lock.withLock {
+      return externalModules[moduleId]
+    }
+  }
 }
 
 // This is a shim for backwards-compatibility with existing API used by SwiftPM.

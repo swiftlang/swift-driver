@@ -160,7 +160,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
-      let dependencyOracle = InterModuleDependencyOracle()
+      let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
+                                                              .parentDirectory // bin
+                                                              .parentDirectory // toolchain root
+      let dependencyOracle = try InterModuleDependencyOracle(fileSystem: localFileSystem,
+                                                             toolchainPath: toolchainRootPath)
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -205,7 +209,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
       let targetModulePathMap: ExternalTargetModulePathMap =
         [ModuleDependencyId.swiftPlaceholder("B"):AbsolutePath("/Somewhere/B.swiftmodule")]
-      let dependencyOracle = InterModuleDependencyOracle()
+
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      var toolchain: Toolchain
+      #if os(macOS)
+      toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+      #else
+      toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+      #endif
+      let toolchainRootPath: AbsolutePath = try toolchain.getToolPath(.swiftCompiler)
+                                                              .parentDirectory // bin
+                                                              .parentDirectory // toolchain root
+      let dependencyOracle = try InterModuleDependencyOracle(fileSystem: localFileSystem,
+                                                             toolchainPath: toolchainRootPath)
       try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
       // Construct a module dependency graph that will contain .swiftPlaceholder("B"),
@@ -218,10 +237,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Construct the driver with explicit external dependency input
       let commandLine = ["swiftc", "-experimental-explicit-module-build",
                          "test.swift", "-module-name", "A", "-g"]
-      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-                                             processSet: ProcessSet(),
-                                             fileSystem: localFileSystem,
-                                             env: ProcessEnv.vars)
+
       var driver = try Driver(args: commandLine, executor: executor,
                               externalBuildArtifacts: (targetModulePathMap, [:]),
                               interModuleDependencyOracle: dependencyOracle)
@@ -485,6 +501,59 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif
+  }
+
+  /// Test the libSwiftScan dependency scanning.
+  func testDependencyScanning() throws {
+    // Just instantiating to get at the toolchain path
+    let driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
+                                   "-module-name", "testDependencyScanning",
+                                   "test.swift"])
+    let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
+                                                            .parentDirectory // bin
+                                                            .parentDirectory // toolchain root
+    let stdLibPath = toolchainRootPath.appending(component: "lib")
+                                      .appending(component: "swift")
+                                      .appending(component: "macosx")
+    let shimsPath = toolchainRootPath.appending(component: "lib")
+                                     .appending(component: "swift")
+                                     .appending(component: "shims")
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = try InterModuleDependencyOracle(fileSystem: localFileSystem,
+                                                           toolchainPath: toolchainRootPath)
+
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+      let testInputsPath = packageRootPath + "/TestInputs"
+      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
+      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let scannerCommand = ["-scan-dependencies",
+                            "-I", cHeadersPath,
+                            "-I", swiftModuleInterfacesPath,
+                            "-I", stdLibPath.description,
+                            "-I", shimsPath.description,
+                            main.pathString]
+
+      // Dispatch several iterations in parallel
+      DispatchQueue.concurrentPerform(iterations: 20) { index in
+        // Give the main modules different names
+        let iterationCommand = scannerCommand + ["-module-name",
+                                                 "testDependencyScanning\(index)"]
+        let dependencyGraph =
+          try! dependencyOracle.getDependencies(workingDirectory: path,
+                                                commandLine: iterationCommand)
+        XCTAssertTrue(dependencyGraph.modules.count == 11)
+      }
+    }
   }
 
   func testDependencyGraphMerge() throws {
