@@ -23,7 +23,7 @@ import Glibc
 #endif
 
 /// Delegate for printing execution information on the command-line.
-struct ToolExecutionDelegate: JobExecutionDelegate {
+final class ToolExecutionDelegate: JobExecutionDelegate {
   public enum Mode {
     case verbose
     case parsableOutput
@@ -36,6 +36,19 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
   public let showJobLifecycle: Bool
   public let diagnosticEngine: DiagnosticsEngine
 
+  public var anyJobHadAbnormalExit: Bool = false
+
+  init(mode: ToolExecutionDelegate.Mode,
+       buildRecordInfo: BuildRecordInfo?,
+       incrementalCompilationState: IncrementalCompilationState?,
+       showJobLifecycle: Bool,
+       diagnosticEngine: DiagnosticsEngine) {
+    self.mode = mode
+    self.buildRecordInfo = buildRecordInfo
+    self.incrementalCompilationState = incrementalCompilationState
+    self.showJobLifecycle = showJobLifecycle
+    self.diagnosticEngine = diagnosticEngine
+  }
 
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
     if showJobLifecycle {
@@ -73,6 +86,15 @@ struct ToolExecutionDelegate: JobExecutionDelegate {
     }
 
     buildRecordInfo?.jobFinished(job: job, result: result)
+
+    // FIXME: Currently, TSCBasic.Process uses NSProcess on Windows and discards
+    // the bits of the exit code used to differentiate between normal and abnormal
+    // termination.
+    #if !os(Windows)
+    if case .signalled = result.exitStatus {
+      anyJobHadAbnormalExit = true
+    }
+    #endif
 
     switch mode {
     case .regular, .verbose:

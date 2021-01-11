@@ -329,4 +329,118 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertEqual(readContents2, readContents)
     }
   }
+
+  func testSaveTemps() throws {
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "main.swift")
+        try localFileSystem.writeFileContents(main) {
+          $0 <<< "print(\"hello, world!\")"
+        }
+        let diags = DiagnosticsEngine()
+        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
+                                               processSet: ProcessSet(),
+                                               fileSystem: localFileSystem,
+                                               env: ProcessEnv.vars)
+        let outputPath = path.appending(component: "finalOutput")
+        var driver = try Driver(args: ["swiftc", main.pathString,
+                                       "-driver-filelist-threshold", "0",
+                                       "-o", outputPath.pathString],
+                                env: ProcessEnv.vars,
+                                diagnosticsEngine: diags,
+                                fileSystem: localFileSystem,
+                                executor: executor)
+        let jobs = try driver.planBuild()
+        XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
+        XCTAssertEqual(jobs[0].outputs.count, 1)
+        let compileOutput = jobs[0].outputs[0].file
+        guard case .temporary(.init("main.o")) = compileOutput else {
+          XCTFail("unexpected output")
+          return
+        }
+        try driver.run(jobs: jobs)
+        XCTAssertTrue(localFileSystem.exists(outputPath))
+        // -save-temps wasn't passed, so ensure the temporary file was removed.
+        XCTAssertFalse(
+          localFileSystem.exists(.init(try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+        )
+        XCTAssertFalse(localFileSystem.exists(.init(try executor.resolver.resolve(.path(compileOutput)))))
+      }
+    }
+
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "main.swift")
+        try localFileSystem.writeFileContents(main) {
+          $0 <<< "print(\"hello, world!\")"
+        }
+        let diags = DiagnosticsEngine()
+        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
+                                               processSet: ProcessSet(),
+                                               fileSystem: localFileSystem,
+                                               env: ProcessEnv.vars)
+        let outputPath = path.appending(component: "finalOutput")
+        var driver = try Driver(args: ["swiftc", main.pathString,
+                                       "-save-temps",
+                                       "-driver-filelist-threshold", "0",
+                                       "-o", outputPath.pathString],
+                                env: ProcessEnv.vars,
+                                diagnosticsEngine: diags,
+                                fileSystem: localFileSystem,
+                                executor: executor)
+        let jobs = try driver.planBuild()
+        XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
+        XCTAssertEqual(jobs[0].outputs.count, 1)
+        let compileOutput = jobs[0].outputs[0].file
+        guard case .temporary(.init("main.o")) = compileOutput else {
+          XCTFail("unexpected output")
+          return
+        }
+        try driver.run(jobs: jobs)
+        XCTAssertTrue(localFileSystem.exists(outputPath))
+        // -save-temps was passed, so ensure the temporary file was not removed.
+        XCTAssertTrue(
+          localFileSystem.exists(.init(try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+        )
+        XCTAssertTrue(localFileSystem.exists(.init(try executor.resolver.resolve(.path(compileOutput)))))
+      }
+    }
+
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "main.swift")
+        try localFileSystem.writeFileContents(main) {
+          $0 <<< "print(\"hello, world!\")"
+        }
+        let diags = DiagnosticsEngine()
+        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
+                                               processSet: ProcessSet(),
+                                               fileSystem: localFileSystem,
+                                               env: ProcessEnv.vars)
+        let outputPath = path.appending(component: "finalOutput")
+        var driver = try Driver(args: ["swiftc", main.pathString,
+                                       "-driver-filelist-threshold", "0",
+                                       "-Xfrontend", "-debug-crash-immediately",
+                                       "-o", outputPath.pathString],
+                                env: ProcessEnv.vars,
+                                diagnosticsEngine: diags,
+                                fileSystem: localFileSystem,
+                                executor: executor)
+        let jobs = try driver.planBuild()
+        XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
+        XCTAssertEqual(jobs[0].outputs.count, 1)
+        let compileOutput = jobs[0].outputs[0].file
+        guard case .temporary(.init("main.o")) = compileOutput else {
+          XCTFail("unexpected output")
+          return
+        }
+        try? driver.run(jobs: jobs)
+        // A job crashed, so ensure any temporary files written so far are preserved.
+        XCTAssertTrue(
+          localFileSystem.exists(.init(try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+        )
+      }
+    }
+
+  }
 }

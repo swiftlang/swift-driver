@@ -167,7 +167,7 @@ public struct Driver {
   let shouldUseInputFileList: Bool
 
   /// VirtualPath for shared all sources file list. `nil` if unused.
-  let allSourcesFileList: VirtualPath?
+  @_spi(Testing) public let allSourcesFileList: VirtualPath?
 
   /// The mode in which the compiler will execute.
   @_spi(Testing) public let compilerMode: CompilerMode
@@ -876,6 +876,15 @@ extension Driver {
       return
     }
 
+    let toolExecutionDelegate = createToolExecutionDelegate()
+
+    defer {
+      // Attempt to cleanup temporary files before exiting, unless -save-temps was passed or a job crashed.
+      if !parsedOptions.hasArgument(.saveTemps) && !toolExecutionDelegate.anyJobHadAbnormalExit {
+          try? executor.resolver.removeTemporaryDirectory()
+      }
+    }
+
     // Jobs which are run as child processes of the driver.
     var childJobs: [Job]
     // A job which runs in-place, replacing the driver.
@@ -905,7 +914,9 @@ extension Driver {
             jobs,
             incrementalCompilationState?.skippedCompilationInputs)
         }
-        try performTheBuild(allJobs: childJobs, forceResponseFiles: forceResponseFiles)
+        try performTheBuild(allJobs: childJobs,
+                            jobExecutionDelegate: toolExecutionDelegate,
+                            forceResponseFiles: forceResponseFiles)
       }
     }
 
@@ -950,6 +961,7 @@ extension Driver {
 
   private mutating func performTheBuild(
     allJobs: [Job],
+    jobExecutionDelegate: JobExecutionDelegate,
     forceResponseFiles: Bool
   ) throws {
     let continueBuildingAfterErrors = computeContinueBuildingAfterErrors()
@@ -957,7 +969,7 @@ extension Driver {
       workload: .init(allJobs,
                       incrementalCompilationState,
                       continueBuildingAfterErrors: continueBuildingAfterErrors),
-      delegate: createToolExecutionDelegate(),
+      delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)
