@@ -99,7 +99,7 @@ public final class ArgsResolver {
       case let .fileList(_, .list(items)):
         try createFileList(path: actualPath, contents: items, quotePaths: quotePaths)
       case let .fileList(_, .outputFileMap(map)):
-        try createFileList(path: actualPath, outputFileMap: map, quotePaths: quotePaths)
+        try createFileList(path: actualPath, outputFileMap: map)
       case .relative, .absolute, .standardInput, .standardOutput:
         fatalError("Not a temporary path.")
       }
@@ -126,7 +126,7 @@ public final class ArgsResolver {
     }
   }
 
-  private func createFileList(path: VirtualPath, outputFileMap: OutputFileMap, quotePaths: Bool)
+  private func createFileList(path: VirtualPath, outputFileMap: OutputFileMap)
   throws {
     // FIXME: Need a way to support this for distributed build systems...
     if let absPath = path.absolutePath {
@@ -135,13 +135,13 @@ public final class ArgsResolver {
       // and the frontend (llvm) only seems to support implicit block format.
       try fileSystem.writeFileContents(absPath) { out in
         for (input, map) in outputFileMap.entries {
-          out <<< quoteAndEscape(path: input, quotePaths: quotePaths) <<< ":"
+          out <<< quoteAndEscape(path: input) <<< ":"
           if map.isEmpty {
             out <<< " {}\n"
           } else {
             out <<< "\n"
             for (type, output) in map {
-              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: output, quotePaths: quotePaths) <<< "\n"
+              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: output) <<< "\n"
             }
           }
         }
@@ -149,8 +149,8 @@ public final class ArgsResolver {
     }
   }
 
-  private func quoteAndEscape(path: VirtualPath, quotePaths: Bool) -> String {
-    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path, quotePaths: quotePaths),
+  private func quoteAndEscape(path: VirtualPath) -> String {
+    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path, quotePaths: false),
                                             Tag(.str), .doubleQuoted))
     // Width parameter of -1 sets preferred line-width to unlimited so that no extraneous
     // line-breaks will be inserted during serialization.
