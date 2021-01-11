@@ -104,6 +104,8 @@ private extension InterModuleDependencyGraph {
     let mainModuleId: ModuleDependencyId = .swift(mainModuleName)
     var pcmArgSetMap: [ModuleDependencyId : Set<[String]>] = [:]
 
+    var visitedSwiftModules: Set<ModuleDependencyId> = []
+
     func visit(_ moduleId: ModuleDependencyId,
                pathPCMArtSet: Set<[String]>,
                pcmArgSetMap: inout [ModuleDependencyId : Set<[String]>])
@@ -113,6 +115,11 @@ private extension InterModuleDependencyGraph {
       }
       switch moduleId {
         case .swift:
+          if visitedSwiftModules.contains(moduleId) {
+            return
+          } else {
+            visitedSwiftModules.insert(moduleId)
+          }
           guard case .swift(let swiftModuleDetails) = moduleInfo.details else {
             throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
                                                          "no Swift `details` object")
