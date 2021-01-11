@@ -100,14 +100,30 @@ internal extension Driver {
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-    var command = try itemizedJobCommand(of: scannerJob,
-                                         forceResponseFiles: forceResponseFiles,
-                                         using: executor.resolver)
-    // Remove the tool executable to only leave the arguments
-    command.removeFirst()
-    let dependencyGraph =
-      try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
-                                                      commandLine: command)
+
+    let dependencyGraph: InterModuleDependencyGraph
+
+    if (parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
+
+      var command = try itemizedJobCommand(of: scannerJob,
+                                           forceResponseFiles: forceResponseFiles,
+                                           using: executor.resolver)
+      // Remove the tool executable to only leave the arguments
+      command.removeFirst()
+      dependencyGraph =
+        try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+                                                        commandLine: command)
+    } else {
+      // Fallback to legacy invocation of the dependency scanner with
+      // `swift-frontend -scan-dependencies`
+      print("Dependency Scanner invocation:")
+      print(try executor.description(of: scannerJob, forceResponseFiles: false))
+      dependencyGraph =
+        try self.executor.execute(job: scannerJob,
+                                  capturingJSONOutputAs: InterModuleDependencyGraph.self,
+                                  forceResponseFiles: forceResponseFiles,
+                                  recordedInputModificationDates: recordedInputModificationDates)
+    }
     return dependencyGraph
   }
 
@@ -115,16 +131,70 @@ internal extension Driver {
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     let batchScanningJob = try batchDependencyScanningJob(for: moduleInfos)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
-    let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-    var command = try itemizedJobCommand(of: batchScanningJob,
-                                         forceResponseFiles: forceResponseFiles,
-                                         using: executor.resolver)
-    // Remove the tool executable to only leave the arguments
-    command.removeFirst()
+
+    let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]]
+    if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
+      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+      var command = try itemizedJobCommand(of: batchScanningJob,
+                                           forceResponseFiles: forceResponseFiles,
+                                           using: executor.resolver)
+      // Remove the tool executable to only leave the arguments
+      command.removeFirst()
+      moduleVersionedGraphMap =
+        try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
+                                                             commandLine: command,
+                                                             batchInfos: moduleInfos)
+    } else {
+      // Fallback to legacy invocation of the dependency scanner with
+      // `swift-frontend -scan-dependencies`
+      print("Dependency Scanner (batch) invocation:")
+      print(try executor.description(of: batchScanningJob, forceResponseFiles: false))
+      moduleVersionedGraphMap = try executeLegacyBatchScan(moduleInfos: moduleInfos,
+                                                           batchScanningJob: batchScanningJob,
+                                                           forceResponseFiles: forceResponseFiles)
+    }
+    return moduleVersionedGraphMap
+  }
+
+  // Perform a batch scan by invoking the command-line dependency scanner and decoding the resulting
+  // JSON.
+  fileprivate func executeLegacyBatchScan(moduleInfos: [BatchScanModuleInfo],
+                                          batchScanningJob: Job,
+                                          forceResponseFiles: Bool)
+  throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
+    let batchScanResult =
+      try self.executor.execute(job: batchScanningJob,
+                                forceResponseFiles: forceResponseFiles,
+                                recordedInputModificationDates: recordedInputModificationDates)
+    let success = batchScanResult.exitStatus == .terminated(code: EXIT_SUCCESS)
+    guard success else {
+      throw JobExecutionError.jobFailedWithNonzeroExitCode(
+        type(of: executor).computeReturnCode(exitStatus: batchScanResult.exitStatus),
+        try batchScanResult.utf8stderrOutput())
+    }
+    // Decode the resulting dependency graphs and build a dictionary from a moduleId to
+    // a set of dependency graphs that were built for it
     let moduleVersionedGraphMap =
-      try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
-                                                           commandLine: command,
-                                                           batchInfos: moduleInfos)
+      try moduleInfos.reduce(into: [ModuleDependencyId: [InterModuleDependencyGraph]]()) {
+        let moduleId: ModuleDependencyId
+        let dependencyGraphPath: VirtualPath
+        switch $1 {
+          case .swift(let swiftModuleBatchScanInfo):
+            moduleId = .swift(swiftModuleBatchScanInfo.swiftModuleName)
+            dependencyGraphPath = try VirtualPath(path: swiftModuleBatchScanInfo.output)
+          case .clang(let clangModuleBatchScanInfo):
+            moduleId = .clang(clangModuleBatchScanInfo.clangModuleName)
+            dependencyGraphPath = try VirtualPath(path: clangModuleBatchScanInfo.output)
+        }
+        let contents = try fileSystem.readFileContents(dependencyGraphPath)
+        let decodedGraph = try JSONDecoder().decode(InterModuleDependencyGraph.self,
+                                                    from: Data(contents.contents))
+        if $0[moduleId] != nil {
+          $0[moduleId]!.append(decodedGraph)
+        } else {
+          $0[moduleId] = [decodedGraph]
+        }
+      }
     return moduleVersionedGraphMap
   }
 

@@ -424,7 +424,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Figure out which Triples to use.
       let dependencyOracle = driver.interModuleDependencyOracle
       let mainModuleInfo =
-        dependencyOracle.getModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
+        dependencyOracle.getExternalModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
       guard case .swift(let mainModuleSwiftDetails) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
         return
