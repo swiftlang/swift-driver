@@ -34,7 +34,8 @@ struct JobResult {
   let diagnosticEngine: DiagnosticsEngine
   let compilationInputModificationDates: [TypedVirtualPath: Date]
 
-  var finishedJobResults  = [JobResult]()
+  private var finishedJobResults = [JobResult]()
+  private let finishedJobResultsSema = DispatchSemaphore(value: 1)
 
   init?(
     actualSwiftVersion: String,
@@ -120,15 +121,18 @@ struct JobResult {
       return
     }
     preservePreviousBuildRecord(absPath)
+    
 
-    let buildRecord = BuildRecord(
-      jobs: jobs,
-      finishedJobResults: finishedJobResults,
-      skippedInputs: skippedInputs,
-      compilationInputModificationDates: compilationInputModificationDates,
-      actualSwiftVersion: actualSwiftVersion,
-      argsHash: currentArgsHash,
-      timeBeforeFirstJob: timeBeforeFirstJob)
+    let buildRecord = serializingFinishedJobsResults {
+      BuildRecord(
+        jobs: jobs,
+        finishedJobResults: finishedJobResults,
+        skippedInputs: skippedInputs,
+        compilationInputModificationDates: compilationInputModificationDates,
+        actualSwiftVersion: actualSwiftVersion,
+        argsHash: currentArgsHash,
+        timeBeforeFirstJob: timeBeforeFirstJob)
+    }
 
     guard let contents = buildRecord.encode(currentArgsHash: currentArgsHash,
                                             diagnosticEngine: diagnosticEngine)
@@ -200,7 +204,15 @@ struct JobResult {
   }
 
   func jobFinished(job: Job, result: ProcessResult) {
-    finishedJobResults.append(JobResult(job, result))
+    serializingFinishedJobsResults {
+      finishedJobResults.append(JobResult(job, result))
+    }
+  }
+  
+  private func serializingFinishedJobsResults<R>(_ fn: () -> R) -> R {
+    finishedJobResultsSema.wait()
+    defer { finishedJobResultsSema.signal() }
+    return fn()
   }
 }
 
