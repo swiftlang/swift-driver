@@ -163,8 +163,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
                                                               .parentDirectory // bin
                                                               .parentDirectory // toolchain root
-      let dependencyOracle = try InterModuleDependencyOracle(fileSystem: localFileSystem,
-                                                             toolchainPath: toolchainRootPath)
+      let dependencyOracle = InterModuleDependencyOracle()
+      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                                         toolchainPath: toolchainRootPath)
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -223,8 +224,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let toolchainRootPath: AbsolutePath = try toolchain.getToolPath(.swiftCompiler)
                                                               .parentDirectory // bin
                                                               .parentDirectory // toolchain root
-      let dependencyOracle = try InterModuleDependencyOracle(fileSystem: localFileSystem,
-                                                             toolchainPath: toolchainRootPath)
+      let dependencyOracle = InterModuleDependencyOracle()
+      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                                         toolchainPath: toolchainRootPath)
       try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
       // Construct a module dependency graph that will contain .swiftPlaceholder("B"),
@@ -520,8 +522,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      .appending(component: "shims")
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
-    let dependencyOracle = try InterModuleDependencyOracle(fileSystem: localFileSystem,
-                                                           toolchainPath: toolchainRootPath)
+    let dependencyOracle = InterModuleDependencyOracle()
+    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                                       toolchainPath: toolchainRootPath)
 
     // Create a simple test case.
     try withTemporaryDirectory { path in

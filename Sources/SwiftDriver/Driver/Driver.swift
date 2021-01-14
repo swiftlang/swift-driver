@@ -422,13 +422,7 @@ public struct Driver {
     if let dependencyOracle = interModuleDependencyOracle {
       self.interModuleDependencyOracle = dependencyOracle
     } else {
-      // For now, we expect to find the library in the same toolchain as the compiler itself
-      let toolchainRootPath: AbsolutePath = try toolchain.getToolPath(.swiftCompiler)
-                                                              .parentDirectory // bin
-                                                              .parentDirectory // toolchain root
-      self.interModuleDependencyOracle =
-        try InterModuleDependencyOracle(fileSystem: fileSystem,
-                                        toolchainPath: toolchainRootPath)
+      self.interModuleDependencyOracle = InterModuleDependencyOracle()
 
       // This is a shim for backwards-compatibility with ModuleInfoMap-based API
       // used by SwiftPM

@@ -88,23 +88,16 @@ internal extension Driver {
                                        contents)
   }
 
-  fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
-                                      using resolver: ArgsResolver) throws -> [String] {
-    let (args, _) = try resolver.resolveArgumentList(for: job,
-                                                     forceResponseFiles: forceResponseFiles,
-                                                     quotePaths: true)
-    return args
-  }
-
   mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
-    let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-
     let dependencyGraph: InterModuleDependencyGraph
 
-    if (parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
-
+    if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
+      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                                                    toolchainPath:
+                                                                      try getRootPath(of: toolchain))
+      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: scannerJob,
                                            forceResponseFiles: forceResponseFiles,
                                            using: executor.resolver)
@@ -134,6 +127,9 @@ internal extension Driver {
 
     let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]]
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
+      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                                                    toolchainPath:
+                                                                      try getRootPath(of: toolchain))
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: batchScanningJob,
                                            forceResponseFiles: forceResponseFiles,
@@ -254,5 +250,22 @@ internal extension Driver {
     let contents = try encoder.encode(moduleInfos)
     return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
                                        contents)
+  }
+
+  fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
+                                      using resolver: ArgsResolver) throws -> [String] {
+    let (args, _) = try resolver.resolveArgumentList(for: job,
+                                                     forceResponseFiles: forceResponseFiles,
+                                                     quotePaths: true)
+    return args
+  }
+
+  fileprivate func getRootPath(of toolchain: Toolchain) throws -> AbsolutePath {
+    if let overrideString = env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] {
+      return try AbsolutePath(validating: overrideString)
+    }
+    return try toolchain.getToolPath(.swiftCompiler)
+      .parentDirectory // bin
+      .parentDirectory // toolchain root
   }
 }

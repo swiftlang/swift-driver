@@ -28,46 +28,61 @@ import Foundation
 /// An abstraction of a cache and query-engine of inter-module dependencies
 public class InterModuleDependencyOracle {
   /// Allow external clients to instantiate the oracle
-  public init(fileSystem: FileSystem,
-              toolchainPath: AbsolutePath) throws {
-    guard fileSystem.exists(toolchainPath) else {
-      fatalError("Path to specified toolchain does not exist: \(toolchainPath.description)")
-    }
-
-    let swiftScanLibPath = toolchainPath.appending(component: "lib")
-                                        .appending(component: "lib_InternalSwiftScan.dylib")
-    guard fileSystem.exists(toolchainPath) else {
-      fatalError("Could not find libSwiftScan at: \(swiftScanLibPath.description)")
-    }
-
-    swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
-  }
+  public init() {}
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
                                              commandLine: [String])
   throws -> InterModuleDependencyGraph {
-    try queue.sync {
-      return try swiftScanLibInstance.scanDependencies(workingDirectory: workingDirectory,
+    precondition(hasScannerInstance)
+    return try queue.sync {
+      return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
                                                        invocationCommand: commandLine)
     }
   }
 
-  func getBatchDependencies(workingDirectory: AbsolutePath,
-                            commandLine: [String],
-                            batchInfos: [BatchScanModuleInfo])
+  @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
+                                                  commandLine: [String],
+                                                  batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
-    try queue.sync {
-      return try swiftScanLibInstance.batchScanDependencies(workingDirectory: workingDirectory,
+    precondition(hasScannerInstance)
+    return try queue.sync {
+      return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
                                                             invocationCommand: commandLine,
                                                             batchInfos: batchInfos)
     }
   }
 
+  /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
+  @_spi(Testing) public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
+                                                           toolchainPath: AbsolutePath) throws {
+    try queue.sync {
+      if swiftScanLibInstance == nil {
+        guard fileSystem.exists(toolchainPath) else {
+          fatalError("Path to specified toolchain does not exist: \(toolchainPath.description)")
+        }
+
+        let swiftScanLibPath = toolchainPath.appending(component: "lib")
+          .appending(component: "lib_InternalSwiftScan.dylib")
+        guard fileSystem.exists(toolchainPath) else {
+          fatalError("Could not find libSwiftScan at: \(swiftScanLibPath.description)")
+        }
+
+        swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
+      } else {
+        let swiftScanLibPath = toolchainPath.appending(component: "lib")
+          .appending(component: "lib_InternalSwiftScan.dylib")
+        assert(swiftScanLibInstance!.path == swiftScanLibPath)
+      }
+    }
+  }
+
+  private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
+
   /// Queue to sunchronize accesses to the scanner
   internal let queue = DispatchQueue(label: "org.swift.swift-driver.swift-scan")
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
-  private let swiftScanLibInstance: SwiftScan
+  private var swiftScanLibInstance: SwiftScan? = nil
 
   // The below API is a legacy implementation of the oracle that is in-place to allow clients to
   // transition to the new API. It is to be removed once that transition is complete.
