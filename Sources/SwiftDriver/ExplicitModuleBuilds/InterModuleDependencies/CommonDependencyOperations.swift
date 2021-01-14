@@ -49,7 +49,7 @@ import TSCBasic
   /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main externalModules/targets
   /// into a single collection of discovered externalModules.
   func mergeModules(from dependencyGraph: InterModuleDependencyGraph) throws {
-    try self.lock.withLock {
+    try queue.sync {
       for (moduleId, moduleInfo) in dependencyGraph.modules {
         try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &externalModules)
       }
@@ -59,7 +59,7 @@ import TSCBasic
   // This is a backwards-compatibility shim to handle existing ModuleInfoMap-based API
   // used by SwiftPM
   func mergeModules(from moduleInfoMap: ModuleInfoMap) throws {
-    try self.lock.withLock {
+    try queue.sync {
       for (moduleId, moduleInfo) in moduleInfoMap {
         try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &externalModules)
       }

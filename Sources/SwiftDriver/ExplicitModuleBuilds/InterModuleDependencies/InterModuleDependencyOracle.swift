@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
+import Foundation
 
 // An inter-module dependency oracle, responsible for responding to queries about
 // dependencies of a given module, caching already-discovered dependencies along the way.
@@ -42,26 +43,28 @@ public class InterModuleDependencyOracle {
     swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
   }
 
-  public func getDependencies(workingDirectory: AbsolutePath,
-                              commandLine: [String]) throws -> InterModuleDependencyGraph {
-    try self.lock.withLock {
+  @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
+                                             commandLine: [String])
+  throws -> InterModuleDependencyGraph {
+    try queue.sync {
       return try swiftScanLibInstance.scanDependencies(workingDirectory: workingDirectory,
                                                        invocationCommand: commandLine)
     }
   }
 
-  public func getBatchDependencies(workingDirectory: AbsolutePath,
-                                   commandLine: [String],
-                                   batchInfos: [BatchScanModuleInfo])
+  func getBatchDependencies(workingDirectory: AbsolutePath,
+                            commandLine: [String],
+                            batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
-    try self.lock.withLock {
+    try queue.sync {
       return try swiftScanLibInstance.batchScanDependencies(workingDirectory: workingDirectory,
                                                             invocationCommand: commandLine,
                                                             batchInfos: batchInfos)
     }
   }
 
-  internal let lock = Lock()
+  /// Queue to sunchronize accesses to the scanner
+  internal let queue = DispatchQueue(label: "org.swift.swift-driver.swift-scan")
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
   private let swiftScanLibInstance: SwiftScan
@@ -74,8 +77,8 @@ public class InterModuleDependencyOracle {
   /// from the concept of a placeholder module so we should be able to get rid of this in the future.
   internal var externalModules: ModuleInfoMap = [:]
   /// Query the ModuleInfo of a module with a given ID
-  public func getExternalModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
-    self.lock.withLock {
+  @_spi(Testing) public func getExternalModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
+    queue.sync {
       return externalModules[moduleId]
     }
   }
