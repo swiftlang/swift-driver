@@ -97,7 +97,7 @@ public final class ArgsResolver {
           try fileSystem.writeFileContents(absolutePath, bytes: .init(contents))
         }
       case let .fileList(_, .list(items)):
-        try createFileList(path: actualPath, contents: items, quotePaths: quotePaths)
+        try createFileList(path: actualPath, contents: items)
       case let .fileList(_, .outputFileMap(map)):
         try createFileList(path: actualPath, outputFileMap: map)
       case .relative, .absolute, .standardInput, .standardOutput:
@@ -115,12 +115,12 @@ public final class ArgsResolver {
     return quotePaths ? "'\(result)'" : result
   }
 
-  private func createFileList(path: VirtualPath, contents: [VirtualPath], quotePaths: Bool) throws {
+  private func createFileList(path: VirtualPath, contents: [VirtualPath]) throws {
     // FIXME: Need a way to support this for distributed build systems...
     if let absPath = path.absolutePath {
       try fileSystem.writeFileContents(absPath) { out in
         for path in contents {
-          try! out <<< unsafeResolve(path: path, quotePaths: quotePaths) <<< "\n"
+          try! out <<< unsafeResolve(path: path, quotePaths: false) <<< "\n"
         }
       }
     }
