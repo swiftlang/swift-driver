@@ -27,22 +27,18 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 /// that specify said explicit module dependencies.
 @_spi(Testing) public struct ExplicitDependencyBuildPlanner {
   /// The module dependency graph.
-  public var dependencyGraph: InterModuleDependencyGraph
+  private let dependencyGraph: InterModuleDependencyGraph
 
-  /// Cache Clang modules for which a build job has already been constructed with a given
-  /// target triple.
-  private var clangTargetModuleBuildCache = ClangModuleBuildJobCache()
-
-  /// Cache Swift modules for which a build job has already been constructed.
-  @_spi(Testing) public var swiftModuleBuildCache: [ModuleDependencyId: Job] = [:]
+  /// A set of direct and transitive dependencies for every module in the dependency graph
+  private let reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>]
 
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
   /// Whether we are using the integrated driver via libSwiftDriver.dylib
   private let integratedDriver: Bool
-
   private let mainModuleName: String?
+
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
               integratedDriver: Bool = true,
@@ -51,6 +47,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     self.toolchain = toolchain
     self.integratedDriver = integratedDriver
     self.mainModuleName = mainModuleName
+    self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -80,189 +77,177 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   ///   ClangC: (10.11, 10.12, 10.13)
   ///   ClangD: (10.10, 10.13)
   ///
-  /// Constructing a build job for a given Swift module `A` requires resolving all of the `A`'s
-  /// dependencies (direct and transitive). To do so, we traverse the dependency graph starting at
-  /// `A`'s node, in a depth-first fashion, passing along `A`'s target triple, adding the
-  /// encountered modules to the build job's inputs and command line arguments. For every node `B`
-  /// encountered along the way, if `B`'s build job has not yet been created, the handler will
-  /// request that a build job be generated and cached. If `B` is a Clang module, then `A`'s
-  /// specified target triple is used to build its PCM. Generating `B`'s build job results in a new
-  /// depth-first traversal of the dependency graph, starting at `B`. If `B` is a Swift module, then
-  /// its target triple is passed along when traversing its dependencies to generate its build job.
-  /// Once `B`'s build job is generated, `A`'s dependency traversal continues until all dependencies
-  /// are exhausted and `A`'s build job can be constructed.
-  ///
-  /// For example:
-  /// Generating build jobs for the following dependency graph:
-  /// Module:     S1 ---->   S2 ---->  S3 ----> C1
-  /// Target:  (10.14)    (10.12)   (10.12)
-  /// (Sx: Swift module, Cx: Clang Module)
-  /// (A ----> B: module A depends on module B)
-  ///
-  /// Startig at S1, the traversal is as follows:
-  /// - S1 Traversal starts
-  ///     - S2 Traversal Starts
-  ///         - S3 Traversal Starts
-  ///         - Visit C1: (Generate Job: C1-10.12)
-  ///         - Generate Job: S3
-  ///     - Visit S3: (S3 found in cache)
-  ///     - Visit C1: (C1-10.12 found in cache)
-  ///     - Generate Job: S2
-  /// - Visit S2: (S2 found in cache)
-  /// - Visit S3: (S3 found in cache)
-  /// - Visit C1: (Generate Job: C1-10.14)
-  /// - Generate Job: S1
-  ///
-  mutating public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
-    // Compute jobs for all main module dependencies
-    var mainModuleInputs: [TypedVirtualPath] = []
-    var mainModuleCommandLine: [Job.ArgTemplate] = []
-    try resolveMainModuleDependencies(inputs: &mainModuleInputs,
-                                      commandLine: &mainModuleCommandLine)
-    
-    return Array(swiftModuleBuildCache.values) + clangTargetModuleBuildCache.allJobs
-  }
-
-  /// Resolve all module dependencies of the main module and add them to the lists of
-  /// inputs and command line flags.
-  mutating public func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
-                                                     commandLine: inout [Job.ArgTemplate]) throws {
+  /// Due to this requirement, we generate jobs for main main module dependencies in two stages:
+  /// 1. Generate jobs for all Swift modules, accumulating, for each Clang dependency, the dependending Swift
+  /// module's target version (PCM Args).
+  /// 2. Generate jobs for all Clang modules, now that we have each module's set of PCM versions it must be
+  /// built against.
+  public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
-    try resolveExplicitModuleDependencies(moduleId: mainModuleId,
-                                          pcmArgs: try dependencyGraph.swiftModulePCMArgs(of: mainModuleId),
-                                          inputs: &inputs,
-                                          commandLine: &commandLine)
+    guard let mainModuleDependencies = reachabilityMap[mainModuleId] else {
+      fatalError("Expected reachability information for the main module.")
+    }
+    // A collection of PCM Args that Clang modules must be built against
+    var clangPCMSetMap: [ModuleDependencyId : Set<[String]>] = [:]
+    let swiftDependenciesJobs =
+      try generateSwiftDependenciesBuildJobs(for: mainModuleDependencies,
+                                             clangPCMSetMap: &clangPCMSetMap)
+    // Also take into account the PCMArgs of the main module
+    try updateClangPCMArgSetMap(for: mainModuleId, clangPCMSetMap: &clangPCMSetMap)
+
+    // Generate build jobs for all Clang modules
+    let clangDependenciesJobs =
+      try generateClangDependenciesBuildJobs(for: mainModuleDependencies,
+                                             using: clangPCMSetMap)
+
+    return swiftDependenciesJobs + clangDependenciesJobs
   }
 
-  /// For a given Swift module, generate a build job and resolve its dependencies.
-  /// Resolving a module's dependencies will ensure that the dependencies' build jobs are also
-  /// generated.
-  mutating private func genSwiftModuleBuildJob(moduleId: ModuleDependencyId) throws {
-    let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
-    var inputs: [TypedVirtualPath] = []
-    let outputs: [TypedVirtualPath] = [
-      TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .swiftModule)
-    ]
-    var commandLine: [Job.ArgTemplate] = []
-
-    // First, take the command line options provided in the dependency information
-    let moduleDetails = try dependencyGraph.swiftModuleDetails(of: moduleId)
-    moduleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
-
-    // Resolve all dependency module inputs for this Swift module
-    try resolveExplicitModuleDependencies(moduleId: moduleId,
-                                          pcmArgs: dependencyGraph.swiftModulePCMArgs(of: moduleId),
-                                          inputs: &inputs, commandLine: &commandLine)
-
-    // Build the .swiftinterfaces file using a list of command line options specified in the
-    // `details` field.
-    guard let moduleInterfacePath = moduleDetails.moduleInterfacePath else {
-      throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
-                                                   "no `moduleInterfacePath` object")
+  /// Generate a build job for each Swift module in the set of supplied `dependencies`
+  private func generateSwiftDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
+                                                  clangPCMSetMap:
+                                                    inout [ModuleDependencyId : Set<[String]>])
+  throws -> [Job] {
+    var jobs: [Job] = []
+    let swiftDependencies = dependencies.filter {
+      if case .swift(_) = $0 {
+        return true
+      }
+      return false
     }
-    inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleInterfacePath),
-                                   type: .swiftInterface))
+    for moduleId in swiftDependencies {
+      let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
+      let pcmArgs = try dependencyGraph.swiftModulePCMArgs(of: moduleId)
+      var inputs: [TypedVirtualPath] = []
+      let outputs: [TypedVirtualPath] = [
+        TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .swiftModule)
+      ]
+      var commandLine: [Job.ArgTemplate] = []
+      // First, take the command line options provided in the dependency information
+      let moduleDetails = try dependencyGraph.swiftModuleDetails(of: moduleId)
+      moduleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
 
-    // Add precompiled module candidates, if present
-    if let compiledCandidateList = moduleDetails.compiledModuleCandidates {
-      for compiledCandidate in compiledCandidateList {
-        commandLine.appendFlag("-candidate-module-file")
-        let compiledCandidatePath = try VirtualPath(path: compiledCandidate)
-        commandLine.appendPath(compiledCandidatePath)
-        inputs.append(TypedVirtualPath(file: compiledCandidatePath,
-                                       type: .swiftModule))
+      // Resolve all dependency module inputs for this Swift module
+      try resolveExplicitModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
+                                            inputs: &inputs,
+                                            commandLine: &commandLine)
+
+      // Update the clangPCMSetMap for each Clang dependency of this module
+      try updateClangPCMArgSetMap(for: moduleId, clangPCMSetMap: &clangPCMSetMap)
+
+      // Build the .swiftinterfaces file using a list of command line options specified in the
+      // `details` field.
+      guard let moduleInterfacePath = moduleDetails.moduleInterfacePath else {
+        throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
+                                                     "no `moduleInterfacePath` object")
+      }
+      inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleInterfacePath),
+                                     type: .swiftInterface))
+
+      // Add precompiled module candidates, if present
+      if let compiledCandidateList = moduleDetails.compiledModuleCandidates {
+        for compiledCandidate in compiledCandidateList {
+          commandLine.appendFlag("-candidate-module-file")
+          let compiledCandidatePath = try VirtualPath(path: compiledCandidate)
+          commandLine.appendPath(compiledCandidatePath)
+          inputs.append(TypedVirtualPath(file: compiledCandidatePath,
+                                         type: .swiftModule))
+        }
+      }
+
+      // Set the output path
+      commandLine.appendFlag(.o)
+      commandLine.appendPath(try VirtualPath(path: moduleInfo.modulePath))
+
+      jobs.append(Job(
+        moduleName: moduleId.moduleName,
+        kind: .emitModule,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        commandLine: commandLine,
+        inputs: inputs,
+        primaryInputs: [],
+        outputs: outputs
+      ))
+    }
+    return jobs
+  }
+
+  /// Generate a build job for each Clang module in the set of supplied `dependencies`. Once per each required
+  /// PCMArgSet as queried from the supplied `clangPCMSetMap`
+  private func generateClangDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
+                                                  using clangPCMSetMap:
+                                                    [ModuleDependencyId : Set<[String]>])
+  throws -> [Job] {
+    var jobs: [Job] = []
+    let clangDependencies = dependencies.filter {
+      if case .clang(_) = $0 {
+        return true
+      }
+      return false
+    }
+    for moduleId in clangDependencies {
+      guard let pcmArgSet = clangPCMSetMap[moduleId] else {
+        fatalError("Expected PCM Argument Set for module: \(moduleId.moduleName)")
+      }
+      let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
+      // Generate a distinct job for each required set of PCM Arguments for this module
+      for pcmArgs in pcmArgSet {
+        var inputs: [TypedVirtualPath] = []
+        var outputs: [TypedVirtualPath] = []
+        var commandLine: [Job.ArgTemplate] = []
+
+        // First, take the command line options provided in the dependency information
+        let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
+        moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
+
+        // Add the `-target` option as inherited from the dependent Swift module's PCM args
+        pcmArgs.forEach { commandLine.appendFlags($0) }
+
+        // Resolve all dependency module inputs for this Clang module
+        try resolveExplicitModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
+                                              inputs: &inputs,
+                                              commandLine: &commandLine)
+
+        // Encode the target triple pcm args into the output `.pcm` filename
+        let targetEncodedModulePath =
+          try ExplicitDependencyBuildPlanner
+                     .targetEncodedClangModuleFilePath(for: moduleInfo,
+                                                       hashParts: getPCMHashParts(pcmArgs: pcmArgs))
+        outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
+        commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
+                                "-o", targetEncodedModulePath.description)
+
+        // The only required input is the .modulemap for this module.
+        // Command line options in the dependency scanner output will include the
+        // required modulemap, so here we must only add it to the list of inputs.
+        inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleDetails.moduleMapPath),
+                                       type: .clangModuleMap))
+
+        jobs.append(Job(
+          moduleName: moduleId.moduleName,
+          kind: .generatePCM,
+          tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+          commandLine: commandLine,
+          inputs: inputs,
+          primaryInputs: [],
+          outputs: outputs
+        ))
       }
     }
-
-    // Set the output path
-    commandLine.appendFlag(.o)
-    commandLine.appendPath(try VirtualPath(path: moduleInfo.modulePath))
-
-    swiftModuleBuildCache[moduleId] = Job(
-      moduleName: moduleId.moduleName,
-      kind: .emitModule,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-      commandLine: commandLine,
-      inputs: inputs,
-      primaryInputs: [],
-      outputs: outputs
-    )
-  }
-
-  /// For a given Clang module, generate a build job and resolve its dependencies.
-  /// Resolving a module's dependencies will ensure that the dependencies' build jobs are also
-  /// generated.
-  mutating private func genClangModuleBuildJob(moduleId: ModuleDependencyId,
-                                               pcmArgs: [String]) throws {
-    let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
-    var inputs: [TypedVirtualPath] = []
-    var outputs: [TypedVirtualPath] = []
-    var commandLine: [Job.ArgTemplate] = []
-
-    // First, take the command line options provided in the dependency information
-    let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
-    moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
-
-    // Add the `-target` option as inherited from the dependent Swift module's PCM args
-    pcmArgs.forEach { commandLine.appendFlags($0) }
-
-    // Resolve all dependency module inputs for this Clang module
-    try resolveExplicitModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs, inputs: &inputs,
-                                          commandLine: &commandLine)
-
-    // Encode the target triple pcm args into the output `.pcm` filename
-    let targetEncodedModulePath =
-      try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: moduleInfo,
-        hashParts: getPCMHashParts(pcmArgs: pcmArgs))
-    outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
-    commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
-                            "-o", targetEncodedModulePath.description)
-
-    // The only required input is the .modulemap for this module.
-    // Command line options in the dependency scanner output will include the required modulemap,
-    // so here we must only add it to the list of inputs.
-    inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleDetails.moduleMapPath),
-                                   type: .clangModuleMap))
-
-    clangTargetModuleBuildCache[(moduleId, pcmArgs)] = Job(
-      moduleName: moduleId.moduleName,
-      kind: .generatePCM,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-      commandLine: commandLine,
-      inputs: inputs,
-      primaryInputs: [],
-      outputs: outputs
-    )
-  }
-
-  /// Store the output file artifacts for a given module in a JSON file, return the file's path.
-  private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
-                                           dependencyArtifacts: [SwiftModuleArtifactInfo]
-  ) throws -> VirtualPath {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted]
-    let contents = try encoder.encode(dependencyArtifacts)
-    return .temporaryWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
+    return jobs
   }
 
   /// For the specified module, update the given command line flags and inputs
   /// to use explicitly-built module dependencies.
-  /// 
-  /// Along the way, for any dependency module (direct or transitive) for which no build job
-  /// has yet been generated, generate one and cache it.
-  mutating private func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId,
-                                                          pcmArgs: [String],
-                                                          inputs: inout [TypedVirtualPath],
-                                                          commandLine: inout [Job.ArgTemplate]
-  ) throws {
+  private func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
+                                                 inputs: inout [TypedVirtualPath],
+                                                 commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
                             "-fno-implicit-modules")
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
-    var alreadyAddedDependencies = Set<ModuleDependencyId>()
     try addModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
-                              addedDependenciesSet: &alreadyAddedDependencies,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
 
@@ -300,78 +285,99 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   }
 
   /// Add a specific module dependency as an input and a corresponding command
-  /// line flag. Dispatches to clang and swift-specific variants.
-  mutating private func addModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
-                                              addedDependenciesSet: inout Set<ModuleDependencyId>,
-                                              clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                              swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
+  /// line flag.
+  private func addModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
+                                     clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
+                                     swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
-    for dependencyId in try dependencyGraph.moduleInfo(of: moduleId).directDependencies! {
-      guard addedDependenciesSet.insert(dependencyId).inserted else {
-        continue
-      }
+    guard let moduleDependencies = reachabilityMap[moduleId] else {
+      fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
+    }
+    for dependencyId in moduleDependencies {
       switch dependencyId {
         case .swift:
-          try addSwiftModuleDependency(moduleId: moduleId, dependencyId: dependencyId,
-                                       pcmArgs: pcmArgs,
-                                       addedDependenciesSet: &addedDependenciesSet,
-                                       clangDependencyArtifacts: &clangDependencyArtifacts,
-                                       swiftDependencyArtifacts: &swiftDependencyArtifacts)
+          let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
+          let swiftModulePath: TypedVirtualPath
+          let isFramework: Bool
+          swiftModulePath = .init(file: try VirtualPath(path: dependencyInfo.modulePath),
+                                  type: .swiftModule)
+          isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework
+          // Accumulate the required information about this dependency
+          // TODO: add .swiftdoc and .swiftsourceinfo for this module.
+          swiftDependencyArtifacts.append(
+            SwiftModuleArtifactInfo(name: dependencyId.moduleName,
+                                    modulePath: swiftModulePath.file.description,
+                                    isFramework: isFramework))
         case .clang:
-          try addClangModuleDependency(moduleId: moduleId, dependencyId: dependencyId,
-                                       pcmArgs: pcmArgs,
-                                       addedDependenciesSet: &addedDependenciesSet,
-                                       clangDependencyArtifacts: &clangDependencyArtifacts,
-                                       swiftDependencyArtifacts: &swiftDependencyArtifacts)
+          let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
+          let dependencyClangModuleDetails =
+            try dependencyGraph.clangModuleDetails(of: dependencyId)
+          let clangModulePath =
+            try ExplicitDependencyBuildPlanner
+                     .targetEncodedClangModuleFilePath(for: dependencyInfo,
+                                                       hashParts: getPCMHashParts(pcmArgs: pcmArgs))
+          // Accumulate the requried information about this dependency
+          clangDependencyArtifacts.append(
+            ClangModuleArtifactInfo(name: dependencyId.moduleName,
+                                    modulePath: clangModulePath.description,
+                                    moduleMapPath: dependencyClangModuleDetails.moduleMapPath))
         case .swiftPrebuiltExternal:
-          try addSwiftPrebuiltDependency(moduleId: moduleId, dependencyId: dependencyId,
-                                         pcmArgs: pcmArgs,
-                                         addedDependenciesSet: &addedDependenciesSet,
-                                         clangDependencyArtifacts: &clangDependencyArtifacts,
-                                         swiftDependencyArtifacts: &swiftDependencyArtifacts)
+          let compiledModulePath = try dependencyGraph
+                                         .swiftPrebuiltDetails(of: dependencyId)
+                                         .compiledModulePath
+          let swiftModulePath: TypedVirtualPath =
+            .init(file: try VirtualPath(path: compiledModulePath),
+                  type: .swiftModule)
+          // Accumulate the requried information about this dependency
+          // TODO: add .swiftdoc and .swiftsourceinfo for this module.
+          swiftDependencyArtifacts.append(
+            SwiftModuleArtifactInfo(name: dependencyId.moduleName,
+                                    modulePath: swiftModulePath.file.description))
         case .swiftPlaceholder:
           fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
       }
     }
   }
 
-  /// Add a specific Swift module dependency as an input and a corresponding command
-  /// line flag.
-  /// Check the module build job cache for whether a build job has already been
-  /// generated for this dependency module; if not, request that one is generated.
-  mutating private func addSwiftModuleDependency(moduleId: ModuleDependencyId,
-                                                 dependencyId: ModuleDependencyId,
-                                                 pcmArgs: [String],
-                                                 addedDependenciesSet: inout Set<ModuleDependencyId>,
-                                                 clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                                 swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
-  ) throws {
-    // Add it as an explicit dependency
-    let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
-    let swiftModulePath: TypedVirtualPath
-    let isFramework: Bool
-
-    // Generate a build job for the dependency module, if not already generated
-    if swiftModuleBuildCache[dependencyId] == nil {
-      try genSwiftModuleBuildJob(moduleId: dependencyId)
-      assert(swiftModuleBuildCache[dependencyId] != nil)
+  private func updateClangPCMArgSetMap(for moduleId: ModuleDependencyId,
+                                       clangPCMSetMap: inout [ModuleDependencyId : Set<[String]>])
+  throws {
+    guard let moduleDependencies = reachabilityMap[moduleId] else {
+      fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
     }
-    swiftModulePath = .init(file: try VirtualPath(path: dependencyInfo.modulePath),
-                            type: .swiftModule)
-    isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework
+    let pcmArgs = try dependencyGraph.swiftModulePCMArgs(of: moduleId)
+    for dependencyId in moduleDependencies {
+      guard case .clang(_) = dependencyId else {
+        continue
+      }
+      if clangPCMSetMap[dependencyId] != nil {
+        clangPCMSetMap[dependencyId]!.insert(pcmArgs)
+      } else {
+        clangPCMSetMap[dependencyId] = [pcmArgs]
+      }
+    }
+  }
 
-    // Collect the required information about this module
-    // TODO: add .swiftdoc and .swiftsourceinfo for this module.
-    swiftDependencyArtifacts.append(
-      SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                              modulePath: swiftModulePath.file.description,
-                              isFramework: isFramework))
+  /// Resolve all module dependencies of the main module and add them to the lists of
+  /// inputs and command line flags.
+  public func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
+                                            commandLine: inout [Job.ArgTemplate]) throws {
+    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+    try resolveExplicitModuleDependencies(moduleId: mainModuleId,
+                                          pcmArgs:
+                                            try dependencyGraph.swiftModulePCMArgs(of: mainModuleId),
+                                          inputs: &inputs,
+                                          commandLine: &commandLine)
+  }
 
-    // Process all transitive dependencies as direct
-    try addModuleDependencies(moduleId: dependencyId, pcmArgs: pcmArgs,
-                              addedDependenciesSet: &addedDependenciesSet,
-                              clangDependencyArtifacts: &clangDependencyArtifacts,
-                              swiftDependencyArtifacts: &swiftDependencyArtifacts)
+  /// Store the output file artifacts for a given module in a JSON file, return the file's path.
+  private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
+                                           dependencyArtifacts: [SwiftModuleArtifactInfo]
+  ) throws -> VirtualPath {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted]
+    let contents = try encoder.encode(dependencyArtifacts)
+    return .temporaryWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
   }
 
   private func getPCMHashParts(pcmArgs: [String]) -> [String] {
@@ -380,80 +386,15 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     }
     var results = pcmArgs
     // We need this to enable explict modules in the driver-as-executable mode. For instance,
-    // we have two Swift targets A and B, where A depends on X.pcm which in turn depends on Y.pcm, and
-    // B only depends on Y.pcm. In the driver-as-executable mode, the build system isn't aware
+    // we have two Swift targets A and B, where A depends on X.pcm which in turn depends on Y.pcm,
+    // and B only depends on Y.pcm. In the driver-as-executable mode, the build system isn't aware
     // of the shared dependency of Y.pcm so it will be generated multiple times. If all these Y.pcm
-    // share the same name, X.pcm may fail to be loaded because its dependency Y.pcm may have a changed mod time.
-    //
+    // share the same name, X.pcm may fail to be loaded because its dependency Y.pcm may have a
+    // changed mod time.
     // We only differentiate these PCM names in the non-integrated mode due to the lacking of
     // inter-module planning.
     results.append(mainModuleName!)
     return results
-  }
-
-  /// Add a specific Clang module dependency as an input and a corresponding command
-  /// line flag.
-  /// Check the module build job cache for whether a build job has already been
-  /// generated for this dependency module; if not, request that one is generated.
-  mutating private func addClangModuleDependency(moduleId: ModuleDependencyId,
-                                                 dependencyId: ModuleDependencyId,
-                                                 pcmArgs: [String],
-                                                 addedDependenciesSet: inout Set<ModuleDependencyId>,
-                                                 clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                                 swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
-  ) throws {
-    // Generate a build job for the dependency module at the given target, if not already generated
-    if clangTargetModuleBuildCache[(dependencyId, pcmArgs)] == nil {
-      try genClangModuleBuildJob(moduleId: dependencyId, pcmArgs: pcmArgs)
-      assert(clangTargetModuleBuildCache[(dependencyId, pcmArgs)] != nil)
-    }
-
-    // Add it as an explicit dependency
-    let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
-    let dependencyClangModuleDetails = try dependencyGraph.clangModuleDetails(of: dependencyId)
-    let clangModulePath =
-      try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(for: dependencyInfo,
-                                                                          hashParts: getPCMHashParts(pcmArgs: pcmArgs))
-
-    // Collect the requried information about this module
-    clangDependencyArtifacts.append(
-      ClangModuleArtifactInfo(name: dependencyId.moduleName, modulePath: clangModulePath.description,
-                              moduleMapPath: dependencyClangModuleDetails.moduleMapPath))
-
-    // Process all transitive dependencies as direct
-    try addModuleDependencies(moduleId: dependencyId, pcmArgs: pcmArgs,
-                              addedDependenciesSet: &addedDependenciesSet,
-                              clangDependencyArtifacts: &clangDependencyArtifacts,
-                              swiftDependencyArtifacts: &swiftDependencyArtifacts)
-  }
-
-  /// Add a specific external target's pre-built Swift module dependency as an input and a corresponding command
-  /// line flag.
-  mutating private func addSwiftPrebuiltDependency(moduleId: ModuleDependencyId,
-                                                   dependencyId: ModuleDependencyId,
-                                                   pcmArgs: [String],
-                                                   addedDependenciesSet: inout Set<ModuleDependencyId>,
-                                                   clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                                   swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
-  ) throws {
-    // Add it as an explicit dependency
-    let compiledModulePath = try dependencyGraph
-                                   .swiftPrebuiltDetails(of: dependencyId)
-                                   .compiledModulePath
-    let swiftModulePath: TypedVirtualPath = .init(file: try VirtualPath(path: compiledModulePath),
-                                                  type: .swiftModule)
-
-    // Collect the required information about this module
-    // TODO: add .swiftdoc and .swiftsourceinfo for this module.
-    swiftDependencyArtifacts.append(
-      SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                              modulePath: swiftModulePath.file.description))
-
-    // Process all transitive dependencies as direct
-    try addModuleDependencies(moduleId: dependencyId, pcmArgs: pcmArgs,
-                              addedDependenciesSet: &addedDependenciesSet,
-                              clangDependencyArtifacts: &clangDependencyArtifacts,
-                              swiftDependencyArtifacts: &swiftDependencyArtifacts)
   }
 }
 

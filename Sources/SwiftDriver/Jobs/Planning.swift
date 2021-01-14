@@ -463,6 +463,7 @@ extension Driver {
                                          toolchain: toolchain,
                                          integratedDriver: integratedDriver,
                                          mainModuleName: moduleOutputInfo.name)
+
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 

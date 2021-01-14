@@ -9,6 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import TSCBasic
 
 @_spi(Testing) public extension InterModuleDependencyOracle {
   /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main modules/targets
@@ -45,6 +46,39 @@ public extension InterModuleDependencyGraph {
   }
 }
 
+extension InterModuleDependencyGraph {
+  /// Compute a set of modules that are "reachable" (form direct or transitive dependency)
+  /// from each module in the graph.
+  /// This routine relies on the fact that the dependency graph is acyclic. A lack of cycles means
+  /// we can apply a simple algorithm:
+  /// for each v ∈ V { T(v) = { v } }
+  /// for v ∈ V in reverse topological order {
+  ///   for each (v, w) ∈ E {
+  ///     T(v) = T(v) ∪ T(w)
+  ///   }
+  /// }
+  func computeTransitiveClosure() throws -> [ModuleDependencyId : Set<ModuleDependencyId>] {
+    let topologicalIdList =
+      try topologicalSort(Array(modules.keys),
+                          successors: { try moduleInfo(of: $0).directDependencies! })
+    // This structure will contain the final result
+    var transitiveClosureMap =
+      topologicalIdList.reduce(into: [ModuleDependencyId : Set<ModuleDependencyId>]()) {
+        $0[$1] = [$1]
+      }
+    // Traverse the set of modules in reverse topological order, accimilating transitive closures
+    for moduleId in topologicalIdList.reversed() {
+      for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+        transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+      }
+    }
+    // For ease of use down-the-line, remove the node's self from its set of reachable nodes
+    for (key, _) in transitiveClosureMap {
+      transitiveClosureMap[key]!.remove(key)
+    }
+    return transitiveClosureMap
+  }
+}
 
 @_spi(Testing) public extension InterModuleDependencyGraph {
   /// Merge a module with a given ID and Info into a ModuleInfoMap
