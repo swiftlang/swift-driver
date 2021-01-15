@@ -21,10 +21,10 @@ extension Option {
   public static let autolinkForceLoad: Option = Option("-autolink-force-load", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Force ld to link against this module even if no symbols are used")
   public static let autolinkLibrary: Option = Option("-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add dependent library")
   public static let avoidEmitModuleSourceInfo: Option = Option("-avoid-emit-module-source-info", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "don't emit Swift source info file")
+  public static let badFileDescriptorRetryCount: Option = Option("-bad-file-descriptor-retry-count", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Number of retrying opening a file if previous open returns a bad file descriptor error.")
   public static let batchScanInputFile: Option = Option("-batch-scan-input-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing modules to perform batch dependencies scanning")
   public static let bridgingHeaderDirectoryForPrint: Option = Option("-bridging-header-directory-for-print", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Directory for bridging header to be printed in compatibility header")
   public static let buildModuleFromParseableInterface: Option = Option("-build-module-from-parseable-interface", .flag, alias: Option.compileModuleFromInterface, attributes: [.helpHidden, .frontend, .noDriver], group: .modes)
-  public static let buildRequestDependencyGraph: Option = Option("-build-request-dependency-graph", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Build request dependency graph")
   public static let bypassBatchModeChecks: Option = Option("-bypass-batch-mode-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Bypass checks for batch-mode errors.")
   public static let candidateModuleFile: Option = Option("-candidate-module-file", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Specify Swift module may be ready to use for an interface")
   public static let checkOnoneCompleteness: Option = Option("-check-onone-completeness", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print errors if the compile OnoneSupport module is missing symbols")
@@ -33,7 +33,7 @@ extension Option {
   public static let colorDiagnostics: Option = Option("-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Print diagnostics in color")
   public static let compileModuleFromInterface: Option = Option("-compile-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and produce a module", group: .modes)
   public static let continueBuildingAfterErrors: Option = Option("-continue-building-after-errors", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Continue building, even after errors are encountered")
-  public static let coveragePrefixMap: Option = Option("-coverage-prefix-map", .separate, attributes: [.frontend], helpText: "Remap source paths in coverage info")
+  public static let coveragePrefixMap: Option = Option("-coverage-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in coverage info")
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
   public static let c: Option = Option("-c", .flag, alias: Option.emitObject, attributes: [.frontend, .noInteractive], group: .modes)
@@ -52,7 +52,7 @@ extension Option {
   public static let debugGenericSignatures: Option = Option("-debug-generic-signatures", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Debug generic signatures")
   public static let debugInfoFormat: Option = Option("-debug-info-format=", .joined, attributes: [.frontend], helpText: "Specify the debug info format type to either 'dwarf' or 'codeview'")
   public static let debugInfoStoreInvocation: Option = Option("-debug-info-store-invocation", .flag, attributes: [.frontend], helpText: "Emit the compiler invocation in the debug info.")
-  public static let debugPrefixMap: Option = Option("-debug-prefix-map", .separate, attributes: [.frontend], helpText: "Remap source paths in debug info")
+  public static let debugPrefixMap: Option = Option("-debug-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in debug info")
   public static let debugTimeExpressionTypeChecking: Option = Option("-debug-time-expression-type-checking", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the time it takes to type-check each expression")
   public static let debugTimeFunctionBodies: Option = Option("-debug-time-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the time it takes to type-check each function body")
   public static let debuggerSupport: Option = Option("-debugger-support", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Process swift code as if running in the debugger")
@@ -74,6 +74,7 @@ extension Option {
   public static let disableBuildingInterface: Option = Option("-disable-building-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disallow building binary module from textual interface")
   public static let disableClangimporterSourceImport: Option = Option("-disable-clangimporter-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable ClangImporter and forward all requests straight the DWARF importer.")
   public static let disableConcreteTypeMetadataMangledNameAccessors: Option = Option("-disable-concrete-type-metadata-mangled-name-accessors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable concrete type metadata access by mangled name")
+  public static let disableConformanceAvailabilityErrors: Option = Option("-disable-conformance-availability-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose conformance availability violations as warnings")
   public static let disableConstraintSolverPerformanceHacks: Option = Option("-disable-constraint-solver-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable all the hacks in the constraint solver")
   public static let disableCrossImportOverlays: Option = Option("-disable-cross-import-overlays", .flag, attributes: [.frontend, .noDriver], helpText: "Do not automatically import declared cross-import overlays.")
   public static let disableDebuggerShadowCopies: Option = Option("-disable-debugger-shadow-copies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable debugger shadow copies of local variables.This option is only useful for testing the compiler.")
@@ -81,6 +82,7 @@ extension Option {
   public static let disableDiagnosticPasses: Option = Option("-disable-diagnostic-passes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run diagnostic passes")
   public static let disableFuzzyForwardScanTrailingClosureMatching: Option = Option("-disable-fuzzy-forward-scan-trailing-closure-matching", .flag, attributes: [.frontend], helpText: "Disable fuzzy forward-scan trailing closure matching")
   public static let disableGenericMetadataPrespecialization: Option = Option("-disable-generic-metadata-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not statically specialize metadata for generic types at types that are known to be used in source.")
+  public static let disableImplicitConcurrencyModuleImport: Option = Option("-disable-implicit-concurrency-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Concurrency module.")
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules explicitly by the compiler")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
   public static let disableInterfaceLockfile: Option = Option("-disable-interface-lock", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't lock interface file when building module")
@@ -100,7 +102,6 @@ extension Option {
   public static let disableObjcInterop: Option = Option("-disable-objc-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable Objective-C interop code generation and config directives")
   public static let disableOnlyOneDependencyFile: Option = Option("-disable-only-one-dependency-file", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Disables incremental build optimization that only produces one dependencies file")
   public static let disableOssaOpts: Option = Option("-disable-ossa-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL OSSA optimization passes.")
-  public static let disableParserLookup: Option = Option("-disable-parser-lookup", .flag, attributes: [.frontend], helpText: "Disable parser lookup & use ASTScope lookup only (experimental)")
   public static let disablePlaygroundTransform: Option = Option("-disable-playground-transform", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable playground transformation")
   public static let disablePreviousImplementationCallsInDynamicReplacements: Option = Option("-disable-previous-implementation-calls-in-dynamic-replacements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable calling the previous implementation in dynamic replacements")
   public static let disableReflectionMetadata: Option = Option("-disable-reflection-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of reflection metadata for nominal types")
@@ -117,6 +118,7 @@ extension Option {
   public static let disableTypeLayouts: Option = Option("-disable-type-layout", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable type layout based lowering")
   public static let disableTypoCorrection: Option = Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction")
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diable verification of access markers used to enforce exclusivity.")
+  public static let disallowForwardingDriver: Option = Option("-disallow-use-new-driver", .flag, helpText: "Disable using new swift-driver")
   public static let driverAlwaysRebuildDependents: Option = Option("-driver-always-rebuild-dependents", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Always rebuild dependents of files that have been modified", group: .internalDebug)
   public static let driverBatchCount: Option = Option("-driver-batch-count", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number of batch-mode partitions, rather than partitioning dynamically", group: .internalDebug)
   public static let driverBatchSeed: Option = Option("-driver-batch-seed", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given seed value to randomize batch-mode partitions", group: .internalDebug)
@@ -204,6 +206,7 @@ extension Option {
   public static let emitSil: Option = Option("-emit-sil", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit canonical SIL file(s)", group: .modes)
   public static let emitSortedSil: Option = Option("-emit-sorted-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When printing SIL, print out all sil entities sorted by name to ease diffing")
   public static let stackPromotionChecks: Option = Option("-emit-stack-promotion-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit runtime checks for correct stack promotion of objects.")
+  public static let emitSupportedFeatures: Option = Option("-emit-supported-features", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a JSON file including all supported compiler features", group: .modes)
   public static let emitSwiftRangesPath: Option = Option("-emit-swift-ranges-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output unparsed ranges to <path>")
   public static let emitSwiftRanges: Option = Option("-emit-swift-ranges", .flag, attributes: [.frontend, .noDriver], helpText: "Emit unparsed source ranges")
   public static let emitSyntax: Option = Option("-emit-syntax", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and emit the Syntax tree(s) as JSON", group: .modes)
@@ -215,6 +218,7 @@ extension Option {
   public static let enableAnonymousContextMangledNames: Option = Option("-enable-anonymous-context-mangled-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of mangled names in anonymous context descriptors")
   public static let enableBatchMode: Option = Option("-enable-batch-mode", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Enable combining frontend jobs into batches")
   public static let enableBridgingPch: Option = Option("-enable-bridging-pch", .flag, attributes: [.helpHidden], helpText: "Enable automatic generation of bridging PCH files")
+  public static let enableConformanceAvailabilityErrors: Option = Option("-enable-conformance-availability-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose conformance availability violations as errors")
   public static let enableCrossImportOverlays: Option = Option("-enable-cross-import-overlays", .flag, attributes: [.frontend, .noDriver], helpText: "Automatically import declared cross-import overlays.")
   public static let enableCxxInterop: Option = Option("-enable-cxx-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable C++ interop code generation and config directives")
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
@@ -225,6 +229,7 @@ extension Option {
   public static let enableExperimentalCrossModuleIncrementalBuild: Option = Option("-enable-experimental-cross-module-incremental-build", .flag, attributes: [.frontend], helpText: "(experimental) Enable cross-module incremental build metadata and driver scheduling")
   public static let enableExperimentalCxxInterop: Option = Option("-enable-experimental-cxx-interop", .flag, helpText: "Allow importing C++ modules into Swift (experimental feature)")
   public static let enableExperimentalForwardModeDifferentiation: Option = Option("-enable-experimental-forward-mode-differentiation", .flag, attributes: [.frontend], helpText: "Enable experimental forward mode differentiation")
+  public static let enableExperimentalPrespecialization: Option = Option("-enable-experimental-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental pre-specialization support")
   public static let enableExperimentalStaticAssert: Option = Option("-enable-experimental-static-assert", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental #assert")
   public static let enableFuzzyForwardScanTrailingClosureMatching: Option = Option("-enable-fuzzy-forward-scan-trailing-closure-matching", .flag, attributes: [.frontend], helpText: "Enable fuzzy forward-scan trailing closure matching")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
@@ -240,7 +245,6 @@ extension Option {
   public static let enableObjcInterop: Option = Option("-enable-objc-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable Objective-C interop code generation and config directives")
   public static let enableOnlyOneDependencyFile: Option = Option("-enable-only-one-dependency-file", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Enables incremental build optimization that only produces one dependencies file")
   public static let enableOperatorDesignatedTypes: Option = Option("-enable-operator-designated-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable operator designated types")
-  public static let enableParserLookup: Option = Option("-enable-parser-lookup", .flag, attributes: [.frontend], helpText: "Enable parser lookup")
   public static let enablePrivateImports: Option = Option("-enable-private-imports", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal and private API to be accessed")
   public static let enableRequestBasedIncrementalDependencies: Option = Option("-enable-request-based-incremental-dependencies", .flag, attributes: [.frontend], helpText: "Enable request-based name tracking")
   public static let enableResilience: Option = Option("-enable-resilience", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Deprecated, use -enable-library-evolution instead")
@@ -259,9 +263,12 @@ extension Option {
   public static let enableVerifyExclusivity: Option = Option("-enable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable verification of access markers used to enforce exclusivity.")
   public static let enableVolatileModules: Option = Option("-enable-volatile-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Load Swift modules in memory")
   public static let enforceExclusivityEQ: Option = Option("-enforce-exclusivity=", .joined, attributes: [.frontend, .moduleInterface], metaVar: "<enforcement>", helpText: "Enforce law of exclusivity")
+  public static let experimentalAllowModuleWithCompilerErrors: Option = Option("-experimental-allow-module-with-compiler-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to output .swiftmodule, regardless of compilation errors")
   public static let experimentalCxxStdlib: Option = Option("-experimental-cxx-stdlib", .separate, helpText: "C++ standard library to use; forwarded to Clang's -stdlib flag")
   public static let experimentalOneWayClosureParams: Option = Option("-experimental-one-way-closure-params", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for one-way closure parameters")
-  public static let experimentalPrintFullConvention: Option = Option("-experimental-print-full-convention", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface or SIL, emit additional @convention arguments, regardless of whether they were written in the source")
+  public static let experimentalPrintFullConvention: Option = Option("-experimental-print-full-convention", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface or SIL, emit additional @convention arguments, regardless of whether they were written in the source. Also requires -use-clang-function-types to be enabled.")
+  public static let experimentalSkipAllFunctionBodies: Option = Option("-experimental-skip-all-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip type-checking function bodies and all SIL generation")
+  public static let experimentalSkipNonInlinableFunctionBodiesWithoutTypes: Option = Option("-experimental-skip-non-inlinable-function-bodies-without-types", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip work on non-inlinable function bodies that do not declare nested types")
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
   public static let explictSwiftModuleMap: Option = Option("-explicit-swift-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of explict Swift modules")
@@ -272,6 +279,7 @@ extension Option {
   public static let forcePublicLinkage: Option = Option("-force-public-linkage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force public linkage for private symbols. Used by LLDB.")
   public static let forceSingleFrontendInvocation: Option = Option("-force-single-frontend-invocation", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let framework: Option = Option("-framework", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a framework which should be linked against", group: .linkerOption)
+  public static let frontendParseableOutput: Option = Option("-frontend-parseable-output", .flag, attributes: [.frontend, .noDriver], helpText: "Emit textual output in a parseable format")
   public static let Fsystem: Option = Option("-Fsystem", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to system framework search path")
   public static let functionSections: Option = Option("-function-sections", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit functions to separate sections.")
   public static let F: Option = Option("-F", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to framework search path")
@@ -349,7 +357,6 @@ extension Option {
   public static let outputFileMapEQ: Option = Option("-output-file-map=", .joined, alias: Option.outputFileMap, attributes: [.noInteractive, .argumentIsPath])
   public static let outputFileMap: Option = Option("-output-file-map", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "A file which specifies the location of outputs")
   public static let outputFilelist: Option = Option("-output-filelist", .separate, attributes: [.frontend, .noDriver], helpText: "Specify outputs in a file rather than on the command line")
-  public static let outputRequestGraphviz: Option = Option("-output-request-graphviz", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit GraphViz output visualizing the request dependency graph")
   public static let O: Option = Option("-O", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations", group: .O)
   public static let o: Option = Option("-o", .joinedOrSeparate, attributes: [.frontend, .noInteractive, .autolinkExtract, .moduleWrap, .indent, .argumentIsPath], metaVar: "<file>", helpText: "Write output to <file>")
   public static let packageDescriptionVersion: Option = Option("-package-description-version", .separate, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<vers>", helpText: "The version number to be applied on the input for the PackageDescription availability kind")
@@ -392,9 +399,11 @@ extension Option {
   public static let resolveImports: Option = Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes)
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
   public static let RmoduleInterfaceRebuild: Option = Option("-Rmodule-interface-rebuild", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emits a remark if an imported module needs to be re-compiled from its module interface")
+  public static let remarkLoadingModule: Option = Option("-Rmodule-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark and file path of each loaded module")
   public static let RpassMissedEQ: Option = Option("-Rpass-missed=", .joined, attributes: [.frontend], helpText: "Report missed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let RpassEQ: Option = Option("-Rpass=", .joined, attributes: [.frontend], helpText: "Report performed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let runtimeCompatibilityVersion: Option = Option("-runtime-compatibility-version", .separate, attributes: [.frontend], helpText: "Link compatibility library for Swift runtime version, or 'none'")
+  public static let sanitizeAddressUseOdrIndicator: Option = Option("-sanitize-address-use-odr-indicator", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "When using AddressSanitizer enable ODR indicator globals to avoid false ODR violation reports in partially sanitized programs at the cost of an increase in binary size")
   public static let sanitizeCoverageEQ: Option = Option("-sanitize-coverage=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<type>", helpText: "Specify the type of coverage instrumentation for Sanitizers and additional options separated by commas")
   public static let sanitizeRecoverEQ: Option = Option("-sanitize-recover=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Specify which sanitizer runtime checks (see -sanitize=) will generate instrumentation that allows error recovery. Listed checks should be comma separated. Default behavior is to not allow error recovery.")
   public static let sanitizeEQ: Option = Option("-sanitize=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Turn on runtime checks for erroneous behavior.")
@@ -403,7 +412,6 @@ extension Option {
   public static let saveOptimizationRecordEQ: Option = Option("-save-optimization-record=", .joined, attributes: [.frontend], metaVar: "<format>", helpText: "Generate an optimization record file in a specific format (default: YAML)")
   public static let saveOptimizationRecord: Option = Option("-save-optimization-record", .flag, attributes: [.frontend], helpText: "Generate a YAML optimization record file")
   public static let saveTemps: Option = Option("-save-temps", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Save intermediate compilation results")
-  public static let scanClangDependencies: Option = Option("-scan-clang-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Scan dependencies of the given Clang module", group: .modes)
   public static let scanDependencies: Option = Option("-scan-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Scan dependencies of the given Swift sources", group: .modes)
   public static let sdk: Option = Option("-sdk", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<sdk>", helpText: "Compile against <sdk>")
   public static let serializeDebuggingOptions: Option = Option("-serialize-debugging-options", .flag, attributes: [.frontend, .noDriver], helpText: "Always serialize options for debugging (default: only for apps)")
@@ -421,7 +429,6 @@ extension Option {
   public static let silVerifyAll: Option = Option("-sil-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify SIL after each transform")
   public static let silVerifyNone: Option = Option("-sil-verify-none", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable SIL verification")
   public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
-  public static let solverEnableOperatorDesignatedTypes: Option = Option("-solver-enable-operator-designated-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable operator designated types in constraint solver")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
   public static let solverMemoryThreshold: Option = Option("-solver-memory-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
   public static let solverShrinkUnsolvedThreshold: Option = Option("-solver-shrink-unsolved-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set The upper bound to number of sub-expressions unsolved before termination of the shrink phrase")
@@ -519,10 +526,10 @@ extension Option {
       Option.autolinkForceLoad,
       Option.autolinkLibrary,
       Option.avoidEmitModuleSourceInfo,
+      Option.badFileDescriptorRetryCount,
       Option.batchScanInputFile,
       Option.bridgingHeaderDirectoryForPrint,
       Option.buildModuleFromParseableInterface,
-      Option.buildRequestDependencyGraph,
       Option.bypassBatchModeChecks,
       Option.candidateModuleFile,
       Option.checkOnoneCompleteness,
@@ -572,6 +579,7 @@ extension Option {
       Option.disableBuildingInterface,
       Option.disableClangimporterSourceImport,
       Option.disableConcreteTypeMetadataMangledNameAccessors,
+      Option.disableConformanceAvailabilityErrors,
       Option.disableConstraintSolverPerformanceHacks,
       Option.disableCrossImportOverlays,
       Option.disableDebuggerShadowCopies,
@@ -579,6 +587,7 @@ extension Option {
       Option.disableDiagnosticPasses,
       Option.disableFuzzyForwardScanTrailingClosureMatching,
       Option.disableGenericMetadataPrespecialization,
+      Option.disableImplicitConcurrencyModuleImport,
       Option.disableImplicitSwiftModules,
       Option.disableIncrementalLlvmCodegeneration,
       Option.disableInterfaceLockfile,
@@ -598,7 +607,6 @@ extension Option {
       Option.disableObjcInterop,
       Option.disableOnlyOneDependencyFile,
       Option.disableOssaOpts,
-      Option.disableParserLookup,
       Option.disablePlaygroundTransform,
       Option.disablePreviousImplementationCallsInDynamicReplacements,
       Option.disableReflectionMetadata,
@@ -615,6 +623,7 @@ extension Option {
       Option.disableTypeLayouts,
       Option.disableTypoCorrection,
       Option.disableVerifyExclusivity,
+      Option.disallowForwardingDriver,
       Option.driverAlwaysRebuildDependents,
       Option.driverBatchCount,
       Option.driverBatchSeed,
@@ -702,6 +711,7 @@ extension Option {
       Option.emitSil,
       Option.emitSortedSil,
       Option.stackPromotionChecks,
+      Option.emitSupportedFeatures,
       Option.emitSwiftRangesPath,
       Option.emitSwiftRanges,
       Option.emitSyntax,
@@ -713,6 +723,7 @@ extension Option {
       Option.enableAnonymousContextMangledNames,
       Option.enableBatchMode,
       Option.enableBridgingPch,
+      Option.enableConformanceAvailabilityErrors,
       Option.enableCrossImportOverlays,
       Option.enableCxxInterop,
       Option.enableDeserializationRecovery,
@@ -723,6 +734,7 @@ extension Option {
       Option.enableExperimentalCrossModuleIncrementalBuild,
       Option.enableExperimentalCxxInterop,
       Option.enableExperimentalForwardModeDifferentiation,
+      Option.enableExperimentalPrespecialization,
       Option.enableExperimentalStaticAssert,
       Option.enableFuzzyForwardScanTrailingClosureMatching,
       Option.enableImplicitDynamic,
@@ -738,7 +750,6 @@ extension Option {
       Option.enableObjcInterop,
       Option.enableOnlyOneDependencyFile,
       Option.enableOperatorDesignatedTypes,
-      Option.enableParserLookup,
       Option.enablePrivateImports,
       Option.enableRequestBasedIncrementalDependencies,
       Option.enableResilience,
@@ -757,9 +768,12 @@ extension Option {
       Option.enableVerifyExclusivity,
       Option.enableVolatileModules,
       Option.enforceExclusivityEQ,
+      Option.experimentalAllowModuleWithCompilerErrors,
       Option.experimentalCxxStdlib,
       Option.experimentalOneWayClosureParams,
       Option.experimentalPrintFullConvention,
+      Option.experimentalSkipAllFunctionBodies,
+      Option.experimentalSkipNonInlinableFunctionBodiesWithoutTypes,
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.experimentalSpiImports,
       Option.explictSwiftModuleMap,
@@ -770,6 +784,7 @@ extension Option {
       Option.forcePublicLinkage,
       Option.forceSingleFrontendInvocation,
       Option.framework,
+      Option.frontendParseableOutput,
       Option.Fsystem,
       Option.functionSections,
       Option.F,
@@ -847,7 +862,6 @@ extension Option {
       Option.outputFileMapEQ,
       Option.outputFileMap,
       Option.outputFilelist,
-      Option.outputRequestGraphviz,
       Option.O,
       Option.o,
       Option.packageDescriptionVersion,
@@ -890,9 +904,11 @@ extension Option {
       Option.resolveImports,
       Option.resourceDir,
       Option.RmoduleInterfaceRebuild,
+      Option.remarkLoadingModule,
       Option.RpassMissedEQ,
       Option.RpassEQ,
       Option.runtimeCompatibilityVersion,
+      Option.sanitizeAddressUseOdrIndicator,
       Option.sanitizeCoverageEQ,
       Option.sanitizeRecoverEQ,
       Option.sanitizeEQ,
@@ -901,7 +917,6 @@ extension Option {
       Option.saveOptimizationRecordEQ,
       Option.saveOptimizationRecord,
       Option.saveTemps,
-      Option.scanClangDependencies,
       Option.scanDependencies,
       Option.sdk,
       Option.serializeDebuggingOptions,
@@ -919,7 +934,6 @@ extension Option {
       Option.silVerifyAll,
       Option.silVerifyNone,
       Option.solverDisableShrink,
-      Option.solverEnableOperatorDesignatedTypes,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThreshold,
       Option.solverShrinkUnsolvedThreshold,

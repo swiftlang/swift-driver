@@ -1375,9 +1375,6 @@ extension Driver {
       case .scanDependencies:
         compilerOutputType = .jsonDependencies
 
-      case .scanClangDependencies:
-        compilerOutputType = .jsonClangDependencies
-
       default:
         fatalError("unhandled output mode option \(outputOption)")
       }
