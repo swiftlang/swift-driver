@@ -555,7 +555,7 @@ extension Driver {
     }
 
     if parsedOptions.contains(.help) || parsedOptions.contains(.helpHidden) {
-      var commandLine: [Job.ArgTemplate] = [.flag("-tool=\(driverKind.rawValue)")]
+      var commandLine: [Job.ArgTemplate] = [.flag(driverKind.rawValue)]
       if parsedOptions.contains(.helpHidden) {
         commandLine.append(.flag("-show-hidden"))
       }
