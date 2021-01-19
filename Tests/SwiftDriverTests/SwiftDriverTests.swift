@@ -533,6 +533,32 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testFindingObjectPathFromllvmBCPath() throws {
+    let contents = """
+    {
+      "": {
+        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"
+      },
+      "/tmp/foo/Sources/foo/foo.swift": {
+        "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
+        "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
+        "swiftmodule": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
+        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps",
+        "llvm-bc": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"
+      }
+    }
+    """
+    try withTemporaryFile { file in
+      try assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
+
+        let obj = try outputFileMap.getOutput(inputFile: .init(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"), outputType: .object)
+        XCTAssertEqual(obj.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
+      }
+    }
+  }
+
   func testOutputFileMapLoadingDocAndSourceinfo() throws {
     let contents = """
     {
