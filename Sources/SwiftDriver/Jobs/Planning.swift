@@ -512,12 +512,14 @@ extension Driver {
         let modulePath = moduleInfo.modulePath
         // Only update paths on modules which do not already specify a path beyond their module name
         // and a file extension.
-        if modulePath == moduleId.moduleName + ".swiftmodule" ||
-            modulePath == moduleId.moduleName + ".pcm" {
+        if modulePath.path.description == moduleId.moduleName + ".swiftmodule" ||
+            modulePath.path.description == moduleId.moduleName + ".pcm" {
           // Use VirtualPath to get the OS-specific path separators right.
           let modulePathInCache =
-            try VirtualPath(path: moduleCachePath!).appending(component: modulePath).description
-          dependencyGraph.modules[moduleId]!.modulePath = modulePathInCache
+            try VirtualPath(path: moduleCachePath!)
+              .appending(component: modulePath.path.description)
+          dependencyGraph.modules[moduleId]!.modulePath =
+            TextualVirtualPath(path: modulePathInCache)
         }
       }
     }

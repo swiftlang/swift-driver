@@ -271,7 +271,7 @@ extension VirtualPath: Codable {
 }
 
 /// A wrapper for easier decoding of absolute or relative VirtualPaths from strings.
-@_spi(Testing) public struct TextualVirtualPath: Codable {
+public struct TextualVirtualPath: Codable, Hashable {
   public var path: VirtualPath
 
   public init(from decoder: Decoder) throws {
@@ -279,7 +279,7 @@ extension VirtualPath: Codable {
     path = try VirtualPath(path: container.decode(String.self))
   }
 
-  private init(path: VirtualPath) {
+  public init(path: VirtualPath) {
     self.path = path
   }
 
