@@ -7,7 +7,6 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftDriver
-  "ExplicitModuleBuilds/ClangModuleBuildJobCache.swift"
   "ExplicitModuleBuilds/ClangVersionedDependencyResolution.swift"
   "ExplicitModuleBuilds/ExplicitDependencyBuildPlanner.swift"
   "ExplicitModuleBuilds/ModuleDependencyScanning.swift"
