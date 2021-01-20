@@ -4270,9 +4270,7 @@ extension Array where Element: Equatable {
   }
 }
 
-fileprivate extension Array
-where Element == Job
-{
+extension Array where Element == Job {
   // Utility to drop autolink-extract jobs, which helps avoid introducing
   // platform-specific conditionals in tests unrelated to autolinking.
   func removingAutolinkExtractJobs() -> Self {
