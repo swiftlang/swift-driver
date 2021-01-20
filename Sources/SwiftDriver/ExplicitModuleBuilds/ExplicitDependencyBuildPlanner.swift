@@ -120,7 +120,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
       let pcmArgs = try dependencyGraph.swiftModulePCMArgs(of: moduleId)
       var inputs: [TypedVirtualPath] = []
       let outputs: [TypedVirtualPath] = [
-        TypedVirtualPath(file: try VirtualPath(path: moduleInfo.modulePath), type: .swiftModule)
+        TypedVirtualPath(file: moduleInfo.modulePath.path, type: .swiftModule)
       ]
       var commandLine: [Job.ArgTemplate] = []
       // First, take the command line options provided in the dependency information
@@ -141,23 +141,23 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
         throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
                                                      "no `moduleInterfacePath` object")
       }
-      inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleInterfacePath),
+      inputs.append(TypedVirtualPath(file: moduleInterfacePath.path,
                                      type: .swiftInterface))
 
       // Add precompiled module candidates, if present
       if let compiledCandidateList = moduleDetails.compiledModuleCandidates {
         for compiledCandidate in compiledCandidateList {
           commandLine.appendFlag("-candidate-module-file")
-          let compiledCandidatePath = try VirtualPath(path: compiledCandidate)
-          commandLine.appendPath(compiledCandidatePath)
-          inputs.append(TypedVirtualPath(file: compiledCandidatePath,
+          let compiledCandidatePath = compiledCandidate
+          commandLine.appendPath(compiledCandidatePath.path)
+          inputs.append(TypedVirtualPath(file: compiledCandidatePath.path,
                                          type: .swiftModule))
         }
       }
 
       // Set the output path
       commandLine.appendFlag(.o)
-      commandLine.appendPath(try VirtualPath(path: moduleInfo.modulePath))
+      commandLine.appendPath(moduleInfo.modulePath.path)
 
       jobs.append(Job(
         moduleName: moduleId.moduleName,
@@ -220,7 +220,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
         // The only required input is the .modulemap for this module.
         // Command line options in the dependency scanner output will include the
         // required modulemap, so here we must only add it to the list of inputs.
-        inputs.append(TypedVirtualPath(file: try VirtualPath(path: moduleDetails.moduleMapPath),
+        inputs.append(TypedVirtualPath(file: moduleDetails.moduleMapPath.path,
                                        type: .clangModuleMap))
 
         jobs.append(Job(
@@ -263,17 +263,17 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
       // Each individual module binary is still an "input" to ensure the build system gets the
       // order correctly.
       for dependencyModule in swiftDependencyArtifacts {
-        inputs.append(TypedVirtualPath(file: try VirtualPath(path: dependencyModule.modulePath),
+        inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
                                        type: .swiftModule))
       }
     }
     // Clang module depenencies are specified on the command line eplicitly
     for moduleArtifactInfo in clangDependencyArtifacts {
       let clangModulePath =
-        TypedVirtualPath(file: try VirtualPath(path: moduleArtifactInfo.modulePath),
+        TypedVirtualPath(file: moduleArtifactInfo.modulePath.path,
                          type: .pcm)
       let clangModuleMapPath =
-        TypedVirtualPath(file: try VirtualPath(path: moduleArtifactInfo.moduleMapPath),
+        TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
                          type: .clangModuleMap)
       commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
                               "-fmodule-file=\(clangModulePath.file.description)")
@@ -299,14 +299,14 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
           let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
           let swiftModulePath: TypedVirtualPath
           let isFramework: Bool
-          swiftModulePath = .init(file: try VirtualPath(path: dependencyInfo.modulePath),
+          swiftModulePath = .init(file: dependencyInfo.modulePath.path,
                                   type: .swiftModule)
           isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework
           // Accumulate the required information about this dependency
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
             SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: swiftModulePath.file.description,
+                                    modulePath: TextualVirtualPath(path: swiftModulePath.file),
                                     isFramework: isFramework))
         case .clang:
           let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
@@ -319,20 +319,19 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
           // Accumulate the requried information about this dependency
           clangDependencyArtifacts.append(
             ClangModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: clangModulePath.description,
+                                    modulePath: TextualVirtualPath(path: clangModulePath),
                                     moduleMapPath: dependencyClangModuleDetails.moduleMapPath))
         case .swiftPrebuiltExternal:
           let compiledModulePath = try dependencyGraph
                                          .swiftPrebuiltDetails(of: dependencyId)
                                          .compiledModulePath
           let swiftModulePath: TypedVirtualPath =
-            .init(file: try VirtualPath(path: compiledModulePath),
-                  type: .swiftModule)
+            .init(file: compiledModulePath.path, type: .swiftModule)
           // Accumulate the requried information about this dependency
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
             SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: swiftModulePath.file.description))
+                                    modulePath: TextualVirtualPath(path: swiftModulePath.file)))
         case .swiftPlaceholder:
           fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
       }
@@ -404,13 +403,14 @@ extension ExplicitDependencyBuildPlanner {
   /// target triple encoded in the name.
   public static func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
                                                       hashParts: [String]) throws -> VirtualPath {
-    let plainModulePath = try VirtualPath(path: moduleInfo.modulePath)
+    let plainModulePath = moduleInfo.modulePath.path
     let targetEncodedBaseName =
       try targetEncodedClangModuleName(for: plainModulePath.basenameWithoutExt,
                                        hashParts: hashParts)
     let modifiedModulePath =
-      moduleInfo.modulePath.replacingOccurrences(of: plainModulePath.basenameWithoutExt,
-                                                 with: targetEncodedBaseName)
+      moduleInfo.modulePath.path.description
+        .replacingOccurrences(of: plainModulePath.basenameWithoutExt,
+                              with: targetEncodedBaseName)
     return try VirtualPath(path: modifiedModulePath)
   }
 

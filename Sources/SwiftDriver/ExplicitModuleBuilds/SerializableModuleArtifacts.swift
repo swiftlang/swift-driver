@@ -20,16 +20,16 @@ import Foundation
   /// The module's name
   public let moduleName: String
   /// The path for the module's .swiftmodule file
-  public let modulePath: String
+  public let modulePath: TextualVirtualPath
   /// The path for the module's .swiftdoc file
-  public let docPath: String?
+  public let docPath: TextualVirtualPath?
   /// The path for the module's .swiftsourceinfo file
-  public let sourceInfoPath: String?
+  public let sourceInfoPath: TextualVirtualPath?
   /// A flag to indicate whether this module is a framework
   public let isFramework: Bool
 
-  init(name: String, modulePath: String, docPath: String? = nil,
-       sourceInfoPath: String? = nil, isFramework: Bool = false) {
+  init(name: String, modulePath: TextualVirtualPath, docPath: TextualVirtualPath? = nil,
+       sourceInfoPath: TextualVirtualPath? = nil, isFramework: Bool = false) {
     self.moduleName = name
     self.modulePath = modulePath
     self.docPath = docPath
@@ -46,11 +46,11 @@ import Foundation
   /// The module's name
   public let moduleName: String
   /// The path for the module's .pcm file
-  public let modulePath: String
+  public let modulePath: TextualVirtualPath
   /// The path for this module's .modulemap file
-  public let moduleMapPath: String
+  public let moduleMapPath: TextualVirtualPath
 
-  init(name: String, modulePath: String, moduleMapPath: String) {
+  init(name: String, modulePath: TextualVirtualPath, moduleMapPath: TextualVirtualPath) {
     self.moduleName = name
     self.modulePath = modulePath
     self.moduleMapPath = moduleMapPath

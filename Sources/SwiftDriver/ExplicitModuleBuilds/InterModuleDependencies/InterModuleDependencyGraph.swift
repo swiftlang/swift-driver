@@ -75,24 +75,24 @@ extension ModuleDependencyId: Codable {
 
 /// Bridging header
 public struct BridgingHeader: Codable {
-  var path: String
-  var sourceFiles: [String]
+  var path: TextualVirtualPath
+  var sourceFiles: [TextualVirtualPath]
   var moduleDependencies: [String]
 }
 
 /// Details specific to Swift modules.
 public struct SwiftModuleDetails: Codable {
   /// The module interface from which this module was built, if any.
-  public var moduleInterfacePath: String?
+  public var moduleInterfacePath: TextualVirtualPath?
 
   /// The paths of potentially ready-to-use compiled modules for the interface.
-  public var compiledModuleCandidates: [String]?
+  public var compiledModuleCandidates: [TextualVirtualPath]?
 
   /// The bridging header, if any.
-  public var bridgingHeaderPath: String?
+  public var bridgingHeaderPath: TextualVirtualPath?
 
   /// The source files referenced by the bridging header.
-  public var bridgingSourceFiles: [String]? = []
+  public var bridgingSourceFiles: [TextualVirtualPath]? = []
 
   /// Options to the compile command
   public var commandLine: [String]? = []
@@ -109,37 +109,38 @@ public struct SwiftModuleDetails: Codable {
 /// Details specific to Swift placeholder dependencies.
 public struct SwiftPlaceholderModuleDetails: Codable {
   /// The path to the .swiftModuleDoc file.
-  var moduleDocPath: String?
+  var moduleDocPath: TextualVirtualPath?
 
   /// The path to the .swiftSourceInfo file.
-  var moduleSourceInfoPath: String?
+  var moduleSourceInfoPath: TextualVirtualPath?
 }
 
 /// Details specific to Swift externally-pre-built modules.
 public struct SwiftPrebuiltExternalModuleDetails: Codable {
   /// The path to the already-compiled module that must be used instead of
   /// generating a job to build this module.
-  public var compiledModulePath: String
+  public var compiledModulePath: TextualVirtualPath
 
   /// The path to the .swiftModuleDoc file.
-  public var moduleDocPath: String?
+  public var moduleDocPath: TextualVirtualPath?
 
   /// The path to the .swiftSourceInfo file.
-  public var moduleSourceInfoPath: String?
+  public var moduleSourceInfoPath: TextualVirtualPath?
 
-  public init(compiledModulePath: String,
-              moduleDocPath: String? = nil,
-              moduleSourceInfoPath: String? = nil) {
-    self.compiledModulePath = compiledModulePath
-    self.moduleDocPath = moduleDocPath
-    self.moduleSourceInfoPath = moduleSourceInfoPath
+  public init(compiledModulePath: VirtualPath,
+              moduleDocPath: VirtualPath? = nil,
+              moduleSourceInfoPath: VirtualPath? = nil) throws {
+    self.compiledModulePath = TextualVirtualPath(path: compiledModulePath)
+    self.moduleDocPath = moduleDocPath != nil ? TextualVirtualPath(path: moduleDocPath!) : nil
+    self.moduleSourceInfoPath =
+      moduleSourceInfoPath != nil ? TextualVirtualPath(path: moduleSourceInfoPath!) : nil
   }
 }
 
 /// Details specific to Clang modules.
 public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
-  public var moduleMapPath: String
+  public var moduleMapPath: TextualVirtualPath
 
   /// Set of PCM Arguments of depending modules which
   /// are covered by the directDependencies info of this module
@@ -151,7 +152,7 @@ public struct ClangModuleDetails: Codable {
   /// Options to the compile command
   public var commandLine: [String] = []
 
-  public init(moduleMapPath: String,
+  public init(moduleMapPath: TextualVirtualPath,
               dependenciesCapturedPCMArgs: Set<[String]>?,
               contextHash: String,
               commandLine: [String]) {
@@ -164,10 +165,10 @@ public struct ClangModuleDetails: Codable {
 
 public struct ModuleInfo: Codable {
   /// The path for the module.
-  public var modulePath: String
+  public var modulePath: TextualVirtualPath
 
   /// The source files used to build this module.
-  public var sourceFiles: [String]?
+  public var sourceFiles: [TextualVirtualPath]?
 
   /// The set of direct module dependencies of this module.
   public var directDependencies: [ModuleDependencyId]?
@@ -192,8 +193,8 @@ public struct ModuleInfo: Codable {
     case clang(ClangModuleDetails)
   }
 
-  public init(modulePath: String,
-              sourceFiles: [String]?,
+  public init(modulePath: TextualVirtualPath,
+              sourceFiles: [TextualVirtualPath]?,
               directDependencies: [ModuleDependencyId]?,
               details: Details) {
     self.modulePath = modulePath

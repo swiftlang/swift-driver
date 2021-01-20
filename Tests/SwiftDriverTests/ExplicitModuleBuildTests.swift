@@ -27,13 +27,13 @@ private func checkExplicitModuleBuildJob(job: Job,
     case .swift(let swiftModuleDetails):
       downstreamPCMArgs = swiftModuleDetails.extraPcmArgs
       let moduleInterfacePath =
-        TypedVirtualPath(file: try VirtualPath(path: swiftModuleDetails.moduleInterfacePath!),
+        TypedVirtualPath(file: swiftModuleDetails.moduleInterfacePath!.path,
                          type: .swiftInterface)
       XCTAssertEqual(job.kind, .emitModule)
       XCTAssertTrue(job.inputs.contains(moduleInterfacePath))
       if let compiledCandidateList = swiftModuleDetails.compiledModuleCandidates {
         for compiledCandidate in compiledCandidateList {
-          let candidatePath = try VirtualPath(path: compiledCandidate)
+          let candidatePath = compiledCandidate.path
           let typedCandidatePath = TypedVirtualPath(file: candidatePath,
                                                     type: .swiftModule)
           XCTAssertTrue(job.inputs.contains(typedCandidatePath))
@@ -43,7 +43,7 @@ private func checkExplicitModuleBuildJob(job: Job,
       }
     case .clang(let clangModuleDetails):
       let moduleMapPath =
-        TypedVirtualPath(file: try VirtualPath(path: clangModuleDetails.moduleMapPath),
+        TypedVirtualPath(file: clangModuleDetails.moduleMapPath.path,
                          type: .clangModuleMap)
       XCTAssertEqual(job.kind, .generatePCM)
       XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
@@ -109,7 +109,8 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                       from: Data(contents.contents))
         let dependencyArtifacts =
           dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
-        XCTAssertEqual(dependencyArtifacts!.modulePath, prebuiltModuleDetails.compiledModulePath)
+        XCTAssertEqual(dependencyArtifacts!.modulePath,
+                       prebuiltModuleDetails.compiledModulePath)
       case .clang(let clangDependencyDetails):
         let clangDependencyModulePathString =
           try ExplicitDependencyBuildPlanner.targetEncodedClangModuleFilePath(
@@ -117,7 +118,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         let clangDependencyModulePath =
           TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
         let clangDependencyModuleMapPath =
-          TypedVirtualPath(file: try VirtualPath(path: clangDependencyDetails.moduleMapPath),
+          TypedVirtualPath(file: clangDependencyDetails.moduleMapPath.path,
                            type: .clangModuleMap)
 
         XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
@@ -125,7 +126,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         XCTAssertTrue(job.commandLine.contains(
                         .flag(String("-fmodule-file=\(clangDependencyModulePathString)"))))
         XCTAssertTrue(job.commandLine.contains(
-                        .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath)"))))
+                        .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath.path.description)"))))
       case .swiftPlaceholder(_):
         XCTFail("Placeholder dependency found.")
     }
@@ -535,14 +536,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                              from: jsonExample.data(using: .utf8)!)
     XCTAssertEqual(moduleMap.count, 2)
     XCTAssertEqual(moduleMap[0].moduleName, "A")
-    XCTAssertEqual(moduleMap[0].modulePath, "A.swiftmodule")
-    XCTAssertEqual(moduleMap[0].docPath, "A.swiftdoc")
-    XCTAssertEqual(moduleMap[0].sourceInfoPath, "A.swiftsourceinfo")
+    XCTAssertEqual(moduleMap[0].modulePath.path.description, "A.swiftmodule")
+    XCTAssertEqual(moduleMap[0].docPath!.path.description, "A.swiftdoc")
+    XCTAssertEqual(moduleMap[0].sourceInfoPath!.path.description, "A.swiftsourceinfo")
     XCTAssertEqual(moduleMap[0].isFramework, true)
     XCTAssertEqual(moduleMap[1].moduleName, "B")
-    XCTAssertEqual(moduleMap[1].modulePath, "B.swiftmodule")
-    XCTAssertEqual(moduleMap[1].docPath, "B.swiftdoc")
-    XCTAssertEqual(moduleMap[1].sourceInfoPath, "B.swiftsourceinfo")
+    XCTAssertEqual(moduleMap[1].modulePath.path.description, "B.swiftmodule")
+    XCTAssertEqual(moduleMap[1].docPath!.path.description, "B.swiftdoc")
+    XCTAssertEqual(moduleMap[1].sourceInfoPath!.path.description, "B.swiftsourceinfo")
     XCTAssertEqual(moduleMap[1].isFramework, false)
   }
 }

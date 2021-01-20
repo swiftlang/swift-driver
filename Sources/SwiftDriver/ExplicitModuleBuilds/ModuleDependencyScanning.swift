@@ -62,7 +62,8 @@ extension Driver {
     for (moduleId, binaryModulePath) in externalTargetModulePathMap {
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: binaryModulePath.description))
+                                  modulePath: TextualVirtualPath(path:
+                                                    .absolute(binaryModulePath))))
     }
 
     // All other already-scanned Swift modules
