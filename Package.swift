@@ -69,7 +69,7 @@ let package = Package(
     /// The help executable.
     .target(
       name: "swift-help",
-      dependencies: ["SwiftOptions", "ArgumentParser"]),
+      dependencies: ["SwiftOptions", "ArgumentParser", "SwiftToolsSupport-auto"]),
 
     /// The `makeOptions` utility (for importing option definitions).
     .target(

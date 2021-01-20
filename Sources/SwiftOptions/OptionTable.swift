@@ -72,8 +72,5 @@ extension OptionTable {
         print("  \(leftPadding) \(helpText)")
       }
     }
-    if let seeAlsoMessage = driverKind.seeAlsoHelpMessage {
-      print("\n\(seeAlsoMessage)")
-    }
   }
 }

@@ -201,7 +201,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(helpJob.kind == .help)
       XCTAssertTrue(helpJob.requiresInPlaceExecution)
       XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
-      let expected: [Job.ArgTemplate] = [.flag("-tool=swift")]
+      let expected: [Job.ArgTemplate] = [.flag("swift")]
       XCTAssertEqual(helpJob.commandLine, expected)
     }
 
@@ -213,7 +213,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(helpJob.kind == .help)
       XCTAssertTrue(helpJob.requiresInPlaceExecution)
       XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
-      let expected: [Job.ArgTemplate] = [.flag("-tool=swiftc"), .flag("-show-hidden")]
+      let expected: [Job.ArgTemplate] = [.flag("swiftc"), .flag("-show-hidden")]
       XCTAssertEqual(helpJob.commandLine, expected)
     }
   }
