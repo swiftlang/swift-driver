@@ -565,6 +565,7 @@ extension IncrementalCompilationState {
           return Array(skippedCompileGroups.keys)
         }
       )
+      .subtracting(job.primaryInputs) // have already compiled these
     )
     .sorted {$0.file.name < $1.file.name}
   }
