@@ -23,10 +23,10 @@ public struct BuildRecord {
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
-  public init(  argsHash: String?,
-                swiftVersion: String,
-                buildTime: Date,
-                inputInfos: [VirtualPath: InputInfo]) {
+  public init(argsHash: String?,
+              swiftVersion: String,
+              buildTime: Date,
+              inputInfos: [VirtualPath: InputInfo]) {
     self.argsHash = argsHash
     self.swiftVersion = swiftVersion
     self.buildTime = buildTime
@@ -34,11 +34,10 @@ public struct BuildRecord {
   }
 
   private enum SectionName: String, CaseIterable {
-  case
-    swiftVersion = "version",
-    argsHash = "options",
-    buildTime = "build_time",
-    inputInfos = "inputs"
+    case swiftVersion = "version"
+    case argsHash = "options"
+    case buildTime = "build_time"
+    case inputInfos = "inputs"
 
     var serializedName: String { rawValue }
   }
