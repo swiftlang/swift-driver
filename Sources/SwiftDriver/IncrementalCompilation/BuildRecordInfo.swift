@@ -35,7 +35,10 @@ struct JobResult {
   let compilationInputModificationDates: [TypedVirtualPath: Date]
 
   private var finishedJobResults = [JobResult]()
-  private let finishedJobResultsSema = DispatchSemaphore(value: 1)
+  // A confinement queue that protects concurrent access to the
+  // `finishedJobResults` array.
+  // FIXME: Use an actor when possible.
+  private let confinementQueue = DispatchQueue(label: "com.apple.swift-driver.jobresults")
 
   init?(
     actualSwiftVersion: String,
@@ -123,7 +126,7 @@ struct JobResult {
     preservePreviousBuildRecord(absPath)
     
 
-    let buildRecord = serializingFinishedJobsResults {
+    let buildRecord = self.confinementQueue.sync {
       BuildRecord(
         jobs: jobs,
         finishedJobResults: finishedJobResults,
@@ -204,15 +207,9 @@ struct JobResult {
   }
 
   func jobFinished(job: Job, result: ProcessResult) {
-    serializingFinishedJobsResults {
+    self.confinementQueue.sync {
       finishedJobResults.append(JobResult(job, result))
     }
-  }
-  
-  private func serializingFinishedJobsResults<R>(_ fn: () -> R) -> R {
-    finishedJobResultsSema.wait()
-    defer { finishedJobResultsSema.signal() }
-    return fn()
   }
 }
 
