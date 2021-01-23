@@ -23,7 +23,9 @@ struct JobResult {
   }
 }
 
-/// Holds information required to read and write the build record (aka compilation record)
+/// Holds information required to read and write the build record (aka
+/// compilation record).
+///
 /// This info is always written, but only read for incremental compilation.
 final class BuildRecordInfo {
   let buildRecordPath: VirtualPath
