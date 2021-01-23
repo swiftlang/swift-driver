@@ -14,20 +14,25 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
-struct JobResult {
-  let j: Job
-  let result: ProcessResult
-  init(_ j: Job, _ result: ProcessResult) {
-    self.j = j
-    self.result = result
-  }
-}
-
 /// Holds information required to read and write the build record (aka
 /// compilation record).
 ///
 /// This info is always written, but only read for incremental compilation.
 final class BuildRecordInfo {
+  /// A pair of a `Job` and the `ProcessResult` corresponding to the outcome of
+  /// its execution during this compilation session.
+  struct JobResult {
+    /// The job that was executed.
+    var job: Job
+    /// The result of executing the associated `job`.
+    var result: ProcessResult
+
+    init(_ j: Job, _ result: ProcessResult) {
+      self.job = j
+      self.result = result
+    }
+  }
+
   let buildRecordPath: VirtualPath
   let fileSystem: FileSystem
   let currentArgsHash: String

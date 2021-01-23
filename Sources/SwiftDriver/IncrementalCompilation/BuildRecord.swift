@@ -177,7 +177,7 @@ public extension BuildRecord {
 extension BuildRecord {
   /// Create a new buildRecord for writing
   init(jobs: [Job],
-       finishedJobResults: [JobResult],
+       finishedJobResults: [BuildRecordInfo.JobResult],
        skippedInputs: Set<TypedVirtualPath>?,
        compilationInputModificationDates: [TypedVirtualPath: Date],
        actualSwiftVersion: String,
@@ -186,7 +186,7 @@ extension BuildRecord {
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
       finishedJobResults.flatMap { entry in
-        entry.j.inputsGeneratingCode.map { ($0, entry.result) }
+        entry.job.inputsGeneratingCode.map { ($0, entry.result) }
     })
     let inputInfosArray = compilationInputModificationDates
       .map { input, modDate -> (VirtualPath, InputInfo) in
