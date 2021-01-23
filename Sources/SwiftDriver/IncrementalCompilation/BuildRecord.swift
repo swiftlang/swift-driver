@@ -23,10 +23,10 @@ public struct BuildRecord {
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
-  public init(  argsHash: String?,
-                swiftVersion: String,
-                buildTime: Date,
-                inputInfos: [VirtualPath: InputInfo]) {
+  public init(argsHash: String?,
+              swiftVersion: String,
+              buildTime: Date,
+              inputInfos: [VirtualPath: InputInfo]) {
     self.argsHash = argsHash
     self.swiftVersion = swiftVersion
     self.buildTime = buildTime
@@ -34,17 +34,16 @@ public struct BuildRecord {
   }
 
   private enum SectionName: String, CaseIterable {
-  case
-    swiftVersion = "version",
-    argsHash = "options",
-    buildTime = "build_time",
-    inputInfos = "inputs"
+    case swiftVersion = "version"
+    case argsHash = "options"
+    case buildTime = "build_time"
+    case inputInfos = "inputs"
 
     var serializedName: String { rawValue }
   }
 
   var allInputs: Set<VirtualPath> {
-    Set( inputInfos.map {$0.key} )
+    Set(inputInfos.map { $0.key })
   }
 }
 
@@ -177,7 +176,7 @@ public extension BuildRecord {
 extension BuildRecord {
   /// Create a new buildRecord for writing
   init(jobs: [Job],
-       finishedJobResults: [JobResult],
+       finishedJobResults: [BuildRecordInfo.JobResult],
        skippedInputs: Set<TypedVirtualPath>?,
        compilationInputModificationDates: [TypedVirtualPath: Date],
        actualSwiftVersion: String,
@@ -186,7 +185,7 @@ extension BuildRecord {
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
       finishedJobResults.flatMap { entry in
-        entry.j.inputsGeneratingCode.map { ($0, entry.result) }
+        entry.job.inputsGeneratingCode.map { ($0, entry.result) }
     })
     let inputInfosArray = compilationInputModificationDates
       .map { input, modDate -> (VirtualPath, InputInfo) in
@@ -229,8 +228,7 @@ extension BuildRecord {
       return try Yams.serialize(node: buildRecordNode,
                                 width: -1,
                                 sortKeys: false)
-    }
-    catch {
+    } catch {
       diagnosticEngine.emit(.warning_could_not_serialize_build_record(error))
       return nil
     }

@@ -96,8 +96,7 @@ extension DriverExecutor {
 
     do {
       return try JSONDecoder().decode(outputType, from: outputData)
-    }
-    catch let err as DecodingError {
+    } catch let err as DecodingError {
       throw JobExecutionError.decodingError(err, outputData, result)
     }
   }

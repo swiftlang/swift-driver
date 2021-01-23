@@ -14,18 +14,25 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
-struct JobResult {
-  let j: Job
-  let result: ProcessResult
-  init(_ j: Job, _ result: ProcessResult) {
-    self.j = j
-    self.result = result
-  }
-}
-
-/// Holds information required to read and write the build record (aka compilation record)
+/// Holds information required to read and write the build record (aka
+/// compilation record).
+///
 /// This info is always written, but only read for incremental compilation.
- class BuildRecordInfo {
+final class BuildRecordInfo {
+  /// A pair of a `Job` and the `ProcessResult` corresponding to the outcome of
+  /// its execution during this compilation session.
+  struct JobResult {
+    /// The job that was executed.
+    var job: Job
+    /// The result of executing the associated `job`.
+    var result: ProcessResult
+
+    init(_ j: Job, _ result: ProcessResult) {
+      self.job = j
+      self.result = result
+    }
+  }
+
   let buildRecordPath: VirtualPath
   let fileSystem: FileSystem
   let currentArgsHash: String
@@ -142,8 +149,7 @@ struct JobResult {
     do {
       try fileSystem.writeFileContents(absPath,
                                        bytes: ByteString(encodingAsUTF8: contents))
-    }
-    catch {
+    } catch {
       diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
     }
  }
@@ -168,8 +174,7 @@ struct JobResult {
     let contents: String
     do {
       contents = try fileSystem.readFileContents(buildRecordPath).cString
-     }
-    catch {
+     } catch {
       reportIncrementalDecision("Incremental compilation could not read build record at \(buildRecordPath)")
       reportDisablingIncrementalBuild("could not read build record")
       return nil
@@ -193,7 +198,7 @@ struct JobResult {
       reportDisablingIncrementalBuild(why)
       return nil
     }
-    guard outOfDateBuildRecord.argsHash.map({$0 == currentArgsHash}) ?? true else {
+    guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true else {
       let why = "different arguments were passed to the compiler"
       // mimic legacy
       reportIncrementalCompilationHasBeenDisabled(" because " + why)
