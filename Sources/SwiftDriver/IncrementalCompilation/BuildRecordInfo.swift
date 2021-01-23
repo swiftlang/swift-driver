@@ -149,8 +149,7 @@ final class BuildRecordInfo {
     do {
       try fileSystem.writeFileContents(absPath,
                                        bytes: ByteString(encodingAsUTF8: contents))
-    }
-    catch {
+    } catch {
       diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
     }
  }
@@ -175,8 +174,7 @@ final class BuildRecordInfo {
     let contents: String
     do {
       contents = try fileSystem.readFileContents(buildRecordPath).cString
-     }
-    catch {
+     } catch {
       reportIncrementalDecision("Incremental compilation could not read build record at \(buildRecordPath)")
       reportDisablingIncrementalBuild("could not read build record")
       return nil
@@ -200,7 +198,7 @@ final class BuildRecordInfo {
       reportDisablingIncrementalBuild(why)
       return nil
     }
-    guard outOfDateBuildRecord.argsHash.map({$0 == currentArgsHash}) ?? true else {
+    guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true else {
       let why = "different arguments were passed to the compiler"
       // mimic legacy
       reportIncrementalCompilationHasBeenDisabled(" because " + why)

@@ -43,7 +43,7 @@ public struct BuildRecord {
   }
 
   var allInputs: Set<VirtualPath> {
-    Set( inputInfos.map {$0.key} )
+    Set(inputInfos.map { $0.key })
   }
 }
 
@@ -228,8 +228,7 @@ extension BuildRecord {
       return try Yams.serialize(node: buildRecordNode,
                                 width: -1,
                                 sortKeys: false)
-    }
-    catch {
+    } catch {
       diagnosticEngine.emit(.warning_could_not_serialize_build_record(error))
       return nil
     }
