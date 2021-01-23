@@ -167,23 +167,21 @@ final class BuildRecordInfo {
 // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
   func populateOutOfDateBuildRecord(
     inputFiles: [TypedVirtualPath],
-    reportIncrementalDecision: (String) -> Void,
-    reportDisablingIncrementalBuild: (String) -> Void,
-    reportIncrementalCompilationHasBeenDisabled: (String) -> Void
+    reporter: IncrementalCompilationState.Reporter?
   ) -> BuildRecord? {
     let contents: String
     do {
       contents = try fileSystem.readFileContents(buildRecordPath).cString
      } catch {
-      reportIncrementalDecision("Incremental compilation could not read build record at \(buildRecordPath)")
-      reportDisablingIncrementalBuild("could not read build record")
+      reporter?.report("Incremental compilation could not read build record at \(buildRecordPath)")
+      reporter?.reportDisablingIncrementalBuild("could not read build record")
       return nil
     }
     func failedToReadOutOfDateMap(_ reason: String? = nil) {
       let why = "malformed build record file\(reason.map {" " + $0} ?? "")"
-      reportIncrementalDecision(
+      reporter?.report(
         "Incremental compilation has been disabled due to \(why) '\(buildRecordPath)'")
-        reportDisablingIncrementalBuild(why)
+      reporter?.reportDisablingIncrementalBuild(why)
     }
     guard let outOfDateBuildRecord = BuildRecord(contents: contents,
                                                  failedToReadOutOfDateMap: failedToReadOutOfDateMap)
@@ -194,15 +192,15 @@ final class BuildRecordInfo {
     else {
       let why = "compiler version mismatch. Compiling with: \(actualSwiftVersion). Previously compiled with: \(outOfDateBuildRecord.swiftVersion)"
       // mimic legacy
-      reportIncrementalCompilationHasBeenDisabled("due to a " + why)
-      reportDisablingIncrementalBuild(why)
+      reporter?.reportIncrementalCompilationHasBeenDisabled("due to a " + why)
+      reporter?.reportDisablingIncrementalBuild(why)
       return nil
     }
     guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true else {
       let why = "different arguments were passed to the compiler"
       // mimic legacy
-      reportIncrementalCompilationHasBeenDisabled(" because " + why)
-      reportDisablingIncrementalBuild(why)
+      reporter?.reportIncrementalCompilationHasBeenDisabled(" because " + why)
+      reporter?.reportDisablingIncrementalBuild(why)
       return nil
     }
     return outOfDateBuildRecord

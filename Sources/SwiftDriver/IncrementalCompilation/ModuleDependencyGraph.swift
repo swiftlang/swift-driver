@@ -31,19 +31,19 @@ import SwiftOptions
   
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
-  let reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+  let reporter: IncrementalCompilationState.Reporter?
   
   private let diagnosticEngine: DiagnosticsEngine
   
   public init(
     diagnosticEngine: DiagnosticsEngine,
-    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?,
+    reporter: IncrementalCompilationState.Reporter?,
     emitDependencyDotFileAfterEveryImport: Bool,
     verifyDependencyGraphAfterEveryImport: Bool)
   {
     self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
     self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
-    self.reportIncrementalDecision = reportIncrementalDecision
+    self.reporter = reporter
     self.diagnosticEngine = diagnosticEngine
   }
 }
@@ -59,15 +59,15 @@ extension ModuleDependencyGraph {
     outputFileMap: OutputFileMap?,
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
-    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+    reporter: IncrementalCompilationState.Reporter?
   ) -> (ModuleDependencyGraph, inputsWithMalformedSwiftDeps: [(TypedVirtualPath, VirtualPath)])?
   where Inputs.Element == TypedVirtualPath
   {
     let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
     let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
-    let graph = Self (
+    let graph = Self(
       diagnosticEngine: diagnosticEngine,
-      reportIncrementalDecision: reportIncrementalDecision,
+      reporter: reporter,
       emitDependencyDotFileAfterEveryImport: parsedOptions.contains(emitOpt),
       verifyDependencyGraphAfterEveryImport: parsedOptions.contains(veriOpt))
 
@@ -99,7 +99,7 @@ extension ModuleDependencyGraph {
       let changes = Integrator.integrate(swiftDeps: swiftDeps,
                                          into: graph,
                                          input: input,
-                                         reportIncrementalDecision: reportIncrementalDecision,
+                                         reporter: reporter,
                                          diagnosticEngine: diagnosticEngine)
       return changes == nil ? (input, swiftDepsFile) : nil
     }
@@ -111,8 +111,7 @@ extension ModuleDependencyGraph {
   /// Find all the sources that depend on `sourceFile`. For some source files, these will be
   /// speculatively scheduled in the first wave.
   func findDependentSourceFiles(
-    of sourceFile: TypedVirtualPath,
-    _ reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+    of sourceFile: TypedVirtualPath
   ) -> [TypedVirtualPath] {
     var allSwiftDepsToRecompile = Set<SwiftDeps>()
 
@@ -125,9 +124,9 @@ extension ModuleDependencyGraph {
       }
     }
     return allSwiftDepsToRecompile.map {
-     let dependentSource = sourceSwiftDepsMap[$0]
-      reportIncrementalDecision?(
-        "Found dependent of \(sourceFile.file.basename):", dependentSource)
+      let dependentSource = sourceSwiftDepsMap[$0]
+      self.reporter?.report(
+        "Found dependent of \(sourceFile.file.basename):", path: dependentSource)
       return dependentSource
     }
   }
@@ -152,9 +151,7 @@ extension ModuleDependencyGraph {
   ) -> [TypedVirtualPath]? {
     findSourcesToCompileAfterIntegrating(
       input: source,
-      swiftDeps: sourceSwiftDepsMap[source],
-      reportIncrementalDecision: reportIncrementalDecision
-    )
+      swiftDeps: sourceSwiftDepsMap[source])
   }
 
   /// After a compile job has finished, read its swiftDeps file and return the source files needing
@@ -162,13 +159,12 @@ extension ModuleDependencyGraph {
   /// Return nil in case of an error.
   private func findSourcesToCompileAfterIntegrating(
     input: TypedVirtualPath,
-    swiftDeps: SwiftDeps,
-    reportIncrementalDecision: ((String, TypedVirtualPath) -> Void)?
+    swiftDeps: SwiftDeps
   ) -> [TypedVirtualPath]? {
     Integrator.integrate(swiftDeps: swiftDeps,
                          into: self,
                          input: input,
-                         reportIncrementalDecision: reportIncrementalDecision,
+                         reporter: self.reporter,
                          diagnosticEngine: diagnosticEngine)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
