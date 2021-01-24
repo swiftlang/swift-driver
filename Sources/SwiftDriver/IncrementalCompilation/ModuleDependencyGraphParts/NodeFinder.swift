@@ -34,10 +34,11 @@ extension ModuleDependencyGraph {
     /// source file.)
     
     /// Tracks def-use relationships by DependencyKey.
-    private(set)var usesByDef = Multidictionary<DependencyKey, Node>()
+    private(set) var usesByDef = Multidictionary<DependencyKey, Node>()
   }
 }
 // MARK: - finding
+
 extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(forMock swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) -> Graph.Node?  {
@@ -58,34 +59,33 @@ extension ModuleDependencyGraph.NodeFinder {
   func findNodes(for key: DependencyKey) -> [Graph.SwiftDeps?: Graph.Node]? {
     nodeMap[key]
   }
-  
-  func forEachUse(of def: Graph.Node, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
-    func fnVerifyingSwiftDeps(_ use: Graph.Node) {
-      fn(use, useMustHaveSwiftDeps(use))
+
+  func uses(of def: Graph.Node) -> [(Graph.Node, Graph.SwiftDeps)] {
+    var uses = usesByDef[def.dependencyKey, default: Set()].values
+    if let impl = findCorrespondingImplementation(of: def) {
+      uses.insert(impl)
     }
-    usesByDef[def.dependencyKey].map {
-      $0.values.forEach(fnVerifyingSwiftDeps)
+    return uses.map { next in
+      (next, self.useMustHaveSwiftDeps(next))
     }
-    // Add in implicit interface->implementation dependency
-    findCorrespondingImplementation(of: def)
-      .map(fnVerifyingSwiftDeps)
   }
 
-  func forEachUseInOrder(of def: Graph.Node, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
-    var uses = [(Graph.Node, Graph.SwiftDeps)]()
-    forEachUse(of: def) {
-      uses.append(($0, $1))
+  func orderedUses(of def: Graph.Node) -> [(Graph.Node, Graph.SwiftDeps)] {
+    var uses = usesByDef[def.dependencyKey, default: Set()].values
+    if let impl = findCorrespondingImplementation(of: def) {
+      uses.insert(impl)
     }
-    uses.sorted {$0.0 < $1.0} .forEach { fn($0.0, $0.1) }
+    return uses.sorted().map { next in
+      (next, self.useMustHaveSwiftDeps(next))
+    }
   }
 
-  func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)]
-  {
-    nodeMap.compactMap {
-      k, _ in
-      k.0 == n.swiftDeps && k.1 == n.dependencyKey
-        ? k
-        : nil
+  func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)] {
+    nodeMap.compactMap { k, _ in
+      guard k.0 == n.swiftDeps && k.1 == n.dependencyKey else {
+        return nil
+      }
+      return k
     }
   }
   

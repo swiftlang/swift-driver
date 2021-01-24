@@ -407,11 +407,11 @@ extension IncrementalCompilationState {
         try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
-        moduleDependencyGraph.forEachUntracedSwiftDepsDirectlyDependent(on: extDep) {
+        for (_, dependent) in moduleDependencyGraph.untracedDependents(of: extDep) {
           reporter?.report(
             "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            path: TypedVirtualPath(file: $0.file, type: .swiftDeps))
-          externallyDependentSwiftDeps.insert($0)
+            path: TypedVirtualPath(file: dependent.file, type: .swiftDeps))
+          externallyDependentSwiftDeps.insert(dependent)
         }
       }
     }
