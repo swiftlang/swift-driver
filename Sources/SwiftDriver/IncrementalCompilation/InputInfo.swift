@@ -12,9 +12,17 @@
 import Foundation
 import TSCBasic
 
+/// Contains information about the current status of an input to the incremental
+/// build.
+///
+/// This is as opposed to information derived from the build record, which
+/// from our perspective only records informatiuon about inputs that were known
+/// to the driver in the past.
 /*@_spi(Testing)*/ public struct InputInfo: Equatable {
 
+  /// The current status of the input file.
   /*@_spi(Testing)*/ public let status: Status
+  /// The last known modification time of this input.
   /*@_spi(Testing)*/ public let previousModTime: Date
 
   /*@_spi(Testing)*/ public init(status: Status, previousModTime: Date) {
@@ -24,11 +32,24 @@ import TSCBasic
 }
 
 /*@_spi(Testing)*/ public extension InputInfo {
+  /// The status of an input known to the driver. These are used to affect
+  /// the scheduling decisions made during an incremental build.
+  ///
+  /// - Note: The order of cases matters. They are ordered from least to
+  ///         greatest impact on the incremental build schedule.
   enum Status: Equatable {
-    case upToDate,
-         needsCascadingBuild,
-         needsNonCascadingBuild,
-         newlyAdded
+    /// The input to this job is up to date.
+    case upToDate
+    /// The input to this job has changed in a way that requires this job to
+    /// be rerun, but not in such a way that it requires a cascading rebuild.
+    case needsNonCascadingBuild
+    /// The input to this job has changed in a way that requires this job to
+    /// be rerun, and in such a way that all jobs dependent upon this one
+    /// must be scheduled as well.
+    case needsCascadingBuild
+    /// The input to this job was not known to the driver when it was last
+    /// run.
+    case newlyAdded
   }
 }
 
