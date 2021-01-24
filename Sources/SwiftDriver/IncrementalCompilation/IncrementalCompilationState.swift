@@ -435,40 +435,10 @@ extension IncrementalCompilationState {
     alwaysRebuildDependents: Bool,
     reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
-    // Collect the files that will be compiled whose dependents should be schedule
-    let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap { changedInput in
-      let basename = changedInput.filePath.file.basename
-      switch (changedInput.status, alwaysRebuildDependents,
-              changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.filePath)) {
-
-       case (_, true, false):
-        reporter?.report(
-          "scheduling dependents of \(basename); -driver-always-rebuild-dependents")
-        return changedInput.filePath
-      case(_, true, true):
-        reporter?.report(
-          "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date")
-        return nil
-
-      case (.needsCascadingBuild, false, _):
-        reporter?.report(
-          "scheduling dependents of \(basename); needed cascading build")
-        return changedInput.filePath
-
-      case (.upToDate, false, _): // was up to date, but changed
-        reporter?.report(
-          "not scheduling dependents of \(basename); unknown changes")
-        return nil
-       case (.newlyAdded, false, _):
-        reporter?.report(
-          "not scheduling dependents of \(basename): no entry in build record or dependency graph")
-        return nil
-      case (.needsNonCascadingBuild, false, _):
-        reporter?.report(
-          "not scheduling dependents of \(basename): does not need cascading build")
-        return nil
-      }
-    }
+    let cascadingChangedInputs = Self.computeCascadingChangedInputs(from: changedInputs,
+                                                                    inputsMissingOutputs: inputsMissingOutputs,
+                                                                    alwaysRebuildDependents: alwaysRebuildDependents,
+                                                                    reporter: reporter)
     let cascadingExternalDependents = alwaysRebuildDependents ? externalDependents : []
     // Collect the dependent files to speculatively schedule
     var dependentFiles = Set<TypedVirtualPath>()
@@ -484,6 +454,53 @@ extension IncrementalCompilationState {
       }
     }
     return dependentFiles
+  }
+
+  // Collect the files that will be compiled whose dependents should be schedule
+  private static func computeCascadingChangedInputs(
+    from changedInputs: [ChangedInput],
+    inputsMissingOutputs: Set<TypedVirtualPath>,
+    alwaysRebuildDependents: Bool,
+    reporter: IncrementalCompilationState.Reporter?
+  ) -> [TypedVirtualPath] {
+    changedInputs.compactMap { changedInput in
+      let inputIsUpToDate =
+        changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.filePath)
+      let basename = changedInput.filePath.file.basename
+
+      // If we're asked to always rebuild dependents, all we need to do is
+      // return inputs whose modification times have changed.
+      guard !alwaysRebuildDependents else {
+        if inputIsUpToDate {
+          reporter?.report(
+            "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date")
+          return nil
+        } else {
+          reporter?.report(
+            "scheduling dependents of \(basename); -driver-always-rebuild-dependents")
+          return changedInput.filePath
+        }
+      }
+
+      switch changedInput.status {
+      case .needsCascadingBuild:
+        reporter?.report(
+          "scheduling dependents of \(basename); needed cascading build")
+        return changedInput.filePath
+      case .upToDate:
+        reporter?.report(
+          "not scheduling dependents of \(basename); unknown changes")
+        return nil
+       case .newlyAdded:
+        reporter?.report(
+          "not scheduling dependents of \(basename): no entry in build record or dependency graph")
+        return nil
+      case .needsNonCascadingBuild:
+        reporter?.report(
+          "not scheduling dependents of \(basename): does not need cascading build")
+        return nil
+      }
+    }
   }
 }
 
