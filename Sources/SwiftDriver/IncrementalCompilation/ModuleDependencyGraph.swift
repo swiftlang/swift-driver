@@ -157,6 +157,7 @@ extension ModuleDependencyGraph {
   /// After a compile job has finished, read its swiftDeps file and return the source files needing
   /// recompilation.
   /// Return nil in case of an error.
+  /// May return a source that has already been compiled.
   private func findSourcesToCompileAfterIntegrating(
     input: TypedVirtualPath,
     swiftDeps: SwiftDeps
@@ -168,7 +169,6 @@ extension ModuleDependencyGraph {
                          diagnosticEngine: diagnosticEngine)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
-          .subtracting([swiftDeps])
           .map {sourceSwiftDepsMap[$0]}
       }
   }
