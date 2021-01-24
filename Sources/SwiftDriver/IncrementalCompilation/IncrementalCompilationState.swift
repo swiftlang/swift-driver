@@ -13,12 +13,11 @@ import TSCBasic
 import Foundation
 import SwiftOptions
 public class IncrementalCompilationState {
-
   /// The oracle for deciding what depends on what. Applies to this whole module.
   private let moduleDependencyGraph: ModuleDependencyGraph
 
   /// If non-null outputs information for `-driver-show-incremental` for input path
-  public let reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+  private let reporter: Reporter?
 
   /// All of the pre-compile or compilation job (groups) known to be required (i.e. in 1st wave).
   /// Already batched, and in order of input files.
@@ -37,7 +36,7 @@ public class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
-  private let getJobsDiscoveredToBeNeededAfterFinishingSema = DispatchSemaphore(value: 1)
+  private let confinementQueue = DispatchQueue(label: "com.apple.swift-driver.IncrementalCompilationState")
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
@@ -50,14 +49,16 @@ public class IncrementalCompilationState {
       return nil
     }
 
-    let reportIncrementalDecision = driver.computeReportIncrementalDecision()
+    if driver.parsedOptions.hasArgument(.driverShowIncremental) || driver.showJobLifecycle {
+      self.reporter = Reporter(diagnosticEngine: driver.diagnosticEngine,
+                               outputFileMap: driver.outputFileMap)
+    } else {
+      self.reporter = nil
+    }
+
 
     guard let (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
-            = try driver.getBuildInfo(
-              reportIncrementalDecision.map {
-                report in {report($0, nil)}
-              }
-            )
+            = try driver.getBuildInfo(self.reporter)
     else {
       return nil
     }
@@ -69,7 +70,7 @@ public class IncrementalCompilationState {
               outOfDateBuildRecord,
               outputFileMap,
               &driver,
-              reportIncrementalDecision)
+              self.reporter)
     else {
       return nil
     }
@@ -82,12 +83,11 @@ public class IncrementalCompilationState {
       outOfDateBuildRecord,
       inputsHavingMalformedSwiftDeps: inputsHavingMalformedSwiftDeps,
       moduleDependencyGraph,
-      reportIncrementalDecision)
+      self.reporter)
 
     self.unfinishedJobs = Set(self.mandatoryJobsInOrder)
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = moduleDependencyGraph
-    self.reportIncrementalDecision = reportIncrementalDecision
     self.driver = driver
   }
 
@@ -97,7 +97,7 @@ public class IncrementalCompilationState {
     _ outOfDateBuildRecord: BuildRecord,
     _ outputFileMap: OutputFileMap,
     _ driver: inout Driver,
-    _ reportIncrementalDecision: ( (String, TypedVirtualPath?) -> Void )?
+    _ reporter: Reporter?
   )
   -> (ModuleDependencyGraph, inputsHavingMalformedSwiftDeps: [TypedVirtualPath])?
   {
@@ -110,7 +110,7 @@ public class IncrementalCompilationState {
               outputFileMap: outputFileMap,
               parsedOptions: &driver.parsedOptions,
               remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
-              reportIncrementalDecision: reportIncrementalDecision)
+              reporter: reporter)
     else {
       return nil
     }
@@ -135,11 +135,9 @@ public class IncrementalCompilationState {
     _ outOfDateBuildRecord: BuildRecord,
     inputsHavingMalformedSwiftDeps: [TypedVirtualPath],
     _ moduleDependencyGraph: ModuleDependencyGraph,
-    _ reportIncrementalDecision: ( (String, TypedVirtualPath?) -> Void )?
-  )
-  throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
-      mandatoryJobsInOrder: [Job]
-      )
+    _ reporter: Reporter?
+  ) throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+               mandatoryJobsInOrder: [Job])
   {
     let compileGroups =
       Dictionary( uniqueKeysWithValues:
@@ -153,7 +151,7 @@ public class IncrementalCompilationState {
       moduleDependencyGraph: moduleDependencyGraph,
       outOfDateBuildRecord: outOfDateBuildRecord,
       alwaysRebuildDependents: driver.parsedOptions.contains(.driverAlwaysRebuildDependents),
-      reportIncrementalDecision: reportIncrementalDecision)
+      reporter: reporter)
 
     let skippedCompileGroups = compileGroups.filter {skippedInputs.contains($0.key)}
 
@@ -196,66 +194,30 @@ fileprivate extension Driver {
     return true
   }
 
-
-  mutating func computeReportIncrementalDecision(
-  ) -> ( (String, TypedVirtualPath?) -> Void )?
-  {
-    guard parsedOptions.hasArgument(.driverShowIncremental) || showJobLifecycle
-    else {
-      return nil
-    }
-     return {  [diagnosticEngine, outputFileMap] (s: String, path: TypedVirtualPath?) in
-      guard let outputFileMap = outputFileMap,
-            let path = path,
-            let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
-      else {
-        diagnosticEngine.emit(.remark_incremental_compilation(because: s))
-        return
-      }
-      let output = outputFileMap.getOutput(inputFile: path.file, outputType: .object)
-      let compiling = " {compile: \(output.basename) <= \(input.basename)}"
-      diagnosticEngine.emit(.remark_incremental_compilation(because: "\(s) \(compiling)"))
-    }
-  }
-
-
   /// Decide if an incremental compilation is possible, and return needed values if so.
   func getBuildInfo(
-    _ reportIncrementalDecision: ( (String) -> Void)? )
-  throws -> ( OutputFileMap, BuildRecordInfo, BuildRecord )?
-  {
+    _ reporter: IncrementalCompilationState.Reporter?
+  ) throws -> (OutputFileMap, BuildRecordInfo, BuildRecord)? {
     guard let outputFileMap = outputFileMap
     else {
       diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
       return nil
     }
-    func reportDisablingIncrementalBuild(_ why: String) {
-      guard let report = reportIncrementalDecision else { return }
-      report("Disabling incremental build: \(why)")
-    }
-    func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
-      guard let report = reportIncrementalDecision else { return }
-      report("Incremental compilation has been disabled, \(why)")
-    }
     guard let buildRecordInfo = buildRecordInfo else {
-      reportDisablingIncrementalBuild("no build record path")
+      reporter?.reportDisablingIncrementalBuild("no build record path")
       return nil
     }
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
-    guard  let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
-      inputFiles: inputFiles,
-      reportIncrementalDecision: reportIncrementalDecision ?? {_ in },
-      reportDisablingIncrementalBuild: reportDisablingIncrementalBuild,
-      reportIncrementalCompilationHasBeenDisabled: reportIncrementalCompilationHasBeenDisabled
-    )
+    guard let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
+            inputFiles: inputFiles, reporter: reporter)
     else {
       return nil
     }
-    if let report = reportIncrementalDecision {
+    if let reporter = reporter {
       let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(inputFiles.map {$0.file})
       guard missingInputs.isEmpty else {
-        report(
+        reporter.report(
           "Incremental compilation has been disabled, " +
           " because  the following inputs were used in the previous compilation but not in this one: "
             + missingInputs.map {$0.basename} .joined(separator: ", "))
@@ -311,7 +273,7 @@ extension IncrementalCompilationState {
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     alwaysRebuildDependents: Bool,
-    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+    reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
     let changedInputs: [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)] =
       computeChangedInputs(
@@ -320,13 +282,13 @@ extension IncrementalCompilationState {
         moduleDependencyGraph: moduleDependencyGraph,
         outOfDateBuildRecord: outOfDateBuildRecord,
         fileSystem: fileSystem,
-        reportIncrementalDecision: reportIncrementalDecision)
+        reporter: reporter)
 
     let externalDependents = computeExternallyDependentInputs(
       buildTime: outOfDateBuildRecord.buildTime,
       fileSystem: fileSystem,
       moduleDependencyGraph: moduleDependencyGraph,
-      reportIncrementalDecision: reportIncrementalDecision)
+      reporter: moduleDependencyGraph.reporter)
 
     let inputsMissingOutputs = allGroups.compactMap {
       $0.outputs.contains {(try? !fileSystem.exists($0.file)) ?? true}
@@ -339,9 +301,9 @@ extension IncrementalCompilationState {
       Set(changedInputs.map {$0.0} + externalDependents +
             inputsHavingMalformedSwiftDeps
             + inputsMissingOutputs)
-    if let report = reportIncrementalDecision {
+    if let reporter = reporter {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        report("Queuing (initial):", scheduledInput)
+        reporter.report("Queuing (initial):", path: scheduledInput)
       }
     }
 
@@ -355,21 +317,21 @@ extension IncrementalCompilationState {
       inputsMissingOutputs: Set(inputsMissingOutputs),
       moduleDependencyGraph: moduleDependencyGraph,
       alwaysRebuildDependents: alwaysRebuildDependents,
-      reportIncrementalDecision: reportIncrementalDecision)
+      reporter: reporter)
       .subtracting(definitelyRequiredInputs)
 
-    if let report = reportIncrementalDecision {
+    if let reporter = reporter {
       for dependent in speculativeInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        report("Queuing because of the initial set:", dependent)
+        reporter.report("Queuing because of the initial set:", path: dependent)
       }
     }
     let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs)
 
     let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(immediatelyCompiledInputs)
-    if let report = reportIncrementalDecision {
+    if let reporter = reporter {
       for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
-        report("Skipping input:", skippedInput)
+        reporter.report("Skipping input:", path: skippedInput)
       }
     }
     return skippedInputs
@@ -382,7 +344,7 @@ extension IncrementalCompilationState {
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     fileSystem: FileSystem,
-    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+    reporter: IncrementalCompilationState.Reporter?
   ) -> [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)] {
     groups.compactMap { group in
       let input = group.primaryInput
@@ -402,17 +364,17 @@ extension IncrementalCompilationState {
       switch previousCompilationStatus {
 
       case .upToDate where datesMatch:
-        reportIncrementalDecision?("May skip current input:", input)
+        reporter?.report("May skip current input:", path: input)
         return nil
 
       case .upToDate:
-        reportIncrementalDecision?("Scheduing changed input", input)
+        reporter?.report("Scheduing changed input", path: input)
       case .newlyAdded:
-        reportIncrementalDecision?("Scheduling new", input)
+        reporter?.report("Scheduling new", path: input)
       case .needsCascadingBuild:
-        reportIncrementalDecision?("Scheduling cascading build", input)
+        reporter?.report("Scheduling cascading build", path: input)
       case .needsNonCascadingBuild:
-        reportIncrementalDecision?("Scheduling noncascading build", input)
+        reporter?.report("Scheduling noncascading build", path: input)
       }
       return (input, previousCompilationStatus, datesMatch)
     }
@@ -424,7 +386,7 @@ extension IncrementalCompilationState {
     buildTime: Date,
     fileSystem: FileSystem,
     moduleDependencyGraph: ModuleDependencyGraph,
-    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
+    reporter: IncrementalCompilationState.Reporter?
  ) -> [TypedVirtualPath] {
     var externallyDependentSwiftDeps = Set<ModuleDependencyGraph.SwiftDeps>()
     for extDep in moduleDependencyGraph.externalDependencies {
@@ -433,9 +395,9 @@ extension IncrementalCompilationState {
         ?? Date.distantFuture
       if extModTime >= buildTime {
         moduleDependencyGraph.forEachUntracedSwiftDepsDirectlyDependent(on: extDep) {
-          reportIncrementalDecision?(
+          reporter?.report(
             "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            TypedVirtualPath(file: $0.file, type: .swiftDeps))
+            path: TypedVirtualPath(file: $0.file, type: .swiftDeps))
           externallyDependentSwiftDeps.insert($0)
         }
       }
@@ -455,8 +417,8 @@ extension IncrementalCompilationState {
     inputsMissingOutputs: Set<TypedVirtualPath>,
     moduleDependencyGraph: ModuleDependencyGraph,
     alwaysRebuildDependents: Bool,
-    reportIncrementalDecision: ((String, TypedVirtualPath?) -> Void)?
-    ) -> Set<TypedVirtualPath> {
+    reporter: IncrementalCompilationState.Reporter?
+  ) -> Set<TypedVirtualPath> {
     // Collect the files that will be compiled whose dependents should be schedule
     let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap {
       input, status, datesMatch in
@@ -465,30 +427,30 @@ extension IncrementalCompilationState {
               datesMatch && !inputsMissingOutputs.contains(input)) {
 
        case (_, true, false):
-        reportIncrementalDecision?(
-          "scheduling dependents of \(basename); -driver-always-rebuild-dependents", nil)
+        reporter?.report(
+          "scheduling dependents of \(basename); -driver-always-rebuild-dependents")
         return input
       case(_, true, true):
-        reportIncrementalDecision?(
-          "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date", nil)
+        reporter?.report(
+          "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date")
         return nil
 
       case (.needsCascadingBuild, false, _):
-        reportIncrementalDecision?(
-          "scheduling dependents of \(basename); needed cascading build", nil)
+        reporter?.report(
+          "scheduling dependents of \(basename); needed cascading build")
         return input
 
       case (.upToDate, false, _): // was up to date, but changed
-        reportIncrementalDecision?(
-          "not scheduling dependents of \(basename); unknown changes", nil)
+        reporter?.report(
+          "not scheduling dependents of \(basename); unknown changes")
         return nil
        case (.newlyAdded, false, _):
-        reportIncrementalDecision?(
-          "not scheduling dependents of \(basename): no entry in build record or dependency graph", nil)
+        reporter?.report(
+          "not scheduling dependents of \(basename): no entry in build record or dependency graph")
         return nil
       case (.needsNonCascadingBuild, false, _):
-        reportIncrementalDecision?(
-          "not scheduling dependents of \(basename): does not need cascading build", nil)
+        reporter?.report(
+          "not scheduling dependents of \(basename): does not need cascading build")
         return nil
       }
     }
@@ -498,11 +460,11 @@ extension IncrementalCompilationState {
     let cascadingFileSet = Set(cascadingChangedInputs).union(cascadingExternalDependents)
     for cascadingFile in cascadingFileSet {
        let dependentsOfOneFile = moduleDependencyGraph
-        .findDependentSourceFiles(of: cascadingFile, reportIncrementalDecision)
+        .findDependentSourceFiles(of: cascadingFile)
       for dep in dependentsOfOneFile where !cascadingFileSet.contains(dep) {
         if dependentFiles.insert(dep).0 {
-          reportIncrementalDecision?(
-            "Immediately scheduling dependent on \(cascadingFile.file.basename)", dep)
+          reporter?.report(
+            "Immediately scheduling dependent on \(cascadingFile.file.basename)", path: dep)
         }
       }
     }
@@ -520,33 +482,31 @@ extension IncrementalCompilationState {
   public func getJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job, result: ProcessResult
    ) throws -> [Job]? {
-    getJobsDiscoveredToBeNeededAfterFinishingSema.wait()
-    defer {
-      getJobsDiscoveredToBeNeededAfterFinishingSema.signal()
-    }
-    unfinishedJobs.remove(finishedJob)
+    return try confinementQueue.sync {
+      unfinishedJobs.remove(finishedJob)
 
-    guard case .terminated = result.exitStatus else {
-      return []
-    }
-
-    // Find and deal with inputs that how need to be compiled
-    let discoveredInputs = collectInputsDiscovered(from: finishedJob)
-    assert(Set(discoveredInputs).isDisjoint(with: finishedJob.primaryInputs),
-           "Primaries should not overlap secondaries.")
-
-    if let report = reportIncrementalDecision {
-      for input in discoveredInputs {
-        report("Queuing because of dependencies discovered later:", input)
+      guard case .terminated = result.exitStatus else {
+        return []
       }
+
+      // Find and deal with inputs that how need to be compiled
+      let discoveredInputs = collectInputsDiscovered(from: finishedJob)
+      assert(Set(discoveredInputs).isDisjoint(with: finishedJob.primaryInputs),
+             "Primaries should not overlap secondaries.")
+
+      if let reporter = self.reporter {
+        for input in discoveredInputs {
+          reporter.report("Queuing because of dependencies discovered later:", path: input)
+        }
+      }
+      let newJobs = try getJobsFor(discoveredCompilationInputs: discoveredInputs)
+      unfinishedJobs.formUnion(newJobs)
+      if unfinishedJobs.isEmpty {
+        // no more compilations are possible
+        return nil
+      }
+      return newJobs
     }
-    let newJobs = try getJobsFor(discoveredCompilationInputs: discoveredInputs)
-    unfinishedJobs.formUnion(newJobs)
-    if unfinishedJobs.isEmpty {
-      // no more compilations are possible
-      return nil
-    }
-    return newJobs
  }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
@@ -561,7 +521,7 @@ extension IncrementalCompilationState {
           if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input) {
             return found
           }
-          reportIncrementalDecision?("Failed to read some swiftdeps; compiling everything", input)
+          self.reporter?.report("Failed to read some swiftdeps; compiling everything", path: input)
           return Array(skippedCompileGroups.keys)
         }
       )
@@ -578,11 +538,11 @@ extension IncrementalCompilationState {
         let primaryInputs = group.compileJob.primaryInputs
         assert(primaryInputs.count == 1)
         assert(primaryInputs[0] == input)
-        reportIncrementalDecision?("Scheduling discovered", input)
+        self.reporter?.report("Scheduling discovered", path: input)
         return group.allJobs()
       }
       else {
-        reportIncrementalDecision?("Tried to schedule discovered input again", input)
+        self.reporter?.report("Tried to schedule discovered input again", path: input)
         return []
       }
     }
@@ -602,3 +562,55 @@ extension IncrementalCompilationState {
   }
 }
 
+// MARK: - Remarks
+
+extension IncrementalCompilationState {
+  /// A type that manages the reporting of remarks about the state of the
+  /// incremental build.
+  public struct Reporter {
+    let diagnosticEngine: DiagnosticsEngine
+    let outputFileMap: OutputFileMap?
+
+    /// Report a remark with the given message.
+    ///
+    /// The `path` parameter is used specifically for reporting the state of
+    /// compile jobs that are transiting through the incremental build pipeline.
+    /// If provided, and valid entries in the output file map are provided,
+    /// the reporter will format a message of the form
+    ///
+    /// ```
+    /// <message> {compile: <output> <= <input>}
+    /// ```
+    ///
+    /// Which mirrors the behavior of the legacy driver.
+    ///
+    /// - Parameters:
+    ///   - message: The message to emit in the remark.
+    ///   - path: If non-nil, the path of an output for an incremental job.
+    func report(_ message: String, path: TypedVirtualPath? = nil) {
+      guard let outputFileMap = outputFileMap,
+            let path = path,
+            let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
+      else {
+        diagnosticEngine.emit(.remark_incremental_compilation(because: message))
+        return
+      }
+      let output = outputFileMap.getOutput(inputFile: path.file, outputType: .object)
+      let compiling = " {compile: \(output.basename) <= \(input.basename)}"
+      diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) \(compiling)"))
+    }
+
+    // Emits a remark indicating incremental compilation has been disabled.
+    func reportDisablingIncrementalBuild(_ why: String) {
+      report("Disabling incremental build: \(why)")
+    }
+
+    // Emits a remark indicating incremental compilation has been disabled.
+    //
+    // FIXME: This entrypoint exists for compatiblity with the legacy driver.
+    // This message is not necessary, and we should migrate the tests.
+    func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
+      report("Incremental compilation has been disabled, \(why)")
+    }
+  }
+}

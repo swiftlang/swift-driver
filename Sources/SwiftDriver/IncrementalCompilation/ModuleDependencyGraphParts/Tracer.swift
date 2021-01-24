@@ -59,7 +59,7 @@ extension ModuleDependencyGraph.Tracer {
     self.graph = graph
     // Sort so "Tracing" diagnostics are deterministically ordered
     self.startingPoints = defs.sorted()
-    self.currentPathIfTracing = graph.reportIncrementalDecision != nil ? [] : nil
+    self.currentPathIfTracing = graph.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
   
@@ -117,7 +117,7 @@ extension ModuleDependencyGraph.Tracer {
 
   private func printPath(_ path: [Graph.Node]) {
     guard path.first?.swiftDeps != path.last?.swiftDeps else {return}
-    graph.reportIncrementalDecision?(
+    graph.reporter?.report(
       [
         "Traced:",
         path
@@ -128,7 +128,7 @@ extension ModuleDependencyGraph.Tracer {
           }
           .joined(separator: " -> ")
       ].joined(separator: " "),
-      nil
+      path: nil
     )
   }
 }
