@@ -275,8 +275,7 @@ extension IncrementalCompilationState {
     alwaysRebuildDependents: Bool,
     reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
-    let changedInputs: [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)] =
-      computeChangedInputs(
+    let changedInputs = Self.computeChangedInputs(
         groups: allGroups,
         buildRecordInfo: buildRecordInfo,
         moduleDependencyGraph: moduleDependencyGraph,
@@ -298,7 +297,7 @@ extension IncrementalCompilationState {
 
     // Combine to obtain the inputs that definitely must be recompiled.
     let definitelyRequiredInputs =
-      Set(changedInputs.map {$0.0} + externalDependents +
+      Set(changedInputs.map({ $0.filePath }) + externalDependents +
             inputsHavingMalformedSwiftDeps
             + inputsMissingOutputs)
     if let reporter = reporter {
@@ -336,6 +335,20 @@ extension IncrementalCompilationState {
     }
     return skippedInputs
   }
+}
+
+extension IncrementalCompilationState {
+  /// Encapsulates information about an input the driver has determined has
+  /// changed in a way that requires an incremental rebuild.
+  struct ChangedInput {
+    /// The path to the input file.
+    var filePath: TypedVirtualPath
+    /// The status of the input file.
+    var status: InputInfo.Status
+    /// If `true`, the modification time of this input matches the modification
+    /// time recorded from the prior build in the build record.
+    var datesMatch: Bool
+  }
 
   /// Find the inputs that have changed since last compilation, or were marked as needed a build
   private static func computeChangedInputs(
@@ -345,7 +358,7 @@ extension IncrementalCompilationState {
     outOfDateBuildRecord: BuildRecord,
     fileSystem: FileSystem,
     reporter: IncrementalCompilationState.Reporter?
-  ) -> [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)] {
+  ) -> [ChangedInput] {
     groups.compactMap { group in
       let input = group.primaryInput
       let modDate = buildRecordInfo.compilationInputModificationDates[input]
@@ -362,7 +375,6 @@ extension IncrementalCompilationState {
       }
 
       switch previousCompilationStatus {
-
       case .upToDate where datesMatch:
         reporter?.report("May skip current input:", path: input)
         return nil
@@ -376,10 +388,11 @@ extension IncrementalCompilationState {
       case .needsNonCascadingBuild:
         reporter?.report("Scheduling noncascading build", path: input)
       }
-      return (input, previousCompilationStatus, datesMatch)
+      return ChangedInput(filePath: input,
+                          status: previousCompilationStatus,
+                          datesMatch: datesMatch)
     }
   }
-
 
   /// Any files dependent on modified files from other modules must be compiled, too.
   private static func computeExternallyDependentInputs(
@@ -412,7 +425,7 @@ extension IncrementalCompilationState {
   /// TODO: something better, e.g. return nothing here, but process changed swiftDeps
   /// before the whole frontend job finished.
   private static func computeSpeculativeInputs(
-    changedInputs: [(TypedVirtualPath, InputInfo.Status, datesMatch: Bool)],
+    changedInputs: [ChangedInput],
     externalDependents: [TypedVirtualPath],
     inputsMissingOutputs: Set<TypedVirtualPath>,
     moduleDependencyGraph: ModuleDependencyGraph,
@@ -420,16 +433,15 @@ extension IncrementalCompilationState {
     reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
     // Collect the files that will be compiled whose dependents should be schedule
-    let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap {
-      input, status, datesMatch in
-      let basename = input.file.basename
-      switch (status, alwaysRebuildDependents,
-              datesMatch && !inputsMissingOutputs.contains(input)) {
+    let cascadingChangedInputs: [TypedVirtualPath] = changedInputs.compactMap { changedInput in
+      let basename = changedInput.filePath.file.basename
+      switch (changedInput.status, alwaysRebuildDependents,
+              changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.filePath)) {
 
        case (_, true, false):
         reporter?.report(
           "scheduling dependents of \(basename); -driver-always-rebuild-dependents")
-        return input
+        return changedInput.filePath
       case(_, true, true):
         reporter?.report(
           "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date")
@@ -438,7 +450,7 @@ extension IncrementalCompilationState {
       case (.needsCascadingBuild, false, _):
         reporter?.report(
           "scheduling dependents of \(basename); needed cascading build")
-        return input
+        return changedInput.filePath
 
       case (.upToDate, false, _): // was up to date, but changed
         reporter?.report(
