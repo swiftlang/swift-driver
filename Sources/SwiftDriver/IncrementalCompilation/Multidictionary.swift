@@ -57,6 +57,10 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection {
   public subscript(key: Key) -> (key: Key, values: Set<Value>)? {
     outerDict[key].map { (key: key, values: $0) }
   }
+
+  public subscript(key: Key, default defaultValues: @autoclosure () -> Set<Value>) -> (key: Key, values: Set<Value>) {
+    self[key] ?? (key: key, values: defaultValues())
+  }
   
   public func keysContainingValue(_ v: Value) -> [Key] {
     outerDict.compactMap { (k, vs) in vs.contains(v) ? k : nil }
