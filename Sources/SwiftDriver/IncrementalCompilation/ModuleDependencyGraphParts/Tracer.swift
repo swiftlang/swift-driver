@@ -84,7 +84,7 @@ extension ModuleDependencyGraph.Tracer {
     let pathLengthAfterArrival = traceArrival(at: definition);
     
     // If this use also provides something, follow it
-    for (use, _) in graph.nodeFinder.orderedUses(of: definition) {
+    for use in graph.nodeFinder.orderedUses(of: definition) {
       findNextPreviouslyUntracedDependent(of: use)
     }
     traceDeparture(pathLengthAfterArrival);

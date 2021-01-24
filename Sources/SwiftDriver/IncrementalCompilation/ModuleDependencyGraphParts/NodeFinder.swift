@@ -60,24 +60,37 @@ extension ModuleDependencyGraph.NodeFinder {
     nodeMap[key]
   }
 
-  func uses(of def: Graph.Node) -> [(Graph.Node, Graph.SwiftDeps)] {
+  /// Retrieves the set of uses corresponding to a given node.
+  ///
+  /// - Warning: The order of uses is not defined. It is not sound to iterate
+  ///            over the set of uses, use `Self.orderedUses(of:)` instead.
+  ///
+  /// - Parameter def: The node to look up.
+  /// - Returns: A set of nodes corresponding to the uses of the given
+  ///            definition node.
+  func uses(of def: Graph.Node) -> Set<Graph.Node> {
     var uses = usesByDef[def.dependencyKey, default: Set()].values
     if let impl = findCorrespondingImplementation(of: def) {
       uses.insert(impl)
     }
-    return uses.map { next in
-      (next, self.useMustHaveSwiftDeps(next))
+    #if DEBUG
+    for use in uses {
+      assert(self.verifyUseIsOK(use))
     }
+    #endif
+    return uses
   }
 
-  func orderedUses(of def: Graph.Node) -> [(Graph.Node, Graph.SwiftDeps)] {
-    var uses = usesByDef[def.dependencyKey, default: Set()].values
-    if let impl = findCorrespondingImplementation(of: def) {
-      uses.insert(impl)
-    }
-    return uses.sorted().map { next in
-      (next, self.useMustHaveSwiftDeps(next))
-    }
+  /// Retrieves the set of uses corresponding to a given definition node in a
+  /// stable order dictated by the graph node's underlying data.
+  ///
+  /// - Seealso: The `Comparable` conformance for `Graph.Node`.
+  ///
+  /// - Parameter def: The node to look up.
+  /// - Returns: An array of nodes corresponding to the uses of the given
+  ///            definition node.
+  func orderedUses(of def: Graph.Node) -> Array<Graph.Node> {
+    return self.uses(of: def).sorted()
   }
 
   func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)] {
@@ -187,12 +200,7 @@ extension ModuleDependencyGraph.NodeFinder {
       verifyUseIsOK(use)
     }
   }
-  
-  private func useMustHaveSwiftDeps(_ n: Graph.Node) -> Graph.SwiftDeps {
-    assert(verifyUseIsOK(n))
-    return n.swiftDeps!
-  }
-  
+
   @discardableResult
   private func verifyUseIsOK(_ n: Graph.Node) -> Bool {
     verifyUsedIsNotExpat(n)

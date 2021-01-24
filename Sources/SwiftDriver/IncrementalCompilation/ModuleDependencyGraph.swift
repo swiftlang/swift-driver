@@ -192,13 +192,13 @@ extension ModuleDependencyGraph {
 
   /*@_spi(Testing)*/ public func untracedDependents(
     of externalSwiftDeps: ExternalDependency
-  ) -> [(ModuleDependencyGraph.Node, ModuleDependencyGraph.SwiftDeps)] {
+  ) -> [ModuleDependencyGraph.Node] {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceFor: externalSwiftDeps)
     let node = Node(key: key, fingerprint: nil, swiftDeps: nil)
     return nodeFinder
       .orderedUses(of: node)
-      .filter({ use, _ in isUntraced(use) })
+      .filter({ use in isUntraced(use) })
   }
 }
 fileprivate extension DependencyKey {

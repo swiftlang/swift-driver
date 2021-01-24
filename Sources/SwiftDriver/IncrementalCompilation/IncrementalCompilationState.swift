@@ -140,7 +140,7 @@ public class IncrementalCompilationState {
                mandatoryJobsInOrder: [Job])
   {
     let compileGroups =
-      Dictionary( uniqueKeysWithValues:
+      Dictionary(uniqueKeysWithValues:
                     jobsInPhases.compileGroups.map {($0.primaryInput, $0)} )
 
      let skippedInputs = Self.computeSkippedCompilationInputs(
@@ -407,11 +407,14 @@ extension IncrementalCompilationState {
         try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
-        for (_, dependent) in moduleDependencyGraph.untracedDependents(of: extDep) {
+        for dependent in moduleDependencyGraph.untracedDependents(of: extDep) {
+          guard let swiftDeps = dependent.swiftDeps else {
+            fatalError("Dependent \(dependent) does not have swiftdeps file!")
+          }
           reporter?.report(
             "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            path: TypedVirtualPath(file: dependent.file, type: .swiftDeps))
-          externallyDependentSwiftDeps.insert(dependent)
+            path: TypedVirtualPath(file: swiftDeps.file, type: .swiftDeps))
+          externallyDependentSwiftDeps.insert(swiftDeps)
         }
       }
     }
