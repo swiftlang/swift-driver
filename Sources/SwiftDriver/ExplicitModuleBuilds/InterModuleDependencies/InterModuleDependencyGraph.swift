@@ -127,13 +127,12 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
   /// The path to the .swiftSourceInfo file.
   public var moduleSourceInfoPath: TextualVirtualPath?
 
-  public init(compiledModulePath: VirtualPath,
-              moduleDocPath: VirtualPath? = nil,
-              moduleSourceInfoPath: VirtualPath? = nil) throws {
-    self.compiledModulePath = TextualVirtualPath(path: compiledModulePath)
-    self.moduleDocPath = moduleDocPath != nil ? TextualVirtualPath(path: moduleDocPath!) : nil
-    self.moduleSourceInfoPath =
-      moduleSourceInfoPath != nil ? TextualVirtualPath(path: moduleSourceInfoPath!) : nil
+  public init(compiledModulePath: TextualVirtualPath,
+              moduleDocPath: TextualVirtualPath? = nil,
+              moduleSourceInfoPath: TextualVirtualPath? = nil) throws {
+    self.compiledModulePath = compiledModulePath
+    self.moduleDocPath = moduleDocPath
+    self.moduleSourceInfoPath = moduleSourceInfoPath
   }
 }
 

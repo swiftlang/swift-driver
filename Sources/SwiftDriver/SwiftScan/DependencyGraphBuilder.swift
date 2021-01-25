@@ -87,10 +87,13 @@ private extension SwiftScan {
     let moduleId = try decodeModuleNameAndKind(from: encodedModuleName)
 
     // Decode module path and source file locations
-    let modulePath = try toSwiftString(api.swiftscan_module_info_get_module_path(moduleInfoRef))
-    let sourceFiles: [String]?
+    let modulePathStr = try toSwiftString(api.swiftscan_module_info_get_module_path(moduleInfoRef))
+    let modulePath = TextualVirtualPath(path: try VirtualPath(path: modulePathStr))
+    let sourceFiles: [TextualVirtualPath]?
     if let sourceFilesSetRef = api.swiftscan_module_info_get_source_files(moduleInfoRef) {
-      sourceFiles = try toSwiftStringArray(sourceFilesSetRef.pointee)
+      sourceFiles = try toSwiftStringArray(sourceFilesSetRef.pointee).map {
+        TextualVirtualPath(path: try VirtualPath(path: $0))
+      }
     } else {
       sourceFiles = nil
     }
@@ -139,17 +142,17 @@ private extension SwiftScan {
   func constructSwiftTextualModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
   throws -> SwiftModuleDetails {
     let moduleInterfacePath =
-      try getOptionalStringDetail(from: moduleDetailsRef,
-                                  using: api.swiftscan_swift_textual_detail_get_module_interface_path)
+      try getOptionalPathDetail(from: moduleDetailsRef,
+                                using: api.swiftscan_swift_textual_detail_get_module_interface_path)
     let compiledModuleCandidates =
-      try getOptionalStringArrayDetail(from: moduleDetailsRef,
-                                       using: api.swiftscan_swift_textual_detail_get_compiled_module_candidates)
+      try getOptionalPathArrayDetail(from: moduleDetailsRef,
+                                     using: api.swiftscan_swift_textual_detail_get_compiled_module_candidates)
     let bridgingHeaderPath =
-      try getOptionalStringDetail(from: moduleDetailsRef,
-                                  using: api.swiftscan_swift_textual_detail_get_bridging_header_path)
+      try getOptionalPathDetail(from: moduleDetailsRef,
+                                using: api.swiftscan_swift_textual_detail_get_bridging_header_path)
     let bridgingSourceFiles =
-      try getOptionalStringArrayDetail(from: moduleDetailsRef,
-                                       using: api.swiftscan_swift_textual_detail_get_bridging_source_files)
+      try getOptionalPathArrayDetail(from: moduleDetailsRef,
+                                     using: api.swiftscan_swift_textual_detail_get_bridging_source_files)
     let commandLine =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_command_line)
@@ -171,29 +174,29 @@ private extension SwiftScan {
   func constructSwiftBinaryModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
   throws -> SwiftPrebuiltExternalModuleDetails {
     let compiledModulePath =
-      try getStringDetail(from: moduleDetailsRef,
-                          using: api.swiftscan_swift_binary_detail_get_compiled_module_path,
-                          fieldName: "swift_binary_detail.compiledModulePath")
+      try getPathDetail(from: moduleDetailsRef,
+                        using: api.swiftscan_swift_binary_detail_get_compiled_module_path,
+                        fieldName: "swift_binary_detail.compiledModulePath")
     let moduleDocPath =
-      try getOptionalStringDetail(from: moduleDetailsRef,
-                              using: api.swiftscan_swift_binary_detail_get_module_doc_path)
+      try getOptionalPathDetail(from: moduleDetailsRef,
+                                using: api.swiftscan_swift_binary_detail_get_module_doc_path)
     let moduleSourceInfoPath =
-      try getOptionalStringDetail(from: moduleDetailsRef,
-                              using: api.swiftscan_swift_binary_detail_get_module_source_info_path)
-    return SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
-                                              moduleDocPath: moduleDocPath,
-                                              moduleSourceInfoPath: moduleSourceInfoPath)
+      try getOptionalPathDetail(from: moduleDetailsRef,
+                                using: api.swiftscan_swift_binary_detail_get_module_source_info_path)
+    return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
+                                                  moduleDocPath: moduleDocPath,
+                                                  moduleSourceInfoPath: moduleSourceInfoPath)
   }
 
   /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
   func constructPlaceholderModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
   throws -> SwiftPlaceholderModuleDetails {
     let moduleDocPath =
-      try getOptionalStringDetail(from: moduleDetailsRef,
-                                  using: api.swiftscan_swift_placeholder_detail_get_module_doc_path)
+      try getOptionalPathDetail(from: moduleDetailsRef,
+                                using: api.swiftscan_swift_placeholder_detail_get_module_doc_path)
     let moduleSourceInfoPath =
-      try getOptionalStringDetail(from: moduleDetailsRef,
-                                  using: api.swiftscan_swift_placeholder_detail_get_module_source_info_path)
+      try getOptionalPathDetail(from: moduleDetailsRef,
+                                using: api.swiftscan_swift_placeholder_detail_get_module_source_info_path)
     return SwiftPlaceholderModuleDetails(moduleDocPath: moduleDocPath,
                                          moduleSourceInfoPath: moduleSourceInfoPath)
   }
@@ -202,9 +205,9 @@ private extension SwiftScan {
   func constructClangModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
   throws -> ClangModuleDetails {
     let moduleMapPath =
-      try getStringDetail(from: moduleDetailsRef,
-                          using: api.swiftscan_clang_detail_get_module_map_path,
-                          fieldName: "clang_detail.moduleMapPath")
+      try getPathDetail(from: moduleDetailsRef,
+                        using: api.swiftscan_clang_detail_get_module_map_path,
+                        fieldName: "clang_detail.moduleMapPath")
     let contextHash =
       try getStringDetail(from: moduleDetailsRef,
                           using: api.swiftscan_clang_detail_get_context_hash,
@@ -251,6 +254,15 @@ private extension SwiftScan {
 }
 
 private extension SwiftScan {
+  /// From a `swiftscan_module_details_t` reference, extract a `TextualVirtualPath?` detail using the specified API query
+  func getOptionalPathDetail(from detailsRef: swiftscan_module_details_t,
+                             using query: (swiftscan_module_details_t)
+                              -> swiftscan_string_ref_t)
+  throws -> TextualVirtualPath? {
+    let strDetail = try getOptionalStringDetail(from: detailsRef, using: query)
+    return strDetail != nil ? TextualVirtualPath(path: try VirtualPath(path: strDetail!)) : nil
+  }
+
   /// From a `swiftscan_module_details_t` reference, extract a `String?` detail using the specified API query
   func getOptionalStringDetail(from detailsRef: swiftscan_module_details_t,
                                using query: (swiftscan_module_details_t)
@@ -262,6 +274,16 @@ private extension SwiftScan {
     return try toSwiftString(detailRef)
   }
 
+  /// From a `swiftscan_module_details_t` reference, extract a `TextualVirtualPath` detail using the specified API
+  /// query, making sure the reference is to a non-null (and non-empty) path.
+  func getPathDetail(from detailsRef: swiftscan_module_details_t,
+                     using query: (swiftscan_module_details_t) -> swiftscan_string_ref_t,
+                     fieldName: String)
+  throws -> TextualVirtualPath {
+    let strDetail = try getStringDetail(from: detailsRef, using: query, fieldName: fieldName)
+    return TextualVirtualPath(path: try VirtualPath(path: strDetail))
+  }
+
   /// From a `swiftscan_module_details_t` reference, extract a `String` detail using the specified API query,
   /// making sure the reference is to a non-null (and non-empty) string.
   func getStringDetail(from detailsRef: swiftscan_module_details_t,
@@ -271,6 +293,18 @@ private extension SwiftScan {
       throw DependencyScanningError.missingField(fieldName)
     }
     return result
+  }
+
+  /// From a `swiftscan_module_details_t` reference, extract a `[TextualVirtualPath]?` detail using the specified API
+  /// query
+  func getOptionalPathArrayDetail(from detailsRef: swiftscan_module_details_t,
+  using query: (swiftscan_module_details_t)
+    -> UnsafeMutablePointer<swiftscan_string_set_t>?)
+  throws -> [TextualVirtualPath]? {
+    guard let strArrDetail = try getOptionalStringArrayDetail(from: detailsRef, using: query) else {
+      return nil
+    }
+    return try strArrDetail.map { TextualVirtualPath(path: try VirtualPath(path: $0)) }
   }
 
   /// From a `swiftscan_module_details_t` reference, extract a `[String]?` detail using the specified API query
