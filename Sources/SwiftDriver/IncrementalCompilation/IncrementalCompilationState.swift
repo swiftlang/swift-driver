@@ -342,12 +342,12 @@ extension IncrementalCompilationState {
   /// changed in a way that requires an incremental rebuild.
   struct ChangedInput {
     /// The path to the input file.
-    var filePath: TypedVirtualPath
+    let filePath: TypedVirtualPath
     /// The status of the input file.
-    var status: InputInfo.Status
+    let status: InputInfo.Status
     /// If `true`, the modification time of this input matches the modification
     /// time recorded from the prior build in the build record.
-    var datesMatch: Bool
+    let datesMatch: Bool
   }
 
   /// Find the inputs that have changed since last compilation, or were marked as needed a build
