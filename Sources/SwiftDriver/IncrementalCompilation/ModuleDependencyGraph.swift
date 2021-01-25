@@ -190,18 +190,15 @@ extension ModuleDependencyGraph {
     return Set(affectedNodes.compactMap {$0.swiftDeps})
   }
 
-  /*@_spi(Testing)*/ public func forEachUntracedSwiftDepsDirectlyDependent(
-    on externalSwiftDeps: ExternalDependency,
-    _ fn: (SwiftDeps) -> Void
-  ) {
+  /*@_spi(Testing)*/ public func untracedDependents(
+    of externalSwiftDeps: ExternalDependency
+  ) -> [ModuleDependencyGraph.Node] {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceFor: externalSwiftDeps)
     let node = Node(key: key, fingerprint: nil, swiftDeps: nil)
-    nodeFinder.forEachUseInOrder(of: node) { use, useSwiftDeps in
-      if isUntraced(use) {
-        fn(useSwiftDeps)
-      }
-    }
+    return nodeFinder
+      .orderedUses(of: node)
+      .filter({ use in isUntraced(use) })
   }
 }
 fileprivate extension DependencyKey {

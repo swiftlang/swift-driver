@@ -34,10 +34,11 @@ extension ModuleDependencyGraph {
     /// source file.)
     
     /// Tracks def-use relationships by DependencyKey.
-    private(set)var usesByDef = Multidictionary<DependencyKey, Node>()
+    private(set) var usesByDef = Multidictionary<DependencyKey, Node>()
   }
 }
 // MARK: - finding
+
 extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(forMock swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) -> Graph.Node?  {
@@ -58,34 +59,46 @@ extension ModuleDependencyGraph.NodeFinder {
   func findNodes(for key: DependencyKey) -> [Graph.SwiftDeps?: Graph.Node]? {
     nodeMap[key]
   }
-  
-  func forEachUse(of def: Graph.Node, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
-    func fnVerifyingSwiftDeps(_ use: Graph.Node) {
-      fn(use, useMustHaveSwiftDeps(use))
+
+  /// Retrieves the set of uses corresponding to a given node.
+  ///
+  /// - Warning: The order of uses is not defined. It is not sound to iterate
+  ///            over the set of uses, use `Self.orderedUses(of:)` instead.
+  ///
+  /// - Parameter def: The node to look up.
+  /// - Returns: A set of nodes corresponding to the uses of the given
+  ///            definition node.
+  func uses(of def: Graph.Node) -> Set<Graph.Node> {
+    var uses = usesByDef[def.dependencyKey, default: Set()].values
+    if let impl = findCorrespondingImplementation(of: def) {
+      uses.insert(impl)
     }
-    usesByDef[def.dependencyKey].map {
-      $0.values.forEach(fnVerifyingSwiftDeps)
+    #if DEBUG
+    for use in uses {
+      assert(self.verifyUseIsOK(use))
     }
-    // Add in implicit interface->implementation dependency
-    findCorrespondingImplementation(of: def)
-      .map(fnVerifyingSwiftDeps)
+    #endif
+    return uses
   }
 
-  func forEachUseInOrder(of def: Graph.Node, _ fn: (Graph.Node, Graph.SwiftDeps) -> Void) {
-    var uses = [(Graph.Node, Graph.SwiftDeps)]()
-    forEachUse(of: def) {
-      uses.append(($0, $1))
-    }
-    uses.sorted {$0.0 < $1.0} .forEach { fn($0.0, $0.1) }
+  /// Retrieves the set of uses corresponding to a given definition node in a
+  /// stable order dictated by the graph node's underlying data.
+  ///
+  /// - Seealso: The `Comparable` conformance for `Graph.Node`.
+  ///
+  /// - Parameter def: The node to look up.
+  /// - Returns: An array of nodes corresponding to the uses of the given
+  ///            definition node.
+  func orderedUses(of def: Graph.Node) -> Array<Graph.Node> {
+    return self.uses(of: def).sorted()
   }
 
-  func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)]
-  {
-    nodeMap.compactMap {
-      k, _ in
-      k.0 == n.swiftDeps && k.1 == n.dependencyKey
-        ? k
-        : nil
+  func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)] {
+    nodeMap.compactMap { k, _ in
+      guard k.0 == n.swiftDeps && k.1 == n.dependencyKey else {
+        return nil
+      }
+      return k
     }
   }
   
@@ -187,12 +200,7 @@ extension ModuleDependencyGraph.NodeFinder {
       verifyUseIsOK(use)
     }
   }
-  
-  private func useMustHaveSwiftDeps(_ n: Graph.Node) -> Graph.SwiftDeps {
-    assert(verifyUseIsOK(n))
-    return n.swiftDeps!
-  }
-  
+
   @discardableResult
   private func verifyUseIsOK(_ n: Graph.Node) -> Bool {
     verifyUsedIsNotExpat(n)

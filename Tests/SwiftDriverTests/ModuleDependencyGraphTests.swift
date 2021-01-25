@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import SwiftDriver
+@testable import SwiftDriver
 import TSCBasic
 
 class ModuleDependencyGraphTests: XCTestCase {
@@ -949,15 +949,15 @@ extension ModuleDependencyGraph {
     on externalDependency: ExternalDependency
   ) -> [SwiftDeps] {
     var foundSwiftDeps = [SwiftDeps]()
-    forEachUntracedSwiftDepsDirectlyDependent(on: externalDependency) {
-      swiftDeps in
+    for dependent in self.untracedDependents(of: externalDependency) {
+      let swiftDeps = dependent.swiftDeps!
       foundSwiftDeps.append(swiftDeps)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
       // Don't return job twice.
-      for marked in findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(swiftDeps)
-      where marked != swiftDeps {
-        foundSwiftDeps.append(marked)
-      }
+      let filesToRebuild =
+        findSwiftDepsToRecompileWhenWholeSwiftDepsChanges(swiftDeps)
+        .filter({ marked in marked != swiftDeps })
+      foundSwiftDeps.append(contentsOf: filesToRebuild)
     }
     return foundSwiftDeps;
   }
