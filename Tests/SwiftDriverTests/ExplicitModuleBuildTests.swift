@@ -163,8 +163,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let dependencyOracle = InterModuleDependencyOracle()
       try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain,
-                                                                                   target: driver.targetTriple))
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -233,8 +232,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                               interModuleDependencyOracle: dependencyOracle)
       try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain,
-                                                                                   target: driver.targetTriple))
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
       try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
@@ -521,8 +519,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let dependencyOracle = InterModuleDependencyOracle()
     try dependencyOracle
       .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                     swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain,
-                                                                                 target: driver.targetTriple))
+                                     swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
     
     // Create a simple test case.
     try withTemporaryDirectory { path in
@@ -547,14 +544,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
 
-      // Module `X` is only imported when:
+      // Module `X` is only imported on Darwin when:
       // #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 110000
       let expectedNumberOfDependencies: Int
       if driver.targetTriple.isMacOSX,
-         driver.targetTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
-        expectedNumberOfDependencies = 12
-      } else {
+         driver.targetTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 11
+      } else {
+        expectedNumberOfDependencies = 12
       }
 
       // Dispatch several iterations in parallel

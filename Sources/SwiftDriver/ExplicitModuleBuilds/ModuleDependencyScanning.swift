@@ -96,8 +96,7 @@ internal extension Driver {
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
       try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: try getScanLibPath(of: toolchain,
-                                                                            target: targetTriple))
+                                       swiftScanLibPath: try getScanLibPath(of: toolchain))
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: scannerJob,
                                            forceResponseFiles: forceResponseFiles,
@@ -130,8 +129,7 @@ internal extension Driver {
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
       try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: try getScanLibPath(of: toolchain,
-                                                                            target: targetTriple))
+                                       swiftScanLibPath: try getScanLibPath(of: toolchain))
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: batchScanningJob,
                                            forceResponseFiles: forceResponseFiles,
@@ -264,16 +262,16 @@ internal extension Driver {
 }
 
 @_spi(Testing) public extension Driver {
-  func getScanLibPath(of toolchain: Toolchain, target: Triple) throws -> AbsolutePath {
+  func getScanLibPath(of toolchain: Toolchain) throws -> AbsolutePath {
     let sharedLibExt: String
-    if target.isMacOSX {
+    if hostTriple.isMacOSX {
       sharedLibExt = ".dylib"
     } else {
       sharedLibExt = ".so"
     }
     return try getRootPath(of: toolchain).appending(component: "lib")
       .appending(component: "swift")
-      .appending(component: target.osNameUnversioned)
+      .appending(component: hostTriple.osNameUnversioned)
       .appending(component: "lib_InternalSwiftScan" + sharedLibExt)
   }
 
