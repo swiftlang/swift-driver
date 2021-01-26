@@ -54,19 +54,11 @@ public class InterModuleDependencyOracle {
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
   @_spi(Testing) public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
-                                                           toolchainPath: AbsolutePath,
-                                                           osName: String) throws {
+                                                           swiftScanLibPath: AbsolutePath) throws {
     try queue.sync {
-      let swiftScanLibPath = toolchainPath.appending(component: "lib")
-        .appending(component: "swift")
-        .appending(component: osName)
-        .appending(component: "lib_InternalSwiftScan.dylib")
       if swiftScanLibInstance == nil {
-        guard fileSystem.exists(toolchainPath) else {
-          fatalError("Path to specified toolchain does not exist: \(toolchainPath.description)")
-        }
-        guard fileSystem.exists(toolchainPath) else {
-          fatalError("Could not find libSwiftScan at: \(swiftScanLibPath.description)")
+        guard fileSystem.exists(swiftScanLibPath) else {
+          throw DependencyScanningError.scanningLibraryNotFound(swiftScanLibPath)
         }
         swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
       } else {

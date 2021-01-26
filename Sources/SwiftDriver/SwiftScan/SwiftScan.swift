@@ -25,6 +25,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
   case unsupportedDependencyDetailsKind(Int)
   case invalidStringPtr
   case scanningLibraryInvocationMismatch(AbsolutePath, AbsolutePath)
+  case scanningLibraryNotFound(AbsolutePath)
 
   public var description: String {
     switch self {
@@ -43,7 +44,9 @@ public enum DependencyScanningError: Error, DiagnosticData {
       case .invalidStringPtr:
         return "Dependency module details contains a corrupted string reference"
       case .scanningLibraryInvocationMismatch(let path1, let path2):
-        return "Module scanning library differs across driver invocations: \(path1.description) and \(path2.description)"
+        return "Dependency Scanning library differs across driver invocations: \(path1.description) and \(path2.description)"
+      case .scanningLibraryNotFound(let path):
+        return "Dependency Scanning library not found at path: \(path)"
     }
   }
 }

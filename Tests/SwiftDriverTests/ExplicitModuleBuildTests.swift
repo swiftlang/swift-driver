@@ -160,14 +160,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try JSONDecoder().decode(
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
-      let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
-                                                              .parentDirectory // bin
-                                                              .parentDirectory // toolchain root
       let dependencyOracle = InterModuleDependencyOracle()
       try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                       toolchainPath: toolchainRootPath,
-                                       osName: driver.targetTriple.osNameUnversioned)
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain,
+                                                                                   target: driver.targetTriple))
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -217,15 +214,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                              processSet: ProcessSet(),
                                              fileSystem: localFileSystem,
                                              env: ProcessEnv.vars)
-      var toolchain: Toolchain
-      #if os(macOS)
-      toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
-      #else
-      toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
-      #endif
-      let toolchainRootPath: AbsolutePath = try toolchain.getToolPath(.swiftCompiler)
-                                                              .parentDirectory // bin
-                                                              .parentDirectory // toolchain root
       let dependencyOracle = InterModuleDependencyOracle()
       try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
@@ -245,8 +233,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                               interModuleDependencyOracle: dependencyOracle)
       try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                       toolchainPath: toolchainRootPath,
-                                       osName: driver.targetTriple.osNameUnversioned)
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain,
+                                                                                   target: driver.targetTriple))
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
       try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
@@ -533,8 +521,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let dependencyOracle = InterModuleDependencyOracle()
     try dependencyOracle
       .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                     toolchainPath: toolchainRootPath,
-                                     osName: driver.targetTriple.osNameUnversioned)
+                                     swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain,
+                                                                                 target: driver.targetTriple))
     
     // Create a simple test case.
     try withTemporaryDirectory { path in

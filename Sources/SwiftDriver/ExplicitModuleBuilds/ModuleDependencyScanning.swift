@@ -96,8 +96,8 @@ internal extension Driver {
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
       try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       toolchainPath: try getRootPath(of: toolchain),
-                                       osName: targetTriple.osNameUnversioned)
+                                       swiftScanLibPath: try getScanLibPath(of: toolchain,
+                                                                            target: targetTriple))
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: scannerJob,
                                            forceResponseFiles: forceResponseFiles,
@@ -130,8 +130,8 @@ internal extension Driver {
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
       try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       toolchainPath: try getRootPath(of: toolchain),
-                                       osName: targetTriple.osNameUnversioned)
+                                       swiftScanLibPath: try getScanLibPath(of: toolchain,
+                                                                            target: targetTriple))
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: batchScanningJob,
                                            forceResponseFiles: forceResponseFiles,
@@ -260,6 +260,21 @@ internal extension Driver {
                                                      forceResponseFiles: forceResponseFiles,
                                                      quotePaths: true)
     return args
+  }
+}
+
+@_spi(Testing) public extension Driver {
+  func getScanLibPath(of toolchain: Toolchain, target: Triple) throws -> AbsolutePath {
+    let sharedLibExt: String
+    if target.isMacOSX {
+      sharedLibExt = ".dylib"
+    } else {
+      sharedLibExt = ".so"
+    }
+    return try getRootPath(of: toolchain).appending(component: "lib")
+      .appending(component: "swift")
+      .appending(component: target.osNameUnversioned)
+      .appending(component: "lib_InternalSwiftScan" + sharedLibExt)
   }
 
   fileprivate func getRootPath(of toolchain: Toolchain) throws -> AbsolutePath {
