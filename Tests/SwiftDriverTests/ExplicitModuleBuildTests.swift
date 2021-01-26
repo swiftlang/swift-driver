@@ -559,6 +559,16 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
 
+      // Module `X` is only imported when:
+      // #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 110000
+      let expectedNumberOfDependencies: Int
+      if driver.targetTriple.isMacOSX,
+         driver.targetTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
+        expectedNumberOfDependencies = 12
+      } else {
+        expectedNumberOfDependencies = 11
+      }
+
       // Dispatch several iterations in parallel
       DispatchQueue.concurrentPerform(iterations: 20) { index in
         // Give the main modules different names
@@ -567,7 +577,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         let dependencyGraph =
           try! dependencyOracle.getDependencies(workingDirectory: path,
                                                 commandLine: iterationCommand)
-        if (dependencyGraph.modules.count != 11) {
+        if (dependencyGraph.modules.count != expectedNumberOfDependencies) {
           lock.lock()
           print("Unexpected Dependency Scanning Result (\(dependencyGraph.modules.count) modules):")
           dependencyGraph.modules.forEach {
@@ -575,7 +585,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
           lock.unlock()
         }
-        XCTAssertTrue(dependencyGraph.modules.count == 11)
+        XCTAssertTrue(dependencyGraph.modules.count == expectedNumberOfDependencies)
       }
     }
   }
