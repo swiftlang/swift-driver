@@ -58,6 +58,10 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
 
+    // Propagate cross-module incremental builds flag so dependency information
+    // shows up in swiftmodules.
+    try commandLine.appendLast(.enableExperimentalCrossModuleIncrementalBuild, from: &parsedOptions)
+
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputInfo.output!.outputPath)
 
