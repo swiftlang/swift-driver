@@ -202,7 +202,7 @@ extension ModuleDependencyGraph {
   }
 }
 fileprivate extension DependencyKey {
-  init(interfaceFor dep: ExternalDependency ) {
+  init(interfaceFor dep: ExternalDependency) {
     self.init(aspect: .interface, designator: .externalDepend(dep))
   }
 }

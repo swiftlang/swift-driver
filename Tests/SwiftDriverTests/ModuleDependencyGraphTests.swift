@@ -856,15 +856,20 @@ class ModuleDependencyGraphTests: XCTestCase {
 }
 
 enum MockDependencyKind {
-  case topLevel, dynamicLookup, externalDepend, sourceFileProvide,
-        nominal, potentialMember,
-        member
+  case topLevel
+  case dynamicLookup
+  case externalDepend
+  case sourceFileProvide
+  case nominal
+  case potentialMember
+  case member
+  case incrementalExternalDependency
 
   var singleNameIsContext: Bool? {
     switch self {
-      case .nominal, .potentialMember: return true
-      case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide: return false
-      case .member: return nil
+    case .nominal, .potentialMember: return true
+    case .topLevel, .dynamicLookup, .externalDepend, .incrementalExternalDependency, .sourceFileProvide: return false
+    case .member: return nil
     }
   }
 }
@@ -1331,26 +1336,29 @@ fileprivate extension DependencyKey.Designator {
     }
     let (context: context, name: name) = contextAndName
     switch kind {
-      case .topLevel:
-        mustBeAbsent(context)
-        self = .topLevel(name: name!)
-      case .nominal:
-        mustBeAbsent(name)
-        self = .nominal(context: context!)
-      case .potentialMember:
-         mustBeAbsent(name)
-        self = .potentialMember(context: context!)
-      case .member:
-        self = .member(context: context!, name: name!)
-      case .dynamicLookup:
-         mustBeAbsent(context)
-        self = .dynamicLookup(name: name!)
-      case .externalDepend:
-         mustBeAbsent(context)
-        self = .externalDepend(ExternalDependency(name!))
-      case .sourceFileProvide:
-         mustBeAbsent(context)
-        self = .sourceFileProvide(name: name!)
+    case .topLevel:
+      mustBeAbsent(context)
+      self = .topLevel(name: name!)
+    case .nominal:
+      mustBeAbsent(name)
+      self = .nominal(context: context!)
+    case .potentialMember:
+      mustBeAbsent(name)
+      self = .potentialMember(context: context!)
+    case .member:
+      self = .member(context: context!, name: name!)
+    case .dynamicLookup:
+      mustBeAbsent(context)
+      self = .dynamicLookup(name: name!)
+    case .externalDepend:
+      mustBeAbsent(context)
+      self = .externalDepend(ExternalDependency(name!))
+    case .incrementalExternalDependency:
+      mustBeAbsent(context)
+      self = .incrementalExternalDependency(ExternalDependency(name!))
+    case .sourceFileProvide:
+      mustBeAbsent(context)
+      self = .sourceFileProvide(name: name!)
     }
   }
 }

@@ -295,7 +295,9 @@ fileprivate extension DependencyKey.Designator {
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)
-      
+    case 7:
+      try mustBeEmpty(context)
+      self = .incrementalExternalDependency(ExternalDependency(name))
     default: throw SourceFileDependencyGraph.ReadError.unknownKind
     }
   }
