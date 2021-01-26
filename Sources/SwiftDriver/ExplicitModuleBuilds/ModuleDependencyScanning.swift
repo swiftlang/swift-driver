@@ -94,9 +94,10 @@ internal extension Driver {
     let dependencyGraph: InterModuleDependencyGraph
 
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
-      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                                                    toolchainPath:
-                                                                      try getRootPath(of: toolchain))
+      try interModuleDependencyOracle
+        .verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                       toolchainPath: try getRootPath(of: toolchain),
+                                       osName: targetTriple.osNameUnversioned)
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: scannerJob,
                                            forceResponseFiles: forceResponseFiles,
@@ -127,9 +128,10 @@ internal extension Driver {
 
     let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]]
     if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
-      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                                                    toolchainPath:
-                                                                      try getRootPath(of: toolchain))
+      try interModuleDependencyOracle
+        .verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                       toolchainPath: try getRootPath(of: toolchain),
+                                       osName: targetTriple.osNameUnversioned)
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: batchScanningJob,
                                            forceResponseFiles: forceResponseFiles,

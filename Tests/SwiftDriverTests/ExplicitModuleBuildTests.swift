@@ -164,8 +164,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                               .parentDirectory // bin
                                                               .parentDirectory // toolchain root
       let dependencyOracle = InterModuleDependencyOracle()
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         toolchainPath: toolchainRootPath)
+      try dependencyOracle
+        .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                       toolchainPath: toolchainRootPath,
+                                       osName: driver.targetTriple.osNameUnversioned)
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -225,8 +227,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                               .parentDirectory // bin
                                                               .parentDirectory // toolchain root
       let dependencyOracle = InterModuleDependencyOracle()
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         toolchainPath: toolchainRootPath)
       try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
       // Construct a module dependency graph that will contain .swiftPlaceholder("B"),
@@ -243,7 +243,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: commandLine, executor: executor,
                               externalBuildArtifacts: (targetModulePathMap, [:]),
                               interModuleDependencyOracle: dependencyOracle)
-
+      try dependencyOracle
+        .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                       toolchainPath: toolchainRootPath,
+                                       osName: driver.targetTriple.osNameUnversioned)
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
       try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
@@ -523,9 +526,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       toolchainPath: toolchainRootPath)
-
+    try dependencyOracle
+      .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                     toolchainPath: toolchainRootPath,
+                                     osName: driver.targetTriple.osNameUnversioned)
+    
     // Create a simple test case.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")

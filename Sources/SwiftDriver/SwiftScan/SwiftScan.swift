@@ -24,6 +24,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
   case moduleNameDecodeFailure(String)
   case unsupportedDependencyDetailsKind(Int)
   case invalidStringPtr
+  case scanningLibraryInvocationMismatch(AbsolutePath, AbsolutePath)
 
   public var description: String {
     switch self {
@@ -41,6 +42,8 @@ public enum DependencyScanningError: Error, DiagnosticData {
         return "Dependency module details field kind not supported: `\(kindRawValue)`"
       case .invalidStringPtr:
         return "Dependency module details contains a corrupted string reference"
+      case .scanningLibraryInvocationMismatch(let path1, let path2):
+        return "Module scanning library differs across driver invocations: \(path1.description) and \(path2.description)"
     }
   }
 }
