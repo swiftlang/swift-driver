@@ -519,10 +519,15 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                             .parentDirectory // toolchain root
     let stdLibPath = toolchainRootPath.appending(component: "lib")
                                       .appending(component: "swift")
-                                      .appending(component: "macosx")
+                                      .appending(component: driver.targetTriple.osNameUnversioned)
     let shimsPath = toolchainRootPath.appending(component: "lib")
                                      .appending(component: "swift")
                                      .appending(component: "shims")
+    XCTAssertTrue(localFileSystem.exists(stdLibPath),
+                  "expected Swift StdLib at: \(stdLibPath.description)")
+    XCTAssertTrue(localFileSystem.exists(shimsPath),
+                  "expected Swift Shims at: \(shimsPath.description)")
+
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
@@ -551,6 +556,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-I", shimsPath.description,
                             main.pathString]
 
+      // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
+      let lock = NSLock()
+
       // Dispatch several iterations in parallel
       DispatchQueue.concurrentPerform(iterations: 20) { index in
         // Give the main modules different names
@@ -559,6 +567,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
         let dependencyGraph =
           try! dependencyOracle.getDependencies(workingDirectory: path,
                                                 commandLine: iterationCommand)
+        if (dependencyGraph.modules.count != 11) {
+          lock.lock()
+          print("Unexpected Dependency Scanning Result (\(dependencyGraph.modules.count) modules):")
+          dependencyGraph.modules.forEach {
+            print($0.key.moduleName)
+          }
+          lock.unlock()
+        }
         XCTAssertTrue(dependencyGraph.modules.count == 11)
       }
     }
