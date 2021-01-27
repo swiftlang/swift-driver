@@ -1034,7 +1034,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
   private mutating func mock() -> SourceFileDependencyGraph {
     buildNodes()
-    return SourceFileDependencyGraph(nodesForTesting: allNodes )
+    return SourceFileDependencyGraph(nodesForTesting: allNodes)
   }
 
   private mutating func buildNodes() {
