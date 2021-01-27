@@ -59,7 +59,8 @@ extension ModuleDependencyGraph {
     outputFileMap: OutputFileMap?,
     parsedOptions: inout ParsedOptions,
     remarkDisabled: (String) -> Diagnostic.Message,
-    reporter: IncrementalCompilationState.Reporter?
+    reporter: IncrementalCompilationState.Reporter?,
+    fileSystem: FileSystem
   ) -> (ModuleDependencyGraph, inputsWithMalformedSwiftDeps: [(TypedVirtualPath, VirtualPath)])?
   where Inputs.Element == TypedVirtualPath
   {
@@ -100,7 +101,8 @@ extension ModuleDependencyGraph {
                                          into: graph,
                                          input: input,
                                          reporter: reporter,
-                                         diagnosticEngine: diagnosticEngine)
+                                         diagnosticEngine: diagnosticEngine,
+                                         fileSystem: fileSystem)
       return changes == nil ? (input, swiftDepsFile) : nil
     }
     return (graph, inputsWithMalformedSwiftDeps)
@@ -147,11 +149,13 @@ extension ModuleDependencyGraph {
   /// Used to schedule the 2nd wave.
   /// Return nil in case of an error.
   func findSourcesToCompileAfterCompiling(
-    _ source: TypedVirtualPath
+    _ source: TypedVirtualPath,
+    on fileSystem: FileSystem
   ) -> [TypedVirtualPath]? {
     findSourcesToCompileAfterIntegrating(
       input: source,
-      swiftDeps: sourceSwiftDepsMap[source])
+      swiftDeps: sourceSwiftDepsMap[source],
+      on: fileSystem)
   }
 
   /// After a compile job has finished, read its swiftDeps file and return the source files needing
@@ -160,13 +164,15 @@ extension ModuleDependencyGraph {
   /// May return a source that has already been compiled.
   private func findSourcesToCompileAfterIntegrating(
     input: TypedVirtualPath,
-    swiftDeps: SwiftDeps
+    swiftDeps: SwiftDeps,
+    on fileSystem: FileSystem
   ) -> [TypedVirtualPath]? {
     Integrator.integrate(swiftDeps: swiftDeps,
                          into: self,
                          input: input,
                          reporter: self.reporter,
-                         diagnosticEngine: diagnosticEngine)
+                         diagnosticEngine: diagnosticEngine,
+                         fileSystem: fileSystem)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
           .map {sourceSwiftDepsMap[$0]}

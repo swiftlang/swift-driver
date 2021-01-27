@@ -68,7 +68,9 @@ final class NonincrementalCompilationTests: XCTestCase {
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputPath = packageRootPath + "/TestInputs/Incremental/main.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let absolutePath = try AbsolutePath(validating: String(testInputPath))
+    let graph = try SourceFileDependencyGraph(contentsOf: absolutePath,
+                                              on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -112,7 +114,9 @@ final class NonincrementalCompilationTests: XCTestCase {
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let absolutePath = try AbsolutePath(validating: String(testInputPath))
+    let graph = try SourceFileDependencyGraph(contentsOf: absolutePath,
+                                              on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
@@ -163,7 +167,8 @@ final class NonincrementalCompilationTests: XCTestCase {
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftmodule"
-    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
+    let absolutePath = try AbsolutePath(validating: String(testInputPath))
+    let data = try localFileSystem.readFileContents(absolutePath)
     let graph = try SourceFileDependencyGraph(data: data, fromSwiftModule: true)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)

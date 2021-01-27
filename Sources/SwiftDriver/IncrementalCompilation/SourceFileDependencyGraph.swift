@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
+import TSCBasic
 import TSCUtility
 
 /*@_spi(Testing)*/ public struct SourceFileDependencyGraph {
@@ -115,10 +116,12 @@ extension SourceFileDependencyGraph {
     case unknownKind
   }
 
-  // FIXME: This should accept a FileSystem parameter.
-  static func read(from swiftDeps: ModuleDependencyGraph.SwiftDeps
+  static func read(
+    from swiftDeps: ModuleDependencyGraph.SwiftDeps,
+    on fileSystem: FileSystem
   ) throws -> Self {
-    try self.init(pathString: swiftDeps.file.name)
+    try self.init(contentsOf: swiftDeps.file.absolutePath!,
+                  on: fileSystem)
   }
   
   /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
@@ -128,14 +131,18 @@ extension SourceFileDependencyGraph {
     allNodes = nodesForTesting
   }
 
-  // FIXME: This should accept a FileSystem parameter.
-  /*@_spi(Testing)*/ public init(pathString: String) throws {
-    let data = try Data(contentsOf: URL(fileURLWithPath: pathString))
+  /*@_spi(Testing)*/ public init(
+    contentsOf path: AbsolutePath,
+    on filesystem: FileSystem
+  ) throws {
+    let data = try filesystem.readFileContents(path)
     try self.init(data: data)
   }
 
-  /*@_spi(Testing)*/ public init(data: Data,
-       fromSwiftModule extractFromSwiftModule: Bool = false) throws {
+  /*@_spi(Testing)*/ public init(
+    data: ByteString,
+    fromSwiftModule extractFromSwiftModule: Bool = false
+  ) throws {
     struct Visitor: BitstreamVisitor {
       let extractFromSwiftModule: Bool
 
@@ -244,7 +251,7 @@ extension SourceFileDependencyGraph {
     }
 
     var visitor = Visitor(extractFromSwiftModule: extractFromSwiftModule)
-    try Bitcode.read(stream: data, using: &visitor)
+    try Bitcode.read(stream: Data(data.contents), using: &visitor)
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,
           let versionString = visitor.compilerVersionString else {

@@ -110,7 +110,8 @@ public class IncrementalCompilationState {
               outputFileMap: outputFileMap,
               parsedOptions: &driver.parsedOptions,
               remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
-              reporter: reporter)
+              reporter: reporter,
+              fileSystem: driver.fileSystem)
     else {
       return nil
     }
@@ -550,7 +551,7 @@ extension IncrementalCompilationState {
       Set(
         job.primaryInputs.flatMap {
           input -> [TypedVirtualPath] in
-          if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input) {
+          if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input, on: self.driver.fileSystem) {
             return found
           }
           self.reporter?.report("Failed to read some swiftdeps; compiling everything", path: input)
