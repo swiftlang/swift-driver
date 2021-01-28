@@ -28,7 +28,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/Dependencies/one-way-external-delete-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/one-way-depends-before-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/independent-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/embed-bitcode-parallel-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/file-added-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/private-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/independent-parseable-fine.swift
@@ -56,7 +55,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-conflicting-arguments-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-malformed-fine.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-inputs-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/whole-module-build-record.swift
   Swift(macosx-x86_64) :: Driver/Dependencies/independent-half-dirty-fine.swift
   Swift(macosx-x86_64) :: Driver/bad_exec.swift
     -print-frontend-info: https://github.com/apple/swift/pull/34405
@@ -81,9 +79,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/driver-time-compilation.swift
     No output - Implementing would require rebuilding llvm::Timer
 
-  Swift(macosx-x86_64) :: Driver/cross_module.swift
-    Experimental feature not yet implemented in swift-driver
-
   Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
     Test expects specific parameter ordering
 
@@ -104,7 +99,6 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/batch_mode_dependencies_make_wrong_order.swift
   Swift(macosx-x86_64) :: Driver/advanced_output_file_map.swift
-  Swift(macosx-x86_64) :: Driver/supplementary-filelist-empty.swift
     Unable to read file map
 
   Swift(macosx-x86_64) :: Driver/options-repl.swift
@@ -126,15 +120,8 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/batch_mode_bridging_pch.swift
     Crash: Multiple jobs producing same output file
 
-  Swift(macosx-x86_64) :: Driver/android-link.swift
-    Target armv7-unknown-linux-androideabi vs armv7-none-linux-androidhf
-    ^ https://github.com/apple/swift-driver/pull/370
-
   Swift(macosx-x86_64) :: Driver/driver_migration.swift
     Missing -emit-remap-file-path
-
-  Swift(macosx-x86_64) :: Driver/SourceRanges/range-incremental-no-build-record.swift
-    Same error messsage is worded differently
   
   Swift(macosx-x86_64) :: Driver/temp-files.swift
     swift-driver has no -save-temps support, and if an environment variable like `TMP` is set, swift-driver places temporary files in a subdirectory instead of immediately inside the specified one
@@ -146,15 +133,10 @@ test/Driver:
     Different error than expected
 
   Swift(macosx-x86_64) :: Driver/embed-bitcode.swift
-  Swift(macosx-x86_64) :: Driver/modulewrap.swift
-    Missing -emit-module-path
+    Different job order
 
   Swift(macosx-x86_64) :: Driver/driver-use-frontend.swift
     swift-driver checks that frontend exists, c++ driver does not
-
-  Swift(macosx-x86_64) :: Driver/continue-building-after-errors.swift
-    Found unexpected output
-    ^ https://github.com/apple/swift-driver/pull/371
 
   Swift(macosx-x86_64) :: Driver/emit-module-from-sib.swift
     Output is missing some types
@@ -168,3 +150,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/response-file.swift
     Temporary directory additional level, `TMPDIR` vs `TMPDIR/TemporaryDirectory.#####/`
+    
+  Swift(macosx-x86_64) :: Driver/help.swift
+    Expecting `SEE ALSO: swift build, swift run, swift package, swift test`
+    Broken with: https://github.com/apple/swift-driver/pull/433
