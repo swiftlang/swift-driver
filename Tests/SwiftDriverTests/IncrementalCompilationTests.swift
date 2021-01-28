@@ -227,9 +227,9 @@ final class NonincrementalCompilationTests: XCTestCase {
                    [0, 0])
     XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )]).status,
                    .upToDate)
-    XCTAssert(try! isCloseEnough( XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )])
-                                    .previousModTime.legacyDriverSecsAndNanos,
-                                  [1570083660, 0]))
+    XCTAssert(try! isCloseEnough(XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )])
+                                   .previousModTime.legacyDriverSecsAndNanos,
+                                 [1570083660, 0]))
 
     let outputString = try XCTUnwrap (buildRecord.encode(currentArgsHash: options,
                                                          diagnosticEngine: DiagnosticsEngine()))
@@ -743,7 +743,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           "-module-name", "MagicKit",
           "-enable-experimental-cross-module-incremental-build",
           "-working-directory", path.pathString,
-          "-c", "-v",
+          "-c",
           magic.pathString,
         ])
         let jobs = try driver.planBuild()
