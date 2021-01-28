@@ -60,10 +60,11 @@ extension ModuleDependencyGraph.Integrator {
     into destination: Graph,
     input: TypedVirtualPath,
     reporter: IncrementalCompilationState.Reporter?,
-    diagnosticEngine: DiagnosticsEngine
+    diagnosticEngine: DiagnosticsEngine,
+    fileSystem: FileSystem
   ) -> Changes? {
     guard let sfdg = try? SourceFileDependencyGraph.read(
-            from: swiftDeps)
+            from: swiftDeps, on: fileSystem)
     else {
       reporter?.report("Could not read \(swiftDeps)", path: input)
       return nil

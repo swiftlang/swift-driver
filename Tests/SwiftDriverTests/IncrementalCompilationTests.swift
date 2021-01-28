@@ -65,10 +65,10 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testReadBinarySourceFileDependencyGraph() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputPath = packageRootPath + "/TestInputs/Incremental/main.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+                                                         for: "main.swiftdeps"))
+    let graph = try SourceFileDependencyGraph(contentsOf: absolutePath,
+                                              on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -109,10 +109,10 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testReadComplexSourceFileDependencyGraph() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+                                                         for: "hello.swiftdeps"))
+    let graph = try SourceFileDependencyGraph(contentsOf: absolutePath,
+                                              on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
@@ -160,10 +160,9 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testExtractSourceFileDependencyGraphFromSwiftModule() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftmodule"
-    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+                                                         for: "hello.swiftmodule"))
+    let data = try localFileSystem.readFileContents(absolutePath)
     let graph = try SourceFileDependencyGraph(data: data, fromSwiftModule: true)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
@@ -778,7 +777,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
 
-      let data = try Data(contentsOf: path.appending(component: "main.swiftdeps").asURL)
+      let data = try localFileSystem.readFileContents(path.appending(component: "main.swiftdeps"))
       let graph = try SourceFileDependencyGraph(data: data, fromSwiftModule: false)
       XCTAssertEqual(graph.majorVersion, 1)
       XCTAssertEqual(graph.minorVersion, 0)
