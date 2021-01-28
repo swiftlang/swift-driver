@@ -26,9 +26,10 @@ import SwiftOptions
   
   private(set) var sourceSwiftDepsMap = BidirectionalMap<TypedVirtualPath, SwiftDeps>()
 
-  // Supports requests from the driver to getExternalDependencies.
+  // The set of paths to external dependencies discovered during the integration
+  // process.
   public internal(set) var externalDependencies = Set<ExternalDependency>()
-  
+
   let verifyDependencyGraphAfterEveryImport: Bool
   let emitDependencyDotFileAfterEveryImport: Bool
   let reporter: IncrementalCompilationState.Reporter?
@@ -39,8 +40,8 @@ import SwiftOptions
     diagnosticEngine: DiagnosticsEngine,
     reporter: IncrementalCompilationState.Reporter?,
     emitDependencyDotFileAfterEveryImport: Bool,
-    verifyDependencyGraphAfterEveryImport: Bool)
-  {
+    verifyDependencyGraphAfterEveryImport: Bool
+  ) {
     self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
     self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
     self.reporter = reporter
@@ -62,7 +63,7 @@ extension ModuleDependencyGraph {
     reporter: IncrementalCompilationState.Reporter?,
     fileSystem: FileSystem
   ) -> (ModuleDependencyGraph, inputsWithMalformedSwiftDeps: [(TypedVirtualPath, VirtualPath)])?
-  where Inputs.Element == TypedVirtualPath
+    where Inputs.Element == TypedVirtualPath
   {
     let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
     let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
@@ -72,10 +73,9 @@ extension ModuleDependencyGraph {
       emitDependencyDotFileAfterEveryImport: parsedOptions.contains(emitOpt),
       verifyDependencyGraphAfterEveryImport: parsedOptions.contains(veriOpt))
 
-    let inputsAndSwiftdeps = inputs.map {input in
-      (input, outputFileMap?.existingOutput( inputFile: input.file,
-                                             outputType: .swiftDeps)
-      )
+    let inputsAndSwiftdeps = inputs.map { input in
+      (input, outputFileMap?.existingOutput(inputFile: input.file,
+                                            outputType: .swiftDeps))
     }
     for isd in inputsAndSwiftdeps where isd.1 == nil {
       // The legacy driver fails silently here.
@@ -175,7 +175,6 @@ extension ModuleDependencyGraph {
                          fileSystem: fileSystem)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
-          .map {sourceSwiftDepsMap[$0]}
       }
   }
 }
@@ -186,7 +185,6 @@ extension ModuleDependencyGraph {
   /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
     _ nodes: Nodes
   ) -> Set<SwiftDeps>
-  where Nodes.Element == Node
   {
     let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(
       defs: nodes,
@@ -225,7 +223,6 @@ extension ModuleDependencyGraph {
     tracedNodes.insert(n)
   }
   func ensureGraphWillRetraceDependents<Nodes: Sequence>(of nodes: Nodes)
-  where Nodes.Element == Node
   {
     nodes.forEach { tracedNodes.remove($0) }
   }
@@ -262,3 +259,4 @@ extension ModuleDependencyGraph {
     fatalError("unimplmemented, writing dot file of dependency graph")
   }
 }
+
