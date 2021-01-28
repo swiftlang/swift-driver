@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 import TSCBasic
+import TSCUtility
 import SwiftOptions
 
 
@@ -175,6 +176,7 @@ extension ModuleDependencyGraph {
                          fileSystem: fileSystem)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
+          .map { sourceSwiftDepsMap[$0] }
       }
   }
 }
@@ -185,6 +187,7 @@ extension ModuleDependencyGraph {
   /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
     _ nodes: Nodes
   ) -> Set<SwiftDeps>
+    where Nodes.Element == Node
   {
     let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(
       defs: nodes,
@@ -223,6 +226,7 @@ extension ModuleDependencyGraph {
     tracedNodes.insert(n)
   }
   func ensureGraphWillRetraceDependents<Nodes: Sequence>(of nodes: Nodes)
+    where Nodes.Element == Node
   {
     nodes.forEach { tracedNodes.remove($0) }
   }
@@ -257,6 +261,501 @@ extension ModuleDependencyGraph {
   func emitDotFile(_ g: SourceFileDependencyGraph, _ swiftDeps: SwiftDeps) {
     // TODO: Incremental emitDotFIle
     fatalError("unimplmemented, writing dot file of dependency graph")
+  }
+}
+
+// MARK: - Serialization
+
+extension ModuleDependencyGraph {
+  fileprivate static let signature = "DDEP"
+
+  fileprivate enum RecordID: UInt64 {
+    case metadata = 1
+    case moduleDepGraphNode
+    case fingerprintNode
+    case identifierNode
+  }
+
+  fileprivate enum ReadError: Error {
+    case badMagic
+    case noRecordBlock
+    case malformedMetadataRecord
+    case unexpectedMetadataRecord
+    case malformedFingerprintRecord
+    case malformedIdentifierRecord
+    case malformedModuleDepGraphNodeRecord
+    case unknownRecord
+    case unexpectedSubblock
+    case bogusNameOrContext
+    case unknownKind
+  }
+
+  /// Attempts to read a serialized dependency graph from the given path.
+  ///
+  /// - Parameters:
+  ///   - path: The absolute path to the file to be read.
+  ///   - fileSystem: The file system on which to search.
+  ///   - diagnosticEngine: The diagnostics engine.
+  ///   - reporter: An optional reporter used to log information about
+  /// - Throws: An error describing any failures to read the graph from the given file.
+  /// - Returns: A fully deserialized ModuleDependencyGraph.
+  static func read(
+    from path: AbsolutePath,
+    on fileSystem: FileSystem,
+    diagnosticEngine: DiagnosticsEngine,
+    reporter: IncrementalCompilationState.Reporter?
+  ) throws -> ModuleDependencyGraph {
+    let data = try fileSystem.readFileContents(path)
+
+    struct Visitor: BitstreamVisitor {
+      let graph: ModuleDependencyGraph
+      var majorVersion: UInt64?
+      var minorVersion: UInt64?
+      var compilerVersionString: String?
+
+      private var node: Node? = nil
+      // The empty string is hardcoded as identifiers[0]
+      private var identifiers: [String] = [""]
+      private var sequenceNumber = 0
+
+      init(
+        diagnosticEngine: DiagnosticsEngine,
+        reporter: IncrementalCompilationState.Reporter?
+      ) {
+        self.graph = ModuleDependencyGraph(diagnosticEngine: diagnosticEngine,
+                                           reporter: reporter,
+                                           emitDependencyDotFileAfterEveryImport: false,
+                                           verifyDependencyGraphAfterEveryImport: false)
+      }
+
+      func validate(signature: Bitcode.Signature) throws {
+        guard signature == .init(string: ModuleDependencyGraph.signature) else { throw ReadError.badMagic }
+      }
+
+      mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
+        return true
+      }
+
+      mutating func didExitBlock() throws {
+        // Finalize the current node if needed.
+        guard let newNode = node else {
+          return
+        }
+        self.finalize(node: newNode)
+      }
+
+      private func finalize(node newNode: Node) {
+        let oldNode = self.graph.nodeFinder.insert(newNode)
+        assert(oldNode == nil,
+               "Integrated the same node twice: \(oldNode!), \(newNode)")
+      }
+
+      mutating func visit(record: BitcodeElement.Record) throws {
+        guard let kind = RecordID(rawValue: record.id) else { throw ReadError.unknownRecord }
+        switch kind {
+        case .metadata:
+          // If we've already read metadata, this is an unexpected duplicate.
+          guard self.majorVersion == nil, self.minorVersion == nil, self.compilerVersionString == nil else {
+            throw ReadError.unexpectedMetadataRecord
+          }
+          guard record.fields.count == 2,
+                case .blob(let compilerVersionBlob) = record.payload,
+                let compilerVersionString = String(data: compilerVersionBlob, encoding: .utf8)
+          else { throw ReadError.malformedMetadataRecord }
+
+          self.majorVersion = record.fields[0]
+          self.minorVersion = record.fields[1]
+          self.compilerVersionString = compilerVersionString
+        case .moduleDepGraphNode:
+          if let node = node {
+            self.finalize(node: node)
+          }
+          let kindCode = record.fields[0]
+          guard record.fields.count == 6,
+                let declAspect = DependencyKey.DeclAspect(record.fields[1]),
+                record.fields[2] < identifiers.count,
+                record.fields[3] < identifiers.count else {
+            throw ReadError.malformedModuleDepGraphNodeRecord
+          }
+          let context = identifiers[Int(record.fields[2])]
+          let identifier = identifiers[Int(record.fields[3])]
+          let designator = try DependencyKey.Designator(
+            kindCode: kindCode, context: context, name: identifier)
+          let key = DependencyKey(aspect: declAspect, designator: designator)
+          let hasSwiftDeps = Int(record.fields[4]) != 0
+          let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
+          let swiftDeps = try swiftDepsStr
+            .map({ try VirtualPath(path: $0) })
+            .map(ModuleDependencyGraph.SwiftDeps.init)
+          node = Node(key: key,
+                      fingerprint: nil,
+                      swiftDeps: swiftDeps)
+          sequenceNumber += 1
+        case .fingerprintNode:
+          guard node != nil,
+                record.fields.count == 0,
+                case .blob(let fingerprintBlob) = record.payload,
+                let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
+            throw ReadError.malformedFingerprintRecord
+          }
+          node?.fingerprint = fingerprint
+        case .identifierNode:
+          guard record.fields.count == 0,
+                case .blob(let identifierBlob) = record.payload,
+                let identifier = String(data: identifierBlob, encoding: .utf8) else {
+            throw ReadError.malformedIdentifierRecord
+          }
+          identifiers.append(identifier)
+        }
+      }
+    }
+
+    return try data.contents.withUnsafeBytes { buf in
+      // SAFETY: The bitcode reader does not mutate the data stream we give it.
+      // FIXME: Let's avoid this altogether and traffic in ByteString/[UInt8]
+      // if possible. There's no real reason to use `Data` in this API.
+      let baseAddr = UnsafeMutableRawPointer(mutating: buf.baseAddress!)
+      let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
+      var visitor = Visitor(diagnosticEngine: diagnosticEngine,
+                            reporter: reporter)
+      try Bitcode.read(stream: data, using: &visitor)
+      guard let major = visitor.majorVersion,
+            let minor = visitor.minorVersion,
+            visitor.compilerVersionString != nil,
+            (major, minor) == (1, 0)
+      else {
+        throw ReadError.malformedMetadataRecord
+      }
+      return visitor.graph
+    }
+  }
+}
+
+extension ModuleDependencyGraph {
+  /// Attempts to serialize this dependency graph and write its contents
+  /// to the given file path.
+  ///
+  /// Should serialization fail, the driver must emit an error *and* moreover
+  /// the build record should reflect that the incremental build failed. This
+  /// prevents bogus priors from being picked up the next time the build is run.
+  /// It's better for us to just redo the incremental build than wind up with
+  /// corrupted dependency state.
+  ///
+  /// - Parameters:
+  ///   - path: The location to write the data for this file.
+  ///   - fileSystem: The file system for this location.
+  func write(to path: AbsolutePath, on fileSystem: FileSystem) {
+    let data = ModuleDependencyGraph.Serializer.serialize(self)
+
+    do {
+      try fileSystem.writeFileContents(path,
+                                       bytes: data,
+                                       atomically: true)
+    } catch {
+      diagnosticEngine.emit(.error_could_not_write_dep_graph(to: path))
+    }
+  }
+
+  fileprivate final class Serializer {
+    let stream = BitstreamWriter()
+    private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
+    private var identifiersToWrite = [String]()
+    private var identifierIDs = [String: Int]()
+    private var lastIdentifierID: Int = 1
+
+    private func emitSignature() {
+      for c in ModuleDependencyGraph.signature {
+        self.stream.writeASCII(c)
+      }
+    }
+
+    private func emitBlockID(_ ID: Bitstream.BlockID, _ name: String) {
+      self.stream.writeRecord(Bitstream.BlockInfoCode.setBID) {
+        $0.append(ID)
+      }
+
+      // Emit the block name if present.
+      guard !name.isEmpty else {
+        return
+      }
+
+      self.stream.writeRecord(Bitstream.BlockInfoCode.blockName) { buffer in
+        buffer.append(name)
+      }
+    }
+
+    private func emitRecordID(_ id: RecordID, named name: String) {
+      self.stream.writeRecord(Bitstream.BlockInfoCode.setRecordName) {
+        $0.append(id)
+        $0.append(name)
+      }
+    }
+
+    private func writeBlockInfoBlock() {
+      self.stream.writeBlockInfoBlock {
+        self.emitBlockID(.firstApplicationID, "RECORD_BLOCK")
+        self.emitRecordID(.metadata, named: "METADATA")
+        self.emitRecordID(.moduleDepGraphNode, named: "MODULE_DEP_GRAPH_NODE")
+        self.emitRecordID(.fingerprintNode, named: "FINGERPRINT_NODE")
+        self.emitRecordID(.identifierNode, named: "IDENTIFIER_NODE")
+      }
+    }
+
+    private func writeMetadata() {
+      self.stream.writeRecord(self.abbreviations[.metadata]!, {
+        $0.append(RecordID.metadata)
+        // Major version
+        $0.append(1 as UInt32)
+        // Minor version
+        $0.append(0 as UInt32)
+      },
+      blob: "") // FIXME: Plumb the frontend compiler version here.
+    }
+
+    private func addIdentifier(_ str: String) {
+      guard !str.isEmpty && self.identifierIDs[str] == nil else {
+        return
+      }
+
+      defer { self.lastIdentifierID += 1 }
+      self.identifierIDs[str] = self.lastIdentifierID
+      self.identifiersToWrite.append(str)
+    }
+
+    private func lookupIdentifierCode(for string: String) -> UInt32 {
+      guard !string.isEmpty else {
+        return 0
+      }
+
+      return UInt32(self.identifierIDs[string]!)
+    }
+
+    private func writeStrings(in graph: ModuleDependencyGraph) {
+      graph.nodeFinder.forEachNode { node in
+        if let swiftDeps = node.swiftDeps?.file.name {
+          self.addIdentifier(swiftDeps)
+        }
+        if let context = node.dependencyKey.designator.context {
+          self.addIdentifier(context)
+        }
+        if let name = node.dependencyKey.designator.name {
+          self.addIdentifier(name)
+        }
+      }
+
+      for str in self.identifiersToWrite {
+        self.stream.writeRecord(self.abbreviations[.identifierNode]!, {
+          $0.append(RecordID.identifierNode)
+        }, blob: str)
+      }
+    }
+
+    private func abbreviate(
+      _ record: RecordID,
+      _ operands: [Bitstream.Abbreviation.Operand]
+    ) {
+      self.abbreviations[record]
+        = self.stream.defineAbbreviation(Bitstream.Abbreviation(operands))
+    }
+
+    public static func serialize(_ graph: ModuleDependencyGraph) -> ByteString {
+      let serializer = Serializer()
+      serializer.emitSignature()
+      serializer.writeBlockInfoBlock()
+
+      serializer.stream.withSubBlock(.firstApplicationID, abbreviationBitWidth: 8) {
+        serializer.abbreviate(.metadata, [
+          .literal(RecordID.metadata.rawValue),
+          // Major version
+          .fixed(bitWidth: 16),
+          // Minor version
+          .fixed(bitWidth: 16),
+          // Frontend version
+          .blob,
+        ])
+        serializer.abbreviate(.moduleDepGraphNode, [
+          .literal(RecordID.moduleDepGraphNode.rawValue),
+          // dependency kind discriminator
+          .fixed(bitWidth: 3),
+          // dependency decl aspect discriminator
+          .fixed(bitWidth: 1),
+          // dependency context
+          .vbr(chunkBitWidth: 13),
+          // dependency name
+          .vbr(chunkBitWidth: 13),
+          // swiftdeps?
+          .fixed(bitWidth: 1),
+          // swiftdeps path
+          .vbr(chunkBitWidth: 13),
+        ])
+        serializer.abbreviate(.fingerprintNode, [
+          .literal(RecordID.fingerprintNode.rawValue),
+          // fingerprint data
+          .blob
+        ])
+        serializer.abbreviate(.identifierNode, [
+          .literal(RecordID.identifierNode.rawValue),
+          // identifier data
+          .blob
+        ])
+
+        serializer.writeMetadata()
+
+        serializer.writeStrings(in: graph)
+
+        graph.nodeFinder.forEachNode { node in
+          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!) {
+            $0.append(RecordID.moduleDepGraphNode)
+            $0.append(node.dependencyKey.designator.code)
+            $0.append(node.dependencyKey.aspect.code)
+            $0.append(serializer.lookupIdentifierCode(
+                        for: node.dependencyKey.designator.context ?? ""))
+            $0.append(serializer.lookupIdentifierCode(
+                        for: node.dependencyKey.designator.name ?? ""))
+            $0.append((node.swiftDeps != nil) ? UInt32(1) : UInt32(0))
+            $0.append(serializer.lookupIdentifierCode(
+                        for: node.swiftDeps?.file.name ?? ""))
+          }
+
+          if let fingerprint = node.fingerprint {
+            serializer.stream.writeRecord(serializer.abbreviations[.fingerprintNode]!, {
+              $0.append(RecordID.fingerprintNode)
+            }, blob: fingerprint)
+          }
+        }
+      }
+      return ByteString(serializer.stream.data)
+    }
+  }
+}
+
+fileprivate extension DependencyKey.DeclAspect {
+  init?(_ c: UInt64) {
+    switch c {
+    case 0:
+      self = .interface
+    case 1:
+      self = .implementation
+    default:
+      return nil
+    }
+  }
+
+  var code: UInt32 {
+    switch self {
+    case .interface:
+      return 0
+    case .implementation:
+      return 1
+    }
+  }
+}
+
+fileprivate extension DependencyKey.Designator {
+  init(kindCode: UInt64, context: String, name: String) throws {
+    func mustBeEmpty(_ s: String) throws {
+      guard s.isEmpty else {
+        throw ModuleDependencyGraph.ReadError.bogusNameOrContext
+      }
+    }
+
+    switch kindCode {
+    case 0:
+      try mustBeEmpty(context)
+      self = .topLevel(name: name)
+    case 1:
+      try mustBeEmpty(name)
+      self = .nominal(context: context)
+    case 2:
+      try mustBeEmpty(name)
+      self = .potentialMember(context: context)
+    case 3:
+      self = .member(context: context, name: name)
+    case 4:
+      try mustBeEmpty(context)
+      self = .dynamicLookup(name: name)
+    case 5:
+      try mustBeEmpty(context)
+      self = .externalDepend(ExternalDependency(name))
+    case 6:
+      try mustBeEmpty(context)
+      self = .sourceFileProvide(name: name)
+    case 7:
+      try mustBeEmpty(context)
+      self = .incrementalExternalDependency(ExternalDependency(name))
+    default: throw ModuleDependencyGraph.ReadError.unknownKind
+    }
+  }
+
+  var code: UInt32 {
+    switch self {
+    case .topLevel(name: _):
+      return 0
+    case .nominal(context: _):
+      return 1
+    case .potentialMember(context: _):
+      return 2
+    case .member(context: _, name: _):
+      return 3
+    case .dynamicLookup(name: _):
+      return 4
+    case .externalDepend(_):
+      return 5
+    case .sourceFileProvide(name: _):
+      return 6
+    case .incrementalExternalDependency(_):
+      return 7
+    }
+  }
+
+  var context: String? {
+    switch self {
+    case .topLevel(name: _):
+      return nil
+    case .dynamicLookup(name: _):
+      return nil
+    case .externalDepend(_):
+      return nil
+    case .sourceFileProvide(name: _):
+      return nil
+    case .incrementalExternalDependency(_):
+      return nil
+    case .nominal(context: let context):
+      return context
+    case .potentialMember(context: let context):
+      return context
+    case .member(context: let context, name: _):
+      return context
+    }
+  }
+
+  var name: String? {
+    switch self {
+    case .topLevel(name: let name):
+      return name
+    case .dynamicLookup(name: let name):
+      return name
+    case .externalDepend(let path):
+      return path.file?.basename
+    case .sourceFileProvide(name: let name):
+      return name
+    case .incrementalExternalDependency(let path):
+      return path.file?.basename
+    case .member(context: _, name: let name):
+      return name
+    case .nominal(context: _):
+      return nil
+    case .potentialMember(context: _):
+      return nil
+    }
+  }
+}
+
+extension Diagnostic.Message {
+  fileprivate static func error_could_not_write_dep_graph(
+    to path: AbsolutePath
+  ) -> Diagnostic.Message {
+    .error("could not write driver dependency graph to \(path)")
   }
 }
 
