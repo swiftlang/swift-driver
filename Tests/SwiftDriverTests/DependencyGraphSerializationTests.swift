@@ -19,7 +19,7 @@ class DependencyGraphSerializationTests: XCTestCase {
     let mockPath = AbsolutePath("/module-dependency-graph")
     let de = DiagnosticsEngine()
     let fs = InMemoryFileSystem()
-    graph.write(to: mockPath, on: fs)
+    graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
 
     let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
                                                            on: fs,

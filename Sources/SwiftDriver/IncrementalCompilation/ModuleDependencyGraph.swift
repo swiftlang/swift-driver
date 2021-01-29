@@ -444,8 +444,14 @@ extension ModuleDependencyGraph {
   /// - Parameters:
   ///   - path: The location to write the data for this file.
   ///   - fileSystem: The file system for this location.
-  func write(to path: AbsolutePath, on fileSystem: FileSystem) {
-    let data = ModuleDependencyGraph.Serializer.serialize(self)
+  ///   - compilerVersion: A string containing version information for the
+  ///                      driver used to create this file.
+  func write(
+    to path: AbsolutePath,
+    on fileSystem: FileSystem,
+    compilerVersion: String
+  ) {
+    let data = ModuleDependencyGraph.Serializer.serialize(self, compilerVersion)
 
     do {
       try fileSystem.writeFileContents(path,
@@ -457,11 +463,16 @@ extension ModuleDependencyGraph {
   }
 
   fileprivate final class Serializer {
+    let compilerVersion: String
     let stream = BitstreamWriter()
     private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
     private var identifiersToWrite = [String]()
     private var identifierIDs = [String: Int]()
     private var lastIdentifierID: Int = 1
+
+    private init(compilerVersion: String) {
+      self.compilerVersion = compilerVersion
+    }
 
     private func emitSignature() {
       for c in ModuleDependencyGraph.signature {
@@ -509,7 +520,7 @@ extension ModuleDependencyGraph {
         // Minor version
         $0.append(0 as UInt32)
       },
-      blob: "") // FIXME: Plumb the frontend compiler version here.
+      blob: self.compilerVersion)
     }
 
     private func addIdentifier(_ str: String) {
@@ -558,8 +569,11 @@ extension ModuleDependencyGraph {
         = self.stream.defineAbbreviation(Bitstream.Abbreviation(operands))
     }
 
-    public static func serialize(_ graph: ModuleDependencyGraph) -> ByteString {
-      let serializer = Serializer()
+    public static func serialize(
+      _ graph: ModuleDependencyGraph,
+      _ compilerVersion: String
+    ) -> ByteString {
+      let serializer = Serializer(compilerVersion: compilerVersion)
       serializer.emitSignature()
       serializer.writeBlockInfoBlock()
 
