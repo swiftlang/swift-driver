@@ -120,8 +120,7 @@ extension SourceFileDependencyGraph {
     from swiftDeps: ModuleDependencyGraph.SwiftDeps,
     on fileSystem: FileSystem
   ) throws -> Self {
-    try self.init(contentsOf: swiftDeps.file.absolutePath!,
-                  on: fileSystem)
+    try self.init(contentsOf: swiftDeps.file, on: fileSystem)
   }
   
   /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
@@ -132,7 +131,7 @@ extension SourceFileDependencyGraph {
   }
 
   /*@_spi(Testing)*/ public init(
-    contentsOf path: AbsolutePath,
+    contentsOf path: VirtualPath,
     on filesystem: FileSystem
   ) throws {
     let data = try filesystem.readFileContents(path)
