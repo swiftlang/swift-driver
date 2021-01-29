@@ -45,7 +45,7 @@ extension ModuleDependencyGraph {
     /// frontend creates an interface node,
     /// it adds a dependency to it from the implementation source file node (which
     /// has the intefaceHash as its fingerprint).
-    let fingerprint: String?
+    var fingerprint: String?
 
 
     /// The swiftDeps file that holds this entity iff the entities .swiftdeps is known.

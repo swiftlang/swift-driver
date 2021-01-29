@@ -40,7 +40,8 @@ extension ModuleDependencyGraph {
 // MARK: - finding
 
 extension ModuleDependencyGraph.NodeFinder {
-  func findFileInterfaceNode(forMock swiftDeps: ModuleDependencyGraph.SwiftDeps
+  func findFileInterfaceNode(
+    forMock swiftDeps: ModuleDependencyGraph.SwiftDeps
   ) -> Graph.Node?  {
     let fileKey = DependencyKey(fileKeyForMockSwiftDeps: swiftDeps)
     return findNode((swiftDeps, fileKey))
@@ -58,6 +59,16 @@ extension ModuleDependencyGraph.NodeFinder {
   }
   func findNodes(for key: DependencyKey) -> [Graph.SwiftDeps?: Graph.Node]? {
     nodeMap[key]
+  }
+
+  /// Calls the given closure on each node in this dependency graph.
+  ///
+  /// - Note: The order of iteration between successive runs of the driver is
+  ///         not guaranteed.
+  ///
+  /// - Parameter visit: The closure to call with each graph node.
+  func forEachNode(_ visit: (Graph.Node) -> Void) {
+    nodeMap.forEach { visit($1) }
   }
 
   /// Retrieves the set of uses corresponding to a given node.
