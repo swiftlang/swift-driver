@@ -67,8 +67,9 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadBinarySourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
-    let graph = try SourceFileDependencyGraph(contentsOf: absolutePath,
-                                              on: localFileSystem)
+    let graph = try SourceFileDependencyGraph(
+      contentsOf: VirtualPath.absolute(absolutePath),
+      on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -111,8 +112,9 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadComplexSourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftdeps"))
-    let graph = try SourceFileDependencyGraph(contentsOf: absolutePath,
-                                              on: localFileSystem)
+    let graph = try SourceFileDependencyGraph(
+      contentsOf: VirtualPath.absolute(absolutePath),
+      on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
