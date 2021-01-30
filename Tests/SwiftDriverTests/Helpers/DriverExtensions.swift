@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
+import XCTest
 
 extension Driver {
   /// Initializer which creates an executor suitable for use in tests.
@@ -26,10 +27,38 @@ extension Driver {
                                        processSet: ProcessSet(),
                                        fileSystem: fileSystem,
                                        env: env)
-    try self.init(args: args,
-                  env: env,
-                  diagnosticsEngine: diagnosticsEngine,
-                  fileSystem: fileSystem,
-                  executor: executor)
+    var augmentedArgs = args
+    // Color codes in diagnostics cause mismatches
+    augmentedArgs.append("-no-color-diagnostics")
+    // The frontend fails to load the standard library because it cannot
+    // find it relative to the execution path used by the Swift Driver.
+    // So, pass in the sdk path explicitly.
+    if !args.contains("-sdk") {
+      augmentedArgs.append(contentsOf: ["-sdk", try cachedSDKPath.get()])
+    }
+
+    try self.init(
+      args: augmentedArgs,
+      env: env,
+      diagnosticsEngine: diagnosticsEngine,
+      fileSystem: fileSystem,
+      executor: executor)
   }
+}
+
+private let cachedSDKPath = Result<String, Error> {
+  if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
+    return pathFromEnv
+  }
+  let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
+  try process.launch()
+  let result = try process.waitUntilExit()
+  guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
+    enum XCRunFailure: LocalizedError {
+      case xcrunFailure
+    }
+    throw XCRunFailure.xcrunFailure
+  }
+  return try XCTUnwrap(String(bytes: try result.output.get(), encoding: .utf8))
+    .spm_chomp()
 }
