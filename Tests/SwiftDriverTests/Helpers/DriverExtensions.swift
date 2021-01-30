@@ -27,23 +27,31 @@ extension Driver {
                                        processSet: ProcessSet(),
                                        fileSystem: fileSystem,
                                        env: env)
-    var augmentedArgs = args
-    // Color codes in diagnostics cause mismatches
-    augmentedArgs.append("-no-color-diagnostics")
-    // The frontend fails to load the standard library because it cannot
-    // find it relative to the execution path used by the Swift Driver.
-    // So, pass in the sdk path explicitly.
-    if !args.contains("-sdk") {
-      augmentedArgs.append(contentsOf: ["-sdk", try cachedSDKPath.get()])
-    }
-
     try self.init(
-      args: augmentedArgs,
+      args: augment(args: args),
       env: env,
       diagnosticsEngine: diagnosticsEngine,
       fileSystem: fileSystem,
       executor: executor)
   }
+}
+
+private func augment(args: [String]) throws -> [String] {
+  var augmentedArgs = args
+  let extraArgsIndex = args.firstIndex(of: "--") ?? args.endIndex
+
+  // Color codes in diagnostics cause mismatches
+  augmentedArgs.insert("-no-color-diagnostics", at: extraArgsIndex)
+
+  // The frontend fails to load the standard library because it cannot
+  // find it relative to the execution path used by the Swift Driver.
+  // So, pass in the sdk path explicitly.
+  if !args.contains("-sdk") {
+    augmentedArgs.insert(
+      contentsOf: ["-sdk", try cachedSDKPath.get()],
+      at: extraArgsIndex)
+  }
+  return augmentedArgs
 }
 
 private let cachedSDKPath = Result<String, Error> {
