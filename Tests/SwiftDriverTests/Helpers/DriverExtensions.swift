@@ -46,27 +46,31 @@ private func augment(args: [String]) throws -> [String] {
   // The frontend fails to load the standard library because it cannot
   // find it relative to the execution path used by the Swift Driver.
   // So, pass in the sdk path explicitly.
-  if !args.contains("-sdk") {
+  if let sdkPath = try cachedSDKPath.get(), !args.contains("-sdk") {
     augmentedArgs.insert(
-      contentsOf: ["-sdk", try cachedSDKPath.get()],
+      contentsOf: ["-sdk", sdkPath],
       at: extraArgsIndex)
   }
   return augmentedArgs
 }
 
-private let cachedSDKPath = Result<String, Error> {
+private let cachedSDKPath = Result<String?, Error> {
   if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
     return pathFromEnv
   }
-  let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
-  try process.launch()
-  let result = try process.waitUntilExit()
-  guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
-    enum XCRunFailure: LocalizedError {
-      case xcrunFailure
+  #if !os(macOS)
+    return nil
+  #else
+    let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
+    try process.launch()
+    let result = try process.waitUntilExit()
+    guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
+      enum XCRunFailure: LocalizedError {
+        case xcrunFailure
+      }
+      throw XCRunFailure.xcrunFailure
     }
-    throw XCRunFailure.xcrunFailure
-  }
-  return try XCTUnwrap(String(bytes: try result.output.get(), encoding: .utf8))
-    .spm_chomp()
+    return try XCTUnwrap(String(bytes: try result.output.get(), encoding: .utf8))
+      .spm_chomp()
+  #endif
 }
