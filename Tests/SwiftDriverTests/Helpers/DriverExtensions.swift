@@ -37,11 +37,13 @@ extension Driver {
 }
 
 private func augment(args: [String]) throws -> [String] {
+  let extraArgsIndex = 1
   var augmentedArgs = args
-  let extraArgsIndex = args.firstIndex(of: "--") ?? args.endIndex
 
   // Color codes in diagnostics cause mismatches
-  augmentedArgs.insert("-no-color-diagnostics", at: extraArgsIndex)
+  if !args.contains("-color-diagnostics") {
+    augmentedArgs.insert("-no-color-diagnostics", at: extraArgsIndex)
+  }
 
   // The frontend fails to load the standard library because it cannot
   // find it relative to the execution path used by the Swift Driver.
