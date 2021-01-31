@@ -289,6 +289,21 @@ final class JobExecutorTests: XCTestCase {
     }
   }
 
+  func testShellEscapingArgsInJobDescription() throws {
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: [:])
+    let job = Job(moduleName: "Module",
+                  kind: .compile,
+                  tool: .absolute(.init("/path/to/the tool")),
+                  commandLine: [.path(.absolute(.init("/with space"))),
+                                .path(.absolute(.init("/withoutspace")))],
+                  inputs: [], primaryInputs: [], outputs: [])
+    XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
+                   "'/path/to/the tool' '/with space' /withoutspace")
+  }
+
   func testInputModifiedDuringMultiJobBuild() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
