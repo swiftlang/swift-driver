@@ -37,6 +37,8 @@ class DependencyGraphSerializationTests: XCTestCase {
 
     XCTAssertTrue(originalNodes == deserializedNodes,
                   "Round trip failed! Symmetric difference - \(originalNodes.symmetricDifference(deserializedNodes))")
+
+    XCTAssertTrue(graph.matches(deserializedGraph))
   }
 
   func testRoundTripFixtures() throws {

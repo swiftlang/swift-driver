@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Like a Dictionary, but can have >1 value per key (i.e., a multimap)
-struct Multidictionary<Key: Hashable, Value: Hashable>: Collection {
+struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   public typealias OuterDict = [Key: Set<Value>]
   public typealias InnerSet = Set<Value>
   private var outerDict = OuterDict()

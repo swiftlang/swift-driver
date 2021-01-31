@@ -251,6 +251,6 @@ fileprivate extension ModuleDependencyGraph.SwiftDeps {
 // MARK: - Checking Serialization
 extension ModuleDependencyGraph.NodeFinder {
   func matches(_ other: Self) -> Bool {
-    return nodeMap == other.nodeMap
+    nodeMap == other.nodeMap && usesByDef == other.usesByDef
   }
 }
