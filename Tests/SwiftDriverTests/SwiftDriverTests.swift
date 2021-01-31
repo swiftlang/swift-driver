@@ -81,7 +81,9 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertNoThrow(try Driver(args: ["swift", ".foo"]))
     XCTAssertNoThrow(try Driver(args: ["swift", "/foo"]))
 
-    XCTAssertThrowsError(try Driver(args: ["swift", "foo"]))
+    XCTAssertThrowsError(try Driver(args: ["swift", "foo",
+                                            "-no-color-diagnostics",
+                                            "-sdk", "foo"]))
   }
 
   func testDriverKindParsing() throws {
@@ -3507,7 +3509,8 @@ final class SwiftDriverTests: XCTestCase {
 
   func testIndexFilePathHandling() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-index-file", "-index-file-path",
+      var driver = try Driver(args: ["swiftc", "-module-name", "mod",
+                                     "-index-file", "-index-file-path",
                                      "bar.swift", "foo.swift", "bar.swift", "baz.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)

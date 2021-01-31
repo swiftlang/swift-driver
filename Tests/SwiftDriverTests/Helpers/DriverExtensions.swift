@@ -41,7 +41,7 @@ private func augment(args: [String]) throws -> [String] {
   var augmentedArgs = args
 
   // Color codes in diagnostics cause mismatches
-  if !args.contains("-color-diagnostics") {
+  if !args.contains("-color-diagnostics") && !args.contains("-no-color-diagnostics") {
     augmentedArgs.insert("-no-color-diagnostics", at: extraArgsIndex)
   }
 
