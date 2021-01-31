@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Like a two-way dictionary, only works for accessing present members
-public struct BidirectionalMap<T1: Hashable, T2: Hashable> {
+public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable {
   private var map1: [T1: T2] = [:]
   private var map2: [T2: T1] = [:]
 

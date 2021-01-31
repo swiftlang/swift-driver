@@ -135,3 +135,7 @@ extension DictionaryOfDictionaries {
     return old
   }
 }
+
+// MARK: - comparing
+
+extension DictionaryOfDictionaries: Equatable  where Value: Equatable {}

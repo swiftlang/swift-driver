@@ -460,6 +460,10 @@ extension ModuleDependencyGraph {
     } catch {
       diagnosticEngine.emit(.error_could_not_write_dep_graph(to: path))
     }
+    assert(matches(try! Self.read(from: path,
+                                  on: fileSystem,
+                                  diagnosticEngine: diagnosticEngine,
+                                  reporter: reporter)))
   }
 
   fileprivate final class Serializer {
@@ -773,3 +777,35 @@ extension Diagnostic.Message {
   }
 }
 
+// MARK: - Checking Serialization
+
+extension ModuleDependencyGraph {
+  func matches(_ other: ModuleDependencyGraph) -> Bool {
+    assert(nodeFinder.matches(other.nodeFinder))
+    assert(tracedNodes.matches(other.tracedNodes))
+    assert(sourceSwiftDepsMap.matches(other.sourceSwiftDepsMap))
+    assert(externalDependencies.matches(other.externalDependencies))
+    assert(incrementalExternalDependencies.matches(other.incrementalExternalDependencies))
+    return true
+  }
+}
+
+
+
+fileprivate extension Set where Element == ModuleDependencyGraph.Node {
+  func matches(_ other: Self) -> Bool {
+    self == other
+  }
+}
+
+fileprivate extension BidirectionalMap where T1 == TypedVirtualPath, T2 == ModuleDependencyGraph.SwiftDeps {
+  func matches(_ other: Self) -> Bool {
+    self == other
+  }
+}
+
+fileprivate extension Set where Element == ExternalDependency {
+  func matches(_ other: Self) -> Bool {
+    self == other
+  }
+}
