@@ -86,7 +86,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
     if usedResponseFile {
       // Print the response file arguments as a comment.
-      result += " # \(job.commandLine.joinedArguments)"
+      result += " # \(job.commandLine.joinedUnresolvedArguments)"
     }
 
     if !job.extraEnvironment.isEmpty {

@@ -1600,7 +1600,7 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
-    print(plannedJobs[0].commandLine.joinedArguments)
+    print(plannedJobs[0].commandLine.joinedUnresolvedArguments)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
   }
 
@@ -1795,10 +1795,9 @@ final class SwiftDriverTests: XCTestCase {
       throw XCTSkip()
     }
 
-    func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
-      if case .flag(let replString) = arg {
-        return replString.hasPrefix("--repl=") &&
-          !replString.contains("-module-name")
+    func isExpectedLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
+      if case let .squashedArgumentList(option: opt, args: args) = arg {
+        return opt == "--repl=" && !args.contains("-module-name")
       }
       return false
     }
@@ -1810,7 +1809,7 @@ final class SwiftDriverTests: XCTestCase {
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {
@@ -1820,7 +1819,7 @@ final class SwiftDriverTests: XCTestCase {
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {
@@ -1832,7 +1831,7 @@ final class SwiftDriverTests: XCTestCase {
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {
@@ -4286,7 +4285,7 @@ private extension Array where Element == Job.ArgTemplate {
       switch $0 {
       case let .path(path):
         return path.basename == basename
-      case .flag, .responseFilePath, .joinedOptionAndPath:
+      case .flag, .responseFilePath, .joinedOptionAndPath, .squashedArgumentList:
         return false
       }
     }

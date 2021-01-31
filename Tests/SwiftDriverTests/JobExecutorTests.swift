@@ -330,6 +330,18 @@ final class JobExecutorTests: XCTestCase {
     }
   }
 
+  func testResolveSquashedArgs() throws {
+    try withTemporaryDirectory { path in
+      let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
+      let tmpPath = VirtualPath.temporaryWithKnownContents(.init("one.txt"), "hello, world!".data(using: .utf8)!)
+      let tmpPath2 = VirtualPath.temporaryWithKnownContents(.init("two.txt"), "goodbye!".data(using: .utf8)!)
+      let resolvedCommandLine = try resolver.resolve(
+        .squashedArgumentList(option: "--opt=", args: [.path(tmpPath), .path(tmpPath2)]))
+      XCTAssertEqual(resolvedCommandLine, "--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)")
+      XCTAssertEqual(resolvedCommandLine.spm_shellEscaped(), "'--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)'")
+    }
+  }
+
   func testSaveTemps() throws {
     do {
       try withTemporaryDirectory { path in
