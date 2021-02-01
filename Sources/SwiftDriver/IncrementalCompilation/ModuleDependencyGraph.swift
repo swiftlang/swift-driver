@@ -267,13 +267,35 @@ extension ModuleDependencyGraph {
 // MARK: - Serialization
 
 extension ModuleDependencyGraph {
+  /// The leading signature of this file format.
   fileprivate static let signature = "DDEP"
+  /// The expected version number of the serialized dependency graph.
+  ///
+  /// - WARNING: You *must* increment the minor version number when making any
+  ///            changes to the underlying serialization format.
+  fileprivate static let version = Version(1, 0, 0)
 
+  /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
-    case metadata = 1
-    case moduleDepGraphNode
-    case fingerprintNode
-    case identifierNode
+    case metadata           = 1
+    case moduleDepGraphNode = 2
+    case identifierNode     = 3
+
+    /// The human-readable name of this record.
+    ///
+    /// This data is emitted into the block info field for each record so tools
+    /// like llvm-bcanalyzer can be used to more effectively debug serialized
+    /// dependency graphs.
+    var humanReadableName: String {
+      switch self {
+      case .metadata:
+        return "METADATA"
+      case .moduleDepGraphNode:
+        return "MODULE_DEP_GRAPH_NODE"
+      case .identifierNode:
+        return "IDENTIFIER_NODE"
+      }
+    }
   }
 
   fileprivate enum ReadError: Error {
@@ -351,7 +373,10 @@ extension ModuleDependencyGraph {
       }
 
       mutating func visit(record: BitcodeElement.Record) throws {
-        guard let kind = RecordID(rawValue: record.id) else { throw ReadError.unknownRecord }
+        guard let kind = RecordID(rawValue: record.id) else {
+          throw ReadError.unknownRecord
+        }
+
         switch kind {
         case .metadata:
           // If we've already read metadata, this is an unexpected duplicate.
@@ -371,10 +396,13 @@ extension ModuleDependencyGraph {
             self.finalize(node: node)
           }
           let kindCode = record.fields[0]
-          guard record.fields.count == 6,
+          guard record.fields.count == 7,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
                 record.fields[2] < identifiers.count,
-                record.fields[3] < identifiers.count else {
+                record.fields[3] < identifiers.count,
+                case .blob(let fingerprintBlob) = record.payload,
+                let fingerprintStr = String(data: fingerprintBlob, encoding: .utf8)
+          else {
             throw ReadError.malformedModuleDepGraphNodeRecord
           }
           let context = identifiers[Int(record.fields[2])]
@@ -384,21 +412,15 @@ extension ModuleDependencyGraph {
           let key = DependencyKey(aspect: declAspect, designator: designator)
           let hasSwiftDeps = Int(record.fields[4]) != 0
           let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
+          let hasFingerprint = Int(record.fields[6]) != 0
+          let fingerprint = hasFingerprint ? fingerprintStr : nil
           let swiftDeps = try swiftDepsStr
             .map({ try VirtualPath(path: $0) })
             .map(ModuleDependencyGraph.SwiftDeps.init)
           node = Node(key: key,
-                      fingerprint: nil,
+                      fingerprint: fingerprint,
                       swiftDeps: swiftDeps)
           sequenceNumber += 1
-        case .fingerprintNode:
-          guard node != nil,
-                record.fields.count == 0,
-                case .blob(let fingerprintBlob) = record.payload,
-                let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
-            throw ReadError.malformedFingerprintRecord
-          }
-          node?.fingerprint = fingerprint
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -422,7 +444,7 @@ extension ModuleDependencyGraph {
       guard let major = visitor.majorVersion,
             let minor = visitor.minorVersion,
             visitor.compilerVersionString != nil,
-            (major, minor) == (1, 0)
+            Version(Int(major), Int(minor), 0) == Self.version
       else {
         throw ReadError.malformedMetadataRecord
       }
@@ -495,20 +517,19 @@ extension ModuleDependencyGraph {
       }
     }
 
-    private func emitRecordID(_ id: RecordID, named name: String) {
+    private func emitRecordID(_ id: RecordID) {
       self.stream.writeRecord(Bitstream.BlockInfoCode.setRecordName) {
         $0.append(id)
-        $0.append(name)
+        $0.append(id.humanReadableName)
       }
     }
 
     private func writeBlockInfoBlock() {
       self.stream.writeBlockInfoBlock {
         self.emitBlockID(.firstApplicationID, "RECORD_BLOCK")
-        self.emitRecordID(.metadata, named: "METADATA")
-        self.emitRecordID(.moduleDepGraphNode, named: "MODULE_DEP_GRAPH_NODE")
-        self.emitRecordID(.fingerprintNode, named: "FINGERPRINT_NODE")
-        self.emitRecordID(.identifierNode, named: "IDENTIFIER_NODE")
+        self.emitRecordID(.metadata)
+        self.emitRecordID(.moduleDepGraphNode)
+        self.emitRecordID(.identifierNode)
       }
     }
 
@@ -601,11 +622,10 @@ extension ModuleDependencyGraph {
           .fixed(bitWidth: 1),
           // swiftdeps path
           .vbr(chunkBitWidth: 13),
-        ])
-        serializer.abbreviate(.fingerprintNode, [
-          .literal(RecordID.fingerprintNode.rawValue),
-          // fingerprint data
-          .blob
+          // fingerprint?
+          .fixed(bitWidth: 1),
+          // fingerprint bytes
+          .blob,
         ])
         serializer.abbreviate(.identifierNode, [
           .literal(RecordID.identifierNode.rawValue),
@@ -618,7 +638,7 @@ extension ModuleDependencyGraph {
         serializer.writeStrings(in: graph)
 
         graph.nodeFinder.forEachNode { node in
-          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!) {
+          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!, {
             $0.append(RecordID.moduleDepGraphNode)
             $0.append(node.dependencyKey.designator.code)
             $0.append(node.dependencyKey.aspect.code)
@@ -629,13 +649,8 @@ extension ModuleDependencyGraph {
             $0.append((node.swiftDeps != nil) ? UInt32(1) : UInt32(0))
             $0.append(serializer.lookupIdentifierCode(
                         for: node.swiftDeps?.file.name ?? ""))
-          }
-
-          if let fingerprint = node.fingerprint {
-            serializer.stream.writeRecord(serializer.abbreviations[.fingerprintNode]!, {
-              $0.append(RecordID.fingerprintNode)
-            }, blob: fingerprint)
-          }
+            $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
+          }, blob: node.fingerprint ?? "")
         }
       }
       return ByteString(serializer.stream.data)
