@@ -598,11 +598,47 @@ extension ModuleDependencyGraph {
       }
     }
 
+    private func registerAbbreviations() {
+      self.abbreviate(.metadata, [
+        .literal(RecordID.metadata.rawValue),
+        // Major version
+        .fixed(bitWidth: 16),
+        // Minor version
+        .fixed(bitWidth: 16),
+        // Frontend version
+        .blob,
+      ])
+      self.abbreviate(.moduleDepGraphNode, [
+        .literal(RecordID.moduleDepGraphNode.rawValue),
+        // dependency kind discriminator
+        .fixed(bitWidth: 3),
+        // dependency decl aspect discriminator
+        .fixed(bitWidth: 1),
+        // dependency context
+        .vbr(chunkBitWidth: 13),
+        // dependency name
+        .vbr(chunkBitWidth: 13),
+        // swiftdeps?
+        .fixed(bitWidth: 1),
+        // swiftdeps path
+        .vbr(chunkBitWidth: 13),
+        // fingerprint?
+        .fixed(bitWidth: 1),
+        // fingerprint bytes
+        .blob,
+      ])
       self.abbreviate(.externalDepNode, [
         .literal(RecordID.externalDepNode.rawValue),
         // path ID
         .vbr(chunkBitWidth: 13),
       ])
+      self.abbreviate(.identifierNode, [
+        .literal(RecordID.identifierNode.rawValue),
+        // identifier data
+        .blob
+      ])
+    }
+
     private func abbreviate(
       _ record: RecordID,
       _ operands: [Bitstream.Abbreviation.Operand]
@@ -620,39 +656,7 @@ extension ModuleDependencyGraph {
       serializer.writeBlockInfoBlock()
 
       serializer.stream.withSubBlock(.firstApplicationID, abbreviationBitWidth: 8) {
-        serializer.abbreviate(.metadata, [
-          .literal(RecordID.metadata.rawValue),
-          // Major version
-          .fixed(bitWidth: 16),
-          // Minor version
-          .fixed(bitWidth: 16),
-          // Frontend version
-          .blob,
-        ])
-        serializer.abbreviate(.moduleDepGraphNode, [
-          .literal(RecordID.moduleDepGraphNode.rawValue),
-          // dependency kind discriminator
-          .fixed(bitWidth: 3),
-          // dependency decl aspect discriminator
-          .fixed(bitWidth: 1),
-          // dependency context
-          .vbr(chunkBitWidth: 13),
-          // dependency name
-          .vbr(chunkBitWidth: 13),
-          // swiftdeps?
-          .fixed(bitWidth: 1),
-          // swiftdeps path
-          .vbr(chunkBitWidth: 13),
-          // fingerprint?
-          .fixed(bitWidth: 1),
-          // fingerprint bytes
-          .blob,
-        ])
-        serializer.abbreviate(.identifierNode, [
-          .literal(RecordID.identifierNode.rawValue),
-          // identifier data
-          .blob
-        ])
+        serializer.registerAbbreviations()
 
         serializer.writeMetadata()
 
