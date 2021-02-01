@@ -45,6 +45,9 @@ private let cachedSDKPath = Result<String, Error> {
   if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
     return pathFromEnv
   }
+  #if !os(macOS)
+  return .Failure(XCTSkip("xcrun only available on macOS"))
+  #endif
   let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
   try process.launch()
   let result = try process.waitUntilExit()
