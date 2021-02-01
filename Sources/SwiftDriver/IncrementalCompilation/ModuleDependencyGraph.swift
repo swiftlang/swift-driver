@@ -269,11 +269,17 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   /// The leading signature of this file format.
   fileprivate static let signature = "DDEP"
+  /// The expected version number of the serialized dependency graph.
+  ///
+  /// - WARNING: You *must* increment the minor version number when making any
+  ///            changes to the underlying serialization format.
+  fileprivate static let version = Version(1, 0, 0)
 
+  /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
-    case metadata = 1
-    case moduleDepGraphNode
-    case identifierNode
+    case metadata           = 1
+    case moduleDepGraphNode = 2
+    case identifierNode     = 3
   }
 
   fileprivate enum ReadError: Error {
@@ -351,7 +357,10 @@ extension ModuleDependencyGraph {
       }
 
       mutating func visit(record: BitcodeElement.Record) throws {
-        guard let kind = RecordID(rawValue: record.id) else { throw ReadError.unknownRecord }
+        guard let kind = RecordID(rawValue: record.id) else {
+          throw ReadError.unknownRecord
+        }
+
         switch kind {
         case .metadata:
           // If we've already read metadata, this is an unexpected duplicate.
@@ -419,7 +428,7 @@ extension ModuleDependencyGraph {
       guard let major = visitor.majorVersion,
             let minor = visitor.minorVersion,
             visitor.compilerVersionString != nil,
-            (major, minor) == (1, 0)
+            Version(Int(major), Int(minor), 0) == Self.version
       else {
         throw ReadError.malformedMetadataRecord
       }
