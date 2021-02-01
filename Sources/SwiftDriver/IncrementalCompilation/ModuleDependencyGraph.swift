@@ -339,10 +339,8 @@ extension ModuleDependencyGraph {
       var minorVersion: UInt64?
       var compilerVersionString: String?
 
-      private var node: Node? = nil
       // The empty string is hardcoded as identifiers[0]
       private var identifiers: [String] = [""]
-      private var sequenceNumber = 0
 
       init(
         diagnosticEngine: DiagnosticsEngine,
@@ -362,13 +360,7 @@ extension ModuleDependencyGraph {
         return true
       }
 
-      mutating func didExitBlock() throws {
-        // Finalize the current node if needed.
-        guard let newNode = node else {
-          return
-        }
-        self.finalize(node: newNode)
-      }
+      mutating func didExitBlock() throws {}
 
       private func finalize(node newNode: Node) {
         let oldNode = self.graph.nodeFinder.insert(newNode)
@@ -421,10 +413,6 @@ extension ModuleDependencyGraph {
           let swiftDeps = try swiftDepsStr
             .map({ try VirtualPath(path: $0) })
             .map(ModuleDependencyGraph.SwiftDeps.init)
-          node = Node(key: key,
-                      fingerprint: fingerprint,
-                      swiftDeps: swiftDeps)
-          sequenceNumber += 1
         case .externalDepNode:
           guard record.fields.count == 1,
                 record.fields[0] < identifiers.count
