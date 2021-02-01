@@ -68,7 +68,7 @@ extension ModuleDependencyGraph {
 }
 // MARK: - comparing, hashing
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
-  public static func == (lhs: Graph.Node, rhs: Graph.Node ) -> Bool {
+  public static func == (lhs: Graph.Node, rhs: Graph.Node) -> Bool {
     lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.swiftDeps == rhs.swiftDeps
   }
