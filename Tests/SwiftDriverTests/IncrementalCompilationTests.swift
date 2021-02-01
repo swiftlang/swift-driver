@@ -609,7 +609,7 @@ final class IncrementalCompilationTests: XCTestCase {
       try? driver.run(jobs: jobs)
     }
 
-    let allArgs = args + extraArguments
+    let allArgs = try args + extraArguments + Driver.sdkArgumentsForTesting()
     if checkDiagnostics {
       try assertDriverDiagnostics(args: allArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
