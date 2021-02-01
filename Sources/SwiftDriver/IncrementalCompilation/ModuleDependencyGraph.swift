@@ -280,6 +280,7 @@ extension ModuleDependencyGraph {
     case metadata           = 1
     case moduleDepGraphNode = 2
     case identifierNode     = 3
+    case externalDepNode    = 5
 
     /// The human-readable name of this record.
     ///
@@ -292,6 +293,8 @@ extension ModuleDependencyGraph {
         return "METADATA"
       case .moduleDepGraphNode:
         return "MODULE_DEP_GRAPH_NODE"
+      case .externalDepNode:
+        return "EXTERNAL_DEP_NODE"
       case .identifierNode:
         return "IDENTIFIER_NODE"
       }
@@ -306,6 +309,7 @@ extension ModuleDependencyGraph {
     case malformedFingerprintRecord
     case malformedIdentifierRecord
     case malformedModuleDepGraphNodeRecord
+    case malformedExternalDepNodeRecord
     case unknownRecord
     case unexpectedSubblock
     case bogusNameOrContext
@@ -421,6 +425,14 @@ extension ModuleDependencyGraph {
                       fingerprint: fingerprint,
                       swiftDeps: swiftDeps)
           sequenceNumber += 1
+        case .externalDepNode:
+          guard record.fields.count == 1,
+                record.fields[0] < identifiers.count
+          else {
+            throw ReadError.malformedExternalDepNodeRecord
+          }
+          let path = identifiers[Int(record.fields[0])]
+          self.graph.externalDependencies.insert(ExternalDependency(path))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -575,6 +587,10 @@ extension ModuleDependencyGraph {
         }
       }
 
+      for path in graph.externalDependencies {
+        self.addIdentifier(path.fileName)
+      }
+
       for str in self.identifiersToWrite {
         self.stream.writeRecord(self.abbreviations[.identifierNode]!, {
           $0.append(RecordID.identifierNode)
@@ -582,6 +598,11 @@ extension ModuleDependencyGraph {
       }
     }
 
+      self.abbreviate(.externalDepNode, [
+        .literal(RecordID.externalDepNode.rawValue),
+        // path ID
+        .vbr(chunkBitWidth: 13),
+      ])
     private func abbreviate(
       _ record: RecordID,
       _ operands: [Bitstream.Abbreviation.Operand]
@@ -651,6 +672,13 @@ extension ModuleDependencyGraph {
                         for: node.swiftDeps?.file.name ?? ""))
             $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, blob: node.fingerprint ?? "")
+        }
+
+        for dep in graph.externalDependencies {
+          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!) {
+            $0.append(RecordID.externalDepNode)
+            $0.append(serializer.lookupIdentifierCode(for: dep.fileName))
+          }
         }
       }
       return ByteString(serializer.stream.data)
@@ -765,11 +793,11 @@ fileprivate extension DependencyKey.Designator {
     case .dynamicLookup(name: let name):
       return name
     case .externalDepend(let path):
-      return path.file?.basename
+      return path.fileName
     case .sourceFileProvide(name: let name):
       return name
     case .incrementalExternalDependency(let path):
-      return path.file?.basename
+      return path.fileName
     case .member(context: _, name: let name):
       return name
     case .nominal(context: _):
