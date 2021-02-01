@@ -267,6 +267,7 @@ extension ModuleDependencyGraph {
 // MARK: - Serialization
 
 extension ModuleDependencyGraph {
+  /// The leading signature of this file format.
   fileprivate static let signature = "DDEP"
 
   fileprivate enum RecordID: UInt64 {
