@@ -272,7 +272,6 @@ extension ModuleDependencyGraph {
   fileprivate enum RecordID: UInt64 {
     case metadata = 1
     case moduleDepGraphNode
-    case fingerprintNode
     case identifierNode
   }
 
@@ -371,10 +370,13 @@ extension ModuleDependencyGraph {
             self.finalize(node: node)
           }
           let kindCode = record.fields[0]
-          guard record.fields.count == 6,
+          guard record.fields.count == 7,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
                 record.fields[2] < identifiers.count,
-                record.fields[3] < identifiers.count else {
+                record.fields[3] < identifiers.count,
+                case .blob(let fingerprintBlob) = record.payload,
+                let fingerprintStr = String(data: fingerprintBlob, encoding: .utf8)
+          else {
             throw ReadError.malformedModuleDepGraphNodeRecord
           }
           let context = identifiers[Int(record.fields[2])]
@@ -384,21 +386,15 @@ extension ModuleDependencyGraph {
           let key = DependencyKey(aspect: declAspect, designator: designator)
           let hasSwiftDeps = Int(record.fields[4]) != 0
           let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
+          let hasFingerprint = Int(record.fields[6]) != 0
+          let fingerprint = hasFingerprint ? fingerprintStr : nil
           let swiftDeps = try swiftDepsStr
             .map({ try VirtualPath(path: $0) })
             .map(ModuleDependencyGraph.SwiftDeps.init)
           node = Node(key: key,
-                      fingerprint: nil,
+                      fingerprint: fingerprint,
                       swiftDeps: swiftDeps)
           sequenceNumber += 1
-        case .fingerprintNode:
-          guard node != nil,
-                record.fields.count == 0,
-                case .blob(let fingerprintBlob) = record.payload,
-                let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
-            throw ReadError.malformedFingerprintRecord
-          }
-          node?.fingerprint = fingerprint
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -507,7 +503,6 @@ extension ModuleDependencyGraph {
         self.emitBlockID(.firstApplicationID, "RECORD_BLOCK")
         self.emitRecordID(.metadata, named: "METADATA")
         self.emitRecordID(.moduleDepGraphNode, named: "MODULE_DEP_GRAPH_NODE")
-        self.emitRecordID(.fingerprintNode, named: "FINGERPRINT_NODE")
         self.emitRecordID(.identifierNode, named: "IDENTIFIER_NODE")
       }
     }
@@ -601,11 +596,10 @@ extension ModuleDependencyGraph {
           .fixed(bitWidth: 1),
           // swiftdeps path
           .vbr(chunkBitWidth: 13),
-        ])
-        serializer.abbreviate(.fingerprintNode, [
-          .literal(RecordID.fingerprintNode.rawValue),
-          // fingerprint data
-          .blob
+          // fingerprint?
+          .fixed(bitWidth: 1),
+          // fingerprint bytes
+          .blob,
         ])
         serializer.abbreviate(.identifierNode, [
           .literal(RecordID.identifierNode.rawValue),
@@ -618,7 +612,7 @@ extension ModuleDependencyGraph {
         serializer.writeStrings(in: graph)
 
         graph.nodeFinder.forEachNode { node in
-          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!) {
+          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!, {
             $0.append(RecordID.moduleDepGraphNode)
             $0.append(node.dependencyKey.designator.code)
             $0.append(node.dependencyKey.aspect.code)
@@ -629,13 +623,8 @@ extension ModuleDependencyGraph {
             $0.append((node.swiftDeps != nil) ? UInt32(1) : UInt32(0))
             $0.append(serializer.lookupIdentifierCode(
                         for: node.swiftDeps?.file.name ?? ""))
-          }
-
-          if let fingerprint = node.fingerprint {
-            serializer.stream.writeRecord(serializer.abbreviations[.fingerprintNode]!, {
-              $0.append(RecordID.fingerprintNode)
-            }, blob: fingerprint)
-          }
+            $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
+          }, blob: node.fingerprint ?? "")
         }
       }
       return ByteString(serializer.stream.data)
