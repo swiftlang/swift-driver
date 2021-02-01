@@ -280,6 +280,22 @@ extension ModuleDependencyGraph {
     case metadata           = 1
     case moduleDepGraphNode = 2
     case identifierNode     = 3
+
+    /// The human-readable name of this record.
+    ///
+    /// This data is emitted into the block info field for each record so tools
+    /// like llvm-bcanalyzer can be used to more effectively debug serialized
+    /// dependency graphs.
+    var humanReadableName: String {
+      switch self {
+      case .metadata:
+        return "METADATA"
+      case .moduleDepGraphNode:
+        return "MODULE_DEP_GRAPH_NODE"
+      case .identifierNode:
+        return "IDENTIFIER_NODE"
+      }
+    }
   }
 
   fileprivate enum ReadError: Error {
@@ -501,19 +517,19 @@ extension ModuleDependencyGraph {
       }
     }
 
-    private func emitRecordID(_ id: RecordID, named name: String) {
+    private func emitRecordID(_ id: RecordID) {
       self.stream.writeRecord(Bitstream.BlockInfoCode.setRecordName) {
         $0.append(id)
-        $0.append(name)
+        $0.append(id.humanReadableName)
       }
     }
 
     private func writeBlockInfoBlock() {
       self.stream.writeBlockInfoBlock {
         self.emitBlockID(.firstApplicationID, "RECORD_BLOCK")
-        self.emitRecordID(.metadata, named: "METADATA")
-        self.emitRecordID(.moduleDepGraphNode, named: "MODULE_DEP_GRAPH_NODE")
-        self.emitRecordID(.identifierNode, named: "IDENTIFIER_NODE")
+        self.emitRecordID(.metadata)
+        self.emitRecordID(.moduleDepGraphNode)
+        self.emitRecordID(.identifierNode)
       }
     }
 
