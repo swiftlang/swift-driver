@@ -279,7 +279,10 @@ extension ModuleDependencyGraph {
   fileprivate enum RecordID: UInt64 {
     case metadata           = 1
     case moduleDepGraphNode = 2
-    case identifierNode     = 3
+    case dependsOnNode      = 3
+    case useIDNode          = 4
+    case externalDepNode    = 5
+    case identifierNode     = 6
 
     /// The human-readable name of this record.
     ///
@@ -292,6 +295,12 @@ extension ModuleDependencyGraph {
         return "METADATA"
       case .moduleDepGraphNode:
         return "MODULE_DEP_GRAPH_NODE"
+      case .dependsOnNode:
+        return "DEPENDS_ON_NODE"
+      case .useIDNode:
+        return "USE_ID_NODE"
+      case .externalDepNode:
+        return "EXTERNAL_DEP_NODE"
       case .identifierNode:
         return "IDENTIFIER_NODE"
       }
@@ -306,6 +315,8 @@ extension ModuleDependencyGraph {
     case malformedFingerprintRecord
     case malformedIdentifierRecord
     case malformedModuleDepGraphNodeRecord
+    case malformedDependsOnRecord
+    case malformedExternalDepNodeRecord
     case unknownRecord
     case unexpectedSubblock
     case bogusNameOrContext
@@ -330,15 +341,16 @@ extension ModuleDependencyGraph {
     let data = try fileSystem.readFileContents(path)
 
     struct Visitor: BitstreamVisitor {
-      let graph: ModuleDependencyGraph
+      private let graph: ModuleDependencyGraph
       var majorVersion: UInt64?
       var minorVersion: UInt64?
       var compilerVersionString: String?
 
-      private var node: Node? = nil
       // The empty string is hardcoded as identifiers[0]
       private var identifiers: [String] = [""]
-      private var sequenceNumber = 0
+      private var currentDefKey: DependencyKey? = nil
+      private var nodeUses: [DependencyKey: [Int]] = [:]
+      private var allNodes: [Node] = []
 
       init(
         diagnosticEngine: DiagnosticsEngine,
@@ -350,23 +362,31 @@ extension ModuleDependencyGraph {
                                            verifyDependencyGraphAfterEveryImport: false)
       }
 
+      func finalizeGraph() -> ModuleDependencyGraph {
+        for (dependencyKey, useIDs) in self.nodeUses {
+          for useID in useIDs {
+            let isNewUse = self.graph.nodeFinder
+              .record(def: dependencyKey, use: self.allNodes[useID])
+            assert(isNewUse, "Duplicate use def-use arc in graph?")
+          }
+        }
+        return self.graph
+      }
+
       func validate(signature: Bitcode.Signature) throws {
-        guard signature == .init(string: ModuleDependencyGraph.signature) else { throw ReadError.badMagic }
+        guard signature == .init(string: ModuleDependencyGraph.signature) else {
+          throw ReadError.badMagic
+        }
       }
 
       mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
         return true
       }
 
-      mutating func didExitBlock() throws {
-        // Finalize the current node if needed.
-        guard let newNode = node else {
-          return
-        }
-        self.finalize(node: newNode)
-      }
+      mutating func didExitBlock() throws {}
 
-      private func finalize(node newNode: Node) {
+      private mutating func finalize(node newNode: Node) {
+        self.allNodes.append(newNode)
         let oldNode = self.graph.nodeFinder.insert(newNode)
         assert(oldNode == nil,
                "Integrated the same node twice: \(oldNode!), \(newNode)")
@@ -392,9 +412,6 @@ extension ModuleDependencyGraph {
           self.minorVersion = record.fields[1]
           self.compilerVersionString = compilerVersionString
         case .moduleDepGraphNode:
-          if let node = node {
-            self.finalize(node: node)
-          }
           let kindCode = record.fields[0]
           guard record.fields.count == 7,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
@@ -417,10 +434,36 @@ extension ModuleDependencyGraph {
           let swiftDeps = try swiftDepsStr
             .map({ try VirtualPath(path: $0) })
             .map(ModuleDependencyGraph.SwiftDeps.init)
-          node = Node(key: key,
-                      fingerprint: fingerprint,
-                      swiftDeps: swiftDeps)
-          sequenceNumber += 1
+          self.finalize(node: Node(key: key,
+                                   fingerprint: fingerprint,
+                                   swiftDeps: swiftDeps))
+        case .dependsOnNode:
+          let kindCode = record.fields[0]
+          guard record.fields.count == 4,
+                let declAspect = DependencyKey.DeclAspect(record.fields[1]),
+                record.fields[2] < identifiers.count,
+                record.fields[3] < identifiers.count
+          else {
+            throw ReadError.malformedDependsOnRecord
+          }
+          let context = identifiers[Int(record.fields[2])]
+          let identifier = identifiers[Int(record.fields[3])]
+          let designator = try DependencyKey.Designator(
+            kindCode: kindCode, context: context, name: identifier)
+          self.currentDefKey = DependencyKey(aspect: declAspect, designator: designator)
+        case .useIDNode:
+          guard let key = self.currentDefKey, record.fields.count == 1 else {
+            throw ReadError.malformedDependsOnRecord
+          }
+          self.nodeUses[key, default: []].append(Int(record.fields[0]))
+        case .externalDepNode:
+          guard record.fields.count == 1,
+                record.fields[0] < identifiers.count
+          else {
+            throw ReadError.malformedExternalDepNodeRecord
+          }
+          let path = identifiers[Int(record.fields[0])]
+          self.graph.externalDependencies.insert(ExternalDependency(path))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -448,7 +491,7 @@ extension ModuleDependencyGraph {
       else {
         throw ReadError.malformedMetadataRecord
       }
-      return visitor.graph
+      return visitor.finalizeGraph()
     }
   }
 }
@@ -491,6 +534,8 @@ extension ModuleDependencyGraph {
     private var identifiersToWrite = [String]()
     private var identifierIDs = [String: Int]()
     private var lastIdentifierID: Int = 1
+    fileprivate private(set) var nodeIDs = [Node: Int]()
+    private var lastNodeID: Int = 0
 
     private init(compilerVersion: String) {
       self.compilerVersion = compilerVersion
@@ -529,6 +574,8 @@ extension ModuleDependencyGraph {
         self.emitBlockID(.firstApplicationID, "RECORD_BLOCK")
         self.emitRecordID(.metadata)
         self.emitRecordID(.moduleDepGraphNode)
+        self.emitRecordID(.useIDNode)
+        self.emitRecordID(.externalDepNode)
         self.emitRecordID(.identifierNode)
       }
     }
@@ -562,8 +609,15 @@ extension ModuleDependencyGraph {
       return UInt32(self.identifierIDs[string]!)
     }
 
-    private func writeStrings(in graph: ModuleDependencyGraph) {
+    private func cacheNodeID(for node: Node) {
+      defer { self.lastNodeID += 1 }
+      nodeIDs[node] = self.lastNodeID
+    }
+
+    private func populateCaches(from graph: ModuleDependencyGraph) {
       graph.nodeFinder.forEachNode { node in
+        self.cacheNodeID(for: node)
+
         if let swiftDeps = node.swiftDeps?.file.name {
           self.addIdentifier(swiftDeps)
         }
@@ -575,11 +629,82 @@ extension ModuleDependencyGraph {
         }
       }
 
+      for key in graph.nodeFinder.usesByDef.keys {
+        if let context = key.designator.context {
+          self.addIdentifier(context)
+        }
+        if let name = key.designator.name {
+          self.addIdentifier(name)
+        }
+      }
+
+      for path in graph.externalDependencies {
+        self.addIdentifier(path.fileName)
+      }
+
       for str in self.identifiersToWrite {
         self.stream.writeRecord(self.abbreviations[.identifierNode]!, {
           $0.append(RecordID.identifierNode)
         }, blob: str)
       }
+    }
+
+    private func registerAbbreviations() {
+      self.abbreviate(.metadata, [
+        .literal(RecordID.metadata.rawValue),
+        // Major version
+        .fixed(bitWidth: 16),
+        // Minor version
+        .fixed(bitWidth: 16),
+        // Frontend version
+        .blob,
+      ])
+      self.abbreviate(.moduleDepGraphNode, [
+        .literal(RecordID.moduleDepGraphNode.rawValue),
+        // dependency kind discriminator
+        .fixed(bitWidth: 3),
+        // dependency decl aspect discriminator
+        .fixed(bitWidth: 1),
+        // dependency context
+        .vbr(chunkBitWidth: 13),
+        // dependency name
+        .vbr(chunkBitWidth: 13),
+        // swiftdeps?
+        .fixed(bitWidth: 1),
+        // swiftdeps path
+        .vbr(chunkBitWidth: 13),
+        // fingerprint?
+        .fixed(bitWidth: 1),
+        // fingerprint bytes
+        .blob,
+      ])
+      self.abbreviate(.dependsOnNode, [
+        .literal(RecordID.dependsOnNode.rawValue),
+        // dependency kind discriminator
+        .fixed(bitWidth: 3),
+        // dependency decl aspect discriminator
+        .fixed(bitWidth: 1),
+        // dependency context
+        .vbr(chunkBitWidth: 13),
+        // dependency name
+        .vbr(chunkBitWidth: 13),
+      ])
+
+      self.abbreviate(.useIDNode, [
+        .literal(RecordID.useIDNode.rawValue),
+        // node ID
+        .vbr(chunkBitWidth: 13),
+      ])
+      self.abbreviate(.externalDepNode, [
+        .literal(RecordID.externalDepNode.rawValue),
+        // path ID
+        .vbr(chunkBitWidth: 13),
+      ])
+      self.abbreviate(.identifierNode, [
+        .literal(RecordID.identifierNode.rawValue),
+        // identifier data
+        .blob
+      ])
     }
 
     private func abbreviate(
@@ -599,43 +724,11 @@ extension ModuleDependencyGraph {
       serializer.writeBlockInfoBlock()
 
       serializer.stream.withSubBlock(.firstApplicationID, abbreviationBitWidth: 8) {
-        serializer.abbreviate(.metadata, [
-          .literal(RecordID.metadata.rawValue),
-          // Major version
-          .fixed(bitWidth: 16),
-          // Minor version
-          .fixed(bitWidth: 16),
-          // Frontend version
-          .blob,
-        ])
-        serializer.abbreviate(.moduleDepGraphNode, [
-          .literal(RecordID.moduleDepGraphNode.rawValue),
-          // dependency kind discriminator
-          .fixed(bitWidth: 3),
-          // dependency decl aspect discriminator
-          .fixed(bitWidth: 1),
-          // dependency context
-          .vbr(chunkBitWidth: 13),
-          // dependency name
-          .vbr(chunkBitWidth: 13),
-          // swiftdeps?
-          .fixed(bitWidth: 1),
-          // swiftdeps path
-          .vbr(chunkBitWidth: 13),
-          // fingerprint?
-          .fixed(bitWidth: 1),
-          // fingerprint bytes
-          .blob,
-        ])
-        serializer.abbreviate(.identifierNode, [
-          .literal(RecordID.identifierNode.rawValue),
-          // identifier data
-          .blob
-        ])
+        serializer.registerAbbreviations()
 
         serializer.writeMetadata()
 
-        serializer.writeStrings(in: graph)
+        serializer.populateCaches(from: graph)
 
         graph.nodeFinder.forEachNode { node in
           serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!, {
@@ -651,6 +744,35 @@ extension ModuleDependencyGraph {
                         for: node.swiftDeps?.file.name ?? ""))
             $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, blob: node.fingerprint ?? "")
+        }
+
+        for key in graph.nodeFinder.usesByDef.keys {
+          serializer.stream.writeRecord(serializer.abbreviations[.dependsOnNode]!) {
+            $0.append(RecordID.dependsOnNode)
+            $0.append(key.designator.code)
+            $0.append(key.aspect.code)
+            $0.append(serializer.lookupIdentifierCode(
+                        for: key.designator.context ?? ""))
+            $0.append(serializer.lookupIdentifierCode(
+                        for: key.designator.name ?? ""))
+          }
+          for use in graph.nodeFinder.usesByDef[key]?.values ?? [] {
+            guard let useID = serializer.nodeIDs[use] else {
+              fatalError("Node ID was not registered! \(use)")
+            }
+
+            serializer.stream.writeRecord(serializer.abbreviations[.useIDNode]!) {
+              $0.append(RecordID.useIDNode)
+              $0.append(UInt32(useID))
+            }
+          }
+        }
+
+        for dep in graph.externalDependencies {
+          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!) {
+            $0.append(RecordID.externalDepNode)
+            $0.append(serializer.lookupIdentifierCode(for: dep.fileName))
+          }
         }
       }
       return ByteString(serializer.stream.data)
@@ -765,11 +887,11 @@ fileprivate extension DependencyKey.Designator {
     case .dynamicLookup(name: let name):
       return name
     case .externalDepend(let path):
-      return path.file?.basename
+      return path.fileName
     case .sourceFileProvide(name: let name):
       return name
     case .incrementalExternalDependency(let path):
-      return path.file?.basename
+      return path.fileName
     case .member(context: _, name: let name):
       return name
     case .nominal(context: _):
