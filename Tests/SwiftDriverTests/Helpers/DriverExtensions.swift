@@ -46,7 +46,7 @@ private let cachedSDKPath = Result<String, Error> {
     return pathFromEnv
   }
   #if !os(macOS)
-  return .Failure(XCTSkip("xcrun only available on macOS"))
+  throw XCTSkip("xcrun only available on macOS")
   #endif
   let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
   try process.launch()

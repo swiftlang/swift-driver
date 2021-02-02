@@ -394,7 +394,7 @@ final class IncrementalCompilationTests: XCTestCase {
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
     #if !os(Linux)
-    tryInitial(true)
+    try tryInitial(true)
     tryTouchingMainAlwaysRebuildDependents(true)
     #endif
   }
@@ -406,14 +406,14 @@ final class IncrementalCompilationTests: XCTestCase {
   /// Ensure that the mod date of the input comes back exactly the same via the build-record.
   /// Otherwise the up-to-date calculation in `IncrementalCompilationState` will fail.
   func testBuildRecordDateAccuracy() throws {
-    tryInitial(false)
+    try tryInitial(false)
     (1...10).forEach { n in
       tryNoChange(true)
     }
   }
 
   func testIncremental(checkDiagnostics: Bool) throws {
-    tryInitial(checkDiagnostics)
+    try tryInitial(checkDiagnostics)
     #if true // sometimes want to skip for debugging
     tryNoChange(checkDiagnostics)
     tryTouchingOther(checkDiagnostics)
@@ -423,8 +423,8 @@ final class IncrementalCompilationTests: XCTestCase {
   }
 
 
-  func tryInitial(_ checkDiagnostics: Bool) {
-    try! doABuild(
+  func tryInitial(_ checkDiagnostics: Bool) throws {
+    try doABuild(
       "initial",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
