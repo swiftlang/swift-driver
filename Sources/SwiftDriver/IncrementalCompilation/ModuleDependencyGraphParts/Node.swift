@@ -17,8 +17,8 @@ extension ModuleDependencyGraph {
   
   /// A node in the per-module (i.e. the driver) dependency graph
   /// Each node represents a `Decl` from the frontend.
-  /// If a file references a `Decl` we haven't seen yet, the node's `swiftDeps` will be nil, otherwise
-  /// it will hold the name of the swiftdeps file from which the node was read.
+  /// If a file references a `Decl` we haven't seen yet, the node's `dependenciesSource` will be nil, otherwise
+  /// it will hold the name of the dependenciesSource file from which the node was read.
   /// A dependency is represented by an arc, in the `usesByDefs` map.
   /// (Cargo-culted and modified from the legacy driver.)
   ///
@@ -48,21 +48,21 @@ extension ModuleDependencyGraph {
     let fingerprint: String?
 
 
-    /// The swiftDeps file that holds this entity iff the entities .swiftdeps is known.
+    /// The dependenciesSource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
     /// If more than one source file has the same DependencyKey, then there
     /// will be one node for each in the driver, distinguished by this field.
     /// Nodes can move from file to file when the driver reads the result of a
     /// compilation.
     /// Nil represents a node with no known residance
-    let swiftDeps: SwiftDeps?
-    var isExpat: Bool { swiftDeps == nil }
+    let dependenciesSource: DependenciesSource?
+    var isExpat: Bool { dependenciesSource == nil }
 
-    /// This swiftDeps is the file where the swiftDeps was read, not necessarily anything in the
+    /// This dependenciesSource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
-    init(key: DependencyKey, fingerprint: String?, swiftDeps: SwiftDeps?) {
+    init(key: DependencyKey, fingerprint: String?, dependenciesSource: DependenciesSource?) {
       self.dependencyKey = key
       self.fingerprint = fingerprint
-      self.swiftDeps = swiftDeps
+      self.dependenciesSource = dependenciesSource
     }
   }
 }
@@ -70,13 +70,13 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
   public static func == (lhs: Graph.Node, rhs: Graph.Node) -> Bool {
     lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
-      && lhs.swiftDeps == rhs.swiftDeps
+      && lhs.dependenciesSource == rhs.dependenciesSource
   }
   
   public func hash(into hasher: inout Hasher) {
     hasher.combine(dependencyKey)
     hasher.combine(fingerprint)
-    hasher.combine(swiftDeps)
+    hasher.combine(dependenciesSource)
   }
 }
 
@@ -91,7 +91,7 @@ extension ModuleDependencyGraph.Node: Comparable {
       }
     }
     return lhs.dependencyKey != rhs.dependencyKey ? lhs.dependencyKey < rhs.dependencyKey :
-      lhs.swiftDeps != rhs.swiftDeps ? lt(lhs.swiftDeps, rhs.swiftDeps)
+      lhs.dependenciesSource != rhs.dependenciesSource ? lt(lhs.dependenciesSource, rhs.dependenciesSource)
       : lt(lhs.fingerprint, rhs.fingerprint)
   }
 }
@@ -99,7 +99,7 @@ extension ModuleDependencyGraph.Node: Comparable {
 
 extension ModuleDependencyGraph.Node: CustomStringConvertible {
   public var description: String {
-    "\(dependencyKey) \( swiftDeps.map { "in \($0.description)" } ?? "<expat>" )"
+    "\(dependencyKey) \( dependenciesSource.map { "in \($0.description)" } ?? "<expat>" )"
   }
 }
 

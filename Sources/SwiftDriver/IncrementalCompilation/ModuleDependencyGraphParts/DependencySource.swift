@@ -12,11 +12,13 @@
 import Foundation
 import TSCBasic
 
-// MARK: - SwiftDeps
+// MARK: - DependencySource
 extension ModuleDependencyGraph {
-  /*@_spi(Testing)*/ public struct SwiftDeps: Hashable, CustomStringConvertible {
+  /// Points to the source of dependencies, i.e. the file read to obtain the information.
+  /*@_spi(Testing)*/ public struct DependenciesSource: Hashable, CustomStringConvertible {
 
     let file: VirtualPath
+    #warning("if generalize, fix IncrementalCompilationState.swift:417")
 
     init?(_ typedFile: TypedVirtualPath) {
       guard typedFile.type == .swiftDeps else { return nil }
@@ -38,16 +40,16 @@ extension ModuleDependencyGraph {
 }
 
 // MARK: - testing
-extension ModuleDependencyGraph.SwiftDeps {
-  /*@_spi(Testing)*/ public var sourceFileProvideNameForMockSwiftDeps: String {
+extension ModuleDependencyGraph.DependenciesSource {
+  /*@_spi(Testing)*/ public var sourceFileProvideNameForMockDependenciesSource: String {
     file.name
   }
-  /*@_spi(Testing)*/ public var interfaceHashForMockSwiftDeps: String {
+  /*@_spi(Testing)*/ public var interfaceHashForMockDependenciesSource: String {
     file.name
   }
 }
 // MARK: - comparing
-extension ModuleDependencyGraph.SwiftDeps: Comparable {
+extension ModuleDependencyGraph.DependenciesSource: Comparable {
   public static func < (lhs: Self, rhs: Self) -> Bool {
     lhs.file.name < rhs.file.name
   }

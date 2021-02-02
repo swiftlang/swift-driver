@@ -39,7 +39,7 @@ class DependencyGraphSerializationTests: XCTestCase {
                   "Round trip failed! Symmetric difference - \(originalNodes.symmetricDifference(deserializedNodes))")
 
     XCTAssertEqual(graph.nodeFinder.usesByDef, deserializedGraph.nodeFinder.usesByDef)
-    XCTAssertEqual(graph.sourceSwiftDepsMap, deserializedGraph.sourceSwiftDepsMap)
+    XCTAssertEqual(graph.inputDependenciesSourceMap, deserializedGraph.inputDependenciesSourceMap)
     XCTAssertEqual(graph.externalDependencies, deserializedGraph.externalDependencies)
   }
 

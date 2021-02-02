@@ -1,4 +1,4 @@
-//===------- SourceFileDependencyGraph.swift - Read swiftdeps files -------===//
+//===---SourceFileDependencyGraph.swift - Read swiftdeps or swiftmodule files ---===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -117,7 +117,7 @@ extension SourceFileDependencyGraph {
   }
 
   static func read(
-    from swiftDeps: ModuleDependencyGraph.SwiftDeps,
+    from swiftDeps: ModuleDependencyGraph.DependenciesSource,
     on fileSystem: FileSystem
   ) throws -> Self {
     try self.init(contentsOf: swiftDeps.file, on: fileSystem)
