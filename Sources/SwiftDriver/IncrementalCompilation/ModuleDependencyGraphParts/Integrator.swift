@@ -219,6 +219,8 @@ extension ModuleDependencyGraph.Integrator {
         .contains(externalDependency)
       guard !isKnown else {return}
       if !isIncremental {
+        destination.reporter?.report("found externalDependency",
+                                     externalDependency.file)
         // no integration to do for these, so just remember them here
         destination.externalDependencies.insert(externalDependency)
       }
