@@ -176,14 +176,14 @@ final class BuildRecordInfo {
     do {
       contents = try fileSystem.readFileContents(buildRecordPath).cString
      } catch {
-      reporter?.report("Incremental compilation could not read build record at \(buildRecordPath)")
+      reporter?.report("Incremental compilation could not read build record at ", buildRecordPath)
       reporter?.reportDisablingIncrementalBuild("could not read build record")
       return nil
     }
     func failedToReadOutOfDateMap(_ reason: String? = nil) {
       let why = "malformed build record file\(reason.map {" " + $0} ?? "")"
       reporter?.report(
-        "Incremental compilation has been disabled due to \(why) '\(buildRecordPath)'")
+        "Incremental compilation has been disabled due to \(why)", buildRecordPath)
       reporter?.reportDisablingIncrementalBuild(why)
     }
     guard let outOfDateBuildRecord = BuildRecord(contents: contents,
