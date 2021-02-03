@@ -248,3 +248,10 @@ fileprivate extension ModuleDependencyGraph.DependencySource {
     file.name
   }
 }
+
+// MARK: - Checking Serialization
+extension ModuleDependencyGraph.NodeFinder {
+  func matches(_ other: Self) -> Bool {
+    nodeMap == other.nodeMap && usesByDef == other.usesByDef
+  }
+}

@@ -914,3 +914,35 @@ extension Diagnostic.Message {
   }
 }
 
+// MARK: - Checking Serialization
+
+extension ModuleDependencyGraph {
+  func matches(_ other: ModuleDependencyGraph) -> Bool {
+    guard nodeFinder.matches(other.nodeFinder),
+      tracedNodes.matches(other.tracedNodes),
+      sourceSwiftDepsMap.matches(other.sourceSwiftDepsMap),
+      externalDependencies.matches(other.externalDependencies)
+    else {
+      return false
+    }
+    return true
+  }
+}
+
+extension Set where Element == ModuleDependencyGraph.Node {
+  fileprivate func matches(_ other: Self) -> Bool {
+    self == other
+  }
+}
+
+extension BidirectionalMap where T1 == TypedVirtualPath, T2 == ModuleDependencyGraph.SwiftDeps {
+  fileprivate func matches(_ other: Self) -> Bool {
+    self == other
+  }
+}
+
+extension Set where Element == ExternalDependency {
+  fileprivate func matches(_ other: Self) -> Bool {
+    self == other
+  }
+}
