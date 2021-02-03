@@ -863,12 +863,11 @@ enum MockDependencyKind {
   case nominal
   case potentialMember
   case member
-  case incrementalExternalDependency
 
   var singleNameIsContext: Bool? {
     switch self {
     case .nominal, .potentialMember: return true
-    case .topLevel, .dynamicLookup, .externalDepend, .incrementalExternalDependency, .sourceFileProvide: return false
+    case .topLevel, .dynamicLookup, .externalDepend, .sourceFileProvide: return false
     case .member: return nil
     }
   }
@@ -1363,9 +1362,6 @@ fileprivate extension DependencyKey.Designator {
     case .externalDepend:
       mustBeAbsent(context)
       self = .externalDepend(ExternalDependency(name!))
-    case .incrementalExternalDependency:
-      mustBeAbsent(context)
-      self = .incrementalExternalDependency(ExternalDependency(name!))
     case .sourceFileProvide:
       mustBeAbsent(context)
       self = .sourceFileProvide(name: name!)

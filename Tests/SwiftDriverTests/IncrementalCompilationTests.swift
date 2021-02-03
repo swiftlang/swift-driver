@@ -732,6 +732,8 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
   
   func testEmbeddedModuleDependencies() throws {
+    throw XCTSkip("Requires new frontend work to remove incremental external dependencies distinction.")
+    /*
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       do {
@@ -796,7 +798,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       var foundNode = false
       let swiftmodulePath = ExternalDependency(path.appending(component: "MagicKit.swiftmodule").pathString)
       graph.forEachNode { node in
-        if case .incrementalExternalDependency(context: swiftmodulePath) = node.key.designator {
+        if case .externalDepend(swiftmodulePath) = node.key.designator {
           XCTAssertFalse(foundNode)
           foundNode = true
           XCTAssertEqual(node.key.aspect, .interface)
@@ -805,6 +807,6 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         }
       }
       XCTAssertTrue(foundNode)
-    }
+    }*/
   }
 }

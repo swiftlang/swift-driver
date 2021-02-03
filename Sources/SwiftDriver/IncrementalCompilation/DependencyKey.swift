@@ -139,27 +139,14 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
     /// The `context` field corresponds to the mangled name of the type. The
     /// `name` field corresponds to the *unmangled* name of the member.
     case member(context: String, name: String)
-    /// A dependency that resides outside of the module being built, but which
-    /// has integrated dependency information in a format the driver
-    /// understands.
-    ///
-    /// These dependencies correspond to Swift modules that were built with
-    /// `-enable-experimental-cross-module-incremental-build`. These modules
-    /// contain a special section with swiftdeps information for the module
-    /// in it.
-    ///
-    /// The full path to the external dependency as seen by the frontend is
-    /// available from this node.
-    case incrementalExternalDependency(ExternalDependency)
 
-    var externalDependency: (ExternalDependency, isIncremental: Bool)? {
+    var externalDependency: ExternalDependency? {
       switch self {
       case let .externalDepend(externalDependency):
-        return (externalDependency, isIncremental: false)
-      case let .incrementalExternalDependency(externalDependency):
-        return (externalDependency, isIncremental: true)
+        return externalDependency
       default:
-        return nil}
+        return nil
+      }
     }
 
     public var description: String {
@@ -178,8 +165,6 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
         return "module '\(externalDependency)'"
       case let .sourceFileProvide(name: name):
         return "source file \((try? VirtualPath(path: name).basename) ?? name)"
-      case let .incrementalExternalDependency(externalDependency):
-        return "incremental module '\(externalDependency)'"
       }
     }
   }
