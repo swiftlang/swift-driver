@@ -454,8 +454,6 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
-        "Incremental compilation: found externalDependency",
-        "Incremental compilation: found externalDependency",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
@@ -472,8 +470,6 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
-        "Incremental compilation: found externalDependency",
-        "Incremental compilation: found externalDependency",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
@@ -499,8 +495,6 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
-        "Incremental compilation: found externalDependency",
-        "Incremental compilation: found externalDependency",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -527,8 +521,6 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
-        "Incremental compilation: found externalDependency",
-        "Incremental compilation: found externalDependency",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -564,8 +556,6 @@ final class IncrementalCompilationTests: XCTestCase {
       extraArguments: [extraArgument],
       expectingRemarks: [
         "Disabling incremental cross-module building",
-        "Incremental compilation: found externalDependency",
-        "Incremental compilation: found externalDependency",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
