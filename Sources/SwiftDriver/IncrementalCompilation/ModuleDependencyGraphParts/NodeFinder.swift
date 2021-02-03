@@ -50,7 +50,7 @@ extension ModuleDependencyGraph.NodeFinder {
     nodeMap[mapKey]
   }
   func findCorrespondingImplementation(of n: Graph.Node) -> Graph.Node? {
-    n.dependencyKey.correspondingImplementation
+    n.key.correspondingImplementation
       .flatMap {findNode((n.dependencySource, $0))}
   }
   
@@ -81,7 +81,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// - Returns: A set of nodes corresponding to the uses of the given
   ///            definition node.
   func uses(of def: Graph.Node) -> Set<Graph.Node> {
-    var uses = usesByDef[def.dependencyKey, default: Set()].values
+    var uses = usesByDef[def.key, default: Set()].values
     if let impl = findCorrespondingImplementation(of: def) {
       uses.insert(impl)
     }
@@ -107,7 +107,7 @@ extension ModuleDependencyGraph.NodeFinder {
 
   func mappings(of n: Graph.Node) -> [(Graph.DependencySource?, DependencyKey)] {
     nodeMap.compactMap { k, _ in
-      guard k.0 == n.dependencySource && k.1 == n.dependencyKey else {
+      guard k.0 == n.dependencySource && k.1 == n.key else {
         return nil
       }
       return k
@@ -121,7 +121,7 @@ extension ModuleDependencyGraph.NodeFinder {
 
 fileprivate extension ModuleDependencyGraph.Node {
   var mapKey: (Graph.DependencySource?, DependencyKey) {
-    return (dependencySource, dependencyKey)
+    return (dependencySource, key)
   }
 }
 
@@ -176,10 +176,10 @@ extension ModuleDependencyGraph.NodeFinder {
                         newDependencySource: Graph.DependencySource,
                         newFingerprint: String?
   ) -> Graph.Node {
-    let replacement = Graph.Node(key: original.dependencyKey,
+    let replacement = Graph.Node(key: original.key,
                                  fingerprint: newFingerprint,
                                  dependencySource: newDependencySource)
-    usesByDef.replace(original, with: replacement, forKey: original.dependencyKey)
+    usesByDef.replace(original, with: replacement, forKey: original.key)
     nodeMap.removeValue(forKey: original.mapKey)
     nodeMap.updateValue(replacement, forKey: replacement.mapKey)
     return replacement

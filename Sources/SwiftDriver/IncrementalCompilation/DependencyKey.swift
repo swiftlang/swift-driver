@@ -113,6 +113,13 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
     ///
     /// The `name` of the file is a path to the `swiftdeps` file named in
     /// the output file map for a given Swift file.
+    ///
+    /// If the filename is a swiftmodule, and if it was built by a compilation with
+    /// `-enable-experimental-cross-module-incremental-build`, the swiftmodule file
+    /// contains a special section with swiftdeps information for the module
+    /// in it. In that case the enclosing node should have a fingerprint.
+    ///
+
     case sourceFileProvide(name: String)
     /// A "nominal" type that is used, or defined by this file.
     ///

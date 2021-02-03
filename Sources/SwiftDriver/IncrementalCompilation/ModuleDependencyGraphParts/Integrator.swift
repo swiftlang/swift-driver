@@ -25,7 +25,7 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/
     public struct Results {
       var changedNodes = Set<Node>()
-      var discoveredIncrementalExternalDependencies = Set<ExternalDependency>()
+      var discoveredExternalDependencies = Set<ExtDepAndPrint>()
     }
     public private(set) var results = Results()
 
@@ -153,7 +153,7 @@ extension ModuleDependencyGraph.Integrator {
     }
     assert(matchHere.dependencySource == dependencySource)
     // Node was and still is. Do not remove it.
-    disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
+    disappearedNodes.removeValue(forKey: matchHere.key)
     if matchHere.fingerprint != integrand.fingerprint {
       results.changedNodes.insert(matchHere)
     }
@@ -205,41 +205,20 @@ extension ModuleDependencyGraph.Integrator {
       let isNewUse = destination.nodeFinder.record(def: def.key,
                                                    use: moduleUseNode)
       guard isNewUse else { return }
-      guard let externalDependency = def.key.designator.externalDependency else {
-        return
-      }
-      let isIncremental = def.fingerprint != nil
-      let isKnown = (isIncremental
-                      ? destination.incrementalExternalDependencies
-                      : destination.externalDependencies)
-        .contains(externalDependency)
-      guard !isKnown else {return}
-      if !isIncremental {
-        // Nice for debugging, but too much otherwise:
-        // destination.reporter?.report("found externalDependency", externalDependency.file)
-        
-        // no integration to do for these, so just remember them here
-        destination.externalDependencies.insert(externalDependency)
-      }
-      else if !isCrossModuleIncrementalBuildEnabled {
-        destination.reporter?.report(
-          "found incrementalExternalDependency but treating as non-incremental",
-          externalDependency.file)
-        // treat like nonincremental
-        let key = DependencyKey(
-          aspect: .interface,
-          designator: .externalDepend(externalDependency))
-        let isNewUse = destination.nodeFinder.record(def: key, use: moduleUseNode)
-        if isNewUse {
-          destination.externalDependencies.insert(externalDependency)
-          results.changedNodes.insert(moduleUseNode)
-        }
-      }
+      guard let externalDependency =
+              def.key.designator.externalDependency
       else {
         destination.reporter?.report( "found incrementalExternalDependency",
                                       externalDependency.file)
         results.discoveredIncrementalExternalDependencies.insert(externalDependency)
+        return
       }
+      // Check both in case we reread a prior ModDepGraph from a different mode
+      let extDepAndPrint = Graph.ExtDepAndPrint(externalDependency, sourceFileUseNode.fingerprint)
+      let isKnown = destination.externalDependencies.contains(extDepAndPrint)
+      guard !isKnown else {return}
+
+      results.discoveredExternalDependencies.insert(extDepAndPrint)
       results.changedNodes.insert(moduleUseNode)
     }
   }
