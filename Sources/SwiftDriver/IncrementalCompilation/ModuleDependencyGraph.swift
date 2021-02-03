@@ -176,7 +176,6 @@ extension ModuleDependencyGraph {
   ) -> Integrator.Results? {
     guard let file = incrementalExternalDependency.file
      else {
-      #warning("right?")
       diagnosticEngine.emit(warning: "Cannot get file for externalDependency \(incrementalExternalDependency.fileName)")
       return nil
     }

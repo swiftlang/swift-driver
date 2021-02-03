@@ -443,7 +443,7 @@ extension IncrementalCompilationState {
             fatalError("Dependent \(dependent) does not have dependencies file!")
           }
           reporter?.report(
-            "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
+            "Queuing because of \(forIncrementalExternalDependencies ? "incremental " : "")external dependency on newer \(extDep.file?.basename ?? "extDep?")",
             path: dependencySource.typedFile)
           externalDependencySources.insert(dependencySource)
         }
