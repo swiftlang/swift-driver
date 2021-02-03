@@ -13,6 +13,8 @@
 import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
+import Foundation
+import XCTest
 
 extension Driver {
   /// Initializer which creates an executor suitable for use in tests.
@@ -32,4 +34,29 @@ extension Driver {
                   fileSystem: fileSystem,
                   executor: executor)
   }
+
+  // For tests that need to set the sdk path:
+  static func sdkArgumentsForTesting() throws -> [String] {
+    ["-sdk", try cachedSDKPath.get()]
+  }
+}
+
+private let cachedSDKPath = Result<String, Error> {
+  if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
+    return pathFromEnv
+  }
+  #if !os(macOS)
+  throw XCTSkip("xcrun only available on macOS")
+  #endif
+  let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
+  try process.launch()
+  let result = try process.waitUntilExit()
+  guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
+    enum XCRunFailure: LocalizedError {
+      case xcrunFailure
+    }
+    throw XCRunFailure.xcrunFailure
+  }
+  return try XCTUnwrap(String(bytes: try result.output.get(), encoding: .utf8))
+    .spm_chomp()
 }
