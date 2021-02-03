@@ -116,14 +116,17 @@ extension ModuleDependencyGraph.Tracer {
 
 
   private func printPath(_ path: [Graph.Node]) {
-    guard path.first?.swiftDeps != path.last?.swiftDeps else {return}
+    guard path.first?.dependencySource != path.last?.dependencySource
+    else {
+      return
+    }
     graph.reporter?.report(
       [
         "Traced:",
         path
           .compactMap { node in
-            node.swiftDeps
-              .flatMap {graph.sourceSwiftDepsMap[$0] }
+            node.dependencySource
+              .flatMap {graph.inputDependencySourceMap[$0] }
               .map { "\(node.dependencyKey) in \($0.file.basename)"}
           }
           .joined(separator: " -> ")

@@ -19,8 +19,8 @@ extension ModuleDependencyGraph {
   struct NodeFinder {
     typealias Graph = ModuleDependencyGraph
     
-    /// Maps swiftDeps files and DependencyKeys to Nodes
-    fileprivate typealias NodeMap = TwoDMap<SwiftDeps?, DependencyKey, Node>
+    /// Maps dependencySource files and DependencyKeys to Nodes
+    fileprivate typealias NodeMap = TwoDMap<DependencySource?, DependencyKey, Node>
     fileprivate var nodeMap = NodeMap()
     
     /// Since dependency keys use baseNames, they are coarser than individual
@@ -41,23 +41,24 @@ extension ModuleDependencyGraph {
 
 extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(
-    forMock swiftDeps: ModuleDependencyGraph.SwiftDeps
+    forMock dependencySource: ModuleDependencyGraph.DependencySource
   ) -> Graph.Node?  {
-    let fileKey = DependencyKey(fileKeyForMockSwiftDeps: swiftDeps)
-    return findNode((swiftDeps, fileKey))
+    let fileKey = DependencyKey(fileKeyForMockDependencySource: dependencySource)
+    return findNode((dependencySource, fileKey))
   }
-  func findNode(_ mapKey: (Graph.SwiftDeps?, DependencyKey)) -> Graph.Node? {
+  func findNode(_ mapKey: (Graph.DependencySource?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
   func findCorrespondingImplementation(of n: Graph.Node) -> Graph.Node? {
     n.dependencyKey.correspondingImplementation
-      .flatMap {findNode((n.swiftDeps, $0))}
+      .flatMap {findNode((n.dependencySource, $0))}
   }
   
-  func findNodes(for swiftDeps: Graph.SwiftDeps?) -> [DependencyKey: Graph.Node]? {
-    nodeMap[swiftDeps]
+  func findNodes(for dependencySource: Graph.DependencySource?)
+  -> [DependencyKey: Graph.Node]? {
+    nodeMap[dependencySource]
   }
-  func findNodes(for key: DependencyKey) -> [Graph.SwiftDeps?: Graph.Node]? {
+  func findNodes(for key: DependencyKey) -> [Graph.DependencySource?: Graph.Node]? {
     nodeMap[key]
   }
 
@@ -104,9 +105,9 @@ extension ModuleDependencyGraph.NodeFinder {
     return self.uses(of: def).sorted()
   }
 
-  func mappings(of n: Graph.Node) -> [(Graph.SwiftDeps?, DependencyKey)] {
+  func mappings(of n: Graph.Node) -> [(Graph.DependencySource?, DependencyKey)] {
     nodeMap.compactMap { k, _ in
-      guard k.0 == n.swiftDeps && k.1 == n.dependencyKey else {
+      guard k.0 == n.dependencySource && k.1 == n.dependencyKey else {
         return nil
       }
       return k
@@ -119,8 +120,8 @@ extension ModuleDependencyGraph.NodeFinder {
 }
 
 fileprivate extension ModuleDependencyGraph.Node {
-  var mapKey: (Graph.SwiftDeps?, DependencyKey) {
-    return (swiftDeps, dependencyKey)
+  var mapKey: (Graph.DependencySource?, DependencyKey) {
+    return (dependencySource, dependencyKey)
   }
 }
 
@@ -172,12 +173,12 @@ extension ModuleDependencyGraph.NodeFinder {
   ///
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: Graph.Node,
-                        newSwiftDeps: Graph.SwiftDeps,
+                        newDependencySource: Graph.DependencySource,
                         newFingerprint: String?
   ) -> Graph.Node {
     let replacement = Graph.Node(key: original.dependencyKey,
                                  fingerprint: newFingerprint,
-                                 swiftDeps: newSwiftDeps)
+                                 dependencySource: newDependencySource)
     usesByDef.replace(original, with: replacement, forKey: original.dependencyKey)
     nodeMap.removeValue(forKey: original.mapKey)
     nodeMap.updateValue(replacement, forKey: replacement.mapKey)
@@ -234,14 +235,14 @@ extension ModuleDependencyGraph.NodeFinder {
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {
-  init(fileKeyForMockSwiftDeps swiftDeps: ModuleDependencyGraph.SwiftDeps) {
+  init(fileKeyForMockDependencySource dependencySource: ModuleDependencyGraph.DependencySource) {
     self.init(aspect: .interface,
               designator:
-                .sourceFileProvide(name: swiftDeps.sourceFileProvidesNameForMocking)
+                .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
     )
   }
 }
-fileprivate extension ModuleDependencyGraph.SwiftDeps {
+fileprivate extension ModuleDependencyGraph.DependencySource {
   var sourceFileProvidesNameForMocking: String {
     // Only when mocking are these two guaranteed to be the same
     file.name

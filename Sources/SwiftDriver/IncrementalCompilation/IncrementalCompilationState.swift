@@ -63,8 +63,10 @@ public class IncrementalCompilationState {
       return nil
     }
 
-    guard let (moduleDependencyGraph,
-               inputsHavingMalformedSwiftDeps: inputsHavingMalformedSwiftDeps) =
+    guard let (
+      moduleDependencyGraph,
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources
+    ) =
             Self.computeModuleDependencyGraph(
               buildRecordInfo,
               outOfDateBuildRecord,
@@ -81,7 +83,7 @@ public class IncrementalCompilationState {
       &driver,
       buildRecordInfo,
       outOfDateBuildRecord,
-      inputsHavingMalformedSwiftDeps: inputsHavingMalformedSwiftDeps,
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
       moduleDependencyGraph,
       self.reporter)
 
@@ -99,34 +101,38 @@ public class IncrementalCompilationState {
     _ driver: inout Driver,
     _ reporter: Reporter?
   )
-  -> (ModuleDependencyGraph, inputsHavingMalformedSwiftDeps: [TypedVirtualPath])?
+  -> (ModuleDependencyGraph,
+      inputsHavingMalformedDependencySources: [TypedVirtualPath])?
   {
     let diagnosticEngine = driver.diagnosticEngine
-    guard let (moduleDependencyGraph, inputsWithMalformedSwiftDeps: inputsWithMalformedSwiftDeps) =
-            ModuleDependencyGraph.buildInitialGraph(
-              diagnosticEngine: diagnosticEngine,
-              inputs: buildRecordInfo.compilationInputModificationDates.keys,
-              previousInputs: outOfDateBuildRecord.allInputs,
-              outputFileMap: outputFileMap,
-              parsedOptions: &driver.parsedOptions,
-              remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
-              reporter: reporter,
-              fileSystem: driver.fileSystem)
+    guard let (
+      moduleDependencyGraph,
+      inputsAndMalformedDependencySources: inputsAndMalformedDependencySources
+    ) =
+    ModuleDependencyGraph.buildInitialGraph(
+      diagnosticEngine: diagnosticEngine,
+      inputs: buildRecordInfo.compilationInputModificationDates.keys,
+      previousInputs: outOfDateBuildRecord.allInputs,
+      outputFileMap: outputFileMap,
+      parsedOptions: &driver.parsedOptions,
+      remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
+      reporter: reporter,
+      fileSystem: driver.fileSystem)
     else {
       return nil
     }
     // Preserve legacy behavior,
-    // but someday, just ensure inputsWithUnreadableSwiftDeps are compiled
-    if let badSwiftDeps = inputsWithMalformedSwiftDeps.first?.1 {
+    // but someday, just ensure inputsAndMalformedDependencySources are compiled
+    if let badDependencySource = inputsAndMalformedDependencySources.first?.1 {
       diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
-          because: "malformed swift dependencies file '\(badSwiftDeps)'")
+          because: "malformed dependencies file '\(badDependencySource)'")
       )
       return nil
     }
-    let inputsHavingMalformedSwiftDeps = inputsWithMalformedSwiftDeps.map {$0.0}
+    let inputsHavingMalformedDependencySources = inputsAndMalformedDependencySources.map {$0.0}
     return (moduleDependencyGraph,
-            inputsHavingMalformedSwiftDeps: inputsHavingMalformedSwiftDeps)
+            inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources)
   }
 
   private static func computeInputsAndGroups(
@@ -134,7 +140,7 @@ public class IncrementalCompilationState {
     _ driver: inout Driver,
     _ buildRecordInfo: BuildRecordInfo,
     _ outOfDateBuildRecord: BuildRecord,
-    inputsHavingMalformedSwiftDeps: [TypedVirtualPath],
+    inputsHavingMalformedDependencySources: [TypedVirtualPath],
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ reporter: Reporter?
   ) throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
@@ -148,7 +154,7 @@ public class IncrementalCompilationState {
       allGroups: jobsInPhases.compileGroups,
       fileSystem: driver.fileSystem,
       buildRecordInfo: buildRecordInfo,
-      inputsHavingMalformedSwiftDeps: inputsHavingMalformedSwiftDeps,
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
       moduleDependencyGraph: moduleDependencyGraph,
       outOfDateBuildRecord: outOfDateBuildRecord,
       alwaysRebuildDependents: driver.parsedOptions.contains(.driverAlwaysRebuildDependents),
@@ -270,7 +276,7 @@ extension IncrementalCompilationState {
     allGroups: [CompileJobGroup],
     fileSystem: FileSystem,
     buildRecordInfo: BuildRecordInfo,
-    inputsHavingMalformedSwiftDeps: [TypedVirtualPath],
+    inputsHavingMalformedDependencySources: [TypedVirtualPath],
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     alwaysRebuildDependents: Bool,
@@ -299,7 +305,7 @@ extension IncrementalCompilationState {
     // Combine to obtain the inputs that definitely must be recompiled.
     let definitelyRequiredInputs =
       Set(changedInputs.map({ $0.filePath }) + externalDependents +
-            inputsHavingMalformedSwiftDeps
+            inputsHavingMalformedDependencySources
             + inputsMissingOutputs)
     if let reporter = reporter {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
@@ -402,31 +408,31 @@ extension IncrementalCompilationState {
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
  ) -> [TypedVirtualPath] {
-    var externallyDependentSwiftDeps = Set<ModuleDependencyGraph.SwiftDeps>()
+    var externalDependencySources = Set<ModuleDependencyGraph.DependencySource>()
     for extDep in moduleDependencyGraph.externalDependencies {
       let extModTime = extDep.file.flatMap {
         try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
         for dependent in moduleDependencyGraph.untracedDependents(of: extDep) {
-          guard let swiftDeps = dependent.swiftDeps else {
-            fatalError("Dependent \(dependent) does not have swiftdeps file!")
+          guard let dependencySource = dependent.dependencySource else {
+            fatalError("Dependent \(dependent) does not have dependencies source file!")
           }
           reporter?.report(
             "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            path: TypedVirtualPath(file: swiftDeps.file, type: .swiftDeps))
-          externallyDependentSwiftDeps.insert(swiftDeps)
+            path: TypedVirtualPath(file: dependencySource.file, type: .swiftDeps))
+          externalDependencySources.insert(dependencySource)
         }
       }
     }
-    return externallyDependentSwiftDeps.compactMap {
-      moduleDependencyGraph.sourceSwiftDepsMap[$0]
+    return externalDependencySources.compactMap {
+      moduleDependencyGraph.inputDependencySourceMap[$0]
     }
   }
 
   /// Returns the cascaded files to compile in the first wave, even though it may not be need.
   /// The needs[Non}CascadingBuild stuff was cargo-culted from the legacy driver.
-  /// TODO: something better, e.g. return nothing here, but process changed swiftDeps
+  /// TODO: something better, e.g. return nothing here, but process changed dependencySource
   /// before the whole frontend job finished.
   private static func computeSpeculativeInputs(
     changedInputs: [ChangedInput],
@@ -436,10 +442,11 @@ extension IncrementalCompilationState {
     alwaysRebuildDependents: Bool,
     reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
-    let cascadingChangedInputs = Self.computeCascadingChangedInputs(from: changedInputs,
-                                                                    inputsMissingOutputs: inputsMissingOutputs,
-                                                                    alwaysRebuildDependents: alwaysRebuildDependents,
-                                                                    reporter: reporter)
+    let cascadingChangedInputs = Self.computeCascadingChangedInputs(
+      from: changedInputs,
+      inputsMissingOutputs: inputsMissingOutputs,
+      alwaysRebuildDependents: alwaysRebuildDependents,
+      reporter: reporter)
     let cascadingExternalDependents = alwaysRebuildDependents ? externalDependents : []
     // Collect the dependent files to speculatively schedule
     var dependentFiles = Set<TypedVirtualPath>()
@@ -554,7 +561,7 @@ extension IncrementalCompilationState {
           if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input, on: self.driver.fileSystem) {
             return found
           }
-          self.reporter?.report("Failed to read some swiftdeps; compiling everything", path: input)
+          self.reporter?.report("Failed to read some dependencies source; compiling everything", path: input)
           return Array(skippedCompileGroups.keys)
         }
       )
