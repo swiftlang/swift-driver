@@ -117,7 +117,7 @@ extension SourceFileDependencyGraph {
   }
 
   static func read(
-    from swiftDeps: ModuleDependencyGraph.DependenciesSource,
+    from swiftDeps: ModuleDependencyGraph.DependencySource,
     on fileSystem: FileSystem
   ) throws -> Self {
     try self.init(contentsOf: swiftDeps.file, on: fileSystem)

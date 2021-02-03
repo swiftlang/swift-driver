@@ -19,8 +19,8 @@ extension ModuleDependencyGraph {
   struct NodeFinder {
     typealias Graph = ModuleDependencyGraph
     
-    /// Maps dependenciesSource files and DependencyKeys to Nodes
-    fileprivate typealias NodeMap = TwoDMap<DependenciesSource?, DependencyKey, Node>
+    /// Maps dependencySource files and DependencyKeys to Nodes
+    fileprivate typealias NodeMap = TwoDMap<DependencySource?, DependencyKey, Node>
     fileprivate var nodeMap = NodeMap()
     
     /// Since dependency keys use baseNames, they are coarser than individual
@@ -41,24 +41,24 @@ extension ModuleDependencyGraph {
 
 extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(
-    forMock dependenciesSource: ModuleDependencyGraph.DependenciesSource
+    forMock dependencySource: ModuleDependencyGraph.DependencySource
   ) -> Graph.Node?  {
-    let fileKey = DependencyKey(fileKeyForMockDependenciesSource: dependenciesSource)
-    return findNode((dependenciesSource, fileKey))
+    let fileKey = DependencyKey(fileKeyForMockDependencySource: dependencySource)
+    return findNode((dependencySource, fileKey))
   }
-  func findNode(_ mapKey: (Graph.DependenciesSource?, DependencyKey)) -> Graph.Node? {
+  func findNode(_ mapKey: (Graph.DependencySource?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
   func findCorrespondingImplementation(of n: Graph.Node) -> Graph.Node? {
     n.dependencyKey.correspondingImplementation
-      .flatMap {findNode((n.dependenciesSource, $0))}
+      .flatMap {findNode((n.dependencySource, $0))}
   }
   
-  func findNodes(for dependenciesSource: Graph.DependenciesSource?)
+  func findNodes(for dependencySource: Graph.DependencySource?)
   -> [DependencyKey: Graph.Node]? {
-    nodeMap[dependenciesSource]
+    nodeMap[dependencySource]
   }
-  func findNodes(for key: DependencyKey) -> [Graph.DependenciesSource?: Graph.Node]? {
+  func findNodes(for key: DependencyKey) -> [Graph.DependencySource?: Graph.Node]? {
     nodeMap[key]
   }
 
@@ -105,9 +105,9 @@ extension ModuleDependencyGraph.NodeFinder {
     return self.uses(of: def).sorted()
   }
 
-  func mappings(of n: Graph.Node) -> [(Graph.DependenciesSource?, DependencyKey)] {
+  func mappings(of n: Graph.Node) -> [(Graph.DependencySource?, DependencyKey)] {
     nodeMap.compactMap { k, _ in
-      guard k.0 == n.dependenciesSource && k.1 == n.dependencyKey else {
+      guard k.0 == n.dependencySource && k.1 == n.dependencyKey else {
         return nil
       }
       return k
@@ -120,8 +120,8 @@ extension ModuleDependencyGraph.NodeFinder {
 }
 
 fileprivate extension ModuleDependencyGraph.Node {
-  var mapKey: (Graph.DependenciesSource?, DependencyKey) {
-    return (dependenciesSource, dependencyKey)
+  var mapKey: (Graph.DependencySource?, DependencyKey) {
+    return (dependencySource, dependencyKey)
   }
 }
 
@@ -173,12 +173,12 @@ extension ModuleDependencyGraph.NodeFinder {
   ///
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: Graph.Node,
-                        newDependenciesSource: Graph.DependenciesSource,
+                        newDependencySource: Graph.DependencySource,
                         newFingerprint: String?
   ) -> Graph.Node {
     let replacement = Graph.Node(key: original.dependencyKey,
                                  fingerprint: newFingerprint,
-                                 dependenciesSource: newDependenciesSource)
+                                 dependencySource: newDependencySource)
     usesByDef.replace(original, with: replacement, forKey: original.dependencyKey)
     nodeMap.removeValue(forKey: original.mapKey)
     nodeMap.updateValue(replacement, forKey: replacement.mapKey)
@@ -235,14 +235,14 @@ extension ModuleDependencyGraph.NodeFinder {
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {
-  init(fileKeyForMockDependenciesSource dependenciesSource: ModuleDependencyGraph.DependenciesSource) {
+  init(fileKeyForMockDependencySource dependencySource: ModuleDependencyGraph.DependencySource) {
     self.init(aspect: .interface,
               designator:
-                .sourceFileProvide(name: dependenciesSource.sourceFileProvidesNameForMocking)
+                .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
     )
   }
 }
-fileprivate extension ModuleDependencyGraph.DependenciesSource {
+fileprivate extension ModuleDependencyGraph.DependencySource {
   var sourceFileProvidesNameForMocking: String {
     // Only when mocking are these two guaranteed to be the same
     file.name

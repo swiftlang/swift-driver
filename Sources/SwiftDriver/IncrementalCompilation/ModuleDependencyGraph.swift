@@ -25,8 +25,8 @@ import SwiftOptions
   /// kicked off yet
   private var tracedNodes = Set<Node>()
 
-  /// Maps input files (e.g. .swift) to and from the DependenciesSource object
-  private(set) var inputDependenciesSourceMap = BidirectionalMap<TypedVirtualPath, DependenciesSource>()
+  /// Maps input files (e.g. .swift) to and from the DependencySource object
+  private(set) var inputDependencySourceMap = BidirectionalMap<TypedVirtualPath, DependencySource>()
 
   // The set of paths to external dependencies discovered during the integration
   // process.
@@ -66,7 +66,7 @@ extension ModuleDependencyGraph {
     fileSystem: FileSystem
   ) -> (
     ModuleDependencyGraph,
-    inputsAndMalformedDependenciesSources: [(TypedVirtualPath, VirtualPath)]
+    inputsAndMalformedDependencySources: [(TypedVirtualPath, VirtualPath)]
   )?
     where Inputs.Element == TypedVirtualPath
   {
@@ -89,20 +89,20 @@ extension ModuleDependencyGraph {
       )
       return nil
     }
-    let inputsAndMalformedDependenciesSources = inputsAndSwiftdeps.compactMap {
+    let inputsAndMalformedDependencySources = inputsAndSwiftdeps.compactMap {
       input, swiftDepsFile -> (TypedVirtualPath, VirtualPath)? in
       guard let swiftDepsFile = swiftDepsFile
       else {
         return nil
       }
-      let dependenciesSource = DependenciesSource(swiftDepsFile)
-      graph.inputDependenciesSourceMap[input] = dependenciesSource
+      let dependencySource = DependencySource(swiftDepsFile)
+      graph.inputDependencySourceMap[input] = dependencySource
       guard previousInputs.contains(input.file)
       else {
         // do not try to read swiftdeps of a new input
         return nil
       }
-      let changes = Integrator.integrate(dependenciesSource: dependenciesSource,
+      let changes = Integrator.integrate(dependencySource: dependencySource,
                                          into: graph,
                                          input: input,
                                          reporter: reporter,
@@ -110,7 +110,7 @@ extension ModuleDependencyGraph {
                                          fileSystem: fileSystem)
       return changes == nil ? (input, swiftDepsFile) : nil
     }
-    return (graph, inputsAndMalformedDependenciesSources)
+    return (graph, inputsAndMalformedDependencySources)
   }
 }
 // MARK: - Scheduling the first wave
@@ -120,29 +120,29 @@ extension ModuleDependencyGraph {
   func findDependentSourceFiles(
     of sourceFile: TypedVirtualPath
   ) -> [TypedVirtualPath] {
-    var allDependenciesSourcesToRecompile = Set<DependenciesSource>()
+    var allDependencySourcesToRecompile = Set<DependencySource>()
 
-    let dependenciesSource = inputDependenciesSourceMap[sourceFile]
+    let dependencySource = inputDependencySourceMap[sourceFile]
 
-    for dependenciesSourceToRecompile in
-      findSwiftDepsToRecompileWhenDependenciesSourceChanges( dependenciesSource ) {
-      if dependenciesSourceToRecompile != dependenciesSource {
-        allDependenciesSourcesToRecompile.insert(dependenciesSourceToRecompile)
+    for dependencySourceToRecompile in
+      findSwiftDepsToRecompileWhenDependencySourceChanges( dependencySource ) {
+      if dependencySourceToRecompile != dependencySource {
+        allDependencySourcesToRecompile.insert(dependencySourceToRecompile)
       }
     }
-    return allDependenciesSourcesToRecompile.map {
-      let dependentSource = inputDependenciesSourceMap[$0]
+    return allDependencySourcesToRecompile.map {
+      let dependentSource = inputDependencySourceMap[$0]
       self.reporter?.report(
         "Found dependent of \(sourceFile.file.basename):", path: dependentSource)
       return dependentSource
     }
   }
 
-  /// Find all the swiftDeps files that depend on `dependenciesSource`.
+  /// Find all the swiftDeps files that depend on `dependencySource`.
   /// Really private, except for testing.
-  /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenDependenciesSourceChanges(
-    _ dependenciesSource: DependenciesSource  ) -> Set<DependenciesSource> {
-    let nodes = nodeFinder.findNodes(for: dependenciesSource) ?? [:]
+  /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenDependencySourceChanges(
+    _ dependencySource: DependencySource  ) -> Set<DependencySource> {
+    let nodes = nodeFinder.findNodes(for: dependencySource) ?? [:]
     /// Tests expect this to be reflexive
     return findSwiftDepsToRecompileWhenNodesChange(nodes.values)
   }
@@ -158,7 +158,7 @@ extension ModuleDependencyGraph {
   ) -> [TypedVirtualPath]? {
     findSourcesToCompileAfterIntegrating(
       input: source,
-      dependenciesSource: inputDependenciesSourceMap[source],
+      dependencySource: inputDependencySourceMap[source],
       on: fileSystem)
   }
 
@@ -168,10 +168,10 @@ extension ModuleDependencyGraph {
   /// May return a source that has already been compiled.
   private func findSourcesToCompileAfterIntegrating(
     input: TypedVirtualPath,
-    dependenciesSource: DependenciesSource,
+    dependencySource: DependencySource,
     on fileSystem: FileSystem
   ) -> [TypedVirtualPath]? {
-    Integrator.integrate(dependenciesSource: dependenciesSource,
+    Integrator.integrate(dependencySource: dependencySource,
                          into: self,
                          input: input,
                          reporter: self.reporter,
@@ -179,7 +179,7 @@ extension ModuleDependencyGraph {
                          fileSystem: fileSystem)
       .map {
         findSwiftDepsToRecompileWhenNodesChange($0)
-          .map { inputDependenciesSourceMap[$0] }
+          .map { inputDependencySourceMap[$0] }
       }
   }
 }
@@ -189,7 +189,7 @@ extension ModuleDependencyGraph {
   /// Find all the swiftDeps affected when the nodes change.
   /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
     _ nodes: Nodes
-  ) -> Set<DependenciesSource>
+  ) -> Set<DependencySource>
     where Nodes.Element == Node
   {
     let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(
@@ -197,7 +197,7 @@ extension ModuleDependencyGraph {
       in: self,
       diagnosticEngine: diagnosticEngine)
       .tracedUses
-    return Set(affectedNodes.compactMap {$0.dependenciesSource})
+    return Set(affectedNodes.compactMap {$0.dependencySource})
   }
 
   /*@_spi(Testing)*/ public func untracedDependents(
@@ -205,7 +205,7 @@ extension ModuleDependencyGraph {
   ) -> [ModuleDependencyGraph.Node] {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceFor: externalSwiftDeps)
-    let node = Node(key: key, fingerprint: nil, dependenciesSource: nil)
+    let node = Node(key: key, fingerprint: nil, dependencySource: nil)
     return nodeFinder
       .orderedUses(of: node)
       .filter({ use in isUntraced(use) })
@@ -239,13 +239,13 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   /// Testing only
   /*@_spi(Testing)*/ public func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
-    let dependenciesSource = DependenciesSource(mock: i)
+    let dependencySource = DependencySource(mock: i)
     // optimization
-    if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependenciesSource),
+    if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
        isTraced(fileNode) {
       return true
     }
-    if let nodes = nodeFinder.findNodes(for: dependenciesSource)?.values,
+    if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
        nodes.contains(where: isTraced) {
       return true
     }
@@ -262,7 +262,7 @@ extension ModuleDependencyGraph {
 // MARK: - debugging
 extension ModuleDependencyGraph {
   func emitDotFile(_ g: SourceFileDependencyGraph,
-                   _ dependenciesSource: DependenciesSource) {
+                   _ dependencySource: DependencySource) {
     // TODO: Incremental emitDotFIle
     fatalError("unimplmemented, writing dot file of dependency graph")
   }
@@ -435,12 +435,12 @@ extension ModuleDependencyGraph {
           let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
           let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          let dependenciesSource = try swiftDepsStr
+          let dependencySource = try swiftDepsStr
             .map({ try VirtualPath(path: $0) })
-            .map(ModuleDependencyGraph.DependenciesSource.init)
+            .map(ModuleDependencyGraph.DependencySource.init)
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
-                                   dependenciesSource: dependenciesSource))
+                                   dependencySource: dependencySource))
         case .dependsOnNode:
           let kindCode = record.fields[0]
           guard record.fields.count == 4,
@@ -622,8 +622,8 @@ extension ModuleDependencyGraph {
       graph.nodeFinder.forEachNode { node in
         self.cacheNodeID(for: node)
 
-        if let dependenciesSourceFileName = node.dependenciesSource?.file.name {
-          self.addIdentifier(dependenciesSourceFileName)
+        if let dependencySourceFileName = node.dependencySource?.file.name {
+          self.addIdentifier(dependencySourceFileName)
         }
         if let context = node.dependencyKey.designator.context {
           self.addIdentifier(context)
@@ -743,9 +743,9 @@ extension ModuleDependencyGraph {
                         for: node.dependencyKey.designator.context ?? ""))
             $0.append(serializer.lookupIdentifierCode(
                         for: node.dependencyKey.designator.name ?? ""))
-            $0.append((node.dependenciesSource != nil) ? UInt32(1) : UInt32(0))
+            $0.append((node.dependencySource != nil) ? UInt32(1) : UInt32(0))
             $0.append(serializer.lookupIdentifierCode(
-                        for: node.dependenciesSource?.file.name ?? ""))
+                        for: node.dependencySource?.file.name ?? ""))
             $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, blob: node.fingerprint ?? "")
         }

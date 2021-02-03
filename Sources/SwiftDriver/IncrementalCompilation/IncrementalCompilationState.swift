@@ -65,7 +65,7 @@ public class IncrementalCompilationState {
 
     guard let (
       moduleDependencyGraph,
-      inputsHavingMalformedDependenciesSources: inputsHavingMalformedDependenciesSources
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources
     ) =
             Self.computeModuleDependencyGraph(
               buildRecordInfo,
@@ -83,7 +83,7 @@ public class IncrementalCompilationState {
       &driver,
       buildRecordInfo,
       outOfDateBuildRecord,
-      inputsHavingMalformedDependenciesSources: inputsHavingMalformedDependenciesSources,
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
       moduleDependencyGraph,
       self.reporter)
 
@@ -102,12 +102,12 @@ public class IncrementalCompilationState {
     _ reporter: Reporter?
   )
   -> (ModuleDependencyGraph,
-      inputsHavingMalformedDependenciesSources: [TypedVirtualPath])?
+      inputsHavingMalformedDependencySources: [TypedVirtualPath])?
   {
     let diagnosticEngine = driver.diagnosticEngine
     guard let (
       moduleDependencyGraph,
-      inputsAndMalformedDependenciesSources: inputsAndMalformedDependenciesSources
+      inputsAndMalformedDependencySources: inputsAndMalformedDependencySources
     ) =
     ModuleDependencyGraph.buildInitialGraph(
       diagnosticEngine: diagnosticEngine,
@@ -122,17 +122,17 @@ public class IncrementalCompilationState {
       return nil
     }
     // Preserve legacy behavior,
-    // but someday, just ensure inputsAndMalformedDependenciesSources are compiled
-    if let badDependenciesSource = inputsAndMalformedDependenciesSources.first?.1 {
+    // but someday, just ensure inputsAndMalformedDependencySources are compiled
+    if let badDependencySource = inputsAndMalformedDependencySources.first?.1 {
       diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
-          because: "malformed dependencies file '\(badDependenciesSource)'")
+          because: "malformed dependencies file '\(badDependencySource)'")
       )
       return nil
     }
-    let inputsHavingMalformedDependenciesSources = inputsAndMalformedDependenciesSources.map {$0.0}
+    let inputsHavingMalformedDependencySources = inputsAndMalformedDependencySources.map {$0.0}
     return (moduleDependencyGraph,
-            inputsHavingMalformedDependenciesSources: inputsHavingMalformedDependenciesSources)
+            inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources)
   }
 
   private static func computeInputsAndGroups(
@@ -140,7 +140,7 @@ public class IncrementalCompilationState {
     _ driver: inout Driver,
     _ buildRecordInfo: BuildRecordInfo,
     _ outOfDateBuildRecord: BuildRecord,
-    inputsHavingMalformedDependenciesSources: [TypedVirtualPath],
+    inputsHavingMalformedDependencySources: [TypedVirtualPath],
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ reporter: Reporter?
   ) throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
@@ -154,7 +154,7 @@ public class IncrementalCompilationState {
       allGroups: jobsInPhases.compileGroups,
       fileSystem: driver.fileSystem,
       buildRecordInfo: buildRecordInfo,
-      inputsHavingMalformedDependenciesSources: inputsHavingMalformedDependenciesSources,
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
       moduleDependencyGraph: moduleDependencyGraph,
       outOfDateBuildRecord: outOfDateBuildRecord,
       alwaysRebuildDependents: driver.parsedOptions.contains(.driverAlwaysRebuildDependents),
@@ -276,7 +276,7 @@ extension IncrementalCompilationState {
     allGroups: [CompileJobGroup],
     fileSystem: FileSystem,
     buildRecordInfo: BuildRecordInfo,
-    inputsHavingMalformedDependenciesSources: [TypedVirtualPath],
+    inputsHavingMalformedDependencySources: [TypedVirtualPath],
     moduleDependencyGraph: ModuleDependencyGraph,
     outOfDateBuildRecord: BuildRecord,
     alwaysRebuildDependents: Bool,
@@ -305,7 +305,7 @@ extension IncrementalCompilationState {
     // Combine to obtain the inputs that definitely must be recompiled.
     let definitelyRequiredInputs =
       Set(changedInputs.map({ $0.filePath }) + externalDependents +
-            inputsHavingMalformedDependenciesSources
+            inputsHavingMalformedDependencySources
             + inputsMissingOutputs)
     if let reporter = reporter {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
@@ -408,31 +408,31 @@ extension IncrementalCompilationState {
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
  ) -> [TypedVirtualPath] {
-    var externalDependenciesSources = Set<ModuleDependencyGraph.DependenciesSource>()
+    var externalDependencySources = Set<ModuleDependencyGraph.DependencySource>()
     for extDep in moduleDependencyGraph.externalDependencies {
       let extModTime = extDep.file.flatMap {
         try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
         for dependent in moduleDependencyGraph.untracedDependents(of: extDep) {
-          guard let dependenciesSource = dependent.dependenciesSource else {
+          guard let dependencySource = dependent.dependencySource else {
             fatalError("Dependent \(dependent) does not have dependencies source file!")
           }
           reporter?.report(
             "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            path: TypedVirtualPath(file: dependenciesSource.file, type: .swiftDeps))
-          externalDependenciesSources.insert(dependenciesSource)
+            path: TypedVirtualPath(file: dependencySource.file, type: .swiftDeps))
+          externalDependencySources.insert(dependencySource)
         }
       }
     }
-    return externalDependenciesSources.compactMap {
-      moduleDependencyGraph.inputDependenciesSourceMap[$0]
+    return externalDependencySources.compactMap {
+      moduleDependencyGraph.inputDependencySourceMap[$0]
     }
   }
 
   /// Returns the cascaded files to compile in the first wave, even though it may not be need.
   /// The needs[Non}CascadingBuild stuff was cargo-culted from the legacy driver.
-  /// TODO: something better, e.g. return nothing here, but process changed dependenciesSource
+  /// TODO: something better, e.g. return nothing here, but process changed dependencySource
   /// before the whole frontend job finished.
   private static func computeSpeculativeInputs(
     changedInputs: [ChangedInput],

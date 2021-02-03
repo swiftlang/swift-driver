@@ -25,25 +25,25 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/ public typealias Changes = Set<Node>
 
     let source: SourceFileDependencyGraph
-    let dependenciesSource: DependenciesSource
+    let dependencySource: DependencySource
     let destination: ModuleDependencyGraph
 
     /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
 
     var changedNodes = Changes()
 
-    /// Starts with all nodes in dependenciesSource. Nodes that persist will be removed.
+    /// Starts with all nodes in dependencySource. Nodes that persist will be removed.
     /// After integration is complete, contains the nodes that have disappeared.
     var disappearedNodes = [DependencyKey: Graph.Node]()
 
     init(source: SourceFileDependencyGraph,
-         dependenciesSource: DependenciesSource,
+         dependencySource: DependencySource,
          destination: ModuleDependencyGraph)
     {
       self.source = source
-      self.dependenciesSource = dependenciesSource
+      self.dependencySource = dependencySource
       self.destination = destination
-      self.disappearedNodes = destination.nodeFinder.findNodes(for: dependenciesSource)
+      self.disappearedNodes = destination.nodeFinder.findNodes(for: dependencySource)
         ?? [:]
     }
   }
@@ -53,7 +53,7 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph.Integrator {
   /// returns nil for error
   static func integrate(
-    dependenciesSource: Graph.DependenciesSource,
+    dependencySource: Graph.DependencySource,
     into destination: Graph,
     input: TypedVirtualPath,
     reporter: IncrementalCompilationState.Reporter?,
@@ -61,13 +61,13 @@ extension ModuleDependencyGraph.Integrator {
     fileSystem: FileSystem
   ) -> Changes? {
     guard let sfdg = try? SourceFileDependencyGraph.read(
-            from: dependenciesSource, on: fileSystem)
+            from: dependencySource, on: fileSystem)
     else {
-      reporter?.report("Could not read \(dependenciesSource)", path: input)
+      reporter?.report("Could not read \(dependencySource)", path: input)
       return nil
     }
     return integrate(from: sfdg,
-                     dependenciesSource: dependenciesSource,
+                     dependencySource: dependencySource,
                      into: destination)
   }
 }
@@ -79,11 +79,11 @@ extension ModuleDependencyGraph.Integrator {
   /// Returns changed nodes
   /*@_spi(Testing)*/ public static func integrate(
     from g: SourceFileDependencyGraph,
-    dependenciesSource: Graph.DependenciesSource,
+    dependencySource: Graph.DependencySource,
     into destination: Graph
   ) ->  Changes {
     var integrator = Self(source: g,
-                          dependenciesSource: dependenciesSource,
+                          dependencySource: dependencySource,
                           destination: destination)
     integrator.integrate()
 
@@ -91,7 +91,7 @@ extension ModuleDependencyGraph.Integrator {
       integrator.verifyAfterImporting()
     }
     if destination.emitDependencyDotFileAfterEveryImport {
-      destination.emitDotFile(g, dependenciesSource)
+      destination.emitDotFile(g, dependencySource)
     }
     return integrator.changedNodes
   }
@@ -131,16 +131,16 @@ extension ModuleDependencyGraph.Integrator {
     recordDefsForThisUse(integrand, integratedNode)
   }
 
-  /// If there is already a node in the graph for this dependenciesSource, merge the integrand into that,
+  /// If there is already a node in the graph for this dependencySource, merge the integrand into that,
   /// and return the merged node. Remember that the merged node has changed if it has.
   private mutating func integrateWithNodeHere(
     _ integrand: SourceFileDependencyGraph.Node,
-    _ nodesMatchingKey: [Graph.DependenciesSource?: Graph.Node]
+    _ nodesMatchingKey: [Graph.DependencySource?: Graph.Node]
   ) -> Graph.Node? {
-    guard let matchHere = nodesMatchingKey[dependenciesSource] else {
+    guard let matchHere = nodesMatchingKey[dependencySource] else {
       return nil
     }
-    assert(matchHere.dependenciesSource == dependenciesSource)
+    assert(matchHere.dependencySource == dependencySource)
     // Node was and still is. Do not remove it.
     disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
     if matchHere.fingerprint != integrand.fingerprint {
@@ -149,11 +149,11 @@ extension ModuleDependencyGraph.Integrator {
     return matchHere
   }
 
-  /// If there is an expat node with this key, replace it with a ndoe for this dependenciesSource
+  /// If there is an expat node with this key, replace it with a ndoe for this dependencySource
   /// and return the replacement. Remember that the replace has changed.
   private mutating func integrateWithExpat(
     _ integrand: SourceFileDependencyGraph.Node,
-    _ nodesMatchingKey: [Graph.DependenciesSource?: Graph.Node]
+    _ nodesMatchingKey: [Graph.DependencySource?: Graph.Node]
   ) -> Graph.Node? {
     guard let expat = nodesMatchingKey[nil] else {
       return nil
@@ -162,7 +162,7 @@ extension ModuleDependencyGraph.Integrator {
            "If an expat exists, then must not be any matches in other files")
     let integratedNode = destination.nodeFinder
       .replace(expat,
-               newDependenciesSource: dependenciesSource,
+               newDependencySource: dependencySource,
                newFingerprint: integrand.fingerprint)
     changedNodes.insert(integratedNode)
     return integratedNode
@@ -176,7 +176,7 @@ extension ModuleDependencyGraph.Integrator {
     let newNode = Graph.Node(
       key: integrand.key,
       fingerprint: integrand.fingerprint,
-      dependenciesSource: dependenciesSource)
+      dependencySource: dependencySource)
     let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
     changedNodes.insert(newNode)
@@ -206,10 +206,10 @@ extension ModuleDependencyGraph.Integrator {
 extension ModuleDependencyGraph.Integrator {
   @discardableResult
   func verifyAfterImporting() -> Bool {
-    guard let nodesInFile = destination.nodeFinder.findNodes(for: dependenciesSource),
+    guard let nodesInFile = destination.nodeFinder.findNodes(for: dependencySource),
           !nodesInFile.isEmpty
     else {
-      fatalError("Just imported \(dependenciesSource), should have nodes")
+      fatalError("Just imported \(dependencySource), should have nodes")
     }
     return destination.verifyGraph()
   }
