@@ -208,11 +208,10 @@ extension ModuleDependencyGraph.Integrator {
       let isNewUse = destination.nodeFinder.record(def: def.key,
                                                    use: moduleUseNode)
       guard isNewUse else { return }
-      guard let (externalDependency, isIncremental: isIncremental) =
-              def.key.designator.externalDependency
-      else {
+      guard let externalDependency = def.key.designator.externalDependency else {
         return
       }
+      let isIncremental = def.fingerprint != nil
       let isKnown = (isIncremental
                       ? destination.incrementalExternalDependencies
                       : destination.externalDependencies)

@@ -299,7 +299,7 @@ extension ModuleDependencyGraph {
     isIncremental: Bool
   ) -> [ModuleDependencyGraph.Node] {
     // These nodes will depend on the *interface* of the external Decl.
-    let key = DependencyKey(interfaceFor: externalSwiftDeps, isIncremental: isIncremental)
+    let key = DependencyKey(interfaceFor: externalSwiftDeps)
     let node = Node(key: key, fingerprint: nil, dependencySource: nil)
     return nodeFinder
       .orderedUses(of: node)
@@ -307,11 +307,9 @@ extension ModuleDependencyGraph {
   }
 }
 fileprivate extension DependencyKey {
-  init(interfaceFor dep: ExternalDependency, isIncremental: Bool) {
+  init(interfaceFor dep: ExternalDependency) {
     self.init(aspect: .interface,
-              designator: isIncremental
-                ? .incrementalExternalDependency(dep)
-                : .externalDepend(dep))
+              designator: .externalDepend(dep))
   }
 }
 // MARK: - tracking traced nodes
@@ -938,9 +936,6 @@ fileprivate extension DependencyKey.Designator {
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)
-    case 7:
-      try mustBeEmpty(context)
-      self = .incrementalExternalDependency(ExternalDependency(name))
     default: throw ModuleDependencyGraph.ReadError.unknownKind
     }
   }
@@ -961,8 +956,6 @@ fileprivate extension DependencyKey.Designator {
       return 5
     case .sourceFileProvide(name: _):
       return 6
-    case .incrementalExternalDependency(_):
-      return 7
     }
   }
 
@@ -975,8 +968,6 @@ fileprivate extension DependencyKey.Designator {
     case .externalDepend(_):
       return nil
     case .sourceFileProvide(name: _):
-      return nil
-    case .incrementalExternalDependency(_):
       return nil
     case .nominal(context: let context):
       return context
@@ -997,8 +988,6 @@ fileprivate extension DependencyKey.Designator {
       return path.fileName
     case .sourceFileProvide(name: let name):
       return name
-    case .incrementalExternalDependency(let path):
-      return path.fileName
     case .member(context: _, name: let name):
       return name
     case .nominal(context: _):
