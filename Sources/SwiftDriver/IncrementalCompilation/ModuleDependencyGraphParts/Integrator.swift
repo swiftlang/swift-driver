@@ -208,42 +208,47 @@ extension ModuleDependencyGraph.Integrator {
       let isNewUse = destination.nodeFinder.record(def: def.key,
                                                    use: moduleUseNode)
       guard isNewUse else { return }
-      guard let (externalDependency, isIncremental: isIncremental) =
-              def.key.designator.externalDependency
-      else {
+      guard let externalDependency = def.key.designator.externalDependency else {
         return
       }
-      let isKnown = (isIncremental
-                      ? destination.incrementalExternalDependencies
-                      : destination.externalDependencies)
-        .contains(externalDependency)
-      guard !isKnown else {return}
-      if !isIncremental {
-        destination.reporter?.report("found externalDependency",
-                                     externalDependency.file)
-        // no integration to do for these, so just remember them here
-        destination.externalDependencies.insert(externalDependency)
-      }
-      else if !isCrossModuleIncrementalBuildEnabled {
+
+      switch externalDependency {
+      case .incremental(_) where destination.incrementalExternalDependencies.contains(externalDependency):
+        // We already know about this dependency. Bail so we don't duplicate
+        // work.
+        return
+      case .nonIncremental(_) where destination.externalDependencies.contains(externalDependency):
+        // We already know about this dependency. Bail so we don't duplicate
+        // work
+        return
+      case .incremental(_) where !isCrossModuleIncrementalBuildEnabled:
+        // N.B. This is a corner case. We will not need this when cross-module
+        // incremental builds are the default.
         destination.reporter?.report(
           "found incrementalExternalDependency but treating as non-incremental",
           externalDependency.file)
         // treat like nonincremental
-        let key = DependencyKey(
-          aspect: .interface,
-          designator: .externalDepend(externalDependency))
+        let key = DependencyKey(aspect: .interface,
+                                designator: .externalDepend(externalDependency))
         let isNewUse = destination.nodeFinder.record(def: key, use: moduleUseNode)
-        if !isNewUse {
-          destination.externalDependencies.insert(externalDependency)
-          results.changedNodes.insert(moduleUseNode)
+        guard isNewUse else {
+          return
         }
-      }
-      else {
-        destination.reporter?.report( "found incrementalExternalDependency",
-                                      externalDependency.file)
+
+        destination.externalDependencies.insert(externalDependency)
+        results.changedNodes.insert(moduleUseNode)
+      case .incremental(_):
+        destination.reporter?.report("found incrementalExternalDependency",
+                                     externalDependency.file)
         results.discoveredIncrementalExternalDependencies.insert(externalDependency)
+        results.changedNodes.insert(moduleUseNode)
+      case .nonIncremental(_):
+        destination.reporter?.report("found externalDependency",
+                                     externalDependency.file)
+        // no integration to do for these, so just remember them here
+        destination.externalDependencies.insert(externalDependency)
+        results.changedNodes.insert(moduleUseNode)
       }
-      results.changedNodes.insert(moduleUseNode)
     }
   }
 }

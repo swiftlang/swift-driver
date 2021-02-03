@@ -166,14 +166,15 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
     /// available from this node.
     case incrementalExternalDependency(ExternalDependency)
 
-    var externalDependency: (ExternalDependency, isIncremental: Bool)? {
+    var externalDependency: ExternalDependency? {
       switch self {
       case let .externalDepend(externalDependency):
-        return (externalDependency, isIncremental: false)
+        return externalDependency
       case let .incrementalExternalDependency(externalDependency):
-        return (externalDependency, isIncremental: true)
+        return externalDependency
       default:
-        return nil}
+        return nil
+      }
     }
 
     public var description: String {
