@@ -219,8 +219,9 @@ extension ModuleDependencyGraph.Integrator {
         .contains(externalDependency)
       guard !isKnown else {return}
       if !isIncremental {
-        destination.reporter?.report("found externalDependency",
-                                     externalDependency.file)
+        // Nice for debugging, but too much otherwise:
+        // destination.reporter?.report("found externalDependency", externalDependency.file)
+        
         // no integration to do for these, so just remember them here
         destination.externalDependencies.insert(externalDependency)
       }
@@ -233,7 +234,7 @@ extension ModuleDependencyGraph.Integrator {
           aspect: .interface,
           designator: .externalDepend(externalDependency))
         let isNewUse = destination.nodeFinder.record(def: key, use: moduleUseNode)
-        if !isNewUse {
+        if isNewUse {
           destination.externalDependencies.insert(externalDependency)
           results.changedNodes.insert(moduleUseNode)
         }
