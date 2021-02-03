@@ -180,7 +180,7 @@ extension ModuleDependencyGraph {
       return nil
     }
     let dependencySource = DependencySource(TypedVirtualPath(file: file, type: .swiftModule))
-    reporter?.report("integrating incrementalExperimentalDependency", path: dependencySource.typedFile)
+    reporter?.report("integrating incrementalExperimentalDependency", dependencySource.typedFile)
     let results = Integrator.integrate(
       dependencySource: dependencySource,
       into: graph,
@@ -213,7 +213,7 @@ extension ModuleDependencyGraph {
     return allDependencySourcesToRecompile.map {
       let dependentSource = inputDependencySourceMap[$0]
       self.reporter?.report(
-        "Found dependent of \(sourceFile.file.basename):", path: dependentSource)
+        "Found dependent of \(sourceFile.file.basename):", dependentSource)
       return dependentSource
     }
   }

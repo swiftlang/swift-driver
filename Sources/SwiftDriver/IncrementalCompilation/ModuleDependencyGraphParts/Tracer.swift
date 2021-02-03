@@ -130,8 +130,7 @@ extension ModuleDependencyGraph.Tracer {
               .map { "\(node.dependencyKey) in \($0.file.basename)"}
           }
           .joined(separator: " -> ")
-      ].joined(separator: " "),
-      path: nil
+      ].joined(separator: " ")
     )
   }
 }

@@ -74,7 +74,7 @@ extension ModuleDependencyGraph.Integrator {
     guard let sfdg = try? SourceFileDependencyGraph.read(
             from: dependencySource, on: fileSystem)
     else {
-      reporter?.report("Could not read \(dependencySource)", path: input)
+      reporter?.report("Could not read \(dependencySource)", input)
       return nil
     }
     return integrate(from: sfdg,
@@ -224,8 +224,8 @@ extension ModuleDependencyGraph.Integrator {
       }
       else if !isCrossModuleIncrementalBuildEnabled {
         destination.reporter?.report(
-          "found incremntalExternalDependency but treating as non-incremental",
-          path: externalDependency.file.map{ TypedVirtualPath(file: $0, type: .swiftModule)})
+          "found incrementalExternalDependency but treating as non-incremental",
+          externalDependency.file)
         // treat like nonincremental
         let key = DependencyKey(
           aspect: .interface,
@@ -237,9 +237,8 @@ extension ModuleDependencyGraph.Integrator {
         }
       }
       else {
-        destination.reporter?.report(
-          "found incremntalExternalDependency",
-          path: externalDependency.file.map{ TypedVirtualPath(file: $0, type: .swiftModule)})
+        destination.reporter?.report( "found incrementalExternalDependency",
+                                      externalDependency.file)
         results.discoveredIncrementalExternalDependencies.insert(externalDependency)
       }
       results.changedNodes.insert(moduleUseNode)

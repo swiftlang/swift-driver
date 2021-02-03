@@ -330,7 +330,7 @@ extension IncrementalCompilationState {
             + inputsMissingOutputs)
     if let reporter = reporter {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        reporter.report("Queuing (initial):", path: scheduledInput)
+        reporter.report("Queuing (initial):", scheduledInput)
       }
     }
 
@@ -349,7 +349,7 @@ extension IncrementalCompilationState {
 
     if let reporter = reporter {
       for dependent in speculativeInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        reporter.report("Queuing because of the initial set:", path: dependent)
+        reporter.report("Queuing because of the initial set:", dependent)
       }
     }
     let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs)
@@ -358,7 +358,7 @@ extension IncrementalCompilationState {
       .subtracting(immediatelyCompiledInputs)
     if let reporter = reporter {
       for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
-        reporter.report("Skipping input:", path: skippedInput)
+        reporter.report("Skipping input:", skippedInput)
       }
     }
     return skippedInputs
@@ -404,17 +404,17 @@ extension IncrementalCompilationState {
 
       switch previousCompilationStatus {
       case .upToDate where datesMatch:
-        reporter?.report("May skip current input:", path: input)
+        reporter?.report("May skip current input:", input)
         return nil
 
       case .upToDate:
-        reporter?.report("Scheduing changed input", path: input)
+        reporter?.report("Scheduing changed input", input)
       case .newlyAdded:
-        reporter?.report("Scheduling new", path: input)
+        reporter?.report("Scheduling new", input)
       case .needsCascadingBuild:
-        reporter?.report("Scheduling cascading build", path: input)
+        reporter?.report("Scheduling cascading build", input)
       case .needsNonCascadingBuild:
-        reporter?.report("Scheduling noncascading build", path: input)
+        reporter?.report("Scheduling noncascading build", input)
       }
       return ChangedInput(filePath: input,
                           status: previousCompilationStatus,
@@ -444,7 +444,7 @@ extension IncrementalCompilationState {
           }
           reporter?.report(
             "Queuing because of \(forIncrementalExternalDependencies ? "incremental " : "")external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            path: dependencySource.typedFile)
+            dependencySource.typedFile)
           externalDependencySources.insert(dependencySource)
         }
       }
@@ -481,7 +481,7 @@ extension IncrementalCompilationState {
       for dep in dependentsOfOneFile where !cascadingFileSet.contains(dep) {
         if dependentFiles.insert(dep).0 {
           reporter?.report(
-            "Immediately scheduling dependent on \(cascadingFile.file.basename)", path: dep)
+            "Immediately scheduling dependent on \(cascadingFile.file.basename)", dep)
         }
       }
     }
@@ -560,7 +560,8 @@ extension IncrementalCompilationState {
 
       if let reporter = self.reporter {
         for input in discoveredInputs {
-          reporter.report("Queuing because of dependencies discovered later:", path: input)
+          reporter.report(
+            "Queuing because of dependencies discovered later:", input)
         }
       }
       let newJobs = try getJobsFor(discoveredCompilationInputs: discoveredInputs)
@@ -585,7 +586,8 @@ extension IncrementalCompilationState {
           if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input, on: self.driver.fileSystem) {
             return found
           }
-          self.reporter?.report("Failed to read some dependencies source; compiling everything", path: input)
+          self.reporter?.report(
+            "Failed to read some dependencies source; compiling everything", input)
           return Array(skippedCompileGroups.keys)
         }
       )
@@ -603,11 +605,11 @@ extension IncrementalCompilationState {
         let primaryInputs = group.compileJob.primaryInputs
         assert(primaryInputs.count == 1)
         assert(primaryInputs[0] == input)
-        self.reporter?.report("Scheduling discovered", path: input)
+        self.reporter?.report("Scheduling discovered", input)
         return group.allJobs()
       }
       else {
-        self.reporter?.report("Tried to schedule discovered input again", path: input)
+        self.reporter?.report("Tried to schedule discovered input again", input)
         return []
       }
     }
@@ -651,19 +653,37 @@ extension IncrementalCompilationState {
     ///
     /// - Parameters:
     ///   - message: The message to emit in the remark.
-    ///   - path: If non-nil, the path of an output for an incremental job.
-    func report(_ message: String, path: TypedVirtualPath? = nil) {
-      guard let outputFileMap = outputFileMap,
-            let path = path,
+    ///   - path: If non-nil, the path of some file. If the output for an incremental job, will print out the
+    ///           source and object files.
+    func report(_ message: String, _ path: TypedVirtualPath?) {
+       guard let path = path,
+            let outputFileMap = outputFileMap,
             let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
       else {
-        diagnosticEngine.emit(.remark_incremental_compilation(because: message))
+        report(message, path?.file)
         return
       }
       let output = outputFileMap.getOutput(inputFile: path.file, outputType: .object)
       let compiling = " {compile: \(output.basename) <= \(input.basename)}"
       diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) \(compiling)"))
     }
+
+    /// Entry point for a simple path, won't print the compile job, path could be anything.
+    func report(_ message: String, _ path: VirtualPath?) {
+      guard let path = path
+      else {
+        report(message)
+        diagnosticEngine.emit(.remark_incremental_compilation(because: message))
+        return
+      }
+      diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) '\(path.name)'"))
+    }
+
+    /// Entry point if no path.
+    func report(_ message: String) {
+      diagnosticEngine.emit(.remark_incremental_compilation(because: message))
+    }
+
 
     // Emits a remark indicating incremental compilation has been disabled.
     func reportDisablingIncrementalBuild(_ why: String) {
