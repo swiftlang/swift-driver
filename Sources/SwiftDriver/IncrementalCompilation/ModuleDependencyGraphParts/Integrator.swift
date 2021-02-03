@@ -24,9 +24,14 @@ extension ModuleDependencyGraph {
 
     /*@_spi(Testing)*/ public typealias Changes = Set<Node>
 
+    /// the graph to be integrated
     let source: SourceFileDependencyGraph
+
+    /// the source (file) of the graph to be integrated
     let dependencySource: DependencySource
-    let destination: ModuleDependencyGraph
+
+    /// the graph to be integrated into
+     let destination: ModuleDependencyGraph
 
     /// When done, changedNodes contains a set of nodes that changed as a result of this integration.
 
