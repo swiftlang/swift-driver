@@ -946,16 +946,17 @@ extension ModuleDependencyGraph {
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
-    findUntracedSwiftDepsDependent(on: s.asExternal)
+    findUntracedSwiftDepsDependent(on: s.asExternal, isIncremental: false)
       .map { $0.mockID }
   }
 
   /// Can return duplicates
   func findUntracedSwiftDepsDependent(
-    on externalDependency: ExternalDependency
+    on externalDependency: ExternalDependency,
+    isIncremental: Bool
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in self.untracedDependents(of: externalDependency) {
+    for dependent in self.untracedDependents(of: externalDependency, isIncremental: isIncremental) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive

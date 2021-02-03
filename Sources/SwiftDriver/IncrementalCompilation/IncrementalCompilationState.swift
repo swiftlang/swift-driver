@@ -79,7 +79,8 @@ public class IncrementalCompilationState {
       outOfDateBuildRecord,
       outputFileMap,
       &driver,
-      self.reporter)
+      self.reporter,
+      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
     else {
       return nil
     }
@@ -106,7 +107,8 @@ public class IncrementalCompilationState {
     _ outOfDateBuildRecord: BuildRecord,
     _ outputFileMap: OutputFileMap,
     _ driver: inout Driver,
-    _ reporter: Reporter?
+    _ reporter: Reporter?,
+    isCrossModuleIncrementalBuildEnabled: Bool
   )
   -> (ModuleDependencyGraph,
       inputsHavingMalformedDependencySources: [TypedVirtualPath])?
@@ -114,7 +116,7 @@ public class IncrementalCompilationState {
     let diagnosticEngine = driver.diagnosticEngine
     guard let (
       moduleDependencyGraph,
-      inputsAndMalformedDependencySources: inputsAndMalformedDependencySources
+      inputsAndMalformedSwiftDeps: inputsAndMalformedSwiftDeps
     ) =
     ModuleDependencyGraph.buildInitialGraph(
       diagnosticEngine: diagnosticEngine,
@@ -124,20 +126,22 @@ public class IncrementalCompilationState {
       parsedOptions: &driver.parsedOptions,
       remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
       reporter: reporter,
-      fileSystem: driver.fileSystem)
+      fileSystem: driver.fileSystem,
+      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled
+      )
     else {
       return nil
     }
     // Preserve legacy behavior,
     // but someday, just ensure inputsAndMalformedDependencySources are compiled
-    if let badDependencySource = inputsAndMalformedDependencySources.first?.1 {
+    if let badSwiftDeps = inputsAndMalformedSwiftDeps.first?.1 {
       diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
-          because: "malformed dependencies file '\(badDependencySource)'")
+          because: "malformed dependencies file '\(badSwiftDeps)'")
       )
       return nil
     }
-    let inputsHavingMalformedDependencySources = inputsAndMalformedDependencySources.map {$0.0}
+    let inputsHavingMalformedDependencySources = inputsAndMalformedSwiftDeps.map {$0.0}
     return (moduleDependencyGraph,
             inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources)
   }
@@ -289,6 +293,7 @@ extension IncrementalCompilationState {
     alwaysRebuildDependents: Bool,
     reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
+    // Input == source file
     let changedInputs = Self.computeChangedInputs(
         groups: allGroups,
         buildRecordInfo: buildRecordInfo,
@@ -297,7 +302,15 @@ extension IncrementalCompilationState {
         fileSystem: fileSystem,
         reporter: reporter)
 
-    let externalDependents = computeExternallyDependentInputs(
+    let externallyChangedInputs = computeExternallyChangedInputs(
+      forIncrementalExternalDependencies: false,
+      buildTime: outOfDateBuildRecord.buildTime,
+      fileSystem: fileSystem,
+      moduleDependencyGraph: moduleDependencyGraph,
+      reporter: moduleDependencyGraph.reporter)
+
+    let incrementallyExternallyChangedInputs = computeExternallyChangedInputs(
+      forIncrementalExternalDependencies: true,
       buildTime: outOfDateBuildRecord.buildTime,
       fileSystem: fileSystem,
       moduleDependencyGraph: moduleDependencyGraph,
@@ -311,7 +324,8 @@ extension IncrementalCompilationState {
 
     // Combine to obtain the inputs that definitely must be recompiled.
     let definitelyRequiredInputs =
-      Set(changedInputs.map({ $0.filePath }) + externalDependents +
+      Set(changedInputs.map({ $0.filePath }) +
+            externallyChangedInputs + incrementallyExternallyChangedInputs +
             inputsHavingMalformedDependencySources
             + inputsMissingOutputs)
     if let reporter = reporter {
@@ -326,7 +340,7 @@ extension IncrementalCompilationState {
     // as each first wave job finished.
     let speculativeInputs = computeSpeculativeInputs(
       changedInputs: changedInputs,
-      externalDependents: externalDependents,
+      externalDependents: externallyChangedInputs,
       inputsMissingOutputs: Set(inputsMissingOutputs),
       moduleDependencyGraph: moduleDependencyGraph,
       alwaysRebuildDependents: alwaysRebuildDependents,
@@ -409,18 +423,22 @@ extension IncrementalCompilationState {
   }
 
   /// Any files dependent on modified files from other modules must be compiled, too.
-  private static func computeExternallyDependentInputs(
+  private static func computeExternallyChangedInputs(
+    forIncrementalExternalDependencies: Bool,
     buildTime: Date,
     fileSystem: FileSystem,
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
  ) -> [TypedVirtualPath] {
     var externalDependencySources = Set<ModuleDependencyGraph.DependencySource>()
-    for extDep in moduleDependencyGraph.externalDependencies {
+    let extDeps = forIncrementalExternalDependencies
+      ? moduleDependencyGraph.incrementalExternalDependencies
+      : moduleDependencyGraph.externalDependencies
+    for extDep in extDeps {
       let extModTime = extDep.file.flatMap {try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
-        for dependent in moduleDependencyGraph.untracedDependents(of: extDep) {
+        for dependent in moduleDependencyGraph.untracedDependents(of: extDep, isIncremental: forIncrementalExternalDependencies) {
           guard let dependencySource = dependent.dependencySource else {
             fatalError("Dependent \(dependent) does not have dependencies file!")
           }

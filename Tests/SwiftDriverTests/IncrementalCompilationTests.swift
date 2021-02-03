@@ -68,7 +68,8 @@ final class NonincrementalCompilationTests: XCTestCase {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
     let graph = try SourceFileDependencyGraph(
-      contentsOf: VirtualPath.absolute(absolutePath),
+      contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath),
+                                   type: .swiftDeps),
       on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
@@ -113,7 +114,8 @@ final class NonincrementalCompilationTests: XCTestCase {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftdeps"))
     let graph = try SourceFileDependencyGraph(
-      contentsOf: VirtualPath.absolute(absolutePath),
+      contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath),
+                                   type: .swiftDeps),
       on: localFileSystem)
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)

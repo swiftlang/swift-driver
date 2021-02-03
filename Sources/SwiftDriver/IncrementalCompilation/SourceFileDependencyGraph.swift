@@ -117,10 +117,10 @@ extension SourceFileDependencyGraph {
   }
 
   static func read(
-    from swiftDeps: ModuleDependencyGraph.DependencySource,
+    from dependencySource: ModuleDependencyGraph.DependencySource,
     on fileSystem: FileSystem
   ) throws -> Self {
-    try self.init(contentsOf: swiftDeps.file, on: fileSystem)
+    try self.init(contentsOf: dependencySource.typedFile, on: fileSystem)
   }
   
   /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
@@ -131,11 +131,11 @@ extension SourceFileDependencyGraph {
   }
 
   /*@_spi(Testing)*/ public init(
-    contentsOf path: VirtualPath,
+    contentsOf path: TypedVirtualPath,
     on filesystem: FileSystem
   ) throws {
-    let data = try filesystem.readFileContents(path)
-    try self.init(data: data)
+    let data = try filesystem.readFileContents(path.file)
+    try self.init(data: data, fromSwiftModule: path.type == .swiftModule)
   }
 
   /*@_spi(Testing)*/ public init(
