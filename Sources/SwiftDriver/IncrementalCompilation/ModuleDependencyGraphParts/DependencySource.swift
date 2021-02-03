@@ -15,7 +15,8 @@ import TSCBasic
 // MARK: - DependencySource
 extension ModuleDependencyGraph {
   /// Points to the source of dependencies, i.e. the file read to obtain the information.
-  /*@_spi(Testing)*/ public struct DependenciesSource: Hashable, CustomStringConvertible {
+  /*@_spi(Testing)*/
+  public struct DependenciesSource: Hashable, CustomStringConvertible {
 
     let file: VirtualPath
     #warning("if generalize, fix IncrementalCompilationState.swift:417")
@@ -41,10 +42,12 @@ extension ModuleDependencyGraph {
 
 // MARK: - testing
 extension ModuleDependencyGraph.DependenciesSource {
-  /*@_spi(Testing)*/ public var sourceFileProvideNameForMockDependenciesSource: String {
+  /*@_spi(Testing)*/
+  public var sourceFileProvideNameForMockDependenciesSource: String {
     file.name
   }
-  /*@_spi(Testing)*/ public var interfaceHashForMockDependenciesSource: String {
+  /*@_spi(Testing)*/
+  public var interfaceHashForMockDependenciesSource: String {
     file.name
   }
 }

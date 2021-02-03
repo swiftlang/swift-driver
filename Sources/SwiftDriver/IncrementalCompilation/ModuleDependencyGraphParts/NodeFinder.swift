@@ -54,7 +54,8 @@ extension ModuleDependencyGraph.NodeFinder {
       .flatMap {findNode((n.dependenciesSource, $0))}
   }
   
-  func findNodes(for dependenciesSource: Graph.DependenciesSource?) -> [DependencyKey: Graph.Node]? {
+  func findNodes(for dependenciesSource: Graph.DependenciesSource?)
+  -> [DependencyKey: Graph.Node]? {
     nodeMap[dependenciesSource]
   }
   func findNodes(for key: DependencyKey) -> [Graph.DependenciesSource?: Graph.Node]? {

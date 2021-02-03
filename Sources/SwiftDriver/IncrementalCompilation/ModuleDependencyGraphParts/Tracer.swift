@@ -116,7 +116,10 @@ extension ModuleDependencyGraph.Tracer {
 
 
   private func printPath(_ path: [Graph.Node]) {
-    guard path.first?.dependenciesSource != path.last?.dependenciesSource else {return}
+    guard path.first?.dependenciesSource != path.last?.dependenciesSource
+    else {
+      return
+    }
     graph.reporter?.report(
       [
         "Traced:",

@@ -929,7 +929,8 @@ extension ModuleDependencyGraph {
   -> Integrator.Changes
   {
     let dependenciesSource = DependenciesSource(mock: swiftDepsIndex)
-    let interfaceHash = interfaceHashIfPresent ?? dependenciesSource.interfaceHashForMockDependenciesSource
+    let interfaceHash =
+      interfaceHashIfPresent ?? dependenciesSource.interfaceHashForMockDependenciesSource
 
     let sfdg = SourceFileDependencyGraphMocker.mock(
       includePrivateDeps: includePrivateDeps,
@@ -1157,10 +1158,11 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func addAUsedDecl(_ kind: MockDependencyKind, _ s: String) {
-    guard let defAndUseKeys = DependencyKey.parseAUsedDecl(s,
-                                                           kind,
-                                                           includePrivateDeps: includePrivateDeps,
-                                                           dependenciesSource: dependenciesSource)
+    guard let defAndUseKeys = DependencyKey.parseAUsedDecl(
+            s,
+            kind,
+            includePrivateDeps: includePrivateDeps,
+            dependenciesSource: dependenciesSource)
     else { return }
     let defNode = findExistingNodeOrCreateIfNew(defAndUseKeys.def, nil, isProvides: false)
 
@@ -1213,10 +1215,11 @@ fileprivate extension DependencyKey {
                 designator: Designator(kind: kind, String(sss).parseContextAndName(kind)))
   }
 
-  static func parseAUsedDecl(_ s: String,
-                             _ kind: MockDependencyKind,
-                             includePrivateDeps: Bool,
-                             dependenciesSource: ModuleDependencyGraph.DependenciesSource
+  static func parseAUsedDecl(
+    _ s: String,
+    _ kind: MockDependencyKind,
+    includePrivateDeps: Bool,
+    dependenciesSource: ModuleDependencyGraph.DependenciesSource
   ) -> (def: Self, use: Self)? {
     let noncascadingPrefix = "#"
     let privateHolderPrefix = "~"
@@ -1241,9 +1244,10 @@ fileprivate extension DependencyKey {
                                dependenciesSource: dependenciesSource))
   }
 
-  static func computeUseKey(_ s: String, isCascadingUse: Bool,
-                            includePrivateDeps: Bool,
-                            dependenciesSource: ModuleDependencyGraph.DependenciesSource
+  static func computeUseKey(
+    _ s: String, isCascadingUse: Bool,
+    includePrivateDeps: Bool,
+    dependenciesSource: ModuleDependencyGraph.DependenciesSource
   ) -> Self {
     // For now, in unit tests, mock uses are always nominal
     let aspectOfUse: DeclAspect = isCascadingUse ? .interface : .implementation
@@ -1251,9 +1255,11 @@ fileprivate extension DependencyKey {
       let kindOfUse = MockDependencyKind.nominal
       return parseADefinedDecl(s, kindOfUse, aspectOfUse, includePrivateDeps: includePrivateDeps)!
     }
-    return Self(aspect: aspectOfUse,
-                designator: Designator(kind: .sourceFileProvide,
-                                       (context: "", name: dependenciesSource.sourceFileProvideNameForMockDependenciesSource)))
+    return Self(
+      aspect: aspectOfUse,
+      designator: Designator(kind: .sourceFileProvide,
+                             (context: "",
+                              name: dependenciesSource.sourceFileProvideNameForMockDependenciesSource)))
   }
 }
 

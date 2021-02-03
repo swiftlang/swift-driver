@@ -64,7 +64,10 @@ extension ModuleDependencyGraph {
     remarkDisabled: (String) -> Diagnostic.Message,
     reporter: IncrementalCompilationState.Reporter?,
     fileSystem: FileSystem
-  ) -> (ModuleDependencyGraph, inputsAndMalformedDependenciesSources: [(TypedVirtualPath, VirtualPath)])?
+  ) -> (
+    ModuleDependencyGraph,
+    inputsAndMalformedDependenciesSources: [(TypedVirtualPath, VirtualPath)]
+  )?
     where Inputs.Element == TypedVirtualPath
   {
     let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
@@ -258,7 +261,8 @@ extension ModuleDependencyGraph {
 }
 // MARK: - debugging
 extension ModuleDependencyGraph {
-  func emitDotFile(_ g: SourceFileDependencyGraph, _ dependenciesSource: DependenciesSource) {
+  func emitDotFile(_ g: SourceFileDependencyGraph,
+                   _ dependenciesSource: DependenciesSource) {
     // TODO: Incremental emitDotFIle
     fatalError("unimplmemented, writing dot file of dependency graph")
   }

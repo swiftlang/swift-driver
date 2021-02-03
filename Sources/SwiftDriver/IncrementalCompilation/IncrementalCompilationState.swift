@@ -63,8 +63,10 @@ public class IncrementalCompilationState {
       return nil
     }
 
-    guard let (moduleDependencyGraph,
-               inputsHavingMalformedDependenciesSources: inputsHavingMalformedDependenciesSources) =
+    guard let (
+      moduleDependencyGraph,
+      inputsHavingMalformedDependenciesSources: inputsHavingMalformedDependenciesSources
+    ) =
             Self.computeModuleDependencyGraph(
               buildRecordInfo,
               outOfDateBuildRecord,
@@ -99,19 +101,23 @@ public class IncrementalCompilationState {
     _ driver: inout Driver,
     _ reporter: Reporter?
   )
-  -> (ModuleDependencyGraph, inputsHavingMalformedDependenciesSources: [TypedVirtualPath])?
+  -> (ModuleDependencyGraph,
+      inputsHavingMalformedDependenciesSources: [TypedVirtualPath])?
   {
     let diagnosticEngine = driver.diagnosticEngine
-    guard let (moduleDependencyGraph, inputsAndMalformedDependenciesSources: inputsAndMalformedDependenciesSources) =
-            ModuleDependencyGraph.buildInitialGraph(
-              diagnosticEngine: diagnosticEngine,
-              inputs: buildRecordInfo.compilationInputModificationDates.keys,
-              previousInputs: outOfDateBuildRecord.allInputs,
-              outputFileMap: outputFileMap,
-              parsedOptions: &driver.parsedOptions,
-              remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
-              reporter: reporter,
-              fileSystem: driver.fileSystem)
+    guard let (
+      moduleDependencyGraph,
+      inputsAndMalformedDependenciesSources: inputsAndMalformedDependenciesSources
+    ) =
+    ModuleDependencyGraph.buildInitialGraph(
+      diagnosticEngine: diagnosticEngine,
+      inputs: buildRecordInfo.compilationInputModificationDates.keys,
+      previousInputs: outOfDateBuildRecord.allInputs,
+      outputFileMap: outputFileMap,
+      parsedOptions: &driver.parsedOptions,
+      remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
+      reporter: reporter,
+      fileSystem: driver.fileSystem)
     else {
       return nil
     }
@@ -436,10 +442,11 @@ extension IncrementalCompilationState {
     alwaysRebuildDependents: Bool,
     reporter: IncrementalCompilationState.Reporter?
   ) -> Set<TypedVirtualPath> {
-    let cascadingChangedInputs = Self.computeCascadingChangedInputs(from: changedInputs,
-                                                                    inputsMissingOutputs: inputsMissingOutputs,
-                                                                    alwaysRebuildDependents: alwaysRebuildDependents,
-                                                                    reporter: reporter)
+    let cascadingChangedInputs = Self.computeCascadingChangedInputs(
+      from: changedInputs,
+      inputsMissingOutputs: inputsMissingOutputs,
+      alwaysRebuildDependents: alwaysRebuildDependents,
+      reporter: reporter)
     let cascadingExternalDependents = alwaysRebuildDependents ? externalDependents : []
     // Collect the dependent files to speculatively schedule
     var dependentFiles = Set<TypedVirtualPath>()

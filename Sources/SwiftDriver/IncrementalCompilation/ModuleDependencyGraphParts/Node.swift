@@ -17,8 +17,8 @@ extension ModuleDependencyGraph {
   
   /// A node in the per-module (i.e. the driver) dependency graph
   /// Each node represents a `Decl` from the frontend.
-  /// If a file references a `Decl` we haven't seen yet, the node's `dependenciesSource` will be nil, otherwise
-  /// it will hold the name of the dependenciesSource file from which the node was read.
+  /// If a file references a `Decl` we haven't seen yet, the node's `dependenciesSource` will be nil,
+  /// otherwise it will hold the name of the dependenciesSource file from which the node was read.
   /// A dependency is represented by an arc, in the `usesByDefs` map.
   /// (Cargo-culted and modified from the legacy driver.)
   ///
@@ -59,7 +59,8 @@ extension ModuleDependencyGraph {
 
     /// This dependenciesSource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
-    init(key: DependencyKey, fingerprint: String?, dependenciesSource: DependenciesSource?) {
+    init(key: DependencyKey, fingerprint: String?,
+         dependenciesSource: DependenciesSource?) {
       self.dependencyKey = key
       self.fingerprint = fingerprint
       self.dependenciesSource = dependenciesSource
@@ -91,8 +92,9 @@ extension ModuleDependencyGraph.Node: Comparable {
       }
     }
     return lhs.dependencyKey != rhs.dependencyKey ? lhs.dependencyKey < rhs.dependencyKey :
-      lhs.dependenciesSource != rhs.dependenciesSource ? lt(lhs.dependenciesSource, rhs.dependenciesSource)
-      : lt(lhs.fingerprint, rhs.fingerprint)
+      lhs.dependenciesSource != rhs.dependenciesSource
+        ? lt(lhs.dependenciesSource, rhs.dependenciesSource)
+        : lt(lhs.fingerprint, rhs.fingerprint)
   }
 }
 
