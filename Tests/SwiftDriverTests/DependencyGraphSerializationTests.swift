@@ -24,7 +24,8 @@ class DependencyGraphSerializationTests: XCTestCase {
     let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
                                                            on: fs,
                                                            diagnosticEngine: de,
-                                                           reporter: nil)
+                                                           reporter: nil,
+                                                           isCrossModuleIncrementalBuildEnabled: false)
     var originalNodes = Set<ModuleDependencyGraph.Node>()
     graph.nodeFinder.forEachNode {
       originalNodes.insert($0)

@@ -752,7 +752,7 @@ class ModuleDependencyGraphTests: XCTestCase {
 
   func testLoadPassesWithFingerprint() {
     let graph = ModuleDependencyGraph(mock: de)
-    _ = graph.getChangesForSimulatedLoad(0, [.nominal: ["A@1"]])
+    _ = graph.getChangesForSimulatedLoad(0, [MockDependencyKind.nominal: ["A@1"]])
   }
 
   func testUseFingerprints() {
@@ -883,6 +883,7 @@ extension ModuleDependencyGraph {
     self.init(
       diagnosticEngine: diagnosticEngine,
       reporter: nil,
+      isCrossModuleIncrementalBuildEnabled: false,
       emitDependencyDotFileAfterEveryImport: false,
       verifyDependencyGraphAfterEveryImport: true)
   }
@@ -908,15 +909,15 @@ extension ModuleDependencyGraph {
                       hadCompilationError: Bool = false)
   -> [Int]
   {
-    let changedNodes = getChangesForSimulatedLoad(
+    let results = getChangesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
 
-      return findSwiftDepsToRecompileWhenNodesChange(changedNodes)
-        .map { $0.mockID }
+    return findSwiftDepsToRecompileWhenNodesChange(results.changedNodes)
+      .map { $0.mockID }
   }
 
 
@@ -926,7 +927,7 @@ extension ModuleDependencyGraph {
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
-  -> Integrator.Changes
+  -> Integrator.Results
   {
     let dependencySource = DependencySource(mock: swiftDepsIndex)
     let interfaceHash =
@@ -942,7 +943,8 @@ extension ModuleDependencyGraph {
     return Integrator.integrate(
       from: sfdg,
       dependencySource: dependencySource,
-      into: self)
+      into: self,
+      isCrossModuleIncrementalBuildEnabled: false)
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
