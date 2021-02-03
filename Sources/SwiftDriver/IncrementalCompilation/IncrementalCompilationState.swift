@@ -13,6 +13,9 @@ import TSCBasic
 import Foundation
 import SwiftOptions
 public class IncrementalCompilationState {
+  /// Whether cross-module incrementality is enabled
+  private let isCrossModuleIncrementalBuildEnabled: Bool
+
   /// The oracle for deciding what depends on what. Applies to this whole module.
   private let moduleDependencyGraph: ModuleDependencyGraph
 
@@ -56,6 +59,11 @@ public class IncrementalCompilationState {
       self.reporter = nil
     }
 
+    self.isCrossModuleIncrementalBuildEnabled =
+      driver.parsedOptions.contains(.enableExperimentalCrossModuleIncrementalBuild)
+    reporter?.report(
+      "\(self.isCrossModuleIncrementalBuildEnabled ? "Enabling" : "Disabling") incremental cross-module building")
+
 
     guard let (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
             = try driver.getBuildInfo(self.reporter)
@@ -66,13 +74,12 @@ public class IncrementalCompilationState {
     guard let (
       moduleDependencyGraph,
       inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources
-    ) =
-            Self.computeModuleDependencyGraph(
-              buildRecordInfo,
-              outOfDateBuildRecord,
-              outputFileMap,
-              &driver,
-              self.reporter)
+    ) = Self.computeModuleDependencyGraph(
+      buildRecordInfo,
+      outOfDateBuildRecord,
+      outputFileMap,
+      &driver,
+      self.reporter)
     else {
       return nil
     }

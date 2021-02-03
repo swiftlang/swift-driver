@@ -431,6 +431,7 @@ final class IncrementalCompilationTests: XCTestCase {
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
         // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
+        "Disabling incremental cross-module building",
         "Incremental compilation: Incremental compilation could not read build record at",
         "Incremental compilation: Disabling incremental build: could not read build record",
         "Found 2 batchable jobs",
@@ -450,6 +451,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "no-change",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
+        "Disabling incremental cross-module building",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
@@ -465,6 +467,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "non-propagating",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
+        "Disabling incremental cross-module building",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
@@ -489,6 +492,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "non-propagating, both touched",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
+        "Disabling incremental cross-module building",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -514,6 +518,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
+        "Disabling incremental cross-module building",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -548,6 +553,7 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
       expectingRemarks: [
+        "Disabling incremental cross-module building",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
