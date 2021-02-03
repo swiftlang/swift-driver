@@ -410,17 +410,16 @@ extension IncrementalCompilationState {
  ) -> [TypedVirtualPath] {
     var externalDependencySources = Set<ModuleDependencyGraph.DependencySource>()
     for extDep in moduleDependencyGraph.externalDependencies {
-      let extModTime = extDep.file.flatMap {
-        try? fileSystem.getFileInfo($0).modTime}
+      let extModTime = extDep.file.flatMap {try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
         for dependent in moduleDependencyGraph.untracedDependents(of: extDep) {
           guard let dependencySource = dependent.dependencySource else {
-            fatalError("Dependent \(dependent) does not have dependencies source file!")
+            fatalError("Dependent \(dependent) does not have dependencies file!")
           }
           reporter?.report(
             "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
-            path: TypedVirtualPath(file: dependencySource.file, type: .swiftDeps))
+            path: dependencySource.typedFile)
           externalDependencySources.insert(dependencySource)
         }
       }

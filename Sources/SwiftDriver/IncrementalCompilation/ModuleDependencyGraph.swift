@@ -95,7 +95,9 @@ extension ModuleDependencyGraph {
       else {
         return nil
       }
-      let dependencySource = DependencySource(swiftDepsFile)
+      assert(swiftDepsFile.extension == FileType.swiftDeps.rawValue)
+      let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsFile, type: .swiftDeps)
+      let dependencySource = DependencySource(typedSwiftDepsFile)
       graph.inputDependencySourceMap[input] = dependencySource
       guard previousInputs.contains(input.file)
       else {

@@ -18,22 +18,33 @@ extension ModuleDependencyGraph {
   /*@_spi(Testing)*/
   public struct DependencySource: Hashable, CustomStringConvertible {
 
-    let file: VirtualPath
-    #warning("if generalize, fix IncrementalCompilationState.swift:417")
+    let typedFile: TypedVirtualPath
 
-    init?(_ typedFile: TypedVirtualPath) {
-      guard typedFile.type == .swiftDeps else { return nil }
-      self.init(typedFile.file)
+    init(_ typedFile: TypedVirtualPath) {
+      assert( typedFile.type == .swiftDeps ||
+              typedFile.type == .swiftModule
+      )
+      self.typedFile = typedFile
     }
     init(_ file: VirtualPath) {
-      self.file = file
+      let ext = file.extension
+      let type =
+        ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
+        ext == FileType.swiftModule.rawValue ? FileType.swiftModule
+        : nil
+      guard let type = type else {
+        fatalError("unexpected dependencySource extension: \(String(describing: ext))")
+      }
+      self.init(TypedVirtualPath(file: file, type: type))
     }
     /*@_spi(Testing)*/ public init(mock i: Int) {
-      self.file = try! VirtualPath(path: String(i))
+      self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))
     }
     /*@_spi(Testing)*/ public var mockID: Int {
-       Int(file.name)!
+       Int(file.basenameWithoutExt)!
     }
+    var file: VirtualPath { typedFile.file }
+
     public var description: String {
       file.description
     }
