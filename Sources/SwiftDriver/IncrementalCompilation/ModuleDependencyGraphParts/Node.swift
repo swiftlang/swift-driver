@@ -45,7 +45,7 @@ extension ModuleDependencyGraph {
     /// frontend creates an interface node,
     /// it adds a dependency to it from the implementation source file node (which
     /// has the intefaceHash as its fingerprint).
-    var fingerprint: String?
+    let fingerprint: String?
 
 
     /// The swiftDeps file that holds this entity iff the entities .swiftdeps is known.
@@ -68,7 +68,7 @@ extension ModuleDependencyGraph {
 }
 // MARK: - comparing, hashing
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
-  public static func == (lhs: Graph.Node, rhs: Graph.Node ) -> Bool {
+  public static func == (lhs: Graph.Node, rhs: Graph.Node) -> Bool {
     lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.swiftDeps == rhs.swiftDeps
   }

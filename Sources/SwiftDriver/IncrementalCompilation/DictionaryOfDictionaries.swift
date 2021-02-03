@@ -136,6 +136,6 @@ extension DictionaryOfDictionaries {
   }
 }
 
-// MARK: - comparing
+// MARK: - identity
 
-extension DictionaryOfDictionaries: Equatable  where Value: Equatable {}
+ extension DictionaryOfDictionaries: Equatable where Value: Equatable {}

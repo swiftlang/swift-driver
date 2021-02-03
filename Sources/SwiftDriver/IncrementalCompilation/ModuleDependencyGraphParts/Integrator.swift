@@ -193,8 +193,7 @@ extension ModuleDependencyGraph.Integrator {
     _ sourceFileUseNode: SourceFileDependencyGraph.Node,
     _ moduleUseNode: Graph.Node
   ) {
-    source.forEachDefDependedUpon(by: sourceFileUseNode) {
-      def in
+    source.forEachDefDependedUpon(by: sourceFileUseNode) { def in
       let isNewUse = destination.nodeFinder.record(def: def.key,
                                                    use: moduleUseNode)
       if let externalDependency = def.key.designator.externalDependency,

@@ -53,6 +53,11 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
       return (key: key, value: vals[innerIndex])
     }
   }
+
+  /// A collection containing just the keys of this multi-dictionary.
+  public var keys: OuterDict.Keys {
+    return self.outerDict.keys
+  }
   
   public subscript(key: Key) -> (key: Key, values: Set<Value>)? {
     outerDict[key].map { (key: key, values: $0) }
