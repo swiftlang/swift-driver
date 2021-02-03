@@ -920,7 +920,7 @@ extension ModuleDependencyGraph {
   func matches(_ other: ModuleDependencyGraph) -> Bool {
     guard nodeFinder.matches(other.nodeFinder),
       tracedNodes.matches(other.tracedNodes),
-      sourceSwiftDepsMap.matches(other.sourceSwiftDepsMap),
+      inputDependencySourceMap.matches(other.inputDependencySourceMap),
       externalDependencies.matches(other.externalDependencies)
     else {
       return false
@@ -935,7 +935,7 @@ extension Set where Element == ModuleDependencyGraph.Node {
   }
 }
 
-extension BidirectionalMap where T1 == TypedVirtualPath, T2 == ModuleDependencyGraph.SwiftDeps {
+extension BidirectionalMap where T1 == TypedVirtualPath, T2 == ModuleDependencyGraph.DependencySource {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
   }
