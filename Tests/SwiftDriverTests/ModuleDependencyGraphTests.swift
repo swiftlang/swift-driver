@@ -595,18 +595,18 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertTrue(graph.externalDependencies.contains( "/foo"))
-    XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
+    XCTAssertTrue(graph.externalDependencies.contains(.nonIncremental("/foo")))
+    XCTAssertTrue(graph.externalDependencies.contains(.nonIncremental("/bar")))
 
     do {
-      let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
+      let swiftDeps = graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/foo"))
       XCTAssertEqual(swiftDeps.count, 1)
       XCTAssertTrue(swiftDeps.contains(0))
     }
 
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
 
-    XCTAssertEqual(0, graph.findUntracedSwiftDepsDependent(onExternal: "/foo").count)
+    XCTAssertEqual(0, graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/foo")).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
   }
 
@@ -616,10 +616,10 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertEqual(1, graph.findUntracedSwiftDepsDependent(onExternal: "/bar").count)
+    XCTAssertEqual(1, graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/bar")).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
 
-    XCTAssertEqual(0, graph.findUntracedSwiftDepsDependent(onExternal: "/bar").count)
+    XCTAssertEqual(0, graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/bar")).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
   }
 
@@ -633,11 +633,11 @@ class ModuleDependencyGraphTests: XCTestCase {
       1,
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
-    XCTAssertTrue(graph.externalDependencies.contains( "/foo"))
-    XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
+    XCTAssertTrue(graph.externalDependencies.contains(.nonIncremental("/foo")))
+    XCTAssertTrue(graph.externalDependencies.contains(.nonIncremental("/bar")))
 
     do {
-      let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
+      let swiftDeps = graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/foo"))
       XCTAssertEqual(swiftDeps.count, 2)
       XCTAssertTrue(swiftDeps.contains(0))
       XCTAssertTrue(swiftDeps.contains(1))
@@ -646,7 +646,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
-      let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
+      let swiftDeps = graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/foo"))
       XCTAssertEqual(swiftDeps.count, 0)
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
@@ -664,19 +664,19 @@ class ModuleDependencyGraphTests: XCTestCase {
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
     do {
-      let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/bar")
+      let swiftDeps = graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/bar"))
       XCTAssertEqual(1, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findUntracedSwiftDepsDependent(onExternal: "/bar").count)
+    XCTAssertEqual(0, graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/bar")).count)
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
-      let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
+      let swiftDeps = graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/foo"))
       XCTAssertEqual(1, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(0))
     }
@@ -695,7 +695,7 @@ class ModuleDependencyGraphTests: XCTestCase {
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
     do {
-      let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
+      let swiftDeps = graph.findUntracedSwiftDepsDependent(on: .nonIncremental("/foo"))
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(0))
       XCTAssertTrue(swiftDeps.contains(1))
@@ -947,8 +947,8 @@ extension ModuleDependencyGraph {
       isCrossModuleIncrementalBuildEnabled: false)
   }
 
-  func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
-    findUntracedSwiftDepsDependent(on: s.asExternal, isIncremental: false)
+  func findUntracedSwiftDepsDependent(on ed: ExternalDependency) -> [Int] {
+    findUntracedSwiftDepsDependent(on: ed, isIncremental: false)
       .map { $0.mockID }
   }
 
@@ -1288,10 +1288,6 @@ fileprivate extension String {
         )
     }
   }
-
-  var asExternal: ExternalDependency {
-    ExternalDependency(self)
-  }
 }
 
 fileprivate extension Substring {
@@ -1362,19 +1358,13 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name!)
     case .externalDepend:
       mustBeAbsent(context)
-      self = .externalDepend(ExternalDependency(name!))
+      self = .externalDepend(.nonIncremental(name!))
     case .incrementalExternalDependency:
       mustBeAbsent(context)
-      self = .incrementalExternalDependency(ExternalDependency(name!))
+      self = .incrementalExternalDependency(.incremental(name!))
     case .sourceFileProvide:
       mustBeAbsent(context)
       self = .sourceFileProvide(name: name!)
     }
-  }
-}
-
-fileprivate extension Set where Element == ExternalDependency {
-  func contains(_ s: String) -> Bool {
-    contains(s.asExternal)
   }
 }

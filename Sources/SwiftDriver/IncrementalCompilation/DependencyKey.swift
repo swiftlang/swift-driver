@@ -2,15 +2,29 @@
 import Foundation
 
 /// A filename from another module
-/*@_spi(Testing)*/ public struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
-  let fileName: String
+/*@_spi(Testing)*/ public enum ExternalDependency: Hashable, Comparable, CustomStringConvertible {
+  /// An external dependency that is known to have no incremental dependency
+  /// information in a format the driver can read. Examples include headers,
+  /// modulemaps, and swiftmodules that were not built with cross-module
+  /// incremental build information.
+  case nonIncremental(String)
+  /// An external dependency that is known to have incremental dependency
+  /// information in a format the driver can read.
+  case incremental(String)
+
+  var fileName: String {
+    switch self {
+    case .nonIncremental(let name):
+      return name
+    case .incremental(let name):
+      return name
+    }
+  }
 
   var file: VirtualPath? {
-    try? VirtualPath(path: fileName)
+    try? VirtualPath(path: self.fileName)
   }
-  /*@_spi(Testing)*/ public init(_ path: String) {
-    self.fileName = path
-  }
+
   public var description: String {
     fileName.description
   }

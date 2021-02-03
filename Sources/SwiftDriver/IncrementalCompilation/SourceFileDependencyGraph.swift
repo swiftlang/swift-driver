@@ -304,13 +304,13 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(ExternalDependency(name))
+      self = .externalDepend(.nonIncremental(name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)
     case 7:
       try mustBeEmpty(context)
-      self = .incrementalExternalDependency(ExternalDependency(name))
+      self = .incrementalExternalDependency(.incremental(name))
     default: throw SourceFileDependencyGraph.ReadError.unknownKind
     }
   }
