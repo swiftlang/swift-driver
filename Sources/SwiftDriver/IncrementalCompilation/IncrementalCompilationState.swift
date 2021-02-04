@@ -423,7 +423,7 @@ extension IncrementalCompilationState {
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
  ) -> [TypedVirtualPath] {
-    var externalDependencySources = Set<ModuleDependencyGraph.DependencySource>()
+    var externalDependencySources = Set<DependencySource>()
      for extDepAndPrint in moduleDependencyGraph.externalDependencies {
       let extDep = extDepAndPrint.externalDependency
       let extModTime = extDep.file.flatMap {try? fileSystem.getFileInfo($0).modTime}

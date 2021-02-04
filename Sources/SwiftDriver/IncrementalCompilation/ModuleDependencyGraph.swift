@@ -42,17 +42,20 @@ import SwiftOptions
 
   let options: IncrementalCompilationState.Options
   let reporter: IncrementalCompilationState.Reporter?
+  let fileSystem: FileSystem
   
   private let diagnosticEngine: DiagnosticsEngine
   
   public init(
     diagnosticEngine: DiagnosticsEngine,
     reporter: IncrementalCompilationState.Reporter?,
+    fileSystem: FileSystem,
     options: IncrementalCompilationState.Options
   ) {
     self.reporter = reporter
     self.diagnosticEngine = diagnosticEngine
     self.options = options
+    self.fileSystem = fileSystem
   }
 
   var isCrossModuleIncrementalBuildEnabled: Bool {
@@ -83,6 +86,7 @@ extension ModuleDependencyGraph {
     let graph = Self(
       diagnosticEngine: diagnosticEngine,
       reporter: reporter,
+	  fileSystem: fileSystem,
       options: options)
 
     let inputsAndSwiftdeps = inputs.map { input in
@@ -111,49 +115,64 @@ extension ModuleDependencyGraph {
         // do not try to read swiftdeps of a new input
         return nil
       }
-      guard let results = Integrator.integrate(
-              dependencySource: dependencySource,
-              into: graph,
-              input: input,
-              reporter: reporter,
-              diagnosticEngine: diagnosticEngine,
-              fileSystem: fileSystem,
-              options: options)
+      guard let _ = graph.integrate(swiftDeps: typedSwiftDepsFile)
       else {
-        return (input, swiftDepsFile)
+        return (input, swiftDepsFile) // remember the errorred files
       }
-      // for initial build, don't care about changedNodes
-      _ = integrate(
-        externalDependencies: results.discoveredExternalDependencies,
-        into: graph,
-        reporter: reporter,
-        diagnosticEngine: diagnosticEngine,
-        fileSystem: fileSystem)
       return nil
     }
     return (graph, inputsAndMalformedSwiftDeps: inputsAndMalformedSwiftDeps)
   }
+}
+
+// MARK: - Integrating
+extension ModuleDependencyGraph {
+  /// Integrate one swiftDeps, corresponding to an input, and return the changed nodes
+  /// Return nil for errror
+  public func integrate(swiftDeps: TypedVirtualPath) -> Set<Node>? {
+    precondition(swiftDeps.type == .swiftDeps)
+    let dependencySource = DependencySource(swiftDeps)
+    return integrate(from: dependencySource)
+  }
+
+  public func integrate(from dependencySource: DependencySource) -> Set<Node>?  {
+    precondition(dependencySource.typedFile.type == .swiftDeps)
+    guard let sourceGraph = dependencySource.read(
+            in: fileSystem,
+            reporter: reporter,
+            diagnosticEngine: diagnosticEngine)
+    else {
+      return nil
+    }
+    return integrate(sourceGraph: sourceGraph)
+  }
+
+  public func integrate(sourceGraph: SourceFileDependencyGraph) -> Set<Node>? {
+    let results = Integrator.integrateAndCollectExternalDepNodes(
+      from: sourceGraph,
+      into: self,
+      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled
+    )
+    guard let externallyCausedChanges = integrate(
+            discoveredExternalDependencies: results.discoveredExternalDependencies)
+    else {
+      return nil
+    }
+    return results.changedNodes.union(externallyCausedChanges)
+  }
 
   /// Returns changed nodes
-  private static func integrate(
-    externalDependencies: Set<ExtDepAndPrint>,
-    into graph: ModuleDependencyGraph,
-    reporter: IncrementalCompilationState.Reporter?,
-    diagnosticEngine: DiagnosticsEngine,
-    fileSystem: FileSystem
-    ) -> Set<Node>?
+  private func integrate(discoveredExternalDependencies: Set<ExtDepAndPrint>)
+  -> Set<Node>?
   {
-    var workList = externalDependencies
+    var workList = discoveredExternalDependencies
     var changedNodes = Set<Node>()
     while let edp = workList.first {
-      guard graph.externalDependencies.insert(edp).inserted else {
+      guard externalDependencies.insert(edp).inserted else {
         continue
       }
       let resultIfOK = integrate(
-        edp: edp,
-        into: graph,
-        reporter: reporter,
-        diagnosticEngine: diagnosticEngine,
+        externalDependency: edp,
         fileSystem: fileSystem)
       if let result = resultIfOK {
         changedNodes.formUnion(result.changedNodes)
@@ -167,30 +186,30 @@ extension ModuleDependencyGraph {
     return changedNodes
   }
 
-
-  private static func integrate(
-    edp: ExtDepAndPrint,
-    into graph: ModuleDependencyGraph,
-    reporter: IncrementalCompilationState.Reporter?,
-    diagnosticEngine: DiagnosticsEngine,
+  private func integrate(
+    externalDependency: ExtDepAndPrint,
     fileSystem: FileSystem
   ) -> Integrator.Results? {
     #warning("do something better than !")
     // Save time; don't even try
-    guard edp.isIncremental else {
+    guard externalDependency.isIncremental else {
       return Integrator.Results()
     }
-    let file = edp.externalDependency.file!
+    #warning("remove the !")
+    let file = externalDependency.externalDependency.file!
     let dependencySource = DependencySource(TypedVirtualPath(file: file, type: .swiftModule))
     reporter?.report("integrating incremental external dependency", dependencySource.typedFile)
-    let results = Integrator.integrate(
-      dependencySource: dependencySource,
-      into: graph,
-      input: nil,
-      reporter: reporter,
-      diagnosticEngine: diagnosticEngine,
-      fileSystem: fileSystem,
-      options: graph.options)
+    guard let sourceGraph = dependencySource.read(
+            in: fileSystem,
+            reporter: reporter,
+            diagnosticEngine: diagnosticEngine)
+    else {
+      return nil
+    }
+    let results = Integrator.integrateAndCollectExternalDepNodes(
+      from: sourceGraph,
+      into: self,
+      options: graph.options
     return results
   }
 
@@ -253,29 +272,12 @@ extension ModuleDependencyGraph {
     dependencySource: DependencySource,
     on fileSystem: FileSystem
   ) -> [TypedVirtualPath]? {
-    let resultsIfOK = Integrator.integrate(
-      dependencySource: dependencySource,
-      into: self,
-      input: input,
-      reporter: self.reporter,
-      diagnosticEngine: diagnosticEngine,
-      fileSystem: fileSystem,
-      options: self.options)
-    guard let results = resultsIfOK else {
-      return nil
-    }
-    let changedNodesIfOK =
-      Self.integrate(
-        externalDependencies: results.discoveredExternalDependencies,
-        into: self,
-        reporter: reporter,
-        diagnosticEngine: diagnosticEngine,
-        fileSystem: fileSystem)
+    let swiftDeps = inputDependencySourceMap[input].typedFile
+    let changedNodesIfOK = integrate(swiftDeps: swiftDeps)
     guard let changedNodes = changedNodesIfOK else {
       return nil
     }
-    let allChangedNodes = results.changedNodes.union(changedNodes)
-    return findSwiftDepsToRecompileWhenNodesChange(allChangedNodes)
+    return findSwiftDepsToRecompileWhenNodesChange(changedNodes)
       .map { inputDependencySourceMap[$0] }
   }
 }
@@ -361,8 +363,7 @@ extension ModuleDependencyGraph {
 }
 // MARK: - debugging
 extension ModuleDependencyGraph {
-  func emitDotFile(_ g: SourceFileDependencyGraph,
-                   _ dependencySource: DependencySource) {
+  func emitDotFile(_ g: SourceFileDependencyGraph) {
     // TODO: Incremental emitDotFIle
     fatalError("unimplmemented, writing dot file of dependency graph")
   }
@@ -460,11 +461,13 @@ extension ModuleDependencyGraph {
       init(
         diagnosticEngine: DiagnosticsEngine,
         reporter: IncrementalCompilationState.Reporter?,
+        fileSystem: FileSystem,
         options: IncrementalCompilationState.Options
       ) {
         self.graph = ModuleDependencyGraph(
           diagnosticEngine: diagnosticEngine,
           reporter: reporter,
+		  fileSystem: fileSystem,
           options: options)
       }
 
@@ -539,7 +542,7 @@ extension ModuleDependencyGraph {
           let fingerprint = hasFingerprint ? fingerprintStr : nil
           let dependencySource = try swiftDepsStr
             .map({ try VirtualPath(path: $0) })
-            .map(ModuleDependencyGraph.DependencySource.init)
+            .map(DependencySource.init)
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
                                    dependencySource: dependencySource))
@@ -594,6 +597,7 @@ extension ModuleDependencyGraph {
       let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
       var visitor = Visitor(diagnosticEngine: diagnosticEngine,
                             reporter: reporter,
+                            fileSystem: fileSystem,
                             options: options)
       try Bitcode.read(stream: data, using: &visitor)
       guard let major = visitor.majorVersion,
@@ -1040,7 +1044,7 @@ extension Set where Element == ModuleDependencyGraph.Node {
   }
 }
 
-extension BidirectionalMap where T1 == TypedVirtualPath, T2 == ModuleDependencyGraph.DependencySource {
+extension BidirectionalMap where T1 == TypedVirtualPath, T2 == DependencySource {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
   }

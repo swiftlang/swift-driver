@@ -21,6 +21,9 @@ import TSCUtility
   public var minorVersion: UInt64
   public var compilerVersionString: String
   private var allNodes: [Node]
+
+  /// Holds the filename fromwhich the graph was read.
+  public let dependencySource: DependencySource
   
   public var sourceFileNodePair: (interface: Node, implementation: Node) {
     (interface: allNodes[SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber],
@@ -173,30 +176,34 @@ extension SourceFileDependencyGraph {
 
   /// Returns nil if there was no dependency info
   static func read(
-    from dependencySource: ModuleDependencyGraph.DependencySource,
+    from dependencySource: DependencySource,
     on fileSystem: FileSystem
   ) throws -> Self? {
-    try self.init(contentsOf: dependencySource.typedFile, on: fileSystem)
+    try self.init(contentsOf: dependencySource, on: fileSystem)
   }
   
-  /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
+  /*@_spi(Testing)*/ public init(from dependencySource: DependencySource,
+                                 nodesForTesting: [Node]) {
     majorVersion = 0
     minorVersion = 0
     compilerVersionString = ""
     allNodes = nodesForTesting
+    self.dependencySource = dependencySource
   }
 
   /*@_spi(Testing)*/ public init?(
-    contentsOf path: TypedVirtualPath,
+    contentsOf dependencySource: DependencySource,
     on filesystem: FileSystem
   ) throws {
-    let data = try filesystem.readFileContents(path.file)
-    try self.init(data: data, fromSwiftModule: path.type == .swiftModule)
+    let data = try filesystem.readFileContents(dependencySource.file)
+    try self.init(data: data, from: dependencySource,
+                  fromSwiftModule: dependencySource.typedFile.type == .swiftModule)
   }
 
   /// Returns nil for a swiftmodule with no depenencies
   /*@_spi(Testing)*/ public init?(
     data: ByteString,
+    from dependencySource: DependencySource,
     fromSwiftModule extractFromSwiftModule: Bool = false
   ) throws {
     struct Visitor: BitstreamVisitor {
@@ -329,6 +336,7 @@ extension SourceFileDependencyGraph {
     self.minorVersion = minor
     self.compilerVersionString = versionString
     self.allNodes = visitor.nodes
+    self.dependencySource = dependencySource
   }
 }
 

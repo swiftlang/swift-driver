@@ -13,15 +13,14 @@ import Foundation
 import TSCBasic
 
 // MARK: - DependencySource
-extension ModuleDependencyGraph {
-  /// Points to the source of dependencies, i.e. the file read to obtain the information.
-  /*@_spi(Testing)*/
-  public struct DependencySource: Hashable, CustomStringConvertible {
+/// Points to the source of dependencies, i.e. the file read to obtain the information.
+/*@_spi(Testing)*/
+public struct DependencySource: Hashable, CustomStringConvertible {
 
-    let typedFile: TypedVirtualPath
+  let typedFile: TypedVirtualPath
 
-    init(_ typedFile: TypedVirtualPath) {
-      assert( typedFile.type == .swiftDeps ||
+  init(_ typedFile: TypedVirtualPath) {
+    assert( typedFile.type == .swiftDeps ||
               typedFile.type == .swiftModule
       )
       self.typedFile = typedFile
@@ -43,16 +42,44 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/ public var mockID: Int {
        Int(file.basenameWithoutExt)!
     }
-    var file: VirtualPath { typedFile.file }
+    self.init(TypedVirtualPath(file: file, type: type))
+  }
+  /*@_spi(Testing)*/ public init(mock i: Int) {
+    self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))
+  }
+  /*@_spi(Testing)*/ public var mockID: Int {
+    Int(file.basenameWithoutExt)!
+  }
+  var file: VirtualPath { typedFile.file }
 
-    public var description: String {
-      file.description
+  public var description: String {
+    file.description
+  }
+
+  /// Throws if a read error
+  /// Returns nil if no dependency info there.
+  public func read(
+    in fileSystem: FileSystem,
+    reporter: IncrementalCompilationState.Reporter?,
+    diagnosticEngine: DiagnosticsEngine
+  ) -> SourceFileDependencyGraph? {
+    let graphIfPresent: SourceFileDependencyGraph?
+    do {
+      graphIfPresent = try SourceFileDependencyGraph.read(
+        from: self,
+        on: fileSystem)
     }
+    catch {
+      let msg = "Could not read \(file) \(error.localizedDescription)"
+      diagnosticEngine.emit(warning: msg)
+      reporter?.report(msg, typedFile)
+      return nil
+    }
+    return graphIfPresent
   }
 }
-
 // MARK: - testing
-extension ModuleDependencyGraph.DependencySource {
+extension DependencySource {
   /*@_spi(Testing)*/
   public var sourceFileProvideNameForMockDependencySource: String {
     file.name
@@ -63,7 +90,7 @@ extension ModuleDependencyGraph.DependencySource {
   }
 }
 // MARK: - comparing
-extension ModuleDependencyGraph.DependencySource: Comparable {
+extension DependencySource: Comparable {
   public static func < (lhs: Self, rhs: Self) -> Bool {
     lhs.file.name < rhs.file.name
   }

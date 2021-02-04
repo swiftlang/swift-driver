@@ -68,10 +68,10 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadBinarySourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
+    let dependencySource = DependencySource(VirtualPath.absolute(absolutePath))
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
-        contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath),
-                                     type: .swiftDeps),
+        contentsOf: dependencySource,
         on: localFileSystem))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
@@ -117,8 +117,7 @@ final class NonincrementalCompilationTests: XCTestCase {
                                                          for: "hello.swiftdeps"))
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
-        contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath),
-                                     type: .swiftDeps),
+        contentsOf: DependencySource(VirtualPath.absolute(absolutePath)),
         on: localFileSystem))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
@@ -170,7 +169,10 @@ final class NonincrementalCompilationTests: XCTestCase {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftmodule"))
     let data = try localFileSystem.readFileContents(absolutePath)
-    let graph = try XCTUnwrap(try SourceFileDependencyGraph(data: data, fromSwiftModule: true))
+    let graph = try XCTUnwrap(
+      try SourceFileDependencyGraph(data: data,
+                                    from: DependencySource(.absolute(absolutePath)),
+                                    fromSwiftModule: true))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
