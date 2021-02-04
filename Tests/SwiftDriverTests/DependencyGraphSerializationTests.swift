@@ -49,7 +49,7 @@ class DependencyGraphSerializationTests: XCTestCase {
       var commands: [LoadCommand]
 
       enum LoadCommand {
-        case load(index: Int, nodes: [MockDependencyKind: [String]])
+        case load(index: Int, nodes: [MockDependencyKind: [String]], fingerprint: String? = nil)
         case reload(index: Int, nodes: [MockDependencyKind: [String]], fingerprint: String? = nil)
       }
     }
@@ -212,6 +212,10 @@ class DependencyGraphSerializationTests: XCTestCase {
         .load(index: 6, nodes: [.nominal: ["C2->"]]),
         .reload(index: 0, nodes: [.nominal: ["A1@11", "A2@2"]])
       ]),
+      GraphFixture(commands: [
+        .load(index: 0, nodes: [.externalDepend: ["/foo->", "/bar->"]], fingerprint: "ABCDEFG"),
+        .reload(index: 0, nodes: [.externalDepend: ["/foo->", "/bar->"]], fingerprint: "HIJKLMNOP"),
+      ]),
     ]
 
     for fixture in fixtures {
@@ -219,8 +223,8 @@ class DependencyGraphSerializationTests: XCTestCase {
       let graph = ModuleDependencyGraph(mock: de)
       for loadCommand in fixture.commands {
         switch loadCommand {
-        case .load(index: let index, nodes: let nodes):
-          graph.simulateLoad(index, nodes, nil)
+        case .load(index: let index, nodes: let nodes, fingerprint: let fingerprint):
+          graph.simulateLoad(index, nodes, fingerprint)
         case .reload(index: let index, nodes: let nodes, fingerprint: let fingerprint):
           _ = graph.simulateReload(index, nodes, fingerprint)
         }

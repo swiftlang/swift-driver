@@ -4,13 +4,17 @@ import Foundation
 /// A filename from another module
 /*@_spi(Testing)*/ public struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
   let fileName: String
+  let fingerprint: String?
+
+  /*@_spi(Testing)*/ public init(_ fileName: String, fingerprint: String? = nil) {
+    self.fileName = fileName
+    self.fingerprint = fingerprint
+  }
 
   var file: VirtualPath? {
     try? VirtualPath(path: fileName)
   }
-  /*@_spi(Testing)*/ public init(_ path: String) {
-    self.fileName = path
-  }
+
   public var description: String {
     fileName.description
   }

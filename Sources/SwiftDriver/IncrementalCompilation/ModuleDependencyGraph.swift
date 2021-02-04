@@ -561,13 +561,17 @@ extension ModuleDependencyGraph {
           }
           self.nodeUses[key, default: []].append(Int(record.fields[0]))
         case .externalDepNode:
-          guard record.fields.count == 1,
-                record.fields[0] < identifiers.count
+          guard record.fields.count == 2,
+                record.fields[0] < identifiers.count,
+                case .blob(let fingerprintBlob) = record.payload,
+                let fingerprintStr = String(data: fingerprintBlob, encoding: .utf8)
           else {
             throw ReadError.malformedExternalDepNodeRecord
           }
           let path = identifiers[Int(record.fields[0])]
-          self.graph.externalDependencies.insert(ExternalDependency(path))
+          let hasFingerprint = Int(record.fields[1]) != 0
+          let fingerprint = hasFingerprint ? fingerprintStr : nil
+          self.graph.externalDependencies.insert(ExternalDependency(path, fingerprint: fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -804,6 +808,10 @@ extension ModuleDependencyGraph {
         .literal(RecordID.externalDepNode.rawValue),
         // path ID
         .vbr(chunkBitWidth: 13),
+        // fingerprint?
+        .fixed(bitWidth: 1),
+        // fingerprint bytes
+        .blob
       ])
       self.abbreviate(.identifierNode, [
         .literal(RecordID.identifierNode.rawValue),
@@ -874,10 +882,11 @@ extension ModuleDependencyGraph {
         }
 
         for dep in graph.externalDependencies {
-          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!) {
+          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(for: dep.fileName))
-          }
+            $0.append((dep.fingerprint != nil) ? UInt32(1) : UInt32(0))
+          }, blob: dep.fingerprint ?? "")
         }
       }
       return ByteString(serializer.stream.data)
