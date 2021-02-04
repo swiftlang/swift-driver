@@ -208,9 +208,6 @@ extension ModuleDependencyGraph.Integrator {
       guard let externalDependency =
               def.key.designator.externalDependency
       else {
-        destination.reporter?.report( "found incrementalExternalDependency",
-                                      externalDependency.file)
-        results.discoveredIncrementalExternalDependencies.insert(externalDependency)
         return
       }
       // Check both in case we reread a prior ModDepGraph from a different mode
