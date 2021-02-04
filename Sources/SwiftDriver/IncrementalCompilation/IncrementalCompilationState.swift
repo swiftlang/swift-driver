@@ -655,12 +655,12 @@ extension IncrementalCompilationState {
     ///   - message: The message to emit in the remark.
     ///   - path: If non-nil, the path of some file. If the output for an incremental job, will print out the
     ///           source and object files.
-    func report(_ message: String, _ path: TypedVirtualPath?) {
-       guard let path = path,
+    func report(_ message: String, _ pathIfGiven: TypedVirtualPath?) {
+       guard let path = pathIfGiven,
             let outputFileMap = outputFileMap,
             let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
       else {
-        report(message, path?.file)
+        report(message, pathIfGiven?.file)
         return
       }
       let output = outputFileMap.getOutput(inputFile: path.file, outputType: .object)
