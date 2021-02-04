@@ -595,8 +595,8 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertTrue(graph.externalDependencies.contains( "/foo"))
-    XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
+    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
+    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
@@ -633,8 +633,8 @@ class ModuleDependencyGraphTests: XCTestCase {
       1,
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
-    XCTAssertTrue(graph.externalDependencies.contains( "/foo"))
-    XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
+    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
+    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
@@ -942,17 +942,16 @@ extension ModuleDependencyGraph {
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
-    findUntracedSwiftDepsDependent(on: s.asExternal, isIncremental: false)
+    findUntracedSwiftDepsDependent(on: ExtDepAndPrint(s.asExternal, nil))
       .map { $0.mockID }
   }
 
   /// Can return duplicates
   func findUntracedSwiftDepsDependent(
-    on externalDependency: ExternalDependency,
-    isIncremental: Bool
+    on expDepAndPrint: ExtDepAndPrint
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in self.untracedDependents(of: externalDependency, isIncremental: isIncremental) {
+    for dependent in self.untracedDependents(of: expDepAndPrint) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
@@ -969,6 +968,12 @@ extension ModuleDependencyGraph {
   func findSwiftDepsToRecompileWhenDependencySourceChanges(_ i: Int) -> [Int] {
     findSwiftDepsToRecompileWhenDependencySourceChanges(DependencySource(mock: i))
       .map { $0.mockID }
+  }
+
+  func containsExternalDependency(_ path: String, fingerprint: String? = nil)
+  -> Bool {
+    externalDependencies.contains(ExtDepAndPrint(ExternalDependency(path),
+                                                 fingerprint))
   }
 }
 
