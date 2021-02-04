@@ -21,41 +21,43 @@ public struct DependencySource: Hashable, CustomStringConvertible {
 
   init(_ typedFile: TypedVirtualPath) {
     assert( typedFile.type == .swiftDeps ||
-              typedFile.type == .swiftModule
-      )
+            typedFile.type == .swiftModule)
       self.typedFile = typedFile
-    }
-    init(_ file: VirtualPath) {
-      let ext = file.extension
-      let typeIfExpected =
-        ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
-        ext == FileType.swiftModule.rawValue ? FileType.swiftModule
-        : nil
-      guard let type = typeIfExpected else {
-        fatalError("unexpected dependencySource extension: \(String(describing: ext))")
-      }
-      self.init(TypedVirtualPath(file: file, type: type))
-    }
-    /*@_spi(Testing)*/ public init(mock i: Int) {
-      self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))
-    }
-    /*@_spi(Testing)*/ public var mockID: Int {
-       Int(file.basenameWithoutExt)!
+  }
+
+  /*@_spi(Testing)*/
+  public init(_ file: VirtualPath) {
+    let ext = file.extension
+    let typeIfExpected =
+      ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
+      ext == FileType.swiftModule.rawValue ? FileType.swiftModule
+      : nil
+    guard let type = typeIfExpected else {
+      fatalError("unexpected dependencySource extension: \(String(describing: ext))")
     }
     self.init(TypedVirtualPath(file: file, type: type))
   }
-  /*@_spi(Testing)*/ public init(mock i: Int) {
-    self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))
-  }
-  /*@_spi(Testing)*/ public var mockID: Int {
-    Int(file.basenameWithoutExt)!
-  }
+
   var file: VirtualPath { typedFile.file }
 
   public var description: String {
     file.description
   }
+}
 
+// MARK: - mocking
+extension DependencySource {
+  /*@_spi(Testing)*/ public init(mock i: Int) {
+    self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))
+  }
+
+  /*@_spi(Testing)*/ public var mockID: Int {
+    Int(file.basenameWithoutExt)!
+  }
+}
+
+// MARK: - reading
+extension DependencySource {
   /// Throws if a read error
   /// Returns nil if no dependency info there.
   public func read(

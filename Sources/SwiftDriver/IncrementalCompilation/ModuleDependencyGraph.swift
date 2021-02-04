@@ -139,11 +139,8 @@ extension ModuleDependencyGraph {
   }
 
   public func integrate(sourceGraph: SourceFileDependencyGraph) -> Set<Node>? {
-    let results = Integrator.integrateAndCollectExternalDepNodes(
-      from: sourceGraph,
-      into: self,
-      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled
-    )
+    let results = Integrator.integrateAndCollectExternalDepNodes(from: sourceGraph,
+                                                                 into: self)
     guard let externallyCausedChanges =
             integrate(discoveredExternalDependencies: results.discoveredExternalDependencies)
     else {
@@ -200,8 +197,8 @@ extension ModuleDependencyGraph {
     }
     let results = Integrator.integrateAndCollectExternalDepNodes(
       from: sourceGraph,
-      into: self,
-      options: graph.options
+      into: self
+    )
     return results
   }
 
@@ -890,7 +887,7 @@ extension ModuleDependencyGraph {
                         for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, 
-          blob: (fingerprintedExternalDependency ?? ""))
+          blob: (fingerprintedExternalDependency.fingerprint ?? ""))
         }
       }
       return ByteString(serializer.stream.data)

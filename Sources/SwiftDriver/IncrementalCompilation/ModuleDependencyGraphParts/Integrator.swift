@@ -39,13 +39,13 @@ extension ModuleDependencyGraph {
     /// After integration is complete, contains the nodes that have disappeared.
     var disappearedNodes = [DependencyKey: Graph.Node]()
 
-    init(source: SourceFileDependencyGraph,
-         dependencySource: DependencySource,
+    init(sourceGraph: SourceFileDependencyGraph,
          destination: ModuleDependencyGraph)
     {
       self.sourceGraph = sourceGraph
-      self.destination = destination
-      self.disappearedNodes = destination.nodeFinder.findNodes(for: dependencySource)
+      self .destination = destination
+      self.disappearedNodes = destination.nodeFinder
+        .findNodes(for: sourceGraph.dependencySource)
         ?? [:]
     }
 
@@ -62,11 +62,9 @@ extension ModuleDependencyGraph.Integrator {
   /// Returns changed nodes
   /*@_spi(Testing)*/ static func integrateAndCollectExternalDepNodes(
     from g: SourceFileDependencyGraph,
-    dependencySource: Graph.DependencySource,
     into destination: Graph
   ) -> Results {
-    var integrator = Self(source: g,
-                          dependencySource: dependencySource,
+    var integrator = Self(sourceGraph: g,
                           destination: destination)
     integrator.integrate()
 
