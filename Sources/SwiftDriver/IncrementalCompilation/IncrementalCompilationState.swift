@@ -320,8 +320,8 @@ extension IncrementalCompilationState {
     let definitelyRequiredInputs =
       Set(changedInputs.map({ $0.filePath }) +
             externallyChangedInputs +
-            inputsHavingMalformedDependencySources
-            + inputsMissingOutputs)
+            inputsHavingMalformedDependencySources +
+            inputsMissingOutputs)
     if let reporter = reporter {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
         reporter.report("Queuing (initial):", scheduledInput)
@@ -422,9 +422,9 @@ extension IncrementalCompilationState {
     fileSystem: FileSystem,
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
- ) -> [TypedVirtualPath] {
+  ) -> [TypedVirtualPath] {
     var externalDependencySources = Set<DependencySource>()
-     for extDepAndPrint in moduleDependencyGraph.externalDependencies {
+    for extDepAndPrint in moduleDependencyGraph.fingerprintedExternalDependencies {
       let extDep = extDepAndPrint.externalDependency
       let extModTime = extDep.file.flatMap {try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture

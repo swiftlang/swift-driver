@@ -18,16 +18,7 @@ import SwiftOptions
 // MARK: - ModuleDependencyGraph
 
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph {
-  public struct ExtDepAndPrint: Hashable, Equatable {
-    let externalDependency: ExternalDependency
-    let fingerprint: String?
-    init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
-      self.externalDependency = externalDependency
-      self.fingerprint = fingerprint
-    }
-    var isIncremental: Bool { fingerprint != nil }
-  }
-  
+
   var nodeFinder = NodeFinder()
   
   /// When integrating a change, want to find untraced nodes so we can kick off jobs that have not been
@@ -38,7 +29,7 @@ import SwiftOptions
   private(set) var inputDependencySourceMap = BidirectionalMap<TypedVirtualPath, DependencySource>()
 
   // The set of paths to external dependencies known to be in the graph
-  public internal(set) var externalDependencies = Set<ExtDepAndPrint>()
+  public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
 
   let options: IncrementalCompilationState.Options
   let reporter: IncrementalCompilationState.Reporter?
@@ -153,8 +144,8 @@ extension ModuleDependencyGraph {
       into: self,
       isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled
     )
-    guard let externallyCausedChanges = integrate(
-            discoveredExternalDependencies: results.discoveredExternalDependencies)
+    guard let externallyCausedChanges =
+            integrate(discoveredExternalDependencies: results.discoveredExternalDependencies)
     else {
       return nil
     }
@@ -162,13 +153,14 @@ extension ModuleDependencyGraph {
   }
 
   /// Returns changed nodes
-  private func integrate(discoveredExternalDependencies: Set<ExtDepAndPrint>)
-  -> Set<Node>?
+  private func integrate(
+    discoveredExternalDependencies: Set<FingerprintedExternalDependency>
+  ) -> Set<Node>?
   {
     var workList = discoveredExternalDependencies
     var changedNodes = Set<Node>()
     while let edp = workList.first {
-      guard externalDependencies.insert(edp).inserted else {
+      guard fingerprintedExternalDependencies.insert(edp).inserted else {
         continue
       }
       let resultIfOK = integrate(
@@ -187,18 +179,18 @@ extension ModuleDependencyGraph {
   }
 
   private func integrate(
-    externalDependency: ExtDepAndPrint,
+    externalDependency: FingerprintedExternalDependency,
     fileSystem: FileSystem
   ) -> Integrator.Results? {
-    #warning("do something better than !")
     // Save time; don't even try
     guard externalDependency.isIncremental else {
       return Integrator.Results()
     }
     #warning("remove the !")
     let file = externalDependency.externalDependency.file!
-    let dependencySource = DependencySource(TypedVirtualPath(file: file, type: .swiftModule))
-    reporter?.report("integrating incremental external dependency", dependencySource.typedFile)
+    let dependencySource = DependencySource(file)
+    reporter?.report("integrating incremental external dependency",
+                     dependencySource.typedFile)
     guard let sourceGraph = dependencySource.read(
             in: fileSystem,
             reporter: reporter,
@@ -299,14 +291,16 @@ extension ModuleDependencyGraph {
   }
 
   /*@_spi(Testing)*/ public func untracedDependents(
-    of extDepAndPrint: ExtDepAndPrint
+    of extDepAndPrint: FingerprintedExternalDependency
   ) -> [ModuleDependencyGraph.Node] {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(interfaceFor: extDepAndPrint.externalDependency)
     // DependencySource is OK as a nil placeholder because it's only used to find
     // the corresponding implementation node and there won't be any for an
     // external dependency node.
-    let node = Node(key: key, fingerprint: extDepAndPrint.fingerprint, dependencySource: nil)
+    let node = Node(key: key,
+                    fingerprint: extDepAndPrint.fingerprint,
+                    dependencySource: nil)
     return nodeFinder
       .orderedUses(of: node)
       .filter({ use in isUntraced(use) })
@@ -576,12 +570,13 @@ extension ModuleDependencyGraph {
           let path = identifiers[Int(record.fields[0])]
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          self.graph.externalDependencies.insert(
-            ExtDepAndPrint(ExternalDependency(path), fingerprint))
+          self.graph.fingerprintedExternalDependencies.insert(
+            FingerprintedExternalDependency(ExternalDependency(path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
-                let identifier = String(data: identifierBlob, encoding: .utf8) else {
+                let identifier = String(data: identifierBlob, encoding: .utf8)
+          else {
             throw ReadError.malformedIdentifierRecord
           }
           identifiers.append(identifier)
@@ -754,7 +749,7 @@ extension ModuleDependencyGraph {
         }
       }
 
-      for edF in graph.externalDependencies {
+      for edF in graph.fingerprintedExternalDependencies {
         self.addIdentifier(edF.externalDependency.fileName)
       }
 
@@ -894,7 +889,8 @@ extension ModuleDependencyGraph {
             $0.append(serializer.lookupIdentifierCode(
                         for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
-          }, blob: dep.fingerprint ?? "")
+          }, 
+          blob: (fingerprintedExternalDependency ?? ""))
         }
       }
       return ByteString(serializer.stream.data)
@@ -1030,7 +1026,7 @@ extension ModuleDependencyGraph {
     guard nodeFinder.matches(other.nodeFinder),
       tracedNodes.matches(other.tracedNodes),
       inputDependencySourceMap.matches(other.inputDependencySourceMap),
-      externalDependencies.matches(other.externalDependencies)
+      fingerprintedExternalDependencies.matches(other.fingerprintedExternalDependencies)
     else {
       return false
     }
@@ -1050,7 +1046,7 @@ extension BidirectionalMap where T1 == TypedVirtualPath, T2 == DependencySource 
   }
 }
 
-extension Set where Element == ModuleDependencyGraph.ExtDepAndPrint {
+extension Set where Element == FingerprintedExternalDependency {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
   }

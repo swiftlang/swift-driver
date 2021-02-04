@@ -25,7 +25,7 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/
     public struct Results {
       var changedNodes = Set<Node>()
-      var discoveredExternalDependencies = Set<ExtDepAndPrint>()
+      var discoveredExternalDependencies = Set<FingerprintedExternalDependency>()
     }
     public private(set) var results = Results()
 
@@ -183,8 +183,9 @@ extension ModuleDependencyGraph.Integrator {
         return
       }
       // Check both in case we reread a prior ModDepGraph from a different mode
-      let extDepAndPrint = Graph.ExtDepAndPrint(externalDependency, def.fingerprint)
-      let isKnown = destination.externalDependencies.contains(extDepAndPrint)
+      let extDepAndPrint = FingerprintedExternalDependency(externalDependency,
+                                                           def.fingerprint)
+      let isKnown = destination.fingerprintedExternalDependencies.contains(extDepAndPrint)
       guard !isKnown else {return}
 
       results.discoveredExternalDependencies.insert(extDepAndPrint)

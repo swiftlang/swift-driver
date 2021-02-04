@@ -25,7 +25,7 @@ extension ModuleDependencyGraph {
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
   /*@_spi(Testing)*/
-  public final class Node: CanHoldExternalDependency {
+  public final class Node: KeyAndFingerprintEnforcer {
 
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
@@ -67,7 +67,7 @@ extension ModuleDependencyGraph {
       self.dependencySource = dependencySource
 
       #warning("how best to handle an error here")
-      try! verifyExternalInvariant()
+      try! verifyKeyAndFingerprint()
     }
   }
 }

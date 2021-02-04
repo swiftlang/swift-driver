@@ -57,52 +57,8 @@ import TSCUtility
   }
 }
 
-// TODO: move somewhere
-protocol CanHoldExternalDependency {
-  var key: DependencyKey {get}
-  var fingerprint: String? {get}
-}
-extension CanHoldExternalDependency {
-  func verifyExternalInvariant() throws {
-    guard case .externalDepend(let externalDependency) = key.designator
-    else {
-      return
-    }
-    guard key.aspect == .interface else {
-      throw CanHoldExternalDependencyError.externalDepsMustBeInterface(externalDependency)
-    }
-    guard let file = externalDependency.file else {
-      throw CanHoldExternalDependencyError.noFile(externalDependency)
-    }
-    guard let fingerprint = self.fingerprint,
-          file.extension == FileType.swiftModule.rawValue
-    else {
-      return
-    }
-    throw CanHoldExternalDependencyError.onlySwiftModulesHaveFingerprints(externalDependency, fingerprint)
-  }
-}
-enum CanHoldExternalDependencyError: LocalizedError {
-  case externalDepsMustBeInterface(ExternalDependency)
-  case noFile(ExternalDependency)
-  case onlySwiftModulesHaveFingerprints(ExternalDependency, String)
-
-  var errorDescription: String? {
-    switch self {
-    case let .externalDepsMustBeInterface(externalDependency):
-      return "Aspect of external dependency must be interface: \(externalDependency)"
-    case let .noFile(externalDependency):
-      return "External dependency must point to a file: \(externalDependency)"
-    case let .onlySwiftModulesHaveFingerprints(externalDependency, fingerprint):
-      return "An external dependency with a fingerprint (\(fingerprint)) must point to a swiftmodule file: \(externalDependency)"
-    }
-  }
-}
-
-
-
 extension SourceFileDependencyGraph {
-  public struct Node: CanHoldExternalDependency {
+  public struct Node: KeyAndFingerprintEnforcer {
     public var key: DependencyKey
     public var fingerprint: String?
     public var sequenceNumber: Int
@@ -123,7 +79,7 @@ extension SourceFileDependencyGraph {
       self.isProvides = isProvides
 
       #warning("how best to handle an error here")
-      try! verifyExternalInvariant()
+      try! verifyKeyAndFingerprint()
     }
     
     public func verify() {

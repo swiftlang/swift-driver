@@ -940,16 +940,17 @@ extension ModuleDependencyGraph {
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
-    findUntracedSwiftDepsDependent(on: ExtDepAndPrint(s.asExternal, nil))
+    findUntracedSwiftDepsDependent(
+      on: FingerprintedExternalDependency(s.asExternal, nil))
       .map { $0.mockID }
   }
 
   /// Can return duplicates
   func findUntracedSwiftDepsDependent(
-    on expDepAndPrint: ExtDepAndPrint
+    on fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in self.untracedDependents(of: expDepAndPrint) {
+    for dependent in self.untracedDependents(of: fingerprintedExternalDependency) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
@@ -970,8 +971,9 @@ extension ModuleDependencyGraph {
 
   func containsExternalDependency(_ path: String, fingerprint: String? = nil)
   -> Bool {
-    externalDependencies.contains(ExtDepAndPrint(ExternalDependency(path),
-                                                 fingerprint))
+    fingerprintedExternalDependencies.contains(
+      FingerprintedExternalDependency(ExternalDependency(path),
+                                      fingerprint))
   }
 }
 

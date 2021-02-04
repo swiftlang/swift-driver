@@ -24,6 +24,17 @@ import Foundation
   }
 }
 
+/// Since the integration surfaces all externalDependencies to be processed later,
+/// a combination of the dependency and fingerprint are needed.
+public struct FingerprintedExternalDependency: Hashable, Equatable {
+  let externalDependency: ExternalDependency
+  let fingerprint: String?
+  init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
+    self.externalDependency = externalDependency
+    self.fingerprint = fingerprint
+  }
+  var isIncremental: Bool { fingerprint != nil }
+}
 
 /// A `DependencyKey` carries all of the information necessary to uniquely
 /// identify a dependency node in the graph, and serves as a point of identity
