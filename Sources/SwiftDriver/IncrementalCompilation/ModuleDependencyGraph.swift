@@ -573,7 +573,8 @@ extension ModuleDependencyGraph {
           let path = identifiers[Int(record.fields[0])]
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          self.graph.externalDependencies.insert(ExternalDependency(path, fingerprint: fingerprint))
+          self.graph.externalDependencies.insert(
+            ExtDepAndPrint(ExternalDependency(path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -749,8 +750,8 @@ extension ModuleDependencyGraph {
         }
       }
 
-      for path in graph.externalDependencies {
-        self.addIdentifier(path.fileName)
+      for edF in graph.externalDependencies {
+        self.addIdentifier(edF.externalDependency.fileName)
       }
 
       for str in self.identifiersToWrite {
