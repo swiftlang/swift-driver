@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
+import SwiftOptions
 
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput
@@ -117,6 +118,7 @@ extension Driver {
     // Determine the state for incremental compilation
     let incrementalCompilationState = try IncrementalCompilationState(
       driver: &self,
+      options: self.computeIncrementalOptions(),
       jobsInPhases: jobsInPhases)
 
     return try (
@@ -130,6 +132,27 @@ extension Driver {
     )
   }
 
+  mutating func computeIncrementalOptions() -> IncrementalCompilationState.Options {
+    var options: IncrementalCompilationState.Options = []
+    if self.parsedOptions.contains(.driverAlwaysRebuildDependents) {
+      options.formUnion(.alwaysRebuildDependents)
+    }
+    if self.parsedOptions.contains(.driverShowIncremental) || self.showJobLifecycle {
+      options.formUnion(.showIncremental)
+    }
+    let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
+    if self.parsedOptions.contains(emitOpt) {
+      options.formUnion(.emitDependencyDotFileAfterEveryImport)
+    }
+    let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
+    if self.parsedOptions.contains(veriOpt) {
+      options.formUnion(.verifyDependencyGraphAfterEveryImport)
+    }
+    if self.parsedOptions.contains(.enableExperimentalCrossModuleIncrementalBuild) {
+      options.formUnion(.enableCrossModuleIncrementalBuild)
+    }
+    return options
+  }
 
   private mutating func addPrecompileModuleDependenciesJobs(addJob: (Job) -> Void) throws {
     // If asked, add jobs to precompile module dependencies

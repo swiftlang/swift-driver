@@ -38,23 +38,23 @@ extension ModuleDependencyGraph {
     /// the graph to be integrated into
     let destination: ModuleDependencyGraph
 
-    let isCrossModuleIncrementalBuildEnabled: Bool
-
     /// Starts with all nodes in dependencySource. Nodes that persist will be removed.
     /// After integration is complete, contains the nodes that have disappeared.
     var disappearedNodes = [DependencyKey: Graph.Node]()
 
     init(source: SourceFileDependencyGraph,
          dependencySource: DependencySource,
-         destination: ModuleDependencyGraph,
-         isCrossModuleIncrementalBuildEnabled: Bool)
+         destination: ModuleDependencyGraph)
     {
       self.source = source
       self.dependencySource = dependencySource
       self.destination = destination
-      self.isCrossModuleIncrementalBuildEnabled = isCrossModuleIncrementalBuildEnabled
       self.disappearedNodes = destination.nodeFinder.findNodes(for: dependencySource)
         ?? [:]
+    }
+
+    var isCrossModuleIncrementalBuildEnabled: Bool {
+      destination.options.contains(.enableCrossModuleIncrementalBuild)
     }
   }
 }
@@ -69,7 +69,7 @@ extension ModuleDependencyGraph.Integrator {
     reporter: IncrementalCompilationState.Reporter?,
     diagnosticEngine: DiagnosticsEngine,
     fileSystem: FileSystem,
-    isCrossModuleIncrementalBuildEnabled: Bool
+    options: IncrementalCompilationState.Options
   ) -> Results? {
     guard let sfdg = try? SourceFileDependencyGraph.read(
             from: dependencySource, on: fileSystem)
@@ -79,8 +79,7 @@ extension ModuleDependencyGraph.Integrator {
     }
     return integrate(from: sfdg,
                      dependencySource: dependencySource,
-                     into: destination,
-                     isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
+                     into: destination)
   }
 }
 // MARK: - integrate a graph
@@ -92,19 +91,17 @@ extension ModuleDependencyGraph.Integrator {
   /*@_spi(Testing)*/ public static func integrate(
     from g: SourceFileDependencyGraph,
     dependencySource: Graph.DependencySource,
-    into destination: Graph,
-    isCrossModuleIncrementalBuildEnabled: Bool
-  ) ->  Results {
+    into destination: Graph
+  ) -> Results {
     var integrator = Self(source: g,
                           dependencySource: dependencySource,
-                          destination: destination,
-                          isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
+                          destination: destination)
     integrator.integrate()
 
-    if destination.verifyDependencyGraphAfterEveryImport {
+    if destination.options.contains(.verifyDependencyGraphAfterEveryImport) {
       integrator.verifyAfterImporting()
     }
-    if destination.emitDependencyDotFileAfterEveryImport {
+    if destination.options.contains(.emitDependencyDotFileAfterEveryImport) {
       destination.emitDotFile(g, dependencySource)
     }
     return integrator.results

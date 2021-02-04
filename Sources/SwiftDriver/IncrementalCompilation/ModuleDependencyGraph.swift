@@ -34,9 +34,7 @@ import SwiftOptions
   // The set of paths to incremental external dependencies known to be in the graph
   public internal(set) var incrementalExternalDependencies = Set<ExternalDependency>()
 
-  let isCrossModuleIncrementalBuildEnabled: Bool
-  let verifyDependencyGraphAfterEveryImport: Bool
-  let emitDependencyDotFileAfterEveryImport: Bool
+  let options: IncrementalCompilationState.Options
   let reporter: IncrementalCompilationState.Reporter?
   
   private let diagnosticEngine: DiagnosticsEngine
@@ -44,17 +42,18 @@ import SwiftOptions
   public init(
     diagnosticEngine: DiagnosticsEngine,
     reporter: IncrementalCompilationState.Reporter?,
-    isCrossModuleIncrementalBuildEnabled: Bool,
-    emitDependencyDotFileAfterEveryImport: Bool,
-    verifyDependencyGraphAfterEveryImport: Bool
+    options: IncrementalCompilationState.Options
   ) {
-    self.isCrossModuleIncrementalBuildEnabled = isCrossModuleIncrementalBuildEnabled
-    self.verifyDependencyGraphAfterEveryImport = verifyDependencyGraphAfterEveryImport
-    self.emitDependencyDotFileAfterEveryImport = emitDependencyDotFileAfterEveryImport
     self.reporter = reporter
     self.diagnosticEngine = diagnosticEngine
+    self.options = options
+  }
+
+  var isCrossModuleIncrementalBuildEnabled: Bool {
+    self.options.contains(.enableCrossModuleIncrementalBuild)
   }
 }
+
 // MARK: - initial build only
 extension ModuleDependencyGraph {
   /// Builds a graph
@@ -65,25 +64,20 @@ extension ModuleDependencyGraph {
     inputs: Inputs,
     previousInputs: Set<VirtualPath>,
     outputFileMap: OutputFileMap?,
-    parsedOptions: inout ParsedOptions,
+    options: IncrementalCompilationState.Options,
     remarkDisabled: (String) -> Diagnostic.Message,
     reporter: IncrementalCompilationState.Reporter?,
-    fileSystem: FileSystem,
-    isCrossModuleIncrementalBuildEnabled: Bool
+    fileSystem: FileSystem
   ) -> (
     ModuleDependencyGraph,
     inputsAndMalformedSwiftDeps: [(TypedVirtualPath, VirtualPath)]
   )?
     where Inputs.Element == TypedVirtualPath
   {
-    let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
-    let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
     let graph = Self(
       diagnosticEngine: diagnosticEngine,
       reporter: reporter,
-      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled,
-      emitDependencyDotFileAfterEveryImport: parsedOptions.contains(emitOpt),
-      verifyDependencyGraphAfterEveryImport: parsedOptions.contains(veriOpt))
+      options: options)
 
     let inputsAndSwiftdeps = inputs.map { input in
       (input, outputFileMap?.existingOutput(inputFile: input.file,
@@ -118,7 +112,7 @@ extension ModuleDependencyGraph {
               reporter: reporter,
               diagnosticEngine: diagnosticEngine,
               fileSystem: fileSystem,
-              isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
+              options: options)
       else {
         return (input, swiftDepsFile)
       }
@@ -188,7 +182,7 @@ extension ModuleDependencyGraph {
       reporter: reporter,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
-      isCrossModuleIncrementalBuildEnabled: graph.isCrossModuleIncrementalBuildEnabled)
+      options: graph.options)
     return results
   }
 
@@ -258,7 +252,7 @@ extension ModuleDependencyGraph {
       reporter: self.reporter,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
-      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
+      options: self.options)
     guard let results = resultsIfOK else {
       return nil
     }
@@ -437,7 +431,7 @@ extension ModuleDependencyGraph {
     on fileSystem: FileSystem,
     diagnosticEngine: DiagnosticsEngine,
     reporter: IncrementalCompilationState.Reporter?,
-    isCrossModuleIncrementalBuildEnabled: Bool
+    options: IncrementalCompilationState.Options
   ) throws -> ModuleDependencyGraph {
     let data = try fileSystem.readFileContents(path)
 
@@ -456,14 +450,12 @@ extension ModuleDependencyGraph {
       init(
         diagnosticEngine: DiagnosticsEngine,
         reporter: IncrementalCompilationState.Reporter?,
-        isCrossModuleIncrementalBuildEnabled: Bool
+        options: IncrementalCompilationState.Options
       ) {
         self.graph = ModuleDependencyGraph(
           diagnosticEngine: diagnosticEngine,
           reporter: reporter,
-          isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled,
-          emitDependencyDotFileAfterEveryImport: false,
-          verifyDependencyGraphAfterEveryImport: false)
+          options: options)
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
@@ -591,7 +583,7 @@ extension ModuleDependencyGraph {
       let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
       var visitor = Visitor(diagnosticEngine: diagnosticEngine,
                             reporter: reporter,
-                            isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
+                            options: options)
       try Bitcode.read(stream: data, using: &visitor)
       guard let major = visitor.majorVersion,
             let minor = visitor.minorVersion,
