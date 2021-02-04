@@ -12,7 +12,8 @@
 import XCTest
 import TSCBasic
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
+import SwiftOptions
 
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {
@@ -383,6 +384,34 @@ final class IncrementalCompilationTests: XCTestCase {
       try! localFileSystem.writeFileContents(filePath) {
         $0 <<< contents
       }
+    }
+  }
+
+  func testOptionsParsing() throws {
+    let optionPairs: [(Option, IncrementalCompilationState.Options)] = [
+      (.driverAlwaysRebuildDependents, .alwaysRebuildDependents),
+      (.driverShowIncremental, .showIncremental),
+      // FIXME: Re-enable once this is actually implemented.
+      // (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, .emitDependencyDotFileAfterEveryImport),
+      (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, .verifyDependencyGraphAfterEveryImport),
+      (.enableExperimentalCrossModuleIncrementalBuild, .enableCrossModuleIncrementalBuild),
+    ]
+
+    for (driverOption, stateOption) in optionPairs {
+      try doABuild(
+        "initial",
+        checkDiagnostics: false,
+        extraArguments: [ driverOption.spelling ],
+        expectingRemarks: [],
+        whenAutolinking: [])
+
+      var driver = try Driver(args: self.args + [
+        driverOption.spelling,
+      ] + Driver.sdkArgumentsForTesting())
+      _ = try driver.planBuild()
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      let state = try XCTUnwrap(driver.incrementalCompilationState)
+      XCTAssertTrue(state.options.contains(stateOption))
     }
   }
 

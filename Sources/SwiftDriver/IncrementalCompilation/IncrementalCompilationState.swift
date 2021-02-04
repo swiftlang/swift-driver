@@ -12,9 +12,8 @@
 import TSCBasic
 import Foundation
 import SwiftOptions
+
 public class IncrementalCompilationState {
-  /// Whether cross-module incrementality is enabled
-  private let isCrossModuleIncrementalBuildEnabled: Bool
 
   /// The oracle for deciding what depends on what. Applies to this whole module.
   private let moduleDependencyGraph: ModuleDependencyGraph
@@ -45,6 +44,7 @@ public class IncrementalCompilationState {
   /// Return nil if not compiling incrementally
   init?(
     driver: inout Driver,
+    options: Options,
     jobsInPhases: JobsInPhases
   ) throws {
     guard driver.shouldAttemptIncrementalCompilation()
@@ -52,17 +52,15 @@ public class IncrementalCompilationState {
       return nil
     }
 
-    if driver.parsedOptions.hasArgument(.driverShowIncremental) || driver.showJobLifecycle {
+    if options.contains(.showIncremental) {
       self.reporter = Reporter(diagnosticEngine: driver.diagnosticEngine,
                                outputFileMap: driver.outputFileMap)
     } else {
       self.reporter = nil
     }
 
-    self.isCrossModuleIncrementalBuildEnabled =
-      driver.parsedOptions.contains(.enableExperimentalCrossModuleIncrementalBuild)
     reporter?.report(
-      "\(self.isCrossModuleIncrementalBuildEnabled ? "Enabling" : "Disabling") incremental cross-module building")
+      "\(options.contains(.enableCrossModuleIncrementalBuild) ? "Enabling" : "Disabling") incremental cross-module building")
 
 
     guard let (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
@@ -75,18 +73,19 @@ public class IncrementalCompilationState {
       moduleDependencyGraph,
       inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources
     ) = Self.computeModuleDependencyGraph(
+      options,
       buildRecordInfo,
       outOfDateBuildRecord,
       outputFileMap,
-      &driver,
-      self.reporter,
-      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled)
+      driver,
+      self.reporter)
     else {
       return nil
     }
 
     (skippedCompileGroups: self.skippedCompileGroups,
      mandatoryJobsInOrder: self.mandatoryJobsInOrder) = try Self.computeInputsAndGroups(
+      options,
       jobsInPhases,
       &driver,
       buildRecordInfo,
@@ -101,14 +100,18 @@ public class IncrementalCompilationState {
     self.driver = driver
   }
 
+  @_spi(Testing) public var options: Options {
+    self.moduleDependencyGraph.options
+  }
+
 
   private static func computeModuleDependencyGraph(
+    _ options: Options,
     _ buildRecordInfo: BuildRecordInfo,
     _ outOfDateBuildRecord: BuildRecord,
     _ outputFileMap: OutputFileMap,
-    _ driver: inout Driver,
-    _ reporter: Reporter?,
-    isCrossModuleIncrementalBuildEnabled: Bool
+    _ driver: Driver,
+    _ reporter: Reporter?
   )
   -> (ModuleDependencyGraph,
       inputsHavingMalformedDependencySources: [TypedVirtualPath])?
@@ -123,12 +126,10 @@ public class IncrementalCompilationState {
       inputs: buildRecordInfo.compilationInputModificationDates.keys,
       previousInputs: outOfDateBuildRecord.allInputs,
       outputFileMap: outputFileMap,
-      parsedOptions: &driver.parsedOptions,
+      options: options,
       remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
       reporter: reporter,
-      fileSystem: driver.fileSystem,
-      isCrossModuleIncrementalBuildEnabled: isCrossModuleIncrementalBuildEnabled
-      )
+      fileSystem: driver.fileSystem)
     else {
       return nil
     }
@@ -147,6 +148,7 @@ public class IncrementalCompilationState {
   }
 
   private static func computeInputsAndGroups(
+    _ options: Options,
     _ jobsInPhases: JobsInPhases,
     _ driver: inout Driver,
     _ buildRecordInfo: BuildRecordInfo,
@@ -168,7 +170,7 @@ public class IncrementalCompilationState {
       inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
       moduleDependencyGraph: moduleDependencyGraph,
       outOfDateBuildRecord: outOfDateBuildRecord,
-      alwaysRebuildDependents: driver.parsedOptions.contains(.driverAlwaysRebuildDependents),
+      alwaysRebuildDependents: options.contains(.alwaysRebuildDependents),
       reporter: reporter)
 
     let skippedCompileGroups = compileGroups.filter {skippedInputs.contains($0.key)}
@@ -697,5 +699,39 @@ extension IncrementalCompilationState {
     func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
       report("Incremental compilation has been disabled, \(why)")
     }
+  }
+}
+
+extension IncrementalCompilationState {
+  /// Options that control the behavior of various aspects of the
+  /// incremental build.
+  public struct Options: OptionSet {
+    public var rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
+    /// Be maximally conservative about rebuilding dependents of dirtied files
+    /// during the incremental build. Dependent files are always scheduled to
+    /// rebuild.
+    public static let alwaysRebuildDependents                = Options(rawValue: 1 << 0)
+    /// Print incremental build decisions as remarks.
+    public static let showIncremental                        = Options(rawValue: 1 << 1)
+    /// After integrating each source file dependency graph into the driver's
+    /// module dependency graph, dump a dot file to the current working
+    /// directory showing the state of the driver's dependency graph.
+    ///
+    /// FIXME: This option is not yet implemented.
+    public static let emitDependencyDotFileAfterEveryImport  = Options(rawValue: 1 << 2)
+    /// After integrating each source file dependency graph, verifies the
+    /// integrity of the driver's dependency graph and aborts if any errors
+    /// are detected.
+    public static let verifyDependencyGraphAfterEveryImport  = Options(rawValue: 1 << 3)
+    /// Enables the cross-module incremental build infrastructure.
+    ///
+    /// FIXME: This option is transitory. We intend to make this the
+    /// default behavior. This option should flip to a "disable" bit after that.
+    public static let enableCrossModuleIncrementalBuild      = Options(rawValue: 1 << 4)
   }
 }

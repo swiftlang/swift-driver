@@ -876,15 +876,13 @@ enum MockDependencyKind {
 
 extension ModuleDependencyGraph {
 
-  convenience init(mock diagnosticEngine: DiagnosticsEngine,
-                   verifyDependencyGraphAfterEveryImport: Bool = true,
-                   emitDependencyDotFileAfterEveryImport: Bool = false) {
-    self.init(
-      diagnosticEngine: diagnosticEngine,
-      reporter: nil,
-      isCrossModuleIncrementalBuildEnabled: false,
-      emitDependencyDotFileAfterEveryImport: false,
-      verifyDependencyGraphAfterEveryImport: true)
+  convenience init(
+    mock diagnosticEngine: DiagnosticsEngine,
+    options: IncrementalCompilationState.Options = [ .verifyDependencyGraphAfterEveryImport ]
+  ) {
+    self.init(diagnosticEngine: diagnosticEngine,
+              reporter: nil,
+              options: options)
   }
 
 
@@ -925,9 +923,8 @@ extension ModuleDependencyGraph {
     _ dependencyDescriptions: [MockDependencyKind: [String]],
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
-    hadCompilationError: Bool = false)
-  -> Integrator.Results
-  {
+    hadCompilationError: Bool = false
+  ) -> Integrator.Results {
     let dependencySource = DependencySource(mock: swiftDepsIndex)
     let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
@@ -939,11 +936,9 @@ extension ModuleDependencyGraph {
       interfaceHash: interfaceHash,
       dependencyDescriptions)
 
-    return Integrator.integrate(
-      from: sfdg,
-      dependencySource: dependencySource,
-      into: self,
-      isCrossModuleIncrementalBuildEnabled: false)
+    return Integrator.integrate(from: sfdg,
+                                dependencySource: dependencySource,
+                                into: self)
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
