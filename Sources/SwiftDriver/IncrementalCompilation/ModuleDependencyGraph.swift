@@ -130,8 +130,7 @@ extension ModuleDependencyGraph {
     precondition(dependencySource.typedFile.type == .swiftDeps)
     guard let sourceGraph = dependencySource.read(
             in: fileSystem,
-            reporter: reporter,
-            diagnosticEngine: diagnosticEngine)
+            reporter: reporter)
     else {
       return nil
     }
@@ -189,8 +188,7 @@ extension ModuleDependencyGraph {
                      dependencySource.typedFile)
     guard let sourceGraph = dependencySource.read(
             in: fileSystem,
-            reporter: reporter,
-            diagnosticEngine: diagnosticEngine)
+            reporter: reporter)
     else {
       return nil
     }

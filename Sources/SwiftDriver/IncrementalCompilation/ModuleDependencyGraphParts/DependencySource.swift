@@ -62,8 +62,7 @@ extension DependencySource {
   /// Returns nil if no dependency info there.
   public func read(
     in fileSystem: FileSystem,
-    reporter: IncrementalCompilationState.Reporter?,
-    diagnosticEngine: DiagnosticsEngine
+    reporter: IncrementalCompilationState.Reporter?
   ) -> SourceFileDependencyGraph? {
     let graphIfPresent: SourceFileDependencyGraph?
     do {
@@ -73,7 +72,6 @@ extension DependencySource {
     }
     catch {
       let msg = "Could not read \(file) \(error.localizedDescription)"
-      diagnosticEngine.emit(warning: msg)
       reporter?.report(msg, typedFile)
       return nil
     }

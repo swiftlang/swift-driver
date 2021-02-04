@@ -1103,10 +1103,10 @@ fileprivate struct SourceFileDependencyGraphMocker {
   private mutating func findExistingNodeOrCreateIfNew(_ key: DependencyKey, _ fingerprint: String?,
                                                       isProvides: Bool) -> Node {
     func createNew() -> Node {
-      let n = Node(key: key, fingerprint: fingerprint,
-                   sequenceNumber: allNodes.count,
-                   defsIDependUpon: [],
-                   isProvides: isProvides)
+      let n = try! Node(key: key, fingerprint: fingerprint,
+                        sequenceNumber: allNodes.count,
+                        defsIDependUpon: [],
+                        isProvides: isProvides)
       allNodes.append(n)
       memoizedNodes[key] = n
       return n
