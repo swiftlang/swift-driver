@@ -22,12 +22,12 @@ extension Driver {
     try commandLine.appendAll(.l, .framework, .L, from: &parsedOptions)
 
     // Squash important frontend options into a single argument for LLDB.
-    let lldbCommandLine: [Job.ArgTemplate] = [.squashedArgumentList(option: "--repl=", args: commandLine)]
+    let lldbArg = "--repl=\(commandLine.joinedArguments)"
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .repl,
       tool: .absolute(try toolchain.getToolPath(.lldb)),
-      commandLine: lldbCommandLine,
+      commandLine: [Job.ArgTemplate.flag(lldbArg)],
       inputs: inputs,
       primaryInputs: [],
       outputs: [],
