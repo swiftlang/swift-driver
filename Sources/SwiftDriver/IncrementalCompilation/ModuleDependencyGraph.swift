@@ -183,7 +183,6 @@ extension ModuleDependencyGraph {
     guard externalDependency.isIncremental else {
       return Integrator.Results()
     }
-    #warning("remove the !")
     let file = externalDependency.externalDependency.file!
     let dependencySource = DependencySource(file)
     reporter?.report("integrating incremental external dependency",

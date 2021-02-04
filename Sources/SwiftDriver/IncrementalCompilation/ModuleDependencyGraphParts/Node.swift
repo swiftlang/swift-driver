@@ -66,7 +66,6 @@ extension ModuleDependencyGraph {
       self.fingerprint = fingerprint
       self.dependencySource = dependencySource
 
-      #warning("how best to handle an error here")
       try! verifyKeyAndFingerprint()
     }
   }
