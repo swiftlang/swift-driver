@@ -289,21 +289,6 @@ final class JobExecutorTests: XCTestCase {
     }
   }
 
-  func testShellEscapingArgsInJobDescription() throws {
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: [:])
-    let job = Job(moduleName: "Module",
-                  kind: .compile,
-                  tool: .absolute(.init("/path/to/the tool")),
-                  commandLine: [.path(.absolute(.init("/with space"))),
-                                .path(.absolute(.init("/withoutspace")))],
-                  inputs: [], primaryInputs: [], outputs: [])
-    XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
-                   "'/path/to/the tool' '/with space' /withoutspace")
-  }
-
   func testInputModifiedDuringMultiJobBuild() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
@@ -342,18 +327,6 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertEqual(resolvedOnce, resolvedTwice)
       let readContents2 = try localFileSystem.readFileContents(.init(validating: resolvedTwice))
       XCTAssertEqual(readContents2, readContents)
-    }
-  }
-
-  func testResolveSquashedArgs() throws {
-    try withTemporaryDirectory { path in
-      let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
-      let tmpPath = VirtualPath.temporaryWithKnownContents(.init("one.txt"), "hello, world!".data(using: .utf8)!)
-      let tmpPath2 = VirtualPath.temporaryWithKnownContents(.init("two.txt"), "goodbye!".data(using: .utf8)!)
-      let resolvedCommandLine = try resolver.resolve(
-        .squashedArgumentList(option: "--opt=", args: [.path(tmpPath), .path(tmpPath2)]))
-      XCTAssertEqual(resolvedCommandLine, "--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)")
-      XCTAssertEqual(resolvedCommandLine.spm_shellEscaped(), "'--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)'")
     }
   }
 
