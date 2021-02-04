@@ -749,9 +749,8 @@ extension ModuleDependencyGraph {
         }
       }
 
-      for edp in graph.externalDependencies {
-        self.addIdentifier(edp.externalDependency.fileName)
-        #warning("serialize the fingerprint")
+      for path in graph.externalDependencies {
+        self.addIdentifier(path.fileName)
       }
 
       for str in self.identifiersToWrite {
