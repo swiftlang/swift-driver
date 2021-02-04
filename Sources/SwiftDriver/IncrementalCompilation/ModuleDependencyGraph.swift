@@ -149,9 +149,6 @@ extension ModuleDependencyGraph {
       guard graph.externalDependencies.insert(edp).inserted else {
         continue
       }
-      guard edp.isIncremental else {
-        continue
-      }
       let resultIfOK = integrate(
         edp: edp,
         into: graph,
@@ -179,9 +176,13 @@ extension ModuleDependencyGraph {
     fileSystem: FileSystem
   ) -> Integrator.Results? {
     #warning("do something better than !")
+    // Save time; don't even try
+    guard edp.isIncremental else {
+      return Integrator.Results()
+    }
     let file = edp.externalDependency.file!
     let dependencySource = DependencySource(TypedVirtualPath(file: file, type: .swiftModule))
-    reporter?.report("integrating incrementalExperimentalDependency", dependencySource.typedFile)
+    reporter?.report("integrating incremental external dependency", dependencySource.typedFile)
     let results = Integrator.integrate(
       dependencySource: dependencySource,
       into: graph,

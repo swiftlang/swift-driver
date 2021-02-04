@@ -71,11 +71,18 @@ extension ModuleDependencyGraph.Integrator {
     fileSystem: FileSystem,
     options: IncrementalCompilationState.Options
   ) -> Results? {
-    guard let sfdg = try? SourceFileDependencyGraph.read(
-            from: dependencySource, on: fileSystem)
-    else {
-      reporter?.report("Could not read \(dependencySource)", input)
+    let sfdgIfAny: SourceFileDependencyGraph?
+    do {
+      sfdgIfAny = try SourceFileDependencyGraph.read(from: dependencySource,
+                                                on: fileSystem)
+    }
+    catch {
+      reporter?.report("Could not read incremental cross-module dependency source \(dependencySource) \(error.localizedDescription)")
       return nil
+    }
+    guard let sfdg = sfdgIfAny else {
+      // none to be read
+      return Results()
     }
     return integrate(from: sfdg,
                      dependencySource: dependencySource,
@@ -211,7 +218,7 @@ extension ModuleDependencyGraph.Integrator {
         return
       }
       // Check both in case we reread a prior ModDepGraph from a different mode
-      let extDepAndPrint = Graph.ExtDepAndPrint(externalDependency, sourceFileUseNode.fingerprint)
+      let extDepAndPrint = Graph.ExtDepAndPrint(externalDependency, def.fingerprint)
       let isKnown = destination.externalDependencies.contains(extDepAndPrint)
       guard !isKnown else {return}
 
