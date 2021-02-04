@@ -18,7 +18,7 @@ import SwiftOptions
 /// compilation record).
 ///
 /// This info is always written, but only read for incremental compilation.
-final class BuildRecordInfo {
+@_spi(Testing) public final class BuildRecordInfo {
   /// A pair of a `Job` and the `ProcessResult` corresponding to the outcome of
   /// its execution during this compilation session.
   struct JobResult {
@@ -122,16 +122,19 @@ final class BuildRecordInfo {
   }
 
   /// Write out the build record.
-  /// `Jobs` must include all of the compilation jobs.
-  /// `Inputs` will hold all the primary inputs that were not compiled because of incremental compilation
-  func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>? ) {
+  ///
+  /// - Parameters:
+  ///   - jobs: All compilation jobs formed during this build.
+  ///   - skippedInputs: All primary inputs that were not compiled because the
+  ///                    incremental build plan determined they could be
+  ///                    skipped.
+  func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>?) {
     guard let absPath = buildRecordPath.absolutePath else {
       diagnosticEngine.emit(
         .warning_could_not_write_build_record_not_absolutePath(buildRecordPath))
       return
     }
     preservePreviousBuildRecord(absPath)
-    
 
     let buildRecord = self.confinementQueue.sync {
       BuildRecord(
@@ -155,7 +158,7 @@ final class BuildRecordInfo {
     } catch {
       diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
     }
- }
+  }
 
   /// Before writing to the dependencies file path, preserve any previous file
   /// that may have been there. No error handling -- this is just a nicety, it

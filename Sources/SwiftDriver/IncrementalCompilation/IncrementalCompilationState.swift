@@ -63,60 +63,215 @@ public class IncrementalCompilationState {
       "\(options.contains(.enableCrossModuleIncrementalBuild) ? "Enabling" : "Disabling") incremental cross-module building")
 
 
-    guard let (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
-            = try driver.getBuildInfo(self.reporter)
+    guard let outputFileMap = driver.outputFileMap else {
+      driver.diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
+      return nil
+    }
+
+    guard let buildRecordInfo = driver.buildRecordInfo else {
+      reporter?.reportDisablingIncrementalBuild("no build record path")
+      return nil
+    }
+
+    // FIXME: This should work without an output file map. We should have
+    // another way to specify a build record and where to put intermediates.
+    let maybeBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
+            inputFiles: driver.inputFiles, reporter: reporter)
+
+
+    guard
+      let initial = try Self.computeInitialState(options,
+                                                 jobsInPhases,
+                                                 outputFileMap,
+                                                 buildRecordInfo,
+                                                 maybeBuildRecord,
+                                                 &driver,
+                                                 self.reporter)
     else {
       return nil
     }
 
-    guard let (
-      moduleDependencyGraph,
-      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources
-    ) = Self.computeModuleDependencyGraph(
-      options,
-      buildRecordInfo,
-      outOfDateBuildRecord,
-      outputFileMap,
-      driver,
-      self.reporter)
-    else {
-      return nil
-    }
-
-    (skippedCompileGroups: self.skippedCompileGroups,
-     mandatoryJobsInOrder: self.mandatoryJobsInOrder) = try Self.computeInputsAndGroups(
-      options,
-      jobsInPhases,
-      &driver,
-      buildRecordInfo,
-      outOfDateBuildRecord,
-      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
-      moduleDependencyGraph,
-      self.reporter)
-
+    self.skippedCompileGroups = initial.skippedCompileGroups
+    self.mandatoryJobsInOrder = initial.mandatoryJobsInOrder
     self.unfinishedJobs = Set(self.mandatoryJobsInOrder)
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
-    self.moduleDependencyGraph = moduleDependencyGraph
+    self.moduleDependencyGraph = initial.graph
     self.driver = driver
   }
 
   @_spi(Testing) public var options: Options {
     self.moduleDependencyGraph.options
   }
+}
 
+// MARK: - Initial State
 
-  private static func computeModuleDependencyGraph(
+extension IncrementalCompilationState {
+  /// The initial state of an incremental compilation plan.
+  @_spi(Testing) public struct InitialState {
+    /// The dependency graph.
+    ///
+    /// In a status quo build, the dependency graph is derived from the state
+    /// of the build record, which points to all files built in the prior build.
+    /// When this information is combined with the output file map, swiftdeps
+    /// files can be located and loaded into the graph.
+    ///
+    /// In a cross-module build, the dependency graph is derived from prior
+    /// state that is serialized alongside the build record.
+    let graph: ModuleDependencyGraph
+    /// The set of compile jobs we can definitely skip given the state of the
+    /// incremental dependency graph and the status of the input files for this
+    /// incremental build.
+    let skippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
+    /// All of the pre-compile or compilation job (groups) known to be required
+    /// for the first wave to execute.
+    let mandatoryJobsInOrder: [Job]
+  }
+
+  @_spi(Testing) public static func computeInitialState(
     _ options: Options,
-    _ buildRecordInfo: BuildRecordInfo,
-    _ outOfDateBuildRecord: BuildRecord,
+    _ jobsInPhases: JobsInPhases,
     _ outputFileMap: OutputFileMap,
-    _ driver: Driver,
+    _ buildRecordInfo: BuildRecordInfo,
+    _ maybeBuildRecord: BuildRecord?,
+    _ driver: inout Driver,
     _ reporter: Reporter?
-  )
-  -> (ModuleDependencyGraph,
-      inputsHavingMalformedDependencySources: [TypedVirtualPath])?
-  {
+  ) throws -> InitialState? {
+    if options.contains(.readPriorsFromModuleDependencyGraph) {
+      return try Self.computeInitialStateFromModuleDependencyGraph(options,
+                                                                   jobsInPhases,
+                                                                   outputFileMap,
+                                                                   buildRecordInfo,
+                                                                   maybeBuildRecord,
+                                                                   &driver,
+                                                                   reporter)
+    } else {
+      return try Self.computeInitialStateForStatusQuoBuild(options,
+                                                           jobsInPhases,
+                                                           outputFileMap,
+                                                           buildRecordInfo,
+                                                           maybeBuildRecord,
+                                                           &driver,
+                                                           reporter)
+    }
+  }
+
+  private static func computeInitialStateFromModuleDependencyGraph(
+    _ options: Options,
+    _ jobsInPhases: JobsInPhases,
+    _ outputFileMap: OutputFileMap,
+    _ buildRecordInfo: BuildRecordInfo,
+    _ maybeBuildRecord: BuildRecord?,
+    _ driver: inout Driver,
+    _ reporter: Reporter?
+  ) throws -> InitialState? {
+    precondition(options.contains(.readPriorsFromModuleDependencyGraph))
     let diagnosticEngine = driver.diagnosticEngine
+    // If we cannot compute this path, it means the build record path was not
+    // provided to the driver, which our caller detects for us.
+    let absPath = driver.driverDependencyGraphPath!
+
+    // Try to read the serialized prior module dependency graph and build
+    // record.
+    guard
+      let deserializedGraph = try? ModuleDependencyGraph.read(
+          from: absPath,
+          on: driver.fileSystem,
+          diagnosticEngine: diagnosticEngine,
+          reporter: reporter,
+          options: options),
+      let outOfDateBuildRecord = maybeBuildRecord
+    else {
+      // We failed to read the components we need for the incremental build -
+      // just schedule every file to build!
+      reporter?.reportDisablingIncrementalBuild("Could not read priors from \(absPath)")
+      return try Self.initialStateRecoveringFromReadFailure(options,
+                                                            jobsInPhases,
+                                                            outputFileMap,
+                                                            &driver,
+                                                            reporter)
+    }
+
+    // Success! Let's try to go through the same path as the status quo.
+    let (skippedCompileGroups, mandatoryJobsInOrder)
+      = try Self.computeInputsAndGroups(options,
+                                        jobsInPhases,
+                                        &driver,
+                                        buildRecordInfo,
+                                        outOfDateBuildRecord,
+                                        // We're not reading swiftdeps files at all!
+                                        inputsHavingMalformedDependencySources: [],
+                                        deserializedGraph,
+                                        reporter)
+    return InitialState(graph: deserializedGraph,
+                        skippedCompileGroups: skippedCompileGroups,
+                        mandatoryJobsInOrder: mandatoryJobsInOrder)
+  }
+
+
+  private static func initialStateRecoveringFromReadFailure(
+    _ options: Options,
+    _ jobsInPhases: JobsInPhases,
+    _ outputFileMap: OutputFileMap,
+    _ driver: inout Driver,
+    _ reporter: Reporter?
+  ) throws -> IncrementalCompilationState.InitialState? {
+    let emptyGraph = ModuleDependencyGraph.buildEmptyGraph(
+      for: driver.inputFiles,
+      diagnosticEngine: driver.diagnosticEngine,
+      outputFileMap: outputFileMap,
+      options: options,
+      reporter: reporter,
+      filesystem: driver.fileSystem)
+
+    let compileGroups =
+      Dictionary(uniqueKeysWithValues:
+                  jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
+
+    let mandatoryCompileGroupsInOrder = driver.inputFiles.compactMap { input -> CompileJobGroup? in
+      compileGroups[input]
+    }
+
+    let mandatoryJobsInOrder = try
+      jobsInPhases.beforeCompiles +
+      driver.formBatchedJobs(
+        mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
+        showJobLifecycle: driver.showJobLifecycle)
+
+    return InitialState(graph: emptyGraph,
+                        skippedCompileGroups: [:],
+                        mandatoryJobsInOrder: mandatoryJobsInOrder)
+  }
+
+  private static func computeInitialStateForStatusQuoBuild(
+    _ options: Options,
+    _ jobsInPhases: JobsInPhases,
+    _ outputFileMap: OutputFileMap,
+    _ buildRecordInfo: BuildRecordInfo,
+    _ maybeBuildRecord: BuildRecord?,
+    _ driver: inout Driver,
+    _ reporter: Reporter?
+  ) throws -> InitialState? {
+    precondition(!options.contains(.readPriorsFromModuleDependencyGraph))
+    let diagnosticEngine = driver.diagnosticEngine
+
+    // FIXME: This should work without an output file map. We should have
+    // another way to specify a build record and where to put intermediates.
+    guard let outOfDateBuildRecord = maybeBuildRecord else {
+      return nil
+    }
+
+    let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(driver.inputFiles.map {$0.file})
+    guard missingInputs.isEmpty else {
+      if let reporter = reporter {
+        reporter.report(
+          "Incremental compilation has been disabled, " +
+          " because  the following inputs were used in the previous compilation but not in this one: "
+            + missingInputs.map {$0.basename} .joined(separator: ", "))
+      }
+      return nil
+    }
+
     guard let (
       moduleDependencyGraph,
       inputsAndMalformedSwiftDeps: inputsAndMalformedSwiftDeps
@@ -143,8 +298,19 @@ public class IncrementalCompilationState {
       return nil
     }
     let inputsHavingMalformedDependencySources = inputsAndMalformedSwiftDeps.map {$0.0}
-    return (moduleDependencyGraph,
-            inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources)
+
+    let (skippedCompileGroups, mandatoryJobsInOrder) = try Self.computeInputsAndGroups(
+      options,
+      jobsInPhases,
+      &driver,
+      buildRecordInfo,
+      outOfDateBuildRecord,
+      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
+      moduleDependencyGraph,
+      reporter)
+    return InitialState(graph: moduleDependencyGraph,
+                        skippedCompileGroups: skippedCompileGroups,
+                        mandatoryJobsInOrder: mandatoryJobsInOrder)
   }
 
   private static func computeInputsAndGroups(
@@ -213,39 +379,6 @@ fileprivate extension Driver {
     }
     return true
   }
-
-  /// Decide if an incremental compilation is possible, and return needed values if so.
-  func getBuildInfo(
-    _ reporter: IncrementalCompilationState.Reporter?
-  ) throws -> (OutputFileMap, BuildRecordInfo, BuildRecord)? {
-    guard let outputFileMap = outputFileMap
-    else {
-      diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
-      return nil
-    }
-    guard let buildRecordInfo = buildRecordInfo else {
-      reporter?.reportDisablingIncrementalBuild("no build record path")
-      return nil
-    }
-    // FIXME: This should work without an output file map. We should have
-    // another way to specify a build record and where to put intermediates.
-    guard let outOfDateBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
-            inputFiles: inputFiles, reporter: reporter)
-    else {
-      return nil
-    }
-    if let reporter = reporter {
-      let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(inputFiles.map {$0.file})
-      guard missingInputs.isEmpty else {
-        reporter.report(
-          "Incremental compilation has been disabled, " +
-          " because  the following inputs were used in the previous compilation but not in this one: "
-            + missingInputs.map {$0.basename} .joined(separator: ", "))
-        return nil
-      }
-    }
-    return (outputFileMap, buildRecordInfo, outOfDateBuildRecord)
-  }
 }
 
 fileprivate extension CompilerMode {
@@ -276,6 +409,10 @@ extension Diagnostic.Message {
 
   fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
+  }
+
+  fileprivate static var warning_could_not_write_dependency_graph: Diagnostic.Message {
+    .warning("next compile won't be incremental; could not write dependency graph")
   }
 }
 
@@ -691,6 +828,8 @@ extension IncrementalCompilationState {
   }
 }
 
+// MARK: - Remarks
+
 extension IncrementalCompilationState {
   /// Options that control the behavior of various aspects of the
   /// incremental build.
@@ -722,5 +861,34 @@ extension IncrementalCompilationState {
     /// FIXME: This option is transitory. We intend to make this the
     /// default behavior. This option should flip to a "disable" bit after that.
     public static let enableCrossModuleIncrementalBuild      = Options(rawValue: 1 << 4)
+    /// Enables an optimized form of start-up for the incremental build state
+    /// that reads the dependency graph from a serialized format on disk instead
+    /// of reading O(N) swiftdeps files.
+    public static let readPriorsFromModuleDependencyGraph    = Options(rawValue: 1 << 5)
+  }
+}
+
+// MARK: - Serialization
+
+extension IncrementalCompilationState {
+  @_spi(Testing) public func writeDependencyGraph() {
+    // If the cross-module build is not enabled, the status quo dictates we
+    // not emit this file.
+    guard self.options.contains(.enableCrossModuleIncrementalBuild) else {
+      return
+    }
+
+    guard
+      let recordInfo = self.driver.buildRecordInfo,
+      let absPath = self.driver.driverDependencyGraphPath
+    else {
+      self.driver.diagnosticEngine.emit(
+        .warning_could_not_write_dependency_graph)
+      return
+    }
+
+    self.moduleDependencyGraph.write(to: absPath,
+                                     on: self.driver.fileSystem,
+                                     compilerVersion: recordInfo.actualSwiftVersion)
   }
 }
