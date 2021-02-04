@@ -67,10 +67,15 @@ public final class ArgsResolver {
       return try lock.withLock {
         return try unsafeResolve(path: path)
       }
+
     case .responseFilePath(let path):
       return "@\(try resolve(.path(path)))"
+
     case let .joinedOptionAndPath(option, path):
       return option + (try resolve(.path(path)))
+
+    case let .squashedArgumentList(option: option, args: args):
+      return try option + args.map{ try resolve($0) }.joined(separator: " ")
     }
   }
 

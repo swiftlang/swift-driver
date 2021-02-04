@@ -49,6 +49,9 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Represents a joined option+path combo.
     case joinedOptionAndPath(String, VirtualPath)
+
+    /// Represents a list of arguments squashed together and passed as a single argument.
+    case squashedArgumentList(option: String, args: [ArgTemplate])
   }
 
   /// The Swift module this job involves.
@@ -234,10 +237,14 @@ extension Job.Kind {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path, responseFilePath, joinedOptionAndPath
+    case flag, path, responseFilePath, joinedOptionAndPath, squashedArgumentList
 
     enum JoinedOptionAndPathCodingKeys: String, CodingKey {
       case option, path
+    }
+
+    enum SquashedArgumentListCodingKeys: String, CodingKey {
+      case option, args
     }
   }
 
@@ -259,6 +266,12 @@ extension Job.ArgTemplate: Codable {
         forKey: .joinedOptionAndPath)
       try keyedContainer.encode(option, forKey: .option)
       try keyedContainer.encode(path, forKey: .path)
+    case .squashedArgumentList(option: let option, args: let args):
+      var keyedContainer = container.nestedContainer(
+        keyedBy: CodingKeys.SquashedArgumentListCodingKeys.self,
+        forKey: .squashedArgumentList)
+      try keyedContainer.encode(option, forKey: .option)
+      try keyedContainer.encode(args, forKey: .args)
     }
   }
 
@@ -286,6 +299,12 @@ extension Job.ArgTemplate: Codable {
         forKey: .joinedOptionAndPath)
       self = .joinedOptionAndPath(try keyedValues.decode(String.self, forKey: .option),
                                   try keyedValues.decode(VirtualPath.self, forKey: .path))
+    case .squashedArgumentList:
+      let keyedValues = try values.nestedContainer(
+        keyedBy: CodingKeys.SquashedArgumentListCodingKeys.self,
+        forKey: .squashedArgumentList)
+      self = .squashedArgumentList(option: try keyedValues.decode(String.self, forKey: .option),
+                                   args: try keyedValues.decode([Job.ArgTemplate].self, forKey: .args))
     }
   }
 }
