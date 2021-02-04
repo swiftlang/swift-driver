@@ -71,19 +71,19 @@ extension SourceFileDependencyGraph {
       sequenceNumber: Int,
       defsIDependUpon: [Int],
       isProvides: Bool
-    ) {
+    ) throws {
       self.key = key
       self.fingerprint = fingerprint
       self.sequenceNumber = sequenceNumber
       self.defsIDependUpon = defsIDependUpon
       self.isProvides = isProvides
 
-      #warning("how best to handle an error here")
-      try! verifyKeyAndFingerprint()
+      try verifyKeyAndFingerprint()
     }
     
     public func verify() {
       key.verify()
+      try! verifyKeyAndFingerprint()
       
       if case .sourceFileProvide = key.designator {
         switch key.aspect {
@@ -240,11 +240,11 @@ extension SourceFileDependencyGraph {
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier)
           let key = DependencyKey(aspect: declAspect, designator: designator)
-          node = Node(key: key,
-                      fingerprint: nil,
-                      sequenceNumber: sequenceNumber,
-                      defsIDependUpon: [],
-                      isProvides: isProvides)
+          node = try Node(key: key,
+                          fingerprint: nil,
+                          sequenceNumber: sequenceNumber,
+                          defsIDependUpon: [],
+                          isProvides: isProvides)
           sequenceNumber += 1
         case .fingerprintNode:
           guard node != nil,
