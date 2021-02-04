@@ -28,11 +28,11 @@ extension ModuleDependencyGraph {
     }
     init(_ file: VirtualPath) {
       let ext = file.extension
-      let type =
+      let typeIfExpected =
         ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
         ext == FileType.swiftModule.rawValue ? FileType.swiftModule
         : nil
-      guard let type = type else {
+      guard let type = typeIfExpected else {
         fatalError("unexpected dependencySource extension: \(String(describing: ext))")
       }
       self.init(TypedVirtualPath(file: file, type: type))
