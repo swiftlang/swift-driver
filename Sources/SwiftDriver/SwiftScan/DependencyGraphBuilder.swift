@@ -89,11 +89,9 @@ private extension SwiftScan {
     // Decode module path and source file locations
     let modulePathStr = try toSwiftString(api.swiftscan_module_info_get_module_path(moduleInfoRef))
     let modulePath = TextualVirtualPath(path: try VirtualPath(path: modulePathStr))
-    let sourceFiles: [TextualVirtualPath]?
+    let sourceFiles: [String]?
     if let sourceFilesSetRef = api.swiftscan_module_info_get_source_files(moduleInfoRef) {
-      sourceFiles = try toSwiftStringArray(sourceFilesSetRef.pointee).map {
-        TextualVirtualPath(path: try VirtualPath(path: $0))
-      }
+      sourceFiles = try toSwiftStringArray(sourceFilesSetRef.pointee)
     } else {
       sourceFiles = nil
     }

@@ -167,7 +167,7 @@ public struct ModuleInfo: Codable {
   public var modulePath: TextualVirtualPath
 
   /// The source files used to build this module.
-  public var sourceFiles: [TextualVirtualPath]?
+  public var sourceFiles: [String]?
 
   /// The set of direct module dependencies of this module.
   public var directDependencies: [ModuleDependencyId]?
@@ -193,7 +193,7 @@ public struct ModuleInfo: Codable {
   }
 
   public init(modulePath: TextualVirtualPath,
-              sourceFiles: [TextualVirtualPath]?,
+              sourceFiles: [String]?,
               directDependencies: [ModuleDependencyId]?,
               details: Details) {
     self.modulePath = modulePath
