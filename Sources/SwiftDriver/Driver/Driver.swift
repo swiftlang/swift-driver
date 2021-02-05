@@ -201,6 +201,22 @@ public struct Driver {
   /// Only used for reading when compiling incrementally.
   let buildRecordInfo: BuildRecordInfo?
 
+  /// A build-record-relative path to the location of a serialized copy of the
+  /// driver's dependency graph.
+  ///
+  /// FIXME: This is a little ridiculous. We could probably just replace the
+  /// build record outright with a serialized format.
+  var driverDependencyGraphPath: VirtualPath? {
+    guard let recordInfo = self.buildRecordInfo else {
+      return nil
+    }
+    let filename = recordInfo.buildRecordPath.basenameWithoutExt
+    return recordInfo
+      .buildRecordPath
+      .parentDirectory
+      .appending(component: filename + ".priors")
+  }
+  
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
@@ -910,6 +926,7 @@ extension Driver {
     if !childJobs.isEmpty {
       do {
         defer {
+          self.incrementalCompilationState?.writeDependencyGraph()
           buildRecordInfo?.writeBuildRecord(
             jobs,
             incrementalCompilationState?.skippedCompilationInputs)

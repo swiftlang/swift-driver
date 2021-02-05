@@ -55,7 +55,7 @@ struct CompileJobGroup {
   }
 }
 
-struct JobsInPhases {
+@_spi(Testing) public struct JobsInPhases {
   /// In WMO mode, also includes the multi-compile & its backends, since there are >1 backend jobs
   let beforeCompiles: [Job]
   let compileGroups: [CompileJobGroup]

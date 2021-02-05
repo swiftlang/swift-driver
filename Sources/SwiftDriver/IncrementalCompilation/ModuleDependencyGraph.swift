@@ -56,6 +56,37 @@ import SwiftOptions
 
 // MARK: - initial build only
 extension ModuleDependencyGraph {
+  /// Builds an empty `ModuleDependencyGraph` for a compilation with the
+  /// given input files.
+  static func buildEmptyGraph<Inputs: Sequence>(
+    for inputFiles: Inputs,
+    diagnosticEngine: DiagnosticsEngine,
+    outputFileMap: OutputFileMap,
+    options: IncrementalCompilationState.Options,
+    reporter: IncrementalCompilationState.Reporter?,
+    filesystem: FileSystem
+  ) -> ModuleDependencyGraph
+    where Inputs.Element == TypedVirtualPath
+  {
+    let emptyGraph = ModuleDependencyGraph(diagnosticEngine: diagnosticEngine,
+                                           reporter: reporter,
+                                           fileSystem: filesystem,
+                                           options: options)
+
+    for input in inputFiles {
+      guard let swiftDepsFile = outputFileMap.existingOutput(inputFile: input.file,
+                                                             outputType: .swiftDeps) else {
+        continue
+      }
+
+      assert(swiftDepsFile.extension == FileType.swiftDeps.rawValue)
+      let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsFile, type: .swiftDeps)
+      let dependencySource = DependencySource(typedSwiftDepsFile)
+      emptyGraph.inputDependencySourceMap[input] = dependencySource
+    }
+    return emptyGraph
+  }
+
   /// Builds a graph
   /// Returns nil if some input (i.e. .swift file) has no corresponding swiftdeps file.
   /// Returns a list of inputs whose swiftdeps files could not be read
@@ -63,7 +94,7 @@ extension ModuleDependencyGraph {
     diagnosticEngine: DiagnosticsEngine,
     inputs: Inputs,
     previousInputs: Set<VirtualPath>,
-    outputFileMap: OutputFileMap?,
+    outputFileMap: OutputFileMap,
     options: IncrementalCompilationState.Options,
     remarkDisabled: (String) -> Diagnostic.Message,
     reporter: IncrementalCompilationState.Reporter?,
@@ -81,8 +112,8 @@ extension ModuleDependencyGraph {
       options: options)
 
     let inputsAndSwiftdeps = inputs.map { input in
-      (input, outputFileMap?.existingOutput(inputFile: input.file,
-                                            outputType: .swiftDeps))
+      (input, outputFileMap.existingOutput(inputFile: input.file,
+                                           outputType: .swiftDeps))
     }
     for isd in inputsAndSwiftdeps where isd.1 == nil {
       // The legacy driver fails silently here.
@@ -426,7 +457,7 @@ extension ModuleDependencyGraph {
   /// - Throws: An error describing any failures to read the graph from the given file.
   /// - Returns: A fully deserialized ModuleDependencyGraph.
   static func read(
-    from path: AbsolutePath,
+    from path: VirtualPath,
     on fileSystem: FileSystem,
     diagnosticEngine: DiagnosticsEngine,
     reporter: IncrementalCompilationState.Reporter?,
@@ -617,7 +648,7 @@ extension ModuleDependencyGraph {
   ///   - compilerVersion: A string containing version information for the
   ///                      driver used to create this file.
   func write(
-    to path: AbsolutePath,
+    to path: VirtualPath,
     on fileSystem: FileSystem,
     compilerVersion: String
   ) {
@@ -1007,7 +1038,7 @@ fileprivate extension DependencyKey.Designator {
 
 extension Diagnostic.Message {
   fileprivate static func error_could_not_write_dep_graph(
-    to path: AbsolutePath
+    to path: VirtualPath
   ) -> Diagnostic.Message {
     .error("could not write driver dependency graph to \(path)")
   }

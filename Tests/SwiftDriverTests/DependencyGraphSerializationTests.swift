@@ -16,7 +16,7 @@ import TSCBasic
 
 class DependencyGraphSerializationTests: XCTestCase {
   func roundTrip(_ graph: ModuleDependencyGraph) throws {
-    let mockPath = AbsolutePath("/module-dependency-graph")
+    let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
     let de = DiagnosticsEngine()
     let fs = InMemoryFileSystem()
     graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
