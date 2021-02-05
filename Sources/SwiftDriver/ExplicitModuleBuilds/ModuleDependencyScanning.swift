@@ -13,6 +13,12 @@ import Foundation
 import TSCBasic
 import SwiftOptions
 
+extension Diagnostic.Message {
+  static func warn_scanner_frontend_fallback() -> Diagnostic.Message {
+    .warning("Fallback to `swift-frontend` dependency scanner invocation")
+  }
+}
+
 internal extension Driver {
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// dependency graph including all Swift and C module files and
@@ -39,7 +45,7 @@ internal extension Driver {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
-
+    commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
                                  bridgingHeaderHandling: .precompiled,
@@ -93,24 +99,36 @@ internal extension Driver {
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
 
-    if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
-      try interModuleDependencyOracle
+    // If `-nonlib-dependency-scanner` was specified or the libSwiftScan library cannot be found,
+    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
+    // scanning.
+    var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    if try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: try getScanLibPath(of: toolchain))
+                                       swiftScanLibPath: try getScanLibPath(of: toolchain)) == false {
+      fallbackToFrontend = true
+      diagnosticEngine.emit(.warn_scanner_frontend_fallback())
+    }
+
+    if (!fallbackToFrontend) {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: scannerJob,
                                            forceResponseFiles: forceResponseFiles,
                                            using: executor.resolver)
       // Remove the tool executable to only leave the arguments
       command.removeFirst()
+      // We generate full swiftc -frontend -scan-dependencies invocations in order to also be
+      // able to launch them as standalone jobs. Frontend's argument parser won't recognize
+      // -frontend when passed directly.
+      if command.first == "-frontend" {
+        command.removeFirst()
+      }
       dependencyGraph =
         try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
                                                         commandLine: command)
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
-      print("Dependency Scanner invocation:")
-      print(try executor.description(of: scannerJob, forceResponseFiles: false))
       dependencyGraph =
         try self.executor.execute(job: scannerJob,
                                   capturingJSONOutputAs: InterModuleDependencyGraph.self,
@@ -125,17 +143,31 @@ internal extension Driver {
     let batchScanningJob = try batchDependencyScanningJob(for: moduleInfos)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
 
-    let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]]
-    if (!parsedOptions.hasArgument(.driverScanDependenciesNonLib)) {
-      try interModuleDependencyOracle
+    // If `-nonlib-dependency-scanner` was specified or the libSwiftScan library cannot be found,
+    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
+    // scanning.
+    var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    if try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: try getScanLibPath(of: toolchain))
+                                       swiftScanLibPath: try getScanLibPath(of: toolchain)) == false {
+      fallbackToFrontend = true
+      diagnosticEngine.emit(.warn_scanner_frontend_fallback())
+    }
+
+    let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]]
+    if (!fallbackToFrontend) {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: batchScanningJob,
                                            forceResponseFiles: forceResponseFiles,
                                            using: executor.resolver)
       // Remove the tool executable to only leave the arguments
       command.removeFirst()
+      // We generate full swiftc -frontend -scan-dependencies invocations in order to also be
+      // able to launch them as standalone jobs. Frontend's argument parser won't recognize
+      // -frontend when passed directly.
+      if command.first == "-frontend" {
+        command.removeFirst()
+      }
       moduleVersionedGraphMap =
         try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
                                                              commandLine: command,
@@ -143,8 +175,6 @@ internal extension Driver {
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
-      print("Dependency Scanner (batch) invocation:")
-      print(try executor.description(of: batchScanningJob, forceResponseFiles: false))
       moduleVersionedGraphMap = try executeLegacyBatchScan(moduleInfos: moduleInfos,
                                                            batchScanningJob: batchScanningJob,
                                                            forceResponseFiles: forceResponseFiles)
@@ -203,6 +233,7 @@ internal extension Driver {
 
     // The dependency scanner automatically operates in batch mode if -batch-scan-input-file
     // is present.
+    commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
                                  bridgingHeaderHandling: .precompiled,
