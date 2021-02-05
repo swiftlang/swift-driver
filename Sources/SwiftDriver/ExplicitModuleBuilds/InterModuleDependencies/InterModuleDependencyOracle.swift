@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
+import Foundation
 
 // An inter-module dependency oracle, responsible for responding to queries about
 // dependencies of a given module, caching already-discovered dependencies along the way.
@@ -26,35 +27,73 @@ import TSCBasic
 //
 /// An abstraction of a cache and query-engine of inter-module dependencies
 public class InterModuleDependencyOracle {
-  /// Query the ModuleInfo of a module with a given ID
-  @_spi(Testing) public func getModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
-    self.lock.withLock {
-      return modules[moduleId]
+  /// Allow external clients to instantiate the oracle
+  public init() {}
+
+  @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
+                                             commandLine: [String])
+  throws -> InterModuleDependencyGraph {
+    precondition(hasScannerInstance)
+    return try queue.sync {
+      return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
+                                                       invocationCommand: commandLine)
     }
   }
 
-  /// Query the direct dependencies of a module with a given ID
-  @_spi(Testing) public func getDependencies(of moduleId: ModuleDependencyId)
-  -> [ModuleDependencyId]? {
-    return getModuleInfo(of: moduleId)?.directDependencies
+  @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
+                                                  commandLine: [String],
+                                                  batchInfos: [BatchScanModuleInfo])
+  throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
+    precondition(hasScannerInstance)
+    return try queue.sync {
+      return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
+                                                            invocationCommand: commandLine,
+                                                            batchInfos: batchInfos)
+    }
   }
 
-  // TODO: This will require a SwiftDriver entry-point for scanning a module given
-  // a command invocation and a set of source-files. As-is, the driver itself is responsible
-  // for executing individual module dependency-scanning actions and updating oracle state.
-  // (Implemented with InterModuleDependencyOracle::mergeModules extension)
-  //
-  // func getFullDependencies(inputs: [TypedVirtualPath],
-  //                          commandLine: [Job.ArgTemplate]) -> InterModuleDependencyGraph {}
-  //
+  /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
+  /// Returns True if a library instance exists (either verified or newly-created).
+  @_spi(Testing) public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
+                                                           swiftScanLibPath: AbsolutePath)
+  throws -> Bool {
+    return try queue.sync {
+      if swiftScanLibInstance == nil {
+        guard fileSystem.exists(swiftScanLibPath) else {
+          return false
+        }
+        swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
+      } else {
+        guard swiftScanLibInstance!.path == swiftScanLibPath else {
+          throw DependencyScanningError
+          .scanningLibraryInvocationMismatch(swiftScanLibInstance!.path, swiftScanLibPath)
+        }
+      }
+      return true
+    }
+  }
 
-  internal let lock = Lock()
+  private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
 
-  /// The complete set of modules discovered so far, spanning potentially multiple targets
-  internal var modules: ModuleInfoMap = [:]
+  /// Queue to sunchronize accesses to the scanner
+  internal let queue = DispatchQueue(label: "org.swift.swift-driver.swift-scan")
 
-  /// Allow external clients to instantiate the oracle
-  public init() {}
+  /// A reference to an instance of the compiler's libSwiftScan shared library
+  private var swiftScanLibInstance: SwiftScan? = nil
+
+  // The below API is a legacy implementation of the oracle that is in-place to allow clients to
+  // transition to the new API. It is to be removed once that transition is complete.
+  /// The complete set of modules discovered so far, spanning potentially multiple targets,
+  /// accumulated across builds of multiple targets.
+  /// TODO: This is currently only used for placeholder resolution. libSwiftScan should allow us to move away
+  /// from the concept of a placeholder module so we should be able to get rid of this in the future.
+  internal var externalModules: ModuleInfoMap = [:]
+  /// Query the ModuleInfo of a module with a given ID
+  @_spi(Testing) public func getExternalModuleInfo(of moduleId: ModuleDependencyId) -> ModuleInfo? {
+    queue.sync {
+      return externalModules[moduleId]
+    }
+  }
 }
 
 // This is a shim for backwards-compatibility with existing API used by SwiftPM.
@@ -66,7 +105,7 @@ extension Driver {
       InterModuleDependencyGraph(mainModuleName: moduleOutputInfo.name)
 
     addModule(moduleId: mainModuleId,
-              moduleInfo: interModuleDependencyOracle.getModuleInfo(of: mainModuleId)!,
+              moduleInfo: interModuleDependencyOracle.getExternalModuleInfo(of: mainModuleId)!,
               into: &mainModuleDependencyGraph)
     return mainModuleDependencyGraph
   }
@@ -77,7 +116,7 @@ extension Driver {
     dependencyGraph.modules[moduleId] = moduleInfo
     moduleInfo.directDependencies?.forEach { dependencyId in
       addModule(moduleId: dependencyId,
-                moduleInfo: interModuleDependencyOracle.getModuleInfo(of: dependencyId)!,
+                moduleInfo: interModuleDependencyOracle.getExternalModuleInfo(of: dependencyId)!,
                 into: &dependencyGraph)
     }
   }

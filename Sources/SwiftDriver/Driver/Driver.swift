@@ -13,7 +13,6 @@ import TSCBasic
 import TSCUtility
 import Foundation
 import SwiftOptions
-@_implementationOnly import _CSwiftDriver
 
 /// The Swift driver.
 public struct Driver {
@@ -124,6 +123,9 @@ public struct Driver {
 
   /// The target triple.
   @_spi(Testing) public var targetTriple: Triple { frontendTargetInfo.target.triple }
+
+  /// The host environment triple.
+  @_spi(Testing) public let hostTriple: Triple
 
   /// The variant target triple.
   var targetVariantTriple: Triple? {
@@ -402,6 +404,12 @@ public struct Driver {
           executor: self.executor, fileSystem: fileSystem,
           useStaticResourceDir: self.useStaticResourceDir)
 
+    // Compute the host machine's triple
+    self.hostTriple =
+      try Self.computeHostTriple(toolchain: self.toolchain,
+                                 executor: self.executor,
+                                 swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
+
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
     self.inputFiles = inputFiles
@@ -411,23 +419,6 @@ public struct Driver {
           .getFileInfo($0.file).modTime else { return nil }
         return ($0, modTime)
     })
-
-    // Create an instance of an inter-module dependency oracle, if the driver's
-    // client did not provide one. The clients are expected to provide an oracle
-    // when they wish to share module dependency information across targets.
-    if let dependencyOracle = interModuleDependencyOracle {
-      self.interModuleDependencyOracle = dependencyOracle
-    } else {
-      self.interModuleDependencyOracle = InterModuleDependencyOracle()
-
-      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
-      // used by SwiftPM
-      if let externalArtifacts = externalBuildArtifacts {
-        if !externalArtifacts.1.isEmpty {
-          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
-        }
-      }
-    }
 
     do {
       let outputFileMap: OutputFileMap?
@@ -447,6 +438,23 @@ public struct Driver {
         self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
       } else {
         self.outputFileMap = outputFileMap
+      }
+    }
+
+    // Create an instance of an inter-module dependency oracle, if the driver's
+    // client did not provide one. The clients are expected to provide an oracle
+    // when they wish to share module dependency information across targets.
+    if let dependencyOracle = interModuleDependencyOracle {
+      self.interModuleDependencyOracle = dependencyOracle
+    } else {
+      self.interModuleDependencyOracle = InterModuleDependencyOracle()
+
+      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
+      // used by SwiftPM
+      if let externalArtifacts = externalBuildArtifacts {
+        if !externalArtifacts.1.isEmpty {
+          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
+        }
       }
     }
 
@@ -2098,6 +2106,17 @@ extension Driver {
   #else
   static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
   #endif
+
+  static func computeHostTriple(toolchain: Toolchain,
+                                executor: DriverExecutor,
+                                swiftCompilerPrefixArgs: [String]) throws -> Triple {
+    return try executor.execute(
+      job: toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
+                                        swiftCompilerPrefixArgs: swiftCompilerPrefixArgs),
+      capturingJSONOutputAs: FrontendTargetInfo.self,
+      forceResponseFiles: false,
+      recordedInputModificationDates: [:]).target.triple
+  }
 
   static func computeToolchain(
     _ parsedOptions: inout ParsedOptions,

@@ -16,6 +16,9 @@ add_library(SwiftDriver
   "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyGraph.swift"
   "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyOracle.swift"
 
+  SwiftScan/DependencyGraphBuilder.swift
+  SwiftScan/SwiftScan.swift
+
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
   Driver/Driver.swift
@@ -101,7 +104,7 @@ target_link_libraries(SwiftDriver PUBLIC
 target_link_libraries(SwiftDriver PRIVATE
   CYaml
   Yams
-  CSwiftDriver)
+  CSwiftScan)
 
 set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriver)
 

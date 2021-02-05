@@ -21,7 +21,7 @@ private func checkExplicitModuleBuildJob(job: Job,
                                          pcmArgs: [String],
                                          moduleId: ModuleDependencyId,
                                          dependencyOracle: InterModuleDependencyOracle) throws {
-  let moduleInfo = dependencyOracle.getModuleInfo(of: moduleId)!
+  let moduleInfo = dependencyOracle.getExternalModuleInfo(of: moduleId)!
   var downstreamPCMArgs = pcmArgs
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
@@ -69,7 +69,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      dependencyOracle: InterModuleDependencyOracle
 ) throws {
   for dependencyId in moduleInfo.directDependencies! {
-    let dependencyInfo = dependencyOracle.getModuleInfo(of: dependencyId)!
+    let dependencyInfo = dependencyOracle.getExternalModuleInfo(of: dependencyId)!
     switch dependencyInfo.details {
       case .swift(let swiftDetails):
         // Load the dependency JSON and verify this dependency was encoded correctly
@@ -134,7 +134,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     // Ensure all transitive dependencies got added as well.
     for transitiveDependencyId in dependencyInfo.directDependencies! {
       try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
-                                                  moduleInfo: dependencyOracle.getModuleInfo(of: transitiveDependencyId)!,
+                                                  moduleInfo: dependencyOracle.getExternalModuleInfo(of: transitiveDependencyId)!,
                                                   dependencyOracle: dependencyOracle)
 
     }
@@ -161,6 +161,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       let dependencyOracle = InterModuleDependencyOracle()
+      try dependencyOracle
+        .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -205,6 +208,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.bPlaceHolderInput.data(using: .utf8)!)
       let targetModulePathMap: ExternalTargetModulePathMap =
         [ModuleDependencyId.swiftPlaceholder("B"):AbsolutePath("/Somewhere/B.swiftmodule")]
+
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
       let dependencyOracle = InterModuleDependencyOracle()
       try dependencyOracle.mergeModules(from: inputDependencyGraph)
 
@@ -218,14 +226,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Construct the driver with explicit external dependency input
       let commandLine = ["swiftc", "-experimental-explicit-module-build",
                          "test.swift", "-module-name", "A", "-g"]
-      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-                                             processSet: ProcessSet(),
-                                             fileSystem: localFileSystem,
-                                             env: ProcessEnv.vars)
+
       var driver = try Driver(args: commandLine, executor: executor,
                               externalBuildArtifacts: (targetModulePathMap, [:]),
                               interModuleDependencyOracle: dependencyOracle)
-
+      try dependencyOracle
+        .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
       try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
@@ -297,7 +304,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Figure out which Triples to use.
       let dependencyOracle = driver.interModuleDependencyOracle
       let mainModuleInfo =
-        dependencyOracle.getModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
+        dependencyOracle.getExternalModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
       guard case .swift(let mainModuleSwiftDetails) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
         return
@@ -408,7 +415,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Figure out which Triples to use.
       let dependencyOracle = driver.interModuleDependencyOracle
       let mainModuleInfo =
-        dependencyOracle.getModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
+        dependencyOracle.getExternalModuleInfo(of: .swift("testExplicitModuleBuildJobs"))!
       guard case .swift(let mainModuleSwiftDetails) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
         return
@@ -485,6 +492,87 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif
+  }
+
+  /// Test the libSwiftScan dependency scanning.
+  func testDependencyScanning() throws {
+    // Just instantiating to get at the toolchain path
+    let driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
+                                   "-module-name", "testDependencyScanning",
+                                   "test.swift"])
+    let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
+                                                            .parentDirectory // bin
+                                                            .parentDirectory // toolchain root
+    let stdLibPath = toolchainRootPath.appending(component: "lib")
+                                      .appending(component: "swift")
+                                      .appending(component: driver.targetTriple.osNameUnversioned)
+    let shimsPath = toolchainRootPath.appending(component: "lib")
+                                     .appending(component: "swift")
+                                     .appending(component: "shims")
+    XCTAssertTrue(localFileSystem.exists(stdLibPath),
+                  "expected Swift StdLib at: \(stdLibPath.description)")
+    XCTAssertTrue(localFileSystem.exists(shimsPath),
+                  "expected Swift Shims at: \(shimsPath.description)")
+
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = InterModuleDependencyOracle()
+    try dependencyOracle
+      .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                     swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
+    
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+      let testInputsPath = packageRootPath + "/TestInputs"
+      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
+      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let scannerCommand = ["-scan-dependencies",
+                            "-I", cHeadersPath,
+                            "-I", swiftModuleInterfacesPath,
+                            "-I", stdLibPath.description,
+                            "-I", shimsPath.description,
+                            main.pathString]
+
+      // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
+      let lock = NSLock()
+
+      // Module `X` is only imported on Darwin when:
+      // #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 110000
+      let expectedNumberOfDependencies: Int
+      if driver.targetTriple.isMacOSX,
+         driver.targetTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
+        expectedNumberOfDependencies = 11
+      } else {
+        expectedNumberOfDependencies = 12
+      }
+
+      // Dispatch several iterations in parallel
+      DispatchQueue.concurrentPerform(iterations: 20) { index in
+        // Give the main modules different names
+        let iterationCommand = scannerCommand + ["-module-name",
+                                                 "testDependencyScanning\(index)"]
+        let dependencyGraph =
+          try! dependencyOracle.getDependencies(workingDirectory: path,
+                                                commandLine: iterationCommand)
+        if (dependencyGraph.modules.count != expectedNumberOfDependencies) {
+          lock.lock()
+          print("Unexpected Dependency Scanning Result (\(dependencyGraph.modules.count) modules):")
+          dependencyGraph.modules.forEach {
+            print($0.key.moduleName)
+          }
+          lock.unlock()
+        }
+        XCTAssertTrue(dependencyGraph.modules.count == expectedNumberOfDependencies)
+      }
+    }
   }
 
   func testDependencyGraphMerge() throws {

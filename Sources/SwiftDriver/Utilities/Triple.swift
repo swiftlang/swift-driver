@@ -1522,6 +1522,20 @@ extension Triple {
 
     return Version(parse: osName)
   }
+
+  public var osNameUnversioned: String {
+    var canonicalOsName = self.osName[...]
+
+    // Assume that the OS portion of the triple starts with the canonical name.
+    if let os = os {
+      if canonicalOsName.hasPrefix(os.name) {
+        canonicalOsName = osName.prefix(os.name.count)
+      } else if os == .macosx, osName.hasPrefix("macos") {
+        canonicalOsName = osName.prefix(5)
+      }
+    }
+    return String(canonicalOsName)
+  }
 }
 
 // MARK: - Darwin Versions

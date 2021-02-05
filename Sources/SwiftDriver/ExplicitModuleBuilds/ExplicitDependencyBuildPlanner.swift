@@ -35,7 +35,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// The toolchain to be used for frontend job generation.
   private let toolchain: Toolchain
 
-  /// Whether we are using the integrated driver via libSwiftDriver.dylib
+  /// Whether we are using the integrated driver via libSwiftDriver shared lib
   private let integratedDriver: Bool
   private let mainModuleName: String?
 

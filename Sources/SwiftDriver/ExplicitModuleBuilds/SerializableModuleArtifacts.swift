@@ -61,12 +61,12 @@ import Foundation
 /// - Module Name
 /// - Extra PCM build arguments (for Clang modules only)
 /// - Dependency graph output path
-internal enum BatchScanModuleInfo: Encodable {
+public enum BatchScanModuleInfo: Encodable {
   case swift(BatchScanSwiftModuleInfo)
   case clang(BatchScanClangModuleInfo)
 }
 
-internal struct BatchScanSwiftModuleInfo: Encodable {
+public struct BatchScanSwiftModuleInfo: Encodable {
   var swiftModuleName: String
   var output: String
 
@@ -76,7 +76,7 @@ internal struct BatchScanSwiftModuleInfo: Encodable {
   }
 }
 
-internal struct BatchScanClangModuleInfo: Encodable {
+public struct BatchScanClangModuleInfo: Encodable {
   var clangModuleName: String
   var arguments: String
   var output: String
@@ -88,7 +88,7 @@ internal struct BatchScanClangModuleInfo: Encodable {
   }
 }
 
-internal extension BatchScanModuleInfo {
+public extension BatchScanModuleInfo {
   func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
     switch self {

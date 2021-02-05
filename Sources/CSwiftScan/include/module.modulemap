@@ -1,0 +1,4 @@
+module CSwiftScan {
+  header "swiftscan_header.h"
+  export *
+}
