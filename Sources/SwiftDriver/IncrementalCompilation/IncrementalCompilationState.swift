@@ -305,14 +305,6 @@ extension IncrementalCompilationState {
         reporter: reporter)
 
     let externallyChangedInputs = computeExternallyChangedInputs(
-      forIncrementalExternalDependencies: false,
-      buildTime: outOfDateBuildRecord.buildTime,
-      fileSystem: fileSystem,
-      moduleDependencyGraph: moduleDependencyGraph,
-      reporter: moduleDependencyGraph.reporter)
-
-    let incrementallyExternallyChangedInputs = computeExternallyChangedInputs(
-      forIncrementalExternalDependencies: true,
       buildTime: outOfDateBuildRecord.buildTime,
       fileSystem: fileSystem,
       moduleDependencyGraph: moduleDependencyGraph,
@@ -327,9 +319,9 @@ extension IncrementalCompilationState {
     // Combine to obtain the inputs that definitely must be recompiled.
     let definitelyRequiredInputs =
       Set(changedInputs.map({ $0.filePath }) +
-            externallyChangedInputs + incrementallyExternallyChangedInputs +
-            inputsHavingMalformedDependencySources
-            + inputsMissingOutputs)
+            externallyChangedInputs +
+            inputsHavingMalformedDependencySources +
+            inputsMissingOutputs)
     if let reporter = reporter {
       for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
         reporter.report("Queuing (initial):", scheduledInput)
@@ -426,26 +418,23 @@ extension IncrementalCompilationState {
 
   /// Any files dependent on modified files from other modules must be compiled, too.
   private static func computeExternallyChangedInputs(
-    forIncrementalExternalDependencies: Bool,
     buildTime: Date,
     fileSystem: FileSystem,
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
- ) -> [TypedVirtualPath] {
-    var externalDependencySources = Set<ModuleDependencyGraph.DependencySource>()
-    let extDeps = forIncrementalExternalDependencies
-      ? moduleDependencyGraph.incrementalExternalDependencies
-      : moduleDependencyGraph.externalDependencies
-    for extDep in extDeps {
+  ) -> [TypedVirtualPath] {
+    var externalDependencySources = Set<DependencySource>()
+    for extDepAndPrint in moduleDependencyGraph.fingerprintedExternalDependencies {
+      let extDep = extDepAndPrint.externalDependency
       let extModTime = extDep.file.flatMap {try? fileSystem.getFileInfo($0).modTime}
         ?? Date.distantFuture
       if extModTime >= buildTime {
-        for dependent in moduleDependencyGraph.untracedDependents(of: extDep, isIncremental: forIncrementalExternalDependencies) {
+        for dependent in moduleDependencyGraph.untracedDependents(of: extDepAndPrint) {
           guard let dependencySource = dependent.dependencySource else {
             fatalError("Dependent \(dependent) does not have dependencies file!")
           }
           reporter?.report(
-            "Queuing because of \(forIncrementalExternalDependencies ? "incremental " : "")external dependency on newer \(extDep.file?.basename ?? "extDep?")",
+            "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
             dependencySource.typedFile)
           externalDependencySources.insert(dependencySource)
         }

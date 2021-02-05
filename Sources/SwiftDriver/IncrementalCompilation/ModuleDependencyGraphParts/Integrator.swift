@@ -25,15 +25,12 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/
     public struct Results {
       var changedNodes = Set<Node>()
-      var discoveredIncrementalExternalDependencies = Set<ExternalDependency>()
+      var discoveredExternalDependencies = Set<FingerprintedExternalDependency>()
     }
     public private(set) var results = Results()
 
     /// the graph to be integrated
-    let source: SourceFileDependencyGraph
-
-    /// the source (file) of the graph to be integrated
-    let dependencySource: DependencySource
+    let sourceGraph: SourceFileDependencyGraph
 
     /// the graph to be integrated into
     let destination: ModuleDependencyGraph
@@ -42,14 +39,13 @@ extension ModuleDependencyGraph {
     /// After integration is complete, contains the nodes that have disappeared.
     var disappearedNodes = [DependencyKey: Graph.Node]()
 
-    init(source: SourceFileDependencyGraph,
-         dependencySource: DependencySource,
+    init(sourceGraph: SourceFileDependencyGraph,
          destination: ModuleDependencyGraph)
     {
-      self.source = source
-      self.dependencySource = dependencySource
-      self.destination = destination
-      self.disappearedNodes = destination.nodeFinder.findNodes(for: dependencySource)
+      self.sourceGraph = sourceGraph
+      self .destination = destination
+      self.disappearedNodes = destination.nodeFinder
+        .findNodes(for: sourceGraph.dependencySource)
         ?? [:]
     }
 
@@ -58,43 +54,17 @@ extension ModuleDependencyGraph {
     }
   }
 }
-
-// MARK: - integrate a file containing dependency information
-extension ModuleDependencyGraph.Integrator {
-  /// returns nil for error
-  static func integrate(
-    dependencySource: Graph.DependencySource,
-    into destination: Graph,
-    input: TypedVirtualPath?, // just for reporting
-    reporter: IncrementalCompilationState.Reporter?,
-    diagnosticEngine: DiagnosticsEngine,
-    fileSystem: FileSystem,
-    options: IncrementalCompilationState.Options
-  ) -> Results? {
-    guard let sfdg = try? SourceFileDependencyGraph.read(
-            from: dependencySource, on: fileSystem)
-    else {
-      reporter?.report("Could not read \(dependencySource)", input)
-      return nil
-    }
-    return integrate(from: sfdg,
-                     dependencySource: dependencySource,
-                     into: destination)
-  }
-}
 // MARK: - integrate a graph
 
 extension ModuleDependencyGraph.Integrator {
   /// Integrate a SourceFileDepGraph into the receiver.
   /// Integration happens when the driver needs to read SourceFileDepGraph.
   /// Returns changed nodes
-  /*@_spi(Testing)*/ public static func integrate(
+  /*@_spi(Testing)*/ static func integrateAndCollectExternalDepNodes(
     from g: SourceFileDependencyGraph,
-    dependencySource: Graph.DependencySource,
     into destination: Graph
   ) -> Results {
-    var integrator = Self(source: g,
-                          dependencySource: dependencySource,
+    var integrator = Self(sourceGraph: g,
                           destination: destination)
     integrator.integrate()
 
@@ -102,7 +72,7 @@ extension ModuleDependencyGraph.Integrator {
       integrator.verifyAfterImporting()
     }
     if destination.options.contains(.emitDependencyDotFileAfterEveryImport) {
-      destination.emitDotFile(g, dependencySource)
+      destination.emitDotFile(g)
     }
     return integrator.results
   }
@@ -113,7 +83,7 @@ extension ModuleDependencyGraph.Integrator {
     destination.ensureGraphWillRetraceDependents(of: results.changedNodes)
   }
   private mutating func integrateEachSourceNode() {
-    source.forEachNode { integrate(oneNode: $0) }
+    sourceGraph.forEachNode { integrate(oneNode: $0) }
   }
   private mutating func handleDisappearedNodes() {
     for (_, node) in disappearedNodes {
@@ -146,25 +116,25 @@ extension ModuleDependencyGraph.Integrator {
   /// and return the merged node. Remember that the merged node has changed if it has.
   private mutating func integrateWithNodeHere(
     _ integrand: SourceFileDependencyGraph.Node,
-    _ nodesMatchingKey: [Graph.DependencySource?: Graph.Node]
+    _ nodesMatchingKey: [DependencySource?: Graph.Node]
   ) -> Graph.Node? {
-    guard let matchHere = nodesMatchingKey[dependencySource] else {
+    guard let matchHere = nodesMatchingKey[sourceGraph.dependencySource] else {
       return nil
     }
-    assert(matchHere.dependencySource == dependencySource)
+    assert(matchHere.dependencySource == sourceGraph.dependencySource)
     // Node was and still is. Do not remove it.
-    disappearedNodes.removeValue(forKey: matchHere.dependencyKey)
+    disappearedNodes.removeValue(forKey: matchHere.key)
     if matchHere.fingerprint != integrand.fingerprint {
       results.changedNodes.insert(matchHere)
     }
     return matchHere
   }
 
-  /// If there is an expat node with this key, replace it with a ndoe for this dependencySource
+  /// If there is an expat node with this key, replace it with a node for this dependencySource
   /// and return the replacement. Remember that the replace has changed.
   private mutating func integrateWithExpat(
     _ integrand: SourceFileDependencyGraph.Node,
-    _ nodesMatchingKey: [Graph.DependencySource?: Graph.Node]
+    _ nodesMatchingKey: [DependencySource?: Graph.Node]
   ) -> Graph.Node? {
     guard let expat = nodesMatchingKey[nil] else {
       return nil
@@ -173,7 +143,7 @@ extension ModuleDependencyGraph.Integrator {
            "If an expat exists, then must not be any matches in other files")
     let integratedNode = destination.nodeFinder
       .replace(expat,
-               newDependencySource: dependencySource,
+               newDependencySource: sourceGraph.dependencySource,
                newFingerprint: integrand.fingerprint)
     results.changedNodes.insert(integratedNode)
     return integratedNode
@@ -187,7 +157,7 @@ extension ModuleDependencyGraph.Integrator {
     let newNode = Graph.Node(
       key: integrand.key,
       fingerprint: integrand.fingerprint,
-      dependencySource: dependencySource)
+      dependencySource: sourceGraph.dependencySource)
     let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
     results.changedNodes.insert(newNode)
@@ -201,45 +171,22 @@ extension ModuleDependencyGraph.Integrator {
     _ sourceFileUseNode: SourceFileDependencyGraph.Node,
     _ moduleUseNode: Graph.Node
   ) {
-    source.forEachDefDependedUpon(by: sourceFileUseNode) { def in
+    sourceGraph.forEachDefDependedUpon(by: sourceFileUseNode) { def in
       let isNewUse = destination.nodeFinder.record(def: def.key,
                                                    use: moduleUseNode)
       guard isNewUse else { return }
-      guard let externalDependency = def.key.designator.externalDependency else {
+      guard let externalDependency =
+              def.key.designator.externalDependency
+      else {
         return
       }
-      let isIncremental = def.fingerprint != nil
-      let isKnown = (isIncremental
-                      ? destination.incrementalExternalDependencies
-                      : destination.externalDependencies)
-        .contains(externalDependency)
+      // Check both in case we reread a prior ModDepGraph from a different mode
+      let extDepAndPrint = FingerprintedExternalDependency(externalDependency,
+                                                           def.fingerprint)
+      let isKnown = destination.fingerprintedExternalDependencies.contains(extDepAndPrint)
       guard !isKnown else {return}
-      if !isIncremental {
-        // Nice for debugging, but too much otherwise:
-        // destination.reporter?.report("found externalDependency", externalDependency.file)
-        
-        // no integration to do for these, so just remember them here
-        destination.externalDependencies.insert(externalDependency)
-      }
-      else if !isCrossModuleIncrementalBuildEnabled {
-        destination.reporter?.report(
-          "found incrementalExternalDependency but treating as non-incremental",
-          externalDependency.file)
-        // treat like nonincremental
-        let key = DependencyKey(
-          aspect: .interface,
-          designator: .externalDepend(externalDependency))
-        let isNewUse = destination.nodeFinder.record(def: key, use: moduleUseNode)
-        if isNewUse {
-          destination.externalDependencies.insert(externalDependency)
-          results.changedNodes.insert(moduleUseNode)
-        }
-      }
-      else {
-        destination.reporter?.report( "found incrementalExternalDependency",
-                                      externalDependency.file)
-        results.discoveredIncrementalExternalDependencies.insert(externalDependency)
-      }
+
+      results.discoveredExternalDependencies.insert(extDepAndPrint)
       results.changedNodes.insert(moduleUseNode)
     }
   }
@@ -249,10 +196,10 @@ extension ModuleDependencyGraph.Integrator {
 extension ModuleDependencyGraph.Integrator {
   @discardableResult
   func verifyAfterImporting() -> Bool {
-    guard let nodesInFile = destination.nodeFinder.findNodes(for: dependencySource),
+    guard let nodesInFile = destination.nodeFinder.findNodes(for: sourceGraph.dependencySource),
           !nodesInFile.isEmpty
     else {
-      fatalError("Just imported \(dependencySource), should have nodes")
+      fatalError("Just imported \(sourceGraph.dependencySource), should have nodes")
     }
     return destination.verifyGraph()
   }

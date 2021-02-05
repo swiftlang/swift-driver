@@ -21,6 +21,9 @@ import TSCUtility
   public var minorVersion: UInt64
   public var compilerVersionString: String
   private var allNodes: [Node]
+
+  /// Holds the filename fromwhich the graph was read.
+  public let dependencySource: DependencySource
   
   public var sourceFileNodePair: (interface: Node, implementation: Node) {
     (interface: allNodes[SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber],
@@ -54,9 +57,8 @@ import TSCUtility
   }
 }
 
-
 extension SourceFileDependencyGraph {
-  public struct Node {
+  public struct Node: KeyAndFingerprintEnforcer {
     public var key: DependencyKey
     public var fingerprint: String?
     public var sequenceNumber: Int
@@ -69,16 +71,19 @@ extension SourceFileDependencyGraph {
       sequenceNumber: Int,
       defsIDependUpon: [Int],
       isProvides: Bool
-    ) {
+    ) throws {
       self.key = key
       self.fingerprint = fingerprint
       self.sequenceNumber = sequenceNumber
       self.defsIDependUpon = defsIDependUpon
       self.isProvides = isProvides
+
+      try verifyKeyAndFingerprint()
     }
     
     public func verify() {
       key.verify()
+      try! verifyKeyAndFingerprint()
       
       if case .sourceFileProvide = key.designator {
         switch key.aspect {
@@ -88,6 +93,14 @@ extension SourceFileDependencyGraph {
           assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber)
         }
       }
+    }
+
+    public var isIncrementalExternalDependency: Bool {
+      if case .externalDepend = key.designator,
+         fingerprint != nil {
+        return true
+      }
+      return false
     }
   }
 }
@@ -103,6 +116,7 @@ extension SourceFileDependencyGraph {
   
   fileprivate enum ReadError: Error {
     case badMagic
+    case swiftModuleHasNoDependencies
     case noRecordBlock
     case malformedMetadataRecord
     case unexpectedMetadataRecord
@@ -116,30 +130,36 @@ extension SourceFileDependencyGraph {
     case unknownKind
   }
 
+  /// Returns nil if there was no dependency info
   static func read(
-    from dependencySource: ModuleDependencyGraph.DependencySource,
+    from dependencySource: DependencySource,
     on fileSystem: FileSystem
-  ) throws -> Self {
-    try self.init(contentsOf: dependencySource.typedFile, on: fileSystem)
+  ) throws -> Self? {
+    try self.init(contentsOf: dependencySource, on: fileSystem)
   }
   
-  /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
+  /*@_spi(Testing)*/ public init(from dependencySource: DependencySource,
+                                 nodesForTesting: [Node]) {
     majorVersion = 0
     minorVersion = 0
     compilerVersionString = ""
     allNodes = nodesForTesting
+    self.dependencySource = dependencySource
   }
 
-  /*@_spi(Testing)*/ public init(
-    contentsOf path: TypedVirtualPath,
+  /*@_spi(Testing)*/ public init?(
+    contentsOf dependencySource: DependencySource,
     on filesystem: FileSystem
   ) throws {
-    let data = try filesystem.readFileContents(path.file)
-    try self.init(data: data, fromSwiftModule: path.type == .swiftModule)
+    let data = try filesystem.readFileContents(dependencySource.file)
+    try self.init(data: data, from: dependencySource,
+                  fromSwiftModule: dependencySource.typedFile.type == .swiftModule)
   }
 
-  /*@_spi(Testing)*/ public init(
+  /// Returns nil for a swiftmodule with no depenencies
+  /*@_spi(Testing)*/ public init?(
     data: ByteString,
+    from dependencySource: DependencySource,
     fromSwiftModule extractFromSwiftModule: Bool = false
   ) throws {
     struct Visitor: BitstreamVisitor {
@@ -160,7 +180,7 @@ extension SourceFileDependencyGraph {
 
       func validate(signature: Bitcode.Signature) throws {
         if extractFromSwiftModule {
-          guard signature == .init(value: 0x0EA89CE2) else { throw ReadError.badMagic }
+          guard signature == .init(value: 0x0EA89CE2) else { throw ReadError.swiftModuleHasNoDependencies }
         } else {
           guard signature == .init(string: "DEPS") else { throw ReadError.badMagic }
         }
@@ -220,11 +240,11 @@ extension SourceFileDependencyGraph {
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier)
           let key = DependencyKey(aspect: declAspect, designator: designator)
-          node = Node(key: key,
-                      fingerprint: nil,
-                      sequenceNumber: sequenceNumber,
-                      defsIDependUpon: [],
-                      isProvides: isProvides)
+          node = try Node(key: key,
+                          fingerprint: nil,
+                          sequenceNumber: sequenceNumber,
+                          defsIDependUpon: [],
+                          isProvides: isProvides)
           sequenceNumber += 1
         case .fingerprintNode:
           guard node != nil,
@@ -250,13 +270,18 @@ extension SourceFileDependencyGraph {
     }
 
     var visitor = Visitor(extractFromSwiftModule: extractFromSwiftModule)
-    try data.contents.withUnsafeBytes { buf in
-      // SAFETY: The bitcode reader does not mutate the data stream we give it.
-      // FIXME: Let's avoid this altogether and traffic in ByteString/[UInt8]
-      // if possible. There's no real reason to use `Data` in this API.
-      let baseAddr = UnsafeMutableRawPointer(mutating: buf.baseAddress!)
-      let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
-      try Bitcode.read(stream: data, using: &visitor)
+    do {
+      try data.contents.withUnsafeBytes { buf in
+        // SAFETY: The bitcode reader does not mutate the data stream we give it.
+        // FIXME: Let's avoid this altogether and traffic in ByteString/[UInt8]
+        // if possible. There's no real reason to use `Data` in this API.
+        let baseAddr = UnsafeMutableRawPointer(mutating: buf.baseAddress!)
+        let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
+        try Bitcode.read(stream: data, using: &visitor)
+      }
+    }
+    catch ReadError.swiftModuleHasNoDependencies {
+      return nil
     }
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,
@@ -267,6 +292,7 @@ extension SourceFileDependencyGraph {
     self.minorVersion = minor
     self.compilerVersionString = versionString
     self.allNodes = visitor.nodes
+    self.dependencySource = dependencySource
   }
 }
 
