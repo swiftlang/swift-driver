@@ -42,6 +42,7 @@ add_library(SwiftDriver
   "IncrementalCompilation/DictionaryOfDictionaries.swift"
   "IncrementalCompilation/IncrementalCompilationState.swift"
   "IncrementalCompilation/InputInfo.swift"
+  "IncrementalCompilation/KeyAndFingerprintEnforcer.swift"
   "IncrementalCompilation/ModuleDependencyGraph.swift"
   "IncrementalCompilation/Multidictionary.swift"
   "IncrementalCompilation/SourceFileDependencyGraph.swift"
