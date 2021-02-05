@@ -15,6 +15,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <sstream>
 #include <vector>
 
 enum class OptionKind {
@@ -62,6 +63,17 @@ enum SwiftFlags {
   SwiftAPIExtractOption = (1 << 15),
   SwiftSymbolGraphExtractOption = (1 << 16),
 };
+
+struct Group {
+  std::string id;
+  const char *name;
+  const char *description;
+};
+
+static std::vector<Group> groups;
+static std::vector<OptionID> aliases;
+static std::map<OptionID, unsigned> groupIndexByID;
+static std::map<OptionID, unsigned> optionIndexByID;
 
 static std::set<std::string> swiftKeywords = { "internal", "static" };
 
@@ -115,6 +127,48 @@ struct RawOption {
   bool isHidden() const {
     return flags & HelpHidden;
   }
+  
+  std::string wrapperName() const {
+    switch (kind) {
+    case OptionKind::Input:
+      return "Argument";
+
+    case OptionKind::CommaJoined:
+    case OptionKind::Joined:
+    case OptionKind::JoinedOrSeparate:
+    case OptionKind::Separate:
+      return "Option";
+
+    case OptionKind::Flag:
+      return "Flag";
+
+    case OptionKind::RemainingArgs:
+    case OptionKind::Group:
+    case OptionKind::Unknown:
+      assert(false && "Should have been filtered out");
+    }
+  }
+  
+  std::string initialValue() const {
+    switch (kind) {
+    case OptionKind::Input:
+      return "[] as [String]";
+
+    case OptionKind::CommaJoined:
+    case OptionKind::Joined:
+    case OptionKind::JoinedOrSeparate:
+    case OptionKind::Separate:
+      return "\"\"";
+
+    case OptionKind::Flag:
+      return "false";
+
+    case OptionKind::RemainingArgs:
+    case OptionKind::Group:
+    case OptionKind::Unknown:
+      assert(false && "Should have been filtered out");
+    }
+  }
 };
 
 #define PREFIX(NAME, VALUE) static const char *const NAME[] = VALUE;
@@ -133,16 +187,6 @@ static const RawOption rawOptions[] = {
 #endif
 #undef OPTION
 };
-
-struct Group {
-  std::string id;
-  const char *name;
-  const char *description;
-};
-
-static std::vector<Group> groups;
-static std::map<OptionID, unsigned> groupIndexByID;
-static std::map<OptionID, unsigned> optionIndexByID;
 
 static std::string stringOrNil(const char *text) {
   if (!text)
@@ -173,6 +217,43 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
   }
 }
 
+void forEachGroup(std::function<void(const Group &)> fn) {
+  for (const auto &group : groups) {
+    fn(group);
+  }
+}
+
+void forEachOptionInGroup(const Group group, std::function<void(const RawOption &)> fn) {
+  forEachOption([&](const RawOption &option) {
+    if (option.group == OptionID::Opt_INVALID)
+      return;
+
+    if (option.isAlias())
+      return;
+    
+    auto optionGroup = groups[groupIndexByID[option.group]];
+    if (group.id != optionGroup.id)
+      return;
+
+    fn(option);
+  });
+}
+
+void forEachUngroupedOption(std::function<void(const RawOption &)> fn) {
+  forEachOption([&](const RawOption &option) {
+    if (option.kind == OptionKind::RemainingArgs)
+      return;
+    
+    if (option.isAlias())
+      return;
+    
+    if (option.group != OptionID::Opt_INVALID)
+      return;
+    
+    fn(option);
+  });
+}
+
 void forEachSpelling(const char * const *prefixes, const std::string &spelling,
                      std::function<void(const std::string &spelling,
                                         bool isAlternateSpelling)> fn) {
@@ -188,7 +269,79 @@ void forEachSpelling(const char * const *prefixes, const std::string &spelling,
   }
 }
 
+std::string nameForSpelling(const std::string &spelling) {
+  std::string optionName;
+  bool singleDash = true;
+  
+  // Look for the "--" prefix
+  if (spelling.rfind("--", 0) == 0) {
+    optionName = spelling.substr(2);
+  } else if (spelling[0] == '-') {
+    optionName = spelling.substr(1);
+  } else {
+    return "";
+  }
+  
+  if (optionName.length() == 1) {
+    return ".customShort(\"" + optionName + "\", allowingJoined: true)";
+  }
+  
+  if (singleDash) {
+    return ".customLong(\"" + optionName + "\", withSingleDash: true)";
+  } else {
+    return ".customLong(\"" + optionName + "\")";
+  }
+}
+
+std::string namesForOption(const RawOption option) {
+  std::string names;
+  
+  auto spelling = std::string(option.spelling);
+  if (spelling.back() == '=')
+    spelling.pop_back();
+  
+  // Create a name for each spelling
+  if (!option.prefixes || !*option.prefixes) {
+    names = nameForSpelling(spelling);
+  } else {
+    auto prefixes = option.prefixes;
+    while (*prefixes) {
+      if (!names.empty()) names += ", ";
+      names += nameForSpelling(*prefixes++ + spelling);
+    }
+  }
+  
+  // Look for aliases to this option
+  for (const auto &aliasID : aliases) {
+    auto aliasOption = rawOptions[optionIndexByID[aliasID]];
+    if (aliasOption.alias != option.id)
+      continue;
+    
+    names += ", ";
+    names += namesForOption(aliasOption);
+  }
+  
+  return names;
+}
+
+std::string declarationForOption(const RawOption option) {
+  std::ostringstream result;
+  
+  result << "\n";
+  result << "    @" << option.wrapperName();
+  result << "(";
+  if (option.kind != OptionKind::Input) {
+    result << "name: [" << namesForOption(option) << "]";
+  }
+  result << ")\n";
+  result << "    var " << std::string(option.idName) << " = " << option.initialValue();
+  
+  return result.str();
+}
+
 int makeOptions_main() {
+  auto &out = std::cout;
+
   // Check if options were available.
   if (sizeof(rawOptions) == 0) {
     std::cerr << "error: swift/Options/Options.inc unavailable at compile time\n";
@@ -212,12 +365,17 @@ int makeOptions_main() {
       continue;
     }
 
+    // Save aliases IDs for later, skipping over aliases that just exist
+    // for equal sign-joined options.
+    if (rawOption.alias != OptionID::Opt_INVALID) {
+      if (std::string(rawOption.spelling).back() != '=') {
+        aliases.push_back(rawOption.id);
+      }
+    }
+
     optionIndexByID[rawOption.id] = rawOptionIdx++;
   }
-
-  // Add static properties to Option for each of the options.
-  auto &out = std::cout;
-
+  
   out <<
       "//===--------------- Options.swift - Swift Driver Options -----------------===//\n"
       "//\n"
@@ -229,7 +387,46 @@ int makeOptions_main() {
       "// See https://swift.org/LICENSE.txt for license information\n"
       "// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors\n"
       "//\n"
-      "//===----------------------------------------------------------------------===//\n\n";
+      "//===----------------------------------------------------------------------===//\n\n"
+      "import ArgumentParser\n";
+  
+  forEachGroup([&](const Group &group) {
+    out << "\n";
+    out << "struct " << group.id << ": ParsableArguments {";
+    forEachOptionInGroup(group, [&](const RawOption &option) {
+      if ((option.flags & NoDriverOption) != 0)
+        return;
+      
+      out << declarationForOption(option) << "\n";
+    });
+    out << "}\n";
+  });
+  
+  out << "\nstruct General: ParsableArguments {";
+  forEachUngroupedOption([&](const RawOption &option) {
+    if ((option.flags & NoDriverOption) != 0)
+      return;
+    
+    out << declarationForOption(option) << "\n";
+  });
+  out << "}\n\n";
+
+  
+  
+  
+  
+  
+  
+  return 0;
+  
+  // old
+  // ---------------------------------------------------------------------------
+  
+  
+  
+  
+  // Add static properties to Option for each of the options.
+
   out << "extension Option {\n";
   forEachOption([&](const RawOption &option) {
     // Look through each spelling of the option.
