@@ -457,7 +457,7 @@ extension ModuleDependencyGraph {
   /// - Throws: An error describing any failures to read the graph from the given file.
   /// - Returns: A fully deserialized ModuleDependencyGraph.
   static func read(
-    from path: AbsolutePath,
+    from path: VirtualPath,
     on fileSystem: FileSystem,
     diagnosticEngine: DiagnosticsEngine,
     reporter: IncrementalCompilationState.Reporter?,
@@ -648,7 +648,7 @@ extension ModuleDependencyGraph {
   ///   - compilerVersion: A string containing version information for the
   ///                      driver used to create this file.
   func write(
-    to path: AbsolutePath,
+    to path: VirtualPath,
     on fileSystem: FileSystem,
     compilerVersion: String
   ) {
@@ -1038,7 +1038,7 @@ fileprivate extension DependencyKey.Designator {
 
 extension Diagnostic.Message {
   fileprivate static func error_could_not_write_dep_graph(
-    to path: AbsolutePath
+    to path: VirtualPath
   ) -> Diagnostic.Message {
     .error("could not write driver dependency graph to \(path)")
   }

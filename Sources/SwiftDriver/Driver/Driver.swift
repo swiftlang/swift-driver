@@ -206,15 +206,15 @@ public struct Driver {
   ///
   /// FIXME: This is a little ridiculous. We could probably just replace the
   /// build record outright with a serialized format.
-  var driverDependencyGraphPath: AbsolutePath? {
-    guard
-      let recordInfo = self.buildRecordInfo,
-      let recordPath = recordInfo.buildRecordPath.absolutePath
-    else {
+  var driverDependencyGraphPath: VirtualPath? {
+    guard let recordInfo = self.buildRecordInfo else {
       return nil
     }
-    let filename = recordPath.basenameWithoutExt
-    return recordPath.parentDirectory.appending(component: filename + ".priors")
+    let filename = recordInfo.buildRecordPath.basenameWithoutExt
+    return recordInfo
+      .buildRecordPath
+      .parentDirectory
+      .appending(component: filename + ".priors")
   }
   
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
