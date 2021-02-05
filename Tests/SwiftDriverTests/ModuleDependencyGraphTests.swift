@@ -595,8 +595,8 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
+    XCTAssertTrue(graph.externalDependencies.contains( "/foo"))
+    XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
@@ -633,8 +633,8 @@ class ModuleDependencyGraphTests: XCTestCase {
       1,
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
+    XCTAssertTrue(graph.externalDependencies.contains( "/foo"))
+    XCTAssertTrue(graph.externalDependencies.contains( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedSwiftDepsDependent(onExternal: "/foo")
@@ -882,7 +882,6 @@ extension ModuleDependencyGraph {
   ) {
     self.init(diagnosticEngine: diagnosticEngine,
               reporter: nil,
-              fileSystem: localFileSystem,
               options: options)
   }
 
@@ -907,14 +906,14 @@ extension ModuleDependencyGraph {
                       hadCompilationError: Bool = false)
   -> [Int]
   {
-    let changedNodes = getChangesForSimulatedLoad(
+    let results = getChangesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
 
-    return findSwiftDepsToRecompileWhenNodesChange(changedNodes)
+    return findSwiftDepsToRecompileWhenNodesChange(results.changedNodes)
       .map { $0.mockID }
   }
 
@@ -925,7 +924,7 @@ extension ModuleDependencyGraph {
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false
-  ) -> Set<ModuleDependencyGraph.Node> {
+  ) -> Integrator.Results {
     let dependencySource = DependencySource(mock: swiftDepsIndex)
     let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
@@ -936,21 +935,24 @@ extension ModuleDependencyGraph {
       dependencySource: dependencySource,
       interfaceHash: interfaceHash,
       dependencyDescriptions)
-    return try! XCTUnwrap(integrate(sourceGraph: sfdg))
+
+    return Integrator.integrate(from: sfdg,
+                                dependencySource: dependencySource,
+                                into: self)
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
-    findUntracedSwiftDepsDependent(
-      on: FingerprintedExternalDependency(s.asExternal, nil))
+    findUntracedSwiftDepsDependent(on: s.asExternal, isIncremental: false)
       .map { $0.mockID }
   }
 
   /// Can return duplicates
   func findUntracedSwiftDepsDependent(
-    on fingerprintedExternalDependency: FingerprintedExternalDependency
+    on externalDependency: ExternalDependency,
+    isIncremental: Bool
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in self.untracedDependents(of: fingerprintedExternalDependency) {
+    for dependent in self.untracedDependents(of: externalDependency, isIncremental: isIncremental) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
@@ -967,13 +969,6 @@ extension ModuleDependencyGraph {
   func findSwiftDepsToRecompileWhenDependencySourceChanges(_ i: Int) -> [Int] {
     findSwiftDepsToRecompileWhenDependencySourceChanges(DependencySource(mock: i))
       .map { $0.mockID }
-  }
-
-  func containsExternalDependency(_ path: String, fingerprint: String? = nil)
-  -> Bool {
-    fingerprintedExternalDependencies.contains(
-      FingerprintedExternalDependency(ExternalDependency(path),
-                                      fingerprint))
   }
 }
 
@@ -1008,7 +1003,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
   private let includePrivateDeps: Bool
   private let hadCompilationError: Bool
-  private let dependencySource: DependencySource
+  private let dependencySource: ModuleDependencyGraph.DependencySource
   private let interfaceHash: String
   private let dependencyDescriptions: [(MockDependencyKind, String)]
 
@@ -1019,7 +1014,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   static func mock(
     includePrivateDeps: Bool,
     hadCompilationError: Bool,
-    dependencySource: DependencySource,
+    dependencySource: ModuleDependencyGraph.DependencySource,
     interfaceHash: String,
     _ dependencyDescriptions: [MockDependencyKind: [String]]
   ) -> SourceFileDependencyGraph
@@ -1037,8 +1032,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
   private mutating func mock() -> SourceFileDependencyGraph {
     buildNodes()
-    return SourceFileDependencyGraph(from: dependencySource,
-                                     nodesForTesting: allNodes)
+    return SourceFileDependencyGraph(nodesForTesting: allNodes)
   }
 
   private mutating func buildNodes() {
@@ -1103,10 +1097,10 @@ fileprivate struct SourceFileDependencyGraphMocker {
   private mutating func findExistingNodeOrCreateIfNew(_ key: DependencyKey, _ fingerprint: String?,
                                                       isProvides: Bool) -> Node {
     func createNew() -> Node {
-      let n = try! Node(key: key, fingerprint: fingerprint,
-                        sequenceNumber: allNodes.count,
-                        defsIDependUpon: [],
-                        isProvides: isProvides)
+      let n = Node(key: key, fingerprint: fingerprint,
+                   sequenceNumber: allNodes.count,
+                   defsIDependUpon: [],
+                   isProvides: isProvides)
       allNodes.append(n)
       memoizedNodes[key] = n
       return n
@@ -1222,7 +1216,7 @@ fileprivate extension DependencyKey {
     _ s: String,
     _ kind: MockDependencyKind,
     includePrivateDeps: Bool,
-    dependencySource: DependencySource
+    dependencySource: ModuleDependencyGraph.DependencySource
   ) -> (def: Self, use: Self)? {
     let noncascadingPrefix = "#"
     let privateHolderPrefix = "~"
@@ -1250,7 +1244,7 @@ fileprivate extension DependencyKey {
   static func computeUseKey(
     _ s: String, isCascadingUse: Bool,
     includePrivateDeps: Bool,
-    dependencySource: DependencySource
+    dependencySource: ModuleDependencyGraph.DependencySource
   ) -> Self {
     // For now, in unit tests, mock uses are always nominal
     let aspectOfUse: DeclAspect = isCascadingUse ? .interface : .implementation
@@ -1312,7 +1306,7 @@ fileprivate extension SourceFileDependencyGraph.Node {
 fileprivate extension DependencyKey {
   static func createKeyForWholeSourceFile(
     _ aspect: DeclAspect,
-    _ dependencySource: DependencySource
+    _ dependencySource: ModuleDependencyGraph.DependencySource
   ) -> Self {
     return Self(aspect: aspect,
                 designator: Designator(kind: .sourceFileProvide,

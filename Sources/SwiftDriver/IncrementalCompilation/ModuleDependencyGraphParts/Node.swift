@@ -24,13 +24,12 @@ extension ModuleDependencyGraph {
   ///
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
-  /*@_spi(Testing)*/
-  public final class Node: KeyAndFingerprintEnforcer {
+  /*@_spi(Testing)*/ public final class Node {
 
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
     /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
-    let key: DependencyKey
+    let dependencyKey: DependencyKey
 
     /// The frontend records in the fingerprint, all of the information about an
     /// entity, such that any uses need be rebuilt only if the fingerprint
@@ -62,23 +61,21 @@ extension ModuleDependencyGraph {
     /// SourceFileDependencyGraph or the DependencyKeys
     init(key: DependencyKey, fingerprint: String?,
          dependencySource: DependencySource?) {
-      self.key = key
+      self.dependencyKey = key
       self.fingerprint = fingerprint
       self.dependencySource = dependencySource
-
-      try! verifyKeyAndFingerprint()
     }
   }
 }
 // MARK: - comparing, hashing
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
   public static func == (lhs: Graph.Node, rhs: Graph.Node) -> Bool {
-    lhs.key == rhs.key && lhs.fingerprint == rhs.fingerprint
+    lhs.dependencyKey == rhs.dependencyKey && lhs.fingerprint == rhs.fingerprint
       && lhs.dependencySource == rhs.dependencySource
   }
   
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(key)
+    hasher.combine(dependencyKey)
     hasher.combine(fingerprint)
     hasher.combine(dependencySource)
   }
@@ -94,7 +91,7 @@ extension ModuleDependencyGraph.Node: Comparable {
       case (_?, nil): return false
       }
     }
-    return lhs.key != rhs.key ? lhs.key < rhs.key :
+    return lhs.dependencyKey != rhs.dependencyKey ? lhs.dependencyKey < rhs.dependencyKey :
       lhs.dependencySource != rhs.dependencySource
         ? lt(lhs.dependencySource, rhs.dependencySource)
         : lt(lhs.fingerprint, rhs.fingerprint)
@@ -104,14 +101,14 @@ extension ModuleDependencyGraph.Node: Comparable {
 
 extension ModuleDependencyGraph.Node: CustomStringConvertible {
   public var description: String {
-    "\(key) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
+    "\(dependencyKey) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
   }
 }
 
 extension ModuleDependencyGraph.Node {
   public func verify() {
     verifyExpatsHaveNoFingerprints()
-    key.verify()
+    dependencyKey.verify()
   }
   
   public func verifyExpatsHaveNoFingerprints() {

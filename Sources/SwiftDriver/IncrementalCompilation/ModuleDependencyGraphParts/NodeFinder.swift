@@ -41,24 +41,24 @@ extension ModuleDependencyGraph {
 
 extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(
-    forMock dependencySource: DependencySource
+    forMock dependencySource: ModuleDependencyGraph.DependencySource
   ) -> Graph.Node?  {
     let fileKey = DependencyKey(fileKeyForMockDependencySource: dependencySource)
     return findNode((dependencySource, fileKey))
   }
-  func findNode(_ mapKey: (DependencySource?, DependencyKey)) -> Graph.Node? {
+  func findNode(_ mapKey: (Graph.DependencySource?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
   func findCorrespondingImplementation(of n: Graph.Node) -> Graph.Node? {
-    n.key.correspondingImplementation
+    n.dependencyKey.correspondingImplementation
       .flatMap {findNode((n.dependencySource, $0))}
   }
   
-  func findNodes(for dependencySource: DependencySource?)
+  func findNodes(for dependencySource: Graph.DependencySource?)
   -> [DependencyKey: Graph.Node]? {
     nodeMap[dependencySource]
   }
-  func findNodes(for key: DependencyKey) -> [DependencySource?: Graph.Node]? {
+  func findNodes(for key: DependencyKey) -> [Graph.DependencySource?: Graph.Node]? {
     nodeMap[key]
   }
 
@@ -81,7 +81,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// - Returns: A set of nodes corresponding to the uses of the given
   ///            definition node.
   func uses(of def: Graph.Node) -> Set<Graph.Node> {
-    var uses = usesByDef[def.key, default: Set()].values
+    var uses = usesByDef[def.dependencyKey, default: Set()].values
     if let impl = findCorrespondingImplementation(of: def) {
       uses.insert(impl)
     }
@@ -105,9 +105,9 @@ extension ModuleDependencyGraph.NodeFinder {
     return self.uses(of: def).sorted()
   }
 
-  func mappings(of n: Graph.Node) -> [(DependencySource?, DependencyKey)] {
+  func mappings(of n: Graph.Node) -> [(Graph.DependencySource?, DependencyKey)] {
     nodeMap.compactMap { k, _ in
-      guard k.0 == n.dependencySource && k.1 == n.key else {
+      guard k.0 == n.dependencySource && k.1 == n.dependencyKey else {
         return nil
       }
       return k
@@ -120,8 +120,8 @@ extension ModuleDependencyGraph.NodeFinder {
 }
 
 fileprivate extension ModuleDependencyGraph.Node {
-  var mapKey: (DependencySource?, DependencyKey) {
-    return (dependencySource, key)
+  var mapKey: (Graph.DependencySource?, DependencyKey) {
+    return (dependencySource, dependencyKey)
   }
 }
 
@@ -173,13 +173,13 @@ extension ModuleDependencyGraph.NodeFinder {
   ///
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: Graph.Node,
-                        newDependencySource: DependencySource,
+                        newDependencySource: Graph.DependencySource,
                         newFingerprint: String?
   ) -> Graph.Node {
-    let replacement = Graph.Node(key: original.key,
+    let replacement = Graph.Node(key: original.dependencyKey,
                                  fingerprint: newFingerprint,
                                  dependencySource: newDependencySource)
-    usesByDef.replace(original, with: replacement, forKey: original.key)
+    usesByDef.replace(original, with: replacement, forKey: original.dependencyKey)
     nodeMap.removeValue(forKey: original.mapKey)
     nodeMap.updateValue(replacement, forKey: replacement.mapKey)
     return replacement
@@ -235,14 +235,14 @@ extension ModuleDependencyGraph.NodeFinder {
 // MARK: - key helpers
 
 fileprivate extension DependencyKey {
-  init(fileKeyForMockDependencySource dependencySource: DependencySource) {
+  init(fileKeyForMockDependencySource dependencySource: ModuleDependencyGraph.DependencySource) {
     self.init(aspect: .interface,
               designator:
                 .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
     )
   }
 }
-fileprivate extension DependencySource {
+fileprivate extension ModuleDependencyGraph.DependencySource {
   var sourceFileProvidesNameForMocking: String {
     // Only when mocking are these two guaranteed to be the same
     file.name

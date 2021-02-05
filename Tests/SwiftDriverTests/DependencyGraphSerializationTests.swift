@@ -41,8 +41,7 @@ class DependencyGraphSerializationTests: XCTestCase {
 
     XCTAssertEqual(graph.nodeFinder.usesByDef, deserializedGraph.nodeFinder.usesByDef)
     XCTAssertEqual(graph.inputDependencySourceMap, deserializedGraph.inputDependencySourceMap)
-    XCTAssertEqual(graph.fingerprintedExternalDependencies,
-                   deserializedGraph.fingerprintedExternalDependencies)
+    XCTAssertEqual(graph.externalDependencies, deserializedGraph.externalDependencies)
   }
 
   func testRoundTripFixtures() throws {
