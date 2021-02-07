@@ -517,9 +517,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
-    try dependencyOracle
-      .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                     swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
+    guard try dependencyOracle
+            .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                           swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain)) else {
+      XCTFail("Dependency scanner library not found")
+      return
+    }
     
     // Create a simple test case.
     try withTemporaryDirectory { path in
