@@ -161,8 +161,12 @@ extension Array where Element == Job.ArgTemplate {
     appendFlag(isTrue ? trueFlag : falseFlag)
   }
 
+  @available(*, deprecated, renamed: "joinedUnresolvedArguments")
+  public var joinedArguments: String { joinedUnresolvedArguments }
+
   /// A shell-escaped string representation of the arguments, as they would appear on the command line.
-  public var joinedArguments: String {
+  /// Note: does not resolve arguments.
+  public var joinedUnresolvedArguments: String {
     return self.map {
       switch $0 {
         case .flag(let string):
@@ -173,6 +177,8 @@ extension Array where Element == Job.ArgTemplate {
         return "@\(path.name.spm_shellEscaped())"
       case let .joinedOptionAndPath(option, path):
         return option.spm_shellEscaped() + path.name.spm_shellEscaped()
+      case let .squashedArgumentList(option, args):
+        return (option + args.joinedUnresolvedArguments).spm_shellEscaped()
       }
     }.joined(separator: " ")
   }
