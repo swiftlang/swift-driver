@@ -69,7 +69,7 @@ struct CompileJobGroup {
   }
 }
 
-/// // MARK: Standard build planning
+// MARK: Standard build planning
 extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
