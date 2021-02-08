@@ -80,6 +80,7 @@ test/Driver:
     No output - Implementing would require rebuilding llvm::Timer
 
   Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
+  Swift(macosx-x86_64) :: Driver/driver_migration.swift
     Test expects specific parameter ordering
 
   Swift(macosx-x86_64) :: Driver/static-archive.swift
@@ -114,14 +115,12 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/driver-compile.swift
     Missing -emit-reference-dependencies-path
+    https://github.com/apple/swift-driver/pull/475 Fixes, but test expects temporary file name postfix
 
   Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output-fine.swift
   Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output_cancellation.swift
   Swift(macosx-x86_64) :: Driver/batch_mode_bridging_pch.swift
     Crash: Multiple jobs producing same output file
-
-  Swift(macosx-x86_64) :: Driver/driver_migration.swift
-    Missing -emit-remap-file-path
   
   Swift(macosx-x86_64) :: Driver/temp-files.swift
     swift-driver has no -save-temps support, and if an environment variable like `TMP` is set, swift-driver places temporary files in a subdirectory instead of immediately inside the specified one
