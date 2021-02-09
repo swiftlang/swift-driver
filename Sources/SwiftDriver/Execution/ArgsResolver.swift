@@ -71,10 +71,17 @@ public final class ArgsResolver {
       return try lock.withLock {
         return try unsafeResolve(path: path, quotePaths: quotePaths)
       }
+
     case .responseFilePath(let path):
       return "@\(try resolve(.path(path), quotePaths: quotePaths))"
+
     case let .joinedOptionAndPath(option, path):
       return option + (try resolve(.path(path), quotePaths: quotePaths))
+
+    case let .squashedArgumentList(option: option, args: args):
+      return try option + args.map {
+        try resolve($0, quotePaths: quotePaths)
+      }.joined(separator: " ")
     }
   }
 

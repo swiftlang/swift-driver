@@ -82,11 +82,11 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
     let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
-    var result = args.joined(separator: " ")
+    var result = args.map { $0.spm_shellEscaped() }.joined(separator: " ")
 
     if usedResponseFile {
       // Print the response file arguments as a comment.
-      result += " # \(job.commandLine.joinedArguments)"
+      result += " # \(job.commandLine.joinedUnresolvedArguments)"
     }
 
     if !job.extraEnvironment.isEmpty {
