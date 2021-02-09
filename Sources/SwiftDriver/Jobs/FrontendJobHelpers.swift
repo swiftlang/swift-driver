@@ -250,7 +250,8 @@ extension Driver {
                                                         primaryInputs: [TypedVirtualPath],
                                                         inputsGeneratingCodeCount: Int,
                                                         inputOutputMap: [TypedVirtualPath: TypedVirtualPath],
-                                                        includeModuleTracePath: Bool) throws -> [TypedVirtualPath] {
+                                                        includeModuleTracePath: Bool,
+                                                        indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
@@ -416,6 +417,11 @@ extension Driver {
 
       for flaggedPair in flaggedInputOutputPairs {
         addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
+      }
+      // To match the legacy driver behavior, make sure we add an entry for the
+      // file under indexing and the primary output file path.
+      if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath] {
+        entries[indexFilePath.file] = [.indexData: idxOutput.file]
       }
       let outputFileMap = OutputFileMap(entries: entries)
       let path = RelativePath(createTemporaryFileName(prefix: "supplementaryOutputs"))

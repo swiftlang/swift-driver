@@ -1540,6 +1540,52 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[1].kind, .link)
   }
 
+
+  func testIndexFileEntryInSupplementaryFileOutputMap() throws {
+    var driver1 = try Driver(args: [
+      "swiftc", "foo1.swift", "foo2.swift", "foo3.swift", "foo4.swift", "foo5.swift",
+      "-index-file", "-index-file-path", "foo5.swift", "-o", "/tmp/t.o",
+      "-index-store-path", "/tmp/idx"
+    ])
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    let suppleArg = "-supplementary-output-file-map"
+    // Make sure we are using supplementary file map
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag(suppleArg)))
+    let args = plannedJobs[0].commandLine
+    var fileMapPath: VirtualPath?
+    for pair in args.enumerated() {
+      if pair.element == .flag(suppleArg) {
+        let filemap = args[pair.offset + 1]
+        switch filemap {
+        case .path(let p):
+          fileMapPath = p
+        default:
+          break
+        }
+      }
+    }
+    XCTAssert(fileMapPath != nil)
+    switch fileMapPath! {
+    case .fileList(_, let list):
+      switch list {
+      case .outputFileMap(let map):
+        // This is to match the legacy driver behavior
+        // Make sure the supplementary output map has an entry for the Swift file
+        // under indexing and its indexData entry is the primary output file
+        let entry = map.entries[VirtualPath.relative(RelativePath("foo5.swift"))]!
+        XCTAssert(entry[.indexData]! == .absolute(AbsolutePath("/tmp/t.o")))
+        return
+      default:
+        break
+      }
+      break
+    default:
+      break
+    }
+    XCTAssert(false)
+  }
+
   func testMultiThreadedWholeModuleOptimizationCompiles() throws {
     do {
       var driver1 = try Driver(args: [
