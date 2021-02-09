@@ -484,8 +484,7 @@ extension Driver {
     explicitDependencyBuildPlanner =
       try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
                                          toolchain: toolchain,
-                                         integratedDriver: integratedDriver,
-                                         mainModuleName: moduleOutputInfo.name)
+                                         integratedDriver: integratedDriver)
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }

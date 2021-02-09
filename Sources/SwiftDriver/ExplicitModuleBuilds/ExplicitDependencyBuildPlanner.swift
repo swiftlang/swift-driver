@@ -39,14 +39,17 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   private let integratedDriver: Bool
   private let mainModuleName: String?
 
+  /// Clang PCM names contain a hash of the command-line arguments that were used to build them.
+  /// We avoid re-running the hash computation with the use of this cache
+  private var hashedModuleNameCache: [String: String] = [:]
+
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
-              integratedDriver: Bool = true,
-              mainModuleName: String? = nil) throws {
+              integratedDriver: Bool = true) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.integratedDriver = integratedDriver
-    self.mainModuleName = mainModuleName
+    self.mainModuleName = dependencyGraph.mainModuleName
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
   }
 
@@ -82,7 +85,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   /// module's target version (PCM Args).
   /// 2. Generate jobs for all Clang modules, now that we have each module's set of PCM versions it must be
   /// built against.
-  public func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
+  public mutating func generateExplicitModuleDependenciesBuildJobs() throws -> [Job] {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
     guard let mainModuleDependencies = reachabilityMap[mainModuleId] else {
       fatalError("Expected reachability information for the main module.")
@@ -104,9 +107,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
   }
 
   /// Generate a build job for each Swift module in the set of supplied `dependencies`
-  private func generateSwiftDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
-                                                  clangPCMSetMap:
-                                                    inout [ModuleDependencyId : Set<[String]>])
+  private mutating func generateSwiftDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
+                                                           clangPCMSetMap:
+                                                            inout [ModuleDependencyId : Set<[String]>])
   throws -> [Job] {
     var jobs: [Job] = []
     let swiftDependencies = dependencies.filter {
@@ -174,9 +177,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
   /// Generate a build job for each Clang module in the set of supplied `dependencies`. Once per each required
   /// PCMArgSet as queried from the supplied `clangPCMSetMap`
-  private func generateClangDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
-                                                  using clangPCMSetMap:
-                                                    [ModuleDependencyId : Set<[String]>])
+  private mutating func generateClangDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
+                                                           using clangPCMSetMap:
+                                                            [ModuleDependencyId : Set<[String]>])
   throws -> [Job] {
     var jobs: [Job] = []
     let clangDependencies = dependencies.filter {
@@ -210,9 +213,8 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
         // Encode the target triple pcm args into the output `.pcm` filename
         let targetEncodedModulePath =
-          try ExplicitDependencyBuildPlanner
-                     .targetEncodedClangModuleFilePath(for: moduleInfo,
-                                                       hashParts: getPCMHashParts(pcmArgs: pcmArgs))
+          try targetEncodedClangModuleFilePath(for: moduleInfo,
+                                               hashParts: getPCMHashParts(pcmArgs: pcmArgs))
         outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                                 "-o", targetEncodedModulePath.description)
@@ -239,9 +241,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
   /// For the specified module, update the given command line flags and inputs
   /// to use explicitly-built module dependencies.
-  private func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
-                                                 inputs: inout [TypedVirtualPath],
-                                                 commandLine: inout [Job.ArgTemplate]) throws {
+  private mutating func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
+                                                          inputs: inout [TypedVirtualPath],
+                                                          commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
                             "-fno-implicit-modules")
@@ -286,9 +288,9 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
   /// Add a specific module dependency as an input and a corresponding command
   /// line flag.
-  private func addModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
-                                     clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                     swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
+  private mutating func addModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
+                                              clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
+                                              swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
     guard let moduleDependencies = reachabilityMap[moduleId] else {
       fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
@@ -313,9 +315,8 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
           let dependencyClangModuleDetails =
             try dependencyGraph.clangModuleDetails(of: dependencyId)
           let clangModulePath =
-            try ExplicitDependencyBuildPlanner
-                     .targetEncodedClangModuleFilePath(for: dependencyInfo,
-                                                       hashParts: getPCMHashParts(pcmArgs: pcmArgs))
+            try targetEncodedClangModuleFilePath(for: dependencyInfo,
+                                                 hashParts: getPCMHashParts(pcmArgs: pcmArgs))
           // Accumulate the requried information about this dependency
           clangDependencyArtifacts.append(
             ClangModuleArtifactInfo(name: dependencyId.moduleName,
@@ -359,8 +360,8 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
   /// Resolve all module dependencies of the main module and add them to the lists of
   /// inputs and command line flags.
-  public func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
-                                            commandLine: inout [Job.ArgTemplate]) throws {
+  public mutating func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
+                                                     commandLine: inout [Job.ArgTemplate]) throws {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
     try resolveExplicitModuleDependencies(moduleId: mainModuleId,
                                           pcmArgs:
@@ -401,8 +402,8 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 extension ExplicitDependencyBuildPlanner {
   /// Compute a full path to the resulting .pcm file for a given Clang module, with the
   /// target triple encoded in the name.
-  public static func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
-                                                      hashParts: [String]) throws -> VirtualPath {
+  public mutating func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
+                                                        hashParts: [String]) throws -> VirtualPath {
     let plainModulePath = moduleInfo.modulePath.path
     let targetEncodedBaseName =
       try targetEncodedClangModuleName(for: plainModulePath.basenameWithoutExt,
@@ -416,9 +417,15 @@ extension ExplicitDependencyBuildPlanner {
 
   /// Compute the name of a given Clang module, along with a hash of extra PCM build arguments it
   /// is to be constructed with.
-  public static func targetEncodedClangModuleName(for moduleName: String,
-                                                  hashParts: [String]) throws -> String {
+  @_spi(Testing) public mutating func targetEncodedClangModuleName(for moduleName: String,
+                                                          hashParts: [String])
+  throws -> String {
     let hashInput = hashParts.sorted().joined()
+    // Hash based on "moduleName + hashInput"
+    let cacheQuery = moduleName + hashInput
+    if let previouslyHashsedName = hashedModuleNameCache[cacheQuery] {
+      return previouslyHashsedName
+    }
     let hashedArguments: String
     #if os(macOS)
     if #available(macOS 10.15, iOS 13, *) {
@@ -429,7 +436,9 @@ extension ExplicitDependencyBuildPlanner {
     #else
     hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
     #endif
-    return moduleName + hashedArguments
+    let resultingName = moduleName + hashedArguments
+    hashedModuleNameCache[cacheQuery] = resultingName
+    return resultingName
   }
 }
 

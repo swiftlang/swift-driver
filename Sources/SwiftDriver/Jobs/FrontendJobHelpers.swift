@@ -446,7 +446,7 @@ extension Driver {
   /// to inputs and command line arguments of a compile job.
   func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
                                        commandLine: inout [Job.ArgTemplate]) throws {
-    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+    guard var dependencyPlanner = explicitDependencyBuildPlanner else {
       fatalError("No dependency planner in Explicit Module Build mode.")
     }
     try dependencyPlanner.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
