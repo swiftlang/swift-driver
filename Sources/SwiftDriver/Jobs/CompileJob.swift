@@ -226,7 +226,8 @@ extension Driver {
       primaryInputs: primaryInputs,
       inputsGeneratingCodeCount: inputsGeneratingCodeCount,
       inputOutputMap: inputOutputMap,
-      includeModuleTracePath: emitModuleTrace)
+      includeModuleTracePath: emitModuleTrace,
+      indexFilePath: indexFilePath)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
