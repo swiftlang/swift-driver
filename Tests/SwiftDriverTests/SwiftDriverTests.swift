@@ -627,6 +627,27 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
+  
+  func testReferenceDependencies() throws {
+    var driver = try Driver(args: ["swiftc", "foo.swift", "-incremental"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertTrue(plannedJobs[0].kind == .compile)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-reference-dependencies-path")))
+  }
+  
+  func testDuplicateName() throws {
+    assertDiagnostics { diagnosticsEngine, verify in
+      _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo.swift"], diagnosticsEngine: diagnosticsEngine)
+      verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo.swift'"))
+      verify.expect(.note("filenames are used to distinguish private declarations with the same name"))
+    }
+    
+    assertDiagnostics { diagnosticsEngine, verify in
+      _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo/foo.swift"], diagnosticsEngine: diagnosticsEngine)
+      verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo/foo.swift'"))
+      verify.expect(.note("filenames are used to distinguish private declarations with the same name"))
+    }
+  }
 
   func testOutputFileMapStoring() throws {
     // Create sample OutputFileMap:

@@ -1354,6 +1354,7 @@ extension Driver {
         if let originalPath = swiftFiles[basename] {
           diagnosticsEngine.emit(.error_two_files_same_name(basename: basename, firstPath: originalPath, secondPath: input))
           diagnosticsEngine.emit(.note_explain_two_files_same_name)
+          throw Diagnostics.fatalError
         } else {
           swiftFiles[basename] = input
         }
