@@ -765,8 +765,6 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
   
   func testEmbeddedModuleDependencies() throws {
-    throw XCTSkip("Requires new frontend work to remove incremental external dependencies distinction.")
-    /*
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       do {
@@ -822,8 +820,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
 
-      let data = try localFileSystem.readFileContents(path.appending(component: "main.swiftdeps"))
-      let graph = try SourceFileDependencyGraph(data: data, fromSwiftModule: false)
+      let sourcePath = path.appending(component: "main.swiftdeps")
+      let data = try localFileSystem.readFileContents(sourcePath)
+      let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data, from: DependencySource(.absolute(sourcePath)), fromSwiftModule: false))
       XCTAssertEqual(graph.majorVersion, 1)
       XCTAssertEqual(graph.minorVersion, 0)
       graph.verify()
@@ -840,6 +839,6 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         }
       }
       XCTAssertTrue(foundNode)
-    }*/
+    }
   }
 }
