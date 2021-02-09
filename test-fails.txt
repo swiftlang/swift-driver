@@ -80,7 +80,6 @@ test/Driver:
     No output - Implementing would require rebuilding llvm::Timer
 
   Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
-  Swift(macosx-x86_64) :: Driver/driver_migration.swift
     Test expects specific parameter ordering
 
   Swift(macosx-x86_64) :: Driver/static-archive.swift
@@ -115,7 +114,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/driver-compile.swift
     Missing -emit-reference-dependencies-path
-    https://github.com/apple/swift-driver/pull/475 Fixes, but test expects temporary file name postfix
+    Fixed by: https://github.com/apple/swift-driver/pull/475
 
   Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output-fine.swift
   Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output_cancellation.swift
@@ -149,7 +148,3 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/response-file.swift
     Temporary directory additional level, `TMPDIR` vs `TMPDIR/TemporaryDirectory.#####/`
-    
-  Swift(macosx-x86_64) :: Driver/help.swift
-    Expecting `SEE ALSO: swift build, swift run, swift package, swift test`
-    Broken with: https://github.com/apple/swift-driver/pull/433
