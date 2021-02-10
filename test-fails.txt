@@ -65,15 +65,14 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/parseable_output.swift
   Swift(macosx-x86_64) :: Driver/parseable_output_unicode.swift
     JSON formatting - Not simple fix, it's full JSON blobs being compared. Best option is probably parsing them in python or `REQUIRES: cplusplus_driver`.
-
-  Swift(macosx-x86_64) :: Driver/Dependencies/bindings-build-record.swift
-    Missing error: 'Disabling incremental build: could not read build record'
     
   Swift(macosx-x86_64) :: Driver/multi-threaded.swift
     Output file map isn't being respected
 
+  Swift(macosx-x86_64) :: Driver/emit-dependencies.swift
   Swift(macosx-x86_64) :: Driver/emit-module-summary.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/only-skip-once.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/embed-bitcode-parallel-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/whole-module-build-record.swift
     Exit Code non-zero (no output)
 
   Swift(macosx-x86_64) :: Driver/driver-time-compilation.swift
@@ -111,10 +110,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/working-directory.swift
   Swift(macosx-x86_64) :: Driver/options.swift
     Error about repl integrated repl being removed
-
-  Swift(macosx-x86_64) :: Driver/driver-compile.swift
-    Missing -emit-reference-dependencies-path
-    Fixed by: https://github.com/apple/swift-driver/pull/475
 
   Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output-fine.swift
   Swift(macosx-x86_64) :: Driver/batch_mode_parseable_output_cancellation.swift
