@@ -1014,6 +1014,7 @@ extension Driver {
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
+      skipProcessExecution: parsedOptions.contains(.driverSkipExecution),
       recordedInputModificationDates: recordedInputModificationDates)
   }
 
