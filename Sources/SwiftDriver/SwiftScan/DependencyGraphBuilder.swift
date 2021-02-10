@@ -222,7 +222,7 @@ private extension SwiftScan {
   }
 }
 
-private extension SwiftScan {
+internal extension SwiftScan {
   /// Convert a `swiftscan_string_ref_t` reference to a Swfit `String`, assuming the reference is to a valid string
   /// (non-null)
   func toSwiftString(_ string_ref: swiftscan_string_ref_t) throws -> String {
@@ -246,6 +246,18 @@ private extension SwiftScan {
                                                     count: Int(string_set.count)))
     for stringRef in stringRefArrray {
       result.append(try toSwiftString(stringRef))
+    }
+    return result
+  }
+
+  /// Convert a `swiftscan_string_set_t` reference to a Swfit `Set<String>`, assuming the individual string references
+  /// are to a valid strings (non-null)
+  func toSwiftStringSet(_ string_set: swiftscan_string_set_t) throws -> Set<String> {
+    var result = Set<String>()
+    let stringRefArrray = Array(UnsafeBufferPointer(start: string_set.strings,
+                                                    count: Int(string_set.count)))
+    for stringRef in stringRefArrray {
+      result.insert(try toSwiftString(stringRef))
     }
     return result
   }

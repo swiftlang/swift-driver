@@ -31,6 +31,7 @@ public struct Job: Codable, Equatable, Hashable {
     case repl
     case verifyDebugInfo = "verify-debug-info"
     case printTargetInfo = "print-target-info"
+    case emitSupportedFeatures = "emit-supported-features"
     case versionRequest = "version-request"
     case scanDependencies = "scan-dependencies"
     case verifyModuleInterface = "verify-emitted-module-interface"
@@ -187,6 +188,9 @@ extension Job : CustomStringConvertible {
     case .backend:
       return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.basename ?? "")"
 
+    case .emitSupportedFeatures:
+      return "Emitting supported Swift compiler features"
+
     case .scanDependencies:
       return "Scanning dependencies for module \(moduleName)"
 
@@ -211,7 +215,7 @@ extension Job.Kind {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
         .generatePCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest, .scanDependencies, .verifyModuleInterface:
+        .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap:
@@ -228,7 +232,7 @@ extension Job.Kind {
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
-         .moduleWrap, .verifyModuleInterface:
+         .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface:
       return false
     }
   }
