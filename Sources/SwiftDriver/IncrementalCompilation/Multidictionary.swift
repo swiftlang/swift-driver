@@ -103,18 +103,18 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   public mutating func insertValue(_ v: Value, forKey key: Key) -> Bool {
     return self.dictionary[key, default: []].insert(v).inserted
   }
-  
+
+  /// Removes the given value from the set of values associated with the given key.
+  ///
+  /// - Parameters:
+  ///   - v: The value to remove.
+  ///   - key: The key used to associate the given value with a set of elements.
+  /// - Returns: The removed element, if any.
   @discardableResult
-  public mutating func replace(_ original: Value,
-                               with replacement: Value,
-                               forKey key: Key)
-  -> Bool
-  {
-    guard var vals = outerDict[key],
-          let _ = vals.remove(original) else { return false }
-    vals.insert(replacement)
-    outerDict.updateValue(vals, forKey: key)
-    return true
+  public mutating func removeValue(_ v: Value, forKey key: Key) -> Value? {
+    return self.dictionary[key, default: []].remove(v)
+  }
+
   /// Removes all occurrences of the given value from all entries in this
   /// multi-dictionary.
   ///
