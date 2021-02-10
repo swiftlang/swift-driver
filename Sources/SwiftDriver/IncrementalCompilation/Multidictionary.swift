@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Like a Dictionary, but can have >1 value per key (i.e., a multimap)
+/// A collection that associates keys with one or more values.
 struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   private var dictionary: Dictionary<Key, Set<Value>> = [:]
   
