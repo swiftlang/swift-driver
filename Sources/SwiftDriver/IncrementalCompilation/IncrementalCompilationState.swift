@@ -47,10 +47,7 @@ public class IncrementalCompilationState {
     options: Options,
     jobsInPhases: JobsInPhases
   ) throws {
-    guard driver.shouldAttemptIncrementalCompilation()
-    else {
-      return nil
-    }
+    guard driver.shouldAttemptIncrementalCompilation else { return nil }
 
     if options.contains(.showIncremental) {
       self.reporter = Reporter(diagnosticEngine: driver.diagnosticEngine,
@@ -359,9 +356,13 @@ extension IncrementalCompilationState {
   }
 }
 
-fileprivate extension Driver {
+extension Driver {
   /// Check various arguments to rule out incremental compilation if need be.
-  mutating func shouldAttemptIncrementalCompilation() -> Bool {
+  static func shouldAttemptIncrementalCompilation(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine,
+    compilerMode: CompilerMode
+  ) -> Bool {
     guard parsedOptions.hasArgument(.incremental) else {
       return false
     }

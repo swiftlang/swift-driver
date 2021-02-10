@@ -311,15 +311,11 @@ extension Driver {
         input: input,
         flag: "-emit-dependencies-path")
 
-      if let input = input, let outputFileMap = outputFileMap {
-        let referenceDependenciesPath =
-          outputFileMap.existingOutput(inputFile: input.file, outputType: .swiftDeps)
-        addOutputOfType(
-          outputType: .swiftDeps,
-          finalOutputPath: referenceDependenciesPath,
-          input: input,
-          flag: "-emit-reference-dependencies-path")
-      }
+      addOutputOfType(
+        outputType: .swiftDeps,
+        finalOutputPath: referenceDependenciesPath,
+        input: input,
+        flag: "-emit-reference-dependencies-path")
 
       addOutputOfType(
         outputType: .yamlOptimizationRecord,

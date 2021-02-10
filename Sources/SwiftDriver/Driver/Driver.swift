@@ -219,6 +219,9 @@ public struct Driver {
       .appending(component: filename + ".priors")
   }
   
+  /// Whether to consider incremental compilation.
+  let shouldAttemptIncrementalCompilation: Bool
+  
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
@@ -246,6 +249,9 @@ public struct Driver {
 
   /// Path to the dependencies file.
   let dependenciesFilePath: VirtualPath?
+  
+  /// Path to the references dependencies file.
+  let referenceDependenciesPath: VirtualPath?
 
   /// Path to the serialized diagnostics file.
   let serializedDiagnosticsFilePath: VirtualPath?
@@ -376,6 +382,10 @@ public struct Driver {
 
     // Determine the compilation mode.
     self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+    
+    self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(&parsedOptions,
+                                                                                        diagnosticEngine: diagnosticsEngine,
+                                                                                        compilerMode: compilerMode)
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
@@ -411,7 +421,7 @@ public struct Driver {
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
-    let inputFiles = try Self.collectInputFiles(&self.parsedOptions)
+    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
@@ -529,6 +539,13 @@ public struct Driver {
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .dependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.referenceDependenciesPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftDeps, isOutputOptions: shouldAttemptIncrementalCompilation ? [.incremental] : [],
+        outputPath: .emitReferenceDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
@@ -1314,7 +1331,8 @@ extension Driver {
   }
 
   /// Collect all of the input files from the parsed options, translating them into input files.
-  private static func collectInputFiles(_ parsedOptions: inout ParsedOptions) throws -> [TypedVirtualPath] {
+  private static func collectInputFiles(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) throws -> [TypedVirtualPath] {
+    var swiftFiles = [String: String]() // [Basename: Path]
     return try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
@@ -1330,6 +1348,17 @@ extension Driver {
       // FIXME: The object-file default is carried over from the existing
       // driver, but seems odd.
       let fileType = FileType(rawValue: fileExtension) ?? FileType.object
+      
+      if fileType == .swift {
+        let basename = file.basename
+        if let originalPath = swiftFiles[basename] {
+          diagnosticsEngine.emit(.error_two_files_same_name(basename: basename, firstPath: originalPath, secondPath: input))
+          diagnosticsEngine.emit(.note_explain_two_files_same_name)
+          throw Diagnostics.fatalError
+        } else {
+          swiftFiles[basename] = input
+        }
+      }
 
       return TypedVirtualPath(file: file, type: fileType)
     }
@@ -1452,6 +1481,14 @@ extension Diagnostic.Message {
 
   static var warn_ignore_embed_bitcode_marker: Diagnostic.Message {
     .warning("ignoring -embed-bitcode-marker since no object file is being generated")
+  }
+  
+  static func error_two_files_same_name(basename: String, firstPath: String, secondPath: String) -> Diagnostic.Message {
+    .error("filename \"\(basename)\" used twice: '\(firstPath)' and '\(secondPath)'")
+  }
+  
+  static var note_explain_two_files_same_name: Diagnostic.Message {
+    .note("filenames are used to distinguish private declarations with the same name")
   }
 }
 
@@ -2288,8 +2325,7 @@ extension Driver {
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
-    moduleName: String,
-    patternOutputFile: VirtualPath? = nil
+    moduleName: String
   ) throws -> VirtualPath? {
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
