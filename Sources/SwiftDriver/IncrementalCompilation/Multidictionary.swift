@@ -77,13 +77,7 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   public subscript(key: Key, default defaultValues: @autoclosure () -> Set<Value>) -> Set<Value> {
     self.dictionary[key, default: defaultValues()]
   }
-  
-  /// Returns true if inserted
-  public mutating func addValue(_ v: Value, forKey key: Key) -> Bool {
-    if var inner = outerDict[key] {
-      let old = inner.insert(v).inserted
-      outerDict[key] = inner
-      return old
+
   /// Returns a set of keys that the given value is associated with.
   ///
   /// - Parameter v: The value to search for among the key-value associations in
@@ -96,8 +90,6 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
       }
       acc.insert(next.key)
     }
-    outerDict[key] = Set([v])
-    return true
   }
   
   public mutating func removeValue(_ v: Value) {
@@ -110,6 +102,17 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
     changedPairs.forEach {
       outerDict[$0.key] = $0.value
     }
+
+  /// Inserts the given value in the set of values associated with the given key.
+  ///
+  /// - Parameters:
+  ///   - v: The value to insert.
+  ///   - key: The key used to associate the given value with a set of elements.
+  /// - Returns: `true` if the value was not previously associated with any
+  ///            other values for the given key. Else, returns `false.
+  @discardableResult
+  public mutating func insertValue(_ v: Value, forKey key: Key) -> Bool {
+    return self.dictionary[key, default: []].insert(v).inserted
   }
   
   @discardableResult

@@ -138,7 +138,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// record def-use, return if is new use
   mutating func record(def: DependencyKey, use: Graph.Node) -> Bool {
     verifyUseIsOK(use)
-    return usesByDef.addValue(use, forKey: def)
+    return usesByDef.insertValue(use, forKey: def)
   }
 }
 
