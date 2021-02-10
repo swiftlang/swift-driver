@@ -114,7 +114,7 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  func defsUsing(_ n: Graph.Node) -> [DependencyKey] {
+  func defsUsing(_ n: Graph.Node) -> Set<DependencyKey> {
     usesByDef.keysContainingValue(n)
   }
 }

@@ -68,8 +68,6 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   public subscript(key: Key) -> Set<Value>? {
     self.dictionary[key]
   }
-  
-  public func keysContainingValue(_ v: Value) -> [Key] {
 
   /// Accesses the values associated with the given key for reading and writing.
   ///
@@ -86,6 +84,17 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
       let old = inner.insert(v).inserted
       outerDict[key] = inner
       return old
+  /// Returns a set of keys that the given value is associated with.
+  ///
+  /// - Parameter v: The value to search for among the key-value associations in
+  ///                this dictionary.
+  /// - Returns: The set of keys associated with the given value.
+  public func keysContainingValue(_ v: Value) -> Set<Key> {
+    return self.dictionary.reduce(into: Set<Key>()) { acc, next in
+      guard next.value.contains(v) else {
+        return
+      }
+      acc.insert(next.key)
     }
     outerDict[key] = Set([v])
     return true
