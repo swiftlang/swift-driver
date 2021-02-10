@@ -609,26 +609,19 @@ extension ModuleDependencyGraph {
       }
     }
 
-    return try data.contents.withUnsafeBytes { buf in
-      // SAFETY: The bitcode reader does not mutate the data stream we give it.
-      // FIXME: Let's avoid this altogether and traffic in ByteString/[UInt8]
-      // if possible. There's no real reason to use `Data` in this API.
-      let baseAddr = UnsafeMutableRawPointer(mutating: buf.baseAddress!)
-      let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
-      var visitor = Visitor(diagnosticEngine: diagnosticEngine,
-                            reporter: reporter,
-                            fileSystem: fileSystem,
-                            options: options)
-      try Bitcode.read(stream: data, using: &visitor)
-      guard let major = visitor.majorVersion,
-            let minor = visitor.minorVersion,
-            visitor.compilerVersionString != nil,
-            Version(Int(major), Int(minor), 0) == Self.version
-      else {
-        throw ReadError.malformedMetadataRecord
-      }
-      return visitor.finalizeGraph()
+    var visitor = Visitor(diagnosticEngine: diagnosticEngine,
+                          reporter: reporter,
+                          fileSystem: fileSystem,
+                          options: options)
+    try Bitcode.read(bytes: data, using: &visitor)
+    guard let major = visitor.majorVersion,
+          let minor = visitor.minorVersion,
+          visitor.compilerVersionString != nil,
+          Version(Int(major), Int(minor), 0) == Self.version
+    else {
+      throw ReadError.malformedMetadataRecord
     }
+    return visitor.finalizeGraph()
   }
 }
 

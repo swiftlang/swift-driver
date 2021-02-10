@@ -271,16 +271,8 @@ extension SourceFileDependencyGraph {
 
     var visitor = Visitor(extractFromSwiftModule: extractFromSwiftModule)
     do {
-      try data.contents.withUnsafeBytes { buf in
-        // SAFETY: The bitcode reader does not mutate the data stream we give it.
-        // FIXME: Let's avoid this altogether and traffic in ByteString/[UInt8]
-        // if possible. There's no real reason to use `Data` in this API.
-        let baseAddr = UnsafeMutableRawPointer(mutating: buf.baseAddress!)
-        let data = Data(bytesNoCopy: baseAddr, count: buf.count, deallocator: .none)
-        try Bitcode.read(stream: data, using: &visitor)
-      }
-    }
-    catch ReadError.swiftModuleHasNoDependencies {
+      try Bitcode.read(bytes: data, using: &visitor)
+    } catch ReadError.swiftModuleHasNoDependencies {
       return nil
     }
     guard let major = visitor.majorVersion,
