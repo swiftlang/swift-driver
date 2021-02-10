@@ -64,12 +64,20 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
     return self.dictionary.values
   }
 
-  public subscript(key: Key, default defaultValues: @autoclosure () -> Set<Value>) -> (key: Key, values: Set<Value>) {
-    self[key] ?? (key: key, values: defaultValues())
+  /// Accesses the values associated with the given key for reading and writing.
+  public subscript(key: Key) -> Set<Value>? {
+    self.dictionary[key]
   }
   
   public func keysContainingValue(_ v: Value) -> [Key] {
-    outerDict.compactMap { (k, vs) in vs.contains(v) ? k : nil }
+
+  /// Accesses the values associated with the given key for reading and writing.
+  ///
+  /// If this multi-dictionary doesn’t contain the given key, accesses the
+  /// provided default value as if the key and default value existed in
+  /// this multi-dictionary.
+  public subscript(key: Key, default defaultValues: @autoclosure () -> Set<Value>) -> Set<Value> {
+    self.dictionary[key, default: defaultValues()]
   }
   
   /// Returns true if inserted

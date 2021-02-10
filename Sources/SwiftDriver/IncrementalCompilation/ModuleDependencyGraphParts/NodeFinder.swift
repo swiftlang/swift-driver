@@ -81,7 +81,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// - Returns: A set of nodes corresponding to the uses of the given
   ///            definition node.
   func uses(of def: Graph.Node) -> Set<Graph.Node> {
-    var uses = usesByDef[def.key, default: Set()].values
+    var uses = usesByDef[def.key, default: Set()]
     if let impl = findCorrespondingImplementation(of: def) {
       uses.insert(impl)
     }
@@ -206,10 +206,11 @@ extension ModuleDependencyGraph.NodeFinder {
   }
   
   private func verifyUsesByDef() {
-    usesByDef.forEach {
-      def, use in
-      // def may have disappeared from graph, nothing to do
-      verifyUseIsOK(use)
+    usesByDef.forEach { def, uses in
+      for use in uses {
+        // def may have disappeared from graph, nothing to do
+        verifyUseIsOK(use)
+      }
     }
   }
 
