@@ -151,7 +151,7 @@ extension ModuleDependencyGraph.NodeFinder {
   }
   
   private mutating func removeUsings(of nodeToNotUse: Graph.Node) {
-    usesByDef.removeValue(nodeToNotUse)
+    usesByDef.removeOccurrences(of: nodeToNotUse)
     assert(defsUsing(nodeToNotUse).isEmpty)
   }
   

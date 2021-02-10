@@ -91,17 +91,6 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
       acc.insert(next.key)
     }
   }
-  
-  public mutating func removeValue(_ v: Value) {
-    let changedPairs = outerDict.compactMap { kv -> (key: Key, value: Set<Value>?)? in
-      var vals = kv.value
-      guard vals.contains(v) else { return nil}
-      vals.remove(v)
-      return (key: kv.key, value: (vals.isEmpty ? nil : vals))
-    }
-    changedPairs.forEach {
-      outerDict[$0.key] = $0.value
-    }
 
   /// Inserts the given value in the set of values associated with the given key.
   ///
@@ -126,5 +115,16 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
     vals.insert(replacement)
     outerDict.updateValue(vals, forKey: key)
     return true
+  /// Removes all occurrences of the given value from all entries in this
+  /// multi-dictionary.
+  ///
+  /// - Note: If this value is used as a key, this function does not erase its
+  ///         entries from the underlying dictionary.
+  ///
+  /// - Parameter v: The value to remove.
+  public mutating func removeOccurrences(of v: Value) {
+    for k in self.dictionary.keys {
+      self.dictionary[k]!.remove(v)
+    }
   }
 }
