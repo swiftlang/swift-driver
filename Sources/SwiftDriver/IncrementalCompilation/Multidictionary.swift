@@ -12,46 +12,46 @@
 
 /// Like a Dictionary, but can have >1 value per key (i.e., a multimap)
 struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
-  public typealias OuterDict = [Key: Set<Value>]
-  public typealias InnerSet = Set<Value>
-  private var outerDict = OuterDict()
+  private var dictionary: Dictionary<Key, Set<Value>> = [:]
   
-  public typealias Element = (key: Key, value: Value)
-  
-  public enum Index: Comparable {
-    case end
-    case notEnd(OuterDict.Index, InnerSet.Index)
+  public typealias Element = (Key, Set<Value>)
+  public typealias Index = Dictionary<Key, Set<Value>>.Index
+
+  /// The number of key-value pairs in this multi-dictionary.
+  public var count: Int {
+    self.dictionary.count
   }
-  
+
+  /// The position of the first element in a nonempty multi-dictionary.
   public var startIndex: Index {
-    outerDict.first.map {Index.notEnd(outerDict.startIndex, $0.value.startIndex)} ?? .end
+    self.dictionary.startIndex
   }
-  public var endIndex: Index {.end}
-  
-  public func index(after i: Index) -> Index {
-    switch i {
-    case .end: fatalError()
-    case let .notEnd(outerIndex, innerIndex):
-      let innerSet = outerDict[outerIndex].value
-      let nextInner = innerSet.index(after: innerIndex)
-      if nextInner < innerSet.endIndex {
-        return .notEnd(outerIndex, nextInner)
-      }
-      let nextOuter = outerDict.index(after: outerIndex)
-      if nextOuter < outerDict.endIndex {
-        return .notEnd(nextOuter, outerDict[nextOuter].value.startIndex)
-      }
-      return .end
-    }
+
+  /// The collection’s “past the end” position—that is, the position one greater
+  /// than the last valid subscript argument.
+  public var endIndex: Index {
+    self.dictionary.endIndex
   }
-  
-  public subscript(position: Index) -> (key: Key, value: Value) {
-    switch position {
-    case .end: fatalError()
-    case  let .notEnd(outerIndex, innerIndex):
-      let (key, vals) = outerDict[outerIndex]
-      return (key: key, value: vals[innerIndex])
-    }
+
+  /// Returns the index for the given key.
+  ///
+  /// - Parameter key: The key to find in the multi-dictionary.
+  /// - Returns: The index for key and its associated value if key is in the
+  ///            multi-dictionary; otherwise, nil.
+  public func index(forKey key: Key) -> Dictionary<Key, Set<Value>>.Index? {
+    self.dictionary.index(forKey: key)
+  }
+
+  /// Computes the position immediately after the given index.
+  ///
+  /// - Parameter i: A valid index of the collection. i must be less than endIndex.
+  /// - Returns: The position immediately after the given index.
+  func index(after i: Dictionary<Key, Set<Value>>.Index) -> Dictionary<Key, Set<Value>>.Index {
+    self.dictionary.index(after: i)
+  }
+
+  subscript(position: Dictionary<Key, Set<Value>>.Index) -> (Key, Set<Value>) {
+    self.dictionary[position]
   }
 
   /// A collection containing just the keys of this multi-dictionary.
