@@ -55,12 +55,13 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   }
 
   /// A collection containing just the keys of this multi-dictionary.
-  public var keys: OuterDict.Keys {
-    return self.outerDict.keys
+  public var keys: Dictionary<Key, Set<Value>>.Keys {
+    return self.dictionary.keys
   }
-  
-  public subscript(key: Key) -> (key: Key, values: Set<Value>)? {
-    outerDict[key].map { (key: key, values: $0) }
+
+  /// A collection containing just the values of this multi-dictionary.
+  public var values: Dictionary<Key, Set<Value>>.Values {
+    return self.dictionary.values
   }
 
   public subscript(key: Key, default defaultValues: @autoclosure () -> Set<Value>) -> (key: Key, values: Set<Value>) {
