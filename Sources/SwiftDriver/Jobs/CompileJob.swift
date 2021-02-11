@@ -79,7 +79,7 @@ extension Driver {
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, nil:
+         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, nil:
       return false
     }
   }
@@ -369,8 +369,6 @@ extension FileType {
       return .scanDependencies
     case .jsonTargetInfo:
       return .printTargetInfo
-    case .jsonCompilerFeatures:
-      return .emitSupportedFeatures
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,

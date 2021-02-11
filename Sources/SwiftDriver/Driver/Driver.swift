@@ -304,9 +304,6 @@ public struct Driver {
   /// discovered/scanned modules and their infos.
   @_spi(Testing) public var externalBuildArtifacts: ExternalBuildArtifacts? = nil
 
-  /// A collection of all the flags the selected toolchain's `swift-frontend` supports
-  @_spi(Testing) public let supportedFrontendFlags: Set<String>
-
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     let stream = stderrStream
@@ -527,13 +524,6 @@ public struct Driver {
                                                                                compilerMode: compilerMode,
                                                                                importedObjCHeader: importedObjCHeader,
                                                                                outputFileMap: outputFileMap)
-
-    self.supportedFrontendFlags =
-      try Self.computeSupportedCompilerFeatures(of: self.toolchain, hostTriple: self.hostTriple,
-                                                swiftCompilerPrefixArgs:
-                                                  swiftCompilerPrefixArgs,
-                                                fileSystem: fileSystem, executor: executor,
-                                                env: env)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
       &parsedOptions,

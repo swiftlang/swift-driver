@@ -57,7 +57,6 @@ add_library(SwiftDriver
   Jobs/CompileJob.swift
   Jobs/DarwinToolchain+LinkerSupport.swift
   Jobs/EmitModuleJob.swift
-  Jobs/EmitSupportedFeaturesJob.swift
   Jobs/FrontendJobHelpers.swift
   Jobs/GenerateDSYMJob.swift
   Jobs/GeneratePCHJob.swift

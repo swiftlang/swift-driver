@@ -163,12 +163,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
               InterModuleDependencyGraph.self,
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       let dependencyOracle = InterModuleDependencyOracle()
-      let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
-                                                  hostTriple: driver.hostTriple,
-                                                  env: ProcessEnv.vars)
       try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                       swiftScanLibPath: scanLibPath)
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
@@ -248,12 +245,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: commandLine, executor: executor,
                               externalBuildArtifacts: (targetModulePathMap, [:]),
                               interModuleDependencyOracle: dependencyOracle)
-      let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
-                                                  hostTriple: driver.hostTriple,
-                                                  env: ProcessEnv.vars)
       try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                       swiftScanLibPath: scanLibPath)
+                                       swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain))
 
       // Plan explicit dependency jobs, after resolving placeholders to actual dependencies.
       try moduleDependencyGraph.resolvePlaceholderDependencies(for: (targetModulePathMap, [:]),
@@ -590,12 +584,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
-    let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
-                                                hostTriple: driver.hostTriple,
-                                                env: ProcessEnv.vars)
     guard try dependencyOracle
             .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                           swiftScanLibPath: scanLibPath) else {
+                                           swiftScanLibPath: try driver.getScanLibPath(of: driver.toolchain)) else {
       XCTFail("Dependency scanner library not found")
       return
     }
