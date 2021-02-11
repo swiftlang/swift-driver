@@ -81,7 +81,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// - Returns: A set of nodes corresponding to the uses of the given
   ///            definition node.
   func uses(of def: Graph.Node) -> Set<Graph.Node> {
-    var uses = usesByDef[def.key, default: Set()].values
+    var uses = usesByDef[def.key, default: Set()]
     if let impl = findCorrespondingImplementation(of: def) {
       uses.insert(impl)
     }
@@ -114,7 +114,7 @@ extension ModuleDependencyGraph.NodeFinder {
     }
   }
   
-  func defsUsing(_ n: Graph.Node) -> [DependencyKey] {
+  func defsUsing(_ n: Graph.Node) -> Set<DependencyKey> {
     usesByDef.keysContainingValue(n)
   }
 }
@@ -138,7 +138,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// record def-use, return if is new use
   mutating func record(def: DependencyKey, use: Graph.Node) -> Bool {
     verifyUseIsOK(use)
-    return usesByDef.addValue(use, forKey: def)
+    return usesByDef.insertValue(use, forKey: def)
   }
 }
 
@@ -151,7 +151,7 @@ extension ModuleDependencyGraph.NodeFinder {
   }
   
   private mutating func removeUsings(of nodeToNotUse: Graph.Node) {
-    usesByDef.removeValue(nodeToNotUse)
+    usesByDef.removeOccurrences(of: nodeToNotUse)
     assert(defsUsing(nodeToNotUse).isEmpty)
   }
   
@@ -179,7 +179,9 @@ extension ModuleDependencyGraph.NodeFinder {
     let replacement = Graph.Node(key: original.key,
                                  fingerprint: newFingerprint,
                                  dependencySource: newDependencySource)
-    usesByDef.replace(original, with: replacement, forKey: original.key)
+    if usesByDef.removeValue(original, forKey: original.key) != nil {
+      usesByDef.insertValue(replacement, forKey: original.key)
+    }
     nodeMap.removeValue(forKey: original.mapKey)
     nodeMap.updateValue(replacement, forKey: replacement.mapKey)
     return replacement
@@ -206,10 +208,11 @@ extension ModuleDependencyGraph.NodeFinder {
   }
   
   private func verifyUsesByDef() {
-    usesByDef.forEach {
-      def, use in
-      // def may have disappeared from graph, nothing to do
-      verifyUseIsOK(use)
+    usesByDef.forEach { def, uses in
+      for use in uses {
+        // def may have disappeared from graph, nothing to do
+        verifyUseIsOK(use)
+      }
     }
   }
 

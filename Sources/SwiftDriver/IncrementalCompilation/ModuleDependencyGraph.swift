@@ -889,7 +889,7 @@ extension ModuleDependencyGraph {
             $0.append(serializer.lookupIdentifierCode(
                         for: key.designator.name ?? ""))
           }
-          for use in graph.nodeFinder.usesByDef[key]?.values ?? [] {
+          for use in graph.nodeFinder.usesByDef[key, default: []] {
             guard let useID = serializer.nodeIDs[use] else {
               fatalError("Node ID was not registered! \(use)")
             }
