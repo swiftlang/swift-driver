@@ -46,6 +46,9 @@ public enum Tool: Hashable {
   /// Set an absolute path to be used for a particular tool.
   func overrideToolPath(_ tool: Tool, path: AbsolutePath)
 
+  /// Remove the absolute path used for a particular tool, in case it was overriden or cached.
+  func clearKnownToolPath(_ tool: Tool)
+
   /// Returns path of the default SDK, if there is one.
   func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath?
 

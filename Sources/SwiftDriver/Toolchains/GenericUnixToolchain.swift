@@ -86,6 +86,10 @@ import TSCBasic
     toolPaths[tool] = path
   }
 
+  public func clearKnownToolPath(_ tool: Tool) {
+    toolPaths.removeValue(forKey: tool)
+  }
+
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     return nil
   }
