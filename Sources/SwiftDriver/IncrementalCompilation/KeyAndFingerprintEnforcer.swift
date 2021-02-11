@@ -29,12 +29,13 @@ extension KeyAndFingerprintEnforcer {
     guard let file = externalDependency.file else {
       throw KeyAndFingerprintEnforcerError.noFile(externalDependency)
     }
-    guard let fingerprint = self.fingerprint,
-          file.extension == FileType.swiftModule.rawValue
-    else {
+    guard let fingerprint = self.fingerprint else {
       return
     }
-    throw KeyAndFingerprintEnforcerError.onlySwiftModulesHaveFingerprints(externalDependency, fingerprint)
+    
+    guard file.extension == FileType.swiftModule.rawValue else {
+      throw KeyAndFingerprintEnforcerError.onlySwiftModulesHaveFingerprints(externalDependency, fingerprint)
+    }
   }
 }
 enum KeyAndFingerprintEnforcerError: LocalizedError {
