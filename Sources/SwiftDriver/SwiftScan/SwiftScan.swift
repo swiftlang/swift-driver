@@ -26,6 +26,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
   case invalidStringPtr
   case scanningLibraryInvocationMismatch(AbsolutePath, AbsolutePath)
   case scanningLibraryNotFound(AbsolutePath)
+  case argumentQueryFailed
 
   public var description: String {
     switch self {
@@ -47,12 +48,14 @@ public enum DependencyScanningError: Error, DiagnosticData {
         return "Dependency Scanning library differs across driver invocations: \(path1.description) and \(path2.description)"
       case .scanningLibraryNotFound(let path):
         return "Dependency Scanning library not found at path: \(path)"
+      case .argumentQueryFailed:
+        return "libSwiftScan supported compiler argument query failed"
     }
   }
 }
 
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
-internal final class SwiftScan {
+@_spi(Testing) public final class SwiftScan {
   /// The path to the libSwiftScan dylib.
   let path: AbsolutePath
 
@@ -68,7 +71,7 @@ internal final class SwiftScan {
   /// Instance of a scanner, which maintains shared state across scan queries.
   let scanner: swiftscan_scanner_t;
 
-  init(dylib path: AbsolutePath) throws {
+  @_spi(Testing) public init(dylib path: AbsolutePath) throws {
     self.path = path
     #if os(Windows)
     self.dylib = try dlopen(path.pathString, mode: [])
@@ -177,6 +180,21 @@ internal final class SwiftScan {
     api.swiftscan_batch_scan_result_dispose(batchResultRefOrNull)
     return resultGraphMap
   }
+
+  @_spi(Testing) public func canQuerySupportedArguments() -> Bool {
+    return api.swiftscan_compiler_supported_arguments_query != nil &&
+           api.swiftscan_string_set_dispose != nil
+  }
+
+  @_spi(Testing) public func querySupportedArguments() throws -> Set<String> {
+    precondition(canQuerySupportedArguments())
+    if let queryResultStrings = api.swiftscan_compiler_supported_arguments_query!() {
+      defer { api.swiftscan_string_set_dispose!(queryResultStrings) }
+      return try toSwiftStringSet(queryResultStrings.pointee)
+    } else {
+      throw DependencyScanningError.argumentQueryFailed
+    }
+  }
 }
 
 private extension swiftscan_functions_t {
@@ -185,7 +203,18 @@ private extension swiftscan_functions_t {
 
     // MARK: Optional Methods
     // Future optional methods can be queried here
-
+    func loadOptional<T>(_ symbol: String) throws -> T? {
+      guard let sym: T = dlsym(swiftscan, symbol: symbol) else {
+        return nil
+      }
+      return sym
+    }
+    self.swiftscan_string_set_dispose =
+      try loadOptional("swiftscan_string_set_dispose")
+    self.swiftscan_compiler_supported_arguments_query =
+      try loadOptional("swiftscan_compiler_supported_arguments_query")
+    self.swiftscan_compiler_supported_features_query =
+      try loadOptional("swiftscan_compiler_supported_features_query")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
@@ -301,7 +330,6 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_batch_scan_result_create")
     self.swiftscan_import_set_create =
       try loadRequired("swiftscan_import_set_create")
-
   }
 }
 

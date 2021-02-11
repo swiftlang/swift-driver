@@ -177,6 +177,8 @@ typedef struct {
 
   //=== Cleanup Functions ---------------------------------------------------===//
   void
+  (*swiftscan_string_set_dispose)(swiftscan_string_set_t *);
+  void
   (*swiftscan_dependency_graph_dispose)(swiftscan_dependency_graph_t);
   void
   (*swiftscan_import_set_dispose)(swiftscan_import_set_t);
@@ -188,6 +190,12 @@ typedef struct {
   (*swiftscan_batch_scan_result_dispose)(swiftscan_batch_scan_result_t *);
   void
   (*swiftscan_scan_invocation_dispose)(swiftscan_scan_invocation_t);
+
+  //=== Functionality Query Functions ---------------------------------------===//
+  swiftscan_string_set_t *
+  (*swiftscan_compiler_supported_arguments_query)(void);
+  swiftscan_string_set_t *
+  (*swiftscan_compiler_supported_features_query)(void);
 
   //=== Scanner Functions ---------------------------------------------------===//  
   swiftscan_scanner_t (*swiftscan_scanner_create)(void);

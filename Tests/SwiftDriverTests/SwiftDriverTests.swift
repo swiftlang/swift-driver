@@ -3114,6 +3114,41 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testFrontendSupportedArguments() throws {
+    do {
+      // General case: ensure supported frontend arguments have been computed, one way or another
+      let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
+                                     "-resource-dir", "baz"])
+      XCTAssertTrue(driver.supportedFrontendFlags.contains("emit-module"))
+    }
+    do {
+      let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
+                                     "-resource-dir", "baz"])
+      // If a capable libSwiftScan is found, manually ensure we can get the supported arguments
+      let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
+                                                  hostTriple: driver.hostTriple,
+                                                  env: ProcessEnv.vars)
+      if localFileSystem.exists(scanLibPath) {
+        let libSwiftScanInstance = try SwiftScan(dylib: scanLibPath)
+        if libSwiftScanInstance.canQuerySupportedArguments() {
+          let supportedArguments = try libSwiftScanInstance.querySupportedArguments()
+          XCTAssertTrue(supportedArguments.contains("emit-module"))
+        }
+      }
+    }
+    do {
+      // Test the fallback path of computing the supported arguments using a swift-frontend
+      // invocation, by pointing the driver to look for libSwiftScan in a place that does not
+      // exist
+      var env = ProcessEnv.vars
+      env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] = "/some/nonexistent/path"
+      let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
+                                     "-resource-dir", "baz"],
+                              env: env)
+      XCTAssertTrue(driver.supportedFrontendFlags.contains("emit-module"))
+    }
+  }
+
   func testPrintOutputFileMap() throws {
     try withTemporaryDirectory { path in
       // Replace the error stream with one we capture here.

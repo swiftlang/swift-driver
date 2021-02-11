@@ -96,6 +96,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// JSON-based -print-target-info output
   case jsonTargetInfo = "targetInfo.json"
 
+  /// JSON-based -emit-supported-features output
+  case jsonCompilerFeatures = "compilerFeatures.json"
+
   /// JSON-based binary Swift module artifact description
   case jsonSwiftArtifacts = "artifacts.json"
 
@@ -167,6 +170,9 @@ extension FileType: CustomStringConvertible {
     case .jsonTargetInfo:
       return "json-target-info"
 
+    case .jsonCompilerFeatures:
+      return "json-supported-features"
+
     case .jsonSwiftArtifacts:
       return "json-module-artifacts"
 
@@ -203,7 +209,7 @@ extension FileType {
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
-         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts:
+         .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts:
       return false
     }
   }
@@ -278,6 +284,8 @@ extension FileType {
       return "json-dependencies"
     case .jsonTargetInfo:
       return "json-target-info"
+    case .jsonCompilerFeatures:
+      return "json-supported-features"
     case .jsonSwiftArtifacts:
       return "json-module-artifacts"
     case .importedModules:
@@ -302,7 +310,8 @@ extension FileType {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
-         .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts:
+         .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures,
+         .jsonTargetInfo, .jsonSwiftArtifacts:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -322,7 +331,7 @@ extension FileType {
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
-         .jsonTargetInfo, .jsonSwiftArtifacts:
+         .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts:
       return false
     }
   }

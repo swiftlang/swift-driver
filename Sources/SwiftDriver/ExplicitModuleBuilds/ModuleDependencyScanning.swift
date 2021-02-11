@@ -103,9 +103,10 @@ internal extension Driver {
     // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
     // scanning.
     var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    let scanLibPath = try Self.getScanLibPath(of: toolchain, hostTriple: hostTriple, env: env)
     if try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: try getScanLibPath(of: toolchain)) == false {
+                                       swiftScanLibPath: scanLibPath) == false {
       fallbackToFrontend = true
       diagnosticEngine.emit(.warn_scanner_frontend_fallback())
     }
@@ -147,9 +148,10 @@ internal extension Driver {
     // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
     // scanning.
     var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    let scanLibPath = try Self.getScanLibPath(of: toolchain, hostTriple: hostTriple, env: env)
     if try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: try getScanLibPath(of: toolchain)) == false {
+                                       swiftScanLibPath: scanLibPath) == false {
       fallbackToFrontend = true
       diagnosticEngine.emit(.warn_scanner_frontend_fallback())
     }
@@ -293,20 +295,22 @@ internal extension Driver {
 }
 
 @_spi(Testing) public extension Driver {
-  func getScanLibPath(of toolchain: Toolchain) throws -> AbsolutePath {
+  static func getScanLibPath(of toolchain: Toolchain, hostTriple: Triple,
+                             env: [String: String]) throws -> AbsolutePath {
     let sharedLibExt: String
     if hostTriple.isMacOSX {
       sharedLibExt = ".dylib"
     } else {
       sharedLibExt = ".so"
     }
-    return try getRootPath(of: toolchain).appending(component: "lib")
+    return try getRootPath(of: toolchain, env: env).appending(component: "lib")
       .appending(component: "swift")
       .appending(component: hostTriple.osNameUnversioned)
       .appending(component: "lib_InternalSwiftScan" + sharedLibExt)
   }
 
-  fileprivate func getRootPath(of toolchain: Toolchain) throws -> AbsolutePath {
+  fileprivate static func getRootPath(of toolchain: Toolchain, env: [String: String])
+  throws -> AbsolutePath {
     if let overrideString = env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] {
       return try AbsolutePath(validating: overrideString)
     }
