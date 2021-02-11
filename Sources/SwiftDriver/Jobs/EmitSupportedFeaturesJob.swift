@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===////
 
 import TSCBasic
+import SwiftOptions
 
 /// Describes information about the compiler's supported arguments and features
 @_spi(Testing) public struct SupportedCompilerFeatures: Codable {
@@ -51,7 +52,8 @@ extension Toolchain {
 
 extension Driver {
   static func computeSupportedCompilerFeatures(of toolchain: Toolchain, hostTriple: Triple,
-                                               swiftCompilerPrefixArgs: [String],
+                                               parsedOptions: inout ParsedOptions,
+                                               diagnosticsEngine: DiagnosticsEngine,
                                                fileSystem: FileSystem,
                                                executor: DriverExecutor, env: [String: String])
   throws -> Set<String> {
@@ -68,9 +70,12 @@ extension Driver {
     }
 
     // Fallback to invoking `swift-frontend -emit-supported-features`
+    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
+    frontendOverride.setUpForTargetInfo(toolchain)
+    defer { frontendOverride.setUpForCompilation(toolchain) }
     let frontendFeaturesJob =
       try toolchain.emitSupportedCompilerFeaturesJob(swiftCompilerPrefixArgs:
-                                                      swiftCompilerPrefixArgs)
+                                                      frontendOverride.prefixArgsForTargetInfo)
     let decodedSupportedFlagList = try executor.execute(
       job: frontendFeaturesJob,
       capturingJSONOutputAs: SupportedCompilerFeatures.self,

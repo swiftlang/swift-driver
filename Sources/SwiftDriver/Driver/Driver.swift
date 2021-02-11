@@ -530,8 +530,8 @@ public struct Driver {
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerFeatures(of: self.toolchain, hostTriple: self.hostTriple,
-                                                swiftCompilerPrefixArgs:
-                                                  swiftCompilerPrefixArgs,
+                                                parsedOptions: &self.parsedOptions,
+                                                diagnosticsEngine: diagnosticEngine,
                                                 fileSystem: fileSystem, executor: executor,
                                                 env: env)
 
@@ -2287,7 +2287,7 @@ extension Driver {
     }
   }
 
-  private struct FrontendOverride {
+  internal struct FrontendOverride {
     private let overridePath: AbsolutePath?
     let prefixArgs: [String]
 
