@@ -58,12 +58,14 @@ import TSCUtility
 }
 
 extension SourceFileDependencyGraph {
-  public struct Node: KeyAndFingerprintEnforcer {
-    public var key: DependencyKey
-    public var fingerprint: String?
-    public var sequenceNumber: Int
-    public var defsIDependUpon: [Int]
-    public var isProvides: Bool
+  public struct Node {
+    public let keyAndFingerprint: KeyAndFingerprintHolder
+    public var key: DependencyKey { keyAndFingerprint.key }
+    public var fingerprint: String? { keyAndFingerprint.fingerprint }
+
+    public let sequenceNumber: Int
+    public let defsIDependUpon: [Int]
+    public let isProvides: Bool
     
     /*@_spi(Testing)*/ public init(
       key: DependencyKey,
@@ -72,18 +74,14 @@ extension SourceFileDependencyGraph {
       defsIDependUpon: [Int],
       isProvides: Bool
     ) throws {
-      self.key = key
-      self.fingerprint = fingerprint
+      self.keyAndFingerprint = try KeyAndFingerprintHolder(key, fingerprint)
       self.sequenceNumber = sequenceNumber
       self.defsIDependUpon = defsIDependUpon
       self.isProvides = isProvides
-
-      try verifyKeyAndFingerprint()
     }
     
     public func verify() {
       key.verify()
-      try! verifyKeyAndFingerprint()
       
       if case .sourceFileProvide = key.designator {
         switch key.aspect {
@@ -93,14 +91,6 @@ extension SourceFileDependencyGraph {
           assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber)
         }
       }
-    }
-
-    public var isIncrementalExternalDependency: Bool {
-      if case .externalDepend = key.designator,
-         fingerprint != nil {
-        return true
-      }
-      return false
     }
   }
 }
@@ -149,9 +139,9 @@ extension SourceFileDependencyGraph {
 
   /*@_spi(Testing)*/ public init?(
     contentsOf dependencySource: DependencySource,
-    on filesystem: FileSystem
+    on fileSystem: FileSystem
   ) throws {
-    let data = try filesystem.readFileContents(dependencySource.file)
+    let data = try fileSystem.readFileContents(dependencySource.file)
     try self.init(data: data, from: dependencySource,
                   fromSwiftModule: dependencySource.typedFile.type == .swiftModule)
   }
@@ -174,9 +164,15 @@ extension SourceFileDependencyGraph {
       var minorVersion: UInt64?
       var compilerVersionString: String?
 
-      private var node: Node? = nil
+      // Node ingredients
+      private var key: DependencyKey?
+      private var fingerprint: String?
+      private var nodeSequenceNumber = 0
+      private var defsNodeDependUpon: [Int] = []
+      private var isProvides = false
+
+      private var nextSequenceNumber = 0
       private var identifiers: [String] = [""] // The empty string is hardcoded as identifiers[0]
-      private var sequenceNumber = 0
 
       func validate(signature: Bitcode.Signature) throws {
         if extractFromSwiftModule {
@@ -200,13 +196,20 @@ extension SourceFileDependencyGraph {
       }
 
       mutating func didExitBlock() throws {
-        // Finalize the current node if needed.
-        if let node = node {
-          nodes.append(node)
-          self.node = nil
-        }
+        try finalizeNode()
       }
+      private mutating func finalizeNode() throws {
+        guard let key = key else {return}
 
+        let node = try Node(key: key,
+                            fingerprint: fingerprint,
+                            sequenceNumber: nodeSequenceNumber,
+                            defsIDependUpon: defsNodeDependUpon,
+                            isProvides: isProvides)
+        self.key = nil
+        defsNodeDependUpon = []
+        nodes.append(node)
+      }
       mutating func visit(record: BitcodeElement.Record) throws {
         guard let kind = RecordKind(rawValue: record.id) else { throw ReadError.unknownRecord }
         switch kind {
@@ -224,9 +227,7 @@ extension SourceFileDependencyGraph {
           self.minorVersion = record.fields[1]
           self.compilerVersionString = compilerVersionString
         case .sourceFileDepGraphNode:
-          if let node = node {
-            nodes.append(node)
-          }
+          try finalizeNode()
           let kindCode = record.fields[0]
           guard record.fields.count == 5,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
@@ -236,28 +237,27 @@ extension SourceFileDependencyGraph {
           }
           let context = identifiers[Int(record.fields[2])]
           let identifier = identifiers[Int(record.fields[3])]
-          let isProvides = record.fields[4] != 0
+          self.isProvides = record.fields[4] != 0
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier)
-          let key = DependencyKey(aspect: declAspect, designator: designator)
-          node = try Node(key: key,
-                          fingerprint: nil,
-                          sequenceNumber: sequenceNumber,
-                          defsIDependUpon: [],
-                          isProvides: isProvides)
-          sequenceNumber += 1
+          self.key = DependencyKey(aspect: declAspect, designator: designator)
+          self.fingerprint = nil
+          self.nodeSequenceNumber = nextSequenceNumber
+          self.defsNodeDependUpon = []
+
+          nextSequenceNumber += 1
         case .fingerprintNode:
-          guard node != nil,
+          guard key != nil,
                 record.fields.count == 0,
                 case .blob(let fingerprintBlob) = record.payload,
                 let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
             throw ReadError.malformedFingerprintRecord
           }
-          node?.fingerprint = fingerprint
+          self.fingerprint = fingerprint
         case .dependsOnDefinitionNode:
-          guard node != nil,
+          guard key != nil,
                 record.fields.count == 1 else { throw ReadError.malformedDependsOnDefinitionRecord }
-          node?.defsIDependUpon.append(Int(record.fields[0]))
+          self.defsNodeDependUpon.append(Int(record.fields[0]))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -269,7 +269,8 @@ extension SourceFileDependencyGraph {
       }
     }
 
-    var visitor = Visitor(extractFromSwiftModule: extractFromSwiftModule)
+    var visitor = Visitor(
+      extractFromSwiftModule: extractFromSwiftModule)
     do {
       try Bitcode.read(bytes: data, using: &visitor)
     } catch ReadError.swiftModuleHasNoDependencies {
@@ -322,7 +323,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(ExternalDependency(name))
+      self = try .externalDepend(ExternalDependency(name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

@@ -25,28 +25,16 @@ extension ModuleDependencyGraph {
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
   /*@_spi(Testing)*/
-  public final class Node: KeyAndFingerprintEnforcer {
+  public final class Node {
 
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
-    /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
-    let key: DependencyKey
+    /// Hold these where an invariant can be checked.
+    let keyAndFingerprint: KeyAndFingerprintHolder
 
-    /// The frontend records in the fingerprint, all of the information about an
-    /// entity, such that any uses need be rebuilt only if the fingerprint
-    /// changes.
-    /// When the driver reloads a dependency graph (after a frontend job has run),
-    /// it can use the fingerprint to determine if the entity has changed and thus
-    /// if uses need to be recompiled.
-    ///
-    /// However, at present, the frontend does not record this information for
-    /// every Decl; it only records it for the source-file-as-a-whole in the
-    /// interface hash. The inteface hash is a product of all the tokens that are
-    /// not inside of function bodies. Thus, if there is no fingerprint, when the
-    /// frontend creates an interface node,
-    /// it adds a dependency to it from the implementation source file node (which
-    /// has the intefaceHash as its fingerprint).
-    let fingerprint: String?
+    var key: DependencyKey { keyAndFingerprint.key }
+    var fingerprint: String? { keyAndFingerprint.fingerprint }
+
 
 
     /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
@@ -62,11 +50,8 @@ extension ModuleDependencyGraph {
     /// SourceFileDependencyGraph or the DependencyKeys
     init(key: DependencyKey, fingerprint: String?,
          dependencySource: DependencySource?) {
-      self.key = key
-      self.fingerprint = fingerprint
+      self.keyAndFingerprint = try! KeyAndFingerprintHolder(key, fingerprint)
       self.dependencySource = dependencySource
-
-      try! verifyKeyAndFingerprint()
     }
   }
 }

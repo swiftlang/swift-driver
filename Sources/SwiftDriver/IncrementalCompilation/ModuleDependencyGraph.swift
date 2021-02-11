@@ -213,7 +213,7 @@ extension ModuleDependencyGraph {
     guard externalDependency.isIncremental else {
       return Integrator.Results()
     }
-    let file = externalDependency.externalDependency.file!
+    let file = externalDependency.externalDependency.file
     let dependencySource = DependencySource(file)
     reporter?.report("integrating incremental external dependency",
                      dependencySource.typedFile)
@@ -596,7 +596,7 @@ extension ModuleDependencyGraph {
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
           self.graph.fingerprintedExternalDependencies.insert(
-            FingerprintedExternalDependency(ExternalDependency(path), fingerprint))
+            FingerprintedExternalDependency(try ExternalDependency(path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -768,7 +768,7 @@ extension ModuleDependencyGraph {
       }
 
       for edF in graph.fingerprintedExternalDependencies {
-        self.addIdentifier(edF.externalDependency.fileName)
+        self.addIdentifier(edF.externalDependency.file.name)
       }
 
       for str in self.identifiersToWrite {
@@ -905,7 +905,7 @@ extension ModuleDependencyGraph {
           serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(
-                        for: fingerprintedExternalDependency.externalDependency.fileName))
+                        for: fingerprintedExternalDependency.externalDependency.file.name))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, 
           blob: (fingerprintedExternalDependency.fingerprint ?? ""))
@@ -963,7 +963,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(ExternalDependency(name))
+      self = .externalDepend(try ExternalDependency(name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)
@@ -1016,7 +1016,7 @@ fileprivate extension DependencyKey.Designator {
     case .dynamicLookup(name: let name):
       return name
     case .externalDepend(let path):
-      return path.fileName
+      return path.file.name
     case .sourceFileProvide(name: let name):
       return name
     case .member(context: _, name: let name):

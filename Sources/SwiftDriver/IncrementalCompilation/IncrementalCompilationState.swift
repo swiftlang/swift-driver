@@ -564,7 +564,7 @@ extension IncrementalCompilationState {
     var externalDependencySources = Set<DependencySource>()
     for extDepAndPrint in moduleDependencyGraph.fingerprintedExternalDependencies {
       let extDep = extDepAndPrint.externalDependency
-      let extModTime = extDep.file.flatMap {try? fileSystem.getFileInfo($0).modTime}
+      let extModTime = (try? fileSystem.getFileInfo(extDep.file).modTime)
         ?? Date.distantFuture
       if extModTime >= buildTime {
         for dependent in moduleDependencyGraph.untracedDependents(of: extDepAndPrint) {
@@ -572,7 +572,7 @@ extension IncrementalCompilationState {
             fatalError("Dependent \(dependent) does not have dependencies file!")
           }
           reporter?.report(
-            "Queuing because of external dependency on newer \(extDep.file?.basename ?? "extDep?")",
+            "Queuing because of external dependency on newer \(extDep.file.basename)",
             dependencySource.typedFile)
           externalDependencySources.insert(dependencySource)
         }
