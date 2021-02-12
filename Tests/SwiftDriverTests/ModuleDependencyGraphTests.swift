@@ -1212,7 +1212,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func addArc(def: Node, use: Node) {
-    while dependencyAccumulator.count < use.sequenceNumber {
+    while dependencyAccumulator.count <= use.sequenceNumber {
       dependencyAccumulator.append(nil)
     }
     var dh = dependencyAccumulator[use.sequenceNumber] ?? {
@@ -1402,9 +1402,9 @@ fileprivate extension Set where Element == ExternalDependency {
   }
 }
 
-fileprivate struct DependencyHolder {
+fileprivate class DependencyHolder {
   private(set) var dependedUpon = [Int]()
-  mutating func add(_ dep: Int) {
+  func add(_ dep: Int) {
     dependedUpon.append(dep)
   }
 }
