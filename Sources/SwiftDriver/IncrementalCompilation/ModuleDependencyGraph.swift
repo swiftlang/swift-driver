@@ -209,12 +209,9 @@ extension ModuleDependencyGraph {
     externalDependency: FingerprintedExternalDependency,
     fileSystem: FileSystem
   ) -> Integrator.Results? {
-    // Save time; don't even try
-    guard externalDependency.isIncremental else {
+    guard let dependencySource = externalDependency.incrementalDependencySourceIfPresent else {
       return Integrator.Results()
     }
-    let file = externalDependency.externalDependency.file
-    let dependencySource = DependencySource(file)
     reporter?.report("integrating incremental external dependency",
                      dependencySource.typedFile)
     guard let sourceGraph = dependencySource.read(
@@ -445,6 +442,7 @@ extension ModuleDependencyGraph {
     case unexpectedSubblock
     case bogusNameOrContext
     case unknownKind
+    case unknownDependencySourceExtension
   }
 
   /// Attempts to read a serialized dependency graph from the given path.
@@ -559,9 +557,12 @@ extension ModuleDependencyGraph {
           let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
           let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          let dependencySource = try swiftDepsStr
-            .map({ try VirtualPath(path: $0) })
-            .map(DependencySource.init)
+          guard let dependencySource = try swiftDepsStr
+                  .map({ try VirtualPath(path: $0) })
+                  .map(DependencySource.init)
+          else {
+            throw ReadError.unknownDependencySourceExtension
+          }
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
                                    dependencySource: dependencySource))
