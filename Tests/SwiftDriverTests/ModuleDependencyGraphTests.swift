@@ -1212,10 +1212,11 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func addArc(def: Node, use: Node) {
+    dependencyAccumulator.reserveCapacity(use.sequenceNumber)
     while dependencyAccumulator.count <= use.sequenceNumber {
       dependencyAccumulator.append(nil)
     }
-    var dh = dependencyAccumulator[use.sequenceNumber] ?? {
+    let dh = dependencyAccumulator[use.sequenceNumber] ?? {
       let newOne = DependencyHolder()
       dependencyAccumulator[use.sequenceNumber] = newOne
       return newOne

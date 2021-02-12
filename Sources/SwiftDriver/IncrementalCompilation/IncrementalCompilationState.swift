@@ -564,8 +564,7 @@ extension IncrementalCompilationState {
     var externalDependencySources = Set<DependencySource>()
     for extDepAndPrint in moduleDependencyGraph.fingerprintedExternalDependencies {
       let extDep = extDepAndPrint.externalDependency
-      let extModTime = (try? fileSystem.getFileInfo(extDep.file).modTime)
-        ?? Date.distantFuture
+      let extModTime = extDep.modTime(fileSystem) ?? Date.distantFuture
       if extModTime >= buildTime {
         for dependent in moduleDependencyGraph.untracedDependents(of: extDepAndPrint) {
           guard let dependencySource = dependent.dependencySource else {
