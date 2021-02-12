@@ -1013,6 +1013,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   private let dependencyDescriptions: [(MockDependencyKind, String)]
 
   private var allNodes: [Node] = []
+  private var dependencyAccumulator = [DependencyHolder?]()
   private var memoizedNodes: [DependencyKey: Node] = [:]
   private var sourceFileNodePair: NodePair? = nil
 
@@ -1044,8 +1045,9 @@ fileprivate struct SourceFileDependencyGraphMocker {
   private mutating func buildNodes() {
     addSourceFileNodesToGraph();
     if (!hadCompilationError) {
-      addAllDefinedDecls();
-      addAllUsedDecls();
+      addAllDefinedDecls()
+      addAllUsedDecls()
+      fixupDependencies()
     }
   }
 
@@ -1210,15 +1212,30 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func addArc(def: Node, use: Node) {
-    var use = getNode(use.sequenceNumber)
-    var newDefsIDependUpon = use.defsIDependUpon
-    newDefsIDependUpon.append(def.sequenceNumber)
-    let newUse = try! Node(key: use.key,
-                           fingerprint: use.fingerprint,
-                           sequenceNumber: use.sequenceNumber,
-                           defsIDependUpon: newDefsIDependUpon,
-                           isProvides: use.isProvides)
-    allNodes[newUse.sequenceNumber] = newUse
+    while dependencyAccumulator.count < use.sequenceNumber {
+      dependencyAccumulator.append(nil)
+    }
+    var dh = dependencyAccumulator[use.sequenceNumber] ?? {
+      let newOne = DependencyHolder()
+      dependencyAccumulator[use.sequenceNumber] = newOne
+      return newOne
+    }()
+    dh.add(def.sequenceNumber)
+  }
+  
+  private mutating func fixupDependencies() {
+    for (useSequenceNumber, depHolder) in dependencyAccumulator.enumerated() {
+      if let depHolder = depHolder {
+        let oldNode = allNodes[useSequenceNumber]
+        assert(oldNode.sequenceNumber == useSequenceNumber)
+        allNodes[useSequenceNumber] = try! Node(
+          key: oldNode.key,
+          fingerprint: oldNode.fingerprint,
+          sequenceNumber: useSequenceNumber,
+          defsIDependUpon: depHolder.dependedUpon,
+          isProvides: oldNode.isProvides)
+      }
+    }
   }
 }
 
@@ -1382,5 +1399,12 @@ fileprivate extension DependencyKey.Designator {
 fileprivate extension Set where Element == ExternalDependency {
   func contains(_ s: String) -> Bool {
     contains(s.asExternal)
+  }
+}
+
+fileprivate struct DependencyHolder {
+  private(set) var dependedUpon = [Int]()
+  mutating func add(_ dep: Int) {
+    dependedUpon.append(dep)
   }
 }
