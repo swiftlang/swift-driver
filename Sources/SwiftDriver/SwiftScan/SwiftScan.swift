@@ -55,7 +55,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
 }
 
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
-@_spi(Testing) public final class SwiftScan {
+internal final class SwiftScan {
   /// The path to the libSwiftScan dylib.
   let path: AbsolutePath
 
@@ -194,6 +194,23 @@ public enum DependencyScanningError: Error, DiagnosticData {
     } else {
       throw DependencyScanningError.argumentQueryFailed
     }
+  }
+}
+
+// Used for testing purposes only
+@_spi(Testing) public extension Driver {
+  func querySupportedArgumentsForTest() throws -> Set<String>? {
+    // If a capable libSwiftScan is found, manually ensure we can get the supported arguments
+    let scanLibPath = try Self.getScanLibPath(of: toolchain,
+                                              hostTriple: hostTriple,
+                                              env: env)
+    if fileSystem.exists(scanLibPath) {
+      let libSwiftScanInstance = try SwiftScan(dylib: scanLibPath)
+      if libSwiftScanInstance.canQuerySupportedArguments() {
+        return try libSwiftScanInstance.querySupportedArguments()
+      }
+    }
+    return nil
   }
 }
 

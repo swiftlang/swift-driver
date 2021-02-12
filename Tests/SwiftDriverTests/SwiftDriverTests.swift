@@ -3124,16 +3124,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
                                      "-resource-dir", "baz"])
-      // If a capable libSwiftScan is found, manually ensure we can get the supported arguments
-      let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
-                                                  hostTriple: driver.hostTriple,
-                                                  env: ProcessEnv.vars)
-      if localFileSystem.exists(scanLibPath) {
-        let libSwiftScanInstance = try SwiftScan(dylib: scanLibPath)
-        if libSwiftScanInstance.canQuerySupportedArguments() {
-          let supportedArguments = try libSwiftScanInstance.querySupportedArguments()
-          XCTAssertTrue(supportedArguments.contains("emit-module"))
-        }
+      if let libraryBasedResult = try driver.querySupportedArgumentsForTest() {
+        XCTAssertTrue(libraryBasedResult.contains("emit-module"))
       }
     }
     do {
