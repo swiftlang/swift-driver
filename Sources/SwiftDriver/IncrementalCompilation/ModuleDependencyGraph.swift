@@ -209,7 +209,7 @@ extension ModuleDependencyGraph {
     externalDependency: FingerprintedExternalDependency,
     fileSystem: FileSystem
   ) -> Integrator.Results? {
-    guard let dependencySource = externalDependency.incrementalDependencySourceIfPresent else {
+    guard let dependencySource = externalDependency.incrementalDependencySource else {
       return Integrator.Results()
     }
     reporter?.report("integrating incremental external dependency",
