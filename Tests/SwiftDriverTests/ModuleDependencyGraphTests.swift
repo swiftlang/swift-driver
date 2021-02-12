@@ -972,7 +972,7 @@ extension ModuleDependencyGraph {
   func containsExternalDependency(_ path: String, fingerprint: String? = nil)
   -> Bool {
     fingerprintedExternalDependencies.contains(
-      FingerprintedExternalDependency(ExternalDependency(path),
+      FingerprintedExternalDependency(try! ExternalDependency(path),
                                       fingerprint))
   }
 }
@@ -1111,7 +1111,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
       memoizedNodes[key] = n
       return n
     }
-    var result = memoizedNodes[key] ?? createNew()
+    let result = memoizedNodes[key] ?? createNew()
 
     assert(key == result.key)
     if !isProvides {
@@ -1120,16 +1120,26 @@ fileprivate struct SourceFileDependencyGraphMocker {
     // If have provides and depends with same key, result is one node that
     // isProvides
     if let fingerprint = fingerprint, !result.isProvides {
-      result.isProvides = true
       assert(result.fingerprint == nil, "Depends should not have fingerprints");
-      result.fingerprint = fingerprint
-      return result;
+      let newNode =
+        try! Node(key: result.key, fingerprint: fingerprint,
+                 sequenceNumber: result.sequenceNumber,
+                 defsIDependUpon: result.defsIDependUpon,
+                 isProvides: true)
+      memoizedNodes[key] = newNode
+      return newNode
     }
     // If there are two Decls with same base name but differ only in fingerprint,
     // since we won't be able to tell which Decl is depended-upon (is this right?)
     // just use the one node, but erase its print:
     if fingerprint != result.fingerprint {
-      result.fingerprint = nil
+      let newNode =
+        try! Node(key: result.key, fingerprint: nil,
+                 sequenceNumber: result.sequenceNumber,
+                 defsIDependUpon: result.defsIDependUpon,
+                 isProvides: true)
+      memoizedNodes[key] = newNode
+      return newNode
     }
     return result;
   }
@@ -1201,8 +1211,14 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
   private mutating func addArc(def: Node, use: Node) {
     var use = getNode(use.sequenceNumber)
-    use.addDefIDependUpon(def.sequenceNumber)
-    allNodes[use.sequenceNumber] = use
+    var newDefsIDependUpon = use.defsIDependUpon
+    newDefsIDependUpon.append(def.sequenceNumber)
+    let newUse = try! Node(key: use.key,
+                           fingerprint: use.fingerprint,
+                           sequenceNumber: use.sequenceNumber,
+                           defsIDependUpon: newDefsIDependUpon,
+                           isProvides: use.isProvides)
+    allNodes[newUse.sequenceNumber] = newUse
   }
 }
 
@@ -1214,7 +1230,7 @@ fileprivate extension DependencyKey {
     guard !isPrivate || includePrivateDeps else {return nil}
     let ss = s.drop {String($0) == privatePrefix}
     let sss = ss.range(of: String.fingerprintSeparator).map { ss.prefix(upTo: $0.lowerBound) } ?? ss
-    return Self(aspect: aspect,
+    return try! Self(aspect: aspect,
                 designator: Designator(kind: kind, String(sss).parseContextAndName(kind)))
   }
 
@@ -1238,7 +1254,7 @@ fileprivate extension DependencyKey {
     }
     let withoutPrivatePrefix = withoutNCPrefix.drop {String($0) == privateHolderPrefix}
     let defUseStrings = withoutPrivatePrefix.splitDefUse
-    let defKey = Self(aspect: aspectOfDefUsed,
+    let defKey = try! Self(aspect: aspectOfDefUsed,
                       designator: Designator(kind: kind, defUseStrings.def.parseContextAndName(kind)))
     return (def: defKey,
             use: computeUseKey(defUseStrings.use,
@@ -1260,7 +1276,7 @@ fileprivate extension DependencyKey {
     }
     return Self(
       aspect: aspectOfUse,
-      designator: Designator(kind: .sourceFileProvide,
+      designator: try! Designator(kind: .sourceFileProvide,
                              (context: "",
                               name: dependencySource.sourceFileProvideNameForMockDependencySource)))
   }
@@ -1290,7 +1306,7 @@ fileprivate extension String {
   }
 
   var asExternal: ExternalDependency {
-    ExternalDependency(self)
+    try! ExternalDependency(self)
   }
 }
 
@@ -1301,21 +1317,13 @@ fileprivate extension Substring {
   }
 }
 
-fileprivate extension SourceFileDependencyGraph.Node {
-  mutating func addDefIDependUpon(_ seqNo: Int) {
-    if seqNo != self.sequenceNumber, !defsIDependUpon.contains(seqNo) {
-      defsIDependUpon.append(seqNo)
-    }
-  }
-}
-
 fileprivate extension DependencyKey {
   static func createKeyForWholeSourceFile(
     _ aspect: DeclAspect,
     _ dependencySource: DependencySource
   ) -> Self {
     return Self(aspect: aspect,
-                designator: Designator(kind: .sourceFileProvide,
+                designator: try! Designator(kind: .sourceFileProvide,
                                        dependencySource.sourceFileProvideNameForMockDependencySource
                                         .parseContextAndName(.sourceFileProvide)))
   }
@@ -1338,6 +1346,7 @@ extension Job {
 
 fileprivate extension DependencyKey.Designator {
   init(kind: MockDependencyKind, _ contextAndName: (context: String?, name: String?))
+  throws
   {
     func mustBeAbsent(_ s: String?) {
       if let s = s, !s.isEmpty {
@@ -1362,7 +1371,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name!)
     case .externalDepend:
       mustBeAbsent(context)
-      self = .externalDepend(ExternalDependency(name!))
+      self = .externalDepend(try ExternalDependency(name!))
     case .sourceFileProvide:
       mustBeAbsent(context)
       self = .sourceFileProvide(name: name!)
