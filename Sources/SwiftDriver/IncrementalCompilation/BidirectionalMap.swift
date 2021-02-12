@@ -11,9 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 /// Like a two-way dictionary, only works for accessing present members
-public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable {
+public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence {
   private var map1: [T1: T2] = [:]
   private var map2: [T2: T1] = [:]
+
+  public init() {}
 
   public subscript(_ key: T1) -> T2 {
     get {
@@ -37,5 +39,26 @@ public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable {
       return value
     }
     set { self[newValue] = key }
+  }
+  public func contains(key: T1) -> Bool {
+    map1.keys.contains(key)
+  }
+  public func contains(key: T2) -> Bool {
+    map2.keys.contains(key)
+  }
+  public mutating func removeValue(forKey t1: T1) {
+    if let t2 = map1[t1] {
+      map2.removeValue(forKey: t2)
+    }
+    map1.removeValue(forKey: t1)
+  }
+  public mutating func removeValue(forKey t2: T2) {
+    if let t1 = map2[t2] {
+      map1.removeValue(forKey: t1)
+    }
+    map2.removeValue(forKey: t2)
+  }
+  public func makeIterator() -> Dictionary<T1, T2>.Iterator {
+    map1.makeIterator()
   }
 }
