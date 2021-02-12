@@ -80,6 +80,10 @@ import SwiftOptions
     toolPaths[tool] = path
   }
 
+  public func clearKnownToolPath(_ tool: Tool) {
+    toolPaths.removeValue(forKey: tool)
+  }
+
   /// Path to the StdLib inside the SDK.
   public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
     sdk.appending(RelativePath("usr/lib/swift"))

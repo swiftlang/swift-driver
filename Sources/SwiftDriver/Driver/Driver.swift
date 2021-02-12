@@ -419,8 +419,8 @@ public struct Driver {
 
     // Compute the host machine's triple
     self.hostTriple =
-      try Self.computeHostTriple(toolchain: self.toolchain,
-                                 executor: self.executor,
+      try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+                                 toolchain: self.toolchain, executor: self.executor,
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
@@ -530,8 +530,8 @@ public struct Driver {
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerFeatures(of: self.toolchain, hostTriple: self.hostTriple,
-                                                swiftCompilerPrefixArgs:
-                                                  swiftCompilerPrefixArgs,
+                                                parsedOptions: &self.parsedOptions,
+                                                diagnosticsEngine: diagnosticEngine,
                                                 fileSystem: fileSystem, executor: executor,
                                                 env: env)
 
@@ -2154,12 +2154,20 @@ extension Driver {
   static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
   #endif
 
-  static func computeHostTriple(toolchain: Toolchain,
-                                executor: DriverExecutor,
-                                swiftCompilerPrefixArgs: [String]) throws -> Triple {
+  static func computeHostTriple(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticsEngine: DiagnosticsEngine,
+    toolchain: Toolchain,
+    executor: DriverExecutor,
+    swiftCompilerPrefixArgs: [String]) throws -> Triple {
+
+    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
+    frontendOverride.setUpForTargetInfo(toolchain)
+    defer { frontendOverride.setUpForCompilation(toolchain) }
     return try executor.execute(
       job: toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                        swiftCompilerPrefixArgs: swiftCompilerPrefixArgs),
+                                        swiftCompilerPrefixArgs:
+                                          frontendOverride.prefixArgsForTargetInfo),
       capturingJSONOutputAs: FrontendTargetInfo.self,
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).target.triple
@@ -2203,7 +2211,8 @@ extension Driver {
                                        toolDirectory: toolDir)
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
-
+    frontendOverride.setUpForTargetInfo(toolchain)
+    defer { frontendOverride.setUpForCompilation(toolchain) }
     // Find the SDK, if any.
     let sdkPath: VirtualPath? = Self.computeSDKPath(
       &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
@@ -2213,7 +2222,6 @@ extension Driver {
 
     // Query the frontend for target information.
     do {
-      frontendOverride.setUpForTargetInfo(toolchain)
       var info: FrontendTargetInfo = try executor.execute(
         job: toolchain.printTargetInfoJob(
           target: explicitTarget, targetVariant: explicitTargetVariant,
@@ -2248,7 +2256,6 @@ extension Driver {
         diagnosticsEngine.emit(.warning_inferring_simulator_target(originalTriple: explicitTarget,
                                                                    inferredTriple: info.target.triple))
       }
-      frontendOverride.setUpForCompilation(toolchain)
       return (toolchain, info, frontendOverride.prefixArgs)
     } catch let JobExecutionError.decodingError(decodingError,
                                                 dataToDecode,
@@ -2280,12 +2287,12 @@ extension Driver {
     }
   }
 
-  private struct FrontendOverride {
-    private let path: AbsolutePath?
+  internal struct FrontendOverride {
+    private let overridePath: AbsolutePath?
     let prefixArgs: [String]
 
     init() {
-      path = nil
+      overridePath = nil
       prefixArgs = []
     }
 
@@ -2301,23 +2308,23 @@ extension Driver {
         self = Self()
         return
       }
-      path = try AbsolutePath(validating: pathString)
+      overridePath = try AbsolutePath(validating: pathString)
       prefixArgs = frontendCommandLine.dropFirst().map {String($0)}
     }
 
     var appliesToFetchingTargetInfo: Bool {
-      path?.basename != "Python"
+      return overridePath?.basename != "Python"
     }
     func setUpForTargetInfo(_ toolchain: Toolchain) {
-      if appliesToFetchingTargetInfo {
-        setUpForCompilation(toolchain)
+      if !appliesToFetchingTargetInfo {
+        toolchain.clearKnownToolPath(.swiftCompiler)
       }
     }
     var prefixArgsForTargetInfo: [String] {
       appliesToFetchingTargetInfo ? prefixArgs : []
     }
     func setUpForCompilation(_ toolchain: Toolchain) {
-      if let path = path {
+      if let path = overridePath {
         toolchain.overrideToolPath(.swiftCompiler, path: path)
       }
     }
