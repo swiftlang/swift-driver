@@ -1,39 +1,47 @@
 
 import Foundation
+import TSCBasic
 
 /// A filename from another module
 /*@_spi(Testing)*/ public struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
-  let fileName: String
-  let fingerprint: String?
+  let file: VirtualPath
 
-  /*@_spi(Testing)*/ public init(_ fileName: String, fingerprint: String? = nil) {
-    self.fileName = fileName
-    self.fingerprint = fingerprint
+  /// Cache this
+  let isSwiftModule: Bool
+
+  /*@_spi(Testing)*/ public init(_ fileName: String)
+  throws {
+    self.file = try VirtualPath(path: fileName)
+    self.isSwiftModule = file.extension == FileType.swiftModule.rawValue
   }
 
-  var file: VirtualPath? {
-    try? VirtualPath(path: fileName)
+  func modTime(_ fileSystem: FileSystem) -> Date? {
+    try? fileSystem.getFileInfo(file).modTime
   }
 
   public var description: String {
-    fileName.description
+    file.name
   }
 
   public static func < (lhs: Self, rhs: Self) -> Bool {
-    lhs.fileName < rhs.fileName
+    lhs.file.name < rhs.file.name
   }
 }
 
 /// Since the integration surfaces all externalDependencies to be processed later,
 /// a combination of the dependency and fingerprint are needed.
-public struct FingerprintedExternalDependency: Hashable, Equatable {
+public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
   let externalDependency: ExternalDependency
   let fingerprint: String?
   init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
+    assert(verifyExternalDependencyAndFingerprint())
   }
-  var isIncremental: Bool { fingerprint != nil }
+  var externalDependencyToCheck: ExternalDependency? { externalDependency }
+  var isIncremental: Bool {
+    fingerprint != nil && externalDependency.isSwiftModule
+  }
 }
 
 /// A `DependencyKey` carries all of the information necessary to uniquely
@@ -184,7 +192,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
       case let .dynamicLookup(name: name):
         return "AnyObject member '\(name)'"
       case let .externalDepend(externalDependency):
-        return "module '\(externalDependency)'"
+        return "import '\(externalDependency)'"
       case let .sourceFileProvide(name: name):
         return "source file \((try? VirtualPath(path: name).basename) ?? name)"
       }
