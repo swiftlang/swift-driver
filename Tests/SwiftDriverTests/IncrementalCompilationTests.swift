@@ -267,7 +267,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         $0 <<< "let bar = 2"
       }
       try assertDriverDiagnostics(args: [
-        "swiftc", "-module-name", "theModule",
+        "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
         main.pathString, other.pathString
       ] + otherArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
