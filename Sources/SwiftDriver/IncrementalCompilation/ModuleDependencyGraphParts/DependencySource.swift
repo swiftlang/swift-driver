@@ -26,14 +26,15 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   }
 
   /*@_spi(Testing)*/
-  public init(_ file: VirtualPath) {
+  /// Returns nil if cannot be a source
+  public init?(_ file: VirtualPath) {
     let ext = file.extension
-    let typeIfExpected =
+    guard let type =
       ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
       ext == FileType.swiftModule.rawValue ? FileType.swiftModule
       : nil
-    guard let type = typeIfExpected else {
-      fatalError("unexpected dependencySource extension: \(String(describing: ext))")
+    else {
+      return nil
     }
     self.init(TypedVirtualPath(file: file, type: type))
   }
@@ -48,7 +49,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
 // MARK: - mocking
 extension DependencySource {
   /*@_spi(Testing)*/ public init(mock i: Int) {
-    self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))
+    self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))!
   }
 
   /*@_spi(Testing)*/ public var mockID: Int {

@@ -19,6 +19,10 @@ import TSCBasic
     try? fileSystem.getFileInfo(file).modTime
   }
 
+  var swiftModuleFile: TypedVirtualPath? {
+    isSwiftModule ? TypedVirtualPath(file: file, type: .swiftModule) : nil
+  }
+
   public var description: String {
     file.name
   }
@@ -39,8 +43,13 @@ public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDepe
     assert(verifyExternalDependencyAndFingerprint())
   }
   var externalDependencyToCheck: ExternalDependency? { externalDependency }
-  var isIncremental: Bool {
-    fingerprint != nil && externalDependency.isSwiftModule
+  var incrementalDependencySource: DependencySource? {
+    guard let _ = fingerprint,
+          let swiftModuleFile = externalDependency.swiftModuleFile
+    else {
+      return nil
+    }
+    return DependencySource(swiftModuleFile)
   }
 }
 
