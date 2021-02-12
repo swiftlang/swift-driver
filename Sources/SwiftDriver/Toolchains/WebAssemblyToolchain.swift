@@ -45,14 +45,17 @@ import SwiftOptions
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
+  public let compilerExecutableDir: AbsolutePath?
+
   public let toolDirectory: AbsolutePath?
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.wasm
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.compilerExecutableDir = compilerExecutableDir
     self.toolDirectory = toolDirectory
   }
 

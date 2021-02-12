@@ -353,6 +353,7 @@ public struct Driver {
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
     integratedDriver: Bool = true,
+    compilerExecutableDir: AbsolutePath? = nil,
     // FIXME: Duplication with externalBuildArtifacts and externalTargetModulePathMap
     // is a temporary backwards-compatibility shim to help transition SwiftPM to the new API
     externalBuildArtifacts: ExternalBuildArtifacts? = nil,
@@ -415,7 +416,8 @@ public struct Driver {
           &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
           compilerMode: self.compilerMode, env: env,
           executor: self.executor, fileSystem: fileSystem,
-          useStaticResourceDir: self.useStaticResourceDir)
+          useStaticResourceDir: self.useStaticResourceDir,
+          compilerExecutableDir: compilerExecutableDir)
 
     // Compute the host machine's triple
     self.hostTriple =
@@ -2180,7 +2182,8 @@ extension Driver {
     env: [String: String],
     executor: DriverExecutor,
     fileSystem: FileSystem,
-    useStaticResourceDir: Bool
+    useStaticResourceDir: Bool,
+    compilerExecutableDir: AbsolutePath?
   ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
@@ -2208,6 +2211,7 @@ extension Driver {
     }
     let toolchain = toolchainType.init(env: env, executor: executor,
                                        fileSystem: fileSystem,
+                                       compilerExecutableDir: compilerExecutableDir,
                                        toolDirectory: toolDir)
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
