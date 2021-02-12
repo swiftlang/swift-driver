@@ -28,7 +28,7 @@ public enum Tool: Hashable {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 @_spi(Testing) public protocol Toolchain {
-  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, toolDirectory: AbsolutePath?)
+  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, compilerExecutableDir: AbsolutePath?, toolDirectory: AbsolutePath?)
 
   var env: [String: String] { get }
 
@@ -37,6 +37,9 @@ public enum Tool: Hashable {
   var searchPaths: [AbsolutePath] { get }
 
   var executor: DriverExecutor { get }
+
+  /// Where we should find compiler executables, e.g. XcodeDefault.xctoolchain/usr/bin
+  var compilerExecutableDir: AbsolutePath? { get }
 
   var toolDirectory: AbsolutePath? { get }
 
@@ -104,6 +107,12 @@ extension Toolchain {
 
   /// Returns the `executablePath`'s directory.
   public var executableDir: AbsolutePath {
+    // If the path is given via the initializer, use that.
+    if let givenDir = compilerExecutableDir {
+      return givenDir
+    }
+    // If the path isn't given, we are running the driver as an executable,
+    // so assuming the compiler is adjacent to the driver.
     guard let path = Bundle.main.executablePath else {
       fatalError("Could not find executable path.")
     }

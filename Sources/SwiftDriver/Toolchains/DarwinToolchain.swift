@@ -29,15 +29,20 @@ import SwiftOptions
   /// The file system to use for any file operations.
   public let fileSystem: FileSystem
 
+  // An externally provided path from where we should find compiler
+  public let compilerExecutableDir: AbsolutePath?
+
   // An externally provided path from where we should find tools like ld
   public let toolDirectory: AbsolutePath?
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.macho
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem,
+              compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.compilerExecutableDir = compilerExecutableDir
     self.toolDirectory = toolDirectory
   }
 
