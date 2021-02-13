@@ -25,7 +25,7 @@ class DependencyGraphSerializationTests: XCTestCase {
                                                            on: fs,
                                                            diagnosticEngine: de,
                                                            reporter: nil,
-                                                           options: [])
+                                                           options: [])!
     var originalNodes = Set<ModuleDependencyGraph.Node>()
     graph.nodeFinder.forEachNode {
       originalNodes.insert($0)

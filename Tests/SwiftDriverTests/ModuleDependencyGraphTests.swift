@@ -927,6 +927,9 @@ extension ModuleDependencyGraph {
     hadCompilationError: Bool = false
   ) -> Set<ModuleDependencyGraph.Node> {
     let dependencySource = DependencySource(mock: swiftDepsIndex)
+    // Only needed for serialization testing:
+    recordMapping(mockInput: TypedVirtualPath.init(mockInput: swiftDepsIndex),
+                  mockDependencySource: dependencySource)
     let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
 
