@@ -24,7 +24,7 @@ extension ModuleDependencyGraph {
 
     /*@_spi(Testing)*/
     public struct Results {
-      var changedNodes = Set<Node>()
+      var allInvalidatedNodes = Set<Node>()
       var discoveredExternalDependencies = Set<FingerprintedExternalDependency>()
     }
     public private(set) var results = Results()
@@ -80,14 +80,14 @@ extension ModuleDependencyGraph.Integrator {
   private mutating func integrate() {
     integrateEachSourceNode()
     handleDisappearedNodes()
-    destination.ensureGraphWillRetraceDependents(of: results.changedNodes)
+    destination.ensureGraphWillRetraceDependents(of: results.allInvalidatedNodes)
   }
   private mutating func integrateEachSourceNode() {
     sourceGraph.forEachNode { integrate(oneNode: $0) }
   }
   private mutating func handleDisappearedNodes() {
     for (_, node) in disappearedNodes {
-      results.changedNodes.insert(node)
+      results.allInvalidatedNodes.insert(node)
       destination.nodeFinder.remove(node)
     }
   }
@@ -125,7 +125,7 @@ extension ModuleDependencyGraph.Integrator {
     // Node was and still is. Do not remove it.
     disappearedNodes.removeValue(forKey: matchHere.key)
     if matchHere.fingerprint != integrand.fingerprint {
-      results.changedNodes.insert(matchHere)
+      results.allInvalidatedNodes.insert(matchHere)
     }
     return matchHere
   }
@@ -145,7 +145,7 @@ extension ModuleDependencyGraph.Integrator {
       .replace(expat,
                newDependencySource: sourceGraph.dependencySource,
                newFingerprint: integrand.fingerprint)
-    results.changedNodes.insert(integratedNode)
+    results.allInvalidatedNodes.insert(integratedNode)
     return integratedNode
   }
 
@@ -160,7 +160,7 @@ extension ModuleDependencyGraph.Integrator {
       dependencySource: sourceGraph.dependencySource)
     let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
-    results.changedNodes.insert(newNode)
+    results.allInvalidatedNodes.insert(newNode)
     return newNode
   }
 
@@ -181,13 +181,13 @@ extension ModuleDependencyGraph.Integrator {
         return
       }
       // Check both in case we reread a prior ModDepGraph from a different mode
-      let extDepAndPrint = FingerprintedExternalDependency(externalDependency,
+      let fingerprintedExternalDependency = FingerprintedExternalDependency(externalDependency,
                                                            def.fingerprint)
-      let isKnown = destination.fingerprintedExternalDependencies.contains(extDepAndPrint)
+      let isKnown = destination.fingerprintedExternalDependencies.contains(fingerprintedExternalDependency)
       guard !isKnown else {return}
 
-      results.discoveredExternalDependencies.insert(extDepAndPrint)
-      results.changedNodes.insert(moduleUseNode)
+      results.discoveredExternalDependencies.insert(fingerprintedExternalDependency)
+      results.allInvalidatedNodes.insert(moduleUseNode)
     }
   }
 }

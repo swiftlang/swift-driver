@@ -442,7 +442,7 @@ extension IncrementalCompilationState {
         fileSystem: fileSystem,
         reporter: reporter)
 
-    let externallyChangedInputs = computeExternallyChangedInputs(
+    let externallyChangedInputs = collectInputsInvalidatedByChangedExternals(
       buildTime: outOfDateBuildRecord.buildTime,
       fileSystem: fileSystem,
       moduleDependencyGraph: moduleDependencyGraph,
@@ -470,7 +470,7 @@ extension IncrementalCompilationState {
     // first wave, even though they may not require compilation.
     // Any such inputs missed, will be found by the rereading of swiftDeps
     // as each first wave job finished.
-    let speculativeInputs = computeSpeculativeInputs(
+    let speculativeInputs = collectInputsToBeSpeculativelyRecompiled(
       changedInputs: changedInputs,
       externalDependents: externallyChangedInputs,
       inputsMissingOutputs: Set(inputsMissingOutputs),
@@ -555,18 +555,18 @@ extension IncrementalCompilationState {
   }
 
   /// Any files dependent on modified files from other modules must be compiled, too.
-  private static func computeExternallyChangedInputs(
+  private static func collectInputsInvalidatedByChangedExternals(
     buildTime: Date,
     fileSystem: FileSystem,
     moduleDependencyGraph: ModuleDependencyGraph,
     reporter: IncrementalCompilationState.Reporter?
   ) -> [TypedVirtualPath] {
     var externalDependencySources = Set<DependencySource>()
-    for extDepAndPrint in moduleDependencyGraph.fingerprintedExternalDependencies {
-      let extDep = extDepAndPrint.externalDependency
+    for fingerprintedExternalDependency in moduleDependencyGraph.fingerprintedExternalDependencies {
+      let extDep = fingerprintedExternalDependency.externalDependency
       let extModTime = extDep.modTime(fileSystem) ?? Date.distantFuture
       if extModTime >= buildTime {
-        for dependent in moduleDependencyGraph.untracedDependents(of: extDepAndPrint) {
+        for dependent in moduleDependencyGraph.collectUntracedNodesDirectlyUsing(fingerprintedExternalDependency) {
           guard let dependencySource = dependent.dependencySource else {
             fatalError("Dependent \(dependent) does not have dependencies file!")
           }
@@ -586,7 +586,7 @@ extension IncrementalCompilationState {
   /// The needs[Non}CascadingBuild stuff was cargo-culted from the legacy driver.
   /// TODO: something better, e.g. return nothing here, but process changed dependencySource
   /// before the whole frontend job finished.
-  private static func computeSpeculativeInputs(
+  private static func collectInputsToBeSpeculativelyRecompiled(
     changedInputs: [ChangedInput],
     externalDependents: [TypedVirtualPath],
     inputsMissingOutputs: Set<TypedVirtualPath>,
@@ -605,7 +605,7 @@ extension IncrementalCompilationState {
     let cascadingFileSet = Set(cascadingChangedInputs).union(cascadingExternalDependents)
     for cascadingFile in cascadingFileSet {
        let dependentsOfOneFile = moduleDependencyGraph
-        .findDependentSourceFiles(of: cascadingFile)
+        .collectInputsTransitivelyInvalidatedBy(input: cascadingFile)
       for dep in dependentsOfOneFile where !cascadingFileSet.contains(dep) {
         if dependentFiles.insert(dep).0 {
           reporter?.report(
@@ -671,7 +671,7 @@ extension IncrementalCompilationState {
   /// If no more compiles are needed, return nil.
   /// Careful: job may not be primary.
 
-  public func getJobsDiscoveredToBeNeededAfterFinishing(
+  public func collectJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job, result: ProcessResult
    ) throws -> [Job]? {
     return try confinementQueue.sync {
@@ -682,17 +682,17 @@ extension IncrementalCompilationState {
       }
 
       // Find and deal with inputs that how need to be compiled
-      let discoveredInputs = collectInputsDiscovered(from: finishedJob)
-      assert(Set(discoveredInputs).isDisjoint(with: finishedJob.primaryInputs),
+      let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
+      assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
              "Primaries should not overlap secondaries.")
 
       if let reporter = self.reporter {
-        for input in discoveredInputs {
+        for input in invalidatedInputs {
           reporter.report(
             "Queuing because of dependencies discovered later:", input)
         }
       }
-      let newJobs = try getJobsFor(discoveredCompilationInputs: discoveredInputs)
+      let newJobs = try getJobs(for: invalidatedInputs)
       unfinishedJobs.formUnion(newJobs)
       if unfinishedJobs.isEmpty {
         // no more compilations are possible
@@ -703,7 +703,7 @@ extension IncrementalCompilationState {
  }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
-  private func collectInputsDiscovered(from job: Job)  -> [TypedVirtualPath] {
+  private func collectInputsInvalidatedByRunning(_ job: Job)  -> [TypedVirtualPath] {
     guard job.kind == .compile else {
       return []
     }
@@ -711,7 +711,9 @@ extension IncrementalCompilationState {
       Set(
         job.primaryInputs.flatMap {
           input -> [TypedVirtualPath] in
-          if let found = moduleDependencyGraph.findSourcesToCompileAfterCompiling(input, on: self.driver.fileSystem) {
+          if let found = moduleDependencyGraph.collectInputsInvalidated(
+              byCompiling: input,
+              on: self.driver.fileSystem) {
             return found
           }
           self.reporter?.report(
@@ -724,9 +726,9 @@ extension IncrementalCompilationState {
     .sorted {$0.file.name < $1.file.name}
   }
 
-  /// Find the jobs that now must be run that were not originally known to be needed.
-  private func getJobsFor(
-    discoveredCompilationInputs inputs: [TypedVirtualPath]
+  /// Find the jobs that now must be run to compile the given inputs.
+  private func getJobs(
+    for inputs: [TypedVirtualPath]
   ) throws -> [Job] {
     let unbatched = inputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input) {

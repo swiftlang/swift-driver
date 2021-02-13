@@ -44,23 +44,23 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(1, [.topLevel: ["b0", "b->"]])
     graph.simulateLoad(2, [.topLevel: ["c0", "c->"]])
 
-    XCTAssertEqual(1, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(1, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     // Mark 0 again -- should be no change.
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(1, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(2).count)
+    XCTAssertEqual(1, graph.collectSwiftDepsTransitivelyUsing(2).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(1, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(1).count)
+    XCTAssertEqual(1, graph.collectSwiftDepsTransitivelyUsing(1).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
@@ -72,7 +72,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0, [.nominal: ["a", "a->"]])
     graph.simulateLoad(1, [.topLevel: ["a", "b->"]])
 
-    XCTAssertEqual(1, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(1, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -83,7 +83,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0, [.nominal: ["a->", "b"]])
     graph.simulateLoad(1, [.topLevel: ["b->", "a"]])
 
-    XCTAssertEqual(1, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(1).count)
+    XCTAssertEqual(1, graph.collectSwiftDepsTransitivelyUsing(1).count)
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -97,7 +97,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(3, [.member: ["b,aa->"]])
     graph.simulateLoad(4, [.member: ["b,bb->"]])
 
-    XCTAssertEqual(1, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(1, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
@@ -111,14 +111,14 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -130,14 +130,14 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(1, [.topLevel: ["x", "b", "z"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(1)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(1)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(0))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -149,14 +149,14 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(1, [.nominal: ["x->", "b->", "z->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -168,14 +168,14 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(1, [.nominal: ["a->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -188,14 +188,14 @@ class ModuleDependencyGraphTests: XCTestCase {
                        [.nominal: ["a->"], .topLevel: ["a->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -209,15 +209,15 @@ class ModuleDependencyGraphTests: XCTestCase {
                        [.nominal: ["a->"], .topLevel: ["a->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    let _ = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    let _ = graph.collectSwiftDepsTransitivelyUsing(0)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -229,14 +229,14 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(1,
                        [.dynamicLookup: ["x->", "b->", "z->"]])
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -249,14 +249,14 @@ class ModuleDependencyGraphTests: XCTestCase {
                        [.member: ["x,xx->", "b,bb->", "z,zz->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
@@ -269,7 +269,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["q->", "b->", "s->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2))
@@ -278,7 +278,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
@@ -292,7 +292,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["q->", "r->", "c->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2))
@@ -301,7 +301,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
@@ -315,7 +315,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["z->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2))
@@ -324,7 +324,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
@@ -338,7 +338,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["#z->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2))
@@ -347,7 +347,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0).count)
+    XCTAssertEqual(0, graph.collectSwiftDepsTransitivelyUsing(0).count)
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
@@ -361,7 +361,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["z->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
@@ -381,7 +381,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(12, [.topLevel: ["q->", "q"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2)) //?????
@@ -394,7 +394,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 12))
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(10)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(10)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(10))
       XCTAssertTrue(swiftDeps.contains(11))
@@ -416,7 +416,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["b->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
@@ -442,7 +442,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["b->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
@@ -467,7 +467,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(1, [.nominal: ["a->"]])
     graph.simulateLoad(2, [.nominal: ["b->"]])
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(1)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(1)
       XCTAssertEqual(1, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
@@ -495,7 +495,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["b->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(1)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(1)
       XCTAssertEqual(1, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
@@ -524,7 +524,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.topLevel: ["x->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2))
@@ -534,7 +534,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(0, swiftDeps.count)
     }
     XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
@@ -552,7 +552,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(1))
     }
@@ -580,7 +580,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
       XCTAssertEqual(2, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(0))
       XCTAssertTrue(swiftDeps.contains(1))
@@ -709,7 +709,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(0, [.topLevel: ["a", "b->"]])
     graph.simulateLoad(1, [.topLevel: ["a->", "b"]])
 
-    let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+    let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
     XCTAssertTrue(swiftDeps.contains(1))
   }
 
@@ -721,7 +721,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["B1->"]])
 
     do {
-      let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(1)
+      let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(1)
       XCTAssertEqual(3, swiftDeps.count)
       XCTAssertTrue(swiftDeps.contains(0))
       XCTAssertTrue(swiftDeps.contains(1))
@@ -785,7 +785,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["B->"]])
     graph.simulateLoad(3, [.nominal: ["C->"]])
 
-    let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+    let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
     XCTAssertTrue(swiftDeps.contains(0))
     XCTAssertTrue(swiftDeps.contains(1))
     XCTAssertTrue(swiftDeps.contains(2))
@@ -802,7 +802,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     graph.simulateLoad(2, [.nominal: ["B->"]])
     graph.simulateLoad(3, [.nominal: ["C->"]])
 
-    let swiftDeps = graph.findSwiftDepsToRecompileWhenDependencySourceChanges(0)
+    let swiftDeps = graph.collectSwiftDepsTransitivelyUsing(0)
     XCTAssertTrue(swiftDeps.contains(0))
     XCTAssertTrue(swiftDeps.contains(1))
     XCTAssertTrue(swiftDeps.contains(2))
@@ -914,7 +914,7 @@ extension ModuleDependencyGraph {
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
 
-    return findSwiftDepsToRecompileWhenNodesChange(changedNodes)
+    return collectSwiftDepsUsingTransitivelyInvalidated(nodes: changedNodes)
       .map { $0.mockID }
   }
 
@@ -950,13 +950,13 @@ extension ModuleDependencyGraph {
     on fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in self.untracedDependents(of: fingerprintedExternalDependency) {
+    for dependent in self.collectUntracedNodesDirectlyUsing(fingerprintedExternalDependency) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
       // Don't return job twice.
       let filesToRebuild =
-        findSwiftDepsToRecompileWhenDependencySourceChanges(dependencySource)
+        collectSwiftDepsTransitivelyUsing(dependencySource)
         .filter({ marked in marked != dependencySource })
       foundSources.append(contentsOf: filesToRebuild)
     }
@@ -964,8 +964,8 @@ extension ModuleDependencyGraph {
   }
 
 
-  func findSwiftDepsToRecompileWhenDependencySourceChanges(_ i: Int) -> [Int] {
-    findSwiftDepsToRecompileWhenDependencySourceChanges(DependencySource(mock: i))
+  func collectSwiftDepsTransitivelyUsing(_ i: Int) -> [Int] {
+    collectSwiftDepsTransitivelyUsing(DependencySource(mock: i))
       .map { $0.mockID }
   }
 

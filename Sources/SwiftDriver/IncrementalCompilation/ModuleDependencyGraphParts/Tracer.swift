@@ -37,21 +37,21 @@ extension ModuleDependencyGraph.Tracer {
 
   /// Find all uses of `defs` that have not already been traced.
   /// (If already traced, jobs have already been scheduled.)
-  static func findPreviouslyUntracedUsesOf<Nodes: Sequence> (
-    defs: Nodes,
+  static func collectPreviouslyUntracedNodesUsing<Nodes: Sequence> (
+    defNodes: Nodes,
     in graph: ModuleDependencyGraph,
     diagnosticEngine: DiagnosticsEngine
   ) -> Self
   where Nodes.Element == ModuleDependencyGraph.Node
   {
-    var tracer = Self(findingUsesOf: defs,
+    var tracer = Self(collectingUsesOf: defNodes,
                       in: graph,
                       diagnosticEngine: diagnosticEngine)
-    tracer.findPreviouslyUntracedDependents()
+    tracer.collectPreviouslyUntracedDependents()
     return tracer
   }
 
-  private init<Nodes: Sequence>(findingUsesOf defs: Nodes,
+  private init<Nodes: Sequence>(collectingUsesOf defs: Nodes,
                in graph: ModuleDependencyGraph,
                diagnosticEngine: DiagnosticsEngine)
   where Nodes.Element == ModuleDependencyGraph.Node
@@ -63,13 +63,13 @@ extension ModuleDependencyGraph.Tracer {
     self.diagnosticEngine = diagnosticEngine
   }
   
-  private mutating func findPreviouslyUntracedDependents() {
+  private mutating func collectPreviouslyUntracedDependents() {
     for n in startingPoints {
-      findNextPreviouslyUntracedDependent(of: n)
+      collectNextPreviouslyUntracedDependent(of: n)
     }
   }
   
-  private mutating func findNextPreviouslyUntracedDependent(
+  private mutating func collectNextPreviouslyUntracedDependent(
     of definition: ModuleDependencyGraph.Node
   ) {
     guard graph.isUntraced(definition) else { return }
@@ -85,7 +85,7 @@ extension ModuleDependencyGraph.Tracer {
     
     // If this use also provides something, follow it
     for use in graph.nodeFinder.orderedUses(of: definition) {
-      findNextPreviouslyUntracedDependent(of: use)
+      collectNextPreviouslyUntracedDependent(of: use)
     }
     traceDeparture(pathLengthAfterArrival);
   }
