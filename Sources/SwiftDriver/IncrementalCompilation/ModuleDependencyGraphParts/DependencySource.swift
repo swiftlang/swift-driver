@@ -46,17 +46,6 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   }
 }
 
-// MARK: - mocking
-extension DependencySource {
-  /*@_spi(Testing)*/ public init(mock i: Int) {
-    self.init(try! VirtualPath(path: String(i) + "." + FileType.swiftDeps.rawValue))!
-  }
-
-  /*@_spi(Testing)*/ public var mockID: Int {
-    Int(file.basenameWithoutExt)!
-  }
-}
-
 // MARK: - reading
 extension DependencySource {
   /// Throws if a read error
@@ -79,17 +68,7 @@ extension DependencySource {
     return graphIfPresent
   }
 }
-// MARK: - testing
-extension DependencySource {
-  /*@_spi(Testing)*/
-  public var sourceFileProvideNameForMockDependencySource: String {
-    file.name
-  }
-  /*@_spi(Testing)*/
-  public var interfaceHashForMockDependencySource: String {
-    file.name
-  }
-}
+
 // MARK: - comparing
 extension DependencySource: Comparable {
   public static func < (lhs: Self, rhs: Self) -> Bool {
