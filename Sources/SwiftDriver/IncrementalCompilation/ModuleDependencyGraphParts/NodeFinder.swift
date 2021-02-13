@@ -40,12 +40,6 @@ extension ModuleDependencyGraph {
 // MARK: - finding
 
 extension ModuleDependencyGraph.NodeFinder {
-  func findFileInterfaceNode(
-    forMock dependencySource: DependencySource
-  ) -> Graph.Node?  {
-    let fileKey = DependencyKey(fileKeyForMockDependencySource: dependencySource)
-    return findNode((dependencySource, fileKey))
-  }
   func findNode(_ mapKey: (DependencySource?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
@@ -233,22 +227,6 @@ extension ModuleDependencyGraph.NodeFinder {
   private func verifyUsedIsNotExpat(_ use: Graph.Node) -> Bool {
     guard use.isExpat else { return true }
     fatalError("An expat is not defined anywhere and thus cannot be used")
-  }
-}
-// MARK: - key helpers
-
-fileprivate extension DependencyKey {
-  init(fileKeyForMockDependencySource dependencySource: DependencySource) {
-    self.init(aspect: .interface,
-              designator:
-                .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
-    )
-  }
-}
-fileprivate extension DependencySource {
-  var sourceFileProvidesNameForMocking: String {
-    // Only when mocking are these two guaranteed to be the same
-    file.name
   }
 }
 

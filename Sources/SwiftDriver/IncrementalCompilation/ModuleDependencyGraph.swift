@@ -353,23 +353,6 @@ extension ModuleDependencyGraph {
   }
 }
 
-// MARK: - utilities for unit testing
-extension ModuleDependencyGraph {
-  /// Testing only
-  /*@_spi(Testing)*/ public func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
-    let dependencySource = DependencySource(mock: i)
-    // optimization
-    if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
-       isTraced(fileNode) {
-      return true
-    }
-    if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
-       nodes.contains(where: isTraced) {
-      return true
-    }
-    return false
-  }
-}
 // MARK: - verification
 extension ModuleDependencyGraph {
   @discardableResult
