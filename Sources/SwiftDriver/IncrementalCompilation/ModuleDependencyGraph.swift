@@ -176,7 +176,7 @@ extension ModuleDependencyGraph {
     else {
       return nil
     }
-    return results.changedNodes.union(externallyCausedChanges)
+    return results.allInvalidatedNodes.union(externallyCausedChanges)
   }
 
   /// Returns changed nodes
@@ -194,7 +194,7 @@ extension ModuleDependencyGraph {
         externalDependency: edp,
         fileSystem: fileSystem)
       if let result = resultIfOK {
-        changedNodes.formUnion(result.changedNodes)
+        changedNodes.formUnion(result.allInvalidatedNodes)
         workList.formUnion(result.discoveredExternalDependencies)
       }
       else {
@@ -232,15 +232,15 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   /// Find all the sources that depend on `sourceFile`. For some source files, these will be
   /// speculatively scheduled in the first wave.
-  func findDependentSourceFiles(
-    of sourceFile: TypedVirtualPath
+  func collectInputsTransitivelyInvalidatedBy(
+    input sourceFile: TypedVirtualPath
   ) -> [TypedVirtualPath] {
     var allDependencySourcesToRecompile = Set<DependencySource>()
 
     let dependencySource = inputDependencySourceMap[sourceFile]
 
     for dependencySourceToRecompile in
-      findSwiftDepsToRecompileWhenDependencySourceChanges( dependencySource ) {
+      collectSwiftDepsTransitivelyUsing( dependencySource ) {
       if dependencySourceToRecompile != dependencySource {
         allDependencySourcesToRecompile.insert(dependencySourceToRecompile)
       }
@@ -255,11 +255,11 @@ extension ModuleDependencyGraph {
 
   /// Find all the swiftDeps files that depend on `dependencySource`.
   /// Really private, except for testing.
-  /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenDependencySourceChanges(
+  /*@_spi(Testing)*/ public func collectSwiftDepsTransitivelyUsing(
     _ dependencySource: DependencySource  ) -> Set<DependencySource> {
     let nodes = nodeFinder.findNodes(for: dependencySource) ?? [:]
     /// Tests expect this to be reflexive
-    return findSwiftDepsToRecompileWhenNodesChange(nodes.values)
+    return collectSwiftDepsUsingTransitivelyInvalidated(nodes: nodes.values)
   }
 }
 // MARK: - Scheduling the 2nd wave
@@ -267,13 +267,13 @@ extension ModuleDependencyGraph {
   /// After `source` has been compiled, figure out what other source files need compiling.
   /// Used to schedule the 2nd wave.
   /// Return nil in case of an error.
-  func findSourcesToCompileAfterCompiling(
-    _ source: TypedVirtualPath,
+  func collectInputsInvalidated(
+    byCompiling input: TypedVirtualPath,
     on fileSystem: FileSystem
   ) -> [TypedVirtualPath]? {
-    findSourcesToCompileAfterIntegrating(
-      input: source,
-      dependencySource: inputDependencySourceMap[source],
+    collectInputsRequiringCompilation(
+      byCompiling: input,
+      dependencySource: inputDependencySourceMap[input],
       on: fileSystem)
   }
 
@@ -281,17 +281,17 @@ extension ModuleDependencyGraph {
   /// recompilation.
   /// Return nil in case of an error.
   /// May return a source that has already been compiled.
-  private func findSourcesToCompileAfterIntegrating(
-    input: TypedVirtualPath,
+  private func     collectInputsRequiringCompilation(
+    byCompiling: TypedVirtualPath,
     dependencySource: DependencySource,
     on fileSystem: FileSystem
   ) -> [TypedVirtualPath]? {
-    let swiftDeps = inputDependencySourceMap[input].typedFile
+    let swiftDeps = inputDependencySourceMap[byCompiling].typedFile
     let changedNodesIfOK = integrate(swiftDeps: swiftDeps)
     guard let changedNodes = changedNodesIfOK else {
       return nil
     }
-    return findSwiftDepsToRecompileWhenNodesChange(changedNodes)
+    return collectSwiftDepsUsingTransitivelyInvalidated(nodes: changedNodes)
       .map { inputDependencySourceMap[$0] }
   }
 }
@@ -299,29 +299,29 @@ extension ModuleDependencyGraph {
 // MARK: - Scheduling either wave
 extension ModuleDependencyGraph {
   /// Find all the swiftDeps affected when the nodes change.
-  /*@_spi(Testing)*/ public func findSwiftDepsToRecompileWhenNodesChange<Nodes: Sequence>(
-    _ nodes: Nodes
+  /*@_spi(Testing)*/ public func collectSwiftDepsUsingTransitivelyInvalidated<Nodes: Sequence>(
+    nodes: Nodes
   ) -> Set<DependencySource>
     where Nodes.Element == Node
   {
-    let affectedNodes = Tracer.findPreviouslyUntracedUsesOf(
-      defs: nodes,
+    let affectedNodes = Tracer.collectPreviouslyUntracedNodesUsing(
+      defNodes: nodes,
       in: self,
       diagnosticEngine: diagnosticEngine)
       .tracedUses
     return Set(affectedNodes.compactMap {$0.dependencySource})
   }
 
-  /*@_spi(Testing)*/ public func untracedDependents(
-    of extDepAndPrint: FingerprintedExternalDependency
+  /*@_spi(Testing)*/ public func collectUntracedNodesDirectlyUsing(
+    _ fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> [ModuleDependencyGraph.Node] {
     // These nodes will depend on the *interface* of the external Decl.
-    let key = DependencyKey(interfaceFor: extDepAndPrint.externalDependency)
+    let key = DependencyKey(interfaceFor: fingerprintedExternalDependency.externalDependency)
     // DependencySource is OK as a nil placeholder because it's only used to find
     // the corresponding implementation node and there won't be any for an
     // external dependency node.
     let node = Node(key: key,
-                    fingerprint: extDepAndPrint.fingerprint,
+                    fingerprint: fingerprintedExternalDependency.fingerprint,
                     dependencySource: nil)
     return nodeFinder
       .orderedUses(of: node)

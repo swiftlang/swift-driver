@@ -218,7 +218,7 @@ public final class MultiJobExecutor {
         return
       }
       if let newJobs = try incrementalCompilationState?
-          .getJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
+          .collectJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
         let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
         needInputFor(indices: newJobIndices)
       }
