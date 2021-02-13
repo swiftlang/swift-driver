@@ -114,7 +114,6 @@ extension ModuleDependencyGraph.Tracer {
     currentPathIfTracing = currentPath
   }
 
-
   private func printPath(_ path: [Graph.Node]) {
     guard path.first?.dependencySource != path.last?.dependencySource
     else {
@@ -126,8 +125,13 @@ extension ModuleDependencyGraph.Tracer {
         path
           .compactMap { node in
             node.dependencySource
-              .flatMap {graph.inputDependencySourceMap[$0] }
-              .map { "\(node.key) in \($0.file.basename)"}
+              .flatMap {
+                // swiftmodules won't be in the map
+                graph.inputDependencySourceMap.contains(key: $0)
+                  ? "\(node.key) in \(graph.inputDependencySourceMap[$0].file.basename)"
+                  : "\(node.key)"
+              }
+
           }
           .joined(separator: " -> ")
       ].joined(separator: " ")
