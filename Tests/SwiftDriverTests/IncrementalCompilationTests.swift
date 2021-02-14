@@ -392,16 +392,18 @@ final class IncrementalCompilationTests: XCTestCase {
   }
 
   func testOptionsParsing() throws {
-    let optionPairs: [(Option, IncrementalCompilationState.Options)] = [
-      (.driverAlwaysRebuildDependents, .alwaysRebuildDependents),
-      (.driverShowIncremental, .showIncremental),
+    let optionPairs: [(
+      Option, (IncrementalCompilationState.InitialStateComputer) -> Bool
+    )] = [
+      (.driverAlwaysRebuildDependents, {$0.alwaysRebuildDependents}),
+      (.driverShowIncremental, {$0.reporter != nil}),
       // FIXME: Re-enable once this is actually implemented.
       // (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, .emitDependencyDotFileAfterEveryImport),
-      (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, .verifyDependencyGraphAfterEveryImport),
-      (.enableExperimentalCrossModuleIncrementalBuild, .enableCrossModuleIncrementalBuild),
+      (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
+      (.enableExperimentalCrossModuleIncrementalBuild, {$0.isCrossModuleIncrementalBuildEnabled}),
     ]
 
-    for (driverOption, stateOption) in optionPairs {
+    for (driverOption, stateOptionFn) in optionPairs {
       try doABuild(
         "initial",
         checkDiagnostics: false,
@@ -415,7 +417,7 @@ final class IncrementalCompilationTests: XCTestCase {
       _ = try driver.planBuild()
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
       let state = try XCTUnwrap(driver.incrementalCompilationState)
-      XCTAssertTrue(state.options.contains(stateOption))
+      XCTAssertTrue(stateOptionFn(state.moduleDependencyGraph.info))
     }
   }
 
@@ -469,6 +471,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Disabling incremental cross-module building",
         "Incremental compilation: Incremental compilation could not read build record at",
         "Incremental compilation: Disabling incremental build: could not read build record",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
@@ -487,6 +490,7 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
@@ -503,6 +507,7 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
@@ -528,6 +533,7 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -554,6 +560,7 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       expectingRemarks: [
         "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -567,7 +574,7 @@ final class IncrementalCompilationTests: XCTestCase {
         "Finished Compiling main.swift",
         "Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
         "Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}",
-        "Incremental compilation: Scheduling discovered  {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduling invalidated  {compile: other.o <= other.swift}",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
@@ -589,6 +596,7 @@ final class IncrementalCompilationTests: XCTestCase {
       extraArguments: [extraArgument],
       expectingRemarks: [
         "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
@@ -799,7 +807,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         $0 <<< "castASpell()"
       }
 
-      let ofm = path.appending(component: "ofm.json")
+      let ofm = path.appending(component: "ofm2.json")
       try localFileSystem.writeFileContents(ofm) {
         $0 <<< self.makeOutputFileMap(in: path, for: [ main ])
       }
@@ -822,7 +830,8 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
-      let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data, from: DependencySource(.absolute(sourcePath))!,
+      let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data,
+                                                          from: DependencySource(.absolute(sourcePath))!,
                                                           fromSwiftModule: false))
       XCTAssertEqual(graph.majorVersion, 1)
       XCTAssertEqual(graph.minorVersion, 0)

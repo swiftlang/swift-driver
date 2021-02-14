@@ -16,8 +16,8 @@ extension ModuleDependencyGraph {
 
   /// The core information for the ModuleDependencyGraph
   /// Isolate in a sub-structure in order to faciliate invariant maintainance
-  struct NodeFinder {
-    typealias Graph = ModuleDependencyGraph
+  @_spi(Testing) public struct NodeFinder {
+    @_spi(Testing) public typealias Graph = ModuleDependencyGraph
     
     /// Maps dependencySource files and DependencyKeys to Nodes
     fileprivate typealias NodeMap = TwoDMap<DependencySource?, DependencyKey, Node>
@@ -34,13 +34,13 @@ extension ModuleDependencyGraph {
     /// source file.)
     
     /// Tracks def-use relationships by DependencyKey.
-    private(set) var usesByDef = Multidictionary<DependencyKey, Node>()
+    @_spi(Testing) public private(set) var usesByDef = Multidictionary<DependencyKey, Node>()
   }
 }
 // MARK: - finding
 
 extension ModuleDependencyGraph.NodeFinder {
-  func findNode(_ mapKey: (DependencySource?, DependencyKey)) -> Graph.Node? {
+  @_spi(Testing) public func findNode(_ mapKey: (DependencySource?, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
   func findCorrespondingImplementation(of n: Graph.Node) -> Graph.Node? {
@@ -48,11 +48,11 @@ extension ModuleDependencyGraph.NodeFinder {
       .flatMap {findNode((n.dependencySource, $0))}
   }
   
-  func findNodes(for dependencySource: DependencySource?)
+  @_spi(Testing) public func findNodes(for dependencySource: DependencySource?)
   -> [DependencyKey: Graph.Node]? {
     nodeMap[dependencySource]
   }
-  func findNodes(for key: DependencyKey) -> [DependencySource?: Graph.Node]? {
+  @_spi(Testing) public func findNodes(for key: DependencyKey) -> [DependencySource?: Graph.Node]? {
     nodeMap[key]
   }
 
@@ -62,7 +62,7 @@ extension ModuleDependencyGraph.NodeFinder {
   ///         not guaranteed.
   ///
   /// - Parameter visit: The closure to call with each graph node.
-  func forEachNode(_ visit: (Graph.Node) -> Void) {
+  @_spi(Testing) public func forEachNode(_ visit: (Graph.Node) -> Void) {
     nodeMap.forEach { visit($1) }
   }
 

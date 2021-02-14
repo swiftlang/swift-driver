@@ -67,6 +67,10 @@ struct CompileJobGroup {
     r.append(contentsOf: afterCompiles)
     return r
   }
+
+  @_spi(Testing) public static var none = JobsInPhases(beforeCompiles: [],
+                                 compileGroups: [],
+                                 afterCompiles: [])
 }
 
 // MARK: Standard build planning
@@ -150,6 +154,8 @@ extension Driver {
     }
     if self.parsedOptions.contains(.enableExperimentalCrossModuleIncrementalBuild) {
       options.formUnion(.enableCrossModuleIncrementalBuild)
+      #warning("dmu: separate option for now??")
+      options.formUnion(.readPriorsFromModuleDependencyGraph)
     }
     return options
   }
