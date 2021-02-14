@@ -449,8 +449,8 @@ extension ModuleDependencyGraph {
     options: IncrementalCompilationState.Options
   ) throws -> ModuleDependencyGraph? {
     guard try fileSystem.exists(path) else {
-         return nil
-       }
+      return nil
+    }
     let data = try fileSystem.readFileContents(path)
 
     struct Visitor: BitstreamVisitor {
@@ -935,7 +935,7 @@ extension ModuleDependencyGraph {
             $0.append(RecordID.mapNode)
             $0.append(serializer.lookupIdentifierCode(for: input.file.name))
             $0.append(serializer.lookupIdentifierCode(for: dependencySource.file.name))
-         }
+          }
         }
 
         for fingerprintedExternalDependency in graph.fingerprintedExternalDependencies {
