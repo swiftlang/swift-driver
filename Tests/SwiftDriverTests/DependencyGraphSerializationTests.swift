@@ -21,11 +21,12 @@ class DependencyGraphSerializationTests: XCTestCase {
     let fs = InMemoryFileSystem()
     graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
 
-    let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
-                                                           on: fs,
-                                                           diagnosticEngine: de,
-                                                           reporter: nil,
-                                                           options: [])
+    let deserializedGraph = try XCTUnwrap(
+      try ModuleDependencyGraph.read(from: mockPath,
+                                     on: fs,
+                                     diagnosticEngine: de,
+                                     reporter: nil,
+                                     options: []))
     var originalNodes = Set<ModuleDependencyGraph.Node>()
     graph.nodeFinder.forEachNode {
       originalNodes.insert($0)
