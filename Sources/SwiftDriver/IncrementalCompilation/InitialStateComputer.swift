@@ -162,6 +162,9 @@ extension IncrementalCompilationState.InitialStateComputer {
   {
     let graph = ModuleDependencyGraph(self)
     assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
+    guard graph.populateInputDependencySourceMap() else {
+      return nil
+    }
 
     // Every external will be an addition to the graph, but may not cause
     // a recompile, so includeAddedExternals is false.
