@@ -46,9 +46,12 @@ import SwiftOptions
     inputDependencySourceMap[input] = dependencySource
   }
 
-  @_spi(Testing) public func getSource(for input: TypedVirtualPath) -> DependencySource {
+  @_spi(Testing) public func getSource(for input: TypedVirtualPath,
+                                       function: String = #function,
+                                       file: String = #file,
+                                       line: Int = #line) -> DependencySource {
     guard let source = inputDependencySourceMap[input] else {
-      fatalError("\(input.file) not found in map: \(inputDependencySourceMap)")
+      fatalError("\(input.file) not found in map: \(inputDependencySourceMap), \(file):\(line) in \(function)")
     }
     return source
   }
@@ -65,21 +68,14 @@ extension ModuleDependencyGraph {
   /// Integrates `input` as needed and returns any inputs that were invalidated by external dependencies
   /// When creating a graph from swiftdeps files, this operation is performed for each input.
   func collectInputsRequiringCompilationFromExternalsFoundByCompiling(
-    input: TypedVirtualPath) -> Set<TypedVirtualPath>? {
-    guard let dependencySource = info.outputFileMap.getDependencySource(
-            for: input,
-            diagnosticEngine: info.diagnosticEngine)
-    else {
-      return nil
-    }
-    addMapEntry(input, dependencySource)
-
+    input: TypedVirtualPath
+  ) -> Set<TypedVirtualPath>? {
     // do not try to read swiftdeps of a new input
     if info.sourceFiles.isANewInput(input.file) {
       return Set<TypedVirtualPath>()
     }
     return collectInputsRequiringCompilationAfterProcessing(
-      dependencySource: dependencySource,
+      dependencySource: getSource(for: input),
       includeAddedExternals: false)
   }
 }
@@ -136,6 +132,16 @@ extension ModuleDependencyGraph {
     return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
       ?? false
   }
+
+  /// Return true on success
+  func populateInputDependencySourceMap() -> Bool {
+    let ofm = info.outputFileMap
+    let de = info.diagnosticEngine
+    return info.inputFiles.reduce(true) { okSoFar, input in
+      ofm.getDependencySource(for: input, diagnosticEngine: de)
+        .map {source in addMapEntry(input, source); return okSoFar } ?? false
+    }
+  }
 }
 // MARK: - Scheduling the 2nd wave
 extension ModuleDependencyGraph {
@@ -162,7 +168,7 @@ extension ModuleDependencyGraph {
   public func collectSwiftDepsUsingTransitivelyInvalidated<Nodes: Sequence>(
     nodes: Nodes
   ) -> Set<DependencySource>
-    where Nodes.Element == Node
+  where Nodes.Element == Node
   {
     // Is this correct for the 1st wave after having read a prior?
     // Yes, because
@@ -174,9 +180,9 @@ extension ModuleDependencyGraph {
       diagnosticEngine: info.diagnosticEngine)
       .tracedUses
     let invalidatedSources = Set(
-        affectedNodes.compactMap {
-          $0.dependencySource.flatMap {$0.typedFile.type == .swiftDeps ? $0 : nil}
-        })
+      affectedNodes.compactMap {
+        $0.dependencySource.flatMap {$0.typedFile.type == .swiftDeps ? $0 : nil}
+      })
     return invalidatedSources
   }
 
@@ -197,8 +203,8 @@ extension ModuleDependencyGraph {
                     fingerprint: fingerprintedExternalDependency.fingerprint,
                     dependencySource: nil)
     return nodeFinder
-        .uses(of: node)
-        .filter({ use in isUntraced(use) })
+      .uses(of: node)
+      .filter({ use in isUntraced(use) })
   }
 
   /// Find all the inputs known to need recompilation as a consequence of reading a swiftdeps or swiftmodule
@@ -223,8 +229,8 @@ extension ModuleDependencyGraph {
       return nil
     }
     let results = Integrator.integrate(from: sourceGraph,
-                                into: self,
-                                includeAddedExternals: includeAddedExternals)
+                                       into: self,
+                                       includeAddedExternals: includeAddedExternals)
 
     /// When reading from a swiftdeps file ( includeAddedExternals is false), any changed input files are
     /// computed separately. (TODO: fix this? by finding changed inputs in a callee?),
@@ -274,16 +280,16 @@ extension ModuleDependencyGraph {
       (isNewToTheGraph || lazyModTimer.hasExternalFileChanged)
 
     let invalidatedNodesFromIncrementalExternal = shouldTryToProcess
-    ? collectNodesInvalidatedByAttemptingToProcess(
-      fed, info, includeAddedExternals: includeAddedExternals)
-    : nil
+      ? collectNodesInvalidatedByAttemptingToProcess(
+        fed, info, includeAddedExternals: includeAddedExternals)
+      : nil
 
     let callerWantsTheseChanges = (includeAddedExternals && isNewToTheGraph) ||
       lazyModTimer.hasExternalFileChanged
 
     return !callerWantsTheseChanges
-    ? Set<Node>()
-    : invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesDirectlyUsing(fed)
+      ? Set<Node>()
+      : invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesDirectlyUsing(fed)
   }
   
   private struct LazyModTimer {
@@ -312,6 +318,27 @@ extension ModuleDependencyGraph {
 
 }
 
+extension OutputFileMap {
+  fileprivate func getDependencySource(
+    for sourceFile: TypedVirtualPath,
+    diagnosticEngine: DiagnosticsEngine
+  ) -> DependencySource? {
+    assert(sourceFile.type == FileType.swift)
+    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.file,
+                                             outputType: .swiftDeps)
+    else {
+      // The legacy driver fails silently here.
+      diagnosticEngine.emit(
+        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file")
+      )
+      return nil
+    }
+    assert(swiftDepsPath.extension == FileType.swiftDeps.rawValue)
+    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
+    return DependencySource(typedSwiftDepsFile)
+  }
+}
+
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
 
@@ -325,7 +352,7 @@ extension ModuleDependencyGraph {
     tracedNodes.insert(n)
   }
   func ensureGraphWillRetraceDependents<Nodes: Sequence>(of nodes: Nodes)
-    where Nodes.Element == Node
+  where Nodes.Element == Node
   {
     nodes.forEach { tracedNodes.remove($0) }
   }
@@ -833,7 +860,7 @@ extension ModuleDependencyGraph {
         // dependencySource name
         .vbr(chunkBitWidth: 13),
       ])
-   }
+    }
 
     private func abbreviate(
       _ record: RecordID,
@@ -1044,9 +1071,9 @@ extension Diagnostic.Message {
 extension ModuleDependencyGraph {
   func matches(_ other: ModuleDependencyGraph) -> Bool {
     guard nodeFinder.matches(other.nodeFinder),
-      tracedNodes.matches(other.tracedNodes),
-      inputDependencySourceMap.matches(other.inputDependencySourceMap),
-      fingerprintedExternalDependencies.matches(other.fingerprintedExternalDependencies)
+          tracedNodes.matches(other.tracedNodes),
+          inputDependencySourceMap.matches(other.inputDependencySourceMap),
+          fingerprintedExternalDependencies.matches(other.fingerprintedExternalDependencies)
     else {
       return false
     }
@@ -1069,27 +1096,6 @@ extension BidirectionalMap where T1 == TypedVirtualPath, T2 == DependencySource 
 extension Set where Element == FingerprintedExternalDependency {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
-  }
-}
-
-extension OutputFileMap {
-  fileprivate func getDependencySource(
-    for sourceFile: TypedVirtualPath,
-    diagnosticEngine: DiagnosticsEngine
-  ) -> DependencySource? {
-    assert(sourceFile.type == FileType.swift)
-    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.file,
-                                             outputType: .swiftDeps)
-    else {
-      // The legacy driver fails silently here.
-      diagnosticEngine.emit(
-        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file")
-      )
-      return nil
-    }
-    assert(swiftDepsPath.extension == FileType.swiftDeps.rawValue)
-    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
-    return DependencySource(typedSwiftDepsFile)
   }
 }
 

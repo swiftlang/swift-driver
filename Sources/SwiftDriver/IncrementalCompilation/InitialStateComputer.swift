@@ -140,6 +140,9 @@ extension IncrementalCompilationState.InitialStateComputer {
     else {
       return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
     }
+    guard graph.populateInputDependencySourceMap() else {
+      return nil
+    }
     // Any externals not already in graph must be additions which should trigger
     // recompilation. Thus, `ChangedOrAdded`.
     let nodesInvalidatedByExternals = graph.collectNodesInvalidatedByChangedOrAddedExternals()
@@ -164,7 +167,7 @@ extension IncrementalCompilationState.InitialStateComputer {
     // a recompile, so includeAddedExternals is false.
     var inputsInvalidatedByChangedExternals = Set<TypedVirtualPath>()
     for input in sourceFiles.currentInOrder {
-      guard let invalidatedInputs = graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: input)
+       guard let invalidatedInputs = graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: input)
       else {
         return nil
       }
