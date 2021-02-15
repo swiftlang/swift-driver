@@ -22,11 +22,10 @@ let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHan
 do {
   let processSet = ProcessSet()
   intHandler = try InterruptHandler {
-    processSet.terminate()
-    // If the swift-driver invocation is interrupted by the build system,
-    // returning non-zero value emits red-herring error messages in the build logs.
-    // So we exit with 0 here.
-    exit(0)
+    // Ignore the interruption signal.
+    // The underlying swift compiler isn't ready to be safely interrupted yet and
+    // interrupting them may cause red-herring build failures that may pollute the build
+    // log.
   }
 
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
