@@ -17,7 +17,7 @@ import TSCBasic
 /*@_spi(Testing)*/
 public struct DependencySource: Hashable, CustomStringConvertible {
 
-  let typedFile: TypedVirtualPath
+  public let typedFile: TypedVirtualPath
 
   init(_ typedFile: TypedVirtualPath) {
     assert( typedFile.type == .swiftDeps ||
@@ -39,7 +39,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
     self.init(TypedVirtualPath(file: file, type: type))
   }
 
-  var file: VirtualPath { typedFile.file }
+  public var file: VirtualPath { typedFile.file }
 
   public var description: String {
     file.description

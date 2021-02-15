@@ -59,7 +59,7 @@ extension ModuleDependencyGraph.Tracer {
     self.graph = graph
     // Sort so "Tracing" diagnostics are deterministically ordered
     self.startingPoints = defs.sorted()
-    self.currentPathIfTracing = graph.reporter != nil ? [] : nil
+    self.currentPathIfTracing = graph.info.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
   
@@ -119,21 +119,19 @@ extension ModuleDependencyGraph.Tracer {
     else {
       return
     }
-    graph.reporter?.report(
+    graph.info.reporter?.report(
       [
         "Traced:",
-        path
-          .compactMap { node in
-            node.dependencySource
-              .flatMap {
-                // swiftmodules won't be in the map
-                graph.inputDependencySourceMap.contains(key: $0)
-                  ? "\(node.key) in \(graph.inputDependencySourceMap[$0].file.basename)"
-                  : "\(node.key)"
-              }
-
+        path.compactMap { node in
+          node.dependencySource.map {
+            source in
+            graph.inputDependencySourceMap[source].map { input in
+              "\(node.key) in \(input.file.basename)"
+            }
+            ?? "\(node.key)"
           }
-          .joined(separator: " -> ")
+        }
+        .joined(separator: " -> ")
       ].joined(separator: " ")
     )
   }

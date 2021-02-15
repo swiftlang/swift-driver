@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import SwiftDriver
+@_spi(Testing) import SwiftDriver
+import TSCBasic
+import Foundation
 
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
@@ -77,5 +79,41 @@ fileprivate extension DependencySource {
   var sourceFileProvidesNameForMocking: String {
     // Only when mocking are these two guaranteed to be the same
     file.name
+  }
+}
+
+extension BuildRecordInfo {
+  static func mock(
+    _ diagnosticEngine: DiagnosticsEngine,
+    _ outputFileMap: OutputFileMap
+    ) -> Self {
+    self.init(
+      buildRecordPath: try! VirtualPath(path: "no-build-record"),
+      fileSystem: localFileSystem,
+      currentArgsHash: "",
+      actualSwiftVersion: "for-testing",
+      timeBeforeFirstJob: Date(),
+      diagnosticEngine: diagnosticEngine,
+      compilationInputModificationDates: [:])
+  }
+}
+
+extension IncrementalCompilationState.InitialStateComputer {
+  static func mock(
+    options: IncrementalCompilationState.Options = [.verifyDependencyGraphAfterEveryImport],
+    diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine(),
+    fileSystem: FileSystem = localFileSystem) -> Self {
+    let diagnosticsEngine = DiagnosticsEngine()
+    let outputFileMap = OutputFileMap()
+    return Self(options,
+              JobsInPhases.none,
+              outputFileMap,
+              BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
+              nil,
+              nil,
+              [],
+              fileSystem,
+              showJobLifecycle: false,
+              diagnosticsEngine)
   }
 }

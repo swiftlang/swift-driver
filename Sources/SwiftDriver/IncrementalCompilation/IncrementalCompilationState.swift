@@ -16,7 +16,7 @@ import SwiftOptions
 public class IncrementalCompilationState {
 
   /// The oracle for deciding what depends on what. Applies to this whole module.
-  private let moduleDependencyGraph: ModuleDependencyGraph
+  @_spi(Testing) public let moduleDependencyGraph: ModuleDependencyGraph
 
   /// If non-null outputs information for `-driver-show-incremental` for input path
   private let reporter: Reporter?
@@ -56,8 +56,11 @@ public class IncrementalCompilationState {
       self.reporter = nil
     }
 
+    let enablingOrDisabling = options.contains(.enableCrossModuleIncrementalBuild)
+      ? "Enabling"
+      : "Disabling"
     reporter?.report(
-      "\(options.contains(.enableCrossModuleIncrementalBuild) ? "Enabling" : "Disabling") incremental cross-module building")
+      "\(enablingOrDisabling) incremental cross-module building")
 
 
     guard let outputFileMap = driver.outputFileMap else {
@@ -75,15 +78,23 @@ public class IncrementalCompilationState {
     let maybeBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
             inputFiles: driver.inputFiles, reporter: reporter)
 
-
+    // Forming batch jobs requires passing in the driver "inout". But that's the
+    // only "inout" use needed, among many other values needed from the driver.
+    // So, pass the other values individually, and pass the driver "inout" as
+    // the "batchJobFormer". Maybe someday there will be a better way.
     guard
-      let initial = try Self.computeInitialState(options,
-                                                 jobsInPhases,
-                                                 outputFileMap,
-                                                 buildRecordInfo,
-                                                 maybeBuildRecord,
-                                                 &driver,
-                                                 self.reporter)
+      let initial = try InitialStateComputer(
+        options,
+        jobsInPhases,
+        outputFileMap,
+        buildRecordInfo,
+        maybeBuildRecord,
+        self.reporter,
+        driver.inputFiles,
+        driver.fileSystem,
+        showJobLifecycle: driver.showJobLifecycle,
+        driver.diagnosticEngine)
+        .compute(batchJobFormer: &driver)
     else {
       return nil
     }
@@ -94,10 +105,6 @@ public class IncrementalCompilationState {
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initial.graph
     self.driver = driver
-  }
-
-  @_spi(Testing) public var options: Options {
-    self.moduleDependencyGraph.options
   }
 }
 
@@ -125,235 +132,9 @@ extension IncrementalCompilationState {
     let mandatoryJobsInOrder: [Job]
   }
 
-  @_spi(Testing) public static func computeInitialState(
-    _ options: Options,
-    _ jobsInPhases: JobsInPhases,
-    _ outputFileMap: OutputFileMap,
-    _ buildRecordInfo: BuildRecordInfo,
-    _ maybeBuildRecord: BuildRecord?,
-    _ driver: inout Driver,
-    _ reporter: Reporter?
-  ) throws -> InitialState? {
-    if options.contains(.readPriorsFromModuleDependencyGraph) {
-      return try Self.computeInitialStateFromModuleDependencyGraph(options,
-                                                                   jobsInPhases,
-                                                                   outputFileMap,
-                                                                   buildRecordInfo,
-                                                                   maybeBuildRecord,
-                                                                   &driver,
-                                                                   reporter)
-    } else {
-      return try Self.computeInitialStateForStatusQuoBuild(options,
-                                                           jobsInPhases,
-                                                           outputFileMap,
-                                                           buildRecordInfo,
-                                                           maybeBuildRecord,
-                                                           &driver,
-                                                           reporter)
-    }
-  }
-
-  private static func computeInitialStateFromModuleDependencyGraph(
-    _ options: Options,
-    _ jobsInPhases: JobsInPhases,
-    _ outputFileMap: OutputFileMap,
-    _ buildRecordInfo: BuildRecordInfo,
-    _ maybeBuildRecord: BuildRecord?,
-    _ driver: inout Driver,
-    _ reporter: Reporter?
-  ) throws -> InitialState? {
-    precondition(options.contains(.readPriorsFromModuleDependencyGraph))
-    let diagnosticEngine = driver.diagnosticEngine
-    // If we cannot compute this path, it means the build record path was not
-    // provided to the driver, which our caller detects for us.
-    let absPath = driver.driverDependencyGraphPath!
-
-    // Try to read the serialized prior module dependency graph and build
-    // record.
-    guard
-      let deserializedGraph = try? ModuleDependencyGraph.read(
-          from: absPath,
-          on: driver.fileSystem,
-          diagnosticEngine: diagnosticEngine,
-          reporter: reporter,
-          options: options),
-      let outOfDateBuildRecord = maybeBuildRecord
-    else {
-      // We failed to read the components we need for the incremental build -
-      // just schedule every file to build!
-      reporter?.reportDisablingIncrementalBuild("Could not read priors from \(absPath)")
-      return try Self.initialStateRecoveringFromReadFailure(options,
-                                                            jobsInPhases,
-                                                            outputFileMap,
-                                                            &driver,
-                                                            reporter)
-    }
-
-    // Success! Let's try to go through the same path as the status quo.
-    let (skippedCompileGroups, mandatoryJobsInOrder)
-      = try Self.computeInputsAndGroups(options,
-                                        jobsInPhases,
-                                        &driver,
-                                        buildRecordInfo,
-                                        outOfDateBuildRecord,
-                                        // We're not reading swiftdeps files at all!
-                                        inputsHavingMalformedDependencySources: [],
-                                        deserializedGraph,
-                                        reporter)
-    return InitialState(graph: deserializedGraph,
-                        skippedCompileGroups: skippedCompileGroups,
-                        mandatoryJobsInOrder: mandatoryJobsInOrder)
-  }
 
 
-  private static func initialStateRecoveringFromReadFailure(
-    _ options: Options,
-    _ jobsInPhases: JobsInPhases,
-    _ outputFileMap: OutputFileMap,
-    _ driver: inout Driver,
-    _ reporter: Reporter?
-  ) throws -> IncrementalCompilationState.InitialState? {
-    let emptyGraph = ModuleDependencyGraph.buildEmptyGraph(
-      for: driver.inputFiles,
-      diagnosticEngine: driver.diagnosticEngine,
-      outputFileMap: outputFileMap,
-      options: options,
-      reporter: reporter,
-      filesystem: driver.fileSystem)
 
-    let compileGroups =
-      Dictionary(uniqueKeysWithValues:
-                  jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
-
-    let mandatoryCompileGroupsInOrder = driver.inputFiles.compactMap { input -> CompileJobGroup? in
-      compileGroups[input]
-    }
-
-    let mandatoryJobsInOrder = try
-      jobsInPhases.beforeCompiles +
-      driver.formBatchedJobs(
-        mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-        showJobLifecycle: driver.showJobLifecycle)
-
-    return InitialState(graph: emptyGraph,
-                        skippedCompileGroups: [:],
-                        mandatoryJobsInOrder: mandatoryJobsInOrder)
-  }
-
-  private static func computeInitialStateForStatusQuoBuild(
-    _ options: Options,
-    _ jobsInPhases: JobsInPhases,
-    _ outputFileMap: OutputFileMap,
-    _ buildRecordInfo: BuildRecordInfo,
-    _ maybeBuildRecord: BuildRecord?,
-    _ driver: inout Driver,
-    _ reporter: Reporter?
-  ) throws -> InitialState? {
-    precondition(!options.contains(.readPriorsFromModuleDependencyGraph))
-    let diagnosticEngine = driver.diagnosticEngine
-
-    // FIXME: This should work without an output file map. We should have
-    // another way to specify a build record and where to put intermediates.
-    guard let outOfDateBuildRecord = maybeBuildRecord else {
-      return nil
-    }
-
-    let missingInputs = Set(outOfDateBuildRecord.inputInfos.keys).subtracting(driver.inputFiles.map {$0.file})
-    guard missingInputs.isEmpty else {
-      if let reporter = reporter {
-        reporter.report(
-          "Incremental compilation has been disabled, " +
-          " because  the following inputs were used in the previous compilation but not in this one: "
-            + missingInputs.map {$0.basename} .joined(separator: ", "))
-      }
-      return nil
-    }
-
-    guard let (
-      moduleDependencyGraph,
-      inputsAndMalformedSwiftDeps: inputsAndMalformedSwiftDeps
-    ) =
-    ModuleDependencyGraph.buildInitialGraph(
-      diagnosticEngine: diagnosticEngine,
-      inputs: buildRecordInfo.compilationInputModificationDates.keys,
-      previousInputs: outOfDateBuildRecord.allInputs,
-      outputFileMap: outputFileMap,
-      options: options,
-      remarkDisabled: Diagnostic.Message.remark_incremental_compilation_has_been_disabled,
-      reporter: reporter,
-      fileSystem: driver.fileSystem)
-    else {
-      return nil
-    }
-    // Preserve legacy behavior,
-    // but someday, just ensure inputsAndMalformedDependencySources are compiled
-    if let badSwiftDeps = inputsAndMalformedSwiftDeps.first?.1 {
-      diagnosticEngine.emit(
-        .remark_incremental_compilation_has_been_disabled(
-          because: "malformed dependencies file '\(badSwiftDeps)'")
-      )
-      return nil
-    }
-    let inputsHavingMalformedDependencySources = inputsAndMalformedSwiftDeps.map {$0.0}
-
-    let (skippedCompileGroups, mandatoryJobsInOrder) = try Self.computeInputsAndGroups(
-      options,
-      jobsInPhases,
-      &driver,
-      buildRecordInfo,
-      outOfDateBuildRecord,
-      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
-      moduleDependencyGraph,
-      reporter)
-    return InitialState(graph: moduleDependencyGraph,
-                        skippedCompileGroups: skippedCompileGroups,
-                        mandatoryJobsInOrder: mandatoryJobsInOrder)
-  }
-
-  private static func computeInputsAndGroups(
-    _ options: Options,
-    _ jobsInPhases: JobsInPhases,
-    _ driver: inout Driver,
-    _ buildRecordInfo: BuildRecordInfo,
-    _ outOfDateBuildRecord: BuildRecord,
-    inputsHavingMalformedDependencySources: [TypedVirtualPath],
-    _ moduleDependencyGraph: ModuleDependencyGraph,
-    _ reporter: Reporter?
-  ) throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
-               mandatoryJobsInOrder: [Job])
-  {
-    let compileGroups =
-      Dictionary(uniqueKeysWithValues:
-                    jobsInPhases.compileGroups.map {($0.primaryInput, $0)} )
-
-     let skippedInputs = Self.computeSkippedCompilationInputs(
-      allGroups: jobsInPhases.compileGroups,
-      fileSystem: driver.fileSystem,
-      buildRecordInfo: buildRecordInfo,
-      inputsHavingMalformedDependencySources: inputsHavingMalformedDependencySources,
-      moduleDependencyGraph: moduleDependencyGraph,
-      outOfDateBuildRecord: outOfDateBuildRecord,
-      alwaysRebuildDependents: options.contains(.alwaysRebuildDependents),
-      reporter: reporter)
-
-    let skippedCompileGroups = compileGroups.filter {skippedInputs.contains($0.key)}
-
-    let mandatoryCompileGroupsInOrder = driver.inputFiles.compactMap {
-      input -> CompileJobGroup? in
-      skippedInputs.contains(input)
-        ? nil
-        : compileGroups[input]
-    }
-
-    let mandatoryJobsInOrder = try
-      jobsInPhases.beforeCompiles +
-      driver.formBatchedJobs(
-        mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-        showJobLifecycle: driver.showJobLifecycle)
-
-    return (skippedCompileGroups: skippedCompileGroups,
-            mandatoryJobsInOrder: mandatoryJobsInOrder)
-  }
 }
 
 extension Driver {
@@ -404,7 +185,10 @@ extension Diagnostic.Message {
   fileprivate static func remark_disabling_incremental_build(because why: String) -> Diagnostic.Message {
     return .remark("Disabling incremental build: \(why)")
   }
-  fileprivate static func remark_incremental_compilation_has_been_disabled(because why: String) -> Diagnostic.Message {
+
+  static let remarkDisabled = Diagnostic.Message.remark_incremental_compilation_has_been_disabled
+
+  static func remark_incremental_compilation_has_been_disabled(because why: String) -> Diagnostic.Message {
     return .remark("Incremental compilation has been disabled: \(why)")
   }
 
@@ -422,249 +206,10 @@ extension Diagnostic.Message {
 
 extension IncrementalCompilationState {
 
-  /// Figure out which compilation inputs are *not* mandatory
-  private static func computeSkippedCompilationInputs(
-    allGroups: [CompileJobGroup],
-    fileSystem: FileSystem,
-    buildRecordInfo: BuildRecordInfo,
-    inputsHavingMalformedDependencySources: [TypedVirtualPath],
-    moduleDependencyGraph: ModuleDependencyGraph,
-    outOfDateBuildRecord: BuildRecord,
-    alwaysRebuildDependents: Bool,
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> Set<TypedVirtualPath> {
-    // Input == source file
-    let changedInputs = Self.computeChangedInputs(
-        groups: allGroups,
-        buildRecordInfo: buildRecordInfo,
-        moduleDependencyGraph: moduleDependencyGraph,
-        outOfDateBuildRecord: outOfDateBuildRecord,
-        fileSystem: fileSystem,
-        reporter: reporter)
 
-    let externallyChangedInputs = collectInputsInvalidatedByChangedExternals(
-      buildTime: outOfDateBuildRecord.buildTime,
-      fileSystem: fileSystem,
-      moduleDependencyGraph: moduleDependencyGraph,
-      reporter: moduleDependencyGraph.reporter)
-
-    let inputsMissingOutputs = allGroups.compactMap {
-      $0.outputs.contains {(try? !fileSystem.exists($0.file)) ?? true}
-        ? $0.primaryInput
-        : nil
-    }
-
-    // Combine to obtain the inputs that definitely must be recompiled.
-    let definitelyRequiredInputs =
-      Set(changedInputs.map({ $0.filePath }) +
-            externallyChangedInputs +
-            inputsHavingMalformedDependencySources +
-            inputsMissingOutputs)
-    if let reporter = reporter {
-      for scheduledInput in definitelyRequiredInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        reporter.report("Queuing (initial):", scheduledInput)
-      }
-    }
-
-    // Sometimes, inputs run in the first wave that depend on the changed inputs for the
-    // first wave, even though they may not require compilation.
-    // Any such inputs missed, will be found by the rereading of swiftDeps
-    // as each first wave job finished.
-    let speculativeInputs = collectInputsToBeSpeculativelyRecompiled(
-      changedInputs: changedInputs,
-      externalDependents: externallyChangedInputs,
-      inputsMissingOutputs: Set(inputsMissingOutputs),
-      moduleDependencyGraph: moduleDependencyGraph,
-      alwaysRebuildDependents: alwaysRebuildDependents,
-      reporter: reporter)
-      .subtracting(definitelyRequiredInputs)
-
-    if let reporter = reporter {
-      for dependent in speculativeInputs.sorted(by: {$0.file.name < $1.file.name}) {
-        reporter.report("Queuing because of the initial set:", dependent)
-      }
-    }
-    let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs)
-
-    let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
-      .subtracting(immediatelyCompiledInputs)
-    if let reporter = reporter {
-      for skippedInput in skippedInputs.sorted(by: {$0.file.name < $1.file.name})  {
-        reporter.report("Skipping input:", skippedInput)
-      }
-    }
-    return skippedInputs
-  }
 }
 
-extension IncrementalCompilationState {
-  /// Encapsulates information about an input the driver has determined has
-  /// changed in a way that requires an incremental rebuild.
-  struct ChangedInput {
-    /// The path to the input file.
-    let filePath: TypedVirtualPath
-    /// The status of the input file.
-    let status: InputInfo.Status
-    /// If `true`, the modification time of this input matches the modification
-    /// time recorded from the prior build in the build record.
-    let datesMatch: Bool
-  }
-
-  /// Find the inputs that have changed since last compilation, or were marked as needed a build
-  private static func computeChangedInputs(
-    groups: [CompileJobGroup],
-    buildRecordInfo: BuildRecordInfo,
-    moduleDependencyGraph: ModuleDependencyGraph,
-    outOfDateBuildRecord: BuildRecord,
-    fileSystem: FileSystem,
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> [ChangedInput] {
-    groups.compactMap { group in
-      let input = group.primaryInput
-      let modDate = buildRecordInfo.compilationInputModificationDates[input]
-        ?? Date.distantFuture
-      let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
-      let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
-      let previousModTime = inputInfo?.previousModTime
-
-      // Because legacy driver reads/writes dates wrt 1970,
-      // and because converting time intervals to/from Dates from 1970
-      // exceeds Double precision, must not compare dates directly
-      var datesMatch: Bool {
-        modDate.timeIntervalSince1970 == previousModTime?.timeIntervalSince1970
-      }
-
-      switch previousCompilationStatus {
-      case .upToDate where datesMatch:
-        reporter?.report("May skip current input:", input)
-        return nil
-
-      case .upToDate:
-        reporter?.report("Scheduing changed input", input)
-      case .newlyAdded:
-        reporter?.report("Scheduling new", input)
-      case .needsCascadingBuild:
-        reporter?.report("Scheduling cascading build", input)
-      case .needsNonCascadingBuild:
-        reporter?.report("Scheduling noncascading build", input)
-      }
-      return ChangedInput(filePath: input,
-                          status: previousCompilationStatus,
-                          datesMatch: datesMatch)
-    }
-  }
-
-  /// Any files dependent on modified files from other modules must be compiled, too.
-  private static func collectInputsInvalidatedByChangedExternals(
-    buildTime: Date,
-    fileSystem: FileSystem,
-    moduleDependencyGraph: ModuleDependencyGraph,
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> [TypedVirtualPath] {
-    var externalDependencySources = Set<DependencySource>()
-    for fingerprintedExternalDependency in moduleDependencyGraph.fingerprintedExternalDependencies {
-      let extDep = fingerprintedExternalDependency.externalDependency
-      let extModTime = extDep.modTime(fileSystem) ?? Date.distantFuture
-      if extModTime >= buildTime {
-        for dependent in moduleDependencyGraph.collectUntracedNodesDirectlyUsing(fingerprintedExternalDependency) {
-          guard let dependencySource = dependent.dependencySource else {
-            fatalError("Dependent \(dependent) does not have dependencies file!")
-          }
-          reporter?.report(
-            "Queuing because of external dependency on newer \(extDep.file.basename)",
-            dependencySource.typedFile)
-          externalDependencySources.insert(dependencySource)
-        }
-      }
-    }
-    return externalDependencySources.compactMap {
-      moduleDependencyGraph.inputDependencySourceMap[$0]
-    }
-  }
-
-  /// Returns the cascaded files to compile in the first wave, even though it may not be need.
-  /// The needs[Non}CascadingBuild stuff was cargo-culted from the legacy driver.
-  /// TODO: something better, e.g. return nothing here, but process changed dependencySource
-  /// before the whole frontend job finished.
-  private static func collectInputsToBeSpeculativelyRecompiled(
-    changedInputs: [ChangedInput],
-    externalDependents: [TypedVirtualPath],
-    inputsMissingOutputs: Set<TypedVirtualPath>,
-    moduleDependencyGraph: ModuleDependencyGraph,
-    alwaysRebuildDependents: Bool,
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> Set<TypedVirtualPath> {
-    let cascadingChangedInputs = Self.computeCascadingChangedInputs(
-      from: changedInputs,
-      inputsMissingOutputs: inputsMissingOutputs,
-      alwaysRebuildDependents: alwaysRebuildDependents,
-      reporter: reporter)
-    let cascadingExternalDependents = alwaysRebuildDependents ? externalDependents : []
-    // Collect the dependent files to speculatively schedule
-    var dependentFiles = Set<TypedVirtualPath>()
-    let cascadingFileSet = Set(cascadingChangedInputs).union(cascadingExternalDependents)
-    for cascadingFile in cascadingFileSet {
-       let dependentsOfOneFile = moduleDependencyGraph
-        .collectInputsTransitivelyInvalidatedBy(input: cascadingFile)
-      for dep in dependentsOfOneFile where !cascadingFileSet.contains(dep) {
-        if dependentFiles.insert(dep).0 {
-          reporter?.report(
-            "Immediately scheduling dependent on \(cascadingFile.file.basename)", dep)
-        }
-      }
-    }
-    return dependentFiles
-  }
-
-  // Collect the files that will be compiled whose dependents should be schedule
-  private static func computeCascadingChangedInputs(
-    from changedInputs: [ChangedInput],
-    inputsMissingOutputs: Set<TypedVirtualPath>,
-    alwaysRebuildDependents: Bool,
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> [TypedVirtualPath] {
-    changedInputs.compactMap { changedInput in
-      let inputIsUpToDate =
-        changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.filePath)
-      let basename = changedInput.filePath.file.basename
-
-      // If we're asked to always rebuild dependents, all we need to do is
-      // return inputs whose modification times have changed.
-      guard !alwaysRebuildDependents else {
-        if inputIsUpToDate {
-          reporter?.report(
-            "not scheduling dependents of \(basename) despite -driver-always-rebuild-dependents because is up to date")
-          return nil
-        } else {
-          reporter?.report(
-            "scheduling dependents of \(basename); -driver-always-rebuild-dependents")
-          return changedInput.filePath
-        }
-      }
-
-      switch changedInput.status {
-      case .needsCascadingBuild:
-        reporter?.report(
-          "scheduling dependents of \(basename); needed cascading build")
-        return changedInput.filePath
-      case .upToDate:
-        reporter?.report(
-          "not scheduling dependents of \(basename); unknown changes")
-        return nil
-       case .newlyAdded:
-        reporter?.report(
-          "not scheduling dependents of \(basename): no entry in build record or dependency graph")
-        return nil
-      case .needsNonCascadingBuild:
-        reporter?.report(
-          "not scheduling dependents of \(basename): does not need cascading build")
-        return nil
-      }
-    }
-  }
-}
-
-// MARK: - Scheduling
+// MARK: - Scheduling the 2nd wave
 extension IncrementalCompilationState {
   /// Remember a job (group) that is before a compile or a compile itself.
   /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
@@ -681,7 +226,7 @@ extension IncrementalCompilationState {
         return []
       }
 
-      // Find and deal with inputs that how need to be compiled
+      // Find and deal with inputs that now need to be compiled
       let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
       assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
              "Primaries should not overlap secondaries.")
@@ -703,43 +248,41 @@ extension IncrementalCompilationState {
  }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
-  private func collectInputsInvalidatedByRunning(_ job: Job)  -> [TypedVirtualPath] {
+  private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<TypedVirtualPath> {
     guard job.kind == .compile else {
-      return []
+      return Set<TypedVirtualPath>()
     }
-    return Array(
-      Set(
-        job.primaryInputs.flatMap {
-          input -> [TypedVirtualPath] in
-          if let found = moduleDependencyGraph.collectInputsInvalidated(
-              byCompiling: input,
-              on: self.driver.fileSystem) {
-            return found
-          }
-          self.reporter?.report(
-            "Failed to read some dependencies source; compiling everything", input)
-          return Array(skippedCompileGroups.keys)
-        }
-      )
-      .subtracting(job.primaryInputs) // have already compiled these
+    return Set(
+      job.primaryInputs.flatMap { input in
+        collectInputsInvalidated(byCompiling: input)
+      }
     )
-    .sorted {$0.file.name < $1.file.name}
+    .subtracting(job.primaryInputs) // have already compiled these
   }
 
-  /// Find the jobs that now must be run to compile the given inputs.
-  private func getJobs(
-    for inputs: [TypedVirtualPath]
+  private func collectInputsInvalidated(byCompiling input: TypedVirtualPath)
+  -> Set<TypedVirtualPath> {
+    if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
+      return found
+    }
+    self.reporter?.report(
+      "Failed to read some dependencies source; compiling everything", input)
+    return Set<TypedVirtualPath>(skippedCompileGroups.keys)
+  }
+
+  /// Find the jobs that now must be run that were not originally known to be needed.
+  private func getJobs(for invalidatedInputs: Set<TypedVirtualPath>
   ) throws -> [Job] {
-    let unbatched = inputs.flatMap { input -> [Job] in
+    let unbatched = invalidatedInputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input) {
         let primaryInputs = group.compileJob.primaryInputs
         assert(primaryInputs.count == 1)
         assert(primaryInputs[0] == input)
-        self.reporter?.report("Scheduling discovered", input)
+        self.reporter?.report("Scheduling invalidated", input)
         return group.allJobs()
       }
       else {
-        self.reporter?.report("Tried to schedule discovered input again", input)
+        self.reporter?.report("Tried to schedule invalidated input again", input)
         return []
       }
     }
@@ -876,21 +419,60 @@ extension IncrementalCompilationState {
   @_spi(Testing) public func writeDependencyGraph() {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
-    guard self.options.contains(.enableCrossModuleIncrementalBuild) else {
+    guard moduleDependencyGraph.info.isCrossModuleIncrementalBuildEnabled else {
       return
     }
 
     guard
-      let recordInfo = self.driver.buildRecordInfo,
-      let absPath = self.driver.driverDependencyGraphPath
+      let recordInfo = self.driver.buildRecordInfo
     else {
       self.driver.diagnosticEngine.emit(
         .warning_could_not_write_dependency_graph)
       return
     }
-
-    self.moduleDependencyGraph.write(to: absPath,
+    self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
                                      on: self.driver.fileSystem,
                                      compilerVersion: recordInfo.actualSwiftVersion)
+  }
+}
+
+// MARK: - OutputFileMap
+extension OutputFileMap {
+  func onlySourceFilesHaveSwiftDeps() -> Bool {
+    let nonSourceFilesWithSwiftDeps = entries.compactMap {
+      input, outputs in
+      input.extension != FileType.swift.rawValue &&
+        input.description != "." &&
+        outputs.keys.contains(.swiftDeps)
+        ? input
+        : nil
+    }
+    if let f = nonSourceFilesWithSwiftDeps.first {
+      fatalError("nonSource \(f) has swiftDeps \(entries[f]![.swiftDeps]!)")
+    }
+    return nonSourceFilesWithSwiftDeps.isEmpty
+  }
+}
+
+// MARK: SourceFiles
+@_spi(Testing) public struct SourceFiles {
+  let currentInOrder: [TypedVirtualPath]
+  private let currentSet: Set<VirtualPath>
+  let previous: Set<VirtualPath>
+  let disappeared: [VirtualPath]
+
+  init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord?) {
+    self.currentInOrder = inputFiles.filter {$0.type == .swift}
+    let currentSet = Set(currentInOrder.map {$0.file} )
+    self.currentSet = currentSet
+    self.previous = buildRecord.map {
+      Set($0.inputInfos.keys)
+    } ?? Set()
+
+    self.disappeared = previous.filter {!currentSet.contains($0)}
+  }
+
+  func isANewInput(_ file: VirtualPath) -> Bool {
+    !previous.contains(file)
   }
 }

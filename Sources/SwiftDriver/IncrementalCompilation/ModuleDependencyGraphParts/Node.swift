@@ -35,8 +35,6 @@ extension ModuleDependencyGraph {
     var key: DependencyKey { keyAndFingerprint.key }
     var fingerprint: String? { keyAndFingerprint.fingerprint }
 
-
-
     /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
     /// If more than one source file has the same DependencyKey, then there
     /// will be one node for each in the driver, distinguished by this field.

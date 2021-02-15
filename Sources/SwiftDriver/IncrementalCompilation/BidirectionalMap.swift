@@ -10,35 +10,50 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Like a two-way dictionary, only works for accessing present members
+/// Like a two-way dictionary
 public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence {
   private var map1: [T1: T2] = [:]
   private var map2: [T2: T1] = [:]
 
   public init() {}
 
-  public subscript(_ key: T1) -> T2 {
+  public subscript(_ key: T1) -> T2? {
     get {
       guard let value = map1[key]
       else {
-        fatalError("\(key) was not present")
+        return nil
       }
       return value
     }
     set {
-      map1[key] = newValue
-      map2[newValue] = key
+      if let newValue = newValue {
+        map1[key] = newValue
+        map2[newValue] = key
+        return
+      }
+      if let oldValue = map1.removeValue(forKey: key) {
+        map2.removeValue(forKey: oldValue)
+      }
     }
   }
-  public subscript(_ key: T2) -> T1 {
+  public subscript(_ key: T2) -> T1? {
     get {
       guard let value = map2[key]
       else {
-        fatalError("\(key) was not present")
+        return nil
       }
       return value
     }
-    set { self[newValue] = key }
+    set {
+      if let newValue = newValue {
+        map2[key] = newValue
+        map1[newValue] = key
+        return
+      }
+      if let oldValue = map2.removeValue(forKey: key) {
+        map1.removeValue(forKey: oldValue)
+      }
+    }
   }
   public func contains(key: T1) -> Bool {
     map1.keys.contains(key)

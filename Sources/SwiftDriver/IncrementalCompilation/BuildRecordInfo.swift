@@ -47,7 +47,26 @@ import SwiftOptions
   // FIXME: Use an actor when possible.
   private let confinementQueue = DispatchQueue(label: "com.apple.swift-driver.jobresults")
 
-  init?(
+  @_spi(Testing) public init(
+    buildRecordPath: VirtualPath,
+    fileSystem: FileSystem,
+    currentArgsHash: String,
+    actualSwiftVersion: String,
+    timeBeforeFirstJob: Date,
+    diagnosticEngine: DiagnosticsEngine,
+    compilationInputModificationDates: [TypedVirtualPath: Date])
+  {
+    self.buildRecordPath = buildRecordPath
+    self.fileSystem = fileSystem
+    self.currentArgsHash = currentArgsHash
+    self.actualSwiftVersion = actualSwiftVersion
+    self.timeBeforeFirstJob = timeBeforeFirstJob
+    self.diagnosticEngine = diagnosticEngine
+    self.compilationInputModificationDates = compilationInputModificationDates
+  }
+
+
+  convenience init?(
     actualSwiftVersion: String,
     compilerOutputType: FileType?,
     workingDirectory: AbsolutePath?,
@@ -67,16 +86,20 @@ import SwiftOptions
     else {
       return nil
     }
-    self.actualSwiftVersion = actualSwiftVersion
-    self.currentArgsHash = Self.computeArgsHash(parsedOptions)
-    self.buildRecordPath = buildRecordPath
-    self.compilationInputModificationDates =
+    let currentArgsHash = Self.computeArgsHash(parsedOptions)
+    let compilationInputModificationDates =
       recordedInputModificationDates.filter { input, _ in
         input.type.isPartOfSwiftCompilation
       }
-    self.diagnosticEngine = diagnosticEngine
-    self.fileSystem = fileSystem
-    self.timeBeforeFirstJob = Date()
+
+    self.init(
+      buildRecordPath: buildRecordPath,
+      fileSystem: fileSystem,
+      currentArgsHash: currentArgsHash,
+      actualSwiftVersion: actualSwiftVersion,
+      timeBeforeFirstJob: Date(),
+      diagnosticEngine: diagnosticEngine,
+      compilationInputModificationDates: compilationInputModificationDates)
    }
 
   private static func computeArgsHash(_ parsedOptionsArg: ParsedOptions
@@ -205,7 +228,7 @@ import SwiftOptions
     guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true else {
       let why = "different arguments were passed to the compiler"
       // mimic legacy
-      reporter?.reportIncrementalCompilationHasBeenDisabled(" because " + why)
+      reporter?.reportIncrementalCompilationHasBeenDisabled("because " + why)
       reporter?.reportDisablingIncrementalBuild(why)
       return nil
     }
@@ -216,6 +239,18 @@ import SwiftOptions
     self.confinementQueue.sync {
       finishedJobResults.append(JobResult(job, result))
     }
+  }
+
+  /// A build-record-relative path to the location of a serialized copy of the
+  /// driver's dependency graph.
+  ///
+  /// FIXME: This is a little ridiculous. We could probably just replace the
+  /// build record outright with a serialized format.
+  var dependencyGraphPath: VirtualPath {
+    let filename = buildRecordPath.basenameWithoutExt
+    return buildRecordPath
+      .parentDirectory
+      .appending(component: filename + ".priors")
   }
 }
 

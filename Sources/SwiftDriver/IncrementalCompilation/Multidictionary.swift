@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// A collection that associates keys with one or more values.
-struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
+@_spi(Testing) public struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   private var dictionary: Dictionary<Key, Set<Value>> = [:]
   
   public typealias Element = (Key, Set<Value>)
@@ -46,11 +46,11 @@ struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   ///
   /// - Parameter i: A valid index of the collection. i must be less than endIndex.
   /// - Returns: The position immediately after the given index.
-  func index(after i: Dictionary<Key, Set<Value>>.Index) -> Dictionary<Key, Set<Value>>.Index {
+  @_spi(Testing) public func index(after i: Dictionary<Key, Set<Value>>.Index) -> Dictionary<Key, Set<Value>>.Index {
     self.dictionary.index(after: i)
   }
 
-  subscript(position: Dictionary<Key, Set<Value>>.Index) -> (Key, Set<Value>) {
+  @_spi(Testing) public subscript(position: Dictionary<Key, Set<Value>>.Index) -> (Key, Set<Value>) {
     self.dictionary[position]
   }
 
