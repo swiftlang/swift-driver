@@ -1,5 +1,9 @@
 Audit of Failing Driver Integration Tests
 
+test/Interpreter
+  Swift(macosx-x86_64) :: Interpreter/vtables_multifile_testable.swift
+    Fatal error: multiple producers for output vtables_multifile_testable_helper.swiftmodule
+  
 validation-test/Driver:
   Swift(macosx-x86_64) :: Driver/Dependencies/rdar23148987.swift
     Required changes to test for spaces and json ordering. There is warning and skipped jobs aren't being skipped.
@@ -9,55 +13,20 @@ validation-test/Driver:
     -enable-only-one-dependency-file, Feature not brought to swift-driver on purpose: https://github.com/apple/swift-driver/pull/74
 
 test/Driver:
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-provides-before-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/malformed-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-provides-after-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/private-after-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-external-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-parseable-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-while-editing-fine.swift
   Swift(macosx-x86_64) :: Driver/filelists.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-parallel-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/mutual-interface-hash-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-depends-after-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/nominal-members-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-merge-module-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/malformed-but-valid-yaml-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-simple-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-external-delete-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-depends-before-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/independent-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/file-added-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/private-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/independent-parseable-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/mutual-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-new-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-chained-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/check-interface-implementation-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/crash-simple-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-with-bad-deps-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-added-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-after-multiple-nominal-members-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-mutual-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-after-multiple-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-interface-hash-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/crash-new-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-private-after-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-swift-version-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-after-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/crash-added-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/chained-additional-kinds-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/dependencies-preservation-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-arguments-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-conflicting-arguments-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-malformed-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/driver-show-incremental-inputs-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/independent-half-dirty-fine.swift
+    ValueError: '-filelist' is not in list
+    
   Swift(macosx-x86_64) :: Driver/bad_exec.swift
-    -print-frontend-info: https://github.com/apple/swift/pull/34405
+    Different error message
+    Looking for: `unable to execute command`
+    Found: `error: could not find executable for '/always/searching/never/finding'`
+    
+  Swift(macosx-x86_64) :: Driver/access-notes.swift
+    error: unknown argument: '-access-notes-path'
+    
+  Swift(macosx-x86_64) :: Driver/vfs.swift
+    C++ driver tests checks that inputs exist, that's missing in swift-driver
+    Missing error: no such file or directory: 'random.swift'
 
   Swift(macosx-x86_64) :: Driver/bindings.swift
     Missing .swiftdeps
