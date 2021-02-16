@@ -83,13 +83,14 @@ extension ModuleDependencyGraph {
 // MARK: - Getting a graph read from priors ready to use
 extension ModuleDependencyGraph {
   func collectNodesInvalidatedByChangedOrAddedExternals() -> Set<Node> {
-    let invalidatedNodes = fingerprintedExternalDependencies.lazy.flatMap {
-      self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: $0,
-                                               includeAddedExternals: true)
+    fingerprintedExternalDependencies.reduce(into: Set()) { invalidatedNodes, fed in
+      invalidatedNodes.formUnion (
+        self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed,
+                                                 includeAddedExternals: true))
     }
-    return Set(invalidatedNodes)
   }
 }
+
 // MARK: - Scheduling the first wave
 extension ModuleDependencyGraph {
   /// Find all the sources that depend on `sourceFile`. For some source files, these will be
@@ -179,11 +180,13 @@ extension ModuleDependencyGraph {
       in: self,
       diagnosticEngine: info.diagnosticEngine)
       .tracedUses
-    let invalidatedSources = Set(
-      affectedNodes.compactMap {
-        $0.dependencySource.flatMap {$0.typedFile.type == .swiftDeps ? $0 : nil}
-      })
-    return invalidatedSources
+    return affectedNodes.reduce(into: Set()) {
+      invalidatedSources, affectedNode in
+      if let source = affectedNode.dependencySource,
+          source.typedFile.type == .swiftDeps {
+        invalidatedSources.insert(source)
+      }
+    }
   }
 
   /// Given an external dependency & its fingerprint, find any nodes directly using that dependency.
@@ -248,10 +251,10 @@ extension ModuleDependencyGraph {
   func collectInputsUsingTransitivelyInvalidated(
     nodes invalidatedNodes: Set<Node>
   ) -> Set<TypedVirtualPath> {
-    let invalidatedInputs =
-      collectSwiftDepsUsingTransitivelyInvalidated(nodes: invalidatedNodes).lazy
-      .map(getInput(for:))
-    return Set(invalidatedInputs)
+    collectSwiftDepsUsingTransitivelyInvalidated(nodes: invalidatedNodes)
+      .reduce(into: Set()) { invalidatedInputs, invalidatedSwiftDeps in
+        invalidatedInputs.insert(getInput(for: invalidatedSwiftDeps))
+      }
   }
 }
 
