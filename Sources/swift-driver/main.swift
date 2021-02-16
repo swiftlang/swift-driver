@@ -26,6 +26,7 @@ do {
     // The underlying swift compiler isn't ready to be safely interrupted yet and
     // interrupting them may cause red-herring build failures that may pollute the build
     // log.
+    diagnosticsEngine.emit(.remark("Compilation process interrupted"))
   }
 
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
