@@ -26,9 +26,9 @@ public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence 
       return value
     }
     set {
-      if let newValue = newValue {
-        map1[key] = newValue
-        map2[newValue] = key
+      if let someNewValue = newValue {
+        map1[key] = someNewValue
+        map2[someNewValue] = key
         return
       }
       if let oldValue = map1.removeValue(forKey: key) {
@@ -45,9 +45,9 @@ public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence 
       return value
     }
     set {
-      if let newValue = newValue {
-        map2[key] = newValue
-        map1[newValue] = key
+      if let someNewValue = newValue {
+        map2[key] = someNewValue
+        map1[someNewValue] = key
         return
       }
       if let oldValue = map2.removeValue(forKey: key) {
