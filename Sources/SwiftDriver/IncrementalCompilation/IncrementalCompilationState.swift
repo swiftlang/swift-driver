@@ -252,11 +252,9 @@ extension IncrementalCompilationState {
     guard job.kind == .compile else {
       return Set<TypedVirtualPath>()
     }
-    return Set(
-      job.primaryInputs.flatMap { input in
-        collectInputsInvalidated(byCompiling: input)
-      }
-    )
+    return job.primaryInputs.reduce(into: Set()) { invalidatedInputs, primaryInput in
+      invalidatedInputs.formUnion(collectInputsInvalidated(byCompiling: primaryInput))
+    }
     .subtracting(job.primaryInputs) // have already compiled these
   }
 
