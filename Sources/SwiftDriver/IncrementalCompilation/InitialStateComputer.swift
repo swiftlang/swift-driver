@@ -126,9 +126,9 @@ extension IncrementalCompilationState.InitialStateComputer {
   ) -> (ModuleDependencyGraph, Set<TypedVirtualPath>)?
   {
     let dependencyGraphPath = buildRecordInfo.dependencyGraphPath
-    let graph: ModuleDependencyGraph?
+    let graphIfPresent: ModuleDependencyGraph?
     do {
-      graph = try ModuleDependencyGraph.read( from: dependencyGraphPath, info: self)
+      graphIfPresent = try ModuleDependencyGraph.read( from: dependencyGraphPath, info: self)
     }
     catch {
       diagnosticEngine.emit(
@@ -136,7 +136,7 @@ extension IncrementalCompilationState.InitialStateComputer {
       reporter?.reportDisablingIncrementalBuild("Could not read priors from \(dependencyGraphPath)")
       return nil
     }
-    guard let graph = graph
+    guard let graph = graphIfPresent
     else {
       return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
     }
