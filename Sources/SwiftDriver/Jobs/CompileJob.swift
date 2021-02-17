@@ -291,6 +291,11 @@ extension Driver {
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
 
+    if compilerMode.isSingleCompilation {
+      try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
+      try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+    }
+
     addJobOutputs(outputs)
 
     // If we're prioritizing the emit module job, schedule the compile jobs
