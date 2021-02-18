@@ -326,6 +326,9 @@ final class NonincrementalCompilationTests: XCTestCase {
 final class IncrementalCompilationTests: XCTestCase {
 
   var tempDir: AbsolutePath = AbsolutePath("/tmp")
+  var derivedDataDir: AbsolutePath {
+    tempDir.appending(component: "derivedData")
+  }
 
   let module = "theModule"
   var OFM: AbsolutePath {
@@ -397,8 +400,7 @@ final class IncrementalCompilationTests: XCTestCase {
     )] = [
       (.driverAlwaysRebuildDependents, {$0.alwaysRebuildDependents}),
       (.driverShowIncremental, {$0.reporter != nil}),
-      // FIXME: Re-enable once this is actually implemented.
-      // (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, .emitDependencyDotFileAfterEveryImport),
+      (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, {$0.emitDependencyDotFileAfterEveryImport}),
       (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
       (.enableExperimentalCrossModuleIncrementalBuild, {$0.isCrossModuleIncrementalBuildEnabled}),
     ]
@@ -431,8 +433,8 @@ final class IncrementalCompilationTests: XCTestCase {
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
     #if !os(Linux)
-    try tryInitial(true)
-    tryTouchingMainAlwaysRebuildDependents(true)
+    try tryInitial(checkDiagnostics: true)
+    tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: true)
     #endif
   }
 
@@ -440,30 +442,95 @@ final class IncrementalCompilationTests: XCTestCase {
     try testIncremental(checkDiagnostics: false)
   }
 
+  func testDependencyDotFiles() throws {
+    expectNoDotFiles()
+    try tryInitial(extraArguments: ["-driver-emit-fine-grained-dependency-dot-file-after-every-import"])
+    expect(dotFilesFor: [
+      "main.swiftdeps",
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+      "other.swiftdeps",
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+    ])
+  }
+
+  func testDependencyDotFilesCross() throws {
+    expectNoDotFiles()
+    try tryInitial(extraArguments: [
+      "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
+      "-enable-experimental-cross-module-incremental-build"
+    ])
+    removeDotFiles()
+    tryTouchingOther(extraArguments: [
+      "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
+      "-enable-experimental-cross-module-incremental-build"
+    ])
+
+    expect(dotFilesFor: [
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+      "other.swiftdeps",
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+    ])
+  }
+
+  func expectNoDotFiles() {
+    guard localFileSystem.exists(derivedDataDir) else { return }
+    try! localFileSystem.getDirectoryContents(derivedDataDir)
+      .forEach {derivedFile in
+        XCTAssertFalse(derivedFile.hasSuffix("dot"))
+      }
+  }
+
+  func removeDotFiles() {
+    try! localFileSystem.getDirectoryContents(derivedDataDir)
+      .filter {$0.hasSuffix(".dot")}
+      .map {derivedDataDir.appending(component: $0)}
+      .forEach {try! localFileSystem.removeFileTree($0)}
+  }
+
+  func expect(dotFilesFor importedFiles: [String]) {
+    let expectedDotFiles = Set(
+      importedFiles.enumerated()
+      .map { offset, element in "\(element).\(offset).dot" })
+    let actualDotFiles = Set(
+      try! localFileSystem.getDirectoryContents(derivedDataDir)
+      .filter {$0.hasSuffix(".dot")})
+
+    let missingDotFiles = expectedDotFiles.subtracting(actualDotFiles)
+      .sortedByDotFileSequenceNumbers()
+    let extraDotFiles = actualDotFiles.subtracting(expectedDotFiles)
+      .sortedByDotFileSequenceNumbers()
+
+    XCTAssertEqual(missingDotFiles, [])
+    XCTAssertEqual(extraDotFiles, [])
+  }
+
   /// Ensure that the mod date of the input comes back exactly the same via the build-record.
   /// Otherwise the up-to-date calculation in `IncrementalCompilationState` will fail.
   func testBuildRecordDateAccuracy() throws {
-    try tryInitial(false)
+    try tryInitial()
     (1...10).forEach { n in
-      tryNoChange(true)
+      tryNoChange(checkDiagnostics: true)
     }
   }
 
   func testIncremental(checkDiagnostics: Bool) throws {
-    try tryInitial(checkDiagnostics)
+    try tryInitial(checkDiagnostics: checkDiagnostics)
     #if true // sometimes want to skip for debugging
-    tryNoChange(checkDiagnostics)
-    tryTouchingOther(checkDiagnostics)
-    tryTouchingBoth(checkDiagnostics)
+    tryNoChange(checkDiagnostics: checkDiagnostics)
+    tryTouchingOther(checkDiagnostics: checkDiagnostics)
+    tryTouchingBoth(checkDiagnostics: checkDiagnostics)
     #endif
-    tryReplacingMain(checkDiagnostics)
+    tryReplacingMain(checkDiagnostics: checkDiagnostics)
   }
 
 
-  func tryInitial(_ checkDiagnostics: Bool) throws {
+  func tryInitial(checkDiagnostics: Bool = false,
+                  extraArguments: [String] = []
+  ) throws {
     try doABuild(
       "initial",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
@@ -484,10 +551,13 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
-  func tryNoChange(_ checkDiagnostics: Bool) {
+  func tryNoChange(checkDiagnostics: Bool = false,
+                   extraArguments: [String] = []
+  ) {
     try! doABuild(
       "no-change",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
         "Disabling incremental cross-module building",
         "Incremental compilation: Created dependency graph from swiftdeps files",
@@ -500,11 +570,14 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: [])
   }
-  func tryTouchingOther(_ checkDiagnostics: Bool) {
+  func tryTouchingOther(checkDiagnostics: Bool = false,
+                        extraArguments: [String] = []
+  ) {
     touch("other")
     try! doABuild(
       "non-propagating",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
         "Disabling incremental cross-module building",
         "Incremental compilation: Created dependency graph from swiftdeps files",
@@ -525,12 +598,15 @@ final class IncrementalCompilationTests: XCTestCase {
     ],
     whenAutolinking: autolinkLifecycleExpectations)
   }
-  func tryTouchingBoth(_ checkDiagnostics: Bool) {
+  func tryTouchingBoth(checkDiagnostics: Bool = false,
+                       extraArguments: [String] = []
+ ) {
     touch("main")
     touch("other")
     try! doABuild(
       "non-propagating, both touched",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
         "Disabling incremental cross-module building",
         "Incremental compilation: Created dependency graph from swiftdeps files",
@@ -553,11 +629,14 @@ final class IncrementalCompilationTests: XCTestCase {
     whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  func tryReplacingMain(_ checkDiagnostics: Bool) {
+  func tryReplacingMain(checkDiagnostics: Bool = false,
+                        extraArguments: [String] = []
+  ) {
     replace(contentsOf: "main", with: "let foo = \"hello\"")
     try! doABuild(
       "propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
         "Disabling incremental cross-module building",
         "Incremental compilation: Created dependency graph from swiftdeps files",
@@ -587,7 +666,9 @@ final class IncrementalCompilationTests: XCTestCase {
       whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  func tryTouchingMainAlwaysRebuildDependents(_ checkDiagnostics: Bool) {
+  func tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: Bool = false,
+                                              extraArguments: [String] = []
+  ) {
     touch("main")
     let extraArgument = "-driver-always-rebuild-dependents"
     try! doABuild(
@@ -635,7 +716,7 @@ final class IncrementalCompilationTests: XCTestCase {
   }
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
-                extraArguments: [String] = [],
+                extraArguments: [String] ,
                 expectingRemarks texts: [String],
                 whenAutolinking: [String]) throws {
     try doABuild(
@@ -648,7 +729,7 @@ final class IncrementalCompilationTests: XCTestCase {
 
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
-                extraArguments: [String] = [],
+                extraArguments: [String],
                 expecting expectations: [Diagnostic.Message],
                 expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()

@@ -30,8 +30,8 @@ import TSCUtility
      implementation: allNodes[SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber])
   }
   
-  public func forEachNode(_ doIt: (Node) -> Void) {
-    allNodes.forEach(doIt)
+  public func forEachNode(_ visit: (Node) -> Void) {
+    allNodes.forEach(visit)
   }
   
   public func forEachDefDependedUpon(by node: Node, _ doIt: (Node) -> Void) {
@@ -47,7 +47,11 @@ import TSCUtility
       }
     }
   }
-  
+
+  public var sourceFileName: String? {
+    sourceFileNodePair.interface.key.designator.name
+  }
+
   @discardableResult public func verify() -> Bool {
     assert(Array(allNodes.indices) == allNodes.map { $0.sequenceNumber })
     forEachNode {
@@ -58,7 +62,7 @@ import TSCUtility
 }
 
 extension SourceFileDependencyGraph {
-  public struct Node: CustomStringConvertible {
+  public struct Node: Equatable, Hashable, CustomStringConvertible {
     public let keyAndFingerprint: KeyAndFingerprintHolder
     public var key: DependencyKey { keyAndFingerprint.key }
     public var fingerprint: String? { keyAndFingerprint.fingerprint }

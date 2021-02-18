@@ -135,3 +135,14 @@ extension IncrementalCompilationState.InitialStateComputer {
               diagnosticsEngine)
   }
 }
+
+func `is`<S: StringProtocol>(dotFileName a: S, lessThan b: S) -> Bool {
+  let sequenceNumbers = [a, b].map { Int($0.split(separator: ".").dropLast().last!)! }
+  return sequenceNumbers[0] < sequenceNumbers[1]
+}
+
+extension Collection where Element: StringProtocol {
+  func sortedByDotFileSequenceNumbers() -> [Element] {
+    sorted(by: `is`(dotFileName:lessThan:))
+  }
+}

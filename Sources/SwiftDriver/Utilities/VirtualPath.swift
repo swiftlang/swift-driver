@@ -416,6 +416,11 @@ extension TSCBasic.FileSystem {
     }
   }
 
+  func writeFileContents(_ path: VirtualPath, body: (WritableByteStream) -> Void) throws {
+    try resolvingVirtualPath(path) { absolutePath in
+      try self.writeFileContents(absolutePath, body: body)
+    }
+  }
 
   func getFileInfo(_ path: VirtualPath) throws -> TSCBasic.FileInfo {
     try resolvingVirtualPath(path, apply: getFileInfo)

@@ -41,6 +41,7 @@ add_library(SwiftDriver
   "IncrementalCompilation/BidirectionalMap.swift"
   "IncrementalCompilation/BuildRecord.swift"
   "IncrementalCompilation/BuildRecordInfo.swift"
+  "IncrementalCompilation/DependencyGraphDotFileWriter.swift"
   "IncrementalCompilation/DependencyKey.swift"
   "IncrementalCompilation/DictionaryOfDictionaries.swift"
   "IncrementalCompilation/ExternalDependencyAndFingerprintEnforcer.swift"

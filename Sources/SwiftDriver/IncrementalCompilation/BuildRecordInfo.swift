@@ -252,6 +252,11 @@ import SwiftOptions
       .parentDirectory
       .appending(component: filename + ".priors")
   }
+
+  /// Directory to emit dot files into
+  var dotFileDirectory: VirtualPath {
+    buildRecordPath.parentDirectory
+  }
 }
 
 fileprivate extension AbsolutePath {

@@ -75,3 +75,19 @@ extension DependencySource: Comparable {
     lhs.file.name < rhs.file.name
   }
 }
+
+// MARK: - describing
+extension DependencySource {
+  /// Answer a single name; for swift modules, the right thing is one level up
+  public var shortDescription: String {
+    switch typedFile.type {
+    case .swiftDeps:
+      return file.basename
+    case .swiftModule:
+      return file.parentDirectory.basename
+    default:
+      return file.name
+    }
+  }
+}
+

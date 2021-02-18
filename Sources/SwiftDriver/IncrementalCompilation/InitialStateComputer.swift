@@ -33,6 +33,11 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let isCrossModuleIncrementalBuildEnabled: Bool
     @_spi(Testing) public let verifyDependencyGraphAfterEveryImport: Bool
     @_spi(Testing) public let emitDependencyDotFileAfterEveryImport: Bool
+    
+    /// Options, someday
+    @_spi(Testing) public let dependencyDotFilesIncludeExternals: Bool = true
+    @_spi(Testing) public let dependencyDotFilesIncludeAPINotes: Bool = false
+
     @_spi(Testing) public let buildTime: Date
 
     @_spi(Testing) public init(
@@ -143,6 +148,8 @@ extension IncrementalCompilationState.InitialStateComputer {
     guard graph.populateInputDependencySourceMap() else {
       return nil
     }
+    graph.dotFileWriter?.write(graph)
+
     // Any externals not already in graph must be additions which should trigger
     // recompilation. Thus, `ChangedOrAdded`.
     let nodesInvalidatedByExternals = graph.collectNodesInvalidatedByChangedOrAddedExternals()

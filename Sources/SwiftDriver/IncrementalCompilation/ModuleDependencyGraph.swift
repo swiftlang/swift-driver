@@ -32,9 +32,15 @@ import SwiftOptions
   /// A lot of initial state that it's handy to have around.
   @_spi(Testing) public let info: IncrementalCompilationState.InitialStateComputer
 
+  /// For debugging, something to write out files for visualizing graphs
+  let dotFileWriter: DependencyGraphDotFileWriter?
+
   public init(_ info: IncrementalCompilationState.InitialStateComputer
   ) {
     self.info = info
+    self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
+    ? DependencyGraphDotFileWriter(info)
+    : nil
   }
 
   private func addMapEntry(_ input: TypedVirtualPath, _ dependencySource: DependencySource) {
@@ -358,14 +364,6 @@ extension ModuleDependencyGraph {
     nodeFinder.verify()
   }
 }
-// MARK: - debugging
-extension ModuleDependencyGraph {
-  func emitDotFile(_ g: SourceFileDependencyGraph) {
-    // TODO: Incremental emitDotFIle
-    fatalError("unimplmemented, writing dot file of dependency graph")
-  }
-}
-
 // MARK: - Serialization
 
 extension ModuleDependencyGraph {
@@ -460,7 +458,7 @@ extension ModuleDependencyGraph {
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [DependencyKey: [Int]] = [:]
       private var inputDependencySourceMap: [(TypedVirtualPath, DependencySource)] = []
-      private var allNodes: [Node] = []
+      public private(set) var allNodes: [Node] = []
 
       init(_ info: IncrementalCompilationState.InitialStateComputer) {
         self.fileSystem = info.fileSystem
@@ -1009,44 +1007,6 @@ fileprivate extension DependencyKey.Designator {
       return 5
     case .sourceFileProvide(name: _):
       return 6
-    }
-  }
-
-  var context: String? {
-    switch self {
-    case .topLevel(name: _):
-      return nil
-    case .dynamicLookup(name: _):
-      return nil
-    case .externalDepend(_):
-      return nil
-    case .sourceFileProvide(name: _):
-      return nil
-    case .nominal(context: let context):
-      return context
-    case .potentialMember(context: let context):
-      return context
-    case .member(context: let context, name: _):
-      return context
-    }
-  }
-
-  var name: String? {
-    switch self {
-    case .topLevel(name: let name):
-      return name
-    case .dynamicLookup(name: let name):
-      return name
-    case .externalDepend(let path):
-      return path.file.name
-    case .sourceFileProvide(name: let name):
-      return name
-    case .member(context: _, name: let name):
-      return name
-    case .nominal(context: _):
-      return nil
-    case .potentialMember(context: _):
-      return nil
     }
   }
 }
