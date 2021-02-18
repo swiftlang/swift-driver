@@ -62,8 +62,8 @@ extension ModuleDependencyGraph {
 // MARK: - trace status
 extension ModuleDependencyGraph.Node {
   var isUntraced: Bool { !isTraced }
-  func beTraced() { isTraced = true }
-  func beUntraced() { isTraced = false }
+  func setTraced() { isTraced = true }
+  func setUntraced() { isTraced = false }
 }
 
 // MARK: - comparing, hashing

@@ -345,7 +345,7 @@ extension ModuleDependencyGraph {
   where Nodes.Element == Node
   {
     for node in nodes {
-      node.beUntraced()
+      node.setUntraced()
     }
   }
 }

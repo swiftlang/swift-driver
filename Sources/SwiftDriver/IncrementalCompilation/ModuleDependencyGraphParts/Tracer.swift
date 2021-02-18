@@ -73,7 +73,7 @@ extension ModuleDependencyGraph.Tracer {
     of definition: ModuleDependencyGraph.Node
   ) {
     guard definition.isUntraced else { return }
-    definition.beTraced()
+    definition.setTraced()
     
     tracedUses.append(definition)
     
