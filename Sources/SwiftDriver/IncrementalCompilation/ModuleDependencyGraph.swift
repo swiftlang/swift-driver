@@ -341,7 +341,7 @@ extension OutputFileMap {
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
 
- func ensureGraphWillRetraceDependents<Nodes: Sequence>(of nodes: Nodes)
+ func ensureGraphWillRetrace<Nodes: Sequence>(_ nodes: Nodes)
   where Nodes.Element == Node
   {
     for node in nodes {
