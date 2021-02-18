@@ -72,8 +72,8 @@ extension ModuleDependencyGraph.Tracer {
   private mutating func collectNextPreviouslyUntracedDependent(
     of definition: ModuleDependencyGraph.Node
   ) {
-    guard graph.isUntraced(definition) else { return }
-    graph.amTracing(definition)
+    guard definition.isUntraced else { return }
+    definition.beTraced()
     
     tracedUses.append(definition)
     

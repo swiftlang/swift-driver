@@ -24,7 +24,6 @@ extension ModuleDependencyGraph {
   ///
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
 
-  /*@_spi(Testing)*/
   public final class Node {
 
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
@@ -44,6 +43,12 @@ extension ModuleDependencyGraph {
     let dependencySource: DependencySource?
     var isExpat: Bool { dependencySource == nil }
 
+    /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
+    /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
+    /// When reading a serialized, prior graph, *don't* recover this state, since it will be a new driver
+    /// invocation that has not kicked off any compiles yet.
+    @_spi(Testing) public private(set) var isTraced: Bool = false
+
     /// This dependencySource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
     init(key: DependencyKey, fingerprint: String?,
@@ -53,6 +58,14 @@ extension ModuleDependencyGraph {
     }
   }
 }
+
+// MARK: - trace status
+extension ModuleDependencyGraph.Node {
+  var isUntraced: Bool { !isTraced }
+  func beTraced() { isTraced = true }
+  func beUntraced() { isTraced = false }
+}
+
 // MARK: - comparing, hashing
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
   public static func == (lhs: Graph.Node, rhs: Graph.Node) -> Bool {
