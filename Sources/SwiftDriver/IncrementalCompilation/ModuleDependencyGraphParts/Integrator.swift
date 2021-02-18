@@ -91,7 +91,7 @@ extension ModuleDependencyGraph.Integrator {
   private mutating func integrate() {
     integrateEachSourceNode()
     handleDisappearedNodes()
-    destination.ensureGraphWillRetraceDependents(of: results.allInvalidatedNodes)
+    destination.ensureGraphWillRetrace(results.allInvalidatedNodes)
   }
   private mutating func integrateEachSourceNode() {
     sourceGraph.forEachNode { integrate(oneNode: $0) }

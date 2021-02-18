@@ -20,11 +20,11 @@ extension ModuleDependencyGraph {
     let dependencySource = DependencySource(mock: i)
     // optimization
     if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
-       isTraced(fileNode) {
+       fileNode.isTraced {
       return true
     }
     if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
-       nodes.contains(where: isTraced) {
+       nodes.contains(where: {$0.isTraced}) {
       return true
     }
     return false

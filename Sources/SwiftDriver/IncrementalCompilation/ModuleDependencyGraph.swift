@@ -23,10 +23,6 @@ import SwiftOptions
 
   @_spi(Testing) public var nodeFinder = NodeFinder()
   
-  /// When integrating a change, want to find untraced nodes so we can kick off jobs that have not been
-  /// kicked off yet
-  private var tracedNodes = Set<Node>()
-
   /// Maps input files (e.g. .swift) to and from the DependencySource object
   @_spi(Testing) public private(set) var inputDependencySourceMap = BidirectionalMap<TypedVirtualPath, DependencySource>()
 
@@ -207,7 +203,7 @@ extension ModuleDependencyGraph {
                     dependencySource: nil)
     return nodeFinder
       .uses(of: node)
-      .filter({ use in isUntraced(use) })
+      .filter({ use in use.isUntraced })
   }
 
   /// Find all the inputs known to need recompilation as a consequence of reading a swiftdeps or swiftmodule
@@ -345,19 +341,12 @@ extension OutputFileMap {
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
 
-  func isUntraced(_ n: Node) -> Bool {
-    !isTraced(n)
-  }
-  @_spi(Testing) public func isTraced(_ n: Node) -> Bool {
-    tracedNodes.contains(n)
-  }
-  func amTracing(_ n: Node) {
-    tracedNodes.insert(n)
-  }
-  func ensureGraphWillRetraceDependents<Nodes: Sequence>(of nodes: Nodes)
+ func ensureGraphWillRetrace<Nodes: Sequence>(_ nodes: Nodes)
   where Nodes.Element == Node
   {
-    nodes.forEach { tracedNodes.remove($0) }
+    for node in nodes {
+      node.setUntraced()
+    }
   }
 }
 
@@ -1074,7 +1063,6 @@ extension Diagnostic.Message {
 extension ModuleDependencyGraph {
   func matches(_ other: ModuleDependencyGraph) -> Bool {
     guard nodeFinder.matches(other.nodeFinder),
-          tracedNodes.matches(other.tracedNodes),
           inputDependencySourceMap.matches(other.inputDependencySourceMap),
           fingerprintedExternalDependencies.matches(other.fingerprintedExternalDependencies)
     else {
