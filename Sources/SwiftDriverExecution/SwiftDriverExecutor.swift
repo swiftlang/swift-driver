@@ -85,7 +85,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
       let arguments: [String] = try executor.resolver.resolveArgumentList(for: job,
         forceResponseFiles: forceResponseFiles)
       return ProcessResult(arguments: arguments, environment: environment,
-                           exitStatus: .signalled(signal: 0),
+                           exitStatus: .signalled(signal: SIGINT),
                            output: .success([]),
                            stderrOutput: .success([]))
     }
