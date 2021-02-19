@@ -23,6 +23,10 @@ extension ModuleDependencyGraph {
   /// (Cargo-culted and modified from the legacy driver.)
   ///
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
+  ///
+  /// Neither the `fingerprint`, nor the `isTraced` value is part of the node's identity.
+  /// Neither of these must be considered for equality testing or hashing because their
+  /// value is subject to change during integration and tracing.
 
   public final class Node {
 
