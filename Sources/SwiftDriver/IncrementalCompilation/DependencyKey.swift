@@ -195,16 +195,6 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
     /// `name` field corresponds to the *unmangled* name of the member.
     case member(context: String, name: String)
 
-    public static let oneOfEachKind: [Designator] = [
-        .topLevel(name: ""),
-        .dynamicLookup(name: ""),
-        .externalDepend(try! ExternalDependency(".")),
-        .sourceFileProvide(name: ""),
-        .nominal(context: ""),
-        .potentialMember(context: ""),
-        .member(context: "", name: "")
-    ]
-
     var externalDependency: ExternalDependency? {
       switch self {
       case let .externalDepend(externalDependency):

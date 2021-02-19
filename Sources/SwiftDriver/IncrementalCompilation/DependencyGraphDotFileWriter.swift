@@ -162,6 +162,16 @@ fileprivate extension DependencyKey.Designator {
       return .triangle
     }
   }
+
+  static let oneOfEachKind: [DependencyKey.Designator] = [
+      .topLevel(name: ""),
+      .dynamicLookup(name: ""),
+      .externalDepend(try! ExternalDependency(".")),
+      .sourceFileProvide(name: ""),
+      .nominal(context: ""),
+      .potentialMember(context: ""),
+      .member(context: "", name: "")
+  ]
 }
 
 // MARK: - writing one dot file
