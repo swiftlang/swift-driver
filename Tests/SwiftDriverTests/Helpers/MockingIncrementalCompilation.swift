@@ -29,6 +29,24 @@ extension ModuleDependencyGraph {
     }
     return false
   }
+
+  func setUntraced() {
+    nodeFinder.forEachNode {
+      $0.setUntraced()
+    }
+  }
+
+  func ensureIsSerializable() {
+    var nodeIDs = Set<Node>()
+    nodeFinder.forEachNode { node in
+      nodeIDs.insert(node)
+    }
+    for key in nodeFinder.usesByDef.keys {
+      for use in nodeFinder.usesByDef[key, default: []] {
+        XCTAssertTrue(nodeIDs.contains(use), "Node ID was not registered! \(use), \(String(describing: use.fingerprint))")
+      }
+    }
+  }
 }
 
 // MARK: - mocking

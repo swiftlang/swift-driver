@@ -136,6 +136,7 @@ extension ModuleDependencyGraph.Integrator {
     // Node was and still is. Do not remove it.
     disappearedNodes.removeValue(forKey: matchHere.key)
     if matchHere.fingerprint != integrand.fingerprint {
+      matchHere.setFingerprint(integrand.fingerprint)
       results.allInvalidatedNodes.insert(matchHere)
     }
     return matchHere

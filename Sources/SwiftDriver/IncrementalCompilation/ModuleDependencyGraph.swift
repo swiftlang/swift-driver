@@ -307,7 +307,8 @@ extension ModuleDependencyGraph {
     fed.incrementalDependencySource?
       .read(in: info.fileSystem, reporter: info.reporter)
       .map { unserializedDepGraph in
-        Integrator.integrate(
+        info.reporter?.report("Integrating changes from", fed.externalDependency.file)
+        return Integrator.integrate(
           from: unserializedDepGraph,
           into: self,
           includeAddedExternals: includeAddedExternals)

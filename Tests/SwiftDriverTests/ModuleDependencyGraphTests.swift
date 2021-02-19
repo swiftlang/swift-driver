@@ -752,7 +752,7 @@ class ModuleDependencyGraphTests: XCTestCase {
 
   func testLoadPassesWithFingerprint() {
     let graph = ModuleDependencyGraph(mock: de)
-    _ = graph.getInvalidatedSourcesForSimulatedLoad(
+    _ = graph.getInvalidatedNodesForSimulatedLoad(
       0,
       [MockDependencyKind.nominal: ["A@1"]],
       includeAddedExternals: false)
@@ -778,6 +778,35 @@ class ModuleDependencyGraphTests: XCTestCase {
       XCTAssertTrue(swiftDeps.contains(1))
       XCTAssertTrue(swiftDeps.contains(2))
       XCTAssertFalse(swiftDeps.contains(3))
+    }
+  }
+
+  func testUseFingerprintsPingPong() {
+    let graph = ModuleDependencyGraph(mock: de)
+    // Because of the cross-type dependency, A->B,
+    // when A changes, only B is dirtied in 1.
+
+    graph.simulateLoad(0, [.nominal: ["A@1"]])
+    graph.simulateLoad(1, [.nominal: ["B", "A->B"]])
+    graph.ensureIsSerializable()
+
+    do {
+      let swiftDeps = graph.simulateReload(0, [.nominal: ["A@2"]]).sorted()
+      XCTAssertEqual(swiftDeps, [0, 1])
+      graph.ensureIsSerializable()
+    }
+
+    do {
+      // In the real world, we would have a graph with untraced nodes from the
+      // priors, remembering the fingerprints from before.
+      graph.setUntraced()
+      // When the driver integrates a node that preexists but has a new fingerprint
+      // it must change that fingerprint in the node in the graph.
+      // If it does not, and subsequently integrates the old fingerprint,
+      // the change will be missed.
+      let swiftDeps = graph.simulateReload(0, [.nominal: ["A@1"]]).sorted()
+      XCTAssertEqual(swiftDeps, [0, 1])
+      graph.ensureIsSerializable()
     }
   }
 
@@ -894,7 +923,7 @@ extension ModuleDependencyGraph {
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
   {
-    _ = getInvalidatedSourcesForSimulatedLoad(
+    _ = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex, dependencyDescriptions,
       includeAddedExternals: false,
       interfaceHash,
@@ -909,7 +938,7 @@ extension ModuleDependencyGraph {
                       hadCompilationError: Bool = false)
   -> [Int]
   {
-    let invalidatedNodes = getInvalidatedSourcesForSimulatedLoad(
+    let invalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
       includeAddedExternals: true,
@@ -922,7 +951,7 @@ extension ModuleDependencyGraph {
   }
 
 
-  func getInvalidatedSourcesForSimulatedLoad(
+  func getInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
     includeAddedExternals: Bool,

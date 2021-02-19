@@ -173,6 +173,7 @@ extension ModuleDependencyGraph.NodeFinder {
     let replacement = Graph.Node(key: original.key,
                                  fingerprint: newFingerprint,
                                  dependencySource: newDependencySource)
+    assert(original.isExpat, "Would have to search every use in usesByDef if original could be a use.")
     if usesByDef.removeValue(original, forKey: original.key) != nil {
       usesByDef.insertValue(replacement, forKey: original.key)
     }
