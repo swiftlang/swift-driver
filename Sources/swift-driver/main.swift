@@ -18,15 +18,22 @@ import TSCUtility
 
 var intHandler: InterruptHandler?
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
+var driverInterrupted = false
+func getExitCode(_ code: Int32) -> Int32 {
+  if driverInterrupted {
+    return (SIGINT | 0x80)
+  }
+  return code
+}
 
 do {
+
   let processSet = ProcessSet()
   intHandler = try InterruptHandler {
-    // Ignore the interruption signal.
-    // The underlying swift compiler isn't ready to be safely interrupted yet and
-    // interrupting them may cause red-herring build failures that may pollute the build
-    // log.
-    diagnosticsEngine.emit(.remark("Compilation process interrupted"))
+    // Terminate running compiler jobs and let the driver exit gracefully, remembering
+    // to return a corresponding exit code when done.
+    processSet.terminate()
+    driverInterrupted = true
   }
 
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
@@ -57,6 +64,7 @@ do {
                           diagnosticsEngine: diagnosticsEngine,
                           executor: executor,
                           integratedDriver: false)
+  
   // FIXME: The following check should be at the end of Driver.init, but current
   // usage of the DiagnosticVerifier in tests makes this difficult.
   guard !driver.diagnosticEngine.hasErrors else { throw Diagnostics.fatalError }
@@ -65,14 +73,15 @@ do {
   try driver.run(jobs: jobs)
 
   if driver.diagnosticEngine.hasErrors {
-    exit(EXIT_FAILURE)
+    exit(getExitCode(EXIT_FAILURE))
   }
+  exit(getExitCode(0))
 } catch Diagnostics.fatalError {
-  exit(EXIT_FAILURE)
+  exit(getExitCode(EXIT_FAILURE))
 } catch let diagnosticData as DiagnosticData {
   diagnosticsEngine.emit(.error(diagnosticData))
-  exit(EXIT_FAILURE)
+  exit(getExitCode(EXIT_FAILURE))
 } catch {
   print("error: \(error)")
-  exit(EXIT_FAILURE)
+  exit(getExitCode(EXIT_FAILURE))
 }
