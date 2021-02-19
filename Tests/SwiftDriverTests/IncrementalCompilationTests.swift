@@ -716,7 +716,7 @@ final class IncrementalCompilationTests: XCTestCase {
   }
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
-                extraArguments: [String] ,
+                extraArguments: [String],
                 expectingRemarks texts: [String],
                 whenAutolinking: [String]) throws {
     try doABuild(
