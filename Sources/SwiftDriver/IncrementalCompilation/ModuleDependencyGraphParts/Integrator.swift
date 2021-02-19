@@ -82,9 +82,8 @@ extension ModuleDependencyGraph.Integrator {
     if destination.info.verifyDependencyGraphAfterEveryImport {
       integrator.verifyAfterImporting()
     }
-    if destination.info.emitDependencyDotFileAfterEveryImport {
-      destination.emitDotFile(g)
-    }
+    destination.dotFileWriter?.write(g)
+    destination.dotFileWriter?.write(destination)
     return integrator.results
   }
 

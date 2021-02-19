@@ -14,7 +14,9 @@ import Foundation
 
 
 /// Encapsulates the invariant required for anything with a DependencyKey and an fingerprint
-public struct KeyAndFingerprintHolder: ExternalDependencyAndFingerprintEnforcer {
+public struct KeyAndFingerprintHolder:
+  ExternalDependencyAndFingerprintEnforcer, Equatable, Hashable
+{
   /// Def->use arcs go by DependencyKey. There may be >1 node for a given key.
   let key: DependencyKey
 

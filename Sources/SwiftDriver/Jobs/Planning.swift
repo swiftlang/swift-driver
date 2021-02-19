@@ -154,7 +154,6 @@ extension Driver {
     }
     if self.parsedOptions.contains(.enableExperimentalCrossModuleIncrementalBuild) {
       options.formUnion(.enableCrossModuleIncrementalBuild)
-      #warning("dmu: separate option for now??")
       options.formUnion(.readPriorsFromModuleDependencyGraph)
     }
     return options

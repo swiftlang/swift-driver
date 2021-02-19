@@ -38,6 +38,11 @@ import TSCBasic
     file.name
   }
 
+  public var shortDescription: String {
+    DependencySource(file).map { $0.shortDescription }
+    ?? file.basename
+  }
+
   public static func < (lhs: Self, rhs: Self) -> Bool {
     lhs.file.name < rhs.file.name
   }
@@ -199,6 +204,56 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
       }
     }
 
+    public var context: String? {
+      switch self {
+      case .topLevel(name: _):
+        return nil
+      case .dynamicLookup(name: _):
+        return nil
+      case .externalDepend(_):
+        return nil
+      case .sourceFileProvide(name: _):
+        return nil
+      case .nominal(context: let context):
+        return context
+      case .potentialMember(context: let context):
+        return context
+      case .member(context: let context, name: _):
+        return context
+      }
+    }
+
+    public var name: String? {
+      switch self {
+      case .topLevel(name: let name):
+        return name
+      case .dynamicLookup(name: let name):
+        return name
+      case .externalDepend(let path):
+        return path.file.name
+      case .sourceFileProvide(name: let name):
+        return name
+      case .member(context: _, name: let name):
+        return name
+      case .nominal(context: _):
+        return nil
+      case .potentialMember(context: _):
+        return nil
+      }
+    }
+
+    public var kindName: String {
+      switch self {
+      case .topLevel: return "top-level"
+      case .nominal: return "nominal"
+      case .potentialMember: return "potential member"
+      case .member: return "member"
+      case .dynamicLookup: return "dynamic lookup"
+      case .externalDepend: return "external"
+      case .sourceFileProvide: return "source file"
+      }
+    }
+
     public var description: String {
       switch self {
       case let .topLevel(name: name):
@@ -212,7 +267,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
       case let .dynamicLookup(name: name):
         return "AnyObject member '\(name)'"
       case let .externalDepend(externalDependency):
-        return "import '\(externalDependency)'"
+        return "import '\(externalDependency.shortDescription)'"
       case let .sourceFileProvide(name: name):
         return "source file \((try? VirtualPath(path: name).basename) ?? name)"
       }
