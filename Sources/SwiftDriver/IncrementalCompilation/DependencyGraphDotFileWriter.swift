@@ -173,10 +173,12 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
   private var nodeIDs = [Graph.Node: Int]()
   private var out: WritableByteStream
 
-  fileprivate init(_ graph: Graph,
-               _ stream: WritableByteStream,
-               includeExternals: Bool,
-               includeAPINotes: Bool) {
+  fileprivate init(
+    _ graph: Graph,
+    _ stream: WritableByteStream,
+    includeExternals: Bool,
+    includeAPINotes: Bool
+  ) {
     self.graph = graph
     self.out = stream
     self.includeExternals = includeExternals
