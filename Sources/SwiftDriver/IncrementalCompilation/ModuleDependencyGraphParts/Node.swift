@@ -23,16 +23,21 @@ extension ModuleDependencyGraph {
   /// (Cargo-culted and modified from the legacy driver.)
   ///
   /// Use a class, not a struct because otherwise it would be duplicated for each thing it uses
+  ///
+  /// Neither the `fingerprint`, nor the `isTraced` value is part of the node's identity.
+  /// Neither of these must be considered for equality testing or hashing because their
+  /// value is subject to change during integration and tracing.
 
   public final class Node {
 
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
     /// Hold these where an invariant can be checked.
-    let keyAndFingerprint: KeyAndFingerprintHolder
+    /// Must be able to change the fingerprint
+    private(set) var keyAndFingerprint: KeyAndFingerprintHolder
 
     var key: DependencyKey { keyAndFingerprint.key }
-    var fingerprint: String? { keyAndFingerprint.fingerprint }
+    /*@_spi(Testing)*/ public var fingerprint: String? { keyAndFingerprint.fingerprint }
 
     /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
     /// If more than one source file has the same DependencyKey, then there
@@ -59,23 +64,28 @@ extension ModuleDependencyGraph {
   }
 }
 
+// MARK: - Setting fingerprint
+extension ModuleDependencyGraph.Node {
+  func setFingerprint(_ newFP: String?) {
+    keyAndFingerprint = try! KeyAndFingerprintHolder(key, newFP)
+  }
+}
+
 // MARK: - trace status
 extension ModuleDependencyGraph.Node {
   var isUntraced: Bool { !isTraced }
   func setTraced() { isTraced = true }
-  func setUntraced() { isTraced = false }
+  @_spi(Testing) public func setUntraced() { isTraced = false }
 }
 
 // MARK: - comparing, hashing
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
-  public static func == (lhs: Graph.Node, rhs: Graph.Node) -> Bool {
-    lhs.key == rhs.key && lhs.fingerprint == rhs.fingerprint
-      && lhs.dependencySource == rhs.dependencySource
+  public static func ==(lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
+    lhs.keyAndFingerprint.key == rhs.keyAndFingerprint.key &&
+    lhs.dependencySource == rhs.dependencySource
   }
-  
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(key)
-    hasher.combine(fingerprint)
+    hasher.combine(keyAndFingerprint.key)
     hasher.combine(dependencySource)
   }
 }

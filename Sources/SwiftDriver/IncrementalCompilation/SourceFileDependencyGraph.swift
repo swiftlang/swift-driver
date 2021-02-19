@@ -58,7 +58,7 @@ import TSCUtility
 }
 
 extension SourceFileDependencyGraph {
-  public struct Node {
+  public struct Node: CustomStringConvertible {
     public let keyAndFingerprint: KeyAndFingerprintHolder
     public var key: DependencyKey { keyAndFingerprint.key }
     public var fingerprint: String? { keyAndFingerprint.fingerprint }
@@ -91,6 +91,17 @@ extension SourceFileDependencyGraph {
           assert(sequenceNumber == SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber)
         }
       }
+    }
+
+    public var description: String {
+      [
+        key.description,
+        fingerprint.map {"fingerprint: \($0.description)"},
+        isProvides ? "provides" : "depends",
+        defsIDependUpon.isEmpty ? nil : "depends on \(defsIDependUpon.count)"
+      ]
+        .compactMap{$0}
+        .joined(separator: ", ")
     }
   }
 }
