@@ -13,6 +13,7 @@
 import SwiftDriver
 import TSCBasic
 import Foundation
+import TSCUtility
 
 public final class SwiftDriverExecutor: DriverExecutor {
   let diagnosticsEngine: DiagnosticsEngine
@@ -57,16 +58,67 @@ public final class SwiftDriverExecutor: DriverExecutor {
     }
   }
 
+  private class JobCollectorDelegate: JobExecutionDelegate {
+    let subDelegate: JobExecutionDelegate
+    var startedJobs: [(Job, Int)] = []
+    var finishedJobs = Set<Job>()
+
+    init(subDelegate: JobExecutionDelegate) {
+      self.subDelegate = subDelegate
+    }
+    func jobStarted(job: Job, arguments: [String], pid: Int) {
+      subDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
+      startedJobs.append((job, pid))
+    }
+
+    func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+      subDelegate.jobFinished(job: job, result: result, pid: pid)
+      finishedJobs.insert(job)
+    }
+
+    func jobSkipped(job: Job) {
+      subDelegate.jobSkipped(job: job)
+    }
+
+    func createSignaledResult(_ job: Job, executor: DriverExecutor, forceResponseFiles: Bool,
+                              environment: [String: String]) throws -> ProcessResult {
+      let arguments: [String] = try executor.resolver.resolveArgumentList(for: job,
+        forceResponseFiles: forceResponseFiles)
+      return ProcessResult(arguments: arguments, environment: environment,
+                           exitStatus: .signalled(signal: 0),
+                           output: .success([]),
+                           stderrOutput: .success([]))
+    }
+
+    func reportSignaledJobs(executor: DriverExecutor, forceResponseFiles: Bool) throws {
+      try startedJobs.filter {!finishedJobs.contains($0.0)}.forEach {
+        subDelegate.jobFinished(job: $0.0, result:
+          try createSignaledResult($0.0, executor: executor, forceResponseFiles: forceResponseFiles,
+                                   environment: [:]), pid: $0.1)
+      }
+    }
+  }
+
   public func execute(workload: DriverExecutorWorkload,
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
   ) throws {
+    let realDelegate = JobCollectorDelegate(subDelegate: delegate)
+    let _ = try InterruptHandler {
+      self.processSet.terminate()
+      do {
+        try realDelegate.reportSignaledJobs(executor: self,
+                                            forceResponseFiles: forceResponseFiles)
+      } catch {
+
+      }
+    }
     let llbuildExecutor = MultiJobExecutor(
       workload: workload,
       resolver: resolver,
-      executorDelegate: delegate,
+      executorDelegate: realDelegate,
       diagnosticsEngine: diagnosticsEngine,
       numParallelJobs: numParallelJobs,
       processSet: processSet,

@@ -16,19 +16,10 @@ import TSCLibc
 import TSCBasic
 import TSCUtility
 
-var intHandler: InterruptHandler?
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 
 do {
   let processSet = ProcessSet()
-  intHandler = try InterruptHandler {
-    // Ignore the interruption signal.
-    // The underlying swift compiler isn't ready to be safely interrupted yet and
-    // interrupting them may cause red-herring build failures that may pollute the build
-    // log.
-    diagnosticsEngine.emit(.remark("Compilation process interrupted"))
-  }
-
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
     CommandLine.arguments.append("-experimental-explicit-module-build")
   }
