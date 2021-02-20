@@ -85,6 +85,15 @@ extension ModuleDependencyGraph {
         return true
       }
     }
+
+    var isCompilingAllInputsNoMatterWhat: Bool {
+      switch self {
+      case .buildingAfterEachCompilation:
+        return true
+      case .buildingWithoutAPrior, .updatingFromAPrior, .updatingAfterCompilation:
+        return false
+      }
+    }
   }
 }
 
@@ -298,14 +307,14 @@ extension ModuleDependencyGraph {
       ? collectNodesInvalidatedByAttemptingToProcess(fed, info)
       : nil
 
-    if phase == .buildingAfterEachCompilation {
+    if phase.isCompilingAllInputsNoMatterWhat {
       // going to compile every input anyway, less work for callers
       return DirectlyInvalidatedNodes()
     }
 
     /// When building a graph from scratch, an unchanged but new-to-the-graph external dependendcy should be ignored.
     /// Otherwise, it represents an added Import
-    let callerWantsTheseChanges = (phase != .buildingWithoutAPrior && isNewToTheGraph) ||
+    let callerWantsTheseChanges = (phase.isUpdating && isNewToTheGraph) ||
       lazyModTimer.hasExternalFileChanged
 
     guard callerWantsTheseChanges else {
