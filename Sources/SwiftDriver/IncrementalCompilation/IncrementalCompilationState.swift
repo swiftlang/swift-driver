@@ -249,13 +249,13 @@ extension IncrementalCompilationState {
   }
 
   private func collectInputsInvalidated(byCompiling input: TypedVirtualPath)
-  -> Set<TypedVirtualPath> {
+  -> TransitivelyInvalidatedInputSet {
     if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
       return found
     }
     self.reporter?.report(
       "Failed to read some dependencies source; compiling everything", input)
-    return Set<TypedVirtualPath>(skippedCompileGroups.keys)
+    return TransitivelyInvalidatedInputSet(skippedCompileGroups.keys)
   }
 
   /// Find the jobs that now must be run that were not originally known to be needed.

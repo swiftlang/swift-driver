@@ -23,7 +23,7 @@ extension ModuleDependencyGraph {
     // Shorthands
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
-    public private(set) var invalidatedNodes = DirectlyInvalidatedNodes()
+    public private(set) var invalidatedNodes = DirectlyInvalidatedNodeSet()
 
     /// the graph to be integrated
     let sourceGraph: SourceFileDependencyGraph
@@ -68,7 +68,7 @@ extension ModuleDependencyGraph.Integrator {
   /*@_spi(Testing)*/ public static func integrate(
     from g: SourceFileDependencyGraph,
     into destination: Graph
-  ) -> DirectlyInvalidatedNodes {
+  ) -> DirectlyInvalidatedNodeSet {
     var integrator = Self(sourceGraph: g, destination: destination)
     integrator.integrate()
 
@@ -208,7 +208,7 @@ extension ModuleDependencyGraph.Integrator {
 // MARK: - Results {
 extension ModuleDependencyGraph.Integrator {
   /*@_spi(Testing)*/
-  mutating func collectUsesOfSomeExternal(_ invalidated: DirectlyInvalidatedNodes)
+  mutating func collectUsesOfSomeExternal(_ invalidated: DirectlyInvalidatedNodeSet)
   {
     invalidatedNodes.formUnion(invalidated)
   }
