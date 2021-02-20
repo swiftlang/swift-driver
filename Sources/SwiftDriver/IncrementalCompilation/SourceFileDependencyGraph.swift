@@ -48,8 +48,8 @@ import TSCUtility
     }
   }
 
-  public var sourceFileName: String? {
-    sourceFileNodePair.interface.key.designator.name
+  public var sourceFileName: String {
+    dependencySource.file.name
   }
 
   @discardableResult public func verify() -> Bool {
