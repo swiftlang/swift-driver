@@ -271,7 +271,7 @@ extension VirtualPath: Codable {
 }
 
 /// A wrapper for easier decoding of absolute or relative VirtualPaths from strings.
-@_spi(Testing) public struct TextualVirtualPath: Codable {
+public struct TextualVirtualPath: Codable, Hashable {
   public var path: VirtualPath
 
   public init(from decoder: Decoder) throws {
@@ -279,11 +279,9 @@ extension VirtualPath: Codable {
     path = try VirtualPath(path: container.decode(String.self))
   }
 
-  private init(path: VirtualPath) {
+  public init(path: VirtualPath) {
     self.path = path
   }
-
-  static let dummyForTesting = Self(path: try! .init(path: ""))
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
@@ -410,6 +408,18 @@ extension TSCBasic.FileSystem {
 
   func readFileContents(_ path: VirtualPath) throws -> ByteString {
     try resolvingVirtualPath(path, apply: readFileContents)
+  }
+
+  func writeFileContents(_ path: VirtualPath, bytes: ByteString, atomically: Bool) throws {
+    try resolvingVirtualPath(path) { absolutePath in
+      try self.writeFileContents(absolutePath, bytes: bytes, atomically: atomically)
+    }
+  }
+
+  func writeFileContents(_ path: VirtualPath, body: (WritableByteStream) -> Void) throws {
+    try resolvingVirtualPath(path) { absolutePath in
+      try self.writeFileContents(absolutePath, body: body)
+    }
   }
 
   func getFileInfo(_ path: VirtualPath) throws -> TSCBasic.FileInfo {

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Describes which mode the driver is in.
-public enum DriverKind: String {
+public enum DriverKind: String, CaseIterable {
   case interactive = "swift"
   case batch = "swiftc"
 }
@@ -23,21 +23,6 @@ extension DriverKind {
       return "swift"
     case .batch:
       return "swiftc"
-    }
-  }
-
-  public var seeAlsoHelpMessage: String? {
-    switch self {
-    case .interactive:
-      return """
-             SEE ALSO - PACKAGE MANAGER COMMANDS:
-                     "swift build" Build sources into binary products
-                     "swift package" Perform operations on Swift packages
-                     "swift run" Build and run an executable product
-                     "swift test" Build and run tests
-             """
-    case .batch:
-      return "SEE ALSO: swift build, swift run, swift package, swift test"
     }
   }
 }

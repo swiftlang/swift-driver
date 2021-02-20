@@ -10,5 +10,6 @@ add_executable(swift-help
   main.swift)
 target_link_libraries(swift-help PUBLIC
   SwiftOptions
-  ArgumentParser)
+  ArgumentParser
+  TSCBasic)
 

@@ -247,7 +247,7 @@ extension ParsedOptions {
     optionIndex[option.canonical.spelling, default: []]
   }
 
-  internal mutating func lookup(_ option: Option, consume: Bool = true) -> [ParsedOption] {
+  internal mutating func lookup(_ option: Option) -> [ParsedOption] {
     let opts = lookupWithoutConsuming(option)
     for opt in opts {
       consumed[opt.index] = true

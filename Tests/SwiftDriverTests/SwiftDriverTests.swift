@@ -201,7 +201,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(helpJob.kind == .help)
       XCTAssertTrue(helpJob.requiresInPlaceExecution)
       XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
-      let expected: [Job.ArgTemplate] = [.flag("-tool=swift")]
+      let expected: [Job.ArgTemplate] = [.flag("swift")]
       XCTAssertEqual(helpJob.commandLine, expected)
     }
 
@@ -213,7 +213,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(helpJob.kind == .help)
       XCTAssertTrue(helpJob.requiresInPlaceExecution)
       XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
-      let expected: [Job.ArgTemplate] = [.flag("-tool=swiftc"), .flag("-show-hidden")]
+      let expected: [Job.ArgTemplate] = [.flag("swiftc"), .flag("-show-hidden")]
       XCTAssertEqual(helpJob.commandLine, expected)
     }
   }
@@ -279,6 +279,32 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver4.compilerOutputType, .llvmBitcode)
     let driver5 = try Driver(args: ["swiftc", "-lto=llvm-full", "foo.swift", "-emit-library"])
     XCTAssertEqual(driver5.compilerOutputType, .llvmBitcode)
+  }
+
+  func testLtoOutputModeClash() throws {
+    let driver1 = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-static",
+                                    "-emit-library", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver1.compilerOutputType, .llvmBitcode)
+
+    let driver2 = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full",
+                                    "-emit-library", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver2.compilerOutputType, .llvmBitcode)
+
+    let driver3 = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full",
+                                    "c", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver3.compilerOutputType, .llvmBitcode)
+
+    let driver4 = try Driver(args: ["swiftc", "foo.swift", "-c","-lto=llvm-full",
+                                    "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver4.compilerOutputType, .llvmBitcode)
+
+    let driver5 = try Driver(args: ["swiftc", "foo.swift", "-c","-lto=llvm-full",
+                                    "-emit-bc", "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver5.compilerOutputType, .llvmBitcode)
+
+    let driver6 = try Driver(args: ["swiftc", "foo.swift", "-emit-bc", "-c","-lto=llvm-full",
+                                    "-target", "x86_64-apple-macosx10.9"])
+    XCTAssertEqual(driver6.compilerOutputType, .llvmBitcode)
   }
 
   func testPrimaryOutputKindsDiagnostics() throws {
@@ -533,6 +559,32 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testFindingObjectPathFromllvmBCPath() throws {
+    let contents = """
+    {
+      "": {
+        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"
+      },
+      "/tmp/foo/Sources/foo/foo.swift": {
+        "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
+        "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
+        "swiftmodule": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
+        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps",
+        "llvm-bc": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"
+      }
+    }
+    """
+    try withTemporaryFile { file in
+      try assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
+
+        let obj = try outputFileMap.getOutput(inputFile: .init(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"), outputType: .object)
+        XCTAssertEqual(obj.name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
+      }
+    }
+  }
+
   func testOutputFileMapLoadingDocAndSourceinfo() throws {
     let contents = """
     {
@@ -574,6 +626,27 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-serialize-diagnostics-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-serialize-diagnostics-path")))
+  }
+  
+  func testReferenceDependencies() throws {
+    var driver = try Driver(args: ["swiftc", "foo.swift", "-incremental"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertTrue(plannedJobs[0].kind == .compile)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-reference-dependencies-path")))
+  }
+  
+  func testDuplicateName() throws {
+    assertDiagnostics { diagnosticsEngine, verify in
+      _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo.swift"], diagnosticsEngine: diagnosticsEngine)
+      verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo.swift'"))
+      verify.expect(.note("filenames are used to distinguish private declarations with the same name"))
+    }
+    
+    assertDiagnostics { diagnosticsEngine, verify in
+      _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo/foo.swift"], diagnosticsEngine: diagnosticsEngine)
+      verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo/foo.swift'"))
+      verify.expect(.note("filenames are used to distinguish private declarations with the same name"))
+    }
   }
 
   func testOutputFileMapStoring() throws {
@@ -1471,34 +1544,6 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
-  func testBatchModeContinueAfterErrors() throws {
-    struct MockExecutor: DriverExecutor {
-      let resolver = try! ArgsResolver(fileSystem: localFileSystem)
-
-      struct ShouldNeverGetHere: LocalizedError {}
-
-      func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
-        throw ShouldNeverGetHere()
-      }
-      func execute(workload: DriverExecutorWorkload,
-                   delegate: JobExecutionDelegate,
-                   numParallelJobs: Int,
-                   forceResponseFiles: Bool,
-                   recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
-        XCTAssert(workload.continueBuildingAfterErrors)
-      }
-      func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-        throw ShouldNeverGetHere()
-      }
-      func description(of job: Job, forceResponseFiles: Bool) throws -> String {
-        throw ShouldNeverGetHere()
-       }
-    }
-
-    var driver = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "-enable-batch-mode", "-driver-use-frontend-path", "/Python"], executor: MockExecutor())
-    try! driver.run(jobs: [])
-  }
-
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
     var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface"])
     let plannedJobs = try driver1.planBuild()
@@ -1514,6 +1559,52 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-private-module-interface-path")))
 
     XCTAssertEqual(plannedJobs[1].kind, .link)
+  }
+
+
+  func testIndexFileEntryInSupplementaryFileOutputMap() throws {
+    var driver1 = try Driver(args: [
+      "swiftc", "foo1.swift", "foo2.swift", "foo3.swift", "foo4.swift", "foo5.swift",
+      "-index-file", "-index-file-path", "foo5.swift", "-o", "/tmp/t.o",
+      "-index-store-path", "/tmp/idx"
+    ])
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    let suppleArg = "-supplementary-output-file-map"
+    // Make sure we are using supplementary file map
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag(suppleArg)))
+    let args = plannedJobs[0].commandLine
+    var fileMapPath: VirtualPath?
+    for pair in args.enumerated() {
+      if pair.element == .flag(suppleArg) {
+        let filemap = args[pair.offset + 1]
+        switch filemap {
+        case .path(let p):
+          fileMapPath = p
+        default:
+          break
+        }
+      }
+    }
+    XCTAssert(fileMapPath != nil)
+    switch fileMapPath! {
+    case .fileList(_, let list):
+      switch list {
+      case .outputFileMap(let map):
+        // This is to match the legacy driver behavior
+        // Make sure the supplementary output map has an entry for the Swift file
+        // under indexing and its indexData entry is the primary output file
+        let entry = map.entries[VirtualPath.relative(RelativePath("foo5.swift"))]!
+        XCTAssert(entry[.indexData]! == .absolute(AbsolutePath("/tmp/t.o")))
+        return
+      default:
+        break
+      }
+      break
+    default:
+      break
+    }
+    XCTAssert(false)
   }
 
   func testMultiThreadedWholeModuleOptimizationCompiles() throws {
@@ -1602,8 +1693,46 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
-    print(plannedJobs[0].commandLine.joinedArguments)
+    print(plannedJobs[0].commandLine.joinedUnresolvedArguments)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
+  }
+
+  func testUpdateCode() throws {
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-update-code", "foo.swift", "bar.swift"
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .compile, .link])
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-remap-file-path", .path(.temporary(.init("foo.remap")))]))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-remap-file-path", .path(.temporary(.init("bar.remap")))]))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "-update-code", "foo.swift", "bar.swift", "-enable-batch-mode", "-driver-batch-count", "1"]
+    ) {
+      _ = try? $0.planBuild()
+      $1.expect(.error("using '-update-code' in batch compilation mode is not supported"))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "-update-code", "foo.swift", "bar.swift", "-wmo"]
+    ) {
+      _ = try? $0.planBuild()
+      $1.expect(.error("using '-update-code' in whole module optimization mode is not supported"))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-update-code", "foo.swift", "-migrate-keep-objc-visibility"
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-remap-file-path", .path(.temporary(.init("foo.remap")))]))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains("-migrate-keep-objc-visibility"))
+    }
   }
 
   func testMergeModulesOnly() throws {
@@ -1759,10 +1888,9 @@ final class SwiftDriverTests: XCTestCase {
       throw XCTSkip()
     }
 
-    func isLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
-      if case .flag(let replString) = arg {
-        return replString.hasPrefix("--repl=") &&
-          !replString.contains("-module-name")
+    func isExpectedLLDBREPLFlag(_ arg: Job.ArgTemplate) -> Bool {
+      if case let .squashedArgumentList(option: opt, args: args) = arg {
+        return opt == "--repl=" && !args.contains("-module-name")
       }
       return false
     }
@@ -1774,7 +1902,7 @@ final class SwiftDriverTests: XCTestCase {
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {
@@ -1784,7 +1912,7 @@ final class SwiftDriverTests: XCTestCase {
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {
@@ -1796,7 +1924,7 @@ final class SwiftDriverTests: XCTestCase {
       let replJob = plannedJobs.first!
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isLLDBREPLFlag($0) }))
+      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {
@@ -2986,6 +3114,33 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testFrontendSupportedArguments() throws {
+    do {
+      // General case: ensure supported frontend arguments have been computed, one way or another
+      let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
+                                     "-resource-dir", "baz"])
+      XCTAssertTrue(driver.supportedFrontendFlags.contains("emit-module"))
+    }
+    do {
+      let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
+                                     "-resource-dir", "baz"])
+      if let libraryBasedResult = try driver.querySupportedArgumentsForTest() {
+        XCTAssertTrue(libraryBasedResult.contains("emit-module"))
+      }
+    }
+    do {
+      // Test the fallback path of computing the supported arguments using a swift-frontend
+      // invocation, by pointing the driver to look for libSwiftScan in a place that does not
+      // exist
+      var env = ProcessEnv.vars
+      env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] = "/some/nonexistent/path"
+      let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
+                                     "-resource-dir", "baz"],
+                              env: env)
+      XCTAssertTrue(driver.supportedFrontendFlags.contains("emit-module"))
+    }
+  }
+
   func testPrintOutputFileMap() throws {
     try withTemporaryDirectory { path in
       // Replace the error stream with one we capture here.
@@ -4146,6 +4301,55 @@ final class SwiftDriverTests: XCTestCase {
       }
       XCTAssertEqual(inputs, [.temporary(RelativePath("a.o")), .temporary(RelativePath("b.o")), .temporary(RelativePath("c.o"))])
     }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "a.swift", "b.swift", "-driver-filelist-threshold=0"])
+      let plannedJobs = try driver.planBuild()
+
+      let jobA = plannedJobs[0]
+      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
+      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapA) = fileListA else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      XCTAssertEqual(mapA.entries, [.relative(.init("a.swift")): [:]])
+
+      let jobB = plannedJobs[1]
+      let flagB = jobB.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentB = jobB.commandLine[jobB.commandLine.index(after: flagB)]
+      guard case let .path(.fileList(_, fileListB)) = fileListArgumentB else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapB) = fileListB else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      XCTAssertEqual(mapB.entries, [.relative(.init("b.swift")): [:]])
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "-wmo", "a.swift", "b.swift", "-driver-filelist-threshold=0"])
+      let plannedJobs = try driver.planBuild()
+
+      let jobA = plannedJobs[0]
+      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
+      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
+      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
+        XCTFail("Argument wasn't a filelist")
+        return
+      }
+      guard case let .outputFileMap(mapA) = fileListA else {
+        XCTFail("FileList wasn't OutputFileMap")
+        return
+      }
+      XCTAssertEqual(mapA.entries, [.relative(.init("a.swift")): [:]])
+    }
   }
 }
 
@@ -4160,7 +4364,7 @@ func assertString(
                 """, file: file, line: line)
 }
 
-fileprivate extension Array where Element: Equatable {
+extension Array where Element: Equatable {
   /// Returns true if the receiver contains the given elements as a subsequence
   /// (i.e., all elements are present, contiguous, and in the same order).
   ///
@@ -4185,9 +4389,7 @@ fileprivate extension Array where Element: Equatable {
   }
 }
 
-fileprivate extension Array
-where Element == Job
-{
+extension Array where Element == Job {
   // Utility to drop autolink-extract jobs, which helps avoid introducing
   // platform-specific conditionals in tests unrelated to autolinking.
   func removingAutolinkExtractJobs() -> Self {
@@ -4203,7 +4405,7 @@ private extension Array where Element == Job.ArgTemplate {
       switch $0 {
       case let .path(path):
         return path.basename == basename
-      case .flag, .responseFilePath, .joinedOptionAndPath:
+      case .flag, .responseFilePath, .joinedOptionAndPath, .squashedArgumentList:
         return false
       }
     }

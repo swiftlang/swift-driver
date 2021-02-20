@@ -32,15 +32,35 @@ extension OptionTable {
 
       USAGE: \(driverKind.usage)
 
-      OPTIONS:
       """)
 
+    let remainingOptions: [Option]
+    // In non-interactive mode, output all possible uses of the driver
+    if driverKind == DriverKind.batch {
+      print("""
+      MODES:
+      """)
+      let modeOptions = options.filter { $0.group == Option.Group.modes }
+      remainingOptions = options.filter { $0.group != Option.Group.modes }
+      OptionTable.printOptions(modeOptions, driverKind: driverKind, includeHidden: includeHidden)
+      // A newline space before printing remaining options
+      print("")
+    } else {
+      remainingOptions = options
+    }
+
+    print("""
+    OPTIONS:
+    """)
+    OptionTable.printOptions(remainingOptions, driverKind: driverKind, includeHidden: includeHidden)
+  }
+
+  static func printOptions(_ options: [Option], driverKind: DriverKind, includeHidden: Bool) {
     for option in options {
       if option.isAlias { continue }
       if option.isHelpHidden && !includeHidden { continue }
       guard option.isAccepted(by: driverKind) else { continue }
       guard let helpText = option.helpText else { continue }
-
       let maxDisplayNameLength = 23
 
       // Figure out the display name, with metavariable if given
@@ -71,9 +91,6 @@ extension OptionTable {
           repeating: " ", count: maxDisplayNameLength)
         print("  \(leftPadding) \(helpText)")
       }
-    }
-    if let seeAlsoMessage = driverKind.seeAlsoHelpMessage {
-      print("\n\(seeAlsoMessage)")
     }
   }
 }

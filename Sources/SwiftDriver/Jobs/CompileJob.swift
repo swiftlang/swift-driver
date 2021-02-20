@@ -79,7 +79,7 @@ extension Driver {
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies, nil:
+         .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, nil:
       return false
     }
   }
@@ -217,11 +217,17 @@ extension Driver {
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
+    let inputsGeneratingCodeCount = primaryInputs.isEmpty
+      ? inputs.count
+      : primaryInputs.count
+
     outputs += try addFrontendSupplementaryOutputArguments(
       commandLine: &commandLine,
       primaryInputs: primaryInputs,
+      inputsGeneratingCodeCount: inputsGeneratingCodeCount,
       inputOutputMap: inputOutputMap,
-      includeModuleTracePath: emitModuleTrace)
+      includeModuleTracePath: emitModuleTrace,
+      indexFilePath: indexFilePath)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
@@ -285,6 +291,11 @@ extension Driver {
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
 
+    if compilerMode.isSingleCompilation {
+      try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
+      try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+    }
+
     addJobOutputs(outputs)
 
     // If we're prioritizing the emit module job, schedule the compile jobs
@@ -312,6 +323,18 @@ extension Driver {
       outputs: outputs,
       supportsResponseFiles: true
     )
+  }
+}
+
+extension Job {
+  /// In whole-module-optimization mode (WMO), there are no primary inputs and every input generates
+  /// code.
+  public var inputsGeneratingCode: [TypedVirtualPath] {
+    kind != .compile
+      ? []
+      : !primaryInputs.isEmpty
+      ? primaryInputs
+      : inputs.filter {$0.type.isPartOfSwiftCompilation}
   }
 }
 
@@ -349,10 +372,10 @@ extension FileType {
       return .updateCode
     case .jsonDependencies:
       return .scanDependencies
-    case .jsonClangDependencies:
-      return .scanClangDependencies
     case .jsonTargetInfo:
       return .printTargetInfo
+    case .jsonCompilerFeatures:
+      return .emitSupportedFeatures
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,

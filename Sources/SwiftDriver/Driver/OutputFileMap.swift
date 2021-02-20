@@ -49,6 +49,19 @@ public struct OutputFileMap: Hashable, Codable {
     case .swiftDocumentation, .swiftSourceInfoFile:
       // Infer paths for these entities using .swiftmodule path.
       return entries[inputFile]?[.swiftModule]?.replacingExtension(with: outputType)
+
+    case .object:
+      // We may generate .o files from bitcode .bc files, but the output file map
+      // uses .swift file as the key for .o file paths. So we need to dig further.
+      let entry = entries.first {
+        return $0.value.contains { return $0.value == inputFile }
+      }
+      if let entry = entry {
+        if let path = entries[entry.key]?[outputType] {
+          return path
+        }
+      }
+      return nil
     default:
       return nil
     }

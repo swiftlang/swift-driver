@@ -96,8 +96,7 @@ extension DriverExecutor {
 
     do {
       return try JSONDecoder().decode(outputType, from: outputData)
-    }
-    catch let err as DecodingError {
+    } catch let err as DecodingError {
       throw JobExecutionError.decodingError(err, outputData, result)
     }
   }
@@ -137,4 +136,7 @@ public protocol JobExecutionDelegate {
   
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
+
+  /// Called when a job is skipped.
+  func jobSkipped(job: Job)
 }

@@ -12,11 +12,14 @@
 import XCTest
 import TSCBasic
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
+import SwiftOptions
 
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {
-    let buildRecord = try! BuildRecord(contents: Inputs.buildRecord)
+    let buildRecord = try XCTUnwrap(
+      BuildRecord(contents: Inputs.buildRecord,
+                                  failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
@@ -38,13 +41,13 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testBuildRecordWithoutOptionsReading() throws {
-    let hash = "abbbfbcaf36b93e58efaadd8271ff142"
-    let buildRecord = try! BuildRecord(
-      contents: Inputs.buildRecordWithoutOptions,
-      defaultArgsHash: hash)
+    let buildRecord = try XCTUnwrap(
+      BuildRecord(
+        contents: Inputs.buildRecordWithoutOptions,
+        failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(buildRecord.argsHash, hash)
+    XCTAssertEqual(buildRecord.argsHash, nil)
 
     try XCTAssertEqual(buildRecord.buildTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
@@ -63,10 +66,13 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testReadBinarySourceFileDependencyGraph() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputPath = packageRootPath + "/TestInputs/Incremental/main.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+                                                         for: "main.swiftdeps"))
+    let dependencySource = DependencySource(VirtualPath.absolute(absolutePath))!
+    let graph = try XCTUnwrap(
+      try SourceFileDependencyGraph(
+        contentsOf: dependencySource,
+        on: localFileSystem))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -107,10 +113,12 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testReadComplexSourceFileDependencyGraph() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftdeps"
-    let graph = try SourceFileDependencyGraph(pathString: String(testInputPath))
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+                                                         for: "hello.swiftdeps"))
+    let graph = try XCTUnwrap(
+      try SourceFileDependencyGraph(
+        contentsOf: DependencySource(VirtualPath.absolute(absolutePath))!,
+        on: localFileSystem))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
@@ -158,11 +166,13 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testExtractSourceFileDependencyGraphFromSwiftModule() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputPath = packageRootPath + "/TestInputs/Incremental/hello.swiftmodule"
-    let data = try Data(contentsOf: URL(fileURLWithPath: String(testInputPath)))
-    let graph = try SourceFileDependencyGraph(data: data, fromSwiftModule: true)
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+                                                         for: "hello.swiftmodule"))
+    let data = try localFileSystem.readFileContents(absolutePath)
+    let graph = try XCTUnwrap(
+      try SourceFileDependencyGraph(data: data,
+                                    from: DependencySource(.absolute(absolutePath))!,
+                                    fromSwiftModule: true))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
@@ -206,7 +216,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         "\(gazorp)": !private [0, 0]
 
       """
-    let buildRecord = try BuildRecord(contents: inputString)
+    let buildRecord = try XCTUnwrap (BuildRecord(contents: inputString, failedToReadOutOfDateMap: {_ in}))
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)
@@ -226,11 +236,12 @@ final class NonincrementalCompilationTests: XCTestCase {
                    [0, 0])
     XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )]).status,
                    .upToDate)
-    XCTAssert(try! isCloseEnough( XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )])
-                                    .previousModTime.legacyDriverSecsAndNanos,
-                                  [1570083660, 0]))
+    XCTAssert(try! isCloseEnough(XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main  )])
+                                   .previousModTime.legacyDriverSecsAndNanos,
+                                 [1570083660, 0]))
 
-    let outputString = try buildRecord.encode()
+    let outputString = try XCTUnwrap (buildRecord.encode(currentArgsHash: options,
+                                                         diagnosticEngine: DiagnosticsEngine()))
     XCTAssertEqual(inputString, outputString)
   }
   /// The date conversions are not exact
@@ -256,7 +267,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         $0 <<< "let bar = 2"
       }
       try assertDriverDiagnostics(args: [
-        "swiftc", "-module-name", "theModule",
+        "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
         main.pathString, other.pathString
       ] + otherArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
@@ -319,6 +330,10 @@ final class IncrementalCompilationTests: XCTestCase {
 #else
   var tempDir: AbsolutePath = AbsolutePath("/tmp")
 #endif
+
+  var derivedDataDir: AbsolutePath {
+    tempDir.appending(component: "derivedData")
+  }
 
   let module = "theModule"
   var OFM: AbsolutePath {
@@ -384,6 +399,35 @@ final class IncrementalCompilationTests: XCTestCase {
     }
   }
 
+  func testOptionsParsing() throws {
+    let optionPairs: [(
+      Option, (IncrementalCompilationState.InitialStateComputer) -> Bool
+    )] = [
+      (.driverAlwaysRebuildDependents, {$0.alwaysRebuildDependents}),
+      (.driverShowIncremental, {$0.reporter != nil}),
+      (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, {$0.emitDependencyDotFileAfterEveryImport}),
+      (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
+      (.enableExperimentalCrossModuleIncrementalBuild, {$0.isCrossModuleIncrementalBuildEnabled}),
+    ]
+
+    for (driverOption, stateOptionFn) in optionPairs {
+      try doABuild(
+        "initial",
+        checkDiagnostics: false,
+        extraArguments: [ driverOption.spelling ],
+        expectingRemarks: [],
+        whenAutolinking: [])
+
+      var driver = try Driver(args: self.args + [
+        driverOption.spelling,
+      ] + Driver.sdkArgumentsForTesting())
+      _ = try driver.planBuild()
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      let state = try XCTUnwrap(driver.incrementalCompilationState)
+      XCTAssertTrue(stateOptionFn(state.moduleDependencyGraph.info))
+    }
+  }
+
   // FIXME: why does it fail on Linux in CI?
   func testIncrementalDiagnostics() throws {
     #if !os(Linux)
@@ -394,8 +438,8 @@ final class IncrementalCompilationTests: XCTestCase {
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
     #if !os(Linux)
-    tryInitial(true)
-    tryTouchingMainAlwaysRebuildDependents(true)
+    try tryInitial(checkDiagnostics: true)
+    tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: true)
     #endif
   }
 
@@ -403,37 +447,103 @@ final class IncrementalCompilationTests: XCTestCase {
     try testIncremental(checkDiagnostics: false)
   }
 
+  func testDependencyDotFiles() throws {
+    expectNoDotFiles()
+    try tryInitial(extraArguments: ["-driver-emit-fine-grained-dependency-dot-file-after-every-import"])
+    expect(dotFilesFor: [
+      "main.swiftdeps",
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+      "other.swiftdeps",
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+    ])
+  }
+
+  func testDependencyDotFilesCross() throws {
+    expectNoDotFiles()
+    try tryInitial(extraArguments: [
+      "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
+      "-enable-experimental-cross-module-incremental-build"
+    ])
+    removeDotFiles()
+    tryTouchingOther(extraArguments: [
+      "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
+      "-enable-experimental-cross-module-incremental-build"
+    ])
+
+    expect(dotFilesFor: [
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+      "other.swiftdeps",
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
+    ])
+  }
+
+  func expectNoDotFiles() {
+    guard localFileSystem.exists(derivedDataDir) else { return }
+    try! localFileSystem.getDirectoryContents(derivedDataDir)
+      .forEach {derivedFile in
+        XCTAssertFalse(derivedFile.hasSuffix("dot"))
+      }
+  }
+
+  func removeDotFiles() {
+    try! localFileSystem.getDirectoryContents(derivedDataDir)
+      .filter {$0.hasSuffix(".dot")}
+      .map {derivedDataDir.appending(component: $0)}
+      .forEach {try! localFileSystem.removeFileTree($0)}
+  }
+
+  func expect(dotFilesFor importedFiles: [String]) {
+    let expectedDotFiles = Set(
+      importedFiles.enumerated()
+      .map { offset, element in "\(element).\(offset).dot" })
+    let actualDotFiles = Set(
+      try! localFileSystem.getDirectoryContents(derivedDataDir)
+      .filter {$0.hasSuffix(".dot")})
+
+    let missingDotFiles = expectedDotFiles.subtracting(actualDotFiles)
+      .sortedByDotFileSequenceNumbers()
+    let extraDotFiles = actualDotFiles.subtracting(expectedDotFiles)
+      .sortedByDotFileSequenceNumbers()
+
+    XCTAssertEqual(missingDotFiles, [])
+    XCTAssertEqual(extraDotFiles, [])
+  }
+
   /// Ensure that the mod date of the input comes back exactly the same via the build-record.
   /// Otherwise the up-to-date calculation in `IncrementalCompilationState` will fail.
   func testBuildRecordDateAccuracy() throws {
-    tryInitial(false)
+    try tryInitial()
     (1...10).forEach { n in
-      tryNoChange(true)
+      tryNoChange(checkDiagnostics: true)
     }
   }
 
-
-
   func testIncremental(checkDiagnostics: Bool) throws {
-    tryInitial(checkDiagnostics)
+    try tryInitial(checkDiagnostics: checkDiagnostics)
     #if true // sometimes want to skip for debugging
-    tryNoChange(checkDiagnostics)
-    tryTouchingOther(checkDiagnostics)
-    tryTouchingBoth(checkDiagnostics)
+    tryNoChange(checkDiagnostics: checkDiagnostics)
+    tryTouchingOther(checkDiagnostics: checkDiagnostics)
+    tryTouchingBoth(checkDiagnostics: checkDiagnostics)
     #endif
-    tryReplacingMain(checkDiagnostics)
+    tryReplacingMain(checkDiagnostics: checkDiagnostics)
   }
 
 
-  func tryInitial(_ checkDiagnostics: Bool) {
-    try! doABuild(
+  func tryInitial(checkDiagnostics: Bool = false,
+                  extraArguments: [String] = []
+  ) throws {
+    try doABuild(
       "initial",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
         // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-        "Disabling incremental build: could not read build record at",
+        "Disabling incremental cross-module building",
+        "Incremental compilation: Incremental compilation could not read build record at",
+        "Incremental compilation: Disabling incremental build: could not read build record",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
@@ -446,52 +556,69 @@ final class IncrementalCompilationTests: XCTestCase {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
-  func tryNoChange(_ checkDiagnostics: Bool) {
+  func tryNoChange(checkDiagnostics: Bool = false,
+                   extraArguments: [String] = []
+  ) {
     try! doABuild(
       "no-change",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
-        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
+        "Skipped Compiling main.swift",
+        "Skipped Compiling other.swift",
       ],
       whenAutolinking: [])
   }
-  func tryTouchingOther(_ checkDiagnostics: Bool) {
+  func tryTouchingOther(checkDiagnostics: Bool = false,
+                        extraArguments: [String] = []
+  ) {
     touch("other")
     try! doABuild(
       "non-propagating",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
-        "Incremental compilation: May skip current input: {compile: main.o <= main.swift}",
-        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
+        "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
         "Forming batch job from 1 constituents: other.swift",
-        "Incremental compilation: Queuing Compiling other.swift",
         "Starting Compiling other.swift",
         "Finished Compiling other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
+        "Skipped Compiling main.swift",
     ],
     whenAutolinking: autolinkLifecycleExpectations)
   }
-  func tryTouchingBoth(_ checkDiagnostics: Bool) {
+  func tryTouchingBoth(checkDiagnostics: Bool = false,
+                       extraArguments: [String] = []
+ ) {
     touch("main")
     touch("other")
     try! doABuild(
       "non-propagating, both touched",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: Scheduing changed input {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
-        "Incremental compilation: Queuing (initial): {compile: other.o <= other.swift}",
+        "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
         "Found 2 batchable jobs",
@@ -499,7 +626,6 @@ final class IncrementalCompilationTests: XCTestCase {
         "Adding {compile: main.swift} to batch 0",
         "Adding {compile: other.swift} to batch 0",
         "Forming batch job from 2 constituents: main.swift, other.swift",
-        "Incremental compilation: Queuing Compiling main.swift, other.swift",
         "Starting Compiling main.swift, other.swift",
         "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",
@@ -508,27 +634,35 @@ final class IncrementalCompilationTests: XCTestCase {
     whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  func tryReplacingMain(_ checkDiagnostics: Bool) {
+  func tryReplacingMain(checkDiagnostics: Bool = false,
+                        extraArguments: [String] = []
+  ) {
     replace(contentsOf: "main", with: "let foo = \"hello\"")
     try! doABuild(
       "propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
       expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
-        "Incremental compilation: Skipping input: {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
         "Forming batch job from 1 constituents: main.swift",
-        "Incremental compilation: Queuing Compiling main.swift",
         "Starting Compiling main.swift",
-        "Incremental compilation: Traced: interface of source file 'main.swiftdeps' from: main.swift -> interface of top-level name 'foo' from: main.swift -> implementation of source file 'other.swiftdeps' from: other.swift",
-        "Incremental compilation: Queuing because of dependencies discovered later: {compile: other.o <= other.swift}",
-        "Incremental compilation: Scheduling discovered {compile: other.o <= other.swift}",
         "Finished Compiling main.swift",
+        "Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
+        "Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduling invalidated  {compile: other.o <= other.swift}",
+        "Found 1 batchable job",
+        "Forming into 1 batch",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 1 constituents: other.swift",
         "Starting Compiling other.swift",
         "Finished Compiling other.swift",
         "Starting Linking theModule",
@@ -537,7 +671,9 @@ final class IncrementalCompilationTests: XCTestCase {
       whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  func tryTouchingMainAlwaysRebuildDependents(_ checkDiagnostics: Bool) {
+  func tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: Bool = false,
+                                              extraArguments: [String] = []
+  ) {
     touch("main")
     let extraArgument = "-driver-always-rebuild-dependents"
     try! doABuild(
@@ -545,20 +681,21 @@ final class IncrementalCompilationTests: XCTestCase {
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
       expectingRemarks: [
-        "Incremental compilation: Scheduing changed input {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input: {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (initial): {compile: main.o <= main.swift}",
+        "Disabling incremental cross-module building",
+        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
-        "Incremental compilation: Traced: interface of top-level name 'foo' from: main.swift -> implementation of source file 'other.swiftdeps' from: other.swift",
-        "Incremental compilation: Found dependent of main.swift: {compile: other.o <= other.swift}",
-        "Incremental compilation: Immediately scheduling dependent on main.swift {compile: other.o <= other.swift}",
-        "Incremental compilation: Queuing (dependent): {compile: other.o <= other.swift}",
+        "Incremental compilation: Traced: interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
+        "Incremental compilation: Found dependent of main.swift:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: Immediately scheduling dependent on main.swift  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing because of the initial set:  {compile: other.o <= other.swift}",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
         "Adding {compile: other.swift} to batch 0",
         "Forming batch job from 2 constituents: main.swift, other.swift",
-        "Incremental compilation: Queuing Compiling main.swift, other.swift",
         "Starting Compiling main.swift, other.swift",
         "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",
@@ -584,7 +721,7 @@ final class IncrementalCompilationTests: XCTestCase {
   }
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
-                extraArguments: [String] = [],
+                extraArguments: [String],
                 expectingRemarks texts: [String],
                 whenAutolinking: [String]) throws {
     try doABuild(
@@ -597,7 +734,7 @@ final class IncrementalCompilationTests: XCTestCase {
 
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
-                extraArguments: [String] = [],
+                extraArguments: [String],
                 expecting expectations: [Diagnostic.Message],
                 expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
@@ -607,7 +744,7 @@ final class IncrementalCompilationTests: XCTestCase {
       try? driver.run(jobs: jobs)
     }
 
-    let allArgs = args + extraArguments
+    let allArgs = try args + extraArguments + Driver.sdkArgumentsForTesting()
     if checkDiagnostics {
       try assertDriverDiagnostics(args: allArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
@@ -695,5 +832,109 @@ final class IncrementalCompilationTests: XCTestCase {
     let d: Data = generateOutputFileMapData(module: module, inputPaths: inputPaths,
                                             derivedData: derivedData)
     try! localFileSystem.writeFileContents(dst, bytes: ByteString(d))
+  }
+}
+
+class CrossModuleIncrementalBuildTests: XCTestCase {
+  func makeOutputFileMap(
+    in workingDirectory: AbsolutePath,
+    for files: [AbsolutePath]
+  ) -> String {
+    """
+    {
+      "": {
+        "swift-dependencies": "\(workingDirectory.appending(component: "module.swiftdeps"))"
+      }
+    """.appending(files.map { file in
+      """
+      ,
+      "\(file)": {
+        "dependencies": "\(file.basenameWithoutExt + ".d")",
+        "object": "\(file.pathString + ".o")",
+        "swiftmodule": "\(file.basenameWithoutExt + "~partial.swiftmodule")",
+        "swift-dependencies": "\(file.basenameWithoutExt + ".swiftdeps")"
+        }
+      """
+    }.joined(separator: "\n").appending("\n}"))
+  }
+  
+  func testEmbeddedModuleDependencies() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      do {
+        let magic = path.appending(component: "magic.swift")
+        try localFileSystem.writeFileContents(magic) {
+          $0 <<< "public func castASpell() {}"
+        }
+
+        let ofm = path.appending(component: "ofm.json")
+        try localFileSystem.writeFileContents(ofm) {
+          $0 <<< self.makeOutputFileMap(in: path, for: [ magic ])
+        }
+
+        var driver = try Driver(args: [
+          "swiftc",
+          "-incremental",
+          "-emit-module",
+          "-output-file-map", ofm.pathString,
+          "-module-name", "MagicKit",
+          "-enable-experimental-cross-module-incremental-build",
+          "-working-directory", path.pathString,
+          "-c",
+          magic.pathString,
+        ])
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+      }
+
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import MagicKit\n"
+        $0 <<< "castASpell()"
+      }
+
+      let ofm = path.appending(component: "ofm2.json")
+      try localFileSystem.writeFileContents(ofm) {
+        $0 <<< self.makeOutputFileMap(in: path, for: [ main ])
+      }
+
+      var driver = try Driver(args: [
+        "swiftc",
+        "-incremental",
+        "-emit-module",
+        "-output-file-map", ofm.pathString,
+        "-module-name", "theModule",
+        "-enable-experimental-cross-module-incremental-build",
+        "-I", path.pathString,
+        "-working-directory", path.pathString,
+        "-c",
+        main.pathString,
+      ])
+
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+
+      let sourcePath = path.appending(component: "main.swiftdeps")
+      let data = try localFileSystem.readFileContents(sourcePath)
+      let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data,
+                                                          from: DependencySource(.absolute(sourcePath))!,
+                                                          fromSwiftModule: false))
+      XCTAssertEqual(graph.majorVersion, 1)
+      XCTAssertEqual(graph.minorVersion, 0)
+      graph.verify()
+
+      var foundNode = false
+      let swiftmodulePath = try! ExternalDependency(path.appending(component: "MagicKit.swiftmodule").pathString)
+      graph.forEachNode { node in
+        if case .externalDepend(swiftmodulePath) = node.key.designator {
+          XCTAssertFalse(foundNode)
+          foundNode = true
+          XCTAssertEqual(node.key.aspect, .interface)
+          XCTAssertTrue(node.defsIDependUpon.isEmpty)
+          XCTAssertFalse(node.isProvides)
+        }
+      }
+      XCTAssertTrue(foundNode)
+    }
   }
 }

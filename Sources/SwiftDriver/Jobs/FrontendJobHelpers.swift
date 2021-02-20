@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import TSCUtility
 
 /// Whether we should produce color diagnostics by default.
 fileprivate func shouldColorDiagnostics() -> Bool {
@@ -161,10 +162,8 @@ extension Driver {
     try commandLine.appendLast(.packageDescriptionVersion, from: &parsedOptions)
     try commandLine.appendLast(.serializeDiagnosticsPath, from: &parsedOptions)
     try commandLine.appendLast(.debugDiagnosticNames, from: &parsedOptions)
-    try commandLine.appendLast(.disableParserLookup, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
-    try commandLine.appendLast(.scanClangDependencies, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
     try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
     try commandLine.appendLast(.diagnosticStyle, from: &parsedOptions)
@@ -173,6 +172,7 @@ extension Driver {
     try commandLine.appendLast(.requireExplicitAvailability, from: &parsedOptions)
     try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
     try commandLine.appendLast(.lto, from: &parsedOptions)
+    try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
@@ -249,8 +249,10 @@ extension Driver {
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
                                                         primaryInputs: [TypedVirtualPath],
+                                                        inputsGeneratingCodeCount: Int,
                                                         inputOutputMap: [TypedVirtualPath: TypedVirtualPath],
-                                                        includeModuleTracePath: Bool) throws -> [TypedVirtualPath] {
+                                                        includeModuleTracePath: Bool,
+                                                        indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
@@ -310,15 +312,11 @@ extension Driver {
         input: input,
         flag: "-emit-dependencies-path")
 
-      if let input = input, let outputFileMap = outputFileMap {
-        let referenceDependenciesPath =
-          outputFileMap.existingOutput(inputFile: input.file, outputType: .swiftDeps)
-        addOutputOfType(
-          outputType: .swiftDeps,
-          finalOutputPath: referenceDependenciesPath,
-          input: input,
-          flag: "-emit-reference-dependencies-path")
-      }
+      addOutputOfType(
+        outputType: .swiftDeps,
+        finalOutputPath: referenceDependenciesPath,
+        input: input,
+        flag: "-emit-reference-dependencies-path")
 
       addOutputOfType(
         outputType: .yamlOptimizationRecord,
@@ -331,11 +329,6 @@ extension Driver {
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
         flag: "-serialize-diagnostics-path")
-
-      #if false
-      // FIXME: handle -update-code
-      addOutputOfType(outputType: .remap, input: input, flag: "-emit-remap-file-path")
-      #endif
     }
 
     if compilerMode.usesPrimaryFileInputs {
@@ -372,23 +365,60 @@ extension Driver {
         flag: "-emit-tbd-path")
     }
 
+    if parsedOptions.hasArgument(.updateCode) {
+      guard compilerMode == .standardCompile else {
+        diagnosticEngine.emit(.error_update_code_not_supported(in: compilerMode))
+        throw Diagnostics.fatalError
+      }
+      assert(primaryInputs.count == 1, "Standard compile job had more than one primary input")
+      let input = primaryInputs[0]
+      let remapOutputPath: VirtualPath
+      if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: .remap) {
+        remapOutputPath = outputFileMapPath
+      } else if let output = inputOutputMap[input], output.file != .standardOutput {
+        // Alongside primary output
+        remapOutputPath = output.file.replacingExtension(with: .remap)
+      } else {
+        remapOutputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
+      }
+
+      flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",
+                                      input: input,
+                                      output: TypedVirtualPath(file: remapOutputPath, type: .remap)))
+    }
+
     if includeModuleTracePath, let tracePath = loadedModuleTracePath {
       flaggedInputOutputPairs.append((flag: "-emit-loaded-module-trace-path",
                                       input: nil,
                                       output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
-    let allInputsCount = primaryInputs.count + flaggedInputOutputPairs.count
-    // Question: outputs.count > fileListThreshold makes sense, but c++ does the following:
-    if allInputsCount * FileType.allCases.count > fileListThreshold {
+    if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath: [FileType: VirtualPath]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input] {
           addEntry(&entries, input: input, output: output)
+        } else {
+          // Primary inputs are expected to appear in the output file map even
+          // if they have no corresponding outputs.
+          entries[input.file] = [:]
         }
       }
+
+      if primaryInputs.isEmpty {
+        // To match the legacy driver behavior, make sure we add the first input file
+        // to the output file map if compiling without primary inputs (WMO), even
+        // if there aren't any corresponding outputs.
+        entries[inputFiles[0].file] = [:]
+      }
+
       for flaggedPair in flaggedInputOutputPairs {
         addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
+      }
+      // To match the legacy driver behavior, make sure we add an entry for the
+      // file under indexing and the primary output file path.
+      if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath] {
+        entries[indexFilePath.file] = [.indexData: idxOutput.file]
       }
       let outputFileMap = OutputFileMap(entries: entries)
       let path = RelativePath(createTemporaryFileName(prefix: "supplementaryOutputs"))

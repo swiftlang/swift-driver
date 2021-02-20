@@ -36,8 +36,10 @@ func assertDriverDiagnostics(
   file: StaticString = #file, line: UInt = #line,
   do body: (inout Driver, DiagnosticVerifier) throws -> Void
 ) throws {
+  // Ensure there are no color codes in order to make matching work
+  let argsInBlackAndWhite = [args[0], "-no-color-diagnostics"] + args.dropFirst()
   try assertDriverDiagnostics(
-    args: args, env: env, file: file, line: line, do: body
+    args: argsInBlackAndWhite, env: env, file: file, line: line, do: body
   )
 }
 

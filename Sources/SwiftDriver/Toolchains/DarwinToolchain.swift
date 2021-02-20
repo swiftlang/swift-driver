@@ -26,6 +26,9 @@ import SwiftOptions
   /// The file system to use for any file operations.
   public let fileSystem: FileSystem
 
+  // An externally provided path from where we should find compiler
+  public let compilerExecutableDir: AbsolutePath?
+
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
 
@@ -34,10 +37,12 @@ import SwiftOptions
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.macho
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, toolDirectory: AbsolutePath? = nil) {
+  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem,
+              compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
+    self.compilerExecutableDir = compilerExecutableDir
     self.toolDirectory = toolDirectory
   }
 
@@ -78,6 +83,10 @@ import SwiftOptions
 
   public func overrideToolPath(_ tool: Tool, path: AbsolutePath) {
     toolPaths[tool] = path
+  }
+
+  public func clearKnownToolPath(_ tool: Tool) {
+    toolPaths.removeValue(forKey: tool)
   }
 
   /// Path to the StdLib inside the SDK.

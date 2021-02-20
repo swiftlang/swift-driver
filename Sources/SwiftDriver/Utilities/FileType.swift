@@ -93,13 +93,11 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// JSON-based Module Dependency Scanner output
   case jsonDependencies = "dependencies.json"
 
-  // FIXME: We enforce a 1-1 map from FileType to frontendCompileOption,
-  // which prevents us from re-using the above jsonDependencies here
-  /// JSON-based Module Dependency Scanner output for a single clang module
-  case jsonClangDependencies = "clang-dependencies.json"
-
   /// JSON-based -print-target-info output
   case jsonTargetInfo = "targetInfo.json"
+
+  /// JSON-based -emit-supported-features output
+  case jsonCompilerFeatures = "compilerFeatures.json"
 
   /// JSON-based binary Swift module artifact description
   case jsonSwiftArtifacts = "artifacts.json"
@@ -169,11 +167,11 @@ extension FileType: CustomStringConvertible {
     case .jsonDependencies:
       return "json-dependencies"
 
-    case .jsonClangDependencies:
-      return "json-clang-dependencies"
-
     case .jsonTargetInfo:
       return "json-target-info"
+
+    case .jsonCompilerFeatures:
+      return "json-supported-features"
 
     case .jsonSwiftArtifacts:
       return "json-module-artifacts"
@@ -211,7 +209,7 @@ extension FileType {
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
-         .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
+         .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts:
       return false
     }
   }
@@ -284,10 +282,10 @@ extension FileType {
       return "swift-dependencies"
     case .jsonDependencies:
       return "json-dependencies"
-    case .jsonClangDependencies:
-      return "json-clang-dependencies"
     case .jsonTargetInfo:
       return "json-target-info"
+    case .jsonCompilerFeatures:
+      return "json-supported-features"
     case .jsonSwiftArtifacts:
       return "json-module-artifacts"
     case .importedModules:
@@ -312,8 +310,8 @@ extension FileType {
     case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
-         .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .jsonClangDependencies:
+         .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures,
+         .jsonTargetInfo, .jsonSwiftArtifacts:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -333,7 +331,7 @@ extension FileType {
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonClangDependencies:
+         .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts:
       return false
     }
   }

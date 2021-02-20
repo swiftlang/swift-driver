@@ -31,9 +31,9 @@ public struct Job: Codable, Equatable, Hashable {
     case repl
     case verifyDebugInfo = "verify-debug-info"
     case printTargetInfo = "print-target-info"
+    case emitSupportedFeatures = "emit-supported-features"
     case versionRequest = "version-request"
     case scanDependencies = "scan-dependencies"
-    case scanClangDependencies = "scan-clang-dependencies"
     case verifyModuleInterface = "verify-emitted-module-interface"
     case help
   }
@@ -50,6 +50,9 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Represents a joined option+path combo.
     case joinedOptionAndPath(String, VirtualPath)
+
+    /// Represents a list of arguments squashed together and passed as a single argument.
+    case squashedArgumentList(option: String, args: [ArgTemplate])
   }
 
   /// The Swift module this job involves.
@@ -126,9 +129,8 @@ extension Job {
 
   public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date], fileSystem: FileSystem) throws {
     for input in inputs {
-      if case .absolute(let absolutePath) = input.file,
-        let recordedModificationTime = recordedInputModificationDates[input],
-        try fileSystem.getFileInfo(absolutePath).modTime != recordedModificationTime {
+      if let recordedModificationTime = recordedInputModificationDates[input],
+         try fileSystem.getFileInfo(input.file).modTime != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }
     }
@@ -186,11 +188,11 @@ extension Job : CustomStringConvertible {
     case .backend:
       return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.basename ?? "")"
 
+    case .emitSupportedFeatures:
+      return "Emitting supported Swift compiler features"
+
     case .scanDependencies:
       return "Scanning dependencies for module \(moduleName)"
-
-    case .scanClangDependencies:
-      return "Scanning dependencies for Clang module \(moduleName)"
 
     case .verifyModuleInterface:
       return "Verifying emitted module interface for module \(moduleName)"
@@ -200,7 +202,7 @@ extension Job : CustomStringConvertible {
   public var descriptionForLifecycle: String {
     switch kind {
     case .compile:
-      return "Compiling \(displayInputs.map {$0.file.basename}.joined(separator: ", "))"
+      return "Compiling \(inputsGeneratingCode.map {$0.file.basename}.joined(separator: ", "))"
     default:
       return description
     }
@@ -213,7 +215,7 @@ extension Job.Kind {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
         .generatePCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest, .scanDependencies, .scanClangDependencies, .verifyModuleInterface:
+        .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap:
@@ -230,7 +232,7 @@ extension Job.Kind {
          .generatePCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
-         .moduleWrap, .scanClangDependencies, .verifyModuleInterface:
+         .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface:
       return false
     }
   }
@@ -239,10 +241,14 @@ extension Job.Kind {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path, responseFilePath, joinedOptionAndPath
+    case flag, path, responseFilePath, joinedOptionAndPath, squashedArgumentList
 
     enum JoinedOptionAndPathCodingKeys: String, CodingKey {
       case option, path
+    }
+
+    enum SquashedArgumentListCodingKeys: String, CodingKey {
+      case option, args
     }
   }
 
@@ -264,6 +270,12 @@ extension Job.ArgTemplate: Codable {
         forKey: .joinedOptionAndPath)
       try keyedContainer.encode(option, forKey: .option)
       try keyedContainer.encode(path, forKey: .path)
+    case .squashedArgumentList(option: let option, args: let args):
+      var keyedContainer = container.nestedContainer(
+        keyedBy: CodingKeys.SquashedArgumentListCodingKeys.self,
+        forKey: .squashedArgumentList)
+      try keyedContainer.encode(option, forKey: .option)
+      try keyedContainer.encode(args, forKey: .args)
     }
   }
 
@@ -291,6 +303,12 @@ extension Job.ArgTemplate: Codable {
         forKey: .joinedOptionAndPath)
       self = .joinedOptionAndPath(try keyedValues.decode(String.self, forKey: .option),
                                   try keyedValues.decode(VirtualPath.self, forKey: .path))
+    case .squashedArgumentList:
+      let keyedValues = try values.nestedContainer(
+        keyedBy: CodingKeys.SquashedArgumentListCodingKeys.self,
+        forKey: .squashedArgumentList)
+      self = .squashedArgumentList(option: try keyedValues.decode(String.self, forKey: .option),
+                                   args: try keyedValues.decode([Job.ArgTemplate].self, forKey: .args))
     }
   }
 }

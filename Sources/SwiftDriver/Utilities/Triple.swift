@@ -176,20 +176,6 @@ public struct Triple {
                                              os: parsedOS?.value)
     }
   }
-
-  private init(dummyForTesting toolchain: Toolchain) {
-    self.triple = ""
-    self.arch = nil
-    self.subArch = nil
-    self.vendor = nil
-    self.os = nil
-    self.environment = nil
-    self.objectFormat = toolchain.dummyForTestingObjectFormat
-  }
-
-  static func dummyForTesting(_ toolchain: Toolchain) -> Self {
-    Self(dummyForTesting: toolchain)
-  }
 }
 
 extension Triple: Codable {
@@ -1535,6 +1521,20 @@ extension Triple {
     }
 
     return Version(parse: osName)
+  }
+
+  public var osNameUnversioned: String {
+    var canonicalOsName = self.osName[...]
+
+    // Assume that the OS portion of the triple starts with the canonical name.
+    if let os = os {
+      if canonicalOsName.hasPrefix(os.name) {
+        canonicalOsName = osName.prefix(os.name.count)
+      } else if os == .macosx, osName.hasPrefix("macos") {
+        canonicalOsName = osName.prefix(5)
+      }
+    }
+    return String(canonicalOsName)
   }
 }
 

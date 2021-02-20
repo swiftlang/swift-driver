@@ -149,12 +149,12 @@ public final class MultiJobExecutor {
       case let .incremental(ics):
         incrementalCompilationState = ics
         primaryIndices = Self.addJobs(
-          ics.mandatoryPreOrCompileJobsInOrder,
+          ics.mandatoryJobsInOrder,
           to: &jobs,
           producing: &producerMap
         )
         postCompileIndices = Self.addJobs(
-          ics.postCompileJobs,
+          ics.jobsAfterCompiles,
           to: &jobs,
           producing: &producerMap)
       case let .all(nonincrementalJobs):
@@ -197,7 +197,7 @@ public final class MultiJobExecutor {
     ) {
       for output in job.outputs {
         if let otherJobIndex = producerMap.updateValue(index, forKey: output.file) {
-          fatalError("multiple producers for output \(output): \(job) & \(knownJobs[otherJobIndex])")
+          fatalError("multiple producers for output \(output.file): \(job) & \(knownJobs[otherJobIndex])")
         }
         producerMap[output.file] = index
       }
@@ -213,12 +213,12 @@ public final class MultiJobExecutor {
     fileprivate func addRuleBeyondMandatoryCompiles(
       finishedJob job: Job,
       result: ProcessResult
-    ) {
+    ) throws {
       guard job.kind.isCompile else {
         return
       }
-      if let newJobs = incrementalCompilationState?
-          .getJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
+      if let newJobs = try incrementalCompilationState?
+          .collectJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
         let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
         needInputFor(indices: newJobIndices)
       }
@@ -245,6 +245,12 @@ public final class MultiJobExecutor {
        #endif
       default:
         break
+      }
+    }
+
+    fileprivate func reportSkippedJobs() {
+      for job in incrementalCompilationState?.skippedJobs ?? [] {
+        executorDelegate.jobSkipped(job: job)
       }
     }
   }
@@ -306,6 +312,8 @@ public final class MultiJobExecutor {
     let engine = LLBuildEngine(delegate: delegate)
 
     let result = try engine.build(key: ExecuteAllJobsRule.RuleKey())
+
+    context.reportSkippedJobs()
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {
@@ -496,6 +504,7 @@ class ExecuteJobRule: LLBuildRule {
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
+    var knownPId = Set<Int>()
     var pid = 0
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
@@ -516,6 +525,7 @@ class ExecuteJobRule: LLBuildRule {
       // Inform the delegate.
       context.delegateQueue.async {
         context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
+        knownPId.insert(pid)
       }
 
       let result = try process.waitUntilExit()
@@ -529,34 +539,41 @@ class ExecuteJobRule: LLBuildRule {
           }
 #if !os(Windows)
         case let .signalled(signal):
-          context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
+          // An interrupt of an individual compiler job means it was deliberatly cancelled,
+          // most likely by the driver itself. This does not constitute an error.
+          if signal != SIGINT {
+            context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
+          }
 #endif
         }
-      }
-      if case .terminated = result.exitStatus {
-        context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
       }
 
       // Inform the delegate about job finishing.
       context.delegateQueue.async {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
-      value = .jobExecution(success: success)
-
       context.cancelBuildIfNeeded(result)
+      if !context.isBuildCancelled {
+        try context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
+      }
+      value = .jobExecution(success: success)
     } catch {
       if error is DiagnosticData {
         context.diagnosticsEngine.emit(error)
       }
-      context.delegateQueue.async {
-        let result = ProcessResult(
-          arguments: [],
-          environment: env,
-          exitStatus: .terminated(code: EXIT_FAILURE),
-          output: Result.success([]),
-          stderrOutput: Result.success([])
-        )
-        context.executorDelegate.jobFinished(job: job, result: result, pid: 0)
+      // Only inform finished job if the job has been started, otherwise the build
+      // system may complain about malformed output
+      if (knownPId.contains(pid)) {
+        context.delegateQueue.async {
+          let result = ProcessResult(
+            arguments: [],
+            environment: env,
+            exitStatus: .terminated(code: EXIT_FAILURE),
+            output: Result.success([]),
+            stderrOutput: Result.success([])
+          )
+          context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
+        }
       }
       value = .jobExecution(success: false)
     }
