@@ -752,7 +752,7 @@ class ModuleDependencyGraphTests: XCTestCase {
 
   func testLoadPassesWithFingerprint() {
     let graph = ModuleDependencyGraph(mock: de)
-    _ = graph.getInvalidatedNodesForSimulatedLoad(
+    _ = graph.getDirectlyInvalidatedNodesForSimulatedLoad(
       0,
       [MockDependencyKind.nominal: ["A@1"]])
   }
@@ -952,7 +952,7 @@ extension ModuleDependencyGraph {
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false)
   {
-    _ = getInvalidatedNodesForSimulatedLoad(
+    _ = getDirectlyInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex, dependencyDescriptions,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
@@ -966,19 +966,19 @@ extension ModuleDependencyGraph {
                       hadCompilationError: Bool = false)
   -> [Int]
   {
-    let invalidatedNodes = getInvalidatedNodesForSimulatedLoad(
+    let directlyIinvalidatedNodes = getDirectlyInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
 
-    return collectSwiftDepsUsingTransitivelyInvalidated(nodes: invalidatedNodes)
+    return collectSwiftDepsUsingTransitivelyInvalidated(nodes: directlyIinvalidatedNodes)
       .map { $0.mockID }
   }
 
 
-  func getInvalidatedNodesForSimulatedLoad(
+  func getDirectlyInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
     _ interfaceHashIfPresent: String? = nil,
@@ -1001,7 +1001,7 @@ extension ModuleDependencyGraph {
 
     let results = Integrator.integrate(from: sfdg, into: self)
 
-    return results.allInvalidatedNodes
+    return results.allDirectlyInvalidatedNodes
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {

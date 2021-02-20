@@ -106,10 +106,10 @@ extension ModuleDependencyGraph {
 
 // MARK: - Getting a graph read from priors ready to use
 extension ModuleDependencyGraph {
-  func collectNodesInvalidatedByChangedOrAddedExternals() -> Set<Node> {
+  func collectNodesDirectlyInvalidatedByChangedOrAddedExternals() -> Set<Node> {
     fingerprintedExternalDependencies.reduce(into: Set()) { invalidatedNodes, fed in
       invalidatedNodes.formUnion (
-        self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed))
+        self.collectNodesDirectlyInvalidatedByProcessing(fingerprintedExternalDependency: fed))
     }
   }
 }
@@ -252,18 +252,18 @@ extension ModuleDependencyGraph {
     /// If reading for the first time, the driver is compiling all outdated source files anyway, so only
     /// nodes invalidated by external dependencies matter.
     /// But when updating, all invalidations matter.
-    let invalidatedNodes = phase.isUpdating
-      ? results.allInvalidatedNodes
-      : results.nodesInvalidatedByUsingSomeExternal
+    let directlyInvalidatedNodes = phase.isUpdating
+      ? results.allDirectlyInvalidatedNodes
+      : results.nodesDirectlyInvalidatedByUsingSomeExternal
 
-    return collectInputsUsingTransitivelyInvalidated(nodes: invalidatedNodes)
+    return collectInputsUsingTransitivelyInvalidated(nodes: directlyInvalidatedNodes)
   }
 
   /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
   func collectInputsUsingTransitivelyInvalidated(
-    nodes invalidatedNodes: Set<Node>
+    nodes directlyInvalidatedNodes: Set<Node>
   ) -> Set<TypedVirtualPath> {
-    collectSwiftDepsUsingTransitivelyInvalidated(nodes: invalidatedNodes)
+    collectSwiftDepsUsingTransitivelyInvalidated(nodes: directlyInvalidatedNodes)
       .reduce(into: Set()) { invalidatedInputs, invalidatedSwiftDeps in
         invalidatedInputs.insert(getInput(for: invalidatedSwiftDeps))
       }
@@ -276,7 +276,8 @@ extension ModuleDependencyGraph {
   /// Process a possibly-fingerprinted external dependency by reading and integrating, if applicable.
   /// Return the nodes thus invalidated.
   /// But always integrate, in order to detect future changes.
-  func collectNodesInvalidatedByProcessing(
+  /// This function does not to the transitive closure; that is left to the callers
+  func collectNodesDirectlyInvalidatedByProcessing(
     fingerprintedExternalDependency fed: FingerprintedExternalDependency)
   -> Set<Node> {
 
@@ -291,16 +292,28 @@ extension ModuleDependencyGraph {
     let shouldTryToProcess = info.isCrossModuleIncrementalBuildEnabled &&
       (isNewToTheGraph || lazyModTimer.hasExternalFileChanged)
 
-    let invalidatedNodesFromIncrementalExternal = shouldTryToProcess
-      ? collectNodesInvalidatedByAttemptingToProcess(fed, info)
+    // Do this no matter what in order to integrate any incremental external dependencies.
+    let directlyInvalidatedNodesFromIncrementalExternal = shouldTryToProcess
+      ? collectNodesDirectlyInvalidatedByAttemptingToProcess(fed, info)
       : nil
 
-    let callerWantsTheseChanges = (phase.isUpdating && isNewToTheGraph) ||
+    if phase == .buildingAfterEachCompilation {
+      // going to compile every input anyway, less work for callers
+      return Set()
+    }
+
+    /// When building a graph from scratch, an unchanged but new-to-the-graph external dependendcy should be ignored.
+    /// Otherwise, it represents an added Import
+    let callerWantsTheseChanges = (phase != .buildingWithoutAPrior && isNewToTheGraph) ||
       lazyModTimer.hasExternalFileChanged
 
-    return !callerWantsTheseChanges
-      ? Set<Node>()
-      : invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesDirectlyUsing(fed)
+    guard callerWantsTheseChanges else {
+      return Set()
+    }
+
+    // If there was an error integrating the external dependency, or if it was not an incremental one,
+    // return anything that uses that dependency.
+    return directlyInvalidatedNodesFromIncrementalExternal ?? collectUntracedNodesDirectlyUsing(fed)
   }
   
   private struct LazyModTimer {
@@ -311,7 +324,9 @@ extension ModuleDependencyGraph {
       >= info.buildTime
   }
 
-  private func collectNodesInvalidatedByAttemptingToProcess(
+  /// Try to read and integrate an external dependency.
+  /// Return nil if it's not incremental, or if an error occurs.
+  private func collectNodesDirectlyInvalidatedByAttemptingToProcess(
     _ fed: FingerprintedExternalDependency,
     _ info: IncrementalCompilationState.InitialStateComputer) -> Set<Node>? {
     fed.incrementalDependencySource?
@@ -319,7 +334,7 @@ extension ModuleDependencyGraph {
       .map { unserializedDepGraph in
         info.reporter?.report("Integrating changes from: \(fed.externalDependency)")
         return Integrator.integrate(from: unserializedDepGraph, into: self)
-          .allInvalidatedNodes
+          .allDirectlyInvalidatedNodes
       }
   }
 
