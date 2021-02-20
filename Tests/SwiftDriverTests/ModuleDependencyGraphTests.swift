@@ -810,6 +810,36 @@ class ModuleDependencyGraphTests: XCTestCase {
     }
   }
 
+  func testUseFingerprintsPingPong2() {
+    let graph = ModuleDependencyGraph(mock: de)
+    // Because of the cross-type dependency, A->B,
+    // when A changes, only B is dirtied in 1.
+
+    graph.simulateLoad(0, [.nominal: ["A@1", "C@3"]])
+    graph.simulateLoad(1, [.nominal: ["B", "A->B"]])
+    graph.simulateLoad(2, [.nominal: ["D", "C->D"]])
+    graph.ensureIsSerializable()
+
+    do {
+      let swiftDeps = graph.simulateReload(0, [.nominal: ["A@2"]]).sorted()
+      XCTAssertEqual(swiftDeps, [0, 1, 2])
+      graph.ensureIsSerializable()
+    }
+
+    do {
+      // In the real world, we would have a graph with untraced nodes from the
+      // priors, remembering the fingerprints from before.
+      graph.setUntraced()
+      // When the driver integrates a node that preexists but has a new fingerprint
+      // it must change that fingerprint in the node in the graph.
+      // If it does not, and subsequently integrates the old fingerprint,
+      // the change will be missed.
+      let swiftDeps = graph.simulateReload(0, [.nominal: ["A@1"]]).sorted()
+      XCTAssertEqual(swiftDeps, [0, 1])
+      graph.ensureIsSerializable()
+    }
+  }
+
   func testCrossTypeDependencyBaseline() {
     let graph = ModuleDependencyGraph(mock: de)
     graph.simulateLoad(0, [.nominal: ["A"]])
