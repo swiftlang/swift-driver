@@ -182,9 +182,6 @@ extension Diagnostic.Message {
         "output file map has no master dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
     )
   }
-  fileprivate static func remark_disabling_incremental_build(because why: String) -> Diagnostic.Message {
-    return .remark("Disabling incremental build: \(why)")
-  }
 
   static let remarkDisabled = Diagnostic.Message.remark_incremental_compilation_has_been_disabled
 
@@ -201,13 +198,6 @@ extension Diagnostic.Message {
   }
 }
 
-
-// MARK: - Scheduling the first wave, i.e. the mandatory pre- and compile jobs
-
-extension IncrementalCompilationState {
-
-
-}
 
 // MARK: - Scheduling the 2nd wave
 extension IncrementalCompilationState {
