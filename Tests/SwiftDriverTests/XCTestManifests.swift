@@ -7,7 +7,7 @@ extension AssertDiagnosticsTests {
     // to regenerate.
     static let __allTests__AssertDiagnosticsTests = [
         ("testAssertDiagnostics", testAssertDiagnostics),
-        ("testAssertDriverDiagosotics", testAssertDriverDiagosotics),
+        ("testAssertDriverDiagnostics", testAssertDriverDiagnostics),
         ("testAssertNoDiagnostics", testAssertNoDiagnostics),
     ]
 }

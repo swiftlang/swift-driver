@@ -229,5 +229,3 @@ extension DarwinToolchain {
   }
 
 }
-
-// TODO: Implement `addArgsToLinkStdlib` for `WindowsToolchain`.

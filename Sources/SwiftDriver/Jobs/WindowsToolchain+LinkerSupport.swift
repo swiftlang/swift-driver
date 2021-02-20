@@ -172,7 +172,7 @@ extension WindowsToolchain {
         }
       }
 
-      // Run clang++ in verbose mode if "-v" is set
+      // Run clang in verbose mode if "-v" is set
       try commandLine.appendLast(.v, from: &parsedOptions)
 
       // These custom arguments should be right before the object file at the

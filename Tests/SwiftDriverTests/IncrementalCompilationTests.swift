@@ -314,7 +314,11 @@ final class NonincrementalCompilationTests: XCTestCase {
 
 final class IncrementalCompilationTests: XCTestCase {
 
+#if os(Windows)
+  var tempDir: AbsolutePath = AbsolutePath(ProcessEnv.vars["TEMP"]!)
+#else
   var tempDir: AbsolutePath = AbsolutePath("/tmp")
+#endif
 
   let module = "theModule"
   var OFM: AbsolutePath {
