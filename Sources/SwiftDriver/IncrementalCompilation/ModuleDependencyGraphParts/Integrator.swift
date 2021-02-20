@@ -23,17 +23,6 @@ extension ModuleDependencyGraph {
     // Shorthands
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
-    /*@_spi(Testing)*/
-    public struct Results {
-      var allInvalidatedNodes = Set<Node>()
-      var nodesInvalidatedByUsingSomeExternal = Set<Node>()
-
-      mutating func addNodesInvalidatedByUsingSomeExternal(_ invalidated: Set<Node>)
-      {
-        allInvalidatedNodes.formUnion(invalidated)
-        nodesInvalidatedByUsingSomeExternal.formUnion(invalidated)
-      }
-    }
     public private(set) var results = Results()
 
     /// the graph to be integrated
@@ -59,6 +48,10 @@ extension ModuleDependencyGraph {
       self.disappearedNodes = destination.nodeFinder
         .findNodes(for: sourceGraph.dependencySource)
         ?? [:]
+    }
+    
+    var reporter: IncrementalCompilationState.Reporter? {
+      destination.info.reporter
     }
   }
 }
@@ -97,7 +90,7 @@ extension ModuleDependencyGraph.Integrator {
   }
   private mutating func handleDisappearedNodes() {
     for (_, node) in disappearedNodes {
-      results.allInvalidatedNodes.insert(node)
+      results.addDisappeared(node)
       destination.nodeFinder.remove(node)
     }
   }
@@ -136,7 +129,8 @@ extension ModuleDependencyGraph.Integrator {
     disappearedNodes.removeValue(forKey: matchHere.key)
     if matchHere.fingerprint != integrand.fingerprint {
       matchHere.setFingerprint(integrand.fingerprint)
-      results.allInvalidatedNodes.insert(matchHere)
+      results.addChanged(matchHere)
+      reporter?.report("Fingerprint changed for \(matchHere)")
     }
     return matchHere
   }
@@ -156,7 +150,10 @@ extension ModuleDependencyGraph.Integrator {
       .replace(expat,
                newDependencySource: sourceGraph.dependencySource,
                newFingerprint: integrand.fingerprint)
-    results.allInvalidatedNodes.insert(integratedNode)
+    if destination.phase.isUpdating {
+      reporter?.report("Discovered a definition for \(integratedNode)")
+    }
+    results.addPatriated(integratedNode)
     return integratedNode
   }
 
@@ -171,7 +168,10 @@ extension ModuleDependencyGraph.Integrator {
       dependencySource: sourceGraph.dependencySource)
     let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
-    results.allInvalidatedNodes.insert(newNode)
+    if destination.phase.isUpdating {
+      reporter?.report("New definition: \(newNode)")
+    }
+    results.addNew(newNode)
     return newNode
   }
 
@@ -211,6 +211,34 @@ extension ModuleDependencyGraph.Integrator {
   }
 }
 
+// MARK: - Results {
+extension ModuleDependencyGraph.Integrator {
+  /*@_spi(Testing)*/
+  public struct Results {
+    typealias Node = ModuleDependencyGraph.Node
+
+    private(set) var allInvalidatedNodes = Set<Node>()
+    private(set) var nodesInvalidatedByUsingSomeExternal = Set<Node>()
+
+    mutating func addNodesInvalidatedByUsingSomeExternal(_ invalidated: Set<Node>)
+    {
+      allInvalidatedNodes.formUnion(invalidated)
+      nodesInvalidatedByUsingSomeExternal.formUnion(invalidated)
+    }
+    mutating func addDisappeared(_ node: Node) {
+      allInvalidatedNodes.insert(node)
+    }
+    mutating func addChanged(_ node: Node) {
+      allInvalidatedNodes.insert(node)
+    }
+    mutating func addPatriated(_ node: Node) {
+      allInvalidatedNodes.insert(node)
+    }
+    mutating func addNew(_ node: Node) {
+      allInvalidatedNodes.insert(node)
+    }
+  }
+}
 
 // MARK: - verification
 extension ModuleDependencyGraph.Integrator {
