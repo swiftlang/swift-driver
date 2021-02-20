@@ -22,7 +22,11 @@ import TSCBasic
 
   /*@_spi(Testing)*/ public init(_ fileName: String)
   throws {
-    self.file = try VirtualPath(path: fileName)
+    self.init(try VirtualPath(path: fileName))
+  }
+
+  init(_ file: VirtualPath) {
+    self.file = file
     self.isSwiftModule = file.extension == FileType.swiftModule.rawValue
   }
 
@@ -35,7 +39,13 @@ import TSCBasic
   }
 
   public var description: String {
-    file.name
+    switch file.extension {
+    case FileType.swiftModule.rawValue:
+      // Swift modules have an extra component at the end that is not descriptive
+      return file.parentDirectory.basename
+    default:
+      return file.basename
+    }
   }
 
   public var shortDescription: String {

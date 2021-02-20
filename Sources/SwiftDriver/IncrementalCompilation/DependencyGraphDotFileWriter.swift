@@ -66,7 +66,7 @@ fileprivate protocol ExportableGraph {
 
 extension SourceFileDependencyGraph: ExportableGraph {
    fileprivate var graphID: String {
-    return try! VirtualPath(path: sourceFileName ?? "anonymous").basename
+    return try! VirtualPath(path: sourceFileName).basename
   }
   fileprivate func forEachExportableNode<Node: ExportableNode>(_ visit: (Node) -> Void) {
     forEachNode { visit($0 as! Node) }
