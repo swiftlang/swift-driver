@@ -102,7 +102,7 @@ public enum Tool: Hashable {
 
 extension Toolchain {
   public var searchPaths: [AbsolutePath] {
-    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
+    getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: fileSystem.currentWorkingDirectory)
   }
 
   /// Returns the `executablePath`'s directory.
