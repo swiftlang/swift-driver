@@ -31,20 +31,15 @@ extension ModuleDependencyGraph {
     /// the graph to be integrated into
     let destination: ModuleDependencyGraph
 
-    /// The graph already includes externalDeps from prior compilations
-    let includeAddedExternals: Bool
-
     /// Starts with all nodes in dependencySource. Nodes that persist will be removed.
     /// After integration is complete, contains the nodes that have disappeared.
     var disappearedNodes = [DependencyKey: Graph.Node]()
 
     init(sourceGraph: SourceFileDependencyGraph,
-         destination: ModuleDependencyGraph,
-         includeAddedExternals: Bool)
+         destination: ModuleDependencyGraph)
     {
       self.sourceGraph = sourceGraph
       self.destination = destination
-      self.includeAddedExternals = includeAddedExternals
       self.disappearedNodes = destination.nodeFinder
         .findNodes(for: sourceGraph.dependencySource)
         ?? [:]
@@ -64,12 +59,9 @@ extension ModuleDependencyGraph.Integrator {
   /// Common to scheduling both waves.
   /*@_spi(Testing)*/ public static func integrate(
     from g: SourceFileDependencyGraph,
-    into destination: Graph,
-    includeAddedExternals: Bool
+    into destination: Graph
   ) -> Results {
-    var integrator = Self(sourceGraph: g,
-                          destination: destination,
-                          includeAddedExternals: includeAddedExternals)
+    var integrator = Self(sourceGraph: g, destination: destination)
     integrator.integrate()
 
     if destination.info.verifyDependencyGraphAfterEveryImport {
@@ -205,8 +197,7 @@ extension ModuleDependencyGraph.Integrator {
     moduleFileGraphUseNode moduleUseNode: Graph.Node) {
 
     let invalidated = destination.collectNodesInvalidatedByProcessing(
-      fingerprintedExternalDependency: fingerprintedExternalDependency,
-      includeAddedExternals: includeAddedExternals)
+      fingerprintedExternalDependency: fingerprintedExternalDependency)
     results.addNodesInvalidatedByUsingSomeExternal(invalidated)
   }
 }

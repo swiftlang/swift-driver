@@ -754,8 +754,7 @@ class ModuleDependencyGraphTests: XCTestCase {
     let graph = ModuleDependencyGraph(mock: de)
     _ = graph.getInvalidatedNodesForSimulatedLoad(
       0,
-      [MockDependencyKind.nominal: ["A@1"]],
-      includeAddedExternals: false)
+      [MockDependencyKind.nominal: ["A@1"]])
   }
 
   func testUseFingerprints() {
@@ -955,7 +954,6 @@ extension ModuleDependencyGraph {
   {
     _ = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex, dependencyDescriptions,
-      includeAddedExternals: false,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
@@ -971,7 +969,6 @@ extension ModuleDependencyGraph {
     let invalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
-      includeAddedExternals: true,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
@@ -984,7 +981,6 @@ extension ModuleDependencyGraph {
   func getInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
-    includeAddedExternals: Bool,
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false
@@ -1003,9 +999,7 @@ extension ModuleDependencyGraph {
       interfaceHash: interfaceHash,
       dependencyDescriptions)
 
-    let results = Integrator.integrate(from: sfdg,
-                                      into: self,
-                                      includeAddedExternals: includeAddedExternals)
+    let results = Integrator.integrate(from: sfdg, into: self)
 
     return results.allInvalidatedNodes
   }

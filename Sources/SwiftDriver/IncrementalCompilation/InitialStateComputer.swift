@@ -173,8 +173,6 @@ extension IncrementalCompilationState.InitialStateComputer {
       return nil
     }
 
-    // Every external will be an addition to the graph, but may not cause
-    // a recompile, so includeAddedExternals is false.
     var inputsInvalidatedByChangedExternals = Set<TypedVirtualPath>()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs = graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: input)
