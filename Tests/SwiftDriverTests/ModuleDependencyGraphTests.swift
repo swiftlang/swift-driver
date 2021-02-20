@@ -966,6 +966,7 @@ extension ModuleDependencyGraph {
                       hadCompilationError: Bool = false)
   -> [Int]
   {
+    phase = .updatingAfterCompilation
     let directlyIinvalidatedNodes = getDirectlyInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
@@ -999,9 +1000,7 @@ extension ModuleDependencyGraph {
       interfaceHash: interfaceHash,
       dependencyDescriptions)
 
-    let results = Integrator.integrate(from: sfdg, into: self)
-
-    return results.all
+    return Integrator.integrate(from: sfdg, into: self)
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {

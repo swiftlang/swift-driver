@@ -248,6 +248,7 @@ extension ModuleDependencyGraph {
   private func collectInputsRequiringCompilationAfterProcessing(
     dependencySource: DependencySource
   ) -> Set<TypedVirtualPath>? {
+    assert(dependencySource.typedFile.type == .swiftDeps)
     guard let sourceGraph = dependencySource.read(in: info.fileSystem,
                                                   reporter: info.reporter)
     else {
@@ -257,15 +258,7 @@ extension ModuleDependencyGraph {
           because: "malformed dependencies file '\(dependencySource.typedFile)'"))
       return nil
     }
-    let results = Integrator.integrate(from: sourceGraph, into: self)
-
-    /// If reading for the first time, the driver is compiling all outdated source files anyway, so only
-    /// nodes invalidated by external dependencies matter.
-    /// But when updating, all invalidations matter.
-    let invalidatedNodes = phase.isUpdating
-      ? results.all
-      : results.usesOfSomeExternal
-
+    let invalidatedNodes = Integrator.integrate(from: sourceGraph, into: self)
     return collectInputsUsingTransitivelyInvalidated(nodes: invalidatedNodes)
   }
 
@@ -344,10 +337,8 @@ extension ModuleDependencyGraph {
       .map { unserializedDepGraph in
         info.reporter?.report("Integrating changes from: \(fed.externalDependency)")
         return Integrator.integrate(from: unserializedDepGraph, into: self)
-          .all
       }
   }
-
 }
 
 extension OutputFileMap {
