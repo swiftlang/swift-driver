@@ -167,7 +167,7 @@ extension IncrementalCompilationState.InitialStateComputer {
   private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals(
   ) -> (ModuleDependencyGraph, Set<TypedVirtualPath>)?
   {
-    let graph = ModuleDependencyGraph(self)
+    let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
     assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
     guard graph.populateInputDependencySourceMap() else {
       return nil
@@ -215,9 +215,13 @@ extension IncrementalCompilationState.InitialStateComputer {
         batchJobFormer.formBatchedJobs(
           mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
           showJobLifecycle: showJobLifecycle)
+
+      moduleDependencyGraph.phase = .buildingAfterEachCompilation
       return (skippedCompileGroups: [:],
               mandatoryJobsInOrder: mandatoryJobsInOrder)
     }
+    moduleDependencyGraph.phase = .updatingAfterCompilation
+
 
     let skippedInputs = computeSkippedCompilationInputs(
       inputsInvalidatedByExternals: inputsInvalidatedByExternals,

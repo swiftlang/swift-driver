@@ -35,12 +35,16 @@ import SwiftOptions
   /// For debugging, something to write out files for visualizing graphs
   let dotFileWriter: DependencyGraphDotFileWriter?
 
-  public init(_ info: IncrementalCompilationState.InitialStateComputer
+  var phase: Phase
+
+  public init(_ info: IncrementalCompilationState.InitialStateComputer,
+              _ phase: Phase
   ) {
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
     ? DependencyGraphDotFileWriter(info)
     : nil
+    self.phase = phase
   }
 
   private func addMapEntry(_ input: TypedVirtualPath, _ dependencySource: DependencySource) {
@@ -62,6 +66,25 @@ import SwiftOptions
       fatalError("\(source.file) not found in map: \(inputDependencySourceMap)")
     }
     return input
+  }
+}
+
+extension ModuleDependencyGraph {
+  public enum Phase {
+    case
+    buildingWithoutAPrior,
+    updatingFromAPrior,
+    updatingAfterCompilation,
+    buildingAfterEachCompilation
+
+    var isUpdating: Bool {
+      switch self {
+      case .buildingWithoutAPrior, .buildingAfterEachCompilation:
+        return false
+      case .updatingAfterCompilation, .updatingFromAPrior:
+        return true
+      }
+    }
   }
 }
 
@@ -462,7 +485,7 @@ extension ModuleDependencyGraph {
 
       init(_ info: IncrementalCompilationState.InitialStateComputer) {
         self.fileSystem = info.fileSystem
-        self.graph = ModuleDependencyGraph(info)
+        self.graph = ModuleDependencyGraph(info, .updatingFromAPrior)
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
