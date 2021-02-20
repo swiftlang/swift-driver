@@ -76,7 +76,7 @@ extension ModuleDependencyGraph.Integrator {
     integrateEachSourceNode()
     handleDisappearedNodes()
     // Ensure transitive closure will get started.
-    destination.ensureGraphWillRetrace(results.allDirectlyInvalidatedNodes)
+    destination.ensureGraphWillRetrace(results.all)
   }
   private mutating func integrateEachSourceNode() {
     sourceGraph.forEachNode { integrate(oneNode: $0) }
@@ -197,9 +197,9 @@ extension ModuleDependencyGraph.Integrator {
     externalDependency fingerprintedExternalDependency: FingerprintedExternalDependency,
     moduleFileGraphUseNode moduleUseNode: Graph.Node) {
 
-    let invalidated = destination.collectNodesDirectlyInvalidatedByProcessing(
+    let invalidated = destination.collectNodesInvalidatedByProcessing(
       fingerprintedExternalDependency: fingerprintedExternalDependency)
-    results.addNodesDirectlyInvalidatedByUsingSomeExternal(invalidated)
+    results.addUsesOfSomeExternal(invalidated)
   }
 }
 
@@ -209,25 +209,25 @@ extension ModuleDependencyGraph.Integrator {
   public struct Results {
     typealias Node = ModuleDependencyGraph.Node
 
-    private(set) var allDirectlyInvalidatedNodes = Set<Node>()
-    private(set) var nodesDirectlyInvalidatedByUsingSomeExternal = Set<Node>()
+    private(set) var all = DirectlyInvalidatedNodes()
+    private(set) var usesOfSomeExternal = DirectlyInvalidatedNodes()
 
-    mutating func addNodesDirectlyInvalidatedByUsingSomeExternal(_ invalidated: Set<Node>)
+    mutating func addUsesOfSomeExternal(_ invalidated: DirectlyInvalidatedNodes)
     {
-      allDirectlyInvalidatedNodes.formUnion(invalidated)
-      allDirectlyInvalidatedNodes.formUnion(invalidated)
+      all.formUnion(invalidated)
+      usesOfSomeExternal.formUnion(invalidated)
     }
     mutating func addDisappeared(_ node: Node) {
-      allDirectlyInvalidatedNodes.insert(node)
+      all.insert(node)
     }
     mutating func addChanged(_ node: Node) {
-      allDirectlyInvalidatedNodes.insert(node)
+      all.insert(node)
     }
     mutating func addPatriated(_ node: Node) {
-      allDirectlyInvalidatedNodes.insert(node)
+      all.insert(node)
     }
     mutating func addNew(_ node: Node) {
-      allDirectlyInvalidatedNodes.insert(node)
+      all.insert(node)
     }
   }
 }

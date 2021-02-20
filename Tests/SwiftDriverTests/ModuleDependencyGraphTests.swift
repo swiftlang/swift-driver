@@ -984,7 +984,7 @@ extension ModuleDependencyGraph {
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false
-  ) -> Set<Node> {
+  ) -> DirectlyInvalidatedNodes {
     let dependencySource = DependencySource(mock: swiftDepsIndex)
     // Only needed for serialization testing:
     mockMapEntry(TypedVirtualPath.init(mockInput: swiftDepsIndex),
@@ -1001,7 +1001,7 @@ extension ModuleDependencyGraph {
 
     let results = Integrator.integrate(from: sfdg, into: self)
 
-    return results.allDirectlyInvalidatedNodes
+    return results.all
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
@@ -1015,7 +1015,7 @@ extension ModuleDependencyGraph {
     on fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in self.collectUntracedNodesDirectlyUsing(fingerprintedExternalDependency) {
+    for dependent in collectUntracedNodesUsing(fingerprintedExternalDependency).contents {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive

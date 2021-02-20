@@ -37,13 +37,11 @@ extension ModuleDependencyGraph.Tracer {
 
   /// Find all uses of `defs` that have not already been traced.
   /// (If already traced, jobs have already been scheduled.)
-  static func collectPreviouslyUntracedNodesUsing<Nodes: Sequence> (
-    defNodes: Nodes,
+  static func collectPreviouslyUntracedNodesUsing(
+    defNodes: DirectlyInvalidatedNodes,
     in graph: ModuleDependencyGraph,
     diagnosticEngine: DiagnosticsEngine
-  ) -> Self
-  where Nodes.Element == ModuleDependencyGraph.Node
-  {
+  ) -> Self {
     var tracer = Self(collectingUsesOf: defNodes,
                       in: graph,
                       diagnosticEngine: diagnosticEngine)
@@ -51,14 +49,12 @@ extension ModuleDependencyGraph.Tracer {
     return tracer
   }
 
-  private init<Nodes: Sequence>(collectingUsesOf defs: Nodes,
+  private init(collectingUsesOf defs: DirectlyInvalidatedNodes,
                in graph: ModuleDependencyGraph,
-               diagnosticEngine: DiagnosticsEngine)
-  where Nodes.Element == ModuleDependencyGraph.Node
-  {
+               diagnosticEngine: DiagnosticsEngine) {
     self.graph = graph
     // Sort so "Tracing" diagnostics are deterministically ordered
-    self.startingPoints = defs.sorted()
+    self.startingPoints = defs.contents.sorted()
     self.currentPathIfTracing = graph.info.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }

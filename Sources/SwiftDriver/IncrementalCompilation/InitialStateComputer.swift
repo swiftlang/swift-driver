@@ -152,7 +152,7 @@ extension IncrementalCompilationState.InitialStateComputer {
 
     // Any externals not already in graph must be additions which should trigger
     // recompilation. Thus, `ChangedOrAdded`.
-    let nodesDirectlyInvalidatedByExternals = graph.collectNodesDirectlyInvalidatedByChangedOrAddedExternals()
+    let nodesDirectlyInvalidatedByExternals = graph.collectNodesInvalidatedByChangedOrAddedExternals()
     // Wait till the last minute to do the transitive closure as an optimization.
     let inputsTransitivelyInvalidatedByExternals = graph.collectInputsUsingTransitivelyInvalidated(
       nodes: nodesDirectlyInvalidatedByExternals)
