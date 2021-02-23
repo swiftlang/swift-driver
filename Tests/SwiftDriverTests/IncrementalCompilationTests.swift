@@ -696,6 +696,8 @@ final class IncrementalCompilationTests: XCTestCase {
         "Forming batch job from 1 constituents: main.swift",
         "Starting Compiling main.swift",
         "Finished Compiling main.swift",
+        "Incremental compilation: Fingerprint changed for interface of source file main.swiftdeps in main.swiftdeps",
+        "Incremental compilation: Fingerprint changed for implementation of source file main.swiftdeps in main.swiftdeps",
         "Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
         "Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}",
         "Incremental compilation: Scheduling invalidated  {compile: other.o <= other.swift}",

@@ -18,10 +18,10 @@ extension ModuleDependencyGraph {
   struct Tracer {
     typealias Graph = ModuleDependencyGraph
 
-    let startingPoints: [Node]
+    let startingPoints: DirectlyInvalidatedNodeArray
     let graph: ModuleDependencyGraph
 
-    private(set) var tracedUses: [Node] = []
+    private(set) var tracedUses = TransitivelyInvalidatedNodeArray()
 
     /// Record the paths taking so that  -driver-show-incremental can explain why things are recompiled
     /// If tracing dependencies, holds a vector used to hold the current path
@@ -37,13 +37,11 @@ extension ModuleDependencyGraph.Tracer {
 
   /// Find all uses of `defs` that have not already been traced.
   /// (If already traced, jobs have already been scheduled.)
-  static func collectPreviouslyUntracedNodesUsing<Nodes: Sequence> (
-    defNodes: Nodes,
+  static func collectPreviouslyUntracedNodesUsing(
+    defNodes: DirectlyInvalidatedNodeSet,
     in graph: ModuleDependencyGraph,
     diagnosticEngine: DiagnosticsEngine
-  ) -> Self
-  where Nodes.Element == ModuleDependencyGraph.Node
-  {
+  ) -> Self {
     var tracer = Self(collectingUsesOf: defNodes,
                       in: graph,
                       diagnosticEngine: diagnosticEngine)
@@ -51,11 +49,9 @@ extension ModuleDependencyGraph.Tracer {
     return tracer
   }
 
-  private init<Nodes: Sequence>(collectingUsesOf defs: Nodes,
+  private init(collectingUsesOf defs: DirectlyInvalidatedNodeSet,
                in graph: ModuleDependencyGraph,
-               diagnosticEngine: DiagnosticsEngine)
-  where Nodes.Element == ModuleDependencyGraph.Node
-  {
+               diagnosticEngine: DiagnosticsEngine) {
     self.graph = graph
     // Sort so "Tracing" diagnostics are deterministically ordered
     self.startingPoints = defs.sorted()
