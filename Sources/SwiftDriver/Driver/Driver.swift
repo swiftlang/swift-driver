@@ -386,7 +386,7 @@ public struct Driver {
 
     // Determine the compilation mode.
     self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
-    
+
     self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(&parsedOptions,
                                                                                         diagnosticEngine: diagnosticsEngine,
                                                                                         compilerMode: compilerMode)

@@ -229,7 +229,8 @@ fileprivate struct OutputFileMapJSON: Codable {
 
   /// Converts into virtual path entries.
   func toVirtualOutputFileMap() throws -> [VirtualPath : [FileType : VirtualPath]] {
-    Dictionary(try entries.map { input, entry in
+    // Add filter here due to a bug of TSC, see swift-tools-support-core#191
+    Dictionary(try entries.filter { $0.0 != "" }.map { input, entry in
       (try VirtualPath(path: input), try entry.paths.mapValues(VirtualPath.init(path:)))
     }, uniquingKeysWith: { $1 })
   }
