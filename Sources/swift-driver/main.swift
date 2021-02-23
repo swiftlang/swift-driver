@@ -45,11 +45,7 @@ do {
   if case .subcommand(let subcommand) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.
-    #if os(Windows)
-      let filename = subcommand + ".exe"
-    #else
-      let filename = subcommand
-    #endif
+    let filename = subcommand + executableFileSuffix
     let subcommandPath = Process.findExecutable(arguments[0])?.parentDirectory.appending(component: filename)
                          ?? Process.findExecutable(filename)
 

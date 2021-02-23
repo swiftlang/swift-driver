@@ -970,7 +970,6 @@ extension ModuleDependencyGraph {
     let directlyIinvalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
-      includeAddedExternals: true,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
@@ -983,7 +982,6 @@ extension ModuleDependencyGraph {
   func getInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
-    includeAddedExternals: Bool,
     _ interfaceHashIfPresent: String? = nil,
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false
