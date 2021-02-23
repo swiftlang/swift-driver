@@ -30,7 +30,7 @@ public class IncrementalCompilationState {
 
   /// Track required jobs that haven't finished so the build record can record the corresponding
   /// input statuses.
-  private var unfinishedJobs: Set<Job>
+  private var unfinishedCompileJobs: Set<Job>
 
   /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
   private var skippedCompileGroups = [TypedVirtualPath: CompileJobGroup]()
@@ -101,7 +101,7 @@ public class IncrementalCompilationState {
 
     self.skippedCompileGroups = initial.skippedCompileGroups
     self.mandatoryJobsInOrder = initial.mandatoryJobsInOrder
-    self.unfinishedJobs = Set(self.mandatoryJobsInOrder)
+    self.unfinishedCompileJobs = Set(self.mandatoryJobsInOrder.filter{$0.kind.isCompile})
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initial.graph
     self.driver = driver
@@ -210,7 +210,7 @@ extension IncrementalCompilationState {
     job finishedJob: Job, result: ProcessResult
    ) throws -> [Job]? {
     return try confinementQueue.sync {
-      unfinishedJobs.remove(finishedJob)
+      unfinishedCompileJobs.remove(finishedJob)
 
       guard case .terminated = result.exitStatus else {
         return []
@@ -228,8 +228,8 @@ extension IncrementalCompilationState {
         }
       }
       let newJobs = try getJobs(for: invalidatedInputs)
-      unfinishedJobs.formUnion(newJobs)
-      if unfinishedJobs.isEmpty {
+      unfinishedCompileJobs.formUnion(newJobs)
+      if unfinishedCompileJobs.isEmpty {
         // no more compilations are possible
         return nil
       }
