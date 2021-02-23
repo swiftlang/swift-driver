@@ -44,6 +44,7 @@ add_library(SwiftDriver
   "IncrementalCompilation/DependencyGraphDotFileWriter.swift"
   "IncrementalCompilation/DependencyKey.swift"
   "IncrementalCompilation/DictionaryOfDictionaries.swift"
+  "IncrementalCompilation/DirectAndTransitiveCollections.swift"
   "IncrementalCompilation/ExternalDependencyAndFingerprintEnforcer.swift"
   "IncrementalCompilation/IncrementalCompilationState.swift"
   "IncrementalCompilation/InitialStateComputer.swift"

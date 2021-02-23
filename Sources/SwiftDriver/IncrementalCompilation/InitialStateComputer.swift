@@ -116,7 +116,7 @@ extension IncrementalCompilationState.InitialStateComputer {
   /// For inputs with swiftDeps in OFM, but no readable file, puts input in graph map, but no nodes in graph:
   ///   caller must ensure scheduling of those
   private func computeGraphAndInputsInvalidatedByExternals()
-  -> (ModuleDependencyGraph, Set<TypedVirtualPath>)? {
+  -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)? {
     precondition(sourceFiles.disappeared.isEmpty,
                  "Would have to remove nodes from the graph if reading prior")
     if readPriorsFromModuleDependencyGraph {
@@ -128,7 +128,7 @@ extension IncrementalCompilationState.InitialStateComputer {
   }
 
   private func readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals(
-  ) -> (ModuleDependencyGraph, Set<TypedVirtualPath>)?
+  ) -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
   {
     let dependencyGraphPath = buildRecordInfo.dependencyGraphPath
     let graphIfPresent: ModuleDependencyGraph?
@@ -152,8 +152,10 @@ extension IncrementalCompilationState.InitialStateComputer {
 
     // Any externals not already in graph must be additions which should trigger
     // recompilation. Thus, `ChangedOrAdded`.
-    let nodesInvalidatedByExternals = graph.collectNodesInvalidatedByChangedOrAddedExternals()
-    let inputsInvalidatedByExternals = graph.collectInputsUsingTransitivelyInvalidated(nodes: nodesInvalidatedByExternals)
+    let nodesDirectlyInvalidatedByExternals = graph.collectNodesInvalidatedByChangedOrAddedExternals()
+    // Wait till the last minute to do the transitive closure as an optimization.
+    let inputsInvalidatedByExternals = graph.collectInputsUsingInvalidated(
+      nodes: nodesDirectlyInvalidatedByExternals)
     return (graph, inputsInvalidatedByExternals)
   }
 
@@ -165,17 +167,15 @@ extension IncrementalCompilationState.InitialStateComputer {
   /// For externalDependencies, puts then in graph.fingerprintedExternalDependencies, but otherwise
   /// does nothing special.
   private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals(
-  ) -> (ModuleDependencyGraph, Set<TypedVirtualPath>)?
+  ) -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
   {
-    let graph = ModuleDependencyGraph(self)
+    let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
     assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
     guard graph.populateInputDependencySourceMap() else {
       return nil
     }
 
-    // Every external will be an addition to the graph, but may not cause
-    // a recompile, so includeAddedExternals is false.
-    var inputsInvalidatedByChangedExternals = Set<TypedVirtualPath>()
+    var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedInputSet()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs = graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: input)
       else {
@@ -195,7 +195,7 @@ extension IncrementalCompilationState.InitialStateComputer {
   /// listed in fingerprintExternalDependencies.
   private func computeInputsAndGroups(
     _ moduleDependencyGraph: ModuleDependencyGraph,
-    _ inputsInvalidatedByExternals: Set<TypedVirtualPath>,
+    _ inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet,
     batchJobFormer: inout Driver
   ) throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
                mandatoryJobsInOrder: [Job])
@@ -215,9 +215,13 @@ extension IncrementalCompilationState.InitialStateComputer {
         batchJobFormer.formBatchedJobs(
           mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
           showJobLifecycle: showJobLifecycle)
+
+      moduleDependencyGraph.phase = .buildingAfterEachCompilation
       return (skippedCompileGroups: [:],
               mandatoryJobsInOrder: mandatoryJobsInOrder)
     }
+    moduleDependencyGraph.phase = .updatingAfterCompilation
+
 
     let skippedInputs = computeSkippedCompilationInputs(
       inputsInvalidatedByExternals: inputsInvalidatedByExternals,
@@ -245,7 +249,7 @@ extension IncrementalCompilationState.InitialStateComputer {
 
   /// Figure out which compilation inputs are *not* mandatory
   private func computeSkippedCompilationInputs(
-    inputsInvalidatedByExternals: Set<TypedVirtualPath>,
+    inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet,
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ buildRecord: BuildRecord
   ) -> Set<TypedVirtualPath> {
@@ -281,7 +285,7 @@ extension IncrementalCompilationState.InitialStateComputer {
     // as each first wave job finished.
     let speculativeInputs = collectInputsToBeSpeculativelyRecompiled(
       changedInputs: changedInputs,
-      externalDependents: Array(inputsInvalidatedByExternals),
+      externalDependents: inputsInvalidatedByExternals,
       inputsMissingOutputs: Set(inputsMissingOutputs),
       moduleDependencyGraph)
       .subtracting(definitelyRequiredInputs)
@@ -367,28 +371,28 @@ extension IncrementalCompilationState.InitialStateComputer {
   /// before the whole frontend job finished.
   private func collectInputsToBeSpeculativelyRecompiled(
     changedInputs: [ChangedInput],
-    externalDependents: [TypedVirtualPath],
+    externalDependents: TransitivelyInvalidatedInputSet,
     inputsMissingOutputs: Set<TypedVirtualPath>,
     _ moduleDependencyGraph: ModuleDependencyGraph
   ) -> Set<TypedVirtualPath> {
     let cascadingChangedInputs = computeCascadingChangedInputs(
       from: changedInputs,
       inputsMissingOutputs: inputsMissingOutputs)
-    let cascadingExternalDependents = alwaysRebuildDependents ? externalDependents : []
-    // Collect the dependent files to speculatively schedule
-    var dependentFiles = Set<TypedVirtualPath>()
-    let cascadingFileSet = Set(cascadingChangedInputs).union(cascadingExternalDependents)
-    for cascadingFile in cascadingFileSet {
-      let dependentsOfOneFile = moduleDependencyGraph
-        .collectInputsTransitivelyInvalidatedBy(input: cascadingFile)
-      for dep in dependentsOfOneFile where !cascadingFileSet.contains(dep) {
-        if dependentFiles.insert(dep).0 {
+
+    var inputsToBeCertainlyRecompiled = alwaysRebuildDependents ? externalDependents : TransitivelyInvalidatedInputSet()
+    inputsToBeCertainlyRecompiled.formUnion(cascadingChangedInputs)
+
+    return inputsToBeCertainlyRecompiled.reduce(into: Set()) {
+      speculativelyRecompiledInputs, certainlyRecompiledInput in
+      let speculativeDependents = moduleDependencyGraph.collectInputsInvalidatedBy(input: certainlyRecompiledInput)
+      for speculativeDependent in speculativeDependents
+      where !inputsToBeCertainlyRecompiled.contains(speculativeDependent) {
+        if speculativelyRecompiledInputs.insert(speculativeDependent).inserted {
           reporter?.report(
-            "Immediately scheduling dependent on \(cascadingFile.file.basename)", dep)
+            "Immediately scheduling dependent on \(certainlyRecompiledInput.file.basename)", speculativeDependent)
         }
       }
     }
-    return dependentFiles
   }
 
   // Collect the files that will be compiled whose dependents should be schedule
