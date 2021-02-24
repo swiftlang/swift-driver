@@ -117,6 +117,8 @@ extension NonincrementalCompilationTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     #if os(Windows)
+    // FIXME: There's some frustrating bug with Yams' date decoding, disable tests on Windows
+    // to prevent unexpected crashes.
     static let __allTests__NonincrementalCompilationTests: [(String, (XCTestCase) -> () -> Void)] = []
     #else
     static let __allTests__NonincrementalCompilationTests = [

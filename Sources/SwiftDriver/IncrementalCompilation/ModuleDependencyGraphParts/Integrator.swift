@@ -234,7 +234,6 @@ extension ModuleDependencyGraph.Integrator {
   }
 }
 
-
 // MARK: - verification
 extension ModuleDependencyGraph.Integrator {
   @discardableResult

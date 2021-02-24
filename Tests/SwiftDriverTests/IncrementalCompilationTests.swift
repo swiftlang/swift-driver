@@ -91,7 +91,7 @@ final class NonincrementalCompilationTests: XCTestCase {
                         VirtualPath(path: "/Volumes/gazorp.swift"):
                           InputInfo(status: .needsNonCascadingBuild,
                                     previousModTime:  Date(legacyDriverSecsAndNanos: [0, 0]))
-                      ])
+                       ])
   #endif
   }
 
