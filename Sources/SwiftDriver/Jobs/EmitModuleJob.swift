@@ -76,6 +76,10 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
+    if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
+      commandLine.appendFlag(.parseAsLibrary)
+    }
+
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputPath)
 

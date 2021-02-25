@@ -1817,6 +1817,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-parse-as-library")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
