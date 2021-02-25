@@ -1817,6 +1817,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-parse-as-library")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
@@ -1834,6 +1835,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
+    }
+
+    do {
+      // Leave it to the whole-module job emit the swiftmodule even with the
+      // -experimental-emit-module-separately flag, basically ignoring it.
+      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swift", "-whole-module-optimization", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
     }
   }
 
