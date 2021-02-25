@@ -191,6 +191,8 @@ def handle_invocation(args):
     test_args += ['-Xswiftc', '-enable-testing']
     if should_test_parallel():
       test_args += ['--parallel']
+    # The test suite consults these variables to control what tests get run
+    env['SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS'] = "1"
     swiftpm('test', swift_exec, test_args, env)
   elif args.action == 'install':
     if platform.system() == 'Darwin':
