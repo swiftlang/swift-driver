@@ -1836,6 +1836,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
     }
+
+    do {
+      // Leave it to the whole-module job emit the swiftmodule even with the
+      // -experimental-emit-module-separately flag, basically ignoring it.
+      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swift", "-whole-module-optimization", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+    }
   }
 
   func testModuleWrapJob() throws {

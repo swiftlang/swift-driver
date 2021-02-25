@@ -96,7 +96,18 @@ extension Driver {
 
   /// Returns true if the emit module job should be created.
   var shouldCreateEmitModuleJob: Bool {
-    return forceEmitModuleBeforeCompile
-      || parsedOptions.hasArgument(.emitModuleSeparately)
+    mutating get {
+      return moduleOutputInfo.output != nil
+        && (forceEmitModuleBeforeCompile
+            || shouldEmitModuleSeparately())
+    }
+  }
+
+  /// Returns true if the -emit-module-separately is active.
+  mutating func shouldEmitModuleSeparately() -> Bool {
+    return parsedOptions.hasArgument(.emitModuleSeparately)
+           && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
+                                     negative: .noWholeModuleOptimization,
+                                     default: false)
   }
 }
