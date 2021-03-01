@@ -64,6 +64,9 @@ public final class MultiJobExecutor {
     /// Queue for executor delegate.
     let delegateQueue: DispatchQueue = DispatchQueue(label: "org.swift.driver.job-executor-delegate")
 
+    /// Create a dispatch group so we can wait on these tasks to be finished.
+    let delegateGroup: DispatchGroup = DispatchGroup()
+
     /// Operation queue for executing tasks in parallel.
     let jobQueue: OperationQueue
 
@@ -128,9 +131,14 @@ public final class MultiJobExecutor {
       self.processType = processType
     }
 
+    fileprivate func async(execute work: @escaping @convention(block)() -> Void) -> Void {
+      delegateQueue.async(group: delegateGroup, execute: work)
+    }
+
     deinit {
       // break a potential cycle
       executeAllJobsTaskBuildEngine = nil
+      delegateGroup.wait()
     }
 
     private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
@@ -523,7 +531,7 @@ class ExecuteJobRule: LLBuildRule {
       }
 
       // Inform the delegate.
-      context.delegateQueue.async {
+      context.async {
         context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
         knownPId.insert(pid)
       }
@@ -545,7 +553,7 @@ class ExecuteJobRule: LLBuildRule {
       }
 
       // Inform the delegate about job finishing.
-      context.delegateQueue.async {
+      context.async {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
       context.cancelBuildIfNeeded(result)
@@ -554,13 +562,15 @@ class ExecuteJobRule: LLBuildRule {
       }
       value = .jobExecution(success: success)
     } catch {
-      if error is DiagnosticData {
-        context.diagnosticsEngine.emit(error)
+      context.async {
+        if error is DiagnosticData {
+          context.diagnosticsEngine.emit(error)
+        }
       }
       // Only inform finished job if the job has been started, otherwise the build
       // system may complain about malformed output
       if (knownPId.contains(pid)) {
-        context.delegateQueue.async {
+        context.async {
           let result = ProcessResult(
             arguments: [],
             environment: env,
