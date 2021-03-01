@@ -116,19 +116,27 @@ final class IntegrationTests: IntegrationTestCase {
   // they will fail.
 
   func testLitDriverTests() throws {
-    try runLitTests(suite: "test", "Driver")
+    throw XCTSkip("Not all Driver tests supported")
+    // try runLitTests(suite: "test", "Driver")
+  }
+
+  func testLitDriverDependenciesTests() throws {
+    try runLitTests(suite: "test", "Driver", "Dependencies")
   }
 
   func testLitDriverValidationTests() throws {
-    try runLitTests(suite: "validation-test", "Driver")
+    throw XCTSkip("Not all Driver validation-tests supported")
+    // try runLitTests(suite: "validation-test", "Driver")
   }
 
   func testLitInterpreterTests() throws {
-    try runLitTests(suite: "test", "Interpreter")
+    throw XCTSkip("Interpreter tests unsupported")
+    // try self.runLitTests(suite: "test", "Interpreter")
   }
 
   func testLitStdlibTests() throws {
-    try runLitTests(suite: "test", "stdlib")
+    throw XCTSkip("stdlib tests unsupported")
+    // try self.runLitTests(suite: "test", "stdlib")
   }
 
   func runLitTests(suite: String...) throws {
