@@ -29,16 +29,37 @@ final class SwiftDriverTests: XCTestCase {
     let options = OptionTable()
 
     XCTAssertThrowsError(try options.parse(["-unrecognized"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-unrecognized"))
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-unrecognized", closeMatch: nil))
     }
 
     // Ensure we check for an unexpected suffix on flags before checking if they are accepted by the current mode.
     XCTAssertThrowsError(try options.parse(["-c-NOT"], for: .interactive)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-c-NOT"))
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-c-NOT", closeMatch: nil))
     }
 
     XCTAssertThrowsError(try options.parse(["-module-name-NOT", "foo"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-module-name-NOT"))
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-module-name-NOT", closeMatch: "-module-name="))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-colr-diognostics", "foo"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-colr-diognostics", closeMatch: "-color-diagnostics"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-##", "foo"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-##", closeMatch: "-###"))
+    }
+
+    // Don't spellcheck short options.
+    XCTAssertThrowsError(try options.parse(["-q", "foo"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-q", closeMatch: nil))
+    }
+
+    // Don't suggest a batch option when spellchecking for interactive mode.
+    XCTAssertThrowsError(try options.parse(["-incremntal", "foo"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-incremntal", closeMatch: "-incremental"))
+    }
+    XCTAssertThrowsError(try options.parse(["-incremntal", "foo"], for: .interactive)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-incremntal", closeMatch: nil))
     }
 
     XCTAssertThrowsError(try options.parse(["-I"], for: .batch)) { error in

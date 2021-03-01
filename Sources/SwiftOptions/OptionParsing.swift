@@ -12,13 +12,16 @@
 import TSCBasic
 
 public enum OptionParseError : Error, Equatable, DiagnosticData {
-  case unknownOption(index: Int, argument: String)
+  case unknownOption(index: Int, argument: String, closeMatch: String?)
   case missingArgument(index: Int, argument: String)
   case unsupportedOption(index: Int, argument: String, option: Option, currentDriverKind: DriverKind)
 
   public var description: String {
     switch self {
-    case let .unknownOption(index: _, argument: arg):
+    case let .unknownOption(index: _, argument: arg, closeMatch: match):
+      if let match = match {
+        return "unknown argument: '\(arg)'; did you mean '\(match)'?"
+      }
       return "unknown argument: '\(arg)'"
     case let .missingArgument(index: _, argument: arg):
       return "missing argument value for '\(arg)'"
@@ -68,13 +71,26 @@ extension OptionTable {
         continue
       }
 
+      func reportUnknownOption(index: Int, argument: String) throws -> Never {
+        var match: String? = nil
+        // Don't try to spellcheck short options.
+        if argument.count > 2 {
+          let spellings = options.filter { $0.isAccepted(by: driverKind) }.map(\.spelling)
+          match = bestMatch(for: argument, from: spellings)
+        }
+        throw OptionParseError.unknownOption(
+          index: index,
+          argument: argument,
+          closeMatch: match
+        )
+      }
+
       // Match to an option, identified by key. Note that this is a prefix
       // match -- if the option is a `.flag`, we'll explicitly check to see if
       // there's an unmatched suffix at the end, and pop an error. Otherwise,
       // we'll treat the unmatched suffix as the argument to the option.
       guard let option = trie[argument] else {
-        throw OptionParseError.unknownOption(
-          index: index - 1, argument: argument)
+        try reportUnknownOption(index: index - 1, argument: argument)
       }
 
       let verifyOptionIsAcceptedByDriverKind = {
@@ -102,8 +118,7 @@ extension OptionTable {
       case .flag:
         // Make sure there was no extra text.
         if argument != option.spelling {
-          throw OptionParseError.unknownOption(
-            index: index - 1, argument: argument)
+          try reportUnknownOption(index: index - 1, argument: argument)
         }
         try verifyOptionIsAcceptedByDriverKind()
         parsedOptions.addOption(option, argument: .none)
@@ -139,8 +154,7 @@ extension OptionTable {
 
       case .separate:
         if argument != option.spelling {
-          throw OptionParseError.unknownOption(
-            index: index - 1, argument: argument)
+          try reportUnknownOption(index: index - 1, argument: argument)
         }
         try verifyOptionIsAcceptedByDriverKind()
 
