@@ -16,6 +16,21 @@ import SwiftDriver
 class BidirectionalMapTests: XCTestCase {
 
   func testTwoDMap() {
+    func test(_ biMapToTest: BidirectionalMap<Int, String>) {
+      zip(biMapToTest.map{$0}.sorted {$0.0 < $1.0}, testContents).forEach {
+        XCTAssertEqual($0.0, $1.0)
+        XCTAssertEqual($0.1, $1.1)
+      }
+      for (i, s) in testContents.map({$0}) {
+        XCTAssertEqual(biMapToTest[i], s)
+        XCTAssertEqual(biMapToTest[s], i)
+        XCTAssertTrue(biMapToTest.contains(key: i))
+        XCTAssertTrue(biMapToTest.contains(key: s))
+        XCTAssertFalse(biMapToTest.contains(key: -1))
+        XCTAssertFalse(biMapToTest.contains(key: "gazorp"))
+      }
+    }
+    
     var biMap = BidirectionalMap<Int, String>()
     var testContents = (0..<3).map {($0, String($0))}
     for (i, s) in testContents {
@@ -33,20 +48,5 @@ class BidirectionalMapTests: XCTestCase {
     biMap2.removeValue(forKey: removed.1)
     test(biMap)
     test(biMap2)
-
-    func test(_ biMapToTest: BidirectionalMap<Int, String>) {
-      zip(biMapToTest.map{$0}.sorted {$0.0 < $1.0}, testContents).forEach {
-        XCTAssertEqual($0.0, $1.0)
-        XCTAssertEqual($0.1, $1.1)
-      }
-      for (i, s) in testContents.map({$0}) {
-        XCTAssertEqual(biMapToTest[i], s)
-        XCTAssertEqual(biMapToTest[s], i)
-        XCTAssertTrue(biMapToTest.contains(key: i))
-        XCTAssertTrue(biMapToTest.contains(key: s))
-        XCTAssertFalse(biMapToTest.contains(key: -1))
-        XCTAssertFalse(biMapToTest.contains(key: "gazorp"))
-      }
-    }
   }
 }
