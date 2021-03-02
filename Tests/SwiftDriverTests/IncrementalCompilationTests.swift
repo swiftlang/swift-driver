@@ -15,6 +15,7 @@ import TSCBasic
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
 
+// MARK: - Baseline: nonincremental
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {
     let buildRecord = try XCTUnwrap(
@@ -322,10 +323,11 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 }
 
-
+// MARK: - IncrementalCompilation
 final class IncrementalCompilationTests: XCTestCase {
 
   var tempDir: AbsolutePath = AbsolutePath("/tmp")
+
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
   }
@@ -360,7 +362,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "Finished Extracting autolink information for module \(module)",
     ]
   }
-  var args: [String] {
+  var commonArgs: [String] {
     [
       "swiftc",
       "-module-name", module,
@@ -375,17 +377,14 @@ final class IncrementalCompilationTests: XCTestCase {
     ]
     + inputPathsAndContents.map {$0.0.pathString} .sorted()
   }
-  deinit {
-    try? localFileSystem.removeFileTree(tempDir)
-  }
 
   override func setUp() {
     self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
     try! localFileSystem.createDirectory(derivedDataPath)
-    writeOutputFileMapData(module: module,
-                           inputPaths: inputPathsAndContents.map {$0.0},
-                           derivedData: derivedDataPath,
-                           to: OFM)
+    OutputFileMapCreator.write(module: module,
+                               inputPaths: inputPathsAndContents.map {$0.0},
+                               derivedData: derivedDataPath,
+                               to: OFM)
     for (base, contents) in baseNamesAndContents {
       let filePath = tempDir.appending(component: "\(base).swift")
       try! localFileSystem.writeFileContents(filePath) {
@@ -393,6 +392,63 @@ final class IncrementalCompilationTests: XCTestCase {
       }
     }
   }
+
+  deinit {
+    try? localFileSystem.removeFileTree(tempDir)
+  }
+}
+
+extension IncrementalCompilationTests {
+  func doABuild(_ message: String,
+                checkDiagnostics: Bool,
+                extraArguments: [String],
+                expectingRemarks texts: [String],
+                whenAutolinking: [String]) throws {
+    try doABuild(
+      message,
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
+      expecting: texts.map {.remark($0)},
+      expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
+  }
+
+  func doABuild(_ message: String,
+                checkDiagnostics: Bool,
+                extraArguments: [String],
+                expecting expectations: [Diagnostic.Message],
+                expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
+    print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
+
+    func doIt(_ driver: inout Driver) {
+      let jobs = try! driver.planBuild()
+      try? driver.run(jobs: jobs)
+    }
+
+    let allArgs = try commonArgs + extraArguments + Driver.sdkArgumentsForTesting()
+    if checkDiagnostics {
+      try assertDriverDiagnostics(args: allArgs) {driver, verifier in
+        verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
+        expectations.forEach {verifier.expect($0)}
+        if driver.isAutolinkExtractJobNeeded {
+          autolinkExpectations.forEach {verifier.expect($0)}
+        }
+        doIt(&driver)
+      }
+    }
+    else {
+      let diagnosticEngine = DiagnosticsEngine(handlers: [
+        {print($0, to: &stderrStream); stderrStream.flush()}
+      ])
+      var driver = try Driver(args: allArgs, env: ProcessEnv.vars,
+                              diagnosticsEngine: diagnosticEngine,
+                              fileSystem: localFileSystem)
+      doIt(&driver)
+    }
+    print("", to: &stderrStream); stderrStream.flush()
+  }
+}
+
+extension IncrementalCompilationTests {
 
   func testOptionsParsing() throws {
     let optionPairs: [(
@@ -413,7 +469,7 @@ final class IncrementalCompilationTests: XCTestCase {
         expectingRemarks: [],
         whenAutolinking: [])
 
-      var driver = try Driver(args: self.args + [
+      var driver = try Driver(args: self.commonArgs + [
         driverOption.spelling,
       ] + Driver.sdkArgumentsForTesting())
       _ = try driver.planBuild()
@@ -422,6 +478,9 @@ final class IncrementalCompilationTests: XCTestCase {
       XCTAssertTrue(stateOptionFn(state.moduleDependencyGraph.info))
     }
   }
+}
+
+extension IncrementalCompilationTests {
 
   // FIXME: why does it fail on Linux in CI?
   func testIncrementalDiagnostics() throws {
@@ -716,53 +775,6 @@ final class IncrementalCompilationTests: XCTestCase {
     XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
     XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
   }
-  func doABuild(_ message: String,
-                checkDiagnostics: Bool,
-                extraArguments: [String],
-                expectingRemarks texts: [String],
-                whenAutolinking: [String]) throws {
-    try doABuild(
-      message,
-      checkDiagnostics: checkDiagnostics,
-      extraArguments: extraArguments,
-      expecting: texts.map {.remark($0)},
-      expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
-  }
-
-  func doABuild(_ message: String,
-                checkDiagnostics: Bool,
-                extraArguments: [String],
-                expecting expectations: [Diagnostic.Message],
-                expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
-    print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
-
-    func doIt(_ driver: inout Driver) {
-      let jobs = try! driver.planBuild()
-      try? driver.run(jobs: jobs)
-    }
-
-    let allArgs = try args + extraArguments + Driver.sdkArgumentsForTesting()
-    if checkDiagnostics {
-      try assertDriverDiagnostics(args: allArgs) {driver, verifier in
-        verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
-        expectations.forEach {verifier.expect($0)}
-        if driver.isAutolinkExtractJobNeeded {
-          autolinkExpectations.forEach {verifier.expect($0)}
-        }
-        doIt(&driver)
-      }
-    }
-    else {
-      let diagnosticEngine = DiagnosticsEngine(handlers: [
-        {print($0, to: &stderrStream); stderrStream.flush()}
-      ])
-      var driver = try Driver(args: allArgs, env: ProcessEnv.vars,
-                              diagnosticsEngine: diagnosticEngine,
-                              fileSystem: localFileSystem)
-      doIt(&driver)
-    }
-    print("", to: &stderrStream); stderrStream.flush()
-  }
 
   /// Ensure that autolink output file goes with .o directory, to not prevent incremental omission of
   /// autolink job.
@@ -774,7 +786,7 @@ final class IncrementalCompilationTests: XCTestCase {
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
 
     var driver = try! Driver(
-      args: args
+      args: commonArgs
         + ["-emit-library", "-target", "x86_64-unknown-linux"],
       env: env)
     let plannedJobs = try! driver.planBuild()
@@ -787,48 +799,6 @@ final class IncrementalCompilationTests: XCTestCase {
     let autoOut = autoOuts[0]
     let expected = AbsolutePath(derivedDataPath, "\(module).autolink")
     XCTAssertEqual(autoOut.file.absolutePath, expected)
-  }
-
-  private func generateOutputFileMapDict(module: String, inputPaths: [AbsolutePath],
-                                         derivedData: AbsolutePath
-  ) -> [String: [String: String]] {
-    let master = ["swift-dependencies": "\(derivedData.pathString)/\(module)-master.swiftdeps"]
-    func baseNameEntry(_ s: AbsolutePath) -> [String: String] {
-      [
-        "dependencies": ".d",
-        "diagnostics": ".dia",
-        "llvm-bc": ".bc",
-        "object": ".o",
-        "swift-dependencies": ".swiftdeps",
-        "swiftmodule": "-partial.swiftmodule"
-      ]
-      .mapValues {"\(derivedData.appending(component: s.basenameWithoutExt))\($0)"}
-    }
-    return Dictionary( uniqueKeysWithValues:
-                        inputPaths.map { ("\($0)", baseNameEntry($0)) }
-    )
-    .merging(["": master]) {_, _ in fatalError()}
-  }
-
-  private func generateOutputFileMapData(module: String,
-                                         inputPaths: [AbsolutePath],
-                                         derivedData: AbsolutePath
-  ) -> Data {
-    let d: [String: [String: String]] = generateOutputFileMapDict(
-      module: module,
-      inputPaths: inputPaths,
-      derivedData: derivedData)
-    let enc = JSONEncoder()
-    return try! enc.encode(d)
-  }
-
-  private func writeOutputFileMapData(module: String,
-                                      inputPaths: [AbsolutePath],
-                                      derivedData: AbsolutePath,
-                                      to dst: AbsolutePath) {
-    let d: Data = generateOutputFileMapData(module: module, inputPaths: inputPaths,
-                                            derivedData: derivedData)
-    try! localFileSystem.writeFileContents(dst, bytes: ByteString(d))
   }
 }
 
@@ -935,3 +905,4 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
     }
   }
 }
+
