@@ -191,6 +191,10 @@ def handle_invocation(args):
     test_args += ['-Xswiftc', '-enable-testing']
     if should_test_parallel():
       test_args += ['--parallel']
+    # The test suite consults these variables to control what tests get run
+    env['SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS'] = "1"
+    if args.lit_test_dir:
+      env['SWIFT_DRIVER_LIT_DIR'] = args.lit_test_dir
     swiftpm('test', swift_exec, test_args, env)
   elif args.action == 'install':
     if platform.system() == 'Darwin':
@@ -578,6 +582,7 @@ def main():
     parser.add_argument('--build-path', metavar='PATH', default='.build', help='build in the given path')
     parser.add_argument('--foundation-build-dir', metavar='PATH', help='Path to the Foundation build directory')
     parser.add_argument('--dispatch-build-dir', metavar='PATH', help='Path to the Dispatch build directory')
+    parser.add_argument('--lit-test-dir', metavar='PATH', help='the test dir in the Swift build directory')
     parser.add_argument('--configuration', '-c', default='debug', help='build using configuration (release|debug)')
     parser.add_argument('--no-local-deps', action='store_true', help='use normal remote dependencies when building')
     parser.add_argument('--verbose', '-v', action='store_true', help='enable verbose output')
@@ -615,6 +620,9 @@ def main():
 
   if args.foundation_build_dir:
     args.foundation_build_dir = os.path.abspath(args.foundation_build_dir)
+
+  if args.lit_test_dir:
+    args.lit_test_dir = os.path.abspath(args.lit_test_dir)
 
   # If a separate prefix has not been specified, installed into the specified toolchain
   if not args.install_prefixes:
