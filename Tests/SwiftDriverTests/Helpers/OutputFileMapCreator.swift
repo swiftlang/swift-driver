@@ -19,6 +19,12 @@ struct OutputFileMapCreator {
   private let inputPaths: [AbsolutePath]
   private let derivedData: AbsolutePath
 
+  private init(module: String, inputPaths: [AbsolutePath], derivedData: AbsolutePath) {
+    self.module = module
+    self.inputPaths = inputPaths
+    self.derivedData = derivedData
+  }
+
   static func write(module: String,
                inputPaths: [AbsolutePath],
                derivedData: AbsolutePath,
@@ -40,7 +46,7 @@ struct OutputFileMapCreator {
       ]
       .mapValues {"\(derivedData.appending(component: s.basenameWithoutExt))\($0)"}
     }
-    return Dictionary( uniqueKeysWithValues:
+    return Dictionary(uniqueKeysWithValues:
                         inputPaths.map { ("\($0)", baseNameEntry($0)) }
     )
     .merging(["": master]) {_, _ in fatalError()}

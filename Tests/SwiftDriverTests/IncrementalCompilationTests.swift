@@ -857,7 +857,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import MagicKit\n"
-                $0 <<< "castASpell()"
+        $0 <<< "castASpell()"
       }
 
       let ofm = path.appending(component: "ofm2.json")
