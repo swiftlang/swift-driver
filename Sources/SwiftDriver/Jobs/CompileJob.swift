@@ -26,6 +26,19 @@ extension Driver {
     }
   }
 
+  mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) -> TypedVirtualPath? {
+    if let path = outputFileMap?.existingOutput(inputFile: input.file, outputType: .indexUnitOutputPath) {
+      return TypedVirtualPath(file: path, type: outputType)
+    }
+    if topLevel {
+      if let baseOutput = parsedOptions.getLastArgument(.indexUnitOutputPath)?.asSingle,
+         let baseOutputPath = try? VirtualPath(path: baseOutput) {
+        return TypedVirtualPath(file: baseOutputPath, type: outputType)
+      }
+    }
+    return nil
+  }
+
   mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
                                         isTopLevel: Bool) -> TypedVirtualPath {
     if let path = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
@@ -79,19 +92,22 @@ extension Driver {
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, nil:
+         .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
+         .indexUnitOutputPath, nil:
       return false
     }
   }
 
   /// Add the compiler inputs for a frontend compilation job, and return the
-  /// corresponding primary set of outputs.
+  /// corresponding primary set of outputs and, if not identical, the output
+  /// paths to record in the index data (empty otherwise).
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
                                  indexFilePath: TypedVirtualPath?,
                                  inputs: inout [TypedVirtualPath],
                                  inputOutputMap: inout [TypedVirtualPath: TypedVirtualPath],
                                  outputType: FileType?,
-                                 commandLine: inout [Job.ArgTemplate]) -> [TypedVirtualPath] {
+                                 commandLine: inout [Job.ArgTemplate])
+  -> ([TypedVirtualPath], [TypedVirtualPath]) {
     // Collect the set of input files that are part of the Swift compilation.
     let swiftInputFiles: [TypedVirtualPath] = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
 
@@ -136,6 +152,8 @@ extension Driver {
 
     // Add each of the input files.
     var primaryOutputs: [TypedVirtualPath] = []
+    var primaryIndexUnitOutputs: [TypedVirtualPath] = []
+    var indexUnitOutputDiffers = false
     for input in swiftInputFiles {
       inputs.append(input)
 
@@ -160,6 +178,13 @@ extension Driver {
                                           isTopLevel: isTopLevel)
         primaryOutputs.append(output)
         inputOutputMap[input] = output
+
+        if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
+          indexUnitOutputDiffers = true
+          primaryIndexUnitOutputs.append(indexUnitOut)
+        } else {
+          primaryIndexUnitOutputs.append(output)
+        }
       }
     }
 
@@ -172,9 +197,22 @@ extension Driver {
                                         isTopLevel: isTopLevel)
       primaryOutputs.append(output)
       inputOutputMap[input] = output
+
+      if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
+        indexUnitOutputDiffers = true
+        primaryIndexUnitOutputs.append(indexUnitOut)
+      } else {
+        primaryIndexUnitOutputs.append(output)
+      }
     }
 
-    return primaryOutputs
+    if !indexUnitOutputDiffers {
+      primaryIndexUnitOutputs.removeAll()
+    } else {
+      assert(primaryOutputs.count == primaryIndexUnitOutputs.count)
+    }
+
+    return (primaryOutputs, primaryIndexUnitOutputs)
   }
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
@@ -200,12 +238,13 @@ extension Driver {
       indexFilePath = nil
     }
 
-    let primaryOutputs = addCompileInputs(primaryInputs: primaryInputs,
-                                          indexFilePath: indexFilePath,
-                                          inputs: &inputs,
-                                          inputOutputMap: &inputOutputMap,
-                                          outputType: outputType,
-                                          commandLine: &commandLine)
+    let (primaryOutputs, primaryIndexUnitOutputs) =
+      addCompileInputs(primaryInputs: primaryInputs,
+                       indexFilePath: indexFilePath,
+                       inputs: &inputs,
+                       inputOutputMap: &inputOutputMap,
+                       outputType: outputType,
+                       commandLine: &commandLine)
     outputs += primaryOutputs
 
     // FIXME: optimization record arguments are added before supplementary outputs
@@ -262,6 +301,20 @@ extension Driver {
       for primaryOutput in primaryOutputs {
         commandLine.appendFlag(.o)
         commandLine.appendPath(primaryOutput.file)
+      }
+    }
+
+    // Add index unit output paths if needed.
+    if !primaryIndexUnitOutputs.isEmpty {
+      if primaryIndexUnitOutputs.count > fileListThreshold {
+        commandLine.appendFlag(.indexUnitOutputPathFilelist)
+        let path = RelativePath(createTemporaryFileName(prefix: "index-unit-outputs"))
+        commandLine.appendPath(.fileList(path, .list(primaryIndexUnitOutputs.map { $0.file })))
+      } else {
+        for primaryIndexUnitOutput in primaryIndexUnitOutputs {
+          commandLine.appendFlag(.indexUnitOutputPath)
+          commandLine.appendPath(primaryIndexUnitOutput.file)
+        }
       }
     }
 
@@ -380,7 +433,8 @@ extension FileType {
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
          .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts:
+         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
+         .indexUnitOutputPath:
       fatalError("Output type can never be a primary output")
     }
   }

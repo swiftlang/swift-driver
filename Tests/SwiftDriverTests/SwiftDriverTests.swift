@@ -614,6 +614,135 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testIndexUnitOutputPath() throws {
+    let contents = """
+    {
+      "/tmp/main.swift": {
+        "object": "/tmp/build1/main.o",
+        "index-unit-output-path": "/tmp/build2/main.o",
+      },
+      "/tmp/second.swift": {
+        "object": "/tmp/build1/second.o",
+        "index-unit-output-path": "/tmp/build2/second.o",
+      }
+    }
+    """
+
+    func getFileListElements(for filelistOpt: String, job: Job) -> [VirtualPath] {
+      let optIndex = job.commandLine.firstIndex(of: .flag(filelistOpt))!
+      let value = job.commandLine[job.commandLine.index(after: optIndex)]
+      guard case let .path(.fileList(_, valueFileList)) = value else {
+        XCTFail("Argument wasn't a filelist")
+        return []
+      }
+      guard case let .list(inputs) = valueFileList else {
+        XCTFail("FileList wasn't List")
+        return []
+      }
+      return inputs
+    }
+
+    try withTemporaryFile { file in
+      try assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+
+        // 1. Incremental mode (single primary file)
+        // a) without filelists
+        var driver = try Driver(args: [
+          "swiftc", "-c",
+          "-output-file-map", file.path.pathString,
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+        ])
+        var jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
+        XCTAssertTrue(jobs[1].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/main.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
+        XCTAssertTrue(jobs[1].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/main.o")))]))
+
+        // b) with filelists
+        driver = try Driver(args: [
+          "swiftc", "-c", "-driver-filelist-threshold=0",
+          "-output-file-map", file.path.pathString,
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+        ])
+        jobs = try driver.planBuild()
+        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
+                       [.absolute(.init("/tmp/build1/second.o"))])
+        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+                       [.absolute(.init("/tmp/build2/second.o"))])
+        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[1]),
+                       [.absolute(.init("/tmp/build1/main.o"))])
+        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[1]),
+                       [.absolute(.init("/tmp/build2/main.o"))])
+
+
+        // 2. Batch mode (two primary files)
+        // a) without filelists
+        driver = try Driver(args: [
+          "swiftc", "-c", "-enable-batch-mode", "-driver-batch-count", "1",
+          "-output-file-map", file.path.pathString,
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+        ])
+        jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/main.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/main.o")))]))
+
+        // b) with filelists
+        driver = try Driver(args: [
+          "swiftc", "-c", "-driver-filelist-threshold=0",
+          "-enable-batch-mode", "-driver-batch-count", "1",
+          "-output-file-map", file.path.pathString,
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+        ])
+        jobs = try driver.planBuild()
+        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
+                       [.absolute(.init("/tmp/build1/second.o")), .absolute(.init("/tmp/build1/main.o"))])
+        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+                       [.absolute(.init("/tmp/build2/second.o")), .absolute(.init("/tmp/build2/main.o"))])
+
+        // 3. Multi-threaded WMO
+        // a) without filelists
+        driver = try Driver(args: [
+          "swiftc", "-c", "-whole-module-optimization", "-num-threads", "2",
+          "-output-file-map", file.path.pathString,
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+        ])
+        jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/main.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/main.o")))]))
+
+        // b) with filelists
+        driver = try Driver(args: [
+          "swiftc", "-c", "-driver-filelist-threshold=0",
+          "-whole-module-optimization", "-num-threads", "2",
+          "-output-file-map", file.path.pathString,
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+        ])
+        jobs = try driver.planBuild()
+        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
+                       [.absolute(.init("/tmp/build1/second.o")), .absolute(.init("/tmp/build1/main.o"))])
+        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+                       [.absolute(.init("/tmp/build2/second.o")), .absolute(.init("/tmp/build2/main.o"))])
+
+        // 4. Index-file (single primary)
+        driver = try Driver(args: [
+          "swiftc", "-c", "-enable-batch-mode", "-driver-batch-count", "1",
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
+          "-index-file", "-index-file-path", "/tmp/second.swift",
+          "-disable-batch-mode", "-o", "/tmp/build1/second.o",
+          "-index-unit-output-path", "/tmp/build2/second.o"
+        ])
+        jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
+        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
+      }
+    }
+  }
+
   func testMergeModuleEmittingDependencies() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()

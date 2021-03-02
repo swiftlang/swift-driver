@@ -114,6 +114,11 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// The extension isn't real.
   case indexData
 
+  /// Output path to record in the indexing data store
+  ///
+  /// This is only needed for use as a key in the output file map.
+  case indexUnitOutputPath
+
   /// Optimization record.
   case yamlOptimizationRecord = "opt.yaml"
 
@@ -185,6 +190,9 @@ extension FileType: CustomStringConvertible {
     case .indexData:
       return "index-data"
 
+    case .indexUnitOutputPath:
+      return "index-unit-output-path"
+
     case .yamlOptimizationRecord:
       return "yaml-opt-record"
 
@@ -209,7 +217,8 @@ extension FileType {
          .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
-         .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts:
+         .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts,
+         .indexUnitOutputPath:
       return false
     }
   }
@@ -300,6 +309,8 @@ extension FileType {
       return "bitstream-opt-record"
     case .diagnostics:
       return "diagnostics"
+    case .indexUnitOutputPath:
+      return "index-unit-output-path"
     }
   }
 }
@@ -315,7 +326,8 @@ extension FileType {
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
-         .pcm, .swiftDeps, .remap, .indexData, .bitstreamOptimizationRecord:
+         .pcm, .swiftDeps, .remap, .indexData, .bitstreamOptimizationRecord,
+         .indexUnitOutputPath:
       return false
     }
   }
@@ -331,7 +343,7 @@ extension FileType {
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
-         .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts:
+         .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath:
       return false
     }
   }
