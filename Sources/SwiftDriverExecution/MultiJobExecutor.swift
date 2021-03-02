@@ -523,7 +523,7 @@ class ExecuteJobRule: LLBuildRule {
       }
 
       // Inform the delegate.
-      context.delegateQueue.async {
+      context.delegateQueue.sync {
         context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
         knownPId.insert(pid)
       }
@@ -549,7 +549,7 @@ class ExecuteJobRule: LLBuildRule {
       }
 
       // Inform the delegate about job finishing.
-      context.delegateQueue.async {
+      context.delegateQueue.sync {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
       context.cancelBuildIfNeeded(result)
@@ -564,7 +564,7 @@ class ExecuteJobRule: LLBuildRule {
       // Only inform finished job if the job has been started, otherwise the build
       // system may complain about malformed output
       if (knownPId.contains(pid)) {
-        context.delegateQueue.async {
+        context.delegateQueue.sync {
           let result = ProcessResult(
             arguments: [],
             environment: env,
