@@ -149,6 +149,9 @@ final class IntegrationTests: IntegrationTestCase {
         return
       }
 
+      /// The root directory, where build/, llvm-project/, and swift/ live.
+      let swiftRootDir = packageDirectory.parentDirectory
+
       // SWIFT_DRIVER_LIT_DIR may be relative or absolute. If it's
       // relative, it's relative to the parent directory of the package. If
       // you've cloned this package into a Swift compiler working directory,
@@ -156,7 +159,7 @@ final class IntegrationTests: IntegrationTestCase {
       // swift-driver/ in it.
       let litConfigDir = AbsolutePath(
         litConfigPathString,
-        relativeTo: packageDirectory.parentDirectory
+        relativeTo: swiftRootDir
       )
 
       /// The site config file to use.
@@ -167,9 +170,6 @@ final class IntegrationTests: IntegrationTestCase {
 
       /// The path to the real frontend we should use.
       let frontendFile = swiftBuildDir.appending(components: "bin", "swift")
-
-      /// The root directory, where build/, llvm-project/, and swift/ live.
-      let swiftRootDir = swiftBuildDir.parentDirectory.parentDirectory.parentDirectory
 
       /// The path to lit.py.
       let litFile = swiftRootDir.appending(components: "llvm-project", "llvm", "utils", "lit",
