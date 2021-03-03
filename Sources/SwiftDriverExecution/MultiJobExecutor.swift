@@ -504,7 +504,7 @@ class ExecuteJobRule: LLBuildRule {
     let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
-    var knownPId = Set<Int>()
+    var pendingFinish = false
     var pid = 0
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
@@ -525,8 +525,8 @@ class ExecuteJobRule: LLBuildRule {
       // Inform the delegate.
       context.delegateQueue.sync {
         context.executorDelegate.jobStarted(job: job, arguments: arguments, pid: pid)
-        knownPId.insert(pid)
       }
+      pendingFinish = true
 
       let result = try process.waitUntilExit()
       let success = result.exitStatus == .terminated(code: EXIT_SUCCESS)
@@ -552,6 +552,7 @@ class ExecuteJobRule: LLBuildRule {
       context.delegateQueue.sync {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
+      pendingFinish = false
       context.cancelBuildIfNeeded(result)
       if !context.isBuildCancelled {
         try context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
@@ -563,7 +564,7 @@ class ExecuteJobRule: LLBuildRule {
       }
       // Only inform finished job if the job has been started, otherwise the build
       // system may complain about malformed output
-      if (knownPId.contains(pid)) {
+      if (pendingFinish) {
         context.delegateQueue.sync {
           let result = ProcessResult(
             arguments: [],
