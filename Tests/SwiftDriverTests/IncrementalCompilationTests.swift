@@ -458,7 +458,8 @@ extension IncrementalCompilationTests {
       (.driverShowIncremental, {$0.reporter != nil}),
       (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, {$0.emitDependencyDotFileAfterEveryImport}),
       (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
-      (.enableExperimentalCrossModuleIncrementalBuild, {$0.isCrossModuleIncrementalBuildEnabled}),
+      (.enableIncrementalImports, {$0.isCrossModuleIncrementalBuildEnabled}),
+      (.disableIncrementalImports, {!$0.isCrossModuleIncrementalBuildEnabled}),
     ]
 
     for (driverOption, stateOptionFn) in optionPairs {
@@ -516,12 +517,10 @@ extension IncrementalCompilationTests {
     expectNoDotFiles()
     try tryInitial(extraArguments: [
       "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
-      "-enable-experimental-cross-module-incremental-build"
     ])
     removeDotFiles()
     tryTouchingOther(extraArguments: [
       "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
-      "-enable-experimental-cross-module-incremental-build"
     ])
 
     expect(dotFilesFor: [
@@ -594,7 +593,7 @@ extension IncrementalCompilationTests {
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
         // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-        "Disabling incremental cross-module building",
+        "Enabling incremental cross-module building",
         "Incremental compilation: Incremental compilation could not read build record at",
         "Incremental compilation: Disabling incremental build: could not read build record",
         "Incremental compilation: Created dependency graph from swiftdeps files",
@@ -618,8 +617,8 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Disabling incremental cross-module building",
-        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Enabling incremental cross-module building",
+        "Incremental compilation: Read dependency graph",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
@@ -638,13 +637,13 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Disabling incremental cross-module building",
-        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Enabling incremental cross-module building",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
         "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Read dependency graph",
         "Found 1 batchable job",
         "Forming into 1 batch",
         "Adding {compile: other.swift} to batch 0",
@@ -667,8 +666,8 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Disabling incremental cross-module building",
-        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Enabling incremental cross-module building",
+        "Incremental compilation: Read dependency graph",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -697,8 +696,8 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Disabling incremental cross-module building",
-        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Enabling incremental cross-module building",
+        "Incremental compilation: Read dependency graph",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
@@ -737,8 +736,8 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
       expectingRemarks: [
-        "Disabling incremental cross-module building",
-        "Incremental compilation: Created dependency graph from swiftdeps files",
+        "Enabling incremental cross-module building",
+        "Incremental compilation: Read dependency graph",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
         "Incremental compilation: scheduling dependents of main.swift; -driver-always-rebuild-dependents",
@@ -845,7 +844,6 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           "-emit-module",
           "-output-file-map", ofm.pathString,
           "-module-name", "MagicKit",
-          "-enable-experimental-cross-module-incremental-build",
           "-working-directory", path.pathString,
           "-c",
           magic.pathString,
@@ -871,7 +869,6 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         "-emit-module",
         "-output-file-map", ofm.pathString,
         "-module-name", "theModule",
-        "-enable-experimental-cross-module-incremental-build",
         "-I", path.pathString,
         "-working-directory", path.pathString,
         "-c",

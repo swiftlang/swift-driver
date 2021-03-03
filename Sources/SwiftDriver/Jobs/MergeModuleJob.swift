@@ -61,9 +61,15 @@ extension Driver {
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
 
-    // Propagate cross-module incremental builds flag so dependency information
-    // shows up in swiftmodules.
-    try commandLine.appendLast(.enableExperimentalCrossModuleIncrementalBuild, from: &parsedOptions)
+    // Propagate the disable flag for cross-module incremental builds
+    // if necessary. Note because we're interested in *disabling* this feature,
+    // we consider the disable form to be the positive and enable to be the
+    // negative.
+    if parsedOptions.hasFlag(positive: .disableIncrementalImports,
+                             negative: .enableIncrementalImports,
+                             default: false) {
+      try commandLine.appendLast(.disableIncrementalImports, from: &parsedOptions)
+    }
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(moduleOutputInfo.output!.outputPath)

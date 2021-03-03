@@ -87,6 +87,7 @@ extension Option {
   public static let disableGenericMetadataPrespecialization: Option = Option("-disable-generic-metadata-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not statically specialize metadata for generic types at types that are known to be used in source.")
   public static let disableImplicitConcurrencyModuleImport: Option = Option("-disable-implicit-concurrency-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Concurrency module.")
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules implicitly by the compiler")
+  public static let disableIncrementalImports: Option = Option("-disable-incremental-imports", .flag, attributes: [.frontend], helpText: "Disable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
   public static let disableInterfaceLockfile: Option = Option("-disable-interface-lock", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't lock interface file when building module")
   public static let disableInvalidEphemeralnessAsError: Option = Option("-disable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as warnings")
@@ -109,7 +110,6 @@ extension Option {
   public static let disablePreviousImplementationCallsInDynamicReplacements: Option = Option("-disable-previous-implementation-calls-in-dynamic-replacements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable calling the previous implementation in dynamic replacements")
   public static let disableReflectionMetadata: Option = Option("-disable-reflection-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of reflection metadata for nominal types")
   public static let disableReflectionNames: Option = Option("-disable-reflection-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of names of stored properties and enum cases inreflection metadata")
-  public static let disableRequestBasedIncrementalDependencies: Option = Option("-disable-request-based-incremental-dependencies", .flag, attributes: [.frontend], helpText: "Disable request-based name tracking")
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
   public static let disableSilPerfOptzns: Option = Option("-disable-sil-perf-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL performance optimization passes")
@@ -223,14 +223,15 @@ extension Option {
   public static let enableExperimentalAdditiveArithmeticDerivation: Option = Option("-enable-experimental-additive-arithmetic-derivation", .flag, attributes: [.frontend], helpText: "Enable experimental 'AdditiveArithmetic' derived conformances")
   public static let enableExperimentalConcisePoundFile: Option = Option("-enable-experimental-concise-pound-file", .flag, attributes: [.frontend, .moduleInterface], helpText: "Enable experimental concise '#file' identifier")
   public static let enableExperimentalConcurrency: Option = Option("-enable-experimental-concurrency", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental concurrency model")
-  public static let enableExperimentalConcurrentValueChecking: Option = Option("-enable-experimental-concurrent-value-checking", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable ConcurrentValue checking")
   public static let enableExperimentalCrossModuleIncrementalBuild: Option = Option("-enable-experimental-cross-module-incremental-build", .flag, attributes: [.frontend], helpText: "(experimental) Enable cross-module incremental build metadata and driver scheduling")
   public static let enableExperimentalCxxInterop: Option = Option("-enable-experimental-cxx-interop", .flag, helpText: "Allow importing C++ modules into Swift (experimental feature)")
+  public static let enableExperimentalEnumCodableDerivation: Option = Option("-enable-experimental-enum-codable-derivation", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental derivation of Codable for enums")
   public static let enableExperimentalFlowSensitiveConcurrentCaptures: Option = Option("-enable-experimental-flow-sensitive-concurrent-captures", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable flow-sensitive concurrent captures")
   public static let enableExperimentalForwardModeDifferentiation: Option = Option("-enable-experimental-forward-mode-differentiation", .flag, attributes: [.frontend], helpText: "Enable experimental forward mode differentiation")
   public static let enableExperimentalStaticAssert: Option = Option("-enable-experimental-static-assert", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental #assert")
   public static let enableFuzzyForwardScanTrailingClosureMatching: Option = Option("-enable-fuzzy-forward-scan-trailing-closure-matching", .flag, attributes: [.frontend], helpText: "Enable fuzzy forward-scan trailing closure matching")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
+  public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let enableInferImportAsMember: Option = Option("-enable-infer-import-as-member", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Infer when a global could be imported as a member")
   public static let enableInvalidEphemeralnessAsError: Option = Option("-enable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as errors")
   public static let enableLibraryEvolution: Option = Option("-enable-library-evolution", .flag, attributes: [.frontend, .moduleInterface], helpText: "Build the module to allow binary-compatible library evolution")
@@ -242,8 +243,8 @@ extension Option {
   public static let enableObjcInterop: Option = Option("-enable-objc-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable Objective-C interop code generation and config directives")
   public static let enableOnlyOneDependencyFile: Option = Option("-enable-only-one-dependency-file", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Enables incremental build optimization that only produces one dependencies file")
   public static let enableOperatorDesignatedTypes: Option = Option("-enable-operator-designated-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable operator designated types")
+  public static let enableOssaModules: Option = Option("-enable-ossa-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always serialize SIL in ossa form. If this flag is not passed in, when optimizing ownership will be lowered before serializing SIL")
   public static let enablePrivateImports: Option = Option("-enable-private-imports", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal and private API to be accessed")
-  public static let enableRequestBasedIncrementalDependencies: Option = Option("-enable-request-based-incremental-dependencies", .flag, attributes: [.frontend], helpText: "Enable request-based name tracking")
   public static let enableResilience: Option = Option("-enable-resilience", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Deprecated, use -enable-library-evolution instead")
   public static let enableSilOpaqueValues: Option = Option("-enable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable SIL Opaque Values")
   public static let enableSourceImport: Option = Option("-enable-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable importing of Swift source files")
@@ -590,6 +591,7 @@ extension Option {
       Option.disableGenericMetadataPrespecialization,
       Option.disableImplicitConcurrencyModuleImport,
       Option.disableImplicitSwiftModules,
+      Option.disableIncrementalImports,
       Option.disableIncrementalLlvmCodegeneration,
       Option.disableInterfaceLockfile,
       Option.disableInvalidEphemeralnessAsError,
@@ -612,7 +614,6 @@ extension Option {
       Option.disablePreviousImplementationCallsInDynamicReplacements,
       Option.disableReflectionMetadata,
       Option.disableReflectionNames,
-      Option.disableRequestBasedIncrementalDependencies,
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
       Option.disableSilPerfOptzns,
@@ -726,14 +727,15 @@ extension Option {
       Option.enableExperimentalAdditiveArithmeticDerivation,
       Option.enableExperimentalConcisePoundFile,
       Option.enableExperimentalConcurrency,
-      Option.enableExperimentalConcurrentValueChecking,
       Option.enableExperimentalCrossModuleIncrementalBuild,
       Option.enableExperimentalCxxInterop,
+      Option.enableExperimentalEnumCodableDerivation,
       Option.enableExperimentalFlowSensitiveConcurrentCaptures,
       Option.enableExperimentalForwardModeDifferentiation,
       Option.enableExperimentalStaticAssert,
       Option.enableFuzzyForwardScanTrailingClosureMatching,
       Option.enableImplicitDynamic,
+      Option.enableIncrementalImports,
       Option.enableInferImportAsMember,
       Option.enableInvalidEphemeralnessAsError,
       Option.enableLibraryEvolution,
@@ -745,8 +747,8 @@ extension Option {
       Option.enableObjcInterop,
       Option.enableOnlyOneDependencyFile,
       Option.enableOperatorDesignatedTypes,
+      Option.enableOssaModules,
       Option.enablePrivateImports,
-      Option.enableRequestBasedIncrementalDependencies,
       Option.enableResilience,
       Option.enableSilOpaqueValues,
       Option.enableSourceImport,
