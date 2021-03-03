@@ -152,12 +152,19 @@ extension Driver {
     if self.parsedOptions.contains(veriOpt) {
       options.formUnion(.verifyDependencyGraphAfterEveryImport)
     }
-    if self.parsedOptions.hasFlag(positive: .enableIncrementalImports,
-                                  negative: .disableIncrementalImports,
-                                  default: true) {
-      options.formUnion(.enableCrossModuleIncrementalBuild)
+
+    // Propagate the disable flag for cross-module incremental builds
+    // if necessary. Note because we're interested in *disabling* this feature,
+    // we consider the disable form to be the positive and enable to be the
+    // negative.
+    if self.parsedOptions.hasFlag(positive: .disableIncrementalImports,
+                                  negative: .enableIncrementalImports,
+                                  default: false) {
+      options.formUnion(.disableIncrementalImports)
+    } else {
       options.formUnion(.readPriorsFromModuleDependencyGraph)
     }
+
     return options
   }
 

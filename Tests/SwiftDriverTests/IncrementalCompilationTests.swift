@@ -458,8 +458,8 @@ extension IncrementalCompilationTests {
       (.driverShowIncremental, {$0.reporter != nil}),
       (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, {$0.emitDependencyDotFileAfterEveryImport}),
       (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
-      (.enableIncrementalImports, {$0.isCrossModuleIncrementalBuildEnabled}),
-      (.disableIncrementalImports, {!$0.isCrossModuleIncrementalBuildEnabled}),
+      (.enableIncrementalImports, {!$0.areIncrementalImportsDisabled}),
+      (.disableIncrementalImports, {$0.areIncrementalImportsDisabled}),
     ]
 
     for (driverOption, stateOptionFn) in optionPairs {

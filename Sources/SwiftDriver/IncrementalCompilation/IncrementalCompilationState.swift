@@ -56,9 +56,9 @@ public class IncrementalCompilationState {
       self.reporter = nil
     }
 
-    let enablingOrDisabling = options.contains(.enableCrossModuleIncrementalBuild)
-      ? "Enabling"
-      : "Disabling"
+    let enablingOrDisabling = options.contains(.disableIncrementalImports)
+      ? "Disabling"
+      : "Enabling"
     reporter?.report(
       "\(enablingOrDisabling) incremental cross-module building")
 
@@ -382,18 +382,19 @@ extension IncrementalCompilationState {
     /// After integrating each source file dependency graph into the driver's
     /// module dependency graph, dump a dot file to the current working
     /// directory showing the state of the driver's dependency graph.
-    ///
-    /// FIXME: This option is not yet implemented.
     public static let emitDependencyDotFileAfterEveryImport  = Options(rawValue: 1 << 2)
     /// After integrating each source file dependency graph, verifies the
     /// integrity of the driver's dependency graph and aborts if any errors
     /// are detected.
     public static let verifyDependencyGraphAfterEveryImport  = Options(rawValue: 1 << 3)
-    /// Enables the cross-module incremental build infrastructure.
+    /// Disables the cross-module incremental build infrastructure by forcing
+    /// the incremental build to ignore dependency information embedded in
+    /// swiftmodule files.
     ///
-    /// FIXME: This option is transitory. We intend to make this the
-    /// default behavior. This option should flip to a "disable" bit after that.
-    public static let enableCrossModuleIncrementalBuild      = Options(rawValue: 1 << 4)
+    /// Using this flag pessimizes the incremental compilation session by forcing
+    /// the driver to only consider changes to the modification time of imported
+    /// swiftmodules, which necessarily requires cascading rebuilds.
+    public static let disableIncrementalImports              = Options(rawValue: 1 << 4)
     /// Enables an optimized form of start-up for the incremental build state
     /// that reads the dependency graph from a serialized format on disk instead
     /// of reading O(N) swiftdeps files.
@@ -407,7 +408,7 @@ extension IncrementalCompilationState {
   @_spi(Testing) public func writeDependencyGraph() {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
-    guard moduleDependencyGraph.info.isCrossModuleIncrementalBuildEnabled else {
+    if moduleDependencyGraph.info.areIncrementalImportsDisabled {
       return
     }
 

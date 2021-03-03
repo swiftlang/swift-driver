@@ -293,7 +293,7 @@ extension ModuleDependencyGraph {
 
     // If the graph already includes prior externals, then any new externals are changes
     // Short-circuit conjunction may avoid the modTime query
-    let shouldTryToProcess = info.isCrossModuleIncrementalBuildEnabled &&
+    let shouldTryToProcess = !info.areIncrementalImportsDisabled &&
       (isNewToTheGraph || lazyModTimer.hasExternalFileChanged)
 
     // Do this no matter what in order to integrate any incremental external dependencies.

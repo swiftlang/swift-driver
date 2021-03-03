@@ -30,7 +30,7 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
     @_spi(Testing) public let readPriorsFromModuleDependencyGraph: Bool
     @_spi(Testing) public let alwaysRebuildDependents: Bool
-    @_spi(Testing) public let isCrossModuleIncrementalBuildEnabled: Bool
+    @_spi(Testing) public let areIncrementalImportsDisabled: Bool
     @_spi(Testing) public let verifyDependencyGraphAfterEveryImport: Bool
     @_spi(Testing) public let emitDependencyDotFileAfterEveryImport: Bool
     
@@ -69,7 +69,7 @@ extension IncrementalCompilationState {
       self.readPriorsFromModuleDependencyGraph = maybeBuildRecord != nil &&
         options.contains(.readPriorsFromModuleDependencyGraph)
       self.alwaysRebuildDependents = options.contains(.alwaysRebuildDependents)
-      self.isCrossModuleIncrementalBuildEnabled = options.contains(.enableCrossModuleIncrementalBuild)
+      self.areIncrementalImportsDisabled = options.contains(.disableIncrementalImports)
       self.verifyDependencyGraphAfterEveryImport = options.contains(.verifyDependencyGraphAfterEveryImport)
       self.emitDependencyDotFileAfterEveryImport = options.contains(.emitDependencyDotFileAfterEveryImport)
       self.buildTime = maybeBuildRecord?.buildTime ?? .distantPast
