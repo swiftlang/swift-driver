@@ -156,7 +156,13 @@ extension Driver {
                                   negative: .disableIncrementalImports,
                                   default: true) {
       options.formUnion(.enableCrossModuleIncrementalBuild)
-      options.formUnion(.readPriorsFromModuleDependencyGraph)
+      // FIXME: Re-enable once there is a way for the legacy test suite to
+      // disable this option in the driver. There's an impedance mismatch
+      // in a few tests that want to make sure that reading malformed swiftdeps
+      // files does the right thing with respect to the incremental build. If
+      // we're reading priors from the module dependency graph, they won't
+      // ever fail as expected!
+      // options.formUnion(.readPriorsFromModuleDependencyGraph)
     }
     return options
   }
