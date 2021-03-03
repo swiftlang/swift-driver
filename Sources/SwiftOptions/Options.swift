@@ -89,6 +89,7 @@ extension Option {
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules implicitly by the compiler")
   public static let disableIncrementalImports: Option = Option("-disable-incremental-imports", .flag, attributes: [.frontend], helpText: "Disable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
+  public static let disableInferPublicConcurrentValue: Option = Option("-disable-infer-public-concurrent-value", .flag, attributes: [.frontend, .noDriver], helpText: "Disable inference of ConcurrentValue conformances for public structs and enums")
   public static let disableInterfaceLockfile: Option = Option("-disable-interface-lock", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't lock interface file when building module")
   public static let disableInvalidEphemeralnessAsError: Option = Option("-disable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as warnings")
   public static let disableLegacyTypeInfo: Option = Option("-disable-legacy-type-info", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable legacy type layout")
@@ -223,7 +224,6 @@ extension Option {
   public static let enableExperimentalAdditiveArithmeticDerivation: Option = Option("-enable-experimental-additive-arithmetic-derivation", .flag, attributes: [.frontend], helpText: "Enable experimental 'AdditiveArithmetic' derived conformances")
   public static let enableExperimentalConcisePoundFile: Option = Option("-enable-experimental-concise-pound-file", .flag, attributes: [.frontend, .moduleInterface], helpText: "Enable experimental concise '#file' identifier")
   public static let enableExperimentalConcurrency: Option = Option("-enable-experimental-concurrency", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental concurrency model")
-  public static let enableExperimentalCrossModuleIncrementalBuild: Option = Option("-enable-experimental-cross-module-incremental-build", .flag, attributes: [.frontend], helpText: "(experimental) Enable cross-module incremental build metadata and driver scheduling")
   public static let enableExperimentalCxxInterop: Option = Option("-enable-experimental-cxx-interop", .flag, helpText: "Allow importing C++ modules into Swift (experimental feature)")
   public static let enableExperimentalEnumCodableDerivation: Option = Option("-enable-experimental-enum-codable-derivation", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental derivation of Codable for enums")
   public static let enableExperimentalFlowSensitiveConcurrentCaptures: Option = Option("-enable-experimental-flow-sensitive-concurrent-captures", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable flow-sensitive concurrent captures")
@@ -233,6 +233,7 @@ extension Option {
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
   public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let enableInferImportAsMember: Option = Option("-enable-infer-import-as-member", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Infer when a global could be imported as a member")
+  public static let enableInferPublicConcurrentValue: Option = Option("-enable-infer-public-concurrent-value", .flag, attributes: [.frontend, .noDriver], helpText: "Enable inference of ConcurrentValue conformances for public structs and enums")
   public static let enableInvalidEphemeralnessAsError: Option = Option("-enable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as errors")
   public static let enableLibraryEvolution: Option = Option("-enable-library-evolution", .flag, attributes: [.frontend, .moduleInterface], helpText: "Build the module to allow binary-compatible library evolution")
   public static let enableLlvmValueNames: Option = Option("-enable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add names to local values in LLVM IR")
@@ -309,6 +310,8 @@ extension Option {
   public static let indexIgnoreSystemModules: Option = Option("-index-ignore-system-modules", .flag, attributes: [.noInteractive], helpText: "Avoid indexing system modules")
   public static let indexStorePath: Option = Option("-index-store-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Store indexing data to <path>")
   public static let indexSystemModules: Option = Option("-index-system-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit index data for imported serialized swift system modules")
+  public static let indexUnitOutputPathFilelist: Option = Option("-index-unit-output-path-filelist", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Specify index unit output paths in a file rather than on the command line")
+  public static let indexUnitOutputPath: Option = Option("-index-unit-output-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Use <path> as the output path in the produced index data.")
   public static let interpret: Option = Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes)
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to the import search path")
   public static let i: Option = Option("-i", .flag, group: .modes)
@@ -593,6 +596,7 @@ extension Option {
       Option.disableImplicitSwiftModules,
       Option.disableIncrementalImports,
       Option.disableIncrementalLlvmCodegeneration,
+      Option.disableInferPublicConcurrentValue,
       Option.disableInterfaceLockfile,
       Option.disableInvalidEphemeralnessAsError,
       Option.disableLegacyTypeInfo,
@@ -727,7 +731,6 @@ extension Option {
       Option.enableExperimentalAdditiveArithmeticDerivation,
       Option.enableExperimentalConcisePoundFile,
       Option.enableExperimentalConcurrency,
-      Option.enableExperimentalCrossModuleIncrementalBuild,
       Option.enableExperimentalCxxInterop,
       Option.enableExperimentalEnumCodableDerivation,
       Option.enableExperimentalFlowSensitiveConcurrentCaptures,
@@ -737,6 +740,7 @@ extension Option {
       Option.enableImplicitDynamic,
       Option.enableIncrementalImports,
       Option.enableInferImportAsMember,
+      Option.enableInferPublicConcurrentValue,
       Option.enableInvalidEphemeralnessAsError,
       Option.enableLibraryEvolution,
       Option.enableLlvmValueNames,
@@ -813,6 +817,8 @@ extension Option {
       Option.indexIgnoreSystemModules,
       Option.indexStorePath,
       Option.indexSystemModules,
+      Option.indexUnitOutputPathFilelist,
+      Option.indexUnitOutputPath,
       Option.interpret,
       Option.I,
       Option.i,
