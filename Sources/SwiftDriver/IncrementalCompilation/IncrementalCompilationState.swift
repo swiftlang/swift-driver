@@ -60,7 +60,7 @@ public class IncrementalCompilationState {
       ? "Disabling"
       : "Enabling"
     reporter?.report(
-      "\(enablingOrDisabling) incremental cross-module building")
+      "\(enablingOrDisabling) incremental imports")
 
 
     guard let outputFileMap = driver.outputFileMap else {
@@ -120,8 +120,8 @@ extension IncrementalCompilationState {
     /// When this information is combined with the output file map, swiftdeps
     /// files can be located and loaded into the graph.
     ///
-    /// In a cross-module build, the dependency graph is derived from prior
-    /// state that is serialized alongside the build record.
+    /// In a build that is aware of incremental imports, the dependency graph is
+    /// derived from prior state that is serialized alongside the build record.
     let graph: ModuleDependencyGraph
     /// The set of compile jobs we can definitely skip given the state of the
     /// incremental dependency graph and the status of the input files for this
@@ -406,7 +406,7 @@ extension IncrementalCompilationState {
 
 extension IncrementalCompilationState {
   @_spi(Testing) public func writeDependencyGraph() {
-    // If the cross-module build is not enabled, the status quo dictates we
+    // If incremental imports not enabled, the status quo dictates we
     // not emit this file.
     if moduleDependencyGraph.info.areIncrementalImportsDisabled {
       return

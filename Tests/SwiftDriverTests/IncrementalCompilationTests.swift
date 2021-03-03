@@ -593,7 +593,7 @@ extension IncrementalCompilationTests {
         // Leave off the part after the colon because it varies on Linux:
         // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
         // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-        "Enabling incremental cross-module building",
+        "Enabling incremental imports",
         "Incremental compilation: Incremental compilation could not read build record at",
         "Incremental compilation: Disabling incremental build: could not read build record",
         "Incremental compilation: Created dependency graph from swiftdeps files",
@@ -617,7 +617,7 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Enabling incremental cross-module building",
+        "Enabling incremental imports",
         "Incremental compilation: Read dependency graph",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
@@ -637,7 +637,7 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Enabling incremental cross-module building",
+        "Enabling incremental imports",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
@@ -666,7 +666,7 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Enabling incremental cross-module building",
+        "Enabling incremental imports",
         "Incremental compilation: Read dependency graph",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
@@ -696,7 +696,7 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
-        "Enabling incremental cross-module building",
+        "Enabling incremental imports",
         "Incremental compilation: Read dependency graph",
         "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
@@ -736,7 +736,7 @@ extension IncrementalCompilationTests {
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
       expectingRemarks: [
-        "Enabling incremental cross-module building",
+        "Enabling incremental imports",
         "Incremental compilation: Read dependency graph",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
         "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
