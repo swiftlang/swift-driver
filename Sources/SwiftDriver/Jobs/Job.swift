@@ -67,11 +67,17 @@ public struct Job: Codable, Equatable, Hashable {
   /// Whether or not the job supports using response files to pass command line arguments.
   public var supportsResponseFiles: Bool
 
-  /// The list of inputs to use for displaying purposes.
-  public var displayInputs: [TypedVirtualPath]
-
-  /// The list of inputs for this job.
+  /// The list of inputs for this job. These are all files that must be provided in order for this job to execute,
+  /// and this list, along with the corresponding `outputs` is used to establish producer-consumer dependency
+  /// relationship among jobs.
   public var inputs: [TypedVirtualPath]
+
+  /// The list of inputs to use for displaying purposes. These files are the ones the driver will communicate
+  /// to the user/client as being objects of the selected compilation action.
+  /// For example, a frontend job to compile a `.swift` source file may require multiple binary `inputs`,
+  /// such as a pre-compiled bridging header and binary Swift module dependencies, but only the input `.swift`
+  /// source file is meant to be the displayed object of compilation - a display input.
+  public var displayInputs: [TypedVirtualPath]
 
   /// The primary inputs for compile jobs
   public var primaryInputs: [TypedVirtualPath]

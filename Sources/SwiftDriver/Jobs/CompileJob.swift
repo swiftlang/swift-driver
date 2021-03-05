@@ -304,20 +304,17 @@ extension Driver {
       inputs.append(TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule))
     }
 
-    var displayInputs = primaryInputs
-
     // Bridging header is needed for compiling these .swift sources.
     if let pchPath = bridgingPrecompiledHeader {
       let pchInput = TypedVirtualPath(file: pchPath, type: .pch)
       inputs.append(pchInput)
-      displayInputs.append(pchInput)
     }
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
-      displayInputs: displayInputs,
+      displayInputs: primaryInputs,
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
