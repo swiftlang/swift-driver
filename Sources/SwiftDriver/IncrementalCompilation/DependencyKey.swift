@@ -63,7 +63,7 @@ import TSCBasic
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
   let externalDependency: ExternalDependency
   let fingerprint: String?
-  init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
+  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
     assert(verifyExternalDependencyAndFingerprint())
