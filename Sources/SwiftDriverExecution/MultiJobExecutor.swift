@@ -222,9 +222,6 @@ public final class MultiJobExecutor {
         let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
         needInputFor(indices: newJobIndices)
       }
-      else {
-        needInputFor(indices: postCompileIndices)
-      }
     }
     fileprivate func needInputFor<Indices: Collection>(indices: Indices)
     where Indices.Element == Int
@@ -355,6 +352,8 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
     switch rule {
     case ExecuteAllJobsRule.ruleName:
       return ExecuteAllJobsRule(context: context)
+    case ExecuteAllCompileJobsRule.ruleName:
+      return ExecuteAllCompileJobsRule(context: context)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key, context: context)
     default:
@@ -380,13 +379,14 @@ struct DriverBuildValue: LLBuildValue {
   }
 }
 
-class ExecuteAllJobsRule: LLBuildRule {
+// A rule for executing all compilation jobs
+class ExecuteAllCompileJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
-    typealias BuildRule = ExecuteAllJobsRule
+    typealias BuildRule = ExecuteAllCompileJobsRule
   }
 
-  override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
+  override class var ruleName: String { "\(ExecuteAllCompileJobsRule.self)" }
 
   private let context: MultiJobExecutor.Context
 
@@ -400,7 +400,6 @@ class ExecuteAllJobsRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    context.setExecuteAllJobsTaskBuildEngine(engine)
     context.needInputFor(indices: context.primaryIndices)
   }
 
@@ -409,6 +408,59 @@ class ExecuteAllJobsRule: LLBuildRule {
   }
 
   override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
+    do {
+      let buildValue = try DriverBuildValue(value)
+      allInputsSucceeded = allInputsSucceeded && buildValue.success
+    } catch {
+      allInputsSucceeded = false
+    }
+  }
+
+  override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+    engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
+  }
+}
+
+// A rule for executing all jobs: including compilation jobs and post-compilation
+// jobs
+class ExecuteAllJobsRule: LLBuildRule {
+  struct RuleKey: LLBuildKey {
+    typealias BuildValue = DriverBuildValue
+    typealias BuildRule = ExecuteAllJobsRule
+  }
+
+  override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
+
+  private let context: MultiJobExecutor.Context
+
+  /// True if any of the inputs had any error.
+  private var allInputsSucceeded: Bool = true
+
+  /// Whether we have requested those post-compilation jobs. We don't want to
+  /// request twice.
+  private var postRequested = false
+  init(context: MultiJobExecutor.Context) {
+    self.context = context
+    super.init(fileSystem: context.fileSystem)
+  }
+
+  override func start(_ engine: LLTaskBuildEngine) {
+    context.setExecuteAllJobsTaskBuildEngine(engine)
+    // Request all compilation jobs to be finished first
+    engine.taskNeedsInput(ExecuteAllCompileJobsRule.RuleKey(), inputID: 0)
+  }
+
+  override func isResultValid(_ priorValue: Value) -> Bool {
+    return false
+  }
+
+  override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
+    // When all compilation jobs are finished, we can request for post-compile jobs.
+    if !postRequested {
+      context.needInputFor(indices: context.postCompileIndices)
+      postRequested = true
+    }
+
     do {
       let buildValue = try DriverBuildValue(value)
       allInputsSucceeded = allInputsSucceeded && buildValue.success
