@@ -25,22 +25,26 @@ struct Expectation<Source: SourceProtocol> {
     self.init(with: with, without: without)
   }
 
-//xxx  static func expecting(with: [Source]) -> Self {
-//    self.init(with: with, without: Source.originals)
-//  }
-
-
   private func expecting(_ context: TestContext) -> [Source] {
     context.withIncrementalImports ? withIncrementalImports : withoutIncrementalImports
   }
 
-  func check(against actual: [Source], _ context: TestContext, stepName: String) {
+  func check(against actuals: [Source], _ context: TestContext, stepName: String) {
     let expected = expecting(context)
+    let expectedSet = Set(expected.map {$0.name})
+    let actualsSet = Set(actuals.map {$0.name})
+
+    let extraCompilations = actualsSet.subtracting(expectedSet)
+    let missingCompilations = expectedSet.subtracting(actualsSet)
 
     XCTAssertEqual(
-      actual   .map {$0.name} .sorted(),
-      expected .map {$0.name} .sorted(),
-      "Actual != Expected, \(context), step \(stepName)",
+      extraCompilations, [],
+      "Extra compilations, \(context), step \(stepName)",
+      file: context.testFile, line: context.testLine)
+
+    XCTAssertEqual(
+      missingCompilations, [],
+      "Missing compilations, \(context), step \(stepName)",
       file: context.testFile, line: context.testLine)
   }
 }

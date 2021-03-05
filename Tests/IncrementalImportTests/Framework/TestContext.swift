@@ -19,6 +19,6 @@ struct TestContext: CustomStringConvertible {
   }
 
   var description: String {
-    "\(testFile): \(testLine), \(withIncrementalImports ? "with" : "without") incremental imports"
+    "\(withIncrementalImports ? "with" : "without") incremental imports"
   }
 }
