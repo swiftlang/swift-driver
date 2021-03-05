@@ -44,40 +44,21 @@ extension StateProtocol {
   }
 
   func buildFromScratch(_ context: TestContext) {
-    mutateAndRebuildAndCheck(
-      context,
-      expecting: expectingFromScratch,
-      stepName: "setup")
+    let compiledSources = mutateAndRebuild(context)
+    expectingFromScratch.check(against: compiledSources, context, stepName: "setup")
   }
 
-  func mutateAndRebuildAndCheck(
-    _ context: TestContext,
-    expecting: [Source],
-    stepName: String
-  ) {
-    print(stepName)
-
+  func mutateAndRebuild(_ context: TestContext) -> [Source] {
     mutate(context)
-    let compiledSources = build(context)
-    XCTAssertEqual(
-      compiledSources.map {$0.name} .sorted(),
-      expecting      .map {$0.name} .sorted(),
-      "Compiled != Expected, \(context), step \(stepName)",
-      file: context.testFile, line: context.testLine)
+    return build(context)
   }
 
   /// Builds the entire project, returning what was recompiled.
    private func build(_ context: TestContext) -> [Source] {
      jobs.flatMap{ $0.build(context) }
    }
-  var expectingFromScratch: [Source] {
-    Array(
-      jobs.reduce(into: Set()) {
-        expectations, job in
-        expectations.formUnion(job.fromScratchExpectations)
-      }
-    )
+
+  var expectingFromScratch: Expectation<Source> {
+    .expecting(with: allOriginals, without: allOriginals)
   }
-
-
 }

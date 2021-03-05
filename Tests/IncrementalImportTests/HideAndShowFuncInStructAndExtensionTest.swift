@@ -37,9 +37,6 @@ fileprivate protocol HideAndShowStep: StepProtocol {
   static var show: Self {get}
   static var hide: Self {get}
 }
-fileprivate extension HideAndShowStep {
-  var expectingWithout: [Source] { to.allOriginals }
-}
 
 
 fileprivate enum InStructStep: String, HideAndShowStep {
@@ -51,12 +48,7 @@ fileprivate enum InStructStep: String, HideAndShowStep {
     case .show: return .shownInStruct
     }
   }
-  var expectingWith: [Source] {
-    return [.definesGeneralFuncsAndCallsFuncInStruct,
-            .callsFuncInExtension,
-            .instantiatesS,
-            .importedWithoutPublicFuncs]
-  }
+  var expecting: Expectation<Source> { to.commonExpectations }
 }
 
 fileprivate enum InExtensionStep: String, HideAndShowStep {
@@ -68,13 +60,9 @@ fileprivate enum InExtensionStep: String, HideAndShowStep {
     case .show: return .shownInExtension
     }
   }
-  var expectingWith: [Source] {
-    return [.definesGeneralFuncsAndCallsFuncInStruct,
-            .callsFuncInExtension,
-            .instantiatesS,
-            .importedWithoutPublicFuncs]
-  }
+  var expecting: Expectation<Source> { to.commonExpectations }
 }
+
 
 fileprivate enum BothStep: String, HideAndShowStep {
   case hide, show
@@ -85,13 +73,9 @@ fileprivate enum BothStep: String, HideAndShowStep {
     case .show: return .bothShown
     }
   }
-  var expectingWith: [Source] {
-    return [.definesGeneralFuncsAndCallsFuncInStruct,
-            .callsFuncInExtension,
-            .instantiatesS,
-            .importedWithoutPublicFuncs]
-  }
+  var expecting: Expectation<Source> { to.commonExpectations }
 }
+
 
 fileprivate enum FState: String, StateProtocol {
   case bothHidden, shownInStruct, shownInExtension, bothShown
@@ -103,6 +87,18 @@ fileprivate enum FState: String, StateProtocol {
     case .shownInExtension:  return Self.bothHidden.jobs.substituting(.importedFileWithPublicFuncInExtension)
     case .bothShown:         return Self.bothHidden.jobs.substituting(.importedFileWithPublicFuncInStructAndExtension)
     }
+  }
+}
+
+
+fileprivate extension FState {
+  var commonExpectations: Expectation<Module.Source> {
+    .expecting(with: [
+                        .definesGeneralFuncsAndCallsFuncInStruct,
+                        .callsFuncInExtension,
+                        .instantiatesS,
+                        .importedWithoutPublicFuncs],
+                      without: allOriginals)
   }
 }
 

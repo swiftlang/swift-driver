@@ -24,19 +24,14 @@ protocol StepProtocol: TestPartProtocol {
   typealias Source = State.Source
 
   var to: State {get}
-  var expectingWith: [Source] {get}
-  var expectingWithout: [Source] {get}
+  var expecting: Expectation<Source> {get}
 }
 extension StepProtocol {
   var name: String {rawValue}
 
   func mutateAndRebuildAndCheck(_ context: TestContext) {
-    to.mutateAndRebuildAndCheck(context,
-                                expecting: expecting(context),
-                                stepName: name)
-  }
-
-  func expecting(_ context: TestContext) -> [Source] {
-    context.withIncrementalImports ? expectingWith : expectingWithout
+    print(name)
+    let compiledSources = to.mutateAndRebuild(context)
+    expecting.check(against: compiledSources, context, stepName: name)
   }
 }
