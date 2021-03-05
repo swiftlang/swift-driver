@@ -37,6 +37,9 @@ fileprivate protocol HideAndShowStep: StepProtocol {
   static var show: Self {get}
   static var hide: Self {get}
 }
+fileprivate extension HideAndShowStep {
+  var expectingWithout: [Source] { to.allOriginals }
+}
 
 
 fileprivate enum InStructStep: String, HideAndShowStep {
@@ -53,9 +56,6 @@ fileprivate enum InStructStep: String, HideAndShowStep {
     case .hide: return []
     case .show: return []
     }
-  }
-  var expectingWithout: [Source] {
-    []
   }
 }
 
@@ -74,9 +74,6 @@ fileprivate enum InExtensionStep: String, HideAndShowStep {
     case .show: return []
     }
   }
-  var expectingWithout: [Source] {
-    []
-  }
 }
 
 fileprivate enum BothStep: String, HideAndShowStep {
@@ -93,9 +90,6 @@ fileprivate enum BothStep: String, HideAndShowStep {
     case .hide: return []
     case .show: return []
     }
-  }
-  var expectingWithout: [Source] {
-    []
   }
 }
 
@@ -175,7 +169,6 @@ fileprivate extension FState.Module {
                     }
                   }
                   S.inStruct(3)
-                  S.inExtension(3)
     """
       case .other: return """
                   import \(Module.importedModule.name)
@@ -183,7 +176,7 @@ fileprivate extension FState.Module {
     """
       case .another: return """
                     import \(Module.importedModule.name)
-                    func fred() { T() }
+                    func fred() { S.inExtension(3) }
       """
       case .yetAnother: return """
                        import \(Module.importedModule.name)
