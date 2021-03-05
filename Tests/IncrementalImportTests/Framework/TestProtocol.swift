@@ -35,35 +35,34 @@ protocol TestProtocol {
 
 extension TestProtocol {
   /// The top-level function, runs the whole test.
-  static func test() throws {
+  static func test(testFile: StaticString = #file, testLine: UInt = #line) throws {
     for withIncrementalImports in [false, true] { 
       try withTemporaryDirectory { testDir in
         Self()
-          .test(in: testDir, withIncrementalImports: withIncrementalImports)
+          .test(TestContext(in: testDir,
+                            withIncrementalImports: withIncrementalImports,
+                            testFile: testFile,
+                            testLine: testLine))
       }
     }
   }
 
   /// Run the test with or without incremental imports.
-  private func test(in testDir: AbsolutePath,
-                    withIncrementalImports: Bool) {
+  private func test(_ context: TestContext) {
     XCTAssertNoThrow(
-      try localFileSystem.changeCurrentWorkingDirectory(to: testDir))
-    createDerivedDatasAndOFMs(in: testDir)
+      try localFileSystem.changeCurrentWorkingDirectory(to: context.testDir),
+      file: context.testFile, line: context.testLine)
+    createDerivedDatasAndOFMs(context)
 
-    Self.start.buildFromScratch(
-      in: testDir,
-      withIncrementalImports: withIncrementalImports)
+    Self.start.buildFromScratch(context)
     for step in Self.steps {
-      step.mutateAndRebuildAndCheck(
-        in: testDir,
-        withIncrementalImports: withIncrementalImports)
+      step.mutateAndRebuildAndCheck(context)
     }
   }
 
-  private func createDerivedDatasAndOFMs(in testDir: AbsolutePath) {
+  private func createDerivedDatasAndOFMs(_ context: TestContext) {
     for module in Module.allCases {
-      module.createDerivedDataAndOFM(in: testDir)
+      module.createDerivedDataAndOFM(context)
     }
   }
 }

@@ -30,9 +30,9 @@ extension StateProtocol {
   var name: String {rawValue}
 
   /// Performs a mutation of the mutable source file
-  private func mutate(in testDir: AbsolutePath) {
+  private func mutate(_ context: TestContext) {
     for job in jobs {
-      job.mutate(in: testDir)
+      job.mutate(context)
     }
   }
 
@@ -43,36 +43,32 @@ extension StateProtocol {
     })
   }
 
-  func buildFromScratch(
-    in testDir: AbsolutePath,
-    withIncrementalImports: Bool) {
+  func buildFromScratch(_ context: TestContext) {
     mutateAndRebuildAndCheck(
-      in: testDir,
+      context,
       expecting: expectingFromScratch,
-      withIncrementalImports: withIncrementalImports,
       stepName: "setup")
   }
 
   func mutateAndRebuildAndCheck(
-    in testDir: AbsolutePath,
+    _ context: TestContext,
     expecting: [Source],
-    withIncrementalImports: Bool,
     stepName: String
   ) {
     print(stepName)
 
-    mutate(in: testDir)
-    let compiledSources = build(in: testDir, withIncrementalImports: withIncrementalImports)
+    mutate(context)
+    let compiledSources = build(context)
     XCTAssertEqual(
       compiledSources.map {$0.name} .sorted(),
       expecting      .map {$0.name} .sorted(),
-                   "Compiled != Expected, withIncrementalImports: \(withIncrementalImports), step \(stepName)")
+      "Compiled != Expected, \(context), step \(stepName)",
+      file: context.testFile, line: context.testLine)
   }
 
   /// Builds the entire project, returning what was recompiled.
-   private func build(in testDir: AbsolutePath,
-                       withIncrementalImports: Bool) -> [Source] {
-     jobs.flatMap{ $0.build(in: testDir, withIncrementalImports: withIncrementalImports) }
+   private func build(_ context: TestContext) -> [Source] {
+     jobs.flatMap{ $0.build(context) }
    }
   var expectingFromScratch: [Source] {
     Array(

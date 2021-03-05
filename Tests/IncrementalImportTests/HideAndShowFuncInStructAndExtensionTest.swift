@@ -52,12 +52,10 @@ fileprivate enum InStructStep: String, HideAndShowStep {
     }
   }
   var expectingWith: [Source] {
-    switch self {
-    case .hide:
-      return [.definesGeneralFuncsAndCallsFuncInStruct, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs ]
-    case .show:
-      return [.definesGeneralFuncsAndCallsFuncInStruct, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
-    }
+    return [.definesGeneralFuncsAndCallsFuncInStruct,
+            .callsFuncInExtension,
+            .instantiatesS,
+            .importedWithoutPublicFuncs]
   }
 }
 
@@ -71,10 +69,10 @@ fileprivate enum InExtensionStep: String, HideAndShowStep {
     }
   }
   var expectingWith: [Source] {
-    switch self {
-    case .hide: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
-    case .show: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
-    }
+    return [.definesGeneralFuncsAndCallsFuncInStruct,
+            .callsFuncInExtension,
+            .instantiatesS,
+            .importedWithoutPublicFuncs]
   }
 }
 
@@ -88,10 +86,10 @@ fileprivate enum BothStep: String, HideAndShowStep {
     }
   }
   var expectingWith: [Source] {
-    switch self {
-    case .hide: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
-    case .show: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
-    }
+    return [.definesGeneralFuncsAndCallsFuncInStruct,
+            .callsFuncInExtension,
+            .instantiatesS,
+            .importedWithoutPublicFuncs]
   }
 }
 

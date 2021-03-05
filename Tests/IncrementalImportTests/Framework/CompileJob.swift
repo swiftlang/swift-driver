@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import XCTest
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -36,21 +35,16 @@ struct CompileJob<Module: ModuleProtocol> {
     return Self(module, sources.substituting(subs))
   }
 
-  func mutate(in testDir: AbsolutePath) {
-    sources.forEach {$0.mutate(in: testDir)}
+  func mutate(_ context: TestContext) {
+    sources.forEach {$0.mutate(context)}
   }
 
   var originals: [Source] {
     sources.map {$0.original}
   }
 
-  func build(in testDir: AbsolutePath,
-             withIncrementalImports: Bool
-  ) -> [Source] {
-    let allArgs = module.arguments(
-      in: testDir,
-      compiling: originals,
-      withIncrementalImports: withIncrementalImports)
+  func build(_ context: TestContext) -> [Source] {
+    let allArgs = module.arguments(context, compiling: originals)
 
     var collector = CompiledSourceCollector<Source>()
     let diagnosticsEngine = DiagnosticsEngine(handlers: [
@@ -61,7 +55,7 @@ struct CompileJob<Module: ModuleProtocol> {
     let jobs = try! driver.planBuild()
     try! driver.run(jobs: jobs)
 
-    return collector.compiledSources
+    return collector.compiledSources(context)
   }
 
   var fromScratchExpectations: [Source] {

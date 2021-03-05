@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import XCTest
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -31,18 +30,13 @@ protocol StepProtocol: TestPartProtocol {
 extension StepProtocol {
   var name: String {rawValue}
 
-  func mutateAndRebuildAndCheck(
-    in testDir: AbsolutePath,
-    withIncrementalImports: Bool
-  ) {
-    to.mutateAndRebuildAndCheck(
-      in: testDir,
-      expecting: expecting(withIncrementalImports: withIncrementalImports),
-      withIncrementalImports: withIncrementalImports,
-      stepName: name)
+  func mutateAndRebuildAndCheck(_ context: TestContext) {
+    to.mutateAndRebuildAndCheck(context,
+                                expecting: expecting(context),
+                                stepName: name)
   }
 
-  func expecting(withIncrementalImports: Bool) -> [Source] {
-    withIncrementalImports ? expectingWith : expectingWithout
+  func expecting(_ context: TestContext) -> [Source] {
+    context.withIncrementalImports ? expectingWith : expectingWithout
   }
 }

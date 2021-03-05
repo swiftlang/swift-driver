@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import XCTest
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -40,23 +39,20 @@ extension ModuleProtocol {
   }
 
   /// Arguments used for every build
-  func arguments(
-    in testDir: AbsolutePath,
-    compiling inputs: [Source],
-    withIncrementalImports: Bool) -> [String] {
+  func arguments(_ context: TestContext, compiling inputs: [Source]) -> [String] {
     var libraryArgs: [String] {
       ["-parse-as-library",
-       "-emit-module-path", swiftmodulePath(in: testDir).pathString]
+       "-emit-module-path", swiftmodulePath(context).pathString]
     }
     var appArgs: [String] {
       let swiftModules = imports .map {
-        $0.swiftmodulePath(in: testDir).parentDirectory.pathString
+        $0.swiftmodulePath(context).parentDirectory.pathString
       }
       return swiftModules.flatMap { ["-I", $0, "-F", $0] }
     }
     var incrementalImportsArgs: [String] {
       // ["-\(withIncrementalImports ? "en" : "dis")able-incremental-imports"]
-      withIncrementalImports
+      context.withIncrementalImports
         ? ["-enable-experimental-cross-module-incremental-build"]
         : []
     }
@@ -70,34 +66,34 @@ extension ModuleProtocol {
         "-driver-show-job-lifecycle",
         "-c",
         "-module-name", name,
-        "-output-file-map", outputFileMapPath(in: testDir).pathString,
+        "-output-file-map", outputFileMapPath(context).pathString,
       ],
       incrementalImportsArgs,
       isLibrary ? libraryArgs : appArgs,
-      inputs.map {$0.sourcePath(in: testDir).pathString}
+      inputs.map {$0.sourcePath(context).pathString}
     ].joined())
   }
 
-  func createDerivedDataAndOFM(in testDir: AbsolutePath) {
-    try! localFileSystem.createDirectory(derivedDataPath(in: testDir))
-    writeOFM(in: testDir)
+  func createDerivedDataAndOFM(_ context: TestContext) {
+    try! localFileSystem.createDirectory(derivedDataPath(context))
+    writeOFM(context)
   }
 
-  private func writeOFM(in testDir: AbsolutePath) {
+  private func writeOFM(_ context: TestContext) {
     OutputFileMapCreator.write(
       module: name,
-      inputPaths: sources.map {$0.sourcePath(in: testDir)},
-      derivedData: derivedDataPath(in: testDir),
-      to: outputFileMapPath(in: testDir))
+      inputPaths: sources.map {$0.sourcePath(context)},
+      derivedData: derivedDataPath(context),
+      to: outputFileMapPath(context))
   }
 
-  func derivedDataPath(in testDir: AbsolutePath) -> AbsolutePath {
-    testDir.appending(component: "\(name)DD")
+  func derivedDataPath(_ context: TestContext) -> AbsolutePath {
+    context.testDir.appending(component: "\(name)DD")
   }
-  func outputFileMapPath(in testDir: AbsolutePath) -> AbsolutePath {
-    derivedDataPath(in: testDir).appending(component: "OFM")
+  func outputFileMapPath(_ context: TestContext) -> AbsolutePath {
+    derivedDataPath(context).appending(component: "OFM")
   }
-  func swiftmodulePath(in testDir: AbsolutePath) -> AbsolutePath {
-    derivedDataPath(in: testDir).appending(component: "\(name).swiftmodule")
+  func swiftmodulePath(_ context: TestContext) -> AbsolutePath {
+    derivedDataPath(context).appending(component: "\(name).swiftmodule")
   }
 }

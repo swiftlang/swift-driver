@@ -35,14 +35,14 @@ extension SourceProtocol {
   /// The basename without extension of the source file, e.g. for a file named "main.swift", this would be "main"
   var name: String { rawValue }
 
-  func sourcePath(in testDir: AbsolutePath) -> AbsolutePath {
-    testDir.appending(component: "\(original.name).swift")
+  func sourcePath(_ context: TestContext) -> AbsolutePath {
+    context.testDir.appending(component: "\(original.name).swift")
   }
 
-  func mutate(in testDir: AbsolutePath) {
+  func mutate(_ context: TestContext) {
     XCTAssertNoThrow(
-      try localFileSystem.writeIfChanged(path: sourcePath(in: testDir),
-                                         bytes: ByteString(encodingAsUTF8: code))
-    )
+      try localFileSystem.writeIfChanged(path: sourcePath(context),
+                                         bytes: ByteString(encodingAsUTF8: code)),
+      file: context.testFile, line: context.testLine)
   }
 }

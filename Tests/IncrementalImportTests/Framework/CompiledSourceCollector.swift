@@ -39,8 +39,9 @@ struct CompiledSourceCollector<Source: SourceProtocol> {
   mutating func process(diagnostic d: Diagnostic) {
     collectedCompiledSources.append(contentsOf: getCompiledSources(from: d))
   }
-  var compiledSources: [Source] {
-    XCTAssertEqual(Set(collectedCompiledSources).count, collectedCompiledSources.count)
+  func compiledSources(_ context: TestContext) ->  [Source] {
+    XCTAssertEqual(Set(collectedCompiledSources).count, collectedCompiledSources.count,
+                   file: context.testFile, line: context.testLine)
     return collectedCompiledSources
   }
 }
