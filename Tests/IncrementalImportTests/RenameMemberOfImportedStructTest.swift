@@ -41,8 +41,9 @@ fileprivate extension RenameMemberOfImportedStruct {
       case .unrename: return .initial
       }
     }
-    var expectingWithout: [Source] {to.allOriginals}
-    var expectingWith: [Source] {[.mainFile, .importedFile]}
+    var expecting: Expectation<Source> {
+      .expecting(with: [.mainFile, .importedFile], without: to.allOriginals)
+    }
   }
 }
 

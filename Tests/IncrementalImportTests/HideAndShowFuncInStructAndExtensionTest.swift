@@ -28,12 +28,12 @@ class HideAndShowFuncInStructAndExtensionTests: XCTestCase {
 }
 
 fileprivate struct HideAndShowFunc<Step: HideAndShowStep>: TestProtocol {
-  static var start: Step.State { FState.bothHidden as! Step.State }
+  static var start: Step.State { HideAndShowFuncState.bothHidden as! Step.State }
   static var steps: [Step] { [.show, .hide, .show] }
 }
 
 fileprivate protocol HideAndShowStep: StepProtocol {
-  associatedtype State = FState
+  associatedtype State = HideAndShowFuncState
   static var show: Self {get}
   static var hide: Self {get}
 }
@@ -77,7 +77,7 @@ fileprivate enum BothStep: String, HideAndShowStep {
 }
 
 
-fileprivate enum FState: String, StateProtocol {
+fileprivate enum HideAndShowFuncState: String, StateProtocol {
   case bothHidden, shownInStruct, shownInExtension, bothShown
 
   var jobs: [CompileJob<Module>] {
@@ -91,7 +91,7 @@ fileprivate enum FState: String, StateProtocol {
 }
 
 
-fileprivate extension FState {
+fileprivate extension HideAndShowFuncState {
   var commonExpectations: Expectation<Module.Source> {
     .expecting(with: [
                         .definesGeneralFuncsAndCallsFuncInStruct,
@@ -102,7 +102,7 @@ fileprivate extension FState {
   }
 }
 
-fileprivate extension FState {
+fileprivate extension HideAndShowFuncState {
   enum Module: String, ModuleProtocol {
     case importedModule, mainModule
 
@@ -129,9 +129,9 @@ fileprivate extension FState {
   }
 }
 
-fileprivate extension FState.Module {
+fileprivate extension HideAndShowFuncState.Module {
   enum Source: String, SourceProtocol {
-    typealias Module = FState.Module
+    typealias Module = HideAndShowFuncState.Module
 
     case importedWithoutPublicFuncs = "imported",
          importedFileWithPublicFuncInStruct,
