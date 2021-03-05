@@ -24,14 +24,12 @@ import TestUtilities
 /// where `SomeModuleType` is an `enum` conforming to `ModuleProtocol`.
 protocol TestProtocol {
   associatedtype Step: StepProtocol
-  typealias Phase = Step.Phase
-  typealias Module = Phase.Module
+  typealias State = Step.State
+  typealias Module = State.Module
 
-  init(withIncrementalImports: Bool, testDir: AbsolutePath)
-  var withIncrementalImports: Bool {get}
-  var testDir: AbsolutePath {get}
+  init()
 
-  static var start: Phase {get}
+  static var start: State {get}
   static var steps: [Step] {get}
 }
 
@@ -39,19 +37,19 @@ extension TestProtocol {
   /// The top-level function, runs the whole test.
   static func test() throws {
     for withIncrementalImports in [false, true] { 
-      try withTemporaryDirectory { tempDir in
-        Self(withIncrementalImports: withIncrementalImports,
-             testDir: tempDir)
-          .test()
+      try withTemporaryDirectory { testDir in
+        Self()
+          .test(in: testDir, withIncrementalImports: withIncrementalImports)
       }
     }
   }
 
   /// Run the test with or without incremental imports.
-  private func test() {
+  private func test(in testDir: AbsolutePath,
+                    withIncrementalImports: Bool) {
     XCTAssertNoThrow(
       try localFileSystem.changeCurrentWorkingDirectory(to: testDir))
-    createDerivedDatasAndOFMs()
+    createDerivedDatasAndOFMs(in: testDir)
 
     Self.start.buildFromScratch(
       in: testDir,
@@ -62,7 +60,8 @@ extension TestProtocol {
         withIncrementalImports: withIncrementalImports)
     }
   }
-  private func createDerivedDatasAndOFMs() {
+
+  private func createDerivedDatasAndOFMs(in testDir: AbsolutePath) {
     for module in Module.allCases {
       module.createDerivedDataAndOFM(in: testDir)
     }

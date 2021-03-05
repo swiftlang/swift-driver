@@ -54,6 +54,12 @@ extension ModuleProtocol {
       }
       return swiftModules.flatMap { ["-I", $0, "-F", $0] }
     }
+    var incrementalImportsArgs: [String] {
+      // ["-\(withIncrementalImports ? "en" : "dis")able-incremental-imports"]
+      withIncrementalImports
+        ? ["-enable-experimental-cross-module-incremental-build"]
+        : []
+    }
     return Array(
     [
       [
@@ -65,8 +71,8 @@ extension ModuleProtocol {
         "-c",
         "-module-name", name,
         "-output-file-map", outputFileMapPath(in: testDir).pathString,
-        "-\(withIncrementalImports ? "en" : "dis")able-incremental-imports"
       ],
+      incrementalImportsArgs,
       isLibrary ? libraryArgs : appArgs,
       inputs.map {$0.sourcePath(in: testDir).pathString}
     ].joined())

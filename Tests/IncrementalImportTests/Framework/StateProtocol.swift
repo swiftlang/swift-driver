@@ -17,16 +17,16 @@ import SwiftOptions
 import TestUtilities
 
 
-// MARK: - PhaseProtocol
+// MARK: - StateProtocol
 
-protocol PhaseProtocol: TestPartProtocol {
+protocol StateProtocol: TestPartProtocol {
   associatedtype Module: ModuleProtocol
   typealias Source = Module.Source
 
   var jobs: [CompileJob<Module>] {get}
 }
 
-extension PhaseProtocol {
+extension StateProtocol {
   var name: String {rawValue}
 
   /// Performs a mutation of the mutable source file
@@ -36,7 +36,7 @@ extension PhaseProtocol {
     }
   }
 
-  /// All (original) sources involved in this phase, recompiled or not
+  /// All (original) sources involved in this state, recompiled or not
   var allOriginals: [Source] {
     Array( jobs.reduce(into: Set<Source>()) { sources, job in
       sources.formUnion(job.originals)
@@ -63,8 +63,9 @@ extension PhaseProtocol {
 
     mutate(in: testDir)
     let compiledSources = build(in: testDir, withIncrementalImports: withIncrementalImports)
-
-    XCTAssertEqual(Set(compiledSources), Set(expecting),
+    XCTAssertEqual(
+      compiledSources.map {$0.name} .sorted(),
+      expecting      .map {$0.name} .sorted(),
                    "Compiled != Expected, withIncrementalImports: \(withIncrementalImports), step \(stepName)")
   }
 

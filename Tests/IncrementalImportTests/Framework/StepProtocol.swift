@@ -21,10 +21,10 @@ import TestUtilities
 
 // MARK: - StepProtocol
 protocol StepProtocol: TestPartProtocol {
-  associatedtype Phase: PhaseProtocol
-  typealias Source = Phase.Source
+  associatedtype State: StateProtocol
+  typealias Source = State.Source
 
-  var to: Phase {get}
+  var to: State {get}
   var expectingWith: [Source] {get}
   var expectingWithout: [Source] {get}
 }

@@ -84,7 +84,7 @@ extension Array {
 }
 extension Array where Element: SourceProtocol {
   func substituting(_ subs: Self) -> Self {
-    let subMap = spm_createDictionary {sub in (sub.original, sub)}
+    let subMap = subs.spm_createDictionary {sub in (sub.original, sub)}
     return map { subMap[$0.original, default: $0] }
   }
 }
