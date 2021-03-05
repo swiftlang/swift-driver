@@ -53,8 +53,10 @@ fileprivate enum InStructStep: String, HideAndShowStep {
   }
   var expectingWith: [Source] {
     switch self {
-    case .hide: return []
-    case .show: return []
+    case .hide:
+      return [.definesGeneralFuncsAndCallsFuncInStruct, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs ]
+    case .show:
+      return [.definesGeneralFuncsAndCallsFuncInStruct, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
     }
   }
 }
@@ -70,8 +72,8 @@ fileprivate enum InExtensionStep: String, HideAndShowStep {
   }
   var expectingWith: [Source] {
     switch self {
-    case .hide: return []
-    case .show: return []
+    case .hide: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
+    case .show: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
     }
   }
 }
@@ -87,21 +89,11 @@ fileprivate enum BothStep: String, HideAndShowStep {
   }
   var expectingWith: [Source] {
     switch self {
-    case .hide: return []
-    case .show: return []
+    case .hide: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
+    case .show: return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS, .importedWithoutPublicFuncs]
     }
   }
 }
-
-//fileprivate enum Step: String, StepProtocol {
-//  case showInStructKeepHiddenInExtension,
-//       hideInStructKeepHiddenInExtension,
-//       showInStructWasShownInExtension,
-//       hideInStructWasHiddenInExtension,
-//       keepHiddenInStructShowInExtension,
-//       keepHiddenInStructHideInExtension,
-//       wasShownInStruct
-//}
 
 fileprivate enum FState: String, StateProtocol {
   case bothHidden, shownInStruct, shownInExtension, bothShown
@@ -109,9 +101,9 @@ fileprivate enum FState: String, StateProtocol {
   var jobs: [CompileJob<Module>] {
     switch self {
     case .bothHidden:        return .building(.importedModule, .mainModule)
-    case .shownInStruct:     return Self.bothHidden.jobs.substituting(.shownInStruct)
-    case .shownInExtension:  return Self.bothHidden.jobs.substituting(.shownInExtension)
-    case .bothShown:         return Self.bothHidden.jobs.substituting(.bothShown)
+    case .shownInStruct:     return Self.bothHidden.jobs.substituting(.importedFileWithPublicFuncInStruct)
+    case .shownInExtension:  return Self.bothHidden.jobs.substituting(.importedFileWithPublicFuncInExtension)
+    case .bothShown:         return Self.bothHidden.jobs.substituting(.importedFileWithPublicFuncInStructAndExtension)
     }
   }
 }
@@ -122,8 +114,8 @@ fileprivate extension FState {
 
     var sources: [Source] {
       switch self {
-      case .importedModule:  return [.bothHidden]
-      case .mainModule:      return [.main, .other, .another, .yetAnother]
+      case .importedModule:  return [.importedWithoutPublicFuncs]
+      case .mainModule:      return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS]
       }
     }
 
@@ -147,18 +139,28 @@ fileprivate extension FState.Module {
   enum Source: String, SourceProtocol {
     typealias Module = FState.Module
 
-    case bothHidden = "importedFile", shownInStruct, shownInExtension, bothShown, main, other, another, yetAnother
+    case importedWithoutPublicFuncs = "imported",
+         importedFileWithPublicFuncInStruct,
+         importedFileWithPublicFuncInExtension,
+         importedFileWithPublicFuncInStructAndExtension,
+         definesGeneralFuncsAndCallsFuncInStruct = "main",
+         noUseOfS,
+         callsFuncInExtension,
+         instantiatesS
 
     var original: Self {
       switch self {
-      case .shownInStruct, .shownInExtension, .bothShown: return .bothHidden
+      case .importedFileWithPublicFuncInStruct,
+           .importedFileWithPublicFuncInExtension,
+           .importedFileWithPublicFuncInStructAndExtension:
+        return .importedWithoutPublicFuncs
       default: return self
       }
     }
 
     var code: String {
       switch self {
-      case .main: return """
+      case .definesGeneralFuncsAndCallsFuncInStruct: return """
                   import \(Module.importedModule.name)
                   extension S {
                     static func inStruct<I: SignedInteger>(_ si: I) {
@@ -170,19 +172,19 @@ fileprivate extension FState.Module {
                   }
                   S.inStruct(3)
     """
-      case .other: return """
+      case .noUseOfS: return """
                   import \(Module.importedModule.name)
                   func baz() { T.bar("asdf") }
     """
-      case .another: return """
-                    import \(Module.importedModule.name)
-                    func fred() { S.inExtension(3) }
+      case .callsFuncInExtension: return """
+                  import \(Module.importedModule.name)
+                  func fred() { S.inExtension(3) }
       """
-      case .yetAnother: return """
-                       import \(Module.importedModule.name)
-                       func late() { S() }
+      case .instantiatesS: return """
+                 import \(Module.importedModule.name)
+                 func late() { S() }
     """
-      case .bothHidden: return """
+      case .importedWithoutPublicFuncs: return """
                   public protocol PP {}
                   public struct S: PP {
                     public init() {}
@@ -199,7 +201,7 @@ fileprivate extension FState.Module {
                    static func inExtension(_ i: Int) {print("2: private")}
                   }
     """
-      case .shownInStruct: return """
+      case .importedFileWithPublicFuncInStruct: return """
                   public protocol PP {}
                   public struct S: PP {
                     public init() {}
@@ -216,24 +218,24 @@ fileprivate extension FState.Module {
                    static func inExtension(_ i: Int) {print("2: private")}
                   }
     """
-      case .shownInExtension: return """
-                    public protocol PP {}
-                    public struct S: PP {
-                      public init() {}
-                      // public // was commented out; should rebuild users of inStruct
-                      static func inStruct(_ i: Int) {print("1: private")}
-                      func fo() {}
-                    }
-                    public struct T {
-                      public init() {}
-                      public static func bar(_ s: String) {print(s)}
-                    }
-                    extension S {
-                     // public
-                     static func inExtension(_ i: Int) {print("2: private")}
-                    }
+      case .importedFileWithPublicFuncInExtension: return """
+                  public protocol PP {}
+                  public struct S: PP {
+                    public init() {}
+                    // public // was commented out; should rebuild users of inStruct
+                    static func inStruct(_ i: Int) {print("1: private")}
+                    func fo() {}
+                  }
+                  public struct T {
+                    public init() {}
+                    public static func bar(_ s: String) {print(s)}
+                  }
+                  extension S {
+                   // public
+                   static func inExtension(_ i: Int) {print("2: private")}
+                  }
       """
-      case .bothShown: return """
+      case .importedFileWithPublicFuncInStructAndExtension: return """
                   public protocol PP {}
                   public struct S: PP {
                     public init() {}
