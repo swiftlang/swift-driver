@@ -50,6 +50,9 @@ extension StateProtocol {
 
   /// Enter this state: update the sources, compile, and return what was actually compiled.
   func enter(_ context: TestContext) -> [String] {
+    if context.verbose {
+      print("Entering", nextState.name, "state")
+    }
     updateChangedSources(context)
     return compile(context)
   }
