@@ -12,6 +12,11 @@
 
 /// Every enum protocol in this framework must conform to this.
 /// String raw values are used as names for source files and modules.
+/// It is possible that not all of these are needed by every conforming protocol.
 /// (See `TestProtocol`.)
 protocol BasicEnumRequirements: Hashable, CaseIterable, RawRepresentable where RawValue == String {
+}
+
+extension BasicEnumRequirements {
+  var name: String {rawValue}
 }

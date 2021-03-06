@@ -28,8 +28,6 @@ protocol StateProtocol: BasicEnumRequirements {
 }
 
 extension StateProtocol {
-  var name: String {rawValue}
-
   /// Bring source files into agreement with desired versions
   private func updateChangedSources(_ context: TestContext) {
     for job in jobs {

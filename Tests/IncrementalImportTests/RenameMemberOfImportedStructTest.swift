@@ -110,7 +110,7 @@ fileprivate extension RenameMemberOfImportedStruct {
       switch self {
       case .mainFile:
         return """
-               import \(Module.importedModule.name)
+               import \(Module.importedModule.nameToImport)
                ImportedStruct().importedMember()
                """
       case .otherFile:

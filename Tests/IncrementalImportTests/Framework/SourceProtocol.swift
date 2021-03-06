@@ -32,9 +32,6 @@ protocol SourceProtocol: BasicEnumRequirements {
 }
 
 extension SourceProtocol {
-  /// The basename without extension of the source file, e.g. for a file named "main.swift", this would be "main"
-  var name: String { rawValue }
-
   func sourcePath(_ context: TestContext) -> AbsolutePath {
     context.rootDir.appending(component: "\(original.name).swift")
   }

@@ -28,8 +28,6 @@ protocol StepProtocol: BasicEnumRequirements {
   var expecting: Expectation<Source> {get}
 }
 extension StepProtocol {
-  var name: String {rawValue}
-
   func mutateAndRebuildAndCheck(_ context: TestContext) {
     print(name)
     let compiledSources = nextState.enter(context)

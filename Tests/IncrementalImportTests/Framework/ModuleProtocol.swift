@@ -31,19 +31,19 @@ protocol ModuleProtocol: BasicEnumRequirements {
 
 extension ModuleProtocol {
   /// The name of the module, as appears in the `import` statement
-  var name: String { rawValue }
+  var nameToImport: String { name }
 
   func createDerivedDataDir(_ context: TestContext) {
     try! localFileSystem.createDirectory(derivedDataPath(context))
   }
 
   func derivedDataPath(_ context: TestContext) -> AbsolutePath {
-    context.rootDir.appending(component: "\(name)DD")
+    context.rootDir.appending(component: "\(nameToImport)DD")
   }
   func outputFileMapPath(_ context: TestContext) -> AbsolutePath {
     derivedDataPath(context).appending(component: "OFM")
   }
   func swiftmodulePath(_ context: TestContext) -> AbsolutePath {
-    derivedDataPath(context).appending(component: "\(name).swiftmodule")
+    derivedDataPath(context).appending(component: "\(nameToImport).swiftmodule")
   }
 }

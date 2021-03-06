@@ -91,7 +91,7 @@ struct BuildJob<Module: ModuleProtocol> {
         "-driver-show-incremental",
         "-driver-show-job-lifecycle",
         "-c",
-        "-module-name", module.name,
+        "-module-name", module.nameToImport,
         "-output-file-map", module.outputFileMapPath(context).pathString,
       ],
       incrementalImportsArgs,

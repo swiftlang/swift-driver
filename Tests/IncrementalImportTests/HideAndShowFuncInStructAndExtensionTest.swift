@@ -162,7 +162,7 @@ fileprivate extension HideAndShowFuncState.Module {
     var code: String {
       switch self {
       case .definesGeneralFuncsAndCallsFuncInStruct: return """
-                  import \(Module.importedModule.name)
+                  import \(Module.importedModule.nameToImport)
                   extension S {
                     static func inStruct<I: SignedInteger>(_ si: I) {
                       print("1: not public")
@@ -174,15 +174,15 @@ fileprivate extension HideAndShowFuncState.Module {
                   S.inStruct(3)
     """
       case .noUseOfS: return """
-                  import \(Module.importedModule.name)
+                  import \(Module.importedModule.nameToImport)
                   func baz() { T.bar("asdf") }
     """
       case .callsFuncInExtension: return """
-                  import \(Module.importedModule.name)
+                  import \(Module.importedModule.nameToImport)
                   func fred() { S.inExtension(3) }
       """
       case .instantiatesS: return """
-                 import \(Module.importedModule.name)
+                 import \(Module.importedModule.nameToImport)
                  func late() { S() }
     """
       case .importedWithoutPublicFuncs: return """
