@@ -42,38 +42,38 @@ fileprivate protocol HideAndShowStep: StepProtocol {
 fileprivate enum InStructStep: String, HideAndShowStep {
   case hide, show
 
-  var to: State {
+  var nextState: State {
     switch self {
     case .hide: return .bothHidden
     case .show: return .shownInStruct
     }
   }
-  var expecting: Expectation<Source> { to.commonExpectations }
+  var expecting: Expectation<Source> { nextState.commonExpectations }
 }
 
 fileprivate enum InExtensionStep: String, HideAndShowStep {
   case hide, show
 
-  var to: State {
+  var nextState: State {
     switch self {
     case .hide: return .bothHidden
     case .show: return .shownInExtension
     }
   }
-  var expecting: Expectation<Source> { to.commonExpectations }
+  var expecting: Expectation<Source> { nextState.commonExpectations }
 }
 
 
 fileprivate enum BothStep: String, HideAndShowStep {
   case hide, show
 
-  var to: State {
+  var nextState: State {
     switch self {
     case .hide: return .bothHidden
     case .show: return .bothShown
     }
   }
-  var expecting: Expectation<Source> { to.commonExpectations }
+  var expecting: Expectation<Source> { nextState.commonExpectations }
 }
 
 

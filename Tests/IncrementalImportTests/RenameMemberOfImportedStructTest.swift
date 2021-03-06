@@ -34,7 +34,7 @@ fileprivate struct RenameMemberOfImportedStruct: TestProtocol {
 fileprivate extension RenameMemberOfImportedStruct {
   enum Step: String, StepProtocol {
      case rename, unrename
-    var to: State {
+    var nextState: State {
       switch self {
       case .rename: return .renamed
       case .unrename: return .initial

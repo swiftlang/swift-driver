@@ -23,7 +23,7 @@ protocol StepProtocol: TestPartProtocol {
   associatedtype State: StateProtocol
   typealias Source = State.Source
 
-  var to: State {get}
+  var nextState: State {get}
   var expecting: Expectation<Source> {get}
 }
 extension StepProtocol {
@@ -31,9 +31,9 @@ extension StepProtocol {
 
   func mutateAndRebuildAndCheck(_ context: TestContext) {
     print(name)
-    let compiledSources = to.mutateAndRebuild(context)
+    let compiledSources = nextState.mutateAndRebuild(context)
     expecting.check(against: compiledSources, context, stepName: name)
   }
 
-  var allSources: [Source] {to.allOriginals}
+  var allSources: [Source] {nextState.allOriginals}
 }
