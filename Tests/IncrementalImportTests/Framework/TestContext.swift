@@ -20,16 +20,21 @@ struct TestContext: CustomStringConvertible {
   /// Are incremental imports enabled? Tests both ways.
   let withIncrementalImports: Bool
 
+  /// Print out much more info to help debug the test
+  let verbose: Bool
+
   /// The original locus of the test, for error-reporting.
   let testFile: StaticString
   let testLine: UInt
 
   init(in rootDir: AbsolutePath,
        withIncrementalImports: Bool,
+       verbose: Bool,
        testFile: StaticString,
        testLine: UInt) {
     self.rootDir = rootDir
     self.withIncrementalImports = withIncrementalImports
+    self.verbose = verbose
     self.testFile = testFile
     self.testLine = testLine
   }

@@ -46,12 +46,16 @@ protocol TestProtocol {
 
 extension TestProtocol {
   /// The top-level function, runs the whole test.
-  static func test(testFile: StaticString = #file, testLine: UInt = #line) throws {
+  static func test(verbose: Bool,
+                   testFile: StaticString = #file,
+                   testLine: UInt = #line
+  ) throws {
     for withIncrementalImports in [false, true] { 
       try withTemporaryDirectory { rootDir in
         Self()
           .test(TestContext(in: rootDir,
                             withIncrementalImports: withIncrementalImports,
+                            verbose: verbose,
                             testFile: testFile,
                             testLine: testLine))
       }

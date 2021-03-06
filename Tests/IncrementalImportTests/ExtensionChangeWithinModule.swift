@@ -18,7 +18,7 @@ import SwiftOptions
 
 class ExtensionChangeWithinModuleTests: XCTestCase {
   func testExtensionChangeWithinModule() throws {
-    try ExtensionChange.test()
+    try ExtensionChange.test(verbose: false)
   }
 }
 

@@ -17,10 +17,10 @@ import SwiftOptions
 
 class HideAndShowFuncInStructAndExtensionTests: XCTestCase {
   func testHideAndShowFuncInStruct() throws {
-    try HideAndShowFuncInStruct.test()
+    try HideAndShowFuncInStruct.test(verbose: false)
   }
   func testHideAndShowFuncInExtension() throws {
-    try HideAndShowFuncInExtension.test()
+    try HideAndShowFuncInExtension.test(verbose: false)
   }
 }
 

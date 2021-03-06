@@ -42,9 +42,12 @@ struct BuildJob<Module: ModuleProtocol> {
     let allArgs = arguments(context)
 
     var collector = CompiledSourceCollector()
-    let diagnosticsEngine = DiagnosticsEngine(handlers: [
-                                                Driver.stderrDiagnosticsHandler,
-                                                {collector.handle(diagnostic: $0)}])
+    let handlers = [
+        {collector.handle(diagnostic: $0)},
+        context.verbose ? Driver.stderrDiagnosticsHandler : nil
+      ]
+      .compactMap {$0}
+    let diagnosticsEngine = DiagnosticsEngine(handlers: handlers)
 
     var driver = try! Driver(args: allArgs, diagnosticsEngine: diagnosticsEngine)
     let jobs = try! driver.planBuild()

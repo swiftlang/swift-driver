@@ -24,7 +24,9 @@ struct Step<State: StateProtocol> {
   }
 
   func mutateAndRebuildAndCheck(_ context: TestContext) {
-    print(nextState.name)
+    if context.verbose {
+      print(nextState.name)
+    }
     let compiledSources = nextState.enter(context)
     expecting.check(against: compiledSources, context, nextStateName: nextState.name)
   }

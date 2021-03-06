@@ -19,7 +19,7 @@ import SwiftOptions
 /// to get recompiled, but not for a struct.
 class ClassExtensionTest: XCTestCase {
   func testClassExtension() throws {
-    try Test.test()
+    try Test.test(verbose: false)
   }
   struct Test: TestProtocol {
     static let start: State = .withoutFunc
