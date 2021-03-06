@@ -1,4 +1,4 @@
-//===-------------- TestPartProtocol.swift - Swift Testing ----------------===//
+//===-------------- BasicEnumRequirements.swift - Swift Testing -----------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -10,12 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Every enum protocol in this framework must conform to this.
+/// String raw values are used as names for source files and modules.
 /// (See `TestProtocol`.)
-import TSCBasic
-
-@_spi(Testing) import SwiftDriver
-import SwiftOptions
-import TestUtilities
-
-protocol TestPartProtocol: Hashable, CaseIterable, RawRepresentable where RawValue == String {
+protocol BasicEnumRequirements: Hashable, CaseIterable, RawRepresentable where RawValue == String {
 }

@@ -32,8 +32,8 @@ struct BuildJob<Module: ModuleProtocol> {
   }
 
   /// Update the contents of the source files.
-  func mutate(_ context: TestContext) {
-    sources.forEach {$0.mutate(context)}
+  func updateChangedSources(_ context: TestContext) {
+    sources.forEach {$0.updateIfChanged(context)}
   }
 
   /// The original versions of each source version.

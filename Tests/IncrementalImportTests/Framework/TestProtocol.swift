@@ -30,7 +30,7 @@ import TestUtilities
 /// A state is a a collection of compile jobs to be run, where each compile job specifies a module
 /// and a set of source versions.
 ///
-/// A step is a state to which the source files will be mutated, and the expected files to be recompiled.
+/// A step is a state to which the source files will be updated, and the expected files to be recompiled.
 protocol TestProtocol {
   associatedtype Step: StepProtocol
   typealias State = Step.State
@@ -66,7 +66,7 @@ extension TestProtocol {
       file: context.testFile, line: context.testLine)
     createDerivedDataDirs(context)
 
-    Self.start.buildFromScratch(context)
+    Self.start.enterInitialStateAndCheck(context)
     for step in Self.steps {
       step.mutateAndRebuildAndCheck(context)
     }

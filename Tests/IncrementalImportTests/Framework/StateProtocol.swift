@@ -19,7 +19,7 @@ import TestUtilities
 /// A state is a sequence of jobs to run, where each job defines the source-versions to be used.
 /// A state is entered by mutating the source files and running the jobs.
 /// (See `TestProtocol`.)
-protocol StateProtocol: TestPartProtocol {
+protocol StateProtocol: BasicEnumRequirements {
   associatedtype Module: ModuleProtocol
   typealias Source = Module.Source
 
@@ -30,36 +30,39 @@ protocol StateProtocol: TestPartProtocol {
 extension StateProtocol {
   var name: String {rawValue}
 
-  /// Performs a mutation of the mutable source file
-  private func mutate(_ context: TestContext) {
+  /// Bring source files into agreement with desired versions
+  private func updateChangedSources(_ context: TestContext) {
     for job in jobs {
-      job.mutate(context)
+      job.updateChangedSources(context)
     }
   }
 
-  /// All (original) sources involved in this state, recompiled or not
+  /// The original source-versions
   var allOriginals: [Source] {
     Array( jobs.reduce(into: Set<Source>()) { sources, job in
       sources.formUnion(job.originals)
     })
   }
 
-  func buildFromScratch(_ context: TestContext) {
-    let compiledSources = mutateAndRebuild(context)
-    expectingFromScratch.check(against: compiledSources, context, stepName: "setup")
+  /// This state is the initial state. Create the sources, compile, and check.
+  func enterInitialStateAndCheck(_ context: TestContext) {
+    let compiledSources = enter(context)
+    initialExpectations.check(against: compiledSources, context, stepName: "setup")
   }
 
-  func mutateAndRebuild(_ context: TestContext) -> [Source] {
-    mutate(context)
-    return build(context)
+  /// Enter this state: update the sources, compile, and return what was actually compiled.
+  func enter(_ context: TestContext) -> [Source] {
+    updateChangedSources(context)
+    return compile(context)
   }
 
   /// Builds the entire project, returning what was recompiled.
-   private func build(_ context: TestContext) -> [Source] {
+   private func compile(_ context: TestContext) -> [Source] {
      jobs.flatMap{ $0.run(context) }
    }
 
-  var expectingFromScratch: Expectation<Source> {
+  /// What should be compiled for the initial set up.
+  var initialExpectations: Expectation<Source> {
     Expectation(with: allOriginals, without: allOriginals)
   }
 }

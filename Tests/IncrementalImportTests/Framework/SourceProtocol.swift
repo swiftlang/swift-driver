@@ -21,7 +21,7 @@ import TestUtilities
 /// Each test must implement an enum that enumerates the sources in the test
 /// Each source is the contents of some source file version
 /// (See `TestProtocol`.)
-protocol SourceProtocol: TestPartProtocol {
+protocol SourceProtocol: BasicEnumRequirements {
 
   /// Each source file must supply a `SourceDescription` object, which contains (versions of)
   /// the source code and recompilation expectations if any.
@@ -39,7 +39,7 @@ extension SourceProtocol {
     context.rootDir.appending(component: "\(original.name).swift")
   }
 
-  func mutate(_ context: TestContext) {
+  func updateIfChanged(_ context: TestContext) {
     XCTAssertNoThrow(
       try localFileSystem.writeIfChanged(path: sourcePath(context),
                                          bytes: ByteString(encodingAsUTF8: code)),

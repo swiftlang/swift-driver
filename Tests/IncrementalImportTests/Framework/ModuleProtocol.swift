@@ -18,7 +18,7 @@ import TestUtilities
 
 /// Each test must implement an enum that conforms and describes the modules in the test.
 /// (See `TestProtocol`.)
-protocol ModuleProtocol: TestPartProtocol {
+protocol ModuleProtocol: BasicEnumRequirements {
   /// The type of the Source (versions)
   associatedtype Source: SourceProtocol
 

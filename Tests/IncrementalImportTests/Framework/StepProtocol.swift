@@ -20,7 +20,7 @@ import TestUtilities
 /// A test step: includes the source state to compile and what compilations are expected.
 /// A given test consists of a start state, and a sequence of steps.
 /// (See `TestProtocol`.)
-protocol StepProtocol: TestPartProtocol {
+protocol StepProtocol: BasicEnumRequirements {
   associatedtype State: StateProtocol
   typealias Source = State.Source
 
@@ -32,7 +32,7 @@ extension StepProtocol {
 
   func mutateAndRebuildAndCheck(_ context: TestContext) {
     print(name)
-    let compiledSources = nextState.mutateAndRebuild(context)
+    let compiledSources = nextState.enter(context)
     expecting.check(against: compiledSources, context, stepName: name)
   }
 
