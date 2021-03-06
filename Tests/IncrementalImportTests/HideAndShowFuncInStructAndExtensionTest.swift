@@ -101,12 +101,11 @@ fileprivate enum HideAndShowFuncState: String, StateProtocol {
 
 fileprivate extension HideAndShowFuncState {
   var commonExpectations: Expectation<Module.Source> {
-    .expecting(with: [
-                        .definesGeneralFuncsAndCallsFuncInStruct,
-                        .callsFuncInExtension,
-                        .instantiatesS,
-                        .importedWithoutPublicFuncs],
-                      without: allOriginals)
+    Expectation(with: [.definesGeneralFuncsAndCallsFuncInStruct,
+                       .callsFuncInExtension,
+                       .instantiatesS,
+                       .importedWithoutPublicFuncs],
+                without: allOriginals)
   }
 }
 

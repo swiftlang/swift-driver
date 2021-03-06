@@ -41,7 +41,7 @@ fileprivate extension RenameMemberOfImportedStruct {
       }
     }
     var expecting: Expectation<Source> {
-      .expecting(with: [.mainFile, .importedFile], without: allSources)
+      Expectation(with: [.mainFile, .importedFile], without: allSources)
     }
   }
 }

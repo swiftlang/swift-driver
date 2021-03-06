@@ -59,6 +59,6 @@ extension StateProtocol {
    }
 
   var expectingFromScratch: Expectation<Source> {
-    .expecting(with: allOriginals, without: allOriginals)
+    Expectation(with: allOriginals, without: allOriginals)
   }
 }

@@ -12,17 +12,18 @@
 import XCTest
 import TSCBasic
 
+/// What is supposed to be recompiled when taking a step.
 struct Expectation<Source: SourceProtocol> {
+
+  /// Expected when incremental imports are enabled
   private let withIncrementalImports: [Source]
+
+  // Expected when incremental imports are disabled
   private let withoutIncrementalImports: [Source]
 
-  private init(with: [Source], without: [Source]) {
+  init(with: [Source], without: [Source]) {
     self.withIncrementalImports = with
     self.withoutIncrementalImports = without
-  }
-
-  static func expecting(with: [Source], without: [Source]) -> Self {
-    self.init(with: with, without: without)
   }
 
   private func expecting(_ context: TestContext) -> [Source] {
