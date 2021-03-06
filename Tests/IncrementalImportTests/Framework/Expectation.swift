@@ -26,12 +26,15 @@ struct Expectation<Source: SourceProtocol> {
     self.withoutIncrementalImports = without
   }
 
-  private func expecting(_ context: TestContext) -> [Source] {
-    context.withIncrementalImports ? withIncrementalImports : withoutIncrementalImports
+  /// Return the appropriate expectation
+  private func when(in context: TestContext) -> [Source] {
+    context.withIncrementalImports
+      ? withIncrementalImports : withoutIncrementalImports
   }
 
+  /// Check actuals against expectations
   func check(against actuals: [Source], _ context: TestContext, stepName: String) {
-    let expected = expecting(context)
+    let expected = when(in: context)
     let expectedSet = Set(expected.map {$0.name})
     let actualsSet = Set(actuals.map {$0.name})
 

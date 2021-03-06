@@ -18,9 +18,10 @@ import TestUtilities
 
 /// Each test must implement an enum that conforms and describes the modules in the test.
 protocol ModuleProtocol: TestPartProtocol {
+  /// The type of the Source (versions)
   associatedtype Source: SourceProtocol
 
-  /// Returns the imported modules (if any) in the module
+  /// The modules imported by this module, if any.
   var imports: [Self] {get}
 
   /// Returns true iff the module is a library, vs an app
@@ -28,50 +29,12 @@ protocol ModuleProtocol: TestPartProtocol {
 }
 
 extension ModuleProtocol {
- /// The name of the module, as appears in the `import` statement
+  /// The name of the module, as appears in the `import` statement
   var name: String { rawValue }
-
-  /// Arguments used for every build
-  func arguments(_ context: TestContext, compiling inputs: [Source]) -> [String] {
-    var libraryArgs: [String] {
-      ["-parse-as-library",
-       "-emit-module-path", swiftmodulePath(context).pathString]
-    }
-    var appArgs: [String] {
-      let swiftModules = imports .map {
-        $0.swiftmodulePath(context).parentDirectory.pathString
-      }
-      return swiftModules.flatMap { ["-I", $0, "-F", $0] }
-    }
-    var incrementalImportsArgs: [String] {
-      // ["-\(withIncrementalImports ? "en" : "dis")able-incremental-imports"]
-      context.withIncrementalImports
-        ? ["-enable-experimental-cross-module-incremental-build"]
-        : []
-    }
-    return Array(
-    [
-      [
-        "swiftc",
-        "-no-color-diagnostics",
-        "-incremental",
-        "-driver-show-incremental",
-        "-driver-show-job-lifecycle",
-        "-c",
-        "-module-name", name,
-        "-output-file-map", outputFileMapPath(context).pathString,
-      ],
-      incrementalImportsArgs,
-      isLibrary ? libraryArgs : appArgs,
-      inputs.map {$0.sourcePath(context).pathString}
-    ].joined())
-  }
 
   func createDerivedData(_ context: TestContext) {
     try! localFileSystem.createDirectory(derivedDataPath(context))
   }
-
-
 
   func derivedDataPath(_ context: TestContext) -> AbsolutePath {
     context.testDir.appending(component: "\(name)DD")
