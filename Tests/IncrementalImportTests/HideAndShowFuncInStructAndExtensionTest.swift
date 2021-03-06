@@ -167,19 +167,19 @@ fileprivate extension HideAndShowFuncState.Module {
                     }
                   }
                   S.inStruct(3)
-    """
+                  """
       case .noUseOfS: return """
                   import \(Module.importedModule.nameToImport)
                   func baz() { T.bar("asdf") }
-    """
+                  """
       case .callsFuncInExtension: return """
                   import \(Module.importedModule.nameToImport)
                   func fred() { S.inExtension(3) }
-      """
+                  """
       case .instantiatesS: return """
                  import \(Module.importedModule.nameToImport)
                  func late() { S() }
-    """
+                 """
       case .importedWithoutPublicFuncs: return """
                   public protocol PP {}
                   public struct S: PP {
@@ -196,7 +196,7 @@ fileprivate extension HideAndShowFuncState.Module {
                    // public
                    static func inExtension(_ i: Int) {print("2: private")}
                   }
-    """
+                  """
       case .importedFileWithPublicFuncInStruct: return """
                   public protocol PP {}
                   public struct S: PP {
@@ -213,7 +213,7 @@ fileprivate extension HideAndShowFuncState.Module {
                    // public
                    static func inExtension(_ i: Int) {print("2: private")}
                   }
-    """
+                  """
       case .importedFileWithPublicFuncInExtension: return """
                   public protocol PP {}
                   public struct S: PP {
@@ -230,7 +230,7 @@ fileprivate extension HideAndShowFuncState.Module {
                    // public
                    static func inExtension(_ i: Int) {print("2: private")}
                   }
-      """
+                  """
       case .importedFileWithPublicFuncInStructAndExtension: return """
                   public protocol PP {}
                   public struct S: PP {
@@ -247,7 +247,7 @@ fileprivate extension HideAndShowFuncState.Module {
                    public  // was uncommented; should rebuild users of inExtension
                    static func inExtension(_ i: Int) {print("2: private")}
                   }
-    """
+                  """
       }
     }
   }

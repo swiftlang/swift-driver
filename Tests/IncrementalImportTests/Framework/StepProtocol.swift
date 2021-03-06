@@ -9,13 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-
-@_spi(Testing) import SwiftDriver
-import SwiftOptions
-import TestUtilities
-
-
 
 /// A test step: includes the source state to compile and what compilations are expected.
 /// A given test consists of a start state, and a sequence of steps.

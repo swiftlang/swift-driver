@@ -16,7 +16,7 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 
-/// Creates a `DiagnosticsEngine` that collects which sources were compiled
+/// Creates a `DiagnosticsEngine` that collects which sources were compiled.
 /// (See `TestProtocol`.)
 struct CompiledSourceCollector {
   private var collectedCompiledSources = [String]()

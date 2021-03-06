@@ -16,8 +16,6 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 
-
-// MARK: - SourceVersionProtocol
 /// A `SourceVersion` is a particular version of some source file.
 /// (See `TestProtocol`.)
 protocol SourceVersionProtocol: NameableByRawValue, Hashable {
