@@ -10,15 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
 import Foundation
-import XCTest
 
 extension Driver {
   /// Initializer which creates an executor suitable for use in tests.
-  init(
+  public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
@@ -36,7 +35,7 @@ extension Driver {
   }
 
   // For tests that need to set the sdk path:
-  static func sdkArgumentsForTesting() throws -> [String] {
+  public static func sdkArgumentsForTesting() throws -> [String] {
     ["-sdk", try cachedSDKPath.get()]
   }
 }
@@ -46,7 +45,10 @@ private let cachedSDKPath = Result<String, Error> {
     return pathFromEnv
   }
   #if !os(macOS)
-  throw XCTSkip("xcrun only available on macOS")
+  enum NotMacOS: LocalizedError {
+    case xcrunOnlyOnMacOS
+  }
+  throw NotMacOS.xcrunOnlyOnMacOS
   #endif
   let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
   try process.launch()
@@ -57,6 +59,12 @@ private let cachedSDKPath = Result<String, Error> {
     }
     throw XCRunFailure.xcrunFailure
   }
-  return try XCTUnwrap(String(bytes: try result.output.get(), encoding: .utf8))
-    .spm_chomp()
+  guard let path = String(bytes: try result.output.get(), encoding: .utf8)
+  else {
+    enum Error: LocalizedError {
+      case couldNotUnwrapSDKPath
+    }
+    throw Error.couldNotUnwrapSDKPath
+  }
+  return path.spm_chomp()
 }

@@ -9,12 +9,12 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
 import TSCBasic
 
 import Foundation
 
-struct OutputFileMapCreator {
+public struct OutputFileMapCreator {
   private let module: String
   private let inputPaths: [AbsolutePath]
   private let derivedData: AbsolutePath
@@ -25,10 +25,10 @@ struct OutputFileMapCreator {
     self.derivedData = derivedData
   }
 
-  static func write(module: String,
-               inputPaths: [AbsolutePath],
-               derivedData: AbsolutePath,
-               to dst: AbsolutePath) {
+  public static func write(module: String,
+                           inputPaths: [AbsolutePath],
+                           derivedData: AbsolutePath,
+                           to dst: AbsolutePath) {
     let creator = Self(module: module, inputPaths: inputPaths, derivedData: derivedData)
     try! localFileSystem.writeFileContents(dst, bytes: ByteString(creator.generateData()))
   }
