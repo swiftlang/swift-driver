@@ -76,7 +76,7 @@ fileprivate struct ExtensionChange: TestProtocol {
         extension S { static func foo(_ i: Int) {} }
         struct T {static func foo() {}}
         """
-      case .instantiator: return "func bar() {S()}"
+      case .instantiator: return "func bar() { _ = S() }"
       case .userOfT: return "func baz() {T.foo()}"
       }
     }

@@ -80,8 +80,8 @@ class ClassExtensionTest: XCTestCase {
       }
       var code: String {
         switch self {
-        case .structUser: return "import \(Module.imported.nameToImport); func su() {S()}"
-        case .classUser:  return "import \(Module.imported.nameToImport); func cu() {C()}"
+        case .structUser: return "import \(Module.imported.nameToImport); func su() {_ = S()}"
+        case .classUser:  return "import \(Module.imported.nameToImport); func cu() {_ = C()}"
         case .withStructFunc:    return "public extension S { func foo() {} }"
         case .withClassFunc:     return "public extension C { func foo() {} }"
         case .withoutStructFunc: return "public extension S{}"

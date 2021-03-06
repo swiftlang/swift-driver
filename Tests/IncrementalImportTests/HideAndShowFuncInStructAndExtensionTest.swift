@@ -157,7 +157,7 @@ fileprivate extension HideAndShowFuncState.Module {
                   """
       case .instantiatesS: return """
                  import \(Module.importedModule.nameToImport)
-                 func late() { S() }
+                 func late() { _ = S() }
                  """
       case .importedWithoutPublicFuncs: return """
                   public protocol PP {}
