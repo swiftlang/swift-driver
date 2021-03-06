@@ -309,6 +309,8 @@ extension Option {
   public static let indexIgnoreSystemModules: Option = Option("-index-ignore-system-modules", .flag, attributes: [.noInteractive], helpText: "Avoid indexing system modules")
   public static let indexStorePath: Option = Option("-index-store-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Store indexing data to <path>")
   public static let indexSystemModules: Option = Option("-index-system-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit index data for imported serialized swift system modules")
+  public static let indexUnitOutputPathFilelist: Option = Option("-index-unit-output-path-filelist", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Specify index unit output paths in a file rather than on the command line")
+  public static let indexUnitOutputPath: Option = Option("-index-unit-output-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Use <path> as the output path in the produced index data.")
   public static let interpret: Option = Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes)
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to the import search path")
   public static let i: Option = Option("-i", .flag, group: .modes)
@@ -813,6 +815,8 @@ extension Option {
       Option.indexIgnoreSystemModules,
       Option.indexStorePath,
       Option.indexSystemModules,
+      Option.indexUnitOutputPathFilelist,
+      Option.indexUnitOutputPath,
       Option.interpret,
       Option.I,
       Option.i,
