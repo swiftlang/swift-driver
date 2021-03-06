@@ -23,7 +23,7 @@ protocol StateProtocol: TestPartProtocol {
   associatedtype Module: ModuleProtocol
   typealias Source = Module.Source
 
-  var jobs: [CompileJob<Module>] {get}
+  var jobs: [PlannedCompileJob<Module>] {get}
 }
 
 extension StateProtocol {

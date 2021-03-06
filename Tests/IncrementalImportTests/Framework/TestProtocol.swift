@@ -52,7 +52,7 @@ extension TestProtocol {
     XCTAssertNoThrow(
       try localFileSystem.changeCurrentWorkingDirectory(to: context.testDir),
       file: context.testFile, line: context.testLine)
-    createDerivedDatasAndOFMs(context)
+    createDerivedDatas(context)
 
     Self.start.buildFromScratch(context)
     for step in Self.steps {
@@ -60,9 +60,9 @@ extension TestProtocol {
     }
   }
 
-  private func createDerivedDatasAndOFMs(_ context: TestContext) {
+  private func createDerivedDatas(_ context: TestContext) {
     for module in Module.allCases {
-      module.createDerivedDataAndOFM(context)
+      module.createDerivedData(context)
     }
   }
 }

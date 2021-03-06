@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===--------------- PlannedCompileJob.swift - Swift Testing --------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -15,24 +15,18 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 
-
-// MARK: - CompileJob
-struct CompileJob<Module: ModuleProtocol> {
+struct PlannedCompileJob<Module: ModuleProtocol> {
   typealias Source = Module.Source
 
+  /// The module to be compiled
   let module: Module
+
+  /// The sources to be compiled. May not always be all the sources in the module
   let sources: [Source]
 
   init(_ module: Module, _ sources: [Source]) {
     self.module = module
     self.sources = sources
-  }
-  init(_ module: Module) {
-    self.init(module, module.sources)
-  }
-
-  func substituting(_ subs: [Source]) -> Self {
-    return Self(module, sources.substituting(subs))
   }
 
   func mutate(_ context: TestContext) {
@@ -44,12 +38,13 @@ struct CompileJob<Module: ModuleProtocol> {
   }
 
   func build(_ context: TestContext) -> [Source] {
+    writeOFM(context)
     let allArgs = module.arguments(context, compiling: originals)
 
     var collector = CompiledSourceCollector<Source>()
     let diagnosticsEngine = DiagnosticsEngine(handlers: [
                                                 Driver.stderrDiagnosticsHandler,
-                                                {collector.process(diagnostic: $0)}])
+                                                {collector.handle(diagnostic: $0)}])
 
     var driver = try! Driver(args: allArgs, diagnosticsEngine: diagnosticsEngine)
     let jobs = try! driver.planBuild()
@@ -58,28 +53,15 @@ struct CompileJob<Module: ModuleProtocol> {
     return collector.compiledSources(context)
   }
 
+  private func writeOFM(_ context: TestContext) {
+    OutputFileMapCreator.write(
+      module: module.name,
+      inputPaths: sources.map {$0.sourcePath(context)},
+      derivedData: module.derivedDataPath(context),
+      to: module.outputFileMapPath(context))
+  }
+
   var fromScratchExpectations: [Source] {
     originals
   }
 }
-
-extension Array {
-  static func building<Module: ModuleProtocol>(_ mods: Module...) -> [CompileJob<Module>]
-  {
-    mods.map(CompileJob.init)
-  }
-
-  func substituting<Module: ModuleProtocol>(_ subs: Module.Source...) -> Self
-  where Element == CompileJob<Module>
-  {
-    map {$0.substituting(subs)}
-  }
-  // can also have inserting, deleting, etc
-}
-extension Array where Element: SourceProtocol {
-  func substituting(_ subs: Self) -> Self {
-    let subMap = subs.spm_createDictionary {sub in (sub.original, sub)}
-    return map { subMap[$0.original, default: $0] }
-  }
-}
-

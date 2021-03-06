@@ -33,8 +33,7 @@ fileprivate struct RenameMemberOfImportedStruct: TestProtocol {
 
 fileprivate extension RenameMemberOfImportedStruct {
   enum Step: String, StepProtocol {
-
-    case rename, unrename
+     case rename, unrename
     var to: State {
       switch self {
       case .rename: return .renamed
@@ -42,7 +41,7 @@ fileprivate extension RenameMemberOfImportedStruct {
       }
     }
     var expecting: Expectation<Source> {
-      .expecting(with: [.mainFile, .importedFile], without: to.allOriginals)
+      .expecting(with: [.mainFile, .importedFile], without: allSources)
     }
   }
 }
@@ -51,17 +50,26 @@ fileprivate extension RenameMemberOfImportedStruct {
   enum State: String, StateProtocol {
     case initial, renamed
 
-    var jobs: [CompileJob<Module>] {
+    var jobs: [PlannedCompileJob<Module>] {
+      let imported: Source
       switch self {
-      case .initial: return .building(.importedModule, .mainModule)
-      case .renamed: return Self.initial.jobs.substituting(.renamedMember)
+      case .initial: imported = .importedFile
+      case .renamed: imported = .renamedMember
       }
+      return [
+        PlannedCompileJob(.importedModule, [imported]),
+        PlannedCompileJob(.mainModule, [.mainFile, .otherFile])
+      ]
     }
   }
+
+
 }
 
 fileprivate extension RenameMemberOfImportedStruct {
   enum Module: String, ModuleProtocol {
+    typealias Source = RenameMemberOfImportedStruct.Source
+
     // Must be in build order
     case importedModule, mainModule
 

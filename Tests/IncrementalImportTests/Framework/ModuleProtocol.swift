@@ -20,8 +20,8 @@ import TestUtilities
 protocol ModuleProtocol: TestPartProtocol {
   associatedtype Source: SourceProtocol
 
-  /// Returns the source paths in the module
-  var sources: [Source] {get}
+  /// Returns the source paths in the module when not otherwise specified.
+//xxx var defaultSources: [Source] {get}
 
   /// Returns the imported modules (if any) in the module
   var imports: [Self] {get}
@@ -34,9 +34,9 @@ extension ModuleProtocol {
  /// The name of the module, as appears in the `import` statement
   var name: String { rawValue }
 
-  static var allSources: [Source] {
-    allCases.flatMap {$0.sources}
-  }
+//  static var allSources: [Source] {
+//    allCases.flatMap {$0.sources}
+//xxx  }
 
   /// Arguments used for every build
   func arguments(_ context: TestContext, compiling inputs: [Source]) -> [String] {
@@ -74,18 +74,11 @@ extension ModuleProtocol {
     ].joined())
   }
 
-  func createDerivedDataAndOFM(_ context: TestContext) {
+  func createDerivedData(_ context: TestContext) {
     try! localFileSystem.createDirectory(derivedDataPath(context))
-    writeOFM(context)
   }
 
-  private func writeOFM(_ context: TestContext) {
-    OutputFileMapCreator.write(
-      module: name,
-      inputPaths: sources.map {$0.sourcePath(context)},
-      derivedData: derivedDataPath(context),
-      to: outputFileMapPath(context))
-  }
+
 
   func derivedDataPath(_ context: TestContext) -> AbsolutePath {
     context.testDir.appending(component: "\(name)DD")

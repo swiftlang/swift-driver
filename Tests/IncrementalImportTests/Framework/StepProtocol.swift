@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===-------------- StepProtocol.swift - Swift Testing --------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -17,8 +17,7 @@ import TestUtilities
 
 
 
-
-// MARK: - StepProtocol
+/// A test step: includes the source state to compile and what compilations are expected.
 protocol StepProtocol: TestPartProtocol {
   associatedtype State: StateProtocol
   typealias Source = State.Source
@@ -34,4 +33,6 @@ extension StepProtocol {
     let compiledSources = to.mutateAndRebuild(context)
     expecting.check(against: compiledSources, context, stepName: name)
   }
+
+  var allSources: [Source] {to.allOriginals}
 }

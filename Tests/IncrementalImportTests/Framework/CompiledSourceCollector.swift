@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===---------- CompiledSourceCollector.swift - Swift Testing -------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -16,8 +16,7 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 
-// MARK: - CompiledSourceCollector
-/// Helper to create a `DiagnosticsEngine` that collects which sources were compiled
+/// Creates a `DiagnosticsEngine` that collects which sources were compiled
 struct CompiledSourceCollector<Source: SourceProtocol> {
   private var collectedCompiledSources = [Source]()
 
@@ -36,11 +35,14 @@ struct CompiledSourceCollector<Source: SourceProtocol> {
       }
       .compactMap {Source(rawValue: String($0))}
   }
-  mutating func process(diagnostic d: Diagnostic) {
+
+  mutating func handle(diagnostic d: Diagnostic) {
     collectedCompiledSources.append(contentsOf: getCompiledSources(from: d))
   }
+
   func compiledSources(_ context: TestContext) ->  [Source] {
     XCTAssertEqual(Set(collectedCompiledSources).count, collectedCompiledSources.count,
+                   "No file should be compiled twice",
                    file: context.testFile, line: context.testLine)
     return collectedCompiledSources
   }
