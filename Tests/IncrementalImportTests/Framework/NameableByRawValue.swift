@@ -1,4 +1,4 @@
-//===-------------- BasicEnumRequirements.swift - Swift Testing -----------===//
+//===-------------- NameableByRawValue.swift - Swift Testing --------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -10,11 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Every enum protocol in this framework must conform to this.
 /// String raw values are used as names for source files and modules.
-/// It is possible that not all of these are needed by every conforming protocol.
 /// (See `TestProtocol`.)
-protocol NameableByRawValue: Hashable, CaseIterable, RawRepresentable where RawValue == String {
+protocol NameableByRawValue: RawRepresentable where RawValue == String {
 }
 
 extension NameableByRawValue {

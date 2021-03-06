@@ -18,9 +18,9 @@ import TestUtilities
 
 /// Each test must implement an enum that conforms and describes the modules in the test.
 /// (See `TestProtocol`.)
-protocol ModuleProtocol: BasicEnumRequirements {
+protocol ModuleProtocol: NameableByRawValue, CaseIterable {
   /// The type of the Source (versions)
-  associatedtype Source: SourceProtocol
+  associatedtype Source: SourceVersionProtocol
 
   /// The modules imported by this module, if any.
   var imports: [Self] {get}

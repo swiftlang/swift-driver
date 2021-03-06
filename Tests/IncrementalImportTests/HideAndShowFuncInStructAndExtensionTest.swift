@@ -105,20 +105,13 @@ fileprivate extension HideAndShowFuncState {
                        .callsFuncInExtension,
                        .instantiatesS,
                        .importedWithoutPublicFuncs],
-                without: allOriginals)
+                without: allSources)
   }
 }
 
 fileprivate extension HideAndShowFuncState {
   enum Module: String, ModuleProtocol {
     case importedModule, mainModule
-
-    var sources: [Source] {
-      switch self {
-      case .importedModule:  return [.importedWithoutPublicFuncs]
-      case .mainModule:      return [.definesGeneralFuncsAndCallsFuncInStruct, .noUseOfS, .callsFuncInExtension, .instantiatesS]
-      }
-    }
 
     var imports: [Self] {
       switch self {
@@ -137,25 +130,27 @@ fileprivate extension HideAndShowFuncState {
 }
 
 fileprivate extension HideAndShowFuncState.Module {
-  enum Source: String, SourceProtocol {
+  enum Source: String, SourceVersionProtocol {
     typealias Module = HideAndShowFuncState.Module
 
-    case importedWithoutPublicFuncs = "imported",
+    case importedWithoutPublicFuncs,
          importedFileWithPublicFuncInStruct,
          importedFileWithPublicFuncInExtension,
          importedFileWithPublicFuncInStructAndExtension,
-         definesGeneralFuncsAndCallsFuncInStruct = "main",
+         definesGeneralFuncsAndCallsFuncInStruct,
          noUseOfS,
          callsFuncInExtension,
          instantiatesS
 
-    var original: Self {
+    var fileName: String {
       switch self {
-      case .importedFileWithPublicFuncInStruct,
+      case .importedWithoutPublicFuncs,
+           .importedFileWithPublicFuncInStruct,
            .importedFileWithPublicFuncInExtension,
            .importedFileWithPublicFuncInStructAndExtension:
-        return .importedWithoutPublicFuncs
-      default: return self
+        return "importedFile"
+      case .definesGeneralFuncsAndCallsFuncInStruct: return "main"
+      default: return name
       }
     }
 

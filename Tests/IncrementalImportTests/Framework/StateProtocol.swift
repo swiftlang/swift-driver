@@ -19,7 +19,7 @@ import TestUtilities
 /// A state is a sequence of jobs to run, where each job defines the source-versions to be used.
 /// A state is entered by mutating the source files and running the jobs.
 /// (See `TestProtocol`.)
-protocol StateProtocol: BasicEnumRequirements {
+protocol StateProtocol: NameableByRawValue {
   associatedtype Module: ModuleProtocol
   typealias Source = Module.Source
 
@@ -35,10 +35,10 @@ extension StateProtocol {
     }
   }
 
-  /// The original source-versions
-  var allOriginals: [Source] {
+  /// Sources in every job
+  var allSources: [Source] {
     Array( jobs.reduce(into: Set<Source>()) { sources, job in
-      sources.formUnion(job.originals)
+      sources.formUnion(job.sources)
     })
   }
 
@@ -61,6 +61,6 @@ extension StateProtocol {
 
   /// What should be compiled for the initial set up.
   var initialExpectations: Expectation<Source> {
-    Expectation(with: allOriginals, without: allOriginals)
+    Expectation(with: allSources, without: allSources)
   }
 }

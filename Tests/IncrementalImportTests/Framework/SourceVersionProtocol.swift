@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===----------- SourceVersionProtocol.swift - Swift Testing --------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -17,28 +17,28 @@ import SwiftOptions
 import TestUtilities
 
 
-// MARK: - SourceProtocol
-/// Each test must implement an enum that enumerates the sources in the test
-/// Each source is the contents of some source file version
+// MARK: - SourceVersionProtocol
+/// A `SourceVersion` is a particular version of some source file.
 /// (See `TestProtocol`.)
-protocol SourceProtocol: BasicEnumRequirements {
+protocol SourceVersionProtocol: NameableByRawValue, Hashable {
 
-  /// Each source file must supply a `SourceDescription` object, which contains (versions of)
-  /// the source code and recompilation expectations if any.
+  /// The source code for this version, i.e. the file contents.
   var code: String {get}
 
-  /// What I replace if an alternate, otherwise should be self
-  var original: Self {get}
+  /// The basename without extension of the corresponding file.
+  var fileName: String {get}
 }
 
-extension SourceProtocol {
-  func sourcePath(_ context: TestContext) -> AbsolutePath {
-    context.rootDir.appending(component: "\(original.name).swift")
+extension SourceVersionProtocol {
+
+  func path(_ context: TestContext) -> AbsolutePath {
+    context.rootDir.appending(component: "\(fileName).swift")
   }
 
+  /// If this version is different from what is in the file, update the file.
   func updateIfChanged(_ context: TestContext) {
     XCTAssertNoThrow(
-      try localFileSystem.writeIfChanged(path: sourcePath(context),
+      try localFileSystem.writeIfChanged(path: path(context),
                                          bytes: ByteString(encodingAsUTF8: code)),
       file: context.testFile, line: context.testLine)
   }

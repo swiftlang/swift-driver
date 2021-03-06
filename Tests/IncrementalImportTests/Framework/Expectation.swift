@@ -14,7 +14,7 @@ import TSCBasic
 
 /// What is supposed to be recompiled when taking a step.
 /// (See `TestProtocol`.)
-struct Expectation<Source: SourceProtocol> {
+struct Expectation<Source: SourceVersionProtocol> {
 
   /// Expected when incremental imports are enabled
   private let withIncrementalImports: [Source]

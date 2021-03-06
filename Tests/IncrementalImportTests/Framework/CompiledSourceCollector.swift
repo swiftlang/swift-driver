@@ -18,7 +18,7 @@ import TestUtilities
 
 /// Creates a `DiagnosticsEngine` that collects which sources were compiled
 /// (See `TestProtocol`.)
-struct CompiledSourceCollector<Source: SourceProtocol> {
+struct CompiledSourceCollector<Source: SourceVersionProtocol> {
   private var collectedCompiledSources = [Source]()
 
   private func getCompiledSources(from d: Diagnostic) -> [Source] {

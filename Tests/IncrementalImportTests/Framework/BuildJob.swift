@@ -36,11 +36,6 @@ struct BuildJob<Module: ModuleProtocol> {
     sources.forEach {$0.updateIfChanged(context)}
   }
 
-  /// The original versions of each source version.
-  var originals: [Source] {
-    sources.map {$0.original}
-  }
-
   func run(_ context: TestContext) -> [Source] {
     writeOFM(context)
     let allArgs = arguments(context)
@@ -60,7 +55,7 @@ struct BuildJob<Module: ModuleProtocol> {
   private func writeOFM(_ context: TestContext) {
     OutputFileMapCreator.write(
       module: module.name,
-      inputPaths: sources.map {$0.sourcePath(context)},
+      inputPaths: sources.map {$0.path(context)},
       derivedData: module.derivedDataPath(context),
       to: module.outputFileMapPath(context))
   }
@@ -96,7 +91,7 @@ struct BuildJob<Module: ModuleProtocol> {
       ],
       incrementalImportsArgs,
       module.isLibrary ? libraryArgs : appArgs,
-      sources.map {$0.sourcePath(context).pathString}
+      sources.map {$0.path(context).pathString}
     ].joined())
   }
 }

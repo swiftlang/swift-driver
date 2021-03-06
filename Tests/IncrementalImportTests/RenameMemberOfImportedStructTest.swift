@@ -41,7 +41,7 @@ fileprivate extension RenameMemberOfImportedStruct {
       }
     }
     var expecting: Expectation<Source> {
-      Expectation(with: [.mainFile, .importedFile], without: allSources)
+      Expectation(with: [.mainFile, .originalMember], without: allSources)
     }
   }
 }
@@ -51,19 +51,17 @@ fileprivate extension RenameMemberOfImportedStruct {
     case initial, renamed
 
     var jobs: [BuildJob<Module>] {
-      let imported: Source
+      let importedSource: Source
       switch self {
-      case .initial: imported = .importedFile
-      case .renamed: imported = .renamedMember
+      case .initial: importedSource = .originalMember
+      case .renamed: importedSource = .renamedMember
       }
       return [
-        BuildJob(.importedModule, [imported]),
+        BuildJob(.importedModule, [importedSource]),
         BuildJob(.mainModule, [.mainFile, .otherFile])
       ]
     }
   }
-
-
 }
 
 fileprivate extension RenameMemberOfImportedStruct {
@@ -73,12 +71,6 @@ fileprivate extension RenameMemberOfImportedStruct {
     // Must be in build order
     case importedModule, mainModule
 
-    var sources: [Source] {
-      switch self {
-      case .importedModule: return [.importedFile]
-      case .mainModule: return [.mainFile, .otherFile]
-      }
-    }
     var imports: [Module] {
       switch self {
       case .importedModule: return []
@@ -95,14 +87,15 @@ fileprivate extension RenameMemberOfImportedStruct {
 }
 
 fileprivate extension RenameMemberOfImportedStruct {
-  enum Source: String, SourceProtocol {
+  enum Source: String, SourceVersionProtocol {
 
-    case mainFile = "main", otherFile, importedFile, renamedMember
+    case mainFile, otherFile, originalMember, renamedMember
 
-    var original: Self {
+    var fileName: String {
       switch self {
-      case .renamedMember: return .importedFile
-      default: return self
+      case .renamedMember, .originalMember: return "memberDefiner"
+      case .mainFile: return "main"
+      default: return name
       }
     }
 
@@ -115,7 +108,7 @@ fileprivate extension RenameMemberOfImportedStruct {
                """
       case .otherFile:
         return ""
-      case .importedFile:
+      case .originalMember:
         return """
                   public struct ImportedStruct {
                     public init() {}
