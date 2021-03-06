@@ -14,21 +14,21 @@ import TSCBasic
 
 /// What is supposed to be recompiled when taking a step.
 /// (See `TestProtocol`.)
-struct Expectation<Source: SourceVersionProtocol> {
+struct Expectation<SourceVersion: SourceVersionProtocol> {
 
   /// Expected when incremental imports are enabled
-  private let withIncrementalImports: [Source]
+  private let withIncrementalImports: [SourceVersion]
 
   // Expected when incremental imports are disabled
-  private let withoutIncrementalImports: [Source]
+  private let withoutIncrementalImports: [SourceVersion]
 
-  init(with: [Source], without: [Source]) {
+  init(with: [SourceVersion], without: [SourceVersion]) {
     self.withIncrementalImports = with
     self.withoutIncrementalImports = without
   }
 
   /// Return the appropriate expectation
-  private func when(in context: TestContext) -> [Source] {
+  private func when(in context: TestContext) -> [SourceVersion] {
     context.withIncrementalImports
       ? withIncrementalImports : withoutIncrementalImports
   }

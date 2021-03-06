@@ -20,7 +20,7 @@ import TestUtilities
 /// (See `TestProtocol`.)
 protocol ModuleProtocol: NameableByRawValue, CaseIterable {
   /// The type of the Source (versions)
-  associatedtype Source: SourceVersionProtocol
+  associatedtype SourceVersion: SourceVersionProtocol
 
   /// The modules imported by this module, if any.
   var imports: [Self] {get}

@@ -48,7 +48,7 @@ fileprivate enum InStructStep: String, HideAndShowStep {
     case .show: return .shownInStruct
     }
   }
-  var expecting: Expectation<Source> { nextState.commonExpectations }
+  var expecting: Expectation<SourceVersion> { nextState.commonExpectations }
 }
 
 fileprivate enum InExtensionStep: String, HideAndShowStep {
@@ -60,7 +60,7 @@ fileprivate enum InExtensionStep: String, HideAndShowStep {
     case .show: return .shownInExtension
     }
   }
-  var expecting: Expectation<Source> { nextState.commonExpectations }
+  var expecting: Expectation<SourceVersion> { nextState.commonExpectations }
 }
 
 
@@ -73,7 +73,7 @@ fileprivate enum BothStep: String, HideAndShowStep {
     case .show: return .bothShown
     }
   }
-  var expecting: Expectation<Source> { nextState.commonExpectations }
+  var expecting: Expectation<SourceVersion> { nextState.commonExpectations }
 }
 
 
@@ -81,14 +81,14 @@ fileprivate enum HideAndShowFuncState: String, StateProtocol {
   case bothHidden, shownInStruct, shownInExtension, bothShown
 
   var jobs: [BuildJob<Module>] {
-    let importedSource: Source
+    let importedSourceVersion: SourceVersion
     switch self {
-    case .bothHidden:        importedSource = .importedWithoutPublicFuncs
-    case .shownInStruct:     importedSource = .importedFileWithPublicFuncInStruct
-    case .shownInExtension:  importedSource = .importedFileWithPublicFuncInExtension
-    case .bothShown:         importedSource = .importedFileWithPublicFuncInStructAndExtension
+    case .bothHidden:        importedSourceVersion = .importedWithoutPublicFuncs
+    case .shownInStruct:     importedSourceVersion = .importedFileWithPublicFuncInStruct
+    case .shownInExtension:  importedSourceVersion = .importedFileWithPublicFuncInExtension
+    case .bothShown:         importedSourceVersion = .importedFileWithPublicFuncInStructAndExtension
     }
-    let  subJob = BuildJob<Module>(.importedModule, [importedSource])
+    let  subJob = BuildJob<Module>(.importedModule, [importedSourceVersion])
     let mainJob = BuildJob<Module>(.mainModule,
                                             [.definesGeneralFuncsAndCallsFuncInStruct,
                                              .noUseOfS,
@@ -100,12 +100,12 @@ fileprivate enum HideAndShowFuncState: String, StateProtocol {
 
 
 fileprivate extension HideAndShowFuncState {
-  var commonExpectations: Expectation<Module.Source> {
+  var commonExpectations: Expectation<Module.SourceVersion> {
     Expectation(with: [.definesGeneralFuncsAndCallsFuncInStruct,
                        .callsFuncInExtension,
                        .instantiatesS,
                        .importedWithoutPublicFuncs],
-                without: allSources)
+                without: allInputs)
   }
 }
 
@@ -130,7 +130,7 @@ fileprivate extension HideAndShowFuncState {
 }
 
 fileprivate extension HideAndShowFuncState.Module {
-  enum Source: String, SourceVersionProtocol {
+  enum SourceVersion: String, SourceVersionProtocol {
     typealias Module = HideAndShowFuncState.Module
 
     case importedWithoutPublicFuncs,

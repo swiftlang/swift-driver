@@ -40,8 +40,8 @@ fileprivate extension RenameMemberOfImportedStruct {
       case .unrename: return .initial
       }
     }
-    var expecting: Expectation<Source> {
-      Expectation(with: [.mainFile, .originalMember], without: allSources)
+    var expecting: Expectation<SourceVersion> {
+      Expectation(with: [.mainFile, .originalMember], without: allSourceVersions)
     }
   }
 }
@@ -51,7 +51,7 @@ fileprivate extension RenameMemberOfImportedStruct {
     case initial, renamed
 
     var jobs: [BuildJob<Module>] {
-      let importedSource: Source
+      let importedSource: SourceVersion
       switch self {
       case .initial: importedSource = .originalMember
       case .renamed: importedSource = .renamedMember
@@ -66,7 +66,7 @@ fileprivate extension RenameMemberOfImportedStruct {
 
 fileprivate extension RenameMemberOfImportedStruct {
   enum Module: String, ModuleProtocol {
-    typealias Source = RenameMemberOfImportedStruct.Source
+    typealias SourceVersion = RenameMemberOfImportedStruct.SourceVersion
 
     // Must be in build order
     case importedModule, mainModule
@@ -87,7 +87,7 @@ fileprivate extension RenameMemberOfImportedStruct {
 }
 
 fileprivate extension RenameMemberOfImportedStruct {
-  enum Source: String, SourceVersionProtocol {
+  enum SourceVersion: String, SourceVersionProtocol {
 
     case mainFile, otherFile, originalMember, renamedMember
 

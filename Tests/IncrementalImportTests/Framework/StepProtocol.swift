@@ -22,10 +22,10 @@ import TestUtilities
 /// (See `TestProtocol`.)
 protocol StepProtocol: NameableByRawValue {
   associatedtype State: StateProtocol
-  typealias Source = State.Source
+  typealias SourceVersion = State.SourceVersion
 
   var nextState: State {get}
-  var expecting: Expectation<Source> {get}
+  var expecting: Expectation<SourceVersion> {get}
 }
 extension StepProtocol {
   func mutateAndRebuildAndCheck(_ context: TestContext) {
@@ -34,5 +34,5 @@ extension StepProtocol {
     expecting.check(against: compiledSources, context, stepName: name)
   }
 
-  var allSources: [Source] {nextState.allSources}
+  var allSourceVersions: [SourceVersion] {nextState.allInputs}
 }

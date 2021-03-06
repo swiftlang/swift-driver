@@ -21,7 +21,7 @@ import TestUtilities
 /// (See `TestProtocol`.)
 protocol StateProtocol: NameableByRawValue {
   associatedtype Module: ModuleProtocol
-  typealias Source = Module.Source
+  typealias SourceVersion = Module.SourceVersion
 
   /// The jobs will be run in sequence.
   var jobs: [BuildJob<Module>] {get}
@@ -36,9 +36,9 @@ extension StateProtocol {
   }
 
   /// Sources in every job
-  var allSources: [Source] {
-    Array( jobs.reduce(into: Set<Source>()) { sources, job in
-      sources.formUnion(job.sources)
+  var allInputs: [SourceVersion] {
+    Array( jobs.reduce(into: Set()) { sources, job in
+      sources.formUnion(job.sourceVersions)
     })
   }
 
@@ -60,7 +60,7 @@ extension StateProtocol {
    }
 
   /// What should be compiled for the initial set up.
-  var initialExpectations: Expectation<Source> {
-    Expectation(with: allSources, without: allSources)
+  var initialExpectations: Expectation<SourceVersion> {
+    Expectation(with: allInputs, without: allInputs)
   }
 }

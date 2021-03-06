@@ -18,22 +18,22 @@ import TestUtilities
 /// Everything needed to invoke the driver and build a module.
 /// (See `TestProtocol`.)
 struct BuildJob<Module: ModuleProtocol> {
-  typealias Source = Module.Source
+  typealias SourceVersion = Module.SourceVersion
 
   /// The module to be compiled
   let module: Module
 
   /// The source versions to be compiled. Can vary.
-  let sources: [Source]
+  let sourceVersions: [SourceVersion]
 
-  init(_ module: Module, _ sources: [Source]) {
+  init(_ module: Module, _ sourceVersions: [SourceVersion]) {
     self.module = module
-    self.sources = sources
+    self.sourceVersions = sourceVersions
   }
 
   /// Update the contents of the source files.
   func updateChangedSources(_ context: TestContext) {
-    sources.forEach {$0.updateIfChanged(context)}
+    sourceVersions.forEach {$0.updateIfChanged(context)}
   }
 
   /// Returns the basenames without extension of the compiled source files.
@@ -56,7 +56,7 @@ struct BuildJob<Module: ModuleProtocol> {
   private func writeOFM(_ context: TestContext) {
     OutputFileMapCreator.write(
       module: module.name,
-      inputPaths: sources.map {$0.path(context)},
+      inputPaths: sourceVersions.map {$0.path(context)},
       derivedData: module.derivedDataPath(context),
       to: module.outputFileMapPath(context))
   }
@@ -92,7 +92,7 @@ struct BuildJob<Module: ModuleProtocol> {
       ],
       incrementalImportsArgs,
       module.isLibrary ? libraryArgs : appArgs,
-      sources.map {$0.path(context).pathString}
+      sourceVersions.map {$0.path(context).pathString}
     ].joined())
   }
 }
