@@ -36,11 +36,12 @@ struct BuildJob<Module: ModuleProtocol> {
     sources.forEach {$0.updateIfChanged(context)}
   }
 
-  func run(_ context: TestContext) -> [Source] {
+  /// Returns the basenames without extension of the compiled source files.
+  func run(_ context: TestContext) -> [String] {
     writeOFM(context)
     let allArgs = arguments(context)
 
-    var collector = CompiledSourceCollector<Source>()
+    var collector = CompiledSourceCollector()
     let diagnosticsEngine = DiagnosticsEngine(handlers: [
                                                 Driver.stderrDiagnosticsHandler,
                                                 {collector.handle(diagnostic: $0)}])

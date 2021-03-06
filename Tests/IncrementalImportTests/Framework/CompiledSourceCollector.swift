@@ -18,10 +18,10 @@ import TestUtilities
 
 /// Creates a `DiagnosticsEngine` that collects which sources were compiled
 /// (See `TestProtocol`.)
-struct CompiledSourceCollector<Source: SourceVersionProtocol> {
-  private var collectedCompiledSources = [Source]()
+struct CompiledSourceCollector {
+  private var collectedCompiledSources = [String]()
 
-  private func getCompiledSources(from d: Diagnostic) -> [Source] {
+  private func getCompiledSources(from d: Diagnostic) -> [String] {
     let dd = d.description
     guard let startOfSources = dd.range(of: "Starting Compiling ")?.upperBound
     else {
@@ -34,14 +34,14 @@ struct CompiledSourceCollector<Source: SourceVersionProtocol> {
         assert(s.hasSuffix(".swift"))
         return s.dropLast(".swift".count)
       }
-      .compactMap {Source(rawValue: String($0))}
+      .compactMap {String($0)}
   }
 
   mutating func handle(diagnostic d: Diagnostic) {
     collectedCompiledSources.append(contentsOf: getCompiledSources(from: d))
   }
 
-  func compiledSources(_ context: TestContext) ->  [Source] {
+  func compiledSources(_ context: TestContext) ->  [String] {
     XCTAssertEqual(Set(collectedCompiledSources).count, collectedCompiledSources.count,
                    "No file should be compiled twice",
                    file: context.testFile, line: context.testLine)

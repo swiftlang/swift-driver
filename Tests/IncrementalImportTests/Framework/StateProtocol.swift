@@ -49,13 +49,13 @@ extension StateProtocol {
   }
 
   /// Enter this state: update the sources, compile, and return what was actually compiled.
-  func enter(_ context: TestContext) -> [Source] {
+  func enter(_ context: TestContext) -> [String] {
     updateChangedSources(context)
     return compile(context)
   }
 
   /// Builds the entire project, returning what was recompiled.
-   private func compile(_ context: TestContext) -> [Source] {
+   private func compile(_ context: TestContext) -> [String] {
      jobs.flatMap{ $0.run(context) }
    }
 

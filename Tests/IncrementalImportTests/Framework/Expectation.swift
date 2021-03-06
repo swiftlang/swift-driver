@@ -34,10 +34,10 @@ struct Expectation<Source: SourceVersionProtocol> {
   }
 
   /// Check actuals against expectations
-  func check(against actuals: [Source], _ context: TestContext, stepName: String) {
+  func check(against actuals: [String], _ context: TestContext, stepName: String) {
     let expected = when(in: context)
-    let expectedSet = Set(expected.map {$0.name})
-    let actualsSet = Set(actuals.map {$0.name})
+    let expectedSet = Set(expected.map {$0.fileName})
+    let actualsSet = Set(actuals)
 
     let extraCompilations = actualsSet.subtracting(expectedSet)
     let missingCompilations = expectedSet.subtracting(actualsSet)
