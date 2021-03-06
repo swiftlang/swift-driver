@@ -14,6 +14,7 @@ import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
+import TestUtilities
 
 // MARK: - Baseline: nonincremental
 final class NonincrementalCompilationTests: XCTestCase {
