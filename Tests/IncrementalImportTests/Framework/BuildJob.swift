@@ -1,4 +1,4 @@
-//===--------------- PlannedCompileJob.swift - Swift Testing --------------===//
+//===---------------- BuildJob.swift - Swift Testing -------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -15,13 +15,14 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 
-struct PlannedCompileJob<Module: ModuleProtocol> {
+/// Everything needed to invoke the driver and build a module.
+struct BuildJob<Module: ModuleProtocol> {
   typealias Source = Module.Source
 
   /// The module to be compiled
   let module: Module
 
-  /// The sources to be compiled. May not always be all the sources in the module
+  /// The source versions to be compiled. Can vary.
   let sources: [Source]
 
   init(_ module: Module, _ sources: [Source]) {
@@ -29,15 +30,17 @@ struct PlannedCompileJob<Module: ModuleProtocol> {
     self.sources = sources
   }
 
+  /// Update the contents of the source files.
   func mutate(_ context: TestContext) {
     sources.forEach {$0.mutate(context)}
   }
 
+  /// The original versions of each source version.
   var originals: [Source] {
     sources.map {$0.original}
   }
 
-  func build(_ context: TestContext) -> [Source] {
+  func run(_ context: TestContext) -> [Source] {
     writeOFM(context)
     let allArgs = arguments(context)
 
@@ -94,9 +97,5 @@ struct PlannedCompileJob<Module: ModuleProtocol> {
       module.isLibrary ? libraryArgs : appArgs,
       sources.map {$0.sourcePath(context).pathString}
     ].joined())
-  }
-
-  var fromScratchExpectations: [Source] {
-    originals
   }
 }

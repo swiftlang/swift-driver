@@ -50,15 +50,15 @@ fileprivate extension RenameMemberOfImportedStruct {
   enum State: String, StateProtocol {
     case initial, renamed
 
-    var jobs: [PlannedCompileJob<Module>] {
+    var jobs: [BuildJob<Module>] {
       let imported: Source
       switch self {
       case .initial: imported = .importedFile
       case .renamed: imported = .renamedMember
       }
       return [
-        PlannedCompileJob(.importedModule, [imported]),
-        PlannedCompileJob(.mainModule, [.mainFile, .otherFile])
+        BuildJob(.importedModule, [imported]),
+        BuildJob(.mainModule, [.mainFile, .otherFile])
       ]
     }
   }

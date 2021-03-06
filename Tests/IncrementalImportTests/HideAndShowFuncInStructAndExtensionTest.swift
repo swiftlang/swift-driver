@@ -80,7 +80,7 @@ fileprivate enum BothStep: String, HideAndShowStep {
 fileprivate enum HideAndShowFuncState: String, StateProtocol {
   case bothHidden, shownInStruct, shownInExtension, bothShown
 
-  var jobs: [PlannedCompileJob<Module>] {
+  var jobs: [BuildJob<Module>] {
     let importedSource: Source
     switch self {
     case .bothHidden:        importedSource = .importedWithoutPublicFuncs
@@ -88,8 +88,8 @@ fileprivate enum HideAndShowFuncState: String, StateProtocol {
     case .shownInExtension:  importedSource = .importedFileWithPublicFuncInExtension
     case .bothShown:         importedSource = .importedFileWithPublicFuncInStructAndExtension
     }
-    let  subJob = PlannedCompileJob<Module>(.importedModule, [importedSource])
-    let mainJob = PlannedCompileJob<Module>(.mainModule,
+    let  subJob = BuildJob<Module>(.importedModule, [importedSource])
+    let mainJob = BuildJob<Module>(.mainModule,
                                             [.definesGeneralFuncsAndCallsFuncInStruct,
                                              .noUseOfS,
                                              .callsFuncInExtension,

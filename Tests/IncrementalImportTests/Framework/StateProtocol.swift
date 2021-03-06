@@ -23,7 +23,7 @@ protocol StateProtocol: TestPartProtocol {
   associatedtype Module: ModuleProtocol
   typealias Source = Module.Source
 
-  var jobs: [PlannedCompileJob<Module>] {get}
+  var jobs: [BuildJob<Module>] {get}
 }
 
 extension StateProtocol {
@@ -55,7 +55,7 @@ extension StateProtocol {
 
   /// Builds the entire project, returning what was recompiled.
    private func build(_ context: TestContext) -> [Source] {
-     jobs.flatMap{ $0.build(context) }
+     jobs.flatMap{ $0.run(context) }
    }
 
   var expectingFromScratch: Expectation<Source> {
