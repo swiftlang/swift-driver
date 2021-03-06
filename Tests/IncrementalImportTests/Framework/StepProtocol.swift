@@ -19,6 +19,7 @@ import TestUtilities
 
 /// A test step: includes the source state to compile and what compilations are expected.
 /// A given test consists of a start state, and a sequence of steps.
+/// (See `TestProtocol`.)
 protocol StepProtocol: TestPartProtocol {
   associatedtype State: StateProtocol
   typealias Source = State.Source

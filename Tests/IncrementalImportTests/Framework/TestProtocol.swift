@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===------------- TestProtocol.swift - Swift Testing ---------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -17,11 +17,20 @@ import SwiftOptions
 import TestUtilities
 
 /// A framework for easily adding multi-module tests of the incremental imports
-/// It uses enumerations for Modules and Sources because the tests must be
-/// able to name particular modules and paths, and enum cases give static checkability.
-/// Each test creates a struct, conforming to this protocol, requiring only the line:
-/// `fileprivate let paths = Paths<SomeModuleType>`
-/// where `SomeModuleType` is an `enum` conforming to `ModuleProtocol`.
+/// It uses enumerations for `Step`s, `State`s, `Module`s and `Source`s because the tests must be
+/// able to name these, and enum cases give static checkability.
+/// (One cannot misspell a name, and using `switch`es, one cannot omit a case.)
+
+/// Each test creates a `struct`, conforming to this protocol.
+/// That `struct` must:
+/// - Include a type `Step` that conforms to StepProtocol.
+/// - Specify the initial state for all the source versions in the test.
+/// - Specify the sequence of steps that constitute the test.
+///
+/// A state is a a collection of compile jobs to be run, where each compile job specifies a module
+/// and a set of source versions.
+///
+/// A step is a state to which the source files will be mutated, and the expected files to be recompiled.
 protocol TestProtocol {
   associatedtype Step: StepProtocol
   typealias State = Step.State
@@ -29,7 +38,10 @@ protocol TestProtocol {
 
   init()
 
+  /// The initial state to put the sources in including the initial compile jobs.
   static var start: State {get}
+
+  /// The sequence of states to move to and what is expected when so doing.
   static var steps: [Step] {get}
 }
 
@@ -37,9 +49,9 @@ extension TestProtocol {
   /// The top-level function, runs the whole test.
   static func test(testFile: StaticString = #file, testLine: UInt = #line) throws {
     for withIncrementalImports in [false, true] { 
-      try withTemporaryDirectory { testDir in
+      try withTemporaryDirectory { rootDir in
         Self()
-          .test(TestContext(in: testDir,
+          .test(TestContext(in: rootDir,
                             withIncrementalImports: withIncrementalImports,
                             testFile: testFile,
                             testLine: testLine))
@@ -50,9 +62,9 @@ extension TestProtocol {
   /// Run the test with or without incremental imports.
   private func test(_ context: TestContext) {
     XCTAssertNoThrow(
-      try localFileSystem.changeCurrentWorkingDirectory(to: context.testDir),
+      try localFileSystem.changeCurrentWorkingDirectory(to: context.rootDir),
       file: context.testFile, line: context.testLine)
-    createDerivedDatas(context)
+    createDerivedDataDirs(context)
 
     Self.start.buildFromScratch(context)
     for step in Self.steps {
@@ -60,9 +72,9 @@ extension TestProtocol {
     }
   }
 
-  private func createDerivedDatas(_ context: TestContext) {
+  private func createDerivedDataDirs(_ context: TestContext) {
     for module in Module.allCases {
-      module.createDerivedData(context)
+      module.createDerivedDataDir(context)
     }
   }
 }

@@ -176,11 +176,11 @@ final class IntegrationTests: IntegrationTestCase {
                                              "lit.py")
 
       /// The path to the test suite we want to run.
-      let testDir = suite.reduce(swiftRootDir.appending(component: "swift")) {
+      let rootDir = suite.reduce(swiftRootDir.appending(component: "swift")) {
         $0.appending(component: $1)
       }
 
-      for path in [litFile, litConfigFile, frontendFile, testDir] {
+      for path in [litFile, litConfigFile, frontendFile, rootDir] {
         guard localFileSystem.exists(path) else {
           XCTFail("Lit tests enabled, but path doesn't exist: \(path)")
           return
@@ -197,7 +197,7 @@ final class IntegrationTests: IntegrationTestCase {
         "--param", "copy_env=SWIFT_DRIVER_SWIFT_EXEC",
         "--param", "swift_site_config=\(litConfigFile.pathString)",
         "--param", "swift_driver",
-        testDir.pathString
+        rootDir.pathString
       ]
 
       let extraEnv = [

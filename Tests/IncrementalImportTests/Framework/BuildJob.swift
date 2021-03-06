@@ -16,6 +16,7 @@ import SwiftOptions
 import TestUtilities
 
 /// Everything needed to invoke the driver and build a module.
+/// (See `TestProtocol`.)
 struct BuildJob<Module: ModuleProtocol> {
   typealias Source = Module.Source
 

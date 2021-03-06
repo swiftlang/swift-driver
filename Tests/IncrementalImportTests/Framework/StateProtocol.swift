@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===--------------- StateProtocol.swift - Swift Testing ------------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -16,13 +16,14 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 
-
-// MARK: - StateProtocol
-
+/// A state is a sequence of jobs to run, where each job defines the source-versions to be used.
+/// A state is entered by mutating the source files and running the jobs.
+/// (See `TestProtocol`.)
 protocol StateProtocol: TestPartProtocol {
   associatedtype Module: ModuleProtocol
   typealias Source = Module.Source
 
+  /// The jobs will be run in sequence.
   var jobs: [BuildJob<Module>] {get}
 }
 

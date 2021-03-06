@@ -17,6 +17,7 @@ import SwiftOptions
 import TestUtilities
 
 /// Creates a `DiagnosticsEngine` that collects which sources were compiled
+/// (See `TestProtocol`.)
 struct CompiledSourceCollector<Source: SourceProtocol> {
   private var collectedCompiledSources = [Source]()
 

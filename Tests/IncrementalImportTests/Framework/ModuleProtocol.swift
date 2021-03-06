@@ -17,6 +17,7 @@ import TestUtilities
 
 
 /// Each test must implement an enum that conforms and describes the modules in the test.
+/// (See `TestProtocol`.)
 protocol ModuleProtocol: TestPartProtocol {
   /// The type of the Source (versions)
   associatedtype Source: SourceProtocol
@@ -32,12 +33,12 @@ extension ModuleProtocol {
   /// The name of the module, as appears in the `import` statement
   var name: String { rawValue }
 
-  func createDerivedData(_ context: TestContext) {
+  func createDerivedDataDir(_ context: TestContext) {
     try! localFileSystem.createDirectory(derivedDataPath(context))
   }
 
   func derivedDataPath(_ context: TestContext) -> AbsolutePath {
-    context.testDir.appending(component: "\(name)DD")
+    context.rootDir.appending(component: "\(name)DD")
   }
   func outputFileMapPath(_ context: TestContext) -> AbsolutePath {
     derivedDataPath(context).appending(component: "OFM")

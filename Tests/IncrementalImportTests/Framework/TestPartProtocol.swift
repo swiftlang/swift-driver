@@ -1,4 +1,4 @@
-//===------- IncrementalImportTestFramework.swift - Swift Testing ---------===//
+//===-------------- TestPartProtocol.swift - Swift Testing ----------------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -9,6 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
+/// (See `TestProtocol`.)
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver

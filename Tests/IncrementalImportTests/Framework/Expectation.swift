@@ -13,6 +13,7 @@ import XCTest
 import TSCBasic
 
 /// What is supposed to be recompiled when taking a step.
+/// (See `TestProtocol`.)
 struct Expectation<Source: SourceProtocol> {
 
   /// Expected when incremental imports are enabled

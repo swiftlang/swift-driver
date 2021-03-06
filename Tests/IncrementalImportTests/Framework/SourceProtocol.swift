@@ -20,7 +20,7 @@ import TestUtilities
 // MARK: - SourceProtocol
 /// Each test must implement an enum that enumerates the sources in the test
 /// Each source is the contents of some source file version
-
+/// (See `TestProtocol`.)
 protocol SourceProtocol: TestPartProtocol {
 
   /// Each source file must supply a `SourceDescription` object, which contains (versions of)
@@ -36,7 +36,7 @@ extension SourceProtocol {
   var name: String { rawValue }
 
   func sourcePath(_ context: TestContext) -> AbsolutePath {
-    context.testDir.appending(component: "\(original.name).swift")
+    context.rootDir.appending(component: "\(original.name).swift")
   }
 
   func mutate(_ context: TestContext) {
