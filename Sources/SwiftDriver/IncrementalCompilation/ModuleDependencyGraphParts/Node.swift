@@ -45,7 +45,7 @@ extension ModuleDependencyGraph {
     /// Nodes can move from file to file when the driver reads the result of a
     /// compilation.
     /// Nil represents a node with no known residance
-    let dependencySource: DependencySource?
+    @_spi(Testing) public let dependencySource: DependencySource?
     var isExpat: Bool { dependencySource == nil }
 
     /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been

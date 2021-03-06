@@ -35,7 +35,7 @@ import SwiftOptions
   /// For debugging, something to write out files for visualizing graphs
   let dotFileWriter: DependencyGraphDotFileWriter?
 
-  var phase: Phase
+  @_spi(Testing) public var phase: Phase
 
   public init(_ info: IncrementalCompilationState.InitialStateComputer,
               _ phase: Phase
@@ -1069,7 +1069,7 @@ extension Set where Element == FingerprintedExternalDependency {
 
 /// This should be in a test file, but addMapEntry should be private.
 extension ModuleDependencyGraph {
-  func mockMapEntry(
+  @_spi(Testing) public func mockMapEntry(
     _ mockInput: TypedVirtualPath,
     _ mockDependencySource: DependencySource
   ) {
