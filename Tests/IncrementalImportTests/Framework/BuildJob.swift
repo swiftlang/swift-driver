@@ -78,8 +78,8 @@ struct BuildJob<Module: ModuleProtocol> {
     var incrementalImportsArgs: [String] {
       // ["-\(withIncrementalImports ? "en" : "dis")able-incremental-imports"]
       context.withIncrementalImports
-        ? ["-enable-experimental-cross-module-incremental-build"]
-        : []
+        ? [ "-enable-incremental-imports"]
+        : ["-disable-incremental-imports"]
     }
     return Array(
     [
