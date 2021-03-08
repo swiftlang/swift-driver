@@ -425,9 +425,9 @@ extension IncrementalCompilationTests {
       try? driver.run(jobs: jobs)
     }
 
-    guard let sdkArgumentsForTesting = Driver.sdkArgumentsForTesting()
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
     else {
-      throw XCTSkipIf(true, "Cannot perform this test on this host")
+      throw XCTSkip("Cannot perform this test on this host")
     }
     let allArgs = try commonArgs + extraArguments + sdkArgumentsForTesting
     if checkDiagnostics {
@@ -474,9 +474,9 @@ extension IncrementalCompilationTests {
         expectingRemarks: [],
         whenAutolinking: [])
 
-      guard let sdkArgumentsForTesting = Driver.sdkArgumentsForTesting()
+      guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
       else {
-        throw XCTSkipIf(true, "Cannot perform this test on this host")
+        throw XCTSkip("Cannot perform this test on this host")
       }
       var driver = try Driver(args: self.commonArgs + [
         driverOption.spelling,
