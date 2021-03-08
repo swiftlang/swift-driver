@@ -34,37 +34,38 @@ extension Driver {
                   executor: executor)
   }
 
-  // For tests that need to set the sdk path:
-  public static func sdkArgumentsForTesting() throws -> [String] {
-    ["-sdk", try cachedSDKPath.get()]
+  /// For tests that need to set the sdk path.
+  /// Only works on hosts with `xcrun`, so return nil if cannot work on current host.
+  public static func sdkArgumentsForTesting() throws -> [String]? {
+    try cachedSDKPath.map {["-sdk", try $0.get()]}
   }
 }
 
-private let cachedSDKPath = Result<String, Error> {
-  if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
-    return pathFromEnv
-  }
+/// Set to nil if cannot perform on this host
+private let cachedSDKPath: Result<String, Error>? = {
   #if !os(macOS)
-  enum NotMacOS: LocalizedError {
-    case xcrunOnlyOnMacOS
-  }
-  throw NotMacOS.xcrunOnlyOnMacOS
+  return nil
   #endif
-  let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
-  try process.launch()
-  let result = try process.waitUntilExit()
-  guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
-    enum XCRunFailure: LocalizedError {
-      case xcrunFailure
+  return Result {
+    if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
+      return pathFromEnv
     }
-    throw XCRunFailure.xcrunFailure
-  }
-  guard let path = String(bytes: try result.output.get(), encoding: .utf8)
-  else {
-    enum Error: LocalizedError {
-      case couldNotUnwrapSDKPath
+    let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
+    try process.launch()
+    let result = try process.waitUntilExit()
+    guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
+      enum XCRunFailure: LocalizedError {
+        case xcrunFailure
+      }
+      throw XCRunFailure.xcrunFailure
     }
-    throw Error.couldNotUnwrapSDKPath
+    guard let path = String(bytes: try result.output.get(), encoding: .utf8)
+    else {
+      enum Error: LocalizedError {
+        case couldNotUnwrapSDKPath
+      }
+      throw Error.couldNotUnwrapSDKPath
+    }
+    return path.spm_chomp()
   }
-  return path.spm_chomp()
-}
+}()
