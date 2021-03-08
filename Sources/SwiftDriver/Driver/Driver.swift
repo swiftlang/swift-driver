@@ -1080,8 +1080,13 @@ extension Driver {
       }
       // All input action IDs for this action.
       var inputIds = [UInt]()
+
+      var jobInputs = job.primaryInputs.isEmpty ? job.inputs : job.primaryInputs
+      if let pchPath = bridgingPrecompiledHeader, job.kind == .compile {
+        jobInputs.append(TypedVirtualPath(file: pchPath, type: .pch))
+      }
       // Collect input job IDs.
-      for input in job.displayInputs.isEmpty ? job.inputs : job.displayInputs {
+      for input in jobInputs {
         if let id = inputIdMap[input] {
           inputIds.append(id)
           continue
