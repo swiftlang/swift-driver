@@ -38,7 +38,7 @@ class ClassExtensionTest: XCTestCase {
       var jobs: [BuildJob<Module>] {
         let importedVersions: [SourceVersion]
         switch self {
-        case .withFunc: importedVersions = [.withStructFunc, .withClassFunc]
+        case    .withFunc: importedVersions = [   .withStructFunc,    .withClassFunc]
         case .withoutFunc: importedVersions = [.withoutStructFunc, .withoutClassFunc]
         }
         return [BuildJob(.imported, importedVersions + [.definer]),
