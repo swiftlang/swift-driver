@@ -628,10 +628,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let expectedNumberOfDependencies: Int
       if driver.targetTriple.isMacOSX,
          driver.targetTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
-        // FIXME: Versioned re-scanning has an intermittend failure so the test that relies on it
-        // is disabled temporarily (rdar://74812312)
-        // expectedNumberOfDependencies = 11
-        expectedNumberOfDependencies = 12
+        expectedNumberOfDependencies = 11
       } else {
         expectedNumberOfDependencies = 12
       }
