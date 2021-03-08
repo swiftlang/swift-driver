@@ -30,7 +30,8 @@ fileprivate struct ExtensionChange: TestProtocol {
     Step(.withFunc, expectedCompilations),
   ]
   static var expectedCompilations: Expectation<SourceVersion> =
-    Expectation(with: [.main, .noFunc, .instantiator], without: [.main, .noFunc, .instantiator, .userOfT])
+    Expectation(with:    [.main, .noFunc],
+                without: [.main, .noFunc])
 
 
   enum State: String, StateProtocol {
@@ -64,20 +65,25 @@ fileprivate struct ExtensionChange: TestProtocol {
 
     var code: String {
       switch self {
-      case .main: return """
-        struct S { static func foo<I: SignedInteger>(_ si: I) {} }
-        S.foo(3)
+      case .main:
+        return """
+          struct S {static func foo<I: SignedInteger>(_ si: I) {}}
+          S.foo(3)
         """
-      case .noFunc: return """
-        extension S {}
-        struct T {static func foo() {}}
+      case .noFunc:
+        return """
+          extension S {}
+          struct T {static func foo() {}}
         """
-      case .withFunc: return """
-        extension S { static func foo(_ i: Int) {} }
-        struct T {static func foo() {}}
+      case .withFunc:
+        return """
+          extension S {static func foo(_ i: Int) {}}
+          struct T {static func foo() {}}
         """
-      case .instantiator: return "func bar() { _ = S() }"
-      case .userOfT: return "func baz() {T.foo()}"
+      case .instantiator:
+        return "func bar() {_ = S()}"
+      case .userOfT:
+        return "func baz() {T.foo()}"
       }
     }
   }

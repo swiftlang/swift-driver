@@ -42,14 +42,12 @@ struct Expectation<SourceVersion: SourceVersionProtocol> {
     let extraCompilations = actualsSet.subtracting(expectedSet)
     let missingCompilations = expectedSet.subtracting(actualsSet)
 
-    XCTAssertEqual(
-      extraCompilations, [],
-      "Extra compilations, \(context), step \(nextStateName)",
+    XCTAssert(extraCompilations.isEmpty,
+      "Extra compilations: \(extraCompilations), \(context), in state: \(nextStateName)",
       file: context.testFile, line: context.testLine)
 
-    XCTAssertEqual(
-      missingCompilations, [],
-      "Missing compilations, \(context), step \(nextStateName)",
+    XCTAssert(missingCompilations.isEmpty,
+      "Missing compilations: \(missingCompilations), \(context), in state: \(nextStateName)",
       file: context.testFile, line: context.testLine)
   }
 }

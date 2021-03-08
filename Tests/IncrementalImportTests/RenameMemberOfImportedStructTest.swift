@@ -18,7 +18,7 @@ import SwiftOptions
 // MARK: - Test cases
 class RenameMemberOfImportedStructTest: XCTestCase {
   func testRenamingMember() throws {
-    try RenameMemberOfImportedStruct.test(verbose: true)
+    try RenameMemberOfImportedStruct.test(verbose: false)
   }
 }
 
