@@ -166,7 +166,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
                                                   hostTriple: driver.hostTriple,
                                                   env: ProcessEnv.vars)
-      let _ = try dependencyOracle
+      try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
                                        swiftScanLibPath: scanLibPath)
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
@@ -246,12 +246,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
                          "test.swift", "-module-name", "A", "-g"]
 
       var driver = try Driver(args: commandLine, executor: executor,
-                              externalTargetModulePathMap: targetModulePathMap,
+                              externalBuildArtifacts: (targetModulePathMap, [:]),
                               interModuleDependencyOracle: dependencyOracle)
       let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
                                                   hostTriple: driver.hostTriple,
                                                   env: ProcessEnv.vars)
-      let _ = try dependencyOracle
+      try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
                                        swiftScanLibPath: scanLibPath)
 
