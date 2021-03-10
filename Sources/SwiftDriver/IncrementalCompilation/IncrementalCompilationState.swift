@@ -38,8 +38,6 @@ public class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
-  private let confinementQueue = DispatchQueue(label: "com.apple.swift-driver.IncrementalCompilationState")
-
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
   init?(
@@ -208,29 +206,27 @@ extension IncrementalCompilationState {
 
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job) throws -> [Job]? {
-    return try confinementQueue.sync {
-      unfinishedCompileJobs.remove(finishedJob)
+    unfinishedCompileJobs.remove(finishedJob)
 
-      // Find and deal with inputs that now need to be compiled
-      let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
-      assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
-             "Primaries should not overlap secondaries.")
+    // Find and deal with inputs that now need to be compiled
+    let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
+    assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
+           "Primaries should not overlap secondaries.")
 
-      if let reporter = self.reporter {
-        for input in invalidatedInputs {
-          reporter.report(
-            "Queuing because of dependencies discovered later:", input)
-        }
+    if let reporter = self.reporter {
+      for input in invalidatedInputs {
+        reporter.report(
+          "Queuing because of dependencies discovered later:", input)
       }
-      let newJobs = try getJobs(for: invalidatedInputs)
-      unfinishedCompileJobs.formUnion(newJobs)
-      if unfinishedCompileJobs.isEmpty {
-        // no more compilations are possible
-        return nil
-      }
-      return newJobs
     }
- }
+    let newJobs = try getJobs(for: invalidatedInputs)
+    unfinishedCompileJobs.formUnion(newJobs)
+    if unfinishedCompileJobs.isEmpty {
+      // no more compilations are possible
+      return nil
+    }
+    return newJobs
+  }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
   private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<TypedVirtualPath> {
