@@ -347,6 +347,9 @@ struct DriverBuildValue: LLBuildValue {
     return .init(success: success, kind: .jobExecution)
   }
 }
+
+/// A rule represents all jobs to finish compiling a module, including mandatory jobs,
+/// incremental jobs, and post-compilation jobs.
 class ExecuteAllJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -368,12 +371,15 @@ class ExecuteAllJobsRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
+    // Requests all compilation jobs to be done
     engine.taskNeedsInput(ExecuteAllCompilationJobsRule.RuleKey(), inputID: allCompilationId)
   }
 
   override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
     do {
       let subtaskSuccess = try DriverBuildValue(value).success
+      // After all compilation jobs are done, we can schedule post-compilation jobs,
+      // including merge module and linking jobs.
       if inputID == allCompilationId && !context.primaryIndices.isEmpty && subtaskSuccess {
         context.postCompileIndices.forEach {
           engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: $0), inputID: $0)
@@ -390,6 +396,8 @@ class ExecuteAllJobsRule: LLBuildRule {
   }
 }
 
+/// A rule for evaluating all compilation jobs, including mandatory and Incremental
+/// compilations.
 class ExecuteAllCompilationJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -409,6 +417,7 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
+    // We need to request those mandatory jobs to be done first.
     context.primaryIndices.forEach {
       let key = ExecuteJobRule.RuleKey(index: $0)
       engine.taskNeedsInput(key, inputID: $0)
@@ -422,6 +431,9 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
   override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
     do {
       let buildSuccess = try DriverBuildValue(value).success
+      // For each finished job, ask the incremental build oracle for additional
+      // jobs to be scheduled and request them as the additional inputs for this
+      // rule.
       if buildSuccess && !context.isBuildCancelled {
         try context.getIncrementalJobIndices(finishedJob: inputID).forEach {
           engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: $0), inputID: $0)
@@ -437,7 +449,7 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
     engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
   }
 }
-
+/// A rule for a single compiler invocation.
 class ExecuteJobRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -461,6 +473,7 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
+    // First, request all compilation jobs whose outputs this rule depends on.
     requestInputs(from: engine)
   }
 
@@ -477,7 +490,11 @@ class ExecuteJobRule: LLBuildRule {
     guard allInputsSucceeded else {
       return engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
     }
-
+    // We are ready to schedule this job.
+    // llbuild relies on the client-side to handle asynchronous runs, so we should
+    // execute the job asynchronously without blocking the callback thread.
+    // taskIsComplete can be safely called from another thread. The only restriction
+    // is we should call it after inputsAvailable is called.
     context.jobQueue.addOperation {
       self.executeJob(engine)
     }
