@@ -207,14 +207,9 @@ extension IncrementalCompilationState {
   /// Careful: job may not be primary.
 
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
-    job finishedJob: Job, result: ProcessResult
-   ) throws -> [Job]? {
+    job finishedJob: Job) throws -> [Job]? {
     return try confinementQueue.sync {
       unfinishedCompileJobs.remove(finishedJob)
-
-      guard case .terminated = result.exitStatus else {
-        return []
-      }
 
       // Find and deal with inputs that now need to be compiled
       let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)

@@ -82,11 +82,6 @@ public final class MultiJobExecutor {
     /// The type to use when launching new processes. This mostly serves as an override for testing.
     let processType: ProcessProtocol.Type
 
-    /// Records the task build engine for the `ExecuteAllJobs` rule (and task) so that when a
-    /// mandatory job finishes, and new jobs are discovered, inputs can be added to that rule for
-    /// any newly-required job. Set only once.
-    private(set) var executeAllJobsTaskBuildEngine: LLTaskBuildEngine? = nil
-
     /// If a job fails, the driver needs to stop running jobs.
     private(set) var isBuildCancelled = false
 
@@ -126,11 +121,6 @@ public final class MultiJobExecutor {
       self.recordedInputModificationDates = recordedInputModificationDates
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
-    }
-
-    deinit {
-      // break a potential cycle
-      executeAllJobsTaskBuildEngine = nil
     }
 
     private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
@@ -203,36 +193,12 @@ public final class MultiJobExecutor {
       }
     }
 
-    fileprivate func setExecuteAllJobsTaskBuildEngine(_ engine: LLTaskBuildEngine) {
-      assert(executeAllJobsTaskBuildEngine == nil)
-      executeAllJobsTaskBuildEngine = engine
-    }
-
-    /// After a job finishes, an incremental build may discover more jobs are needed, or if all compilations
-    /// are done, will need to then add in the post-compilation rules.
-    fileprivate func addRuleBeyondMandatoryCompiles(
-      finishedJob job: Job,
-      result: ProcessResult
-    ) throws {
-      guard job.kind.isCompile else {
-        return
-      }
+    fileprivate func getIncrementalJobIndices(finishedJob jobIdx: Int) throws -> Range<Int> {
       if let newJobs = try incrementalCompilationState?
-          .collectJobsDiscoveredToBeNeededAfterFinishing(job: job, result: result) {
-        let newJobIndices = Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
-        needInputFor(indices: newJobIndices)
+          .collectJobsDiscoveredToBeNeededAfterFinishing(job: jobs[jobIdx]) {
+        return Self.addJobs(newJobs, to: &jobs, producing: &producerMap)
       }
-      else {
-        needInputFor(indices: postCompileIndices)
-      }
-    }
-    fileprivate func needInputFor<Indices: Collection>(indices: Indices)
-    where Indices.Element == Int
-    {
-      for index in indices {
-        let key = ExecuteJobRule.RuleKey(index: index)
-        executeAllJobsTaskBuildEngine!.taskNeedsInput(key, inputID: index)
-      }
+      return 0..<0
     }
 
     fileprivate func cancelBuildIfNeeded(_ result: ProcessResult) {
@@ -355,6 +321,8 @@ struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
     switch rule {
     case ExecuteAllJobsRule.ruleName:
       return ExecuteAllJobsRule(context: context)
+    case ExecuteAllCompilationJobsRule.ruleName:
+      return ExecuteAllCompilationJobsRule(context: context)
     case ExecuteJobRule.ruleName:
       return ExecuteJobRule(key, context: context)
     default:
@@ -379,20 +347,20 @@ struct DriverBuildValue: LLBuildValue {
     return .init(success: success, kind: .jobExecution)
   }
 }
-
 class ExecuteAllJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteAllJobsRule
   }
+  private let context: MultiJobExecutor.Context
 
   override class var ruleName: String { "\(ExecuteAllJobsRule.self)" }
-
-  private let context: MultiJobExecutor.Context
 
   /// True if any of the inputs had any error.
   private var allInputsSucceeded: Bool = true
 
+  /// Input ID for the requested ExecuteAllCompilationJobsRule
+  private let allCompilationId = Int.max
 
   init(context: MultiJobExecutor.Context) {
     self.context = context
@@ -400,8 +368,51 @@ class ExecuteAllJobsRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    context.setExecuteAllJobsTaskBuildEngine(engine)
-    context.needInputFor(indices: context.primaryIndices)
+    engine.taskNeedsInput(ExecuteAllCompilationJobsRule.RuleKey(), inputID: allCompilationId)
+  }
+
+  override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
+    do {
+      let subtaskSuccess = try DriverBuildValue(value).success
+      if inputID == allCompilationId && !context.primaryIndices.isEmpty && subtaskSuccess {
+        context.postCompileIndices.forEach {
+          engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: $0), inputID: $0)
+        }
+      }
+      allInputsSucceeded = allInputsSucceeded && subtaskSuccess
+    } catch {
+      allInputsSucceeded = false
+    }
+  }
+
+  override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+    engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
+  }
+}
+
+class ExecuteAllCompilationJobsRule: LLBuildRule {
+  struct RuleKey: LLBuildKey {
+    typealias BuildValue = DriverBuildValue
+    typealias BuildRule = ExecuteAllCompilationJobsRule
+  }
+
+  override class var ruleName: String { "\(ExecuteAllCompilationJobsRule.self)" }
+
+  private let context: MultiJobExecutor.Context
+
+  /// True if any of the inputs had any error.
+  private var allInputsSucceeded: Bool = true
+
+  init(context: MultiJobExecutor.Context) {
+    self.context = context
+    super.init(fileSystem: context.fileSystem)
+  }
+
+  override func start(_ engine: LLTaskBuildEngine) {
+    context.primaryIndices.forEach {
+      let key = ExecuteJobRule.RuleKey(index: $0)
+      engine.taskNeedsInput(key, inputID: $0)
+    }
   }
 
   override func isResultValid(_ priorValue: Value) -> Bool {
@@ -410,8 +421,13 @@ class ExecuteAllJobsRule: LLBuildRule {
 
   override func provideValue(_ engine: LLTaskBuildEngine, inputID: Int, value: Value) {
     do {
-      let buildValue = try DriverBuildValue(value)
-      allInputsSucceeded = allInputsSucceeded && buildValue.success
+      let buildSuccess = try DriverBuildValue(value).success
+      if buildSuccess && !context.isBuildCancelled {
+        try context.getIncrementalJobIndices(finishedJob: inputID).forEach {
+          engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: $0), inputID: $0)
+        }
+      }
+      allInputsSucceeded = allInputsSucceeded && buildSuccess
     } catch {
       allInputsSucceeded = false
     }
@@ -554,9 +570,6 @@ class ExecuteJobRule: LLBuildRule {
       }
       pendingFinish = false
       context.cancelBuildIfNeeded(result)
-      if !context.isBuildCancelled {
-        try context.addRuleBeyondMandatoryCompiles(finishedJob: job, result: result)
-      }
       value = .jobExecution(success: success)
     } catch {
       if error is DiagnosticData {
