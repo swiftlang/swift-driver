@@ -28,17 +28,11 @@ public class IncrementalCompilationState {
   /// Sadly, has to be `var` for formBatchedJobs
   private var driver: Driver
 
-  /// Track required jobs that haven't finished so the build record can record the corresponding
-  /// input statuses.
-  private var unfinishedCompileJobs: Set<Job>
-
   /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
   private var skippedCompileGroups = [TypedVirtualPath: CompileJobGroup]()
 
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
-
-  private let confinementQueue = DispatchQueue(label: "com.apple.swift-driver.IncrementalCompilationState")
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
@@ -101,7 +95,6 @@ public class IncrementalCompilationState {
 
     self.skippedCompileGroups = initial.skippedCompileGroups
     self.mandatoryJobsInOrder = initial.mandatoryJobsInOrder
-    self.unfinishedCompileJobs = Set(self.mandatoryJobsInOrder.filter{$0.kind.isCompile})
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initial.graph
     self.driver = driver
@@ -207,35 +200,20 @@ extension IncrementalCompilationState {
   /// Careful: job may not be primary.
 
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
-    job finishedJob: Job, result: ProcessResult
-   ) throws -> [Job]? {
-    return try confinementQueue.sync {
-      unfinishedCompileJobs.remove(finishedJob)
+    job finishedJob: Job) throws -> [Job] {
+    // Find and deal with inputs that now need to be compiled
+    let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
+    assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
+           "Primaries should not overlap secondaries.")
 
-      guard case .terminated = result.exitStatus else {
-        return []
+    if let reporter = self.reporter {
+      for input in invalidatedInputs {
+        reporter.report(
+          "Queuing because of dependencies discovered later:", input)
       }
-
-      // Find and deal with inputs that now need to be compiled
-      let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
-      assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
-             "Primaries should not overlap secondaries.")
-
-      if let reporter = self.reporter {
-        for input in invalidatedInputs {
-          reporter.report(
-            "Queuing because of dependencies discovered later:", input)
-        }
-      }
-      let newJobs = try getJobs(for: invalidatedInputs)
-      unfinishedCompileJobs.formUnion(newJobs)
-      if unfinishedCompileJobs.isEmpty {
-        // no more compilations are possible
-        return nil
-      }
-      return newJobs
     }
- }
+    return try getJobs(for: invalidatedInputs)
+  }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
   private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<TypedVirtualPath> {
