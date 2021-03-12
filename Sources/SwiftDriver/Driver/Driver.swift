@@ -307,28 +307,33 @@ public struct Driver {
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   @_spi(Testing) public let supportedFrontendFlags: Set<String>
 
+  /// A global queue for emitting non-interrupted messages into stderr
+  public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
-    let stream = stderrStream
-    if !(diagnostic.location is UnknownLocation) {
-        stream <<< diagnostic.location.description <<< ": "
-    }
+    stdErrQueue.sync {
+      let stream = stderrStream
+      if !(diagnostic.location is UnknownLocation) {
+          stream <<< diagnostic.location.description <<< ": "
+      }
 
-    switch diagnostic.message.behavior {
-    case .error:
-      stream <<< "error: "
-    case .warning:
-      stream <<< "warning: "
-    case .note:
-      stream <<< "note: "
-    case .remark:
-      stream <<< "remark: "
-    case .ignored:
-        break
-    }
+      switch diagnostic.message.behavior {
+      case .error:
+        stream <<< "error: "
+      case .warning:
+        stream <<< "warning: "
+      case .note:
+        stream <<< "note: "
+      case .remark:
+        stream <<< "remark: "
+      case .ignored:
+          break
+      }
 
-    stream <<< diagnostic.localizedDescription <<< "\n"
-    stream.flush()
+      stream <<< diagnostic.localizedDescription <<< "\n"
+      stream.flush()
+    }
   }
 
   /// Create the driver with the given arguments.
