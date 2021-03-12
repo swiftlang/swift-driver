@@ -100,8 +100,10 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
     case .regular, .verbose:
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
       if !output.isEmpty {
-        stderrStream <<< output
-        stderrStream.flush()
+        Driver.stdErrQueue.sync {
+          stderrStream <<< output
+          stderrStream.flush()
+        }
       }
 
     case .parsableOutput:
@@ -141,10 +143,11 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
   private func emit(_ message: ParsableMessage) {
     // FIXME: Do we need to do error handling here? Can this even fail?
     guard let json = try? message.toJSON() else { return }
-
-    stderrStream <<< json.count <<< "\n"
-    stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
-    stderrStream.flush()
+    Driver.stdErrQueue.sync {
+      stderrStream <<< json.count <<< "\n"
+      stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
+      stderrStream.flush()
+    }
   }
 }
 
