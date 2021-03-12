@@ -37,6 +37,9 @@ import SwiftOptions
 
   @_spi(Testing) public var phase: Phase
 
+  /// Minimize the number of file system modification-time queries.
+  private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
+
   public init(_ info: IncrementalCompilationState.InitialStateComputer,
               _ phase: Phase
   ) {
@@ -287,14 +290,10 @@ extension ModuleDependencyGraph {
 
     let isNewToTheGraph = fingerprintedExternalDependencies.insert(fed).inserted
 
-    var lazyModTimer = LazyModTimer(
-      externalDependency: fed.externalDependency,
-      info: info)
-
     // If the graph already includes prior externals, then any new externals are changes
     // Short-circuit conjunction may avoid the modTime query
     let shouldTryToProcess = info.isCrossModuleIncrementalBuildEnabled &&
-      (isNewToTheGraph || lazyModTimer.hasExternalFileChanged)
+      (isNewToTheGraph || hasFileChanged(of: fed.externalDependency))
 
     // Do this no matter what in order to integrate any incremental external dependencies.
     let invalidatedNodesFromIncrementalExternal = shouldTryToProcess
@@ -309,7 +308,7 @@ extension ModuleDependencyGraph {
     /// When building a graph from scratch, an unchanged but new-to-the-graph external dependendcy should be ignored.
     /// Otherwise, it represents an added Import
     let callerWantsTheseChanges = (phase.isUpdating && isNewToTheGraph) ||
-      lazyModTimer.hasExternalFileChanged
+      hasFileChanged(of: fed.externalDependency)
 
     guard callerWantsTheseChanges else {
       return DirectlyInvalidatedNodeSet()
@@ -319,13 +318,16 @@ extension ModuleDependencyGraph {
     // return anything that uses that dependency.
     return invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesUsing(fed)
   }
-  
-  private struct LazyModTimer {
-    let externalDependency: ExternalDependency
-    let info: IncrementalCompilationState.InitialStateComputer
 
-    lazy var hasExternalFileChanged = (externalDependency.modTime(info.fileSystem) ?? .distantFuture)
+  private func hasFileChanged(of externalDependency: ExternalDependency
+  ) -> Bool {
+    if let hasChanged = externalDependencyModTimeCache[externalDependency] {
+      return hasChanged
+    }
+    let hasChanged = (externalDependency.modTime(info.fileSystem) ?? .distantFuture)
       >= info.buildTime
+    externalDependencyModTimeCache[externalDependency] = hasChanged
+    return hasChanged
   }
 
   /// Try to read and integrate an external dependency.
