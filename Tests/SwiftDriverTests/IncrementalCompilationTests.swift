@@ -14,6 +14,7 @@ import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
+import TestUtilities
 
 // MARK: - Baseline: nonincremental
 final class NonincrementalCompilationTests: XCTestCase {
@@ -424,7 +425,11 @@ extension IncrementalCompilationTests {
       try? driver.run(jobs: jobs)
     }
 
-    let allArgs = try commonArgs + extraArguments + Driver.sdkArgumentsForTesting()
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
+    else {
+      throw XCTSkip("Cannot perform this test on this host")
+    }
+    let allArgs = try commonArgs + extraArguments + sdkArgumentsForTesting
     if checkDiagnostics {
       try assertDriverDiagnostics(args: allArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
@@ -470,9 +475,13 @@ extension IncrementalCompilationTests {
         expectingRemarks: [],
         whenAutolinking: [])
 
+      guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
+      else {
+        throw XCTSkip("Cannot perform this test on this host")
+      }
       var driver = try Driver(args: self.commonArgs + [
         driverOption.spelling,
-      ] + Driver.sdkArgumentsForTesting())
+      ] + sdkArgumentsForTesting)
       _ = try driver.planBuild()
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
       let state = try XCTUnwrap(driver.incrementalCompilationState)

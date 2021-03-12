@@ -54,7 +54,23 @@ let package = Package(
     /// Driver tests.
     .testTarget(
       name: "SwiftDriverTests",
-      dependencies: ["SwiftDriver", "SwiftDriverExecution", "swift-driver"]),
+      dependencies: ["SwiftDriver", "SwiftDriverExecution", "swift-driver",
+                     "TestUtilities"]),
+
+    /// IncrementalImport tests
+    .testTarget(
+      name: "IncrementalImportTests",
+      dependencies: ["IncrementalTestFramework", "TestUtilities", "SwiftToolsSupport-auto"]),
+
+    .target(
+      name: "IncrementalTestFramework",
+      dependencies: [ "SwiftDriver", "SwiftOptions", "TestUtilities" ],
+      path: "Tests/IncrementalTestFramework"),
+
+    .target(
+      name: "TestUtilities",
+      dependencies: ["SwiftDriver", "SwiftDriverExecution"],
+      path: "Tests/TestUtilities"),
 
     /// The options library.
     .target(

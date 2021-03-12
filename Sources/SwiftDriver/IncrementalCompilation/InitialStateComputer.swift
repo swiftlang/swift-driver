@@ -257,14 +257,30 @@ extension IncrementalCompilationState.InitialStateComputer {
     // Input == source file
     let changedInputs = computeChangedInputs( moduleDependencyGraph, buildRecord)
 
+    if let reporter = reporter {
+      for input in inputsInvalidatedByExternals {
+        reporter.report("Invalidated externally; will queue", input)
+      }
+    }
+
     let inputsHavingMalformedDependencySources =
       sourceFiles.currentInOrder.filter { sourceFile in
         !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)}
 
+    if let reporter = reporter {
+      for input in inputsHavingMalformedDependencySources {
+        reporter.report("Has malformed dependency source; will queue", input)
+      }
+    }
     let inputsMissingOutputs = allGroups.compactMap {
       $0.outputs.contains {(try? !fileSystem.exists($0.file)) ?? true}
         ? $0.primaryInput
         : nil
+    }
+    if let reporter = reporter {
+      for input in inputsMissingOutputs {
+        reporter.report("Missing an output; will queue", input)
+      }
     }
 
     // Combine to obtain the inputs that definitely must be recompiled.

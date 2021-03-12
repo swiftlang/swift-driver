@@ -14,7 +14,7 @@ import TSCBasic
 
 /// Contains helpers for retrieving paths to fixtures under the
 /// repo-local `TestInputs` directory.
-enum Fixture {
+public enum Fixture {
   /// Form a path to a file residing in the test fixtures directory under the
   /// root of this package.
   /// - Parameters:
@@ -24,13 +24,12 @@ enum Fixture {
   ///   - fileSystem: The filesystem on which to search.
   /// - Returns: A path to the fixture file if the resulting path exists on the
   ///            given file system. Else, returns `nil`.
-  static func fixturePath(
+  public static func fixturePath(
     at relativePath: RelativePath,
     for file: String,
     on fileSystem: FileSystem = localFileSystem
   ) -> AbsolutePath? {
     let packageRootPath = AbsolutePath(#file)
-      .parentDirectory
       .parentDirectory
       .parentDirectory
       .parentDirectory

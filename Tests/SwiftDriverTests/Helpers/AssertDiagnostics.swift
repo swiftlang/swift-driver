@@ -13,6 +13,7 @@
 import XCTest
 import SwiftDriver
 import TSCBasic
+import TestUtilities
 
 func assertDriverDiagnostics(
   args: [String],

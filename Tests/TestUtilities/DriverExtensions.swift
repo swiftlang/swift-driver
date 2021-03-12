@@ -10,15 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SwiftDriver
+@_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
 import Foundation
-import XCTest
 
 extension Driver {
   /// Initializer which creates an executor suitable for use in tests.
-  init(
+  public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
@@ -35,28 +34,38 @@ extension Driver {
                   executor: executor)
   }
 
-  // For tests that need to set the sdk path:
-  static func sdkArgumentsForTesting() throws -> [String] {
-    ["-sdk", try cachedSDKPath.get()]
+  /// For tests that need to set the sdk path.
+  /// Only works on hosts with `xcrun`, so return nil if cannot work on current host.
+  public static func sdkArgumentsForTesting() throws -> [String]? {
+    try cachedSDKPath.map {["-sdk", try $0.get()]}
   }
 }
 
-private let cachedSDKPath = Result<String, Error> {
-  if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
-    return pathFromEnv
-  }
+/// Set to nil if cannot perform on this host
+private let cachedSDKPath: Result<String, Error>? = {
   #if !os(macOS)
-  throw XCTSkip("xcrun only available on macOS")
+  return nil
   #endif
-  let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
-  try process.launch()
-  let result = try process.waitUntilExit()
-  guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
-    enum XCRunFailure: LocalizedError {
-      case xcrunFailure
+  return Result {
+    if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
+      return pathFromEnv
     }
-    throw XCRunFailure.xcrunFailure
+    let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])
+    try process.launch()
+    let result = try process.waitUntilExit()
+    guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else {
+      enum XCRunFailure: LocalizedError {
+        case xcrunFailure
+      }
+      throw XCRunFailure.xcrunFailure
+    }
+    guard let path = String(bytes: try result.output.get(), encoding: .utf8)
+    else {
+      enum Error: LocalizedError {
+        case couldNotUnwrapSDKPath
+      }
+      throw Error.couldNotUnwrapSDKPath
+    }
+    return path.spm_chomp()
   }
-  return try XCTUnwrap(String(bytes: try result.output.get(), encoding: .utf8))
-    .spm_chomp()
-}
+}()
