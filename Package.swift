@@ -60,7 +60,12 @@ let package = Package(
     /// IncrementalImport tests
     .testTarget(
       name: "IncrementalImportTests",
-      dependencies: ["SwiftDriver", "SwiftOptions","TestUtilities"]),
+      dependencies: ["IncrementalTestFramework", "TestUtilities", "SwiftToolsSupport-auto"]),
+
+    .target(
+      name: "IncrementalTestFramework",
+      dependencies: [ "SwiftDriver", "SwiftOptions", "TestUtilities" ],
+      path: "Tests/IncrementalTestFramework"),
 
     .target(
       name: "TestUtilities",
