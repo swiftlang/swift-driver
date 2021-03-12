@@ -405,7 +405,12 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
       base_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
 
     # Target directory for build artifacts
-    cmake_target_dir = os.path.join(build_dir, target)
+    # If building for a local compiler build, use the build directory directly
+    if args.local_compiler_build:
+      cmake_target_dir = build_dir
+    else:
+      cmake_target_dir = os.path.join(build_dir, target)
+
     driver_dir = os.path.join(cmake_target_dir, args.configuration)
     dependencies_dir = os.path.join(driver_dir, 'dependencies')
 
@@ -426,7 +431,7 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
                                    base_cmake_flags, swift_flags)
 
 def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
-  print('Building llbuild for target: %s' % target)
+  print('Building Swift Driver dependency: llbuild')
   llbuild_source_dir = os.path.join(os.path.dirname(args.package_path), 'llbuild')
   llbuild_build_dir = os.path.join(build_dir, 'llbuild')
   llbuild_api_dir = os.path.join(llbuild_build_dir, '.cmake/api/v1/query')
@@ -454,7 +459,7 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_f
               llbuild_source_dir, llbuild_build_dir, 'products/all')
 
 def build_tsc_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
-  print('Building TSC for target: %s' % target)
+  print('Building Swift Driver dependency: TSC')
   tsc_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-tools-support-core')
   tsc_build_dir = os.path.join(build_dir, 'swift-tools-support-core')
   tsc_swift_flags = swift_flags[:]
@@ -462,7 +467,7 @@ def build_tsc_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags
               tsc_source_dir, tsc_build_dir)
 
 def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
-  print('Building Yams for target: %s' % target)
+  print('Building Swift Driver dependency: Yams')
   yams_source_dir = os.path.join(os.path.dirname(args.package_path), 'yams')
   yams_build_dir = os.path.join(build_dir, 'yams')
   yams_cmake_flags = base_cmake_flags + [
@@ -484,7 +489,7 @@ def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flag
               yams_source_dir, yams_build_dir)
 
 def build_argument_parser_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
-  print('Building Argument Parser for target: %s' % target)
+  print('Building Swift Driver dependency: Argument Parser')
   parser_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-argument-parser')
   parser_build_dir = os.path.join(build_dir, 'swift-argument-parser')
   custom_flags = ['-DBUILD_TESTING=NO', '-DBUILD_EXAMPLES=NO']
@@ -586,6 +591,7 @@ def main():
     parser.add_argument('--configuration', '-c', default='debug', help='build using configuration (release|debug)')
     parser.add_argument('--no-local-deps', action='store_true', help='use normal remote dependencies when building')
     parser.add_argument('--verbose', '-v', action='store_true', help='enable verbose output')
+    parser.add_argument('--local_compiler_build', action='store_true', help='driver is being built for use with a local compiler build')
 
   subparsers = parser.add_subparsers(title='subcommands', dest='action', metavar='action')
   clean_parser = subparsers.add_parser('clean', help='clean the package')
@@ -614,6 +620,9 @@ def main():
 
   if args.cross_compile_hosts and not all('apple-macos' in target for target in args.cross_compile_hosts):
     error('Cross-compilation is currently only supported for the Darwin platform.')
+
+  if args.cross_compile_hosts and args.local_compiler_build:
+    error('Cross-compilation is currently not supported for the local compiler installation')
 
   if args.dispatch_build_dir:
     args.dispatch_build_dir = os.path.abspath(args.dispatch_build_dir)
