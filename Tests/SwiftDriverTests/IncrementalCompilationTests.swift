@@ -429,7 +429,7 @@ extension IncrementalCompilationTests {
     else {
       throw XCTSkip("Cannot perform this test on this host")
     }
-    let allArgs = try commonArgs + extraArguments + sdkArgumentsForTesting
+    let allArgs = commonArgs + extraArguments + sdkArgumentsForTesting
     if checkDiagnostics {
       try assertDriverDiagnostics(args: allArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)

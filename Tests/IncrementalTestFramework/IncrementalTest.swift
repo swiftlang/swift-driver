@@ -61,6 +61,7 @@ public struct IncrementalTest {
                context: Context(rootDir: rootDir,
                                 incrementalImports: incrementalImports,
                                 verbose: verbose,
+                                stepIndex: 0,
                                 file: file,
                                 line: line))
         .performSteps()
@@ -72,8 +73,14 @@ public struct IncrementalTest {
     self.context = context
   }
   private func performSteps() throws {
-    for (index, step) in steps.enumerated() { 
+    for (index, step) in steps.enumerated() {
+      if !context.verbose {
+        print("\(index)", terminator: " ")
+      }
       try step.perform(stepIndex: index, in: context)
+    }
+    if !context.verbose {
+      print("")
     }
   }
 }

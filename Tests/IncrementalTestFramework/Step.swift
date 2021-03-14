@@ -23,11 +23,11 @@ import TestUtilities
 /// 3. Check what was actually recompiled against what was expected to be recompiled.
 public struct Step {
   /// The `AddOn`s to be applied to the sources.
-  let addOns: [AddOn]
+  public let addOns: [AddOn]
   /// The `Modules` to be rebuild
-  let compilations: [Module]
+  let modules: [Module]
   /// The desired outcome
-  let expectation: ExpectedCompilations
+  let expected: Expectation
 
   /// By using the file & line where the step was constructed, the failures show which step failed
   let file: StaticString
@@ -36,18 +36,18 @@ public struct Step {
   /// Create a `Step`
   /// - Parameters:
   ///    - adding: The names of the markers to delete and thus uncomment code
-  ///    - compiling: The modules to compile
+  ///    - building: The modules to compile
   ///    - expecting: What is expected
   ///    - file: Where to place test errors
   ///    - line: Where to place test errors
   public init(adding addOns: String...,
-              compiling compilations: [Module],
-              expecting expectation: ExpectedCompilations,
+              building modules: [Module],
+              _ expected: Expectation,
               file: StaticString = #file,
               line: UInt = #line) {
     self.init(adding: addOns,
-              compiling: compilations,
-              expecting: expectation,
+              building: modules,
+              expected,
               file: file,
               line: line)
   }
@@ -55,55 +55,49 @@ public struct Step {
   /// Create a `Step`
   /// - Parameters:
   ///    - adding: The names of the markers to delete and thus uncomment code
-  ///    - compiling: The modules to compile
+  ///    - building: The modules to compile
   ///    - expecting: What is expected
-  ///    - file: Where to place test errors
   ///    - line: Where to place test errors
   public init(adding addOns: [String],
-              compiling compilations: [Module],
-              expecting expectation: ExpectedCompilations,
+              building modules: [Module],
+              _ expected: Expectation,
               file: StaticString = #file,
               line: UInt = #line) {
     self.addOns = addOns.map(AddOn.init(named:))
-    self.compilations = compilations
-    self.expectation = expectation
+    self.modules = modules
+    self.expected = expected
     self.file = file
     self.line = line
   }
 
-  /// Create a `Step` that expects to recompile everything. Useful for the first step in the test.
-  /// - Parameters:
-  ///    - adding: The names of the markers to delete and thus uncomment code
-  ///    - compiling: The modules to compile
-  ///    - file: Where to place test errors
-  ///    - line: Where to place test errors  public init(adding addOns: [String] = [],
-  public init(adding addOns: [String] = [],
-              compiling compilations: [Module],
-              file: StaticString = #file,
-              line: UInt = #line) {
-    self.init(
-      adding: addOns,
-      compiling: compilations,
-      expecting: ExpectedCompilations(allSourcesOf: compilations),
-      file: file,
-      line: line)
+  public func contains(addOn name: String) -> Bool {
+    addOns.map {$0.name} .contains(name)
   }
 
-  /// Perform this step. Fails an `XCTest` assertion if what is recompiled is not as expected.
+  /// Perform this step. Fails an `XCTest` assertion if what is recompiled is not as expected, or if
+  /// running an executable does not produce an expected result.
   /// - Parameters:
   ///    - stepIndex: The index of this step in the test, from zero. Used for error messages, etc.
   func perform(stepIndex: Int, in context: Context) throws {
-    let stepContext = context.with(file: file, line: line)
+    let stepContext = context.with(stepIndex: stepIndex, file: file, line: line)
     if stepContext.verbose {
-      print("\n*** performing step \(stepIndex): \(whatIsBuilt), \(context) ***\n")
+      print("\n*** performing step \(stepIndex): \(whatIsBuilt), \(stepContext) ***\n")
     }
-    let compiledSources = try compilations.flatMap {
+    let compiledSources = try modules.flatMap {
       try $0.compile(addOns: addOns, in: stepContext)
     }
-    expectation.check(against: compiledSources, step: self, stepIndex: stepIndex, in: stepContext)
+    expected.compilations.check(against: compiledSources, step: self, in: stepContext)
+
+    guard let expectedOutput = expected.output else {
+      return
+    }
+    let processResult = try modules.last.flatMap {
+      try $0.run(step: self, in: stepContext)
+    }
+    try expectedOutput.check(against: processResult, step: self, in: stepContext)
   }
 
   var whatIsBuilt: String {
-    "adding \(addOns.map {$0.name}), compiling \(compilations.map {$0.name}.joined(separator: ", "))"
+    "adding \(addOns.map {$0.name}), compiling \(modules.map {$0.name}.joined(separator: ", "))"
   }
 }

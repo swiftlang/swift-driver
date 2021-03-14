@@ -23,13 +23,13 @@ class SpecificFuncAdditionInExtensionWithinModuleTest: XCTestCase {
     // MARK: - Define the module
     let main = Source(named: "main", containing: """
       // Define a struct with a general method and call it
-      struct S {static func foo<I: SignedInteger>(_ si: I) {}}
+      struct S {static func foo<I: SignedInteger>(_ si: I) {print("general")}}
       S.foo(3)
       """)
     let sExtension = Source(named: "sExtension", containing: """
       // Extend the structure and optionally add a specific method
       extension S {
-        //# withFunc static func foo(_ i: Int) {}
+        //# specificFuncInExtension static func foo(_ i: Int) {print("specific")}
       }
       // Also define a structure that won't be changed.
       struct T {static func foo() {}}
@@ -43,18 +43,20 @@ class SpecificFuncAdditionInExtensionWithinModuleTest: XCTestCase {
       func bar() {_ = S()}
       """)
 
-    let mainModule = Module(named: "mainM",
+   let mainModule = Module(named: "mainM",
                             containing: [main, sExtension, userOfT, instantiator],
                             producing: .executable)
 
+
     let whenAddOrRmSpecificFunc = ExpectedCompilations(always: [main, sExtension],
                                                        andWhenDisabled: [])
+
     let steps = [
-      Step(                    compiling: [mainModule]),
-      Step(                    compiling: [mainModule], expecting: .none),
-      Step(adding: "withFunc", compiling: [mainModule], expecting: whenAddOrRmSpecificFunc),
-      Step(                    compiling: [mainModule], expecting: whenAddOrRmSpecificFunc),
-      Step(adding: "withFunc", compiling: [mainModule], expecting: whenAddOrRmSpecificFunc),
+      Step(                                   building: [mainModule], .expecting([mainModule].allSourcesToCompile, "general")),
+      Step(                                   building: [mainModule], .expecting(.none,                            "general")),
+      Step(adding: "specificFuncInExtension", building: [mainModule], .expecting(whenAddOrRmSpecificFunc,          "specific")),
+      Step(                                   building: [mainModule], .expecting(whenAddOrRmSpecificFunc,          "general")),
+      Step(adding: "specificFuncInExtension", building: [mainModule], .expecting(whenAddOrRmSpecificFunc,          "specific")),
     ]
 
     try IncrementalTest.perform(steps)

@@ -15,6 +15,7 @@ import TSCBasic
 import SwiftOptions
 import TestUtilities
 import Foundation
+import XCTest
 
 /// Represents a module to be compiled.
 /// Thus, stores everything needed to invoke the compiler, and how to invoke the compiler.
@@ -30,7 +31,7 @@ public struct Module {
   public let name: String
 
   /// The `Source`s to be compiled when building this module.
-  let sources: [Source]
+  public let sources: [Source]
 
   /// The `Module`s imported by this module.
   let imports: [Module]
@@ -137,7 +138,7 @@ extension Module {
     ].compactMap { $0 }
     let diagnosticsEngine = DiagnosticsEngine(handlers: handlers)
 
-    let args = arguments(in: context)
+    let args = try arguments(in: context)
     var driver = try Driver(args: args, diagnosticsEngine: diagnosticsEngine)
     let jobs = try driver.planBuild()
     try driver.run(jobs: jobs)
@@ -146,9 +147,17 @@ extension Module {
   }
 
   /// - Returns the arguments to pass to the `Driver`.
-  private func arguments(in context: Context) -> [String] {
+  private func arguments(in context: Context) throws -> [String] {
+    let boilerPlateArgs = [
+      "swiftc",
+      "-no-color-diagnostics",
+      "-incremental",
+      "-driver-show-incremental",
+      "-driver-show-job-lifecycle"]
+
     var libraryArgs: [String] {
       [
+        "-c",
         "-parse-as-library",
         "-emit-module-path", context.swiftmodulePath(for: self).pathString,
       ]
@@ -158,6 +167,12 @@ extension Module {
         context.swiftmodulePath(for: $0).parentDirectory.pathString
       }
       return swiftModules.flatMap { ["-I", $0, "-F", $0] }
+        + ["-o", context.executablePath(for: self).pathString]
+    }
+
+    var importedObjs: [String] {
+      context.allImportedObjFilePaths(in: self).map {$0.pathString}
+        .flatMap { ["-Xlinker", $0]}
     }
 
     var incrementalImportsArgs: [String] {
@@ -169,22 +184,36 @@ extension Module {
       }
     }
 
-    return Array(
-      [
-        [
-          "swiftc",
-          "-no-color-diagnostics",
-          "-incremental",
-          "-driver-show-incremental",
-          "-driver-show-job-lifecycle",
-          "-c",
-          "-module-name", self.name,
-          "-output-file-map", context.outputFileMapPath(for: self).pathString,
-        ],
-        incrementalImportsArgs,
-        self.product == .library ? libraryArgs : appArgs,
-        sources.map { context.swiftFilePath(for: $0, in: self).pathString }
-      ].joined())
+    guard let sdkArguments = try Driver.sdkArgumentsForTesting()
+    else {
+      throw XCTSkip("Not supported on this platform")
+    }
+
+    let interestingArgs = [
+      [ "-module-name", self.name],
+      ["-output-file-map", context.outputFileMapPath(for: self).pathString],
+      incrementalImportsArgs,
+      self.product == .library ? libraryArgs : appArgs,
+      sources.map { context.swiftFilePath(for: $0, in: self).pathString },
+      importedObjs,
+      sdkArguments,
+    ].joined()
+
+    if context.verbose {
+      let withoutRootDir = interestingArgs
+        .map {$0.replacingOccurrences(of: context.rootDir.pathString, with: "<rootDir>")}
+      print("abridged arguments: ", withoutRootDir.joined(separator: " "), "\n")
+    }
+
+    return boilerPlateArgs + interestingArgs
+  }
+
+  func run(step: Step, in context: Context) throws -> ProcessResult? {
+    let proc = Process(arguments: [context.executablePath(for: self).pathString],
+            workingDirectory: context.derivedDataPath(for: self),
+            verbose: false)
+    try proc.launch()
+    return try proc.waitUntilExit()
   }
 }
 // MARK: - Reporting
@@ -211,3 +240,11 @@ extension Module {
   }
 }
 
+public extension Array where Element == Module {
+  var allSources: [Source] {
+    Set(flatMap {$0.sources}).sorted()
+  }
+  var allSourcesToCompile: ExpectedCompilations {
+    ExpectedCompilations(allSourcesOf: self)
+  }
+}

@@ -55,9 +55,11 @@ class AddFuncInImportedExtensionTest: XCTestCase {
       func cu() {_ = C()}
       """)
 
+    let mainFile = Source(named: "main", containing: "")
+
     let mainModule = Module(
       named: "main",
-      containing: [structConstructor, classConstructor],
+      containing: [mainFile, structConstructor, classConstructor],
       importing: [importedModule],
       producing: .executable)
 
@@ -69,14 +71,14 @@ class AddFuncInImportedExtensionTest: XCTestCase {
     // Define what is expected
     let whenAddOrRmFunc = ExpectedCompilations(
       always: [structExtension, classExtension, ],
-      andWhenDisabled: [structConstructor, classConstructor])
+      andWhenDisabled: [mainFile, structConstructor, classConstructor])
 
     let steps = [
-      Step(                    compiling: modules),
-      Step(                    compiling: modules, expecting: .none),
-      Step(adding: "withFunc", compiling: modules, expecting: whenAddOrRmFunc),
-      Step(                    compiling: modules, expecting: whenAddOrRmFunc),
-      Step(adding: "withFunc", compiling: modules, expecting: whenAddOrRmFunc),
+      Step(                    building: modules, .expecting(modules.allSourcesToCompile)),
+      Step(                    building: modules, .expecting(.none)),
+      Step(adding: "withFunc", building: modules, .expecting(whenAddOrRmFunc)),
+      Step(                    building: modules, .expecting(whenAddOrRmFunc)),
+      Step(adding: "withFunc", building: modules, .expecting(whenAddOrRmFunc)),
     ]
 
     // Do the test

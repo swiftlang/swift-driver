@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import XCTest
 
 /// Bundles up (incidental) values to be passed down to the various functions.
 ///
@@ -27,13 +28,17 @@ struct Context: CustomStringConvertible {
   /// Set to true for debugging by passing `verbose: true` to `IncrementalTest.perform`.
   let verbose: Bool
 
+  /// Helpful for debugging
+  let stepIndex: Int
+
   /// Help Xcode place the errors in the right places
   let file: StaticString
   let line: UInt
 
   /// Copy with the passed values
-  func with(file: StaticString, line: UInt) -> Self {
+  func with(stepIndex: Int, file: StaticString, line: UInt) -> Self {
     Self(rootDir: rootDir, incrementalImports: incrementalImports, verbose: verbose,
+         stepIndex: stepIndex,
          file: file, line: line)
   }
 
@@ -50,14 +55,34 @@ struct Context: CustomStringConvertible {
   func swiftFilePath(for source: Source, in module: Module) -> AbsolutePath {
     sourceDir(for: module).appending(component: "\(source.name).swift")
   }
+  func objFilePath(for source: Source, in module: Module) -> AbsolutePath {
+    derivedDataPath(for: module).appending(component: "\(source.name).o")
+  }
+  func allObjFilePaths(in module: Module) -> [AbsolutePath] {
+    module.sources.map {objFilePath(for: $0, in: module)}
+  }
+  func allImportedObjFilePaths(in module: Module) -> [AbsolutePath] {
+    module.imports.flatMap(allObjFilePaths(in:))
+  }
   func outputFileMapPath(for module: Module) -> AbsolutePath {
     derivedDataPath(for: module).appending(component: "OFM.json")
   }
   func swiftmodulePath(for module: Module) -> AbsolutePath {
     derivedDataPath(for: module).appending(component: "\(module.name).swiftmodule")
   }
+  func executablePath(for module: Module) -> AbsolutePath {
+    derivedDataPath(for: module).appending(component: "a.out")
+  }
 
   var description: String {
     "Incremental imports \(incrementalImports)"
+  }
+
+  func failMessage(_ step: Step) -> String {
+    "\(description), in step \(stepIndex), \(step.whatIsBuilt)"
+  }
+
+  func fail(_ msg: String, _ step: Step) {
+    XCTFail("\(msg) \(failMessage(step))")
   }
 }
