@@ -18,7 +18,8 @@ import TestUtilities
 
 /// A source file to be used in an incremental test.
 /// User edits can be simulated by using `AddOn`s.
-public struct Source: Hashable {
+public struct Source: Hashable, Comparable {
+
   /// E.g. "main" for "main.swift"
   public let name: String
 
@@ -49,4 +50,9 @@ public struct Source: Hashable {
     let contents = try fileSystem.readFileContents(absPath).cString
     self.init(named: name, containing: contents)
   }
+
+  public static func < (lhs: Source, rhs: Source) -> Bool {
+    lhs.name < rhs.name
+  }
+
 }

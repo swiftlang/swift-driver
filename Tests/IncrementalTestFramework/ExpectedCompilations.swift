@@ -44,9 +44,8 @@ public struct ExpectedCompilations {
   /// - Parameters:
   ///   - against: The actual compiled sources to check against.
   ///   - step: The `Step` that changed the source, ran the compiler, and needs to check the results.
-  ///   - stepIndex: The zero-origin index of the `Step` in this test.
   ///   - in: The context of this test.
-  func check(against actuals: [Source], step: Step, stepIndex: Int, in context: Context) {
+  func check(against actuals: [Source], step: Step, in context: Context) {
     let expectedSet = Set(expected(when: context.incrementalImports))
     let actualsSet = Set(actuals)
 
@@ -54,11 +53,11 @@ public struct ExpectedCompilations {
     let missingCompilations = expectedSet.subtracting( actualsSet).map {$0.name}.sorted()
 
     XCTAssert(extraCompilations.isEmpty,
-      "Extra compilations: \(extraCompilations), \(context), in step \(stepIndex), \(step.whatIsBuilt)",
+      "Extra compilations: \(extraCompilations), \(context.failMessage(step))",
       file: context.file, line: context.line)
 
     XCTAssert(missingCompilations.isEmpty,
-      "Missing compilations: \(missingCompilations), \(context), in step \(stepIndex), \(step.whatIsBuilt)",
+      "Missing compilations: \(missingCompilations), \(context.failMessage(step))",
       file: context.file, line: context.line)
   }
 
