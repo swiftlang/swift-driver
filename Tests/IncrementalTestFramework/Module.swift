@@ -209,9 +209,7 @@ extension Module {
   }
 
   func run(step: Step, in context: Context) throws -> ProcessResult? {
-    let proc = Process(arguments: [context.executablePath(for: self).pathString],
-            workingDirectory: context.derivedDataPath(for: self),
-            verbose: false)
+    let proc = Process(arguments: [context.executablePath(for: self).pathString])
     try proc.launch()
     return try proc.waitUntilExit()
   }
