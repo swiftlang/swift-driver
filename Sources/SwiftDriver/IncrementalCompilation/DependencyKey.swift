@@ -20,13 +20,13 @@ import TSCBasic
   /// Cache this
   let isSwiftModule: Bool
 
-  /*@_spi(Testing)*/ public init(_ fileName: String)
+  /*@_spi(Testing)*/ public init(fileName: String)
   throws {
-    self.init(try VirtualPath(path: fileName))
+    self.init(path: try VirtualPath(path: fileName))
   }
 
-  init(_ file: VirtualPath) {
-    self.file = file
+  init(path: VirtualPath) {
+    self.file = path
     self.isSwiftModule = file.extension == FileType.swiftModule.rawValue
   }
 

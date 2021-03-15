@@ -1037,7 +1037,7 @@ extension ModuleDependencyGraph {
   func containsExternalDependency(_ path: String, fingerprint: String? = nil)
   -> Bool {
     fingerprintedExternalDependencies.contains(
-      FingerprintedExternalDependency(try! ExternalDependency(path),
+      FingerprintedExternalDependency(try! ExternalDependency(fileName: path),
                                       fingerprint))
   }
 }
@@ -1391,7 +1391,7 @@ fileprivate extension String {
 
 fileprivate extension ExternalDependency {
   static func mocking(_ name: String) throws -> Self {
-    return try Self(name)
+    return try Self(fileName: name)
   }
 }
 
@@ -1457,7 +1457,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name!)
     case .externalDepend:
       mustBeAbsent(context)
-      self = .externalDepend(try ExternalDependency(name!))
+      self = .externalDepend(try ExternalDependency(fileName: name!))
     case .sourceFileProvide:
       mustBeAbsent(context)
       self = .sourceFileProvide(name: name!)

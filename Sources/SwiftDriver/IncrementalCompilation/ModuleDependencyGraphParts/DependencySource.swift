@@ -42,7 +42,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public var file: VirtualPath { typedFile.file }
 
   public var description: String {
-    ExternalDependency(file).description
+    ExternalDependency(path: file).description
   }
 }
 

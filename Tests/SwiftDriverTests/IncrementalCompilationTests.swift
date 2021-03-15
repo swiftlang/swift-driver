@@ -897,7 +897,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       graph.verify()
 
       var foundNode = false
-      let swiftmodulePath = try! ExternalDependency(path.appending(component: "MagicKit.swiftmodule").pathString)
+      let swiftmodulePath = try! ExternalDependency(fileName: path.appending(component: "MagicKit.swiftmodule").pathString)
       graph.forEachNode { node in
         if case .externalDepend(swiftmodulePath) = node.key.designator {
           XCTAssertFalse(foundNode)

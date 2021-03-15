@@ -616,7 +616,7 @@ extension ModuleDependencyGraph {
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
           try self.graph.fingerprintedExternalDependencies.insert(
-            FingerprintedExternalDependency(ExternalDependency(path), fingerprint))
+            FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -1002,7 +1002,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(try ExternalDependency(name))
+      self = .externalDepend(try ExternalDependency(fileName: name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

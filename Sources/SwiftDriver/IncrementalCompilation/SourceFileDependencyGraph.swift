@@ -338,7 +338,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = try .externalDepend(ExternalDependency(name))
+      self = try .externalDepend(ExternalDependency(fileName: name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)
