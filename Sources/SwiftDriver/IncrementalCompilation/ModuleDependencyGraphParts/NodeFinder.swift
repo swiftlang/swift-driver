@@ -134,6 +134,10 @@ extension ModuleDependencyGraph.NodeFinder {
     verifyUseIsOK(use)
     return usesByDef.insertValue(use, forKey: def)
   }
+
+  mutating func reserveUseCapacity(_ minimumCapacity: Int) {
+    usesByDef.reserveCapacity(minimumCapacity)
+  }
 }
 
 // MARK: - removing

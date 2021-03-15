@@ -127,4 +127,8 @@
       self.dictionary[k]!.remove(v)
     }
   }
+
+  public mutating func reserveCapacity(_ minimumCapacity: Int) {
+    self.dictionary.reserveCapacity(minimumCapacity)
+  }
 }

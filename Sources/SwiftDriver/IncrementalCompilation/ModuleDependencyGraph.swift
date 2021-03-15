@@ -485,6 +485,7 @@ extension ModuleDependencyGraph {
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
+        self.graph.nodeFinder.reserveUseCapacity(self.nodeUses.count)
         for (dependencyKey, useIDs) in self.nodeUses {
           for useID in useIDs {
             let isNewUse = self.graph.nodeFinder
