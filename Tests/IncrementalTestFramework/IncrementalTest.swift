@@ -74,12 +74,12 @@ public struct IncrementalTest {
   }
   private func performSteps() throws {
     for (index, step) in steps.enumerated() {
-      if !context.verbose {
+      if context.verbose {
         print("\(index)", terminator: " ")
       }
       try step.perform(stepIndex: index, in: context)
     }
-    if !context.verbose {
+    if context.verbose {
       print("")
     }
   }
