@@ -793,7 +793,7 @@ extension ModuleDependencyGraph {
       }
 
       for edF in graph.fingerprintedExternalDependencies {
-        self.addIdentifier(edF.externalDependency.file.name)
+        self.addIdentifier(edF.externalDependency.fileName)
       }
 
       for str in self.identifiersToWrite {
@@ -944,7 +944,7 @@ extension ModuleDependencyGraph {
           serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(
-                        for: fingerprintedExternalDependency.externalDependency.file.name))
+                        for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, 
           blob: (fingerprintedExternalDependency.fingerprint ?? ""))

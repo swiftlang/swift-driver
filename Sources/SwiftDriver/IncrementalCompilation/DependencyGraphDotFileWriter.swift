@@ -128,7 +128,8 @@ extension ExportableNode {
     key.designator.externalDependency != nil
   }
   fileprivate var isAPINotes: Bool {
-    key.designator.externalDependency?.file.extension == "apinotes"
+    key.designator.externalDependency?.fileName.hasSuffix("apinotes")
+    ?? false
   }
 
   fileprivate var shape: Shape {
