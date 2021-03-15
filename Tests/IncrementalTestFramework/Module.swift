@@ -86,7 +86,7 @@ extension Module {
   /// Since the source directory may have been previously populated by a module with the same name but
   /// different `sources`, old ones must be removed, new ones added, and changed ones changes.
   private func createOrRemoveSources(adding addOns: [AddOn], in context: Context) throws {
-    let dir = context.sourceDir(for: self)
+    let dir = context.sourceRoot(for: self)
     func createSourceDir() throws {
       if !localFileSystem.exists(dir) {
         try localFileSystem.createDirectory(dir, recursive: true)
@@ -111,7 +111,7 @@ extension Module {
   }
 
   private func createDerivedDataDirIfMissing(in context: Context) throws {
-    let dir = context.derivedDataPath(for: self)
+    let dir = context.buildRoot(for: self)
     if !localFileSystem.exists(dir) {
       try localFileSystem.createDirectory(dir, recursive: true)
     }
@@ -121,7 +121,7 @@ extension Module {
     OutputFileMapCreator.write(
       module: name,
       inputPaths: sources.map {context.swiftFilePath(for: $0, in: self)},
-      derivedData: context.derivedDataPath(for: self),
+      derivedData: context.buildRoot(for: self),
       to: context.outputFileMapPath(for: self))
   }
 }
@@ -155,14 +155,7 @@ extension Module {
       "-driver-show-incremental",
       "-driver-show-job-lifecycle"]
 
-    var libraryArgs: [String] {
-      [
-        "-c",
-        "-parse-as-library",
-        "-emit-module-path", context.swiftmodulePath(for: self).pathString,
-      ]
-    }
-    var appArgs: [String] {
+    var searchPaths: [String] {
       let swiftModules = self.imports.map {
         context.swiftmodulePath(for: $0).parentDirectory.pathString
       }
@@ -170,9 +163,20 @@ extension Module {
         + ["-o", context.executablePath(for: self).pathString]
     }
 
+    var libraryArgs: [String] {
+      [
+        "-c",
+        "-parse-as-library",
+        "-emit-module-path", context.swiftmodulePath(for: self).pathString,
+      ] + searchPaths
+    }
+    
     var importedObjs: [String] {
-      context.allImportedObjFilePaths(in: self).map {$0.pathString}
-        .flatMap { ["-Xlinker", $0]}
+      self.imports.flatMap { `import` in
+        `import`.sources.map { source in
+          context.objectFilePath(for: source, in: `import`).pathString
+        }
+      } .flatMap { ["-Xlinker", $0] }
     }
 
     var incrementalImportsArgs: [String] {
@@ -184,19 +188,16 @@ extension Module {
       }
     }
 
-    guard let sdkArguments = try Driver.sdkArgumentsForTesting()
-    else {
-      throw XCTSkip("Not supported on this platform")
-    }
+    let sdkArguments = try? Driver.sdkArgumentsForTesting()
 
     let interestingArgs = [
-      [ "-module-name", self.name],
+      ["-module-name", self.name],
       ["-output-file-map", context.outputFileMapPath(for: self).pathString],
       incrementalImportsArgs,
-      self.product == .library ? libraryArgs : appArgs,
+      self.product == .library ? libraryArgs : searchPaths,
       sources.map { context.swiftFilePath(for: $0, in: self).pathString },
       importedObjs,
-      sdkArguments,
+      sdkArguments ?? [],
     ].joined()
 
     if context.verbose {
