@@ -133,11 +133,14 @@ extension Driver {
     // If we will be passing primary files via -primary-file, form a set of primary input files so
     // we can check more quickly.
     let usesPrimaryFileInputs: Bool
-    let primaryInputFiles: Set<TypedVirtualPath>
+    // N.B. We use an array instead of a hashed collection like a set because
+    // TypedVirtualPaths are quite expensive to hash. To the point where a
+    // linear scan beats Set.contains by a factor of 4 for heavy workloads.
+    let primaryInputFiles: [TypedVirtualPath]
     if compilerMode.usesPrimaryFileInputs {
       assert(!primaryInputs.isEmpty)
       usesPrimaryFileInputs = true
-      primaryInputFiles = Set(primaryInputs)
+      primaryInputFiles = primaryInputs
     } else if let path = indexFilePath {
       // If -index-file is used, we perform a single compile but pass the
       // -index-file-path as a primary input file.
