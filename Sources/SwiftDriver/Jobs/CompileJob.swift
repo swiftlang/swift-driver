@@ -108,9 +108,6 @@ extension Driver {
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
   -> ([TypedVirtualPath], [TypedVirtualPath]) {
-    // Collect the set of input files that are part of the Swift compilation.
-    let swiftInputFiles: [TypedVirtualPath] = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
-
     let useInputFileList: Bool
     if let allSourcesFileList = allSourcesFileList {
       useInputFileList = true
@@ -133,11 +130,14 @@ extension Driver {
     // If we will be passing primary files via -primary-file, form a set of primary input files so
     // we can check more quickly.
     let usesPrimaryFileInputs: Bool
-    let primaryInputFiles: Set<TypedVirtualPath>
+    // N.B. We use an array instead of a hashed collection like a set because
+    // TypedVirtualPaths are quite expensive to hash. To the point where a
+    // linear scan beats Set.contains by a factor of 4 for heavy workloads.
+    let primaryInputFiles: [TypedVirtualPath]
     if compilerMode.usesPrimaryFileInputs {
       assert(!primaryInputs.isEmpty)
       usesPrimaryFileInputs = true
-      primaryInputFiles = Set(primaryInputs)
+      primaryInputFiles = primaryInputs
     } else if let path = indexFilePath {
       // If -index-file is used, we perform a single compile but pass the
       // -index-file-path as a primary input file.
@@ -154,7 +154,8 @@ extension Driver {
     var primaryOutputs: [TypedVirtualPath] = []
     var primaryIndexUnitOutputs: [TypedVirtualPath] = []
     var indexUnitOutputDiffers = false
-    for input in swiftInputFiles {
+    let firstSwiftInput = inputs.count
+    for input in self.inputFiles where input.type.isPartOfSwiftCompilation {
       inputs.append(input)
 
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
@@ -191,7 +192,7 @@ extension Driver {
     // When not using primary file inputs or multithreading, add a single output.
     if let outputType = outputType,
        !usesPrimaryFileInputs && !(isMultithreaded && outputType.isAfterLLVM) {
-      let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: swiftInputFiles[0].type)
+      let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: inputs[firstSwiftInput].type)
       let output = computePrimaryOutput(for: input,
                                         outputType: outputType,
                                         isTopLevel: isTopLevel)
