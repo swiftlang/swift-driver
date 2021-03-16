@@ -474,9 +474,6 @@ def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flag
     yams_cmake_flags.append('-DCMAKE_C_FLAGS=-target %s' % target)
   else:
     yams_cmake_flags.append('-DCMAKE_C_FLAGS=-fPIC -target %s' % target)
-    if args.dispatch_build_dir:
-      yams_cmake_flags.append(get_dispatch_cmake_arg(args))
-
     if args.foundation_build_dir:
       yams_cmake_flags.append(get_foundation_cmake_arg(args))
   yams_swift_flags = swift_flags[:]
