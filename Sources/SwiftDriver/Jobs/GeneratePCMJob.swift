@@ -34,12 +34,12 @@ extension Driver {
     // Compute the output file.
     let output: TypedVirtualPath
     if let outputArg = parsedOptions.getLastArgument(.o) {
-      output = .init(file: try VirtualPath(path: outputArg.asSingle),
+      output = .init(file: try .constant(VirtualPath(path: outputArg.asSingle)),
                      type: .pcm)
     } else {
       output = .init(
-        file: try VirtualPath(
-          path: moduleOutputInfo.name.appendingFileTypeExtension(.pcm)),
+        file: try .constant(VirtualPath(
+          path: moduleOutputInfo.name.appendingFileTypeExtension(.pcm))),
         type: .pcm)
     }
 

@@ -31,8 +31,8 @@ extension Driver {
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       commandLine.appendFlag(.serializeDiagnosticsPath)
       let path: VirtualPath
-      if let outputPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: .diagnostics) {
-        path = outputPath
+      if let outputPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .diagnostics) {
+        path = VirtualPath.lookup(outputPath)
       } else if let modulePath = parsedOptions.getLastArgument(.emitModulePath) {
         // TODO: does this hash need to be persistent?
         let code = UInt(bitPattern: modulePath.asSingle.hashValue)
@@ -43,7 +43,7 @@ extension Driver {
         path = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
       }
       commandLine.appendPath(path)
-      outputs.append(.init(file: path, type: .diagnostics))
+      outputs.append(.init(file: .constant(path), type: .diagnostics))
     }
 
     inputs.append(input)

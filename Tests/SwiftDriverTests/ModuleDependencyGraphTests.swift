@@ -1417,7 +1417,7 @@ fileprivate extension DependencyKey {
 
 extension Job {
   init(_ dummyBaseName: String) {
-    let input = try! TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swift"),
+    let input = try! TypedVirtualPath(file: VirtualPath.intern(path: dummyBaseName + ".swift"),
                                       type: .swift)
     try! self.init(moduleName: "nothing",
                    kind: .compile,
@@ -1425,7 +1425,7 @@ extension Job {
                    commandLine: [],
                    inputs:  [input],
                    primaryInputs: [input],
-                   outputs: [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swiftdeps"), type: .swiftDeps)])
+                   outputs: [TypedVirtualPath(file: VirtualPath.intern(path: dummyBaseName + ".swiftdeps"), type: .swiftDeps)])
   }
 
 }

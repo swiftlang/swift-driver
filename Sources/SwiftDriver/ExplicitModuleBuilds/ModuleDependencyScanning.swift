@@ -34,7 +34,7 @@ internal extension Driver {
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
+               outputs: [TypedVirtualPath(file: .constant(.standardOutput), type: .jsonDependencies)],
                supportsResponseFiles: true)
   }
 
@@ -76,7 +76,7 @@ internal extension Driver {
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
                                   modulePath: TextualVirtualPath(path:
-                                                    .absolute(binaryModulePath))))
+                                                                  .constant(.absolute(binaryModulePath)))))
     }
 
     // All other already-scanned Swift modules
@@ -255,10 +255,10 @@ internal extension Driver {
     let outputs: [TypedVirtualPath] = try moduleInfos.map {
       switch $0 {
         case .swift(let swiftModuleBatchScanInfo):
-          return TypedVirtualPath(file: try VirtualPath(path: swiftModuleBatchScanInfo.output),
+          return TypedVirtualPath(file: try VirtualPath.intern(path: swiftModuleBatchScanInfo.output),
                                   type: .jsonDependencies)
         case .clang(let clangModuleBatchScanInfo):
-          return TypedVirtualPath(file: try VirtualPath(path: clangModuleBatchScanInfo.output),
+          return TypedVirtualPath(file: try VirtualPath.intern(path: clangModuleBatchScanInfo.output),
                                   type: .jsonDependencies)
       }
     }

@@ -124,7 +124,7 @@ extension DarwinToolchain {
   }
 
   private func addPlatformVersionArg(to commandLine: inout [Job.ArgTemplate],
-                                     for triple: Triple, sdkPath: VirtualPath?) {
+                                     for triple: Triple, sdkPath: VirtualPath.Handle?) {
     assert(triple.isDarwin)
     let platformName = triple.darwinPlatform!.linkerPlatformName
     let platformVersion = triple.darwinLinkerPlatformVersion
@@ -146,7 +146,7 @@ extension DarwinToolchain {
     to commandLine: inout [Job.ArgTemplate],
     targetTriple: Triple,
     targetVariantTriple: Triple?,
-    sdkPath: VirtualPath?
+    sdkPath: VirtualPath.Handle?
   ) {
     addPlatformVersionArg(to: &commandLine, for: targetTriple, sdkPath: sdkPath)
     if let variantTriple = targetVariantTriple {
@@ -361,7 +361,7 @@ extension DarwinToolchain {
     // Add the SDK path
     if let sdkPath = targetInfo.sdkPath?.path {
       commandLine.appendFlag("-syslibroot")
-      commandLine.appendPath(sdkPath)
+      commandLine.appendPath(VirtualPath.lookup(sdkPath))
     }
 
     commandLine.appendFlags(

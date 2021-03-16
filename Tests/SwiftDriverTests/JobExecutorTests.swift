@@ -116,8 +116,8 @@ final class JobExecutorTests: XCTestCase {
       ]
 
       let inputs: [String: TypedVirtualPath] = [
-        "foo" : .init(file: .relative(RelativePath( "foo.swift")), type: .swift),
-        "main": .init(file: .relative(RelativePath("main.swift")), type: .swift)
+        "foo" : .init(file: .constant(.relative(RelativePath( "foo.swift"))), type: .swift),
+        "main": .init(file: .constant(.relative(RelativePath("main.swift"))), type: .swift)
       ]
 
       let compileFoo = Job(
@@ -139,7 +139,7 @@ final class JobExecutorTests: XCTestCase {
         ],
         inputs: Array(inputs.values),
         primaryInputs: [inputs["foo"]!],
-        outputs: [.init(file: .temporary(RelativePath("foo.o")), type: .object)]
+        outputs: [.init(file: .constant(.temporary(RelativePath("foo.o"))), type: .object)]
       )
 
       let compileMain = Job(
@@ -161,7 +161,7 @@ final class JobExecutorTests: XCTestCase {
         ],
         inputs: Array(inputs.values),
         primaryInputs: [inputs["main"]!],
-        outputs: [.init(file: .temporary(RelativePath("main.o")), type: .object)]
+        outputs: [.init(file: .constant(.temporary(RelativePath("main.o"))), type: .object)]
       )
 
       let link = Job(
@@ -182,11 +182,11 @@ final class JobExecutorTests: XCTestCase {
           .path(.relative(RelativePath("main"))),
         ],
         inputs: [
-          .init(file: .temporary(RelativePath("foo.o")), type: .object),
-          .init(file: .temporary(RelativePath("main.o")), type: .object),
+          .init(file: .constant(.temporary(RelativePath("foo.o"))), type: .object),
+          .init(file: .constant(.temporary(RelativePath("main.o"))), type: .object),
         ],
         primaryInputs: [],
-        outputs: [.init(file: .relative(RelativePath("main")), type: .image)]
+        outputs: [.init(file: .constant(.relative(RelativePath("main"))), type: .image)]
       )
 
       let delegate = JobCollectingDelegate()
@@ -219,7 +219,7 @@ final class JobExecutorTests: XCTestCase {
       commandLine: [.flag("something")],
       inputs: [],
       primaryInputs: [],
-      outputs: [.init(file: .temporary(RelativePath("main")), type: .object)]
+      outputs: [.init(file: .constant(.temporary(RelativePath("main"))), type: .object)]
     )
 
     let delegate = JobCollectingDelegate()
@@ -283,7 +283,7 @@ final class JobExecutorTests: XCTestCase {
 
       XCTAssertThrowsError(try driver.run(jobs: jobs)) {
         XCTAssertEqual($0 as? Job.InputError,
-                       .inputUnexpectedlyModified(TypedVirtualPath(file: .absolute(main), type: .swift)))
+                       .inputUnexpectedlyModified(TypedVirtualPath(file: .constant(.absolute(main)), type: .swift)))
       }
 
     }

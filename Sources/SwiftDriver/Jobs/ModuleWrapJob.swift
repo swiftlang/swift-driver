@@ -33,7 +33,7 @@ extension Driver {
       commandLine: commandLine,
       inputs: [moduleInput],
       primaryInputs: [],
-      outputs: [.init(file: outputPath, type: .object)],
+      outputs: [.init(file: .constant(outputPath), type: .object)],
       supportsResponseFiles: true
     )
   }

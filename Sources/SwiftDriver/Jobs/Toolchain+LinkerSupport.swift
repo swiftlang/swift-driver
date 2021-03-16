@@ -24,7 +24,7 @@ extension Toolchain {
     for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws -> VirtualPath {
-    return targetInfo.runtimeResourcePath.path
+    return VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
       .appending(components: "clang", "lib",
                  targetInfo.target.triple.platformName(conflatingDarwin: true)!)
   }
@@ -32,11 +32,11 @@ extension Toolchain {
   func runtimeLibraryPaths(
     for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions,
-    sdkPath: VirtualPath?,
+    sdkPath: VirtualPath.Handle?,
     isShared: Bool
   ) throws -> [VirtualPath] {
     let triple = targetInfo.target.triple
-    let resourceDirPath = targetInfo.runtimeResourcePath.path.appending(component: triple.platformName() ?? "")
+    let resourceDirPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path).appending(component: triple.platformName() ?? "")
     var result = [resourceDirPath]
 
     let secondaryResourceDir = computeSecondaryResourceDirPath(for: triple, primaryPath: resourceDirPath)
@@ -44,7 +44,7 @@ extension Toolchain {
       result.append(path)
     }
 
-    if let sdkPath = sdkPath {
+    if let sdkPath = sdkPath.map(VirtualPath.lookup) {
       // If we added the secondary resource dir, we also need the iOSSupport directory.
       if secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
@@ -103,7 +103,7 @@ extension DarwinToolchain {
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
     func addArgsForBackDeployLib(_ libName: String) throws {
-      let backDeployLibPath = targetInfo.runtimeResourcePath.path
+      let backDeployLibPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(components: targetTriple.platformName() ?? "", libName)
       if try fileSystem.exists(backDeployLibPath) {
         commandLine.append(.flag("-force_load"))

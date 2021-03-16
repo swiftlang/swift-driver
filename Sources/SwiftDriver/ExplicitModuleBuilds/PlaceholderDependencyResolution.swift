@@ -123,8 +123,8 @@ fileprivate extension InterModuleDependencyGraph {
 
     let newExternalModuleDetails =
       try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                              TextualVirtualPath(path: .absolute(placeholderPath)))
-    let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: .absolute(placeholderPath)),
+                                              TextualVirtualPath(path: .constant(.absolute(placeholderPath))))
+    let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: .constant(.absolute(placeholderPath))),
                              sourceFiles: [],
                              directDependencies: externalModuleInfo.directDependencies,
                              details: .swiftPrebuiltExternal(newExternalModuleDetails))

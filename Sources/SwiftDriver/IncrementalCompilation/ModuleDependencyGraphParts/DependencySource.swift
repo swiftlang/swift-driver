@@ -27,8 +27,8 @@ public struct DependencySource: Hashable, CustomStringConvertible {
 
   /*@_spi(Testing)*/
   /// Returns nil if cannot be a source
-  public init?(_ file: VirtualPath) {
-    let ext = file.extension
+  public init?(_ file: VirtualPath.Handle) {
+    let ext = VirtualPath.lookup(file).extension
     guard let type =
       ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
       ext == FileType.swiftModule.rawValue ? FileType.swiftModule
@@ -42,7 +42,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public var file: VirtualPath { typedFile.file }
 
   public var description: String {
-    ExternalDependency(fileName: file.name).description
+    ExternalDependency(self.typedFile.fileHandle).description
   }
 }
 

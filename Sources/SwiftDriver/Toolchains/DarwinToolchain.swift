@@ -287,11 +287,11 @@ import SwiftOptions
   // SDK info is computed lazily. This should not generally be accessed directly.
   private var _sdkInfo: DarwinSDKInfo? = nil
 
-  func getTargetSDKInfo(sdkPath: VirtualPath) -> DarwinSDKInfo? {
+  func getTargetSDKInfo(sdkPath: VirtualPath.Handle) -> DarwinSDKInfo? {
     if let info = _sdkInfo {
       return info
     } else {
-      let sdkSettingsPath = sdkPath.appending(component: "SDKSettings.json")
+      let sdkSettingsPath = VirtualPath.lookup(sdkPath).appending(component: "SDKSettings.json")
       guard let contents = try? fileSystem.readFileContents(sdkSettingsPath) else { return nil }
       guard let sdkInfo = try? JSONDecoder().decode(DarwinSDKInfo.self,
                                                     from: Data(contents.contents)) else { return nil }

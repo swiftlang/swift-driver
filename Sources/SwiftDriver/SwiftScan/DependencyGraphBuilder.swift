@@ -88,7 +88,7 @@ private extension SwiftScan {
 
     // Decode module path and source file locations
     let modulePathStr = try toSwiftString(api.swiftscan_module_info_get_module_path(moduleInfoRef))
-    let modulePath = TextualVirtualPath(path: try VirtualPath(path: modulePathStr))
+    let modulePath = TextualVirtualPath(path: try VirtualPath.intern(path: modulePathStr))
     let sourceFiles: [String]?
     if let sourceFilesSetRef = api.swiftscan_module_info_get_source_files(moduleInfoRef) {
       sourceFiles = try toSwiftStringArray(sourceFilesSetRef.pointee)
@@ -270,7 +270,7 @@ private extension SwiftScan {
                               -> swiftscan_string_ref_t)
   throws -> TextualVirtualPath? {
     let strDetail = try getOptionalStringDetail(from: detailsRef, using: query)
-    return strDetail != nil ? TextualVirtualPath(path: try VirtualPath(path: strDetail!)) : nil
+    return strDetail != nil ? TextualVirtualPath(path: try VirtualPath.intern(path: strDetail!)) : nil
   }
 
   /// From a `swiftscan_module_details_t` reference, extract a `String?` detail using the specified API query
@@ -291,7 +291,7 @@ private extension SwiftScan {
                      fieldName: String)
   throws -> TextualVirtualPath {
     let strDetail = try getStringDetail(from: detailsRef, using: query, fieldName: fieldName)
-    return TextualVirtualPath(path: try VirtualPath(path: strDetail))
+    return TextualVirtualPath(path: try VirtualPath.intern(path: strDetail))
   }
 
   /// From a `swiftscan_module_details_t` reference, extract a `String` detail using the specified API query,
@@ -314,7 +314,7 @@ private extension SwiftScan {
     guard let strArrDetail = try getOptionalStringArrayDetail(from: detailsRef, using: query) else {
       return nil
     }
-    return try strArrDetail.map { TextualVirtualPath(path: try VirtualPath(path: $0)) }
+    return try strArrDetail.map { TextualVirtualPath(path: try VirtualPath.intern(path: $0)) }
   }
 
   /// From a `swiftscan_module_details_t` reference, extract a `[String]?` detail using the specified API query

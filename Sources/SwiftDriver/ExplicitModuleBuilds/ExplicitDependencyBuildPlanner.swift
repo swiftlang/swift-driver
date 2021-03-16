@@ -152,7 +152,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
         for compiledCandidate in compiledCandidateList {
           commandLine.appendFlag("-candidate-module-file")
           let compiledCandidatePath = compiledCandidate
-          commandLine.appendPath(compiledCandidatePath.path)
+          commandLine.appendPath(VirtualPath.lookup(compiledCandidatePath.path))
           inputs.append(TypedVirtualPath(file: compiledCandidatePath.path,
                                          type: .swiftModule))
         }
@@ -160,7 +160,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
 
       // Set the output path
       commandLine.appendFlag(.o)
-      commandLine.appendPath(moduleInfo.modulePath.path)
+      commandLine.appendPath(VirtualPath.lookup(moduleInfo.modulePath.path))
 
       jobs.append(Job(
         moduleName: moduleId.moduleName,
@@ -260,7 +260,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
         try serializeModuleDependencies(for: moduleId, dependencyArtifacts: swiftDependencyArtifacts)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendPath(dependencyFile)
-      inputs.append(TypedVirtualPath(file: dependencyFile,
+      inputs.append(TypedVirtualPath(file: .constant(dependencyFile),
                                      type: .jsonSwiftArtifacts))
       // Each individual module binary is still an "input" to ensure the build system gets the
       // order correctly.
@@ -308,7 +308,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
             SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: TextualVirtualPath(path: swiftModulePath.file),
+                                    modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
                                     isFramework: isFramework))
         case .clang:
           let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
@@ -332,7 +332,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
             SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: TextualVirtualPath(path: swiftModulePath.file)))
+                                    modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle)))
         case .swiftPlaceholder:
           fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
       }
@@ -403,8 +403,8 @@ extension ExplicitDependencyBuildPlanner {
   /// Compute a full path to the resulting .pcm file for a given Clang module, with the
   /// target triple encoded in the name.
   public mutating func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
-                                                        hashParts: [String]) throws -> VirtualPath {
-    let plainModulePath = moduleInfo.modulePath.path
+                                                        hashParts: [String]) throws -> VirtualPath.Handle {
+    let plainModulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
     let targetEncodedBaseName =
       try targetEncodedClangModuleName(for: plainModulePath.basenameWithoutExt,
                                        hashParts: hashParts)
@@ -412,7 +412,7 @@ extension ExplicitDependencyBuildPlanner {
       moduleInfo.modulePath.path.description
         .replacingOccurrences(of: plainModulePath.basenameWithoutExt,
                               with: targetEncodedBaseName)
-    return try VirtualPath(path: modifiedModulePath)
+    return try VirtualPath.intern(path: modifiedModulePath)
   }
 
   /// Compute the name of a given Clang module, along with a hash of extra PCM build arguments it
