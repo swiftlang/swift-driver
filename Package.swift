@@ -6,7 +6,7 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS(.v10_10)
+    macOSPlatform = .macOS(.v10_15)
 }
 
 let package = Package(
