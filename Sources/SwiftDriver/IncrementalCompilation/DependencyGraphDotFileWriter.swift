@@ -128,7 +128,7 @@ extension ExportableNode {
     key.designator.externalDependency != nil
   }
   fileprivate var isAPINotes: Bool {
-    key.designator.externalDependency?.fileName.hasSuffix("apinotes")
+    key.designator.externalDependency?.fileName.hasSuffix(".apinotes")
     ?? false
   }
 

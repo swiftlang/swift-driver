@@ -19,12 +19,8 @@ import TSCBasic
   /// Delay computing the path as an optimization.
   let fileName: String
 
-  /// Cache this
-  let isSwiftModule: Bool
-
   /*@_spi(Testing)*/ public init(fileName: String) {
     self.fileName = fileName
-    self.isSwiftModule = fileName.hasSuffix(FileType.swiftModule.rawValue)
   }
 
   /// Should only be called by debugging functions or functions that are cached
@@ -36,6 +32,11 @@ import TSCBasic
     getPath().flatMap {
       try? fileSystem.getFileInfo($0).modTime
     }
+  }
+
+  /// Cache this here
+  var isSwiftModule: Bool {
+    fileName.hasSuffix(".\(FileType.swiftModule.rawValue)")
   }
 
   var swiftModuleFile: TypedVirtualPath? {
