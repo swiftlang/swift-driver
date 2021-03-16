@@ -30,7 +30,7 @@ public struct OutputFileMapCreator {
                            derivedData: AbsolutePath,
                            to dst: AbsolutePath) {
     let creator = Self(module: module, inputPaths: inputPaths, derivedData: derivedData)
-    try! localFileSystem.writeFileContents(dst, bytes: ByteString(creator.generateData()))
+    try! localFileSystem.writeIfChanged(path: dst, bytes: ByteString(creator.generateData()))
   }
 
   private func generateDict() -> [String: [String: String]] {

@@ -42,38 +42,6 @@ struct Context: CustomStringConvertible {
          file: file, line: line)
   }
 
-  /// Each module has its own directory under the root
-  private func modulePath(for module: Module) -> AbsolutePath {
-    rootDir.appending(component: module.name)
-  }
-  func derivedDataPath(for module: Module) -> AbsolutePath {
-    modulePath(for: module).appending(component: "\(module.name)DD")
-  }
-  func sourceDir(for module: Module) -> AbsolutePath {
-    modulePath(for: module)
-  }
-  func swiftFilePath(for source: Source, in module: Module) -> AbsolutePath {
-    sourceDir(for: module).appending(component: "\(source.name).swift")
-  }
-  func objFilePath(for source: Source, in module: Module) -> AbsolutePath {
-    derivedDataPath(for: module).appending(component: "\(source.name).o")
-  }
-  func allObjFilePaths(in module: Module) -> [AbsolutePath] {
-    module.sources.map {objFilePath(for: $0, in: module)}
-  }
-  func allImportedObjFilePaths(in module: Module) -> [AbsolutePath] {
-    module.imports.flatMap(allObjFilePaths(in:))
-  }
-  func outputFileMapPath(for module: Module) -> AbsolutePath {
-    derivedDataPath(for: module).appending(component: "OFM.json")
-  }
-  func swiftmodulePath(for module: Module) -> AbsolutePath {
-    derivedDataPath(for: module).appending(component: "\(module.name).swiftmodule")
-  }
-  func executablePath(for module: Module) -> AbsolutePath {
-    derivedDataPath(for: module).appending(component: "a.out")
-  }
-
   var description: String {
     "Incremental imports \(incrementalImports)"
   }
@@ -86,3 +54,78 @@ struct Context: CustomStringConvertible {
     XCTFail("\(msg) \(failMessage(step))")
   }
 }
+
+// MARK: Paths
+
+extension Context {
+  /// Computes the directory containing the given module's build products.
+  ///
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the build root - relative to the root
+  ///            directory of this test context.
+  func buildRoot(for module: Module) -> AbsolutePath {
+    self.rootDir.appending(component: "\(module.name)-buildroot")
+  }
+
+  /// Computes the directory containing the given module's source files.
+  ///
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the build root - relative to the root
+  ///            directory of this test context.
+  func sourceRoot(for module: Module) -> AbsolutePath {
+    self.rootDir.appending(component: "\(module.name)-srcroot")
+  }
+
+  /// Computes the path to the output file map for the given module.
+  ///
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the output file map - relative to the root
+  ///            directory of this test context.
+  func outputFileMapPath(for module: Module) -> AbsolutePath {
+    self.buildRoot(for: module).appending(component: "OFM")
+  }
+
+  /// Computes the path to the `.swiftmodule` file for the given module.
+  ///
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the swiftmodule file - relative to the root
+  ///            directory of this test context.
+  func swiftmodulePath(for module: Module) -> AbsolutePath {
+    self.buildRoot(for: module).appending(component: "\(module.name).swiftmodule")
+  }
+
+  /// Computes the path to the `.swift` file for the given module.
+  ///
+  /// - Parameter source: The name of the swift file.
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the swift file - relative to the root
+  ///            directory of this test context.
+  func swiftFilePath(for source: Source, in module: Module) -> AbsolutePath {
+    self.sourceRoot(for: module).appending(component: "\(source.name).swift")
+  }
+
+  /// Computes the path to the `.o` file for the given module.
+  ///
+  /// - Parameter source: The name of the swift file.
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the object file - relative to the root
+  ///            directory of this test context.
+  func objectFilePath(for source: Source, in module: Module) -> AbsolutePath {
+    self.buildRoot(for: module).appending(component: "\(source.name).o")
+  }
+
+  /// Computes the path to the executable file for the given module.
+  ///
+  /// - Parameter module: The module.
+  /// - Returns: An absolute path to the executable file - relative to the root
+  ///            directory of this test context.
+  func executablePath(for module: Module) -> AbsolutePath {
+    #if os(Windows)
+    return self.buildRoot(for: module).appending(component: "a.exe")
+    #else
+    return self.buildRoot(for: module).appending(component: "a.out")
+    #endif
+  }
+}
+
+
