@@ -108,9 +108,6 @@ extension Driver {
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
   -> ([TypedVirtualPath], [TypedVirtualPath]) {
-    // Collect the set of input files that are part of the Swift compilation.
-    let swiftInputFiles: [TypedVirtualPath] = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
-
     let useInputFileList: Bool
     if let allSourcesFileList = allSourcesFileList {
       useInputFileList = true
@@ -157,7 +154,8 @@ extension Driver {
     var primaryOutputs: [TypedVirtualPath] = []
     var primaryIndexUnitOutputs: [TypedVirtualPath] = []
     var indexUnitOutputDiffers = false
-    for input in swiftInputFiles {
+    let firstSwiftInput = inputs.count
+    for input in self.inputFiles where input.type.isPartOfSwiftCompilation {
       inputs.append(input)
 
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
@@ -194,7 +192,7 @@ extension Driver {
     // When not using primary file inputs or multithreading, add a single output.
     if let outputType = outputType,
        !usesPrimaryFileInputs && !(isMultithreaded && outputType.isAfterLLVM) {
-      let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: swiftInputFiles[0].type)
+      let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: inputs[firstSwiftInput].type)
       let output = computePrimaryOutput(for: input,
                                         outputType: outputType,
                                         isTopLevel: isTopLevel)
