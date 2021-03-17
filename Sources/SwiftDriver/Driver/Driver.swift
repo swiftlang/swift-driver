@@ -436,7 +436,7 @@ public struct Driver {
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
         guard let modTime = try? fileSystem
-          .getFileInfo($0.file).modTime else { return nil }
+          .lastModificationTime(for: $0.file) else { return nil }
         return ($0, modTime)
     })
 

@@ -30,10 +30,6 @@ import TSCBasic
     self.isSwiftModule = file.extension == FileType.swiftModule.rawValue
   }
 
-  func modTime(_ fileSystem: FileSystem) -> Date? {
-    try? fileSystem.getFileInfo(file).modTime
-  }
-
   var swiftModuleFile: TypedVirtualPath? {
     isSwiftModule ? TypedVirtualPath(file: file, type: .swiftModule) : nil
   }
