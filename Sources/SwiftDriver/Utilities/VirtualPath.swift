@@ -12,6 +12,10 @@
 import TSCBasic
 import Foundation
 
+#if os(macOS)
+import Darwin
+#endif
+
 /// A virtual path.
 public enum VirtualPath: Hashable {
   /// A relative path that has not been resolved based on the current working
@@ -429,4 +433,21 @@ extension TSCBasic.FileSystem {
   func exists(_ path: VirtualPath) throws -> Bool {
     try resolvingVirtualPath(path, apply: exists)
   }
+
+  func lastModificationTime(for file: VirtualPath) throws -> Date {
+    try resolvingVirtualPath(file) { path in
+      #if os(macOS)
+      var s = Darwin.stat()
+      let err = lstat(path.pathString, &s)
+      guard err == 0 else {
+        throw SystemError.stat(errno, path.pathString)
+      }
+      let ti = (TimeInterval(s.st_mtimespec.tv_sec) - kCFAbsoluteTimeIntervalSince1970) + (1.0e-9 * TimeInterval(s.st_mtimespec.tv_nsec))
+      return Date(timeIntervalSinceReferenceDate: ti)
+      #else
+      return try localFileSystem.getFileInfo(file).modTime
+      #endif
+    }
+  }
 }
+

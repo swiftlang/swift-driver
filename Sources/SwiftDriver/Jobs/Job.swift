@@ -136,7 +136,7 @@ extension Job {
   public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date], fileSystem: FileSystem) throws {
     for input in inputs {
       if let recordedModificationTime = recordedInputModificationDates[input],
-         try fileSystem.getFileInfo(input.file).modTime != recordedModificationTime {
+         try fileSystem.lastModificationTime(for: input.file) != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }
     }

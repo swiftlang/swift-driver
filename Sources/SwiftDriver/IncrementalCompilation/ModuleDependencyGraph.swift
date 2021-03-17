@@ -324,7 +324,8 @@ extension ModuleDependencyGraph {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
     }
-    let hasChanged = (externalDependency.modTime(info.fileSystem) ?? .distantFuture)
+    let depFile = externalDependency.file
+    let hasChanged = ((try? info.fileSystem.lastModificationTime(for: depFile)) ?? .distantFuture)
       >= info.buildTime
     externalDependencyModTimeCache[externalDependency] = hasChanged
     return hasChanged
