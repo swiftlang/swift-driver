@@ -324,7 +324,10 @@ extension ModuleDependencyGraph {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
     }
-    let depFile = externalDependency.file
+    guard let depFile = externalDependency.path
+    else {
+      return true
+    }
     let hasChanged = ((try? info.fileSystem.lastModificationTime(for: depFile)) ?? .distantFuture)
       >= info.buildTime
     externalDependencyModTimeCache[externalDependency] = hasChanged
@@ -615,8 +618,8 @@ extension ModuleDependencyGraph {
           let path = identifiers[Int(record.fields[0])]
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          try self.graph.fingerprintedExternalDependencies.insert(
-            FingerprintedExternalDependency(ExternalDependency(path), fingerprint))
+          self.graph.fingerprintedExternalDependencies.insert(
+            FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload,
@@ -793,7 +796,7 @@ extension ModuleDependencyGraph {
       }
 
       for edF in graph.fingerprintedExternalDependencies {
-        self.addIdentifier(edF.externalDependency.file.name)
+        self.addIdentifier(edF.externalDependency.fileName)
       }
 
       for str in self.identifiersToWrite {
@@ -944,7 +947,7 @@ extension ModuleDependencyGraph {
           serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(
-                        for: fingerprintedExternalDependency.externalDependency.file.name))
+                        for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
           }, 
           blob: (fingerprintedExternalDependency.fingerprint ?? ""))
@@ -1002,7 +1005,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(try ExternalDependency(name))
+      self = .externalDepend(ExternalDependency(fileName: name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

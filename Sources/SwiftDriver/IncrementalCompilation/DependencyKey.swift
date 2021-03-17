@@ -14,57 +14,79 @@ import Foundation
 import TSCBasic
 
 /// A filename from another module
-/*@_spi(Testing)*/ public struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
-  let file: VirtualPath
+/*@_spi(Testing)*/ final public class ExternalDependency: Hashable, Comparable, CustomStringConvertible {
 
-  /// Cache this
-  let isSwiftModule: Bool
+  
+  /// Delay computing the path as an optimization.
+  let fileName: String
+  lazy var path = getPath()
 
-  /*@_spi(Testing)*/ public init(_ fileName: String)
-  throws {
-    self.init(try VirtualPath(path: fileName))
+  /*@_spi(Testing)*/ public init(fileName: String) {
+    self.fileName = fileName
   }
 
-  init(_ file: VirtualPath) {
-    self.file = file
-    self.isSwiftModule = file.extension == FileType.swiftModule.rawValue
+  /// Should only be called by debugging functions or functions that are cached
+  private func getPath() -> VirtualPath? {
+    try? VirtualPath(path: fileName)
+  }
+  
+  /// Cache this here
+  var isSwiftModule: Bool {
+    fileName.hasSuffix(".\(FileType.swiftModule.rawValue)")
   }
 
   var swiftModuleFile: TypedVirtualPath? {
-    isSwiftModule ? TypedVirtualPath(file: file, type: .swiftModule) : nil
+    isSwiftModule ? path.map {TypedVirtualPath(file: $0, type: .swiftModule)} : nil
   }
 
   public var description: String {
-    switch file.extension {
+    guard let path = getPath() else {
+      return "non-path: '\(fileName)'"
+    }
+    switch path.extension {
     case FileType.swiftModule.rawValue:
       // Swift modules have an extra component at the end that is not descriptive
-      return file.parentDirectory.basename
+      return path.parentDirectory.basename
     default:
-      return file.basename
+      return path.basename
     }
   }
 
   public var shortDescription: String {
-    DependencySource(file).map { $0.shortDescription }
-    ?? file.basename
+    getPath().map { path in
+      DependencySource(path).map { $0.shortDescription }
+        ?? path.basename
+    }
+    ?? description
   }
 
-  public static func < (lhs: Self, rhs: Self) -> Bool {
-    lhs.file.name < rhs.file.name
+  public static func < (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileName < rhs.fileName
   }
+
+  public static func == (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileName == rhs.fileName
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(fileName)
+  }
+
 }
 
 /// Since the integration surfaces all externalDependencies to be processed later,
 /// a combination of the dependency and fingerprint are needed.
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
-  let externalDependency: ExternalDependency
+  var externalDependency: ExternalDependency
   let fingerprint: String?
+  
   @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
     assert(verifyExternalDependencyAndFingerprint())
   }
   var externalDependencyToCheck: ExternalDependency? { externalDependency }
+  
   var incrementalDependencySource: DependencySource? {
     guard let _ = fingerprint,
           let swiftModuleFile = externalDependency.swiftModuleFile
@@ -232,7 +254,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
       case .dynamicLookup(name: let name):
         return name
       case .externalDepend(let path):
-        return path.file.name
+        return path.fileName
       case .sourceFileProvide(name: let name):
         return name
       case .member(context: _, name: let name):
