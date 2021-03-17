@@ -24,7 +24,7 @@ import TSCBasic
   }
 
   /// Should only be called by debugging functions or functions that are cached
-  private func getPath() -> VirtualPath? {
+  func getPath() -> VirtualPath? {
     try? VirtualPath(path: fileName)
   }
   

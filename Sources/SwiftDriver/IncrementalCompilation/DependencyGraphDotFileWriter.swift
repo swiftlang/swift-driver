@@ -167,7 +167,7 @@ fileprivate extension DependencyKey.Designator {
   static let oneOfEachKind: [DependencyKey.Designator] = [
       .topLevel(name: ""),
       .dynamicLookup(name: ""),
-    .externalDepend(try! ExternalDependency(fileName: ".")),
+    .externalDepend(ExternalDependency(fileName: ".")),
       .sourceFileProvide(name: ""),
       .nominal(context: ""),
       .potentialMember(context: ""),

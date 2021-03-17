@@ -324,7 +324,10 @@ extension ModuleDependencyGraph {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
     }
-    let depFile = externalDependency.file
+    guard let depFile = externalDependency.getPath()
+    else {
+      return true
+    }
     let hasChanged = ((try? info.fileSystem.lastModificationTime(for: depFile)) ?? .distantFuture)
       >= info.buildTime
     externalDependencyModTimeCache[externalDependency] = hasChanged
@@ -615,7 +618,7 @@ extension ModuleDependencyGraph {
           let path = identifiers[Int(record.fields[0])]
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          try self.graph.fingerprintedExternalDependencies.insert(
+          self.graph.fingerprintedExternalDependencies.insert(
             FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
@@ -1002,7 +1005,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(try ExternalDependency(fileName: name))
+      self = .externalDepend(ExternalDependency(fileName: name))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)
