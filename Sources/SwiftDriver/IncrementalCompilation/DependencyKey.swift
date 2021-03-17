@@ -27,13 +27,7 @@ import TSCBasic
   private func getPath() -> VirtualPath? {
     try? VirtualPath(path: fileName)
   }
-
-  func slowModTime(_ fileSystem: FileSystem) -> Date? {
-    getPath().flatMap {
-      try? fileSystem.getFileInfo($0).modTime
-    }
-  }
-
+  
   /// Cache this here
   var isSwiftModule: Bool {
     fileName.hasSuffix(".\(FileType.swiftModule.rawValue)")
