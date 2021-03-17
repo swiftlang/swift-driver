@@ -324,7 +324,7 @@ extension ModuleDependencyGraph {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
     }
-    guard let depFile = externalDependency.getPath()
+    guard let depFile = externalDependency.path
     else {
       return true
     }

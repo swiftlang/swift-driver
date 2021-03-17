@@ -14,17 +14,19 @@ import Foundation
 import TSCBasic
 
 /// A filename from another module
-/*@_spi(Testing)*/ public struct ExternalDependency: Hashable, Comparable, CustomStringConvertible {
+/*@_spi(Testing)*/ final public class ExternalDependency: Hashable, Comparable, CustomStringConvertible {
+
   
   /// Delay computing the path as an optimization.
   let fileName: String
+  lazy var path = getPath()
 
   /*@_spi(Testing)*/ public init(fileName: String) {
     self.fileName = fileName
   }
 
   /// Should only be called by debugging functions or functions that are cached
-  func getPath() -> VirtualPath? {
+  private func getPath() -> VirtualPath? {
     try? VirtualPath(path: fileName)
   }
   
@@ -34,7 +36,7 @@ import TSCBasic
   }
 
   var swiftModuleFile: TypedVirtualPath? {
-    isSwiftModule ? getPath().map {TypedVirtualPath(file: $0, type: .swiftModule)} : nil
+    isSwiftModule ? path.map {TypedVirtualPath(file: $0, type: .swiftModule)} : nil
   }
 
   public var description: String {
@@ -58,15 +60,24 @@ import TSCBasic
     ?? description
   }
 
-  public static func < (lhs: Self, rhs: Self) -> Bool {
+  public static func < (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
     lhs.fileName < rhs.fileName
   }
+
+  public static func == (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileName == rhs.fileName
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(fileName)
+  }
+
 }
 
 /// Since the integration surfaces all externalDependencies to be processed later,
 /// a combination of the dependency and fingerprint are needed.
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
-  let externalDependency: ExternalDependency
+  var externalDependency: ExternalDependency
   let fingerprint: String?
   
   @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
