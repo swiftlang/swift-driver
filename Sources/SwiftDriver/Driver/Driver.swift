@@ -800,7 +800,7 @@ extension Driver {
   ///
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
-    #if !os(macOS) && !os(Linux) && !os(Android)
+    #if !os(macOS) && !os(Linux) && !os(Android) && !os(OpenBSD)
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
     return content.split { $0 == "\n" || $0 == "\r\n" }

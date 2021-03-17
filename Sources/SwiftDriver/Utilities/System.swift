@@ -16,7 +16,7 @@ import Darwin
 import Glibc
 #endif
 
-#if os(macOS) || os(Linux) || os(Android)
+#if os(macOS) || os(Linux) || os(Android) || os(OpenBSD)
 // Adapted from llvm::sys::commandLineFitsWithinSystemLimits.
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   let upperBound = sysconf(Int32(_SC_ARG_MAX))
