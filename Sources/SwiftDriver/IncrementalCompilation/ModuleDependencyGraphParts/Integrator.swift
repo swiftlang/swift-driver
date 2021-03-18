@@ -200,7 +200,8 @@ extension ModuleDependencyGraph.Integrator {
     moduleFileGraphUseNode moduleUseNode: Graph.Node
   ) {
     let invalidated = destination.collectNodesInvalidatedByProcessing(
-      fingerprintedExternalDependency: fingerprintedExternalDependency)
+      fingerprintedExternalDependency: fingerprintedExternalDependency,
+      isPresentInTheGraph: nil)
     collectUsesOfSomeExternal(invalidated)
   }
 }
