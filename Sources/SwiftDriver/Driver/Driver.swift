@@ -228,57 +228,59 @@ public struct Driver {
 
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
-    switch frontendTargetInfo.sdkPath?.path {
+    guard let path = frontendTargetInfo.sdkPath?.path else {
+      return nil
+    }
+
+    switch VirtualPath.lookup(path) {
     case .absolute(let path):
       return path
     case .relative(let path):
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
       return cwd.map { AbsolutePath($0, path) }
-    case nil:
-      return nil
     case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
       fatalError("Frontend target information will never include a path of this type.")
     }
   }
 
   /// The path to the imported Objective-C header.
-  let importedObjCHeader: VirtualPath?
+  let importedObjCHeader: VirtualPath.Handle?
 
   /// The path to the pch for the imported Objective-C header.
-  let bridgingPrecompiledHeader: VirtualPath?
+  let bridgingPrecompiledHeader: VirtualPath.Handle?
 
   /// Path to the dependencies file.
-  let dependenciesFilePath: VirtualPath?
+  let dependenciesFilePath: VirtualPath.Handle?
   
   /// Path to the references dependencies file.
-  let referenceDependenciesPath: VirtualPath?
+  let referenceDependenciesPath: VirtualPath.Handle?
 
   /// Path to the serialized diagnostics file.
-  let serializedDiagnosticsFilePath: VirtualPath?
+  let serializedDiagnosticsFilePath: VirtualPath.Handle?
 
   /// Path to the Objective-C generated header.
-  let objcGeneratedHeaderPath: VirtualPath?
+  let objcGeneratedHeaderPath: VirtualPath.Handle?
 
   /// Path to the loaded module trace file.
-  let loadedModuleTracePath: VirtualPath?
+  let loadedModuleTracePath: VirtualPath.Handle?
 
   /// Path to the TBD file (text-based dylib).
-  let tbdPath: VirtualPath?
+  let tbdPath: VirtualPath.Handle?
 
   /// Path to the module documentation file.
-  let moduleDocOutputPath: VirtualPath?
+  let moduleDocOutputPath: VirtualPath.Handle?
 
   /// Path to the Swift interface file.
-  let swiftInterfacePath: VirtualPath?
+  let swiftInterfacePath: VirtualPath.Handle?
 
   /// Path to the Swift private interface file.
-  let swiftPrivateInterfacePath: VirtualPath?
+  let swiftPrivateInterfacePath: VirtualPath.Handle?
 
   /// Path to the optimization record.
-  let optimizationRecordPath: VirtualPath?
+  let optimizationRecordPath: VirtualPath.Handle?
 
   /// Path to the Swift module source information file.
-  let moduleSourceInfoPath: VirtualPath?
+  let moduleSourceInfoPath: VirtualPath.Handle?
 
   /// Force the driver to emit the module first and then run compile jobs. This could be used to unblock
   /// dependencies in parallel builds.
@@ -584,7 +586,7 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
 
     if let loadedModuleTraceEnvVar = env["SWIFT_LOADED_MODULE_TRACE_FILE"] {
-      self.loadedModuleTracePath = try VirtualPath(path: loadedModuleTraceEnvVar)
+      self.loadedModuleTracePath = try VirtualPath.intern(path: loadedModuleTraceEnvVar)
     } else {
       self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .moduleTrace, isOutputOptions: [.emitLoadedModuleTrace],
@@ -1353,17 +1355,21 @@ extension Driver {
   }
 
   /// Collect all of the input files from the parsed options, translating them into input files.
-  private static func collectInputFiles(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) throws -> [TypedVirtualPath] {
+  private static func collectInputFiles(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws -> [TypedVirtualPath] {
     var swiftFiles = [String: String]() // [Basename: Path]
     return try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
-        return TypedVirtualPath(file: .standardInput, type: .swift)
+        return TypedVirtualPath(file: .constant(.standardInput), type: .swift)
       }
 
       // Resolve the input file.
-      let file = try VirtualPath(path: input)
-      let fileExtension = file.extension ?? ""
+      let inputHandle = try VirtualPath.intern(path: input)
+      let inputFile = VirtualPath.lookup(inputHandle)
+      let fileExtension = inputFile.extension ?? ""
 
       // Determine the type of the input file based on its extension.
       // If we don't recognize the extension, treat it as an object file.
@@ -1372,7 +1378,7 @@ extension Driver {
       let fileType = FileType(rawValue: fileExtension) ?? FileType.object
       
       if fileType == .swift {
-        let basename = file.basename
+        let basename = inputFile.basename
         if let originalPath = swiftFiles[basename] {
           diagnosticsEngine.emit(.error_two_files_same_name(basename: basename, firstPath: originalPath, secondPath: input))
           diagnosticsEngine.emit(.note_explain_two_files_same_name)
@@ -1382,7 +1388,7 @@ extension Driver {
         }
       }
 
-      return TypedVirtualPath(file: file, type: fileType)
+      return TypedVirtualPath(file: inputHandle, type: fileType)
     }
   }
 
@@ -1926,9 +1932,9 @@ extension Driver {
 
     switch moduleOutputKind! {
     case .topLevel:
-      return ModuleOutputInfo(output: .topLevel(moduleOutputPath), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .topLevel(.constant(moduleOutputPath)), name: moduleName, nameIsFallback: moduleNameIsFallback)
     case .auxiliary:
-      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .auxiliary(.constant(moduleOutputPath)), name: moduleName, nameIsFallback: moduleNameIsFallback)
     }
   }
 }
@@ -1993,7 +1999,11 @@ extension Driver {
 // Imported Objective-C header.
 extension Driver {
   /// Compute the path of the imported Objective-C header.
-  static func computeImportedObjCHeader(_ parsedOptions: inout ParsedOptions, compilerMode: CompilerMode, diagnosticEngine: DiagnosticsEngine) throws -> VirtualPath? {
+  static func computeImportedObjCHeader(
+    _ parsedOptions: inout ParsedOptions,
+    compilerMode: CompilerMode,
+    diagnosticEngine: DiagnosticsEngine
+  ) throws -> VirtualPath.Handle? {
     guard let objcHeaderPathArg = parsedOptions.getLastArgument(.importObjcHeader) else {
       return nil
     }
@@ -2007,14 +2017,14 @@ extension Driver {
       diagnosticEngine.emit(.error_bridging_header_module_interface)
     }
 
-    return try VirtualPath(path: objcHeaderPathArg.asSingle)
+    return try VirtualPath.intern(path: objcHeaderPathArg.asSingle)
   }
 
   /// Compute the path of the generated bridging PCH for the Objective-C header.
   static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
                                                compilerMode: CompilerMode,
-                                               importedObjCHeader: VirtualPath?,
-                                               outputFileMap: OutputFileMap?) throws -> VirtualPath? {
+                                               importedObjCHeader: VirtualPath.Handle?,
+                                               outputFileMap: OutputFileMap?) throws -> VirtualPath.Handle? {
     guard compilerMode.supportsBridgingPCH,
       let input = importedObjCHeader,
       parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
@@ -2026,11 +2036,12 @@ extension Driver {
     }
 
     // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
-    let pchFileName = input.basenameWithoutExt.appendingFileTypeExtension(.pch)
+    let inputFile = VirtualPath.lookup(input)
+    let pchFileName = inputFile.basenameWithoutExt.appendingFileTypeExtension(.pch)
     if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      return try VirtualPath(path: outputDirectory).appending(component: pchFileName)
+      return try .constant(VirtualPath(path: outputDirectory).appending(component: pchFileName))
     } else {
-      return .temporary(RelativePath(pchFileName))
+      return .constant(.temporary(RelativePath(pchFileName)))
     }
   }
 }
@@ -2357,14 +2368,14 @@ extension Driver {
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
     moduleName: String
-  ) throws -> VirtualPath? {
+  ) throws -> VirtualPath.Handle? {
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
       for isOutput in isOutputOptions {
         // Consume the isOutput argument
         _ = parsedOptions.hasArgument(isOutput)
       }
-      return try VirtualPath(path: outputPathArg.asSingle)
+      return try VirtualPath.intern(path: outputPathArg.asSingle)
     }
 
     // If no output option was provided, don't produce this output at all.
@@ -2386,37 +2397,38 @@ extension Driver {
 
       // If the compiler output is of this type, use the argument directly.
       if type == compilerOutputType {
-        return path
+        return .constant(path)
       }
 
-      return path.parentDirectory.appending(component: "\(moduleName).\(type.rawValue)")
+      return .constant(path.parentDirectory.appending(component: "\(moduleName).\(type.rawValue)"))
     }
 
-    return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
+    return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 
   /// Determine if the build system has created a Project/ directory for auxilary outputs.
-  static func computeProjectDirectoryPath(moduleOutputPath: VirtualPath?,
-                                          fileSystem: FileSystem) -> VirtualPath? {
-    let potentialProjectDirectory = moduleOutputPath?
+  static func computeProjectDirectoryPath(moduleOutputPath: VirtualPath.Handle?,
+                                          fileSystem: FileSystem) -> VirtualPath.Handle? {
+    let potentialProjectDirectory = moduleOutputPath
+      .map(VirtualPath.lookup)?
       .parentDirectory
       .appending(component: "Project")
       .absolutePath
     guard let projectDirectory = potentialProjectDirectory, fileSystem.exists(projectDirectory) else {
       return nil
     }
-    return .absolute(projectDirectory)
+    return .constant(.absolute(projectDirectory))
   }
 
   /// Determine the output path for a module documentation.
   static func computeModuleDocOutputPath(
     _ parsedOptions: inout ParsedOptions,
-    moduleOutputPath: VirtualPath?,
+    moduleOutputPath: VirtualPath.Handle?,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
     moduleName: String
-  ) throws -> VirtualPath? {
+  ) throws -> VirtualPath.Handle? {
     return try computeModuleAuxiliaryOutputPath(&parsedOptions,
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftDocumentation,
@@ -2431,13 +2443,13 @@ extension Driver {
   /// Determine the output path for a module source info.
   static func computeModuleSourceInfoOutputPath(
     _ parsedOptions: inout ParsedOptions,
-    moduleOutputPath: VirtualPath?,
+    moduleOutputPath: VirtualPath.Handle?,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
     moduleName: String,
-    projectDirectory: VirtualPath?
-  ) throws -> VirtualPath? {
+    projectDirectory: VirtualPath.Handle?
+  ) throws -> VirtualPath.Handle? {
     guard !parsedOptions.hasArgument(.avoidEmitModuleSourceInfo) else { return nil }
     return try computeModuleAuxiliaryOutputPath(&parsedOptions,
                                                 moduleOutputPath: moduleOutputPath,
@@ -2455,7 +2467,7 @@ extension Driver {
   /// Determine the output path for a module auxiliary output.
   static func computeModuleAuxiliaryOutputPath(
     _ parsedOptions: inout ParsedOptions,
-    moduleOutputPath: VirtualPath?,
+    moduleOutputPath: VirtualPath.Handle?,
     type: FileType,
     isOutput: Option?,
     outputPath: Option,
@@ -2463,15 +2475,15 @@ extension Driver {
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
     moduleName: String,
-    projectDirectory: VirtualPath? = nil
-  ) throws -> VirtualPath? {
+    projectDirectory: VirtualPath.Handle? = nil
+  ) throws -> VirtualPath.Handle? {
     // If there is an explicit argument for the output path, use that
     if let outputPathArg = parsedOptions.getLastArgument(outputPath) {
       // Consume the isOutput argument
       if let isOutput = isOutput {
         _ = parsedOptions.hasArgument(isOutput)
       }
-      return try VirtualPath(path: outputPathArg.asSingle)
+      return try VirtualPath.intern(path: outputPathArg.asSingle)
     }
 
     // If this is a single-file compile and there is an entry in the
@@ -2491,12 +2503,12 @@ extension Driver {
       let parentPath: VirtualPath
       if let projectDirectory = projectDirectory {
         // If the build system has created a Project dir for us to include the file, use it.
-        parentPath = projectDirectory
+        parentPath = VirtualPath.lookup(projectDirectory)
       } else {
-        parentPath = moduleOutputPath.parentDirectory
+        parentPath = VirtualPath.lookup(moduleOutputPath).parentDirectory
       }
 
-      return parentPath.appending(component: moduleOutputPath.basename).replacingExtension(with: type)
+      return .constant(parentPath.appending(component: VirtualPath.lookup(moduleOutputPath).basename).replacingExtension(with: type))
     }
 
     // If the output option was not provided, don't produce this output at all.
@@ -2504,6 +2516,6 @@ extension Driver {
       return nil
     }
 
-    return try VirtualPath(path: moduleName.appendingFileTypeExtension(type))
+    return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 }

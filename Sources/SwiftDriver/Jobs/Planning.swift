@@ -533,17 +533,17 @@ extension Driver {
         guard moduleId.moduleName != dependencyGraph.mainModuleName else {
           continue
         }
-        let modulePath = moduleInfo.modulePath
+        let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
         // Only update paths on modules which do not already specify a path beyond their module name
         // and a file extension.
-        if modulePath.path.description == moduleId.moduleName + ".swiftmodule" ||
-            modulePath.path.description == moduleId.moduleName + ".pcm" {
+        if modulePath.description == moduleId.moduleName + ".swiftmodule" ||
+            modulePath.description == moduleId.moduleName + ".pcm" {
           // Use VirtualPath to get the OS-specific path separators right.
           let modulePathInCache =
             try VirtualPath(path: moduleCachePath!)
-              .appending(component: modulePath.path.description)
+              .appending(component: modulePath.description)
           dependencyGraph.modules[moduleId]!.modulePath =
-            TextualVirtualPath(path: modulePathInCache)
+            TextualVirtualPath(path: .constant(modulePathInCache))
         }
       }
     }

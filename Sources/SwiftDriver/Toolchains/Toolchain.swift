@@ -88,7 +88,7 @@ public enum Tool: Hashable {
   func platformSpecificInterpreterEnvironmentVariables(
     env: [String: String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: VirtualPath?,
+    sdkPath: VirtualPath.Handle?,
     targetInfo: FrontendTargetInfo) throws -> [String: String]
 
   func addPlatformSpecificCommonFrontendOptions(

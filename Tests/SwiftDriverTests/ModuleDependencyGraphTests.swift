@@ -1004,7 +1004,7 @@ extension ModuleDependencyGraph {
   }
 
   func findUntracedSwiftDepsDependent(onExternal s: String) -> [Int] {
-    try! findUntracedSwiftDepsDependent(
+    findUntracedSwiftDepsDependent(
       on: FingerprintedExternalDependency(.mocking(s), nil))
       .map { $0.mockID }
   }
@@ -1390,7 +1390,7 @@ fileprivate extension String {
 }
 
 fileprivate extension ExternalDependency {
-  static func mocking(_ name: String) throws -> Self {
+  static func mocking(_ name: String) -> Self {
     return Self(fileName: name)
   }
 }
@@ -1417,7 +1417,7 @@ fileprivate extension DependencyKey {
 
 extension Job {
   init(_ dummyBaseName: String) {
-    let input = try! TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swift"),
+    let input = try! TypedVirtualPath(file: VirtualPath.intern(path: dummyBaseName + ".swift"),
                                       type: .swift)
     try! self.init(moduleName: "nothing",
                    kind: .compile,
@@ -1425,7 +1425,7 @@ extension Job {
                    commandLine: [],
                    inputs:  [input],
                    primaryInputs: [input],
-                   outputs: [TypedVirtualPath(file: VirtualPath(path: dummyBaseName + ".swiftdeps"), type: .swiftDeps)])
+                   outputs: [TypedVirtualPath(file: VirtualPath.intern(path: dummyBaseName + ".swiftdeps"), type: .swiftDeps)])
   }
 
 }
@@ -1467,7 +1467,7 @@ fileprivate extension DependencyKey.Designator {
 
 fileprivate extension Set where Element == ExternalDependency {
   func contains(_ s: String) -> Bool {
-    try! contains(.mocking(s))
+    contains(.mocking(s))
   }
 }
 

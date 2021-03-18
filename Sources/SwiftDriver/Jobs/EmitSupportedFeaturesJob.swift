@@ -33,7 +33,7 @@ extension Toolchain {
     let dummyInputPath = VirtualPath.temporaryWithKnownContents(.init("dummyInput.swift"),
                                                                 "".data(using: .utf8)!)
     commandLine.appendPath(dummyInputPath)
-    inputs.append(TypedVirtualPath(file: dummyInputPath, type: .swift))
+    inputs.append(TypedVirtualPath(file: .constant(dummyInputPath), type: .swift))
     
     return Job(
       moduleName: "",
@@ -43,7 +43,7 @@ extension Toolchain {
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: .standardOutput, type: .jsonCompilerFeatures)],
+      outputs: [.init(file: .constant(.standardOutput), type: .jsonCompilerFeatures)],
       requiresInPlaceExecution: requiresInPlaceExecution,
       supportsResponseFiles: false
     )

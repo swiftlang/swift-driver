@@ -27,12 +27,12 @@ extension Driver {
   }
 
   mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) -> TypedVirtualPath? {
-    if let path = outputFileMap?.existingOutput(inputFile: input.file, outputType: .indexUnitOutputPath) {
+    if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .indexUnitOutputPath) {
       return TypedVirtualPath(file: path, type: outputType)
     }
     if topLevel {
       if let baseOutput = parsedOptions.getLastArgument(.indexUnitOutputPath)?.asSingle,
-         let baseOutputPath = try? VirtualPath(path: baseOutput) {
+         let baseOutputPath = try? VirtualPath.intern(path: baseOutput) {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
       }
     }
@@ -41,16 +41,16 @@ extension Driver {
 
   mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
                                         isTopLevel: Bool) -> TypedVirtualPath {
-    if let path = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
+    if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
       return TypedVirtualPath(file: path, type: outputType)
     }
 
     if isTopLevel {
       if let baseOutput = parsedOptions.getLastArgument(.o)?.asSingle,
-         let baseOutputPath = try? VirtualPath(path: baseOutput) {
+         let baseOutputPath = try? VirtualPath.intern(path: baseOutput) {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
       } else if compilerOutputType?.isTextual == true {
-        return TypedVirtualPath(file: .standardOutput, type: outputType)
+        return TypedVirtualPath(file: .constant(.standardOutput), type: outputType)
       } else if outputType == .swiftModule, let moduleOutput = moduleOutputInfo.output {
         return TypedVirtualPath(file: moduleOutput.outputPath, type: outputType)
       }
@@ -64,10 +64,10 @@ extension Driver {
     }
 
     if !isTopLevel {
-      return TypedVirtualPath(file:VirtualPath.temporary(.init(baseName.appendingFileTypeExtension(outputType))),
+      return TypedVirtualPath(file: .constant(.temporary(.init(baseName.appendingFileTypeExtension(outputType)))),
                               type: outputType)
     }
-    return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))), type: outputType)
+    return TypedVirtualPath(file: .constant(useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType)))), type: outputType)
   }
 
   /// Is this compile job top-level

@@ -73,7 +73,7 @@ extension Driver {
       displayInputs: inputs,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: outputFile, type: .image)]
+      outputs: [.init(file: .constant(outputFile), type: .image)]
     )
   }
 }

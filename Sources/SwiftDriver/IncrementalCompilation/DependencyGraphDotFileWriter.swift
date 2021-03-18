@@ -129,7 +129,7 @@ extension ExportableNode {
   }
   fileprivate var isAPINotes: Bool {
     key.designator.externalDependency?.fileName.hasSuffix(".apinotes")
-    ?? false
+      ?? false
   }
 
   fileprivate var shape: Shape {
@@ -165,13 +165,13 @@ fileprivate extension DependencyKey.Designator {
   }
 
   static let oneOfEachKind: [DependencyKey.Designator] = [
-      .topLevel(name: ""),
-      .dynamicLookup(name: ""),
+    .topLevel(name: ""),
+    .dynamicLookup(name: ""),
     .externalDepend(ExternalDependency(fileName: ".")),
-      .sourceFileProvide(name: ""),
-      .nominal(context: ""),
-      .potentialMember(context: ""),
-      .member(context: "", name: "")
+    .sourceFileProvide(name: ""),
+    .nominal(context: ""),
+    .potentialMember(context: ""),
+    .member(context: "", name: "")
   ]
 }
 

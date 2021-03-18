@@ -78,7 +78,7 @@ extension WebAssemblyToolchain {
         isShared: false
       )
 
-      let swiftrtPath = targetInfo.runtimeResourcePath.path
+      let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(
           components: targetTriple.platformName() ?? "",
           targetTriple.archName,
@@ -100,7 +100,7 @@ extension WebAssemblyToolchain {
 
       if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
-        commandLine.appendPath(path)
+        commandLine.appendPath(VirtualPath.lookup(path))
       }
 
       // Add the runtime library link paths.
@@ -110,7 +110,7 @@ extension WebAssemblyToolchain {
       }
 
       // Link the standard library.
-      let linkFilePath: VirtualPath = targetInfo.runtimeResourcePath.path
+      let linkFilePath: VirtualPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(
           components: targetTriple.platformName() ?? "",
           "static-executable-args.lnk"

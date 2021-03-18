@@ -144,7 +144,7 @@ extension GenericUnixToolchain {
         }
       }
 
-      let swiftrtPath = targetInfo.runtimeResourcePath.path
+      let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(
           components: targetTriple.platformName() ?? "",
           String(majorArchitectureName(for: targetTriple)),
@@ -178,7 +178,7 @@ extension GenericUnixToolchain {
 
       if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
-        commandLine.appendPath(path)
+        commandLine.appendPath(VirtualPath.lookup(path))
       }
 
       // Add the runtime library link paths.
@@ -190,7 +190,7 @@ extension GenericUnixToolchain {
       // Link the standard library. In two paths, we do this using a .lnk file
       // if we're going that route, we'll set `linkFilePath` to the path to that
       // file.
-      var linkFilePath: VirtualPath? = targetInfo.runtimeResourcePath.path
+      var linkFilePath: VirtualPath? = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(component: targetTriple.platformName() ?? "")
 
       if staticExecutable {
@@ -229,7 +229,7 @@ extension GenericUnixToolchain {
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {
-        let libProfile = targetInfo.runtimeResourcePath.path
+        let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(components: "clang", "lib", targetTriple.osName,
                                  "libclang_rt.profile-\(targetTriple.archName).a")
         commandLine.appendPath(libProfile)

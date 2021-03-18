@@ -12,13 +12,17 @@
 /// A path for which the type of the input is known.
 public struct TypedVirtualPath: Hashable, Codable {
   /// The file this input refers to.
-  public let file: VirtualPath
+  public let fileHandle: VirtualPath.Handle
 
   /// The type of file we are working with.
   public let type: FileType
 
-  public init(file: VirtualPath, type: FileType) {
-    self.file = file
+  public var file: VirtualPath {
+    return VirtualPath.lookup(self.fileHandle)
+  }
+  
+  public init(file: VirtualPath.Handle, type: FileType) {
+    self.fileHandle = file
     self.type = type
   }
 }

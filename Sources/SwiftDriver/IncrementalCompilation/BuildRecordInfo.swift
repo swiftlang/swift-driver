@@ -140,8 +140,8 @@ import SwiftOptions
       return nil
     }
     return workingDirectory
-      .map(partialBuildRecordPath.resolvedRelativePath(base:))
-      ?? partialBuildRecordPath
+      .map(VirtualPath.lookup(partialBuildRecordPath).resolvedRelativePath(base:))
+      ?? VirtualPath.lookup(partialBuildRecordPath)
   }
 
   /// Write out the build record.

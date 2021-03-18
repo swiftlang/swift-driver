@@ -106,7 +106,7 @@ extension Driver {
 
     if let sdkPath = frontendTargetInfo.sdkPath?.path {
       commandLine.appendFlag(.sdk)
-      commandLine.append(.path(sdkPath))
+      commandLine.append(.path(VirtualPath.lookup(sdkPath)))
     }
 
     try commandLine.appendAll(.I, from: &parsedOptions)
@@ -191,7 +191,7 @@ extension Driver {
 
     // Resource directory.
     commandLine.appendFlag(.resourceDir)
-    commandLine.appendPath(frontendTargetInfo.runtimeResourcePath.path)
+    commandLine.appendPath(VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path))
 
     if self.useStaticResourceDir {
       commandLine.appendFlag("-use-static-resource-dir")
@@ -224,16 +224,16 @@ extension Driver {
       if bridgingHeaderHandling == .precompiled,
           let pch = bridgingPrecompiledHeader {
         if parsedOptions.contains(.pchOutputDir) {
-          commandLine.appendPath(importedObjCHeader)
+          commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
           if !compilerMode.isSingleCompilation {
             commandLine.appendFlag(.pchDisableValidation)
           }
         } else {
-          commandLine.appendPath(pch)
+          commandLine.appendPath(VirtualPath.lookup(pch))
         }
       } else {
-        commandLine.appendPath(importedObjCHeader)
+        commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
       }
     }
 
@@ -257,8 +257,10 @@ extension Driver {
 
     /// Add output of a particular type, if needed.
     func addOutputOfType(
-        outputType: FileType, finalOutputPath: VirtualPath?,
-        input: TypedVirtualPath?, flag: String
+      outputType: FileType,
+      finalOutputPath: VirtualPath.Handle?,
+      input: TypedVirtualPath?,
+      flag: String
     ) {
       // If there is no final output, there's nothing to do.
       guard let finalOutputPath = finalOutputPath else { return }
@@ -269,15 +271,15 @@ extension Driver {
 
       // Compute the output path based on the input path (if there is one), or
       // use the final output.
-      let outputPath: VirtualPath
+      let outputPath: VirtualPath.Handle
       if let input = input {
-        if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: outputType) {
+        if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
           outputPath = outputFileMapPath
         } else if let output = inputOutputMap[input], output.file != .standardOutput, compilerOutputType != nil {
           // Alongside primary output
-          outputPath = output.file.replacingExtension(with: outputType)
+          outputPath = .constant(output.file.replacingExtension(with: outputType))
         } else {
-          outputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType)))
+          outputPath = .constant(.temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))))
         }
       } else {
         outputPath = finalOutputPath
@@ -373,8 +375,8 @@ extension Driver {
       assert(primaryInputs.count == 1, "Standard compile job had more than one primary input")
       let input = primaryInputs[0]
       let remapOutputPath: VirtualPath
-      if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.file, outputType: .remap) {
-        remapOutputPath = outputFileMapPath
+      if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .remap) {
+        remapOutputPath = VirtualPath.lookup(outputFileMapPath)
       } else if let output = inputOutputMap[input], output.file != .standardOutput {
         // Alongside primary output
         remapOutputPath = output.file.replacingExtension(with: .remap)
@@ -384,7 +386,7 @@ extension Driver {
 
       flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",
                                       input: input,
-                                      output: TypedVirtualPath(file: remapOutputPath, type: .remap)))
+                                      output: TypedVirtualPath(file: .constant(remapOutputPath), type: .remap)))
     }
 
     if includeModuleTracePath, let tracePath = loadedModuleTracePath {
@@ -394,14 +396,14 @@ extension Driver {
     }
 
     if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold {
-      var entries = [VirtualPath: [FileType: VirtualPath]]()
+      var entries = [VirtualPath.Handle: [FileType: VirtualPath.Handle]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input] {
           addEntry(&entries, input: input, output: output)
         } else {
           // Primary inputs are expected to appear in the output file map even
           // if they have no corresponding outputs.
-          entries[input.file] = [:]
+          entries[input.fileHandle] = [:]
         }
       }
 
@@ -409,7 +411,7 @@ extension Driver {
         // To match the legacy driver behavior, make sure we add the first input file
         // to the output file map if compiling without primary inputs (WMO), even
         // if there aren't any corresponding outputs.
-        entries[inputFiles[0].file] = [:]
+        entries[inputFiles[0].fileHandle] = [:]
       }
 
       for flaggedPair in flaggedInputOutputPairs {
@@ -418,7 +420,7 @@ extension Driver {
       // To match the legacy driver behavior, make sure we add an entry for the
       // file under indexing and the primary output file path.
       if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath] {
-        entries[indexFilePath.file] = [.indexData: idxOutput.file]
+        entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)
       let path = RelativePath(createTemporaryFileName(prefix: "supplementaryOutputs"))
@@ -435,14 +437,14 @@ extension Driver {
     return flaggedInputOutputPairs.map { $0.output }
   }
 
-  func addEntry(_ entries: inout [VirtualPath: [FileType: VirtualPath]], input: TypedVirtualPath?, output: TypedVirtualPath) {
-    let entryInput: VirtualPath
-    if let input = input?.file, input != OutputFileMap.singleInputKey {
+  func addEntry(_ entries: inout [VirtualPath.Handle: [FileType: VirtualPath.Handle]], input: TypedVirtualPath?, output: TypedVirtualPath) {
+    let entryInput: VirtualPath.Handle
+    if let input = input?.fileHandle, input != OutputFileMap.singleInputKey {
       entryInput = input
     } else {
-      entryInput = inputFiles[0].file
+      entryInput = inputFiles[0].fileHandle
     }
-    entries[entryInput, default: [:]][output.type] = output.file
+    entries[entryInput, default: [:]][output.type] = output.fileHandle
   }
 
   /// Adds all dependencies required for an explicit module build

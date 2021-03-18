@@ -34,7 +34,7 @@ extension DarwinToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: VirtualPath?,
+    sdkPath: VirtualPath.Handle?,
     targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
@@ -62,7 +62,7 @@ extension GenericUnixToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
     parsedOptions: inout ParsedOptions,
-    sdkPath: VirtualPath?,
+    sdkPath: VirtualPath.Handle?,
     targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
