@@ -122,7 +122,8 @@ extension ModuleDependencyGraph {
     fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
       invalidatedNodes, fed in
       invalidatedNodes.formUnion (
-        self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed))
+        self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed,
+                                                 isPresentInTheGraph: true))
     }
   }
 }
@@ -285,10 +286,11 @@ extension ModuleDependencyGraph {
   /// But always integrate, in order to detect future changes.
   /// This function does not to the transitive closure; that is left to the callers
   func collectNodesInvalidatedByProcessing(
-    fingerprintedExternalDependency fed: FingerprintedExternalDependency)
+    fingerprintedExternalDependency fed: FingerprintedExternalDependency,
+    isPresentInTheGraph: Bool?)
   -> DirectlyInvalidatedNodeSet {
 
-    let isNewToTheGraph = fingerprintedExternalDependencies.insert(fed).inserted
+    let isNewToTheGraph = isPresentInTheGraph != true && fingerprintedExternalDependencies.insert(fed).inserted
 
     // If the graph already includes prior externals, then any new externals are changes
     // Short-circuit conjunction may avoid the modTime query
