@@ -423,14 +423,12 @@ extension OutputFileMap {
 // MARK: SourceFiles
 @_spi(Testing) public struct SourceFiles {
   let currentInOrder: [TypedVirtualPath]
-  private let currentSet: Set<VirtualPath>
-  let previous: Set<VirtualPath>
+  private let previous: Set<VirtualPath>
   let disappeared: [VirtualPath]
 
   init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord?) {
     self.currentInOrder = inputFiles.filter {$0.type == .swift}
     let currentSet = Set(currentInOrder.map {$0.file} )
-    self.currentSet = currentSet
     self.previous = buildRecord.map {
       Set($0.inputInfos.keys)
     } ?? Set()

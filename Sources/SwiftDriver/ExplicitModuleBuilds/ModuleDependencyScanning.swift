@@ -61,7 +61,7 @@ internal extension Driver {
     }
 
     // Pass on the input files
-    commandLine.append(contentsOf: inputFiles.map { .path($0.file)})
+    commandLine.append(contentsOf: inputFiles.map { .path($0.file) })
     return (inputs, commandLine)
   }
 
