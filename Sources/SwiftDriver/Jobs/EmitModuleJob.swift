@@ -59,10 +59,8 @@ extension Driver {
 
     commandLine.appendFlags("-frontend", "-emit-module", "-experimental-skip-non-inlinable-function-bodies-without-types")
 
-    let swiftInputFiles = inputFiles.filter { $0.type.isPartOfSwiftCompilation }
-
     // Add the inputs.
-    for input in swiftInputFiles {
+    for input in self.inputFiles where input.type.isPartOfSwiftCompilation {
       commandLine.append(.path(input.file))
       inputs.append(input)
     }
