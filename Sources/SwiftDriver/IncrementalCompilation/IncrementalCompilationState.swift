@@ -191,21 +191,19 @@ extension Diagnostic.Message {
   }
 }
 
-
 // MARK: - Scheduling the 2nd wave
 extension IncrementalCompilationState {
   /// Remember a job (group) that is before a compile or a compile itself.
   /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
   /// If no more compiles are needed, return nil.
   /// Careful: job may not be primary.
-
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
-    job finishedJob: Job) throws -> [Job] {
+    job finishedJob: Job) throws -> [Job]? {
     // Find and deal with inputs that now need to be compiled
     let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
     assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
            "Primaries should not overlap secondaries.")
-
+    
     if let reporter = self.reporter {
       for input in invalidatedInputs {
         reporter.report(
@@ -213,6 +211,13 @@ extension IncrementalCompilationState {
       }
     }
     return try getJobs(for: invalidatedInputs)
+  }
+
+  /// Needed for API compatibility, `result` will be ignored
+  public func collectJobsDiscoveredToBeNeededAfterFinishing(
+    job finishedJob: Job, result: ProcessResult
+  ) throws -> [Job]? {
+    try collectJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
   }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
