@@ -132,7 +132,6 @@ extension SourceFileDependencyGraph {
     case unknownRecord
     case unexpectedSubblock
     case bogusNameOrContext
-    case noHash
     case unknownKind
   }
 
