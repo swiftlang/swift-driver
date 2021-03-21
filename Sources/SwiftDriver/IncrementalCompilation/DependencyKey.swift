@@ -300,6 +300,7 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
 
   /*@_spi(Testing)*/ public let aspect: DeclAspect
   /*@_spi(Testing)*/ public let designator: Designator
+  public let hashValue: Int
 
 
   /*@_spi(Testing)*/ public init(
@@ -308,6 +309,10 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   {
     self.aspect = aspect
     self.designator = designator
+    var h = Hasher()
+    h.combine(aspect)
+    h.combine(designator)
+    self.hashValue = h.finalize()
   }
 
 
