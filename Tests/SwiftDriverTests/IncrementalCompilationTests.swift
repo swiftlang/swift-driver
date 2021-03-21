@@ -70,7 +70,7 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadBinarySourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
-    let dependencySource = DependencySource(.constant(.absolute(absolutePath)))!
+    let dependencySource = DependencySource(VirtualPath.Handle.constant(.absolute(absolutePath)))!
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
         contentsOf: dependencySource,
