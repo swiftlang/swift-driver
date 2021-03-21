@@ -59,12 +59,10 @@ extension ModuleDependencyGraph {
     /// This dependencySource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
     init(key: DependencyKey, fingerprint: String?,
-         dependencySource: DependencySource?,
-         hashValue: Int? = nil) {
+         dependencySource: DependencySource?) {
       self.keyAndFingerprint = try! KeyAndFingerprintHolder(key, fingerprint)
       self.dependencySource = dependencySource
-      self.hashValue = hashValue ?? Self.computeHash(key, dependencySource)
-      assert(hashValue.map {$0 == self.hashValue} ?? true)
+      self.hashValue = Self.computeHash(key, dependencySource)
     }
   }
 }

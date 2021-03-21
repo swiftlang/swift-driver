@@ -544,27 +544,23 @@ extension ModuleDependencyGraph {
           self.compilerVersionString = compilerVersionString
         case .moduleDepGraphNode:
           let kindCode = record.fields[0]
-          guard record.fields.count == 9,
+          guard record.fields.count == 7,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-                record.fields[4] < identifiers.count,
-                record.fields[5] < identifiers.count,
+                record.fields[2] < identifiers.count,
+                record.fields[3] < identifiers.count,
                 case .blob(let fingerprintBlob) = record.payload,
                 let fingerprintStr = String(data: fingerprintBlob, encoding: .utf8)
           else {
             throw ReadError.malformedModuleDepGraphNodeRecord
           }
-          let hashHi = record.fields[2]
-          let hashLo = record.fields[3]
-          let hashValue = Int(bitPattern: UInt((hashHi << 32) | hashLo))
-          
-            let context = identifiers[Int(record.fields[4])]
-          let identifier = identifiers[Int(record.fields[5])]
+          let context = identifiers[Int(record.fields[2])]
+          let identifier = identifiers[Int(record.fields[3])]
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
           let key = DependencyKey(aspect: declAspect, designator: designator)
-          let hasSwiftDeps = Int(record.fields[6]) != 0
-          let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[7])] : nil
-          let hasFingerprint = Int(record.fields[8]) != 0
+          let hasSwiftDeps = Int(record.fields[4]) != 0
+          let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
+          let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
           guard let dependencySource = try swiftDepsStr
                   .map({ try VirtualPath(path: $0) })
@@ -574,8 +570,7 @@ extension ModuleDependencyGraph {
           }
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
-                                   dependencySource: dependencySource,
-                                   hashValue: hashValue))
+                                   dependencySource: dependencySource))
         case .dependsOnNode:
           let kindCode = record.fields[0]
           guard record.fields.count == 4,
@@ -829,15 +824,11 @@ extension ModuleDependencyGraph {
         .fixed(bitWidth: 3),
         // dependency decl aspect discriminator
         .fixed(bitWidth: 1),
-        // hash hi value
-        .fixed(bitWidth: 32),
-        // hash lo value
-        .fixed(bitWidth: 32),
-         // dependency context
+        // dependency context
         .vbr(chunkBitWidth: 13),
         // dependency name
         .vbr(chunkBitWidth: 13),
-       // swiftdeps?
+        // swiftdeps?
         .fixed(bitWidth: 1),
         // swiftdeps path
         .vbr(chunkBitWidth: 13),
@@ -914,7 +905,6 @@ extension ModuleDependencyGraph {
             $0.append(RecordID.moduleDepGraphNode)
             $0.append(node.key.designator.code)
             $0.append(node.key.aspect.code)
-            $0.append(node.hashValue)
             $0.append(serializer.lookupIdentifierCode(
                         for: node.key.designator.context ?? ""))
             $0.append(serializer.lookupIdentifierCode(
@@ -923,7 +913,7 @@ extension ModuleDependencyGraph {
             $0.append(serializer.lookupIdentifierCode(
                         for: node.dependencySource?.file.name ?? ""))
             $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
-         }, blob: node.fingerprint ?? "")
+          }, blob: node.fingerprint ?? "")
         }
 
         for key in graph.nodeFinder.usesByDef.keys {
@@ -967,19 +957,6 @@ extension ModuleDependencyGraph {
       }
       return ByteString(serializer.stream.data)
     }
-  }
-}
-
-fileprivate extension BitstreamWriter.RecordBuffer {
-  mutating func append(_ i: Int) {
-    assert(Int.bitWidth == Int64.bitWidth)
-    append(UInt64(bitPattern: Int64(i)))
-  }
-  mutating func append(_ u: UInt64) {
-    let hi = UInt32(u >> 32)
-    let lo = UInt32(u & 0xffffffff)
-    append(hi)
-    append(lo)
   }
 }
 
