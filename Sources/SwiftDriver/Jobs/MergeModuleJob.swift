@@ -72,7 +72,7 @@ extension Driver {
     }
 
     commandLine.appendFlag(.o)
-    commandLine.appendPath(moduleOutputInfo.output!.outputPath)
+    commandLine.appendPath(VirtualPath.lookup(moduleOutputInfo.output!.outputPath))
 
     return Job(
       moduleName: moduleOutputInfo.name,

@@ -18,6 +18,8 @@ import Darwin
 
 /// A virtual path.
 public enum VirtualPath: Hashable {
+  private static var pathCache = PathCache()
+
   /// A relative path that has not been resolved based on the current working
   /// directory.
   case relative(RelativePath)
@@ -42,12 +44,7 @@ public enum VirtualPath: Hashable {
 
   /// Form a virtual path which may be either absolute or relative.
   public init(path: String) throws {
-    if let absolute = try? AbsolutePath(validating: path) {
-      self = .absolute(absolute)
-    } else {
-      let relative = try RelativePath(validating: path)
-      self = .relative(relative)
-    }
+    self = try Self.pathCache[Self.pathCache.intern(path)]
   }
 
   /// The name of the path for presentation purposes.
@@ -203,7 +200,224 @@ public enum VirtualPath: Hashable {
       return self
     }
   }
+
+  public static func == (lhs: VirtualPath, rhs: VirtualPath) -> Bool {
+    switch (lhs, rhs) {
+    case (.standardOutput, .standardOutput), (.standardInput, .standardInput):
+      return true
+    case (.standardOutput, _), (.standardInput, _), (_, .standardOutput), (_, .standardInput):
+      return false
+    default:
+      return lhs.description == rhs.description
+    }
+  }
 }
+
+extension VirtualPath.Handle: Codable {
+  public func encode(to encoder: Encoder) throws {
+    return try VirtualPath.lookup(self).encode(to: encoder)
+  }
+
+  public init(from decoder: Decoder) throws {
+    let vp = try VirtualPath(from: decoder)
+    switch vp {
+    case .standardOutput:
+      self = .standardOutput
+    case .standardInput:
+      self = .standardInput
+    default:
+      self = vp.intern()
+    }
+  }
+}
+
+// MARK: Path Interning
+
+extension VirtualPath {
+  /// Retrieves a shared `VirtualPath.Handle` for the given raw `path` string,
+  /// which may be absolute or relative.
+  ///
+  /// - Parameter path: The path to the file.
+  /// - Throws: `PathValidationError` if the given `path` is not valid.
+  /// - Returns: A `VirtualPath.Handle` to a validated `VirtualPath`
+  public static func intern(path: String) throws -> VirtualPath.Handle {
+    return try Self.pathCache.intern(path)
+  }
+
+  /// Resolves a shared `VirtualPath.Handle` to a particular `VirtualPath`.
+  ///
+  /// - Parameter handle: The handle to resolve.
+  /// - Returns: A `VirtualPath` instance for the given handle.
+  public static func lookup(_ handle: VirtualPath.Handle) -> VirtualPath {
+    return Self.pathCache[handle]
+  }
+
+  /// Creates or retrieves the handle corresponding to an existing virtual path.
+  ///
+  /// This method is always going to be faster than `VirutalPath.init(path:)`
+  /// or `VirtualPath.intern(path:)` because no further validation of the
+  /// path string is necessary.
+  public func intern() -> VirtualPath.Handle {
+    switch self {
+    case .standardInput:
+      return .standardInput
+    case .standardOutput:
+      return .standardOutput
+    default:
+      return Self.pathCache.intern(virtualPath: self)
+    }
+  }
+
+  /// Computes the cache key for this virtual path.
+  ///
+  /// This hash key ensures that absolute and relative path entries constructed
+  /// from strings will always resolve to interned constants with a matching
+  /// canonical path string. However, temporaries and filelists will never hash
+  /// equal to a relative or absolute path to ensure that the extra data
+  /// that comes along with these kinds of virtual paths is not lost.
+  fileprivate var cacheKey: String {
+    switch self {
+    case .relative(let path):
+      return path.pathString
+    case .absolute(let path):
+      return path.pathString
+    case .temporary(let path):
+      // N.B. Mangle in a discrimintor for temporaries so they intern apart
+      // from normal kinds of paths.
+      return "temporary:" + path.pathString
+    case .temporaryWithKnownContents(let path, _):
+      return "temporaryWithKnownContents:" + path.pathString
+    case .fileList(let path, _):
+      return "fileList:" + path.pathString
+    case .standardInput, .standardOutput:
+      fatalError("\(self) does not have a cache key")
+    }
+  }
+}
+
+extension VirtualPath {
+  /// A handle to a `VirtualPath` that is much lighter-weight and faster to
+  /// pass around, hash, and compare.
+  ///
+  /// `VirtualPath` has a particularly expensive implementation of `Hashable`
+  /// that makes using it as the key in hashed collections expensive as well. By
+  /// using a `VirtualPath.Handle`, hashing costs are amortized. Additionally,
+  /// `VirtualPath.init(path:)` is quite an expensive operation. Interned
+  /// `VirtualPath.Handle` instances represent fully-validated paths, so sharing
+  /// in the global path table ensures we only pay the cost at most once per
+  /// path string.
+  public struct Handle {
+    fileprivate var core: Int
+
+    fileprivate init(_ core: Int) {
+      self.core = core
+    }
+
+    public static let standardOutput = Handle(-1)
+    public static let standardInput = Handle(-2)
+  }
+
+  /// An implementation of a concurrent path cache.
+  private final class PathCache {
+    private var uniquer: [String: VirtualPath.Handle]
+    private var table: [VirtualPath]
+    private let queue: DispatchQueue
+
+    init() {
+      self.uniquer = [String: VirtualPath.Handle]()
+      self.table = [VirtualPath]()
+      self.queue = DispatchQueue(label: "com.apple.swift.driver.path-cache", qos: .userInteractive, attributes: .concurrent)
+
+      self.uniquer.reserveCapacity(256)
+      self.table.reserveCapacity(256)
+    }
+
+    fileprivate func intern(_ key: String) throws -> VirtualPath.Handle {
+      return try self.queue.sync(flags: .barrier) {
+        guard let idx = self.uniquer[key] else {
+          let path: VirtualPath
+          if let absolute = try? AbsolutePath(validating: key) {
+            path = .absolute(absolute)
+          } else {
+            let relative = try RelativePath(validating: key)
+            path = .relative(relative)
+          }
+          if let existing = self.uniquer[path.cacheKey] {
+            // If there's an entry for the canonical path for this key, we just
+            // need to vend its handle.
+            self.uniquer[key] = existing
+            return existing
+          } else {
+            // Otherwise we need to add an entry for the key and its canonical
+            // path.
+            let nextSlot = self.table.count
+            self.uniquer[path.cacheKey] = .init(nextSlot)
+            self.uniquer[key] = .init(nextSlot)
+            self.table.append(path)
+            return .init(nextSlot)
+          }
+        }
+        assert(idx.core >= 0, "Produced invalid index \(idx) for path \(key)")
+        return idx
+      }
+    }
+
+    fileprivate func intern(virtualPath path: VirtualPath) -> VirtualPath.Handle {
+      return self.queue.sync(flags: .barrier) {
+        guard let idx = self.uniquer[path.cacheKey] else {
+          if let existing = self.uniquer[path.cacheKey] {
+            // If there's an entry for the canonical path for this key, we just
+            // need to vend its handle.
+            return existing
+          } else {
+            // Otherwise we need to add an entry for the key.
+            let nextSlot = self.table.count
+            self.uniquer[path.cacheKey] = .init(nextSlot)
+            self.table.append(path)
+            return .init(nextSlot)
+          }
+        }
+        assert(idx.core >= 0, "Produced invalid index \(idx) for path \(path)")
+        return idx
+      }
+    }
+
+    fileprivate func lookupHandle(for path: VirtualPath) -> VirtualPath.Handle? {
+      switch path {
+      case .standardInput:
+        return .standardInput
+      case .standardOutput:
+        return .standardOutput
+      default:
+        return self.queue.sync {
+          return self.uniquer[path.cacheKey]
+        }
+      }
+    }
+
+    fileprivate subscript(key: VirtualPath.Handle) -> VirtualPath {
+      switch key {
+      case .standardInput:
+        return .standardInput
+      case .standardOutput:
+        return .standardOutput
+      default:
+        return self.queue.sync {
+          return self.table[key.core]
+        }
+      }
+    }
+  }
+}
+
+extension VirtualPath.Handle: CustomStringConvertible {
+  public var description: String {
+    VirtualPath.lookup(self).description
+  }
+}
+
+extension VirtualPath.Handle: Equatable {}
+extension VirtualPath.Handle: Hashable {}
 
 extension VirtualPath: Codable {
   private enum CodingKeys: String, CodingKey {
@@ -276,20 +490,20 @@ extension VirtualPath: Codable {
 
 /// A wrapper for easier decoding of absolute or relative VirtualPaths from strings.
 public struct TextualVirtualPath: Codable, Hashable {
-  public var path: VirtualPath
+  public var path: VirtualPath.Handle
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
-    path = try VirtualPath(path: container.decode(String.self))
+    path = try VirtualPath.intern(path: container.decode(String.self))
   }
 
-  public init(path: VirtualPath) {
+  public init(path: VirtualPath.Handle) {
     self.path = path
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
-    switch path {
+    switch VirtualPath.lookup(self.path) {
     case .absolute(let path):
       try container.encode(path.pathString)
     case .relative(let path):

@@ -121,10 +121,11 @@ fileprivate extension InterModuleDependencyGraph {
       throw Driver.Error.missingExternalDependency(placeholderId.moduleName)
     }
 
+    let placeholderHandle = try VirtualPath.intern(path: placeholderPath.pathString)
     let newExternalModuleDetails =
       try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                              TextualVirtualPath(path: .absolute(placeholderPath)))
-    let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: .absolute(placeholderPath)),
+                                              TextualVirtualPath(path: placeholderHandle))
+    let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: placeholderHandle),
                              sourceFiles: [],
                              directDependencies: externalModuleInfo.directDependencies,
                              details: .swiftPrebuiltExternal(newExternalModuleDetails))

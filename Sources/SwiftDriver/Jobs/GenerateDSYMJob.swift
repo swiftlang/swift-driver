@@ -30,7 +30,7 @@ extension Driver {
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: outputPath, type: .dSYM)]
+      outputs: [.init(file: outputPath.intern(), type: .dSYM)]
     )
   }
 }

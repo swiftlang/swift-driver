@@ -21,7 +21,7 @@ private func checkExplicitModuleBuildJob(job: Job,
                                          pcmArgs: [String],
                                          moduleId: ModuleDependencyId,
                                          dependencyOracle: InterModuleDependencyOracle,
-                                         pcmFileEncoder: (ModuleInfo, [String]) -> VirtualPath)
+                                         pcmFileEncoder: (ModuleInfo, [String]) -> VirtualPath.Handle)
 throws {
   let moduleInfo = dependencyOracle.getExternalModuleInfo(of: moduleId)!
   var downstreamPCMArgs = pcmArgs
@@ -39,7 +39,7 @@ throws {
           let typedCandidatePath = TypedVirtualPath(file: candidatePath,
                                                     type: .swiftModule)
           XCTAssertTrue(job.inputs.contains(typedCandidatePath))
-          XCTAssertTrue(job.commandLine.contains(.path(candidatePath)))
+          XCTAssertTrue(job.commandLine.contains(.path(VirtualPath.lookup(candidatePath))))
         }
         XCTAssertTrue(job.commandLine.filter {$0 == .flag("-candidate-module-file")}.count == compiledCandidateList.count)
       }
@@ -70,7 +70,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      pcmArgs: [String],
                                                      moduleInfo : ModuleInfo,
                                                      dependencyOracle: InterModuleDependencyOracle,
-                                                     pcmFileEncoder: (ModuleInfo, [String]) -> VirtualPath
+                                                     pcmFileEncoder: (ModuleInfo, [String]) -> VirtualPath.Handle
 ) throws {
   for dependencyId in moduleInfo.directDependencies! {
     let dependencyInfo = dependencyOracle.getExternalModuleInfo(of: dependencyId)!
@@ -179,7 +179,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in modulePrebuildJobs {
         XCTAssertEqual(job.outputs.count, 1)
         XCTAssertFalse(driver.isExplicitMainModuleJob(job: job))
-        let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath in
+        let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
           try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
                                                                                        hashParts: hashParts)
         }
@@ -336,7 +336,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if driver.targetTriple.isDarwin {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
       }
-      let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath in
+      let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
         try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
                                                                                      hashParts: hashParts)
       }
@@ -479,7 +479,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if driver.targetTriple.isDarwin {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
       }
-      let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath in
+      let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
         try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
                                                                                      hashParts: hashParts)
       }

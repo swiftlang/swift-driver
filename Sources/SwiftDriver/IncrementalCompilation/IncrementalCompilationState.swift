@@ -307,8 +307,8 @@ extension IncrementalCompilationState {
         report(message, pathIfGiven?.file)
         return
       }
-      let output = outputFileMap.getOutput(inputFile: path.file, outputType: .object)
-      let compiling = " {compile: \(output.basename) <= \(input.basename)}"
+      let output = outputFileMap.getOutput(inputFile: path.fileHandle, outputType: .object)
+      let compiling = " {compile: \(VirtualPath.lookup(output).basename) <= \(input.basename)}"
       diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) \(compiling)"))
     }
 
@@ -410,9 +410,8 @@ extension IncrementalCompilationState {
 // MARK: - OutputFileMap
 extension OutputFileMap {
   func onlySourceFilesHaveSwiftDeps() -> Bool {
-    let nonSourceFilesWithSwiftDeps = entries.compactMap {
-      input, outputs in
-      input.extension != FileType.swift.rawValue &&
+    let nonSourceFilesWithSwiftDeps = entries.compactMap { input, outputs in
+      VirtualPath.lookup(input).extension != FileType.swift.rawValue &&
         input.description != "." &&
         outputs.keys.contains(.swiftDeps)
         ? input

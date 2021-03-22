@@ -326,12 +326,11 @@ extension ModuleDependencyGraph {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
     }
-    guard let depFile = externalDependency.path
-    else {
+    guard let depFile = externalDependency.path else {
       return true
     }
-    let hasChanged = ((try? info.fileSystem.lastModificationTime(for: depFile)) ?? .distantFuture)
-      >= info.buildTime
+    let fileModTime = (try? info.fileSystem.lastModificationTime(for: depFile)) ?? .distantFuture
+    let hasChanged = fileModTime >= info.buildTime
     externalDependencyModTimeCache[externalDependency] = hasChanged
     return hasChanged
   }
@@ -356,7 +355,7 @@ extension OutputFileMap {
     diagnosticEngine: DiagnosticsEngine
   ) -> DependencySource? {
     assert(sourceFile.type == FileType.swift)
-    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.file,
+    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
                                              outputType: .swiftDeps)
     else {
       // The legacy driver fails silently here.
@@ -365,7 +364,7 @@ extension OutputFileMap {
       )
       return nil
     }
-    assert(swiftDepsPath.extension == FileType.swiftDeps.rawValue)
+    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
     let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
     return DependencySource(typedSwiftDepsFile)
   }
@@ -563,7 +562,7 @@ extension ModuleDependencyGraph {
           let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
           guard let dependencySource = try swiftDepsStr
-                  .map({ try VirtualPath(path: $0) })
+                  .map({ try VirtualPath.intern(path: $0) })
                   .map(DependencySource.init)
           else {
             throw ReadError.unknownDependencySourceExtension
@@ -599,15 +598,17 @@ extension ModuleDependencyGraph {
           }
           let inputPathString = identifiers[Int(record.fields[0])]
           let dependencySourcePathString = identifiers[Int(record.fields[1])]
-          let inputPath = try VirtualPath(path: inputPathString)
-          let dependencySourcePath = try VirtualPath(path: dependencySourcePathString)
+          let inputHandle = try VirtualPath.intern(path: inputPathString)
+          let inputPath = VirtualPath.lookup(inputHandle)
+          let dependencySourceHandle = try VirtualPath.intern(path: dependencySourcePathString)
+          let dependencySourcePath = VirtualPath.lookup(dependencySourceHandle)
           guard inputPath.extension == FileType.swift.rawValue,
                 dependencySourcePath.extension == FileType.swiftDeps.rawValue,
-                let dependencySource = DependencySource(dependencySourcePath)
+                let dependencySource = DependencySource(dependencySourceHandle)
           else {
             throw ReadError.malformedMapRecord
           }
-          let input = TypedVirtualPath(file: inputPath, type: .swift)
+          let input = TypedVirtualPath(file: inputHandle, type: .swift)
           inputDependencySourceMap.append((input, dependencySource))
         case .externalDepNode:
           guard record.fields.count == 2,

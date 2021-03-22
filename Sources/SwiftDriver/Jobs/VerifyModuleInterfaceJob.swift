@@ -24,7 +24,7 @@ extension Driver {
     if let output = serializedDiagnosticsFilePath {
       outputFile = TypedVirtualPath(file: output, type: .diagnostics)
     } else {
-      outputFile = TypedVirtualPath(file: interfaceInput.file.replacingExtension(with: .diagnostics),
+      outputFile = TypedVirtualPath(file: interfaceInput.file.replacingExtension(with: .diagnostics).intern(),
                                     type: .diagnostics)
     }
 

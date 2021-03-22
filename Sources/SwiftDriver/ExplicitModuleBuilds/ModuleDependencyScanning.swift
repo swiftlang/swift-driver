@@ -73,10 +73,10 @@ internal extension Driver {
 
     // Explicit external targets
     for (moduleId, binaryModulePath) in externalTargetModulePathMap {
+      let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: TextualVirtualPath(path:
-                                                    .absolute(binaryModulePath))))
+                                  modulePath: modPath))
     }
 
     // All other already-scanned Swift modules
@@ -255,10 +255,10 @@ internal extension Driver {
     let outputs: [TypedVirtualPath] = try moduleInfos.map {
       switch $0 {
         case .swift(let swiftModuleBatchScanInfo):
-          return TypedVirtualPath(file: try VirtualPath(path: swiftModuleBatchScanInfo.output),
+          return TypedVirtualPath(file: try VirtualPath.intern(path: swiftModuleBatchScanInfo.output),
                                   type: .jsonDependencies)
         case .clang(let clangModuleBatchScanInfo):
-          return TypedVirtualPath(file: try VirtualPath(path: clangModuleBatchScanInfo.output),
+          return TypedVirtualPath(file: try VirtualPath.intern(path: clangModuleBatchScanInfo.output),
                                   type: .jsonDependencies)
       }
     }

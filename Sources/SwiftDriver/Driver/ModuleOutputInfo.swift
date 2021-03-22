@@ -16,12 +16,12 @@
   /// How should the Swift module output be handled?
   public enum ModuleOutput: Equatable {
     /// The Swift module is a top-level output.
-    case topLevel(VirtualPath)
+    case topLevel(VirtualPath.Handle)
 
     /// The Swift module is an auxiliary output.
-    case auxiliary(VirtualPath)
+    case auxiliary(VirtualPath.Handle)
 
-    public var outputPath: VirtualPath {
+    public var outputPath: VirtualPath.Handle {
       switch self {
       case .topLevel(let path):
         return path

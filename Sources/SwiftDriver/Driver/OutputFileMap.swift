@@ -14,41 +14,45 @@ import Foundation
 
 /// Mapping of input file paths to specific output files.
 public struct OutputFileMap: Hashable, Codable {
-  static let singleInputKey = VirtualPath.relative(RelativePath(""))
+  static let singleInputKey = try! VirtualPath.intern(path: ".")
 
   /// The known mapping from input file to specific output files.
-  public var entries: [VirtualPath : [FileType : VirtualPath]] = [:]
+  public var entries: [VirtualPath.Handle: [FileType: VirtualPath.Handle]] = [:]
 
   public init() { }
 
-  public init(entries: [VirtualPath : [FileType : VirtualPath]]) {
+  public init(entries: [VirtualPath.Handle: [FileType: VirtualPath.Handle]]) {
     self.entries = entries
   }
 
   /// For the given input file, retrieve or create an output file for the given
   /// file type.
-  public func getOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath {
+  public func getOutput(inputFile: VirtualPath.Handle, outputType: FileType) -> VirtualPath.Handle {
     // If we already have an output file, retrieve it.
     if let output = existingOutput(inputFile: inputFile, outputType: outputType) {
       return output
     }
 
+    let inputFile = VirtualPath.lookup(inputFile)
     if inputFile == .standardOutput {
       fatalError("Standard output cannot be an input file")
     }
 
     // Form the virtual path.
-    return .temporary(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType)))
+    return VirtualPath.temporary(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
   }
 
-  public func existingOutput(inputFile: VirtualPath, outputType: FileType) -> VirtualPath? {
+  public func existingOutput(inputFile: VirtualPath.Handle, outputType: FileType) -> VirtualPath.Handle? {
     if let path = entries[inputFile]?[outputType] {
       return path
     }
     switch outputType {
     case .swiftDocumentation, .swiftSourceInfoFile:
       // Infer paths for these entities using .swiftmodule path.
-      return entries[inputFile]?[.swiftModule]?.replacingExtension(with: outputType)
+      guard let path = entries[inputFile]?[.swiftModule] else {
+        return nil
+      }
+      return VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
 
     case .object:
       // We may generate .o files from bitcode .bc files, but the output file map
@@ -67,21 +71,21 @@ public struct OutputFileMap: Hashable, Codable {
     }
   }
 
-  public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath? {
+  public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath.Handle? {
     existingOutput(inputFile: Self.singleInputKey, outputType: outputType)
   }
 
   public func resolveRelativePaths(relativeTo absPath: AbsolutePath) -> OutputFileMap {
-    let resolvedKeyValues: [(VirtualPath, [FileType : VirtualPath])] = entries.map {
-      let resolvedKey: VirtualPath
+    let resolvedKeyValues: [(VirtualPath.Handle, [FileType : VirtualPath.Handle])] = entries.map { entry in
+      let resolvedKey: VirtualPath.Handle
       // Special case for single dependency record, leave it as is
-      if $0.key == Self.singleInputKey {
-        resolvedKey = $0.key
+      if entry.key == Self.singleInputKey {
+        resolvedKey = entry.key
       } else {
-        resolvedKey = $0.key.resolvedRelativePath(base: absPath)
+        resolvedKey = try! VirtualPath.intern(path: VirtualPath.lookup(entry.key).resolvedRelativePath(base: absPath).description)
       }
-      let resolvedValue = $0.value.mapValues {
-        $0.resolvedRelativePath(base: absPath)
+      let resolvedValue = entry.value.mapValues {
+        try! VirtualPath.intern(path: VirtualPath.lookup($0).resolvedRelativePath(base: absPath).description)
       }
       return (resolvedKey, resolvedValue)
     }
@@ -94,8 +98,8 @@ public struct OutputFileMap: Hashable, Codable {
   public func getInput(outputFile: VirtualPath) -> VirtualPath? {
     entries
       .compactMap {
-        $0.value.values.contains(outputFile)
-          ? $0.key
+        $0.value.values.contains(outputFile.intern())
+          ? VirtualPath.lookup($0.key)
           : nil
       }
       .first
@@ -141,11 +145,11 @@ public struct OutputFileMap: Hashable, Codable {
   /// Human-readable texual representation
   var description: String {
     var result = ""
-    func outputPairDescription(inputPath: VirtualPath, outputPair: (FileType, VirtualPath))
+    func outputPairDescription(inputPath: VirtualPath.Handle, outputPair: (FileType, VirtualPath.Handle))
     -> String {
       "\(inputPath.description) -> \(outputPair.0.description): \"\(outputPair.1.description)\"\n"
     }
-    let maps = entries.map { ($0, $1) }.sorted { $0.0.description < $1.0.description }
+    let maps = entries.map { ($0, $1) }.sorted { VirtualPath.lookup($0.0).description < VirtualPath.lookup($1.0).description }
     for (input, map) in maps {
       let pairs = map.map { ($0, $1) }.sorted { $0.0.description < $1.0.description }
       for (outputType, outputPath) in pairs {
@@ -228,23 +232,23 @@ fileprivate struct OutputFileMapJSON: Codable {
   }
 
   /// Converts into virtual path entries.
-  func toVirtualOutputFileMap() throws -> [VirtualPath : [FileType : VirtualPath]] {
+  func toVirtualOutputFileMap() throws -> [VirtualPath.Handle : [FileType : VirtualPath.Handle]] {
     Dictionary(try entries.map { input, entry in
-      (try VirtualPath(path: input), try entry.paths.mapValues(VirtualPath.init(path:)))
+      (try VirtualPath.intern(path: input), try entry.paths.mapValues(VirtualPath.intern(path:)))
     }, uniquingKeysWith: { $1 })
   }
 
   /// Converts from virtual path entries
   static func fromVirtualOutputFileMap(
-    _ entries: [VirtualPath : [FileType : VirtualPath]]
+    _ entries: [VirtualPath.Handle : [FileType : VirtualPath.Handle]]
   ) -> Self {
-    func convert(entry: (key: VirtualPath, value: [FileType: VirtualPath])) -> (String, Entry) {
+    func convert(entry: (key: VirtualPath.Handle, value: [FileType: VirtualPath.Handle])) -> (String, Entry) {
       // We use a VirtualPath with an empty path for the master entry, but its name is "." and we need ""
-      let fixedIfMaster = entry.key.name == "." ? "" : entry.key.name
+      let fixedIfMaster = VirtualPath.lookup(entry.key).name == "." ? "" : VirtualPath.lookup(entry.key).name
       return (fixedIfMaster, convert(outputs: entry.value))
     }
-    func convert(outputs: [FileType: VirtualPath]) -> Entry {
-      Entry(paths: outputs.mapValues({ $0.name }))
+    func convert(outputs: [FileType: VirtualPath.Handle]) -> Entry {
+      Entry(paths: outputs.mapValues({ VirtualPath.lookup($0).name }))
     }
     return Self(entries: Dictionary(uniqueKeysWithValues: entries.map(convert(entry:))))
   }

@@ -18,11 +18,11 @@ extension Driver {
       isMergeModule: Bool
   ) {
     // Add supplemental outputs.
-    func addSupplementalOutput(path: VirtualPath?, flag: String, type: FileType) {
+    func addSupplementalOutput(path: VirtualPath.Handle?, flag: String, type: FileType) {
       guard let path = path else { return }
 
       commandLine.appendFlag(flag)
-      commandLine.appendPath(path)
+      commandLine.appendPath(VirtualPath.lookup(path))
       outputs.append(.init(file: path, type: type))
     }
 
@@ -42,7 +42,7 @@ extension Driver {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
       if parsedOptions.getLastArgument(.emitDependenciesPath) == nil {
-        path = moduleOutputInfo.output!.outputPath.replacingExtension(with: .dependencies)
+        path = VirtualPath.lookup(moduleOutputInfo.output!.outputPath).replacingExtension(with: .dependencies).intern()
       }
       addSupplementalOutput(path: path, flag: "-emit-dependencies-path", type: .dependencies)
     }
@@ -79,7 +79,7 @@ extension Driver {
     }
 
     commandLine.appendFlag(.o)
-    commandLine.appendPath(moduleOutputPath)
+    commandLine.appendPath(VirtualPath.lookup(moduleOutputPath))
 
     return Job(
       moduleName: moduleOutputInfo.name,

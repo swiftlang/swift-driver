@@ -134,7 +134,7 @@ import SwiftOptions
 
   public func platformSpecificInterpreterEnvironmentVariables(env: [String : String],
                                                               parsedOptions: inout ParsedOptions,
-                                                              sdkPath: VirtualPath?,
+                                                              sdkPath: VirtualPath.Handle?,
                                                               targetInfo: FrontendTargetInfo) throws -> [String : String] {
     throw Error.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)
   }

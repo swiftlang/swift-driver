@@ -142,13 +142,13 @@ public final class ArgsResolver {
       // and the frontend (llvm) only seems to support implicit block format.
       try fileSystem.writeFileContents(absPath) { out in
         for (input, map) in outputFileMap.entries {
-          out <<< quoteAndEscape(path: input) <<< ":"
+          out <<< quoteAndEscape(path: VirtualPath.lookup(input)) <<< ":"
           if map.isEmpty {
             out <<< " {}\n"
           } else {
             out <<< "\n"
             for (type, output) in map {
-              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: output) <<< "\n"
+              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: VirtualPath.lookup(output)) <<< "\n"
             }
           }
         }

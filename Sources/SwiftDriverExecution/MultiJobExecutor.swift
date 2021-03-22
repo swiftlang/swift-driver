@@ -34,7 +34,7 @@ public final class MultiJobExecutor {
 
     /// This contains mapping from an output to the index(in the jobs array) of the job that produces that output.
     /// Can grow dynamically as  jobs are added.
-    var producerMap: [VirtualPath: Int] = [:]
+    var producerMap: [VirtualPath.Handle: Int] = [:]
 
     /// All the jobs being executed.
     var jobs: [Job] = []
@@ -125,14 +125,14 @@ public final class MultiJobExecutor {
 
     private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
     ) -> (jobs: [Job],
-          producerMap: [VirtualPath: Int],
+          producerMap: [VirtualPath.Handle: Int],
           primaryIndices: Range<Int>,
           postCompileIndices: Range<Int>,
           incrementalCompilationState: IncrementalCompilationState?,
           continueBuildingAfterErrors: Bool)
     {
       var jobs = [Job]()
-      var producerMap = [VirtualPath: Int]()
+      var producerMap = [VirtualPath.Handle: Int]()
       let primaryIndices, postCompileIndices: Range<Int>
       let incrementalCompilationState: IncrementalCompilationState?
       switch workload.kind {
@@ -169,7 +169,7 @@ public final class MultiJobExecutor {
     fileprivate static func addJobs(
       _ js: [Job],
       to jobs: inout [Job],
-      producing producerMap: inout [VirtualPath: Int]
+      producing producerMap: inout [VirtualPath.Handle: Int]
     ) -> Range<Int> {
       let initialCount = jobs.count
       for job in js {
@@ -183,13 +183,13 @@ public final class MultiJobExecutor {
     private static func addProducts(of job: Job,
                                     index: Int,
                                     knownJobs: [Job],
-                                    to producerMap: inout [VirtualPath: Int]
+                                    to producerMap: inout [VirtualPath.Handle: Int]
     ) {
       for output in job.outputs {
-        if let otherJobIndex = producerMap.updateValue(index, forKey: output.file) {
+        if let otherJobIndex = producerMap.updateValue(index, forKey: output.fileHandle) {
           fatalError("multiple producers for output \(output.file): \(job) & \(knownJobs[otherJobIndex])")
         }
-        producerMap[output.file] = index
+        producerMap[output.fileHandle] = index
       }
     }
 
@@ -473,8 +473,13 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   override func start(_ engine: LLTaskBuildEngine) {
-    // First, request all compilation jobs whose outputs this rule depends on.
-    requestInputs(from: engine)
+    // Request all compilation jobs whose outputs this rule depends on.
+    for (inputIndex, inputFile) in self.myJob.inputs.enumerated() {
+      guard let index = self.context.producerMap[inputFile.fileHandle] else {
+        continue
+      }
+      engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: index), inputID: inputIndex)
+    }
   }
 
   override func isResultValid(_ priorValue: Value) -> Bool {
@@ -502,19 +507,6 @@ class ExecuteJobRule: LLBuildRule {
 
   private var myJob: Job {
     context.jobs[key.index]
-  }
-
-  private var inputKeysAndIDs: [(RuleKey, Int)] {
-    myJob.inputs.enumerated().compactMap {
-      (inputIndex, inputFile) in
-      context.producerMap[inputFile.file] .map  { (ExecuteJobRule.RuleKey(index: $0), inputIndex) }
-    }
-  }
-
-  private func requestInputs(from engine: LLTaskBuildEngine) {
-    for (key, ID) in inputKeysAndIDs {
-      engine.taskNeedsInput(key, inputID: ID)
-    }
   }
 
   private func rememberIfInputSucceeded(_ engine: LLTaskBuildEngine, value: Value) {

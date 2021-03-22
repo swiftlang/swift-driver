@@ -47,7 +47,7 @@ extension Driver {
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: output, type: .autolink)],
+      outputs: [.init(file: output.intern(), type: .autolink)],
       supportsResponseFiles: true
     )
   }

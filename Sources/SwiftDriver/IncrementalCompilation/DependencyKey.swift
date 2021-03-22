@@ -9,38 +9,45 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-
 import Foundation
 import TSCBasic
 
 /// A filename from another module
 /*@_spi(Testing)*/ final public class ExternalDependency: Hashable, Comparable, CustomStringConvertible {
 
-  
+
   /// Delay computing the path as an optimization.
   let fileName: String
-  lazy var path = getPath()
+  lazy var pathHandle = getPathHandle()
 
   /*@_spi(Testing)*/ public init(fileName: String) {
     self.fileName = fileName
   }
 
   /// Should only be called by debugging functions or functions that are cached
-  private func getPath() -> VirtualPath? {
-    try? VirtualPath(path: fileName)
+  private func getPathHandle() -> VirtualPath.Handle? {
+    try? VirtualPath.intern(path: fileName)
   }
-  
+
   /// Cache this here
   var isSwiftModule: Bool {
     fileName.hasSuffix(".\(FileType.swiftModule.rawValue)")
   }
 
   var swiftModuleFile: TypedVirtualPath? {
-    isSwiftModule ? path.map {TypedVirtualPath(file: $0, type: .swiftModule)} : nil
+    guard let pathHandle = pathHandle, isSwiftModule
+    else {
+      return nil
+    }
+    return TypedVirtualPath(file: pathHandle, type: .swiftModule)
+  }
+
+  public var path: VirtualPath? {
+    pathHandle.map(VirtualPath.lookup)
   }
 
   public var description: String {
-    guard let path = getPath() else {
+    guard let path = path else {
       return "non-path: '\(fileName)'"
     }
     switch path.extension {
@@ -53,9 +60,9 @@ import TSCBasic
   }
 
   public var shortDescription: String {
-    getPath().map { path in
-      DependencySource(path).map { $0.shortDescription }
-        ?? path.basename
+    pathHandle.map { pathHandle in
+      DependencySource(pathHandle).map { $0.shortDescription }
+        ?? VirtualPath.lookup(pathHandle).basename
     }
     ?? description
   }
@@ -79,14 +86,14 @@ import TSCBasic
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
   var externalDependency: ExternalDependency
   let fingerprint: String?
-  
+
   @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
     assert(verifyExternalDependencyAndFingerprint())
   }
   var externalDependencyToCheck: ExternalDependency? { externalDependency }
-  
+
   var incrementalDependencySource: DependencySource? {
     guard let _ = fingerprint,
           let swiftModuleFile = externalDependency.swiftModuleFile
@@ -360,4 +367,3 @@ extension DependencyKey: Comparable {
 
 extension DependencyKey.Designator: Comparable {
 }
-
