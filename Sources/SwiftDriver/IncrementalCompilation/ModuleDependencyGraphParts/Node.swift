@@ -54,12 +54,15 @@ extension ModuleDependencyGraph {
     /// invocation that has not kicked off any compiles yet.
     @_spi(Testing) public private(set) var isTraced: Bool = false
 
+    private let cachedHash: Int
+
     /// This dependencySource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
     init(key: DependencyKey, fingerprint: String?,
          dependencySource: DependencySource?) {
       self.keyAndFingerprint = try! KeyAndFingerprintHolder(key, fingerprint)
       self.dependencySource = dependencySource
+      self.cachedHash = Self.computeHash(key, dependencySource)
     }
   }
 }
@@ -84,9 +87,15 @@ extension ModuleDependencyGraph.Node: Equatable, Hashable {
     lhs.keyAndFingerprint.key == rhs.keyAndFingerprint.key &&
     lhs.dependencySource == rhs.dependencySource
   }
+  static private func computeHash(_ key: DependencyKey, _ source: DependencySource?) -> Int {
+    var h = Hasher()
+    h.combine(key)
+    h.combine(source)
+    return h.finalize()
+  }
+
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(keyAndFingerprint.key)
-    hasher.combine(dependencySource)
+    hasher.combine(cachedHash)
   }
 }
 

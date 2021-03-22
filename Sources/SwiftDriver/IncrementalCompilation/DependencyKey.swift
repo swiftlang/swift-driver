@@ -100,7 +100,7 @@ public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDepe
 /// A `DependencyKey` carries all of the information necessary to uniquely
 /// identify a dependency node in the graph, and serves as a point of identity
 /// for the dependency graph's map from definitions to uses.
-public struct DependencyKey: Hashable, CustomStringConvertible {
+public struct DependencyKey: CustomStringConvertible {
   /// Captures which facet of the dependency structure a dependency key represents.
   ///
   /// A `DeclAspect` is used to separate dependencies with a scope limited to
@@ -301,6 +301,8 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   /*@_spi(Testing)*/ public let aspect: DeclAspect
   /*@_spi(Testing)*/ public let designator: Designator
 
+  private let cachedHash: Int
+
 
   /*@_spi(Testing)*/ public init(
     aspect: DeclAspect,
@@ -308,8 +310,8 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   {
     self.aspect = aspect
     self.designator = designator
+    self.cachedHash = Self.computeHash(aspect, designator)
   }
-
 
   /*@_spi(Testing)*/ public var correspondingImplementation: Self? {
     guard aspect == .interface  else {
@@ -326,6 +328,24 @@ public struct DependencyKey: Hashable, CustomStringConvertible {
   func verify() -> Bool {
     // This space reserved for future use.
     return true
+  }
+}
+
+extension DependencyKey: Equatable, Hashable {
+
+  private static func computeHash(_ aspect: DeclAspect, _ designator: Designator) -> Int {
+    var h = Hasher()
+    h.combine(aspect)
+    h.combine(designator)
+    return h.finalize()
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(cachedHash)
+  }
+
+  public static func ==(lhs: Self, rhs: Self) -> Bool {
+    lhs.aspect == rhs.aspect && lhs.designator == rhs.designator
   }
 }
 
