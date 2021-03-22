@@ -43,7 +43,7 @@ extension Driver {
         path = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
       }
       commandLine.appendPath(path)
-      outputs.append(.init(file: .constant(path), type: .diagnostics))
+      outputs.append(.init(file: path.intern(), type: .diagnostics))
     }
 
     inputs.append(input)

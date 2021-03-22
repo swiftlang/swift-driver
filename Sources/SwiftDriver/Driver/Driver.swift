@@ -1363,7 +1363,7 @@ extension Driver {
     return try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
-        return TypedVirtualPath(file: .constant(.standardInput), type: .swift)
+        return TypedVirtualPath(file: .standardInput, type: .swift)
       }
 
       // Resolve the input file.
@@ -1932,9 +1932,9 @@ extension Driver {
 
     switch moduleOutputKind! {
     case .topLevel:
-      return ModuleOutputInfo(output: .topLevel(.constant(moduleOutputPath)), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .topLevel(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback)
     case .auxiliary:
-      return ModuleOutputInfo(output: .auxiliary(.constant(moduleOutputPath)), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback)
     }
   }
 }
@@ -2039,9 +2039,9 @@ extension Driver {
     let inputFile = VirtualPath.lookup(input)
     let pchFileName = inputFile.basenameWithoutExt.appendingFileTypeExtension(.pch)
     if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      return try .constant(VirtualPath(path: outputDirectory).appending(component: pchFileName))
+      return try VirtualPath(path: outputDirectory).appending(component: pchFileName).intern()
     } else {
-      return .constant(.temporary(RelativePath(pchFileName)))
+      return VirtualPath.temporary(RelativePath(pchFileName)).intern()
     }
   }
 }
@@ -2397,10 +2397,13 @@ extension Driver {
 
       // If the compiler output is of this type, use the argument directly.
       if type == compilerOutputType {
-        return .constant(path)
+        return path.intern()
       }
 
-      return .constant(path.parentDirectory.appending(component: "\(moduleName).\(type.rawValue)"))
+      return path
+        .parentDirectory
+        .appending(component: "\(moduleName).\(type.rawValue)")
+        .intern()
     }
 
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
@@ -2417,7 +2420,7 @@ extension Driver {
     guard let projectDirectory = potentialProjectDirectory, fileSystem.exists(projectDirectory) else {
       return nil
     }
-    return .constant(.absolute(projectDirectory))
+    return VirtualPath.absolute(projectDirectory).intern()
   }
 
   /// Determine the output path for a module documentation.
@@ -2508,7 +2511,10 @@ extension Driver {
         parentPath = VirtualPath.lookup(moduleOutputPath).parentDirectory
       }
 
-      return .constant(parentPath.appending(component: VirtualPath.lookup(moduleOutputPath).basename).replacingExtension(with: type))
+      return parentPath
+        .appending(component: VirtualPath.lookup(moduleOutputPath).basename)
+        .replacingExtension(with: type)
+        .intern()
     }
 
     // If the output option was not provided, don't produce this output at all.

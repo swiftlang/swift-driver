@@ -543,7 +543,7 @@ extension Driver {
             try VirtualPath(path: moduleCachePath!)
               .appending(component: modulePath.description)
           dependencyGraph.modules[moduleId]!.modulePath =
-            TextualVirtualPath(path: .constant(modulePathInCache))
+            TextualVirtualPath(path: modulePathInCache.intern())
         }
       }
     }

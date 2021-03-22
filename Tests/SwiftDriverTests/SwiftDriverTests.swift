@@ -226,18 +226,18 @@ final class SwiftDriverTests: XCTestCase {
   func testInputFiles() throws {
     let driver1 = try Driver(args: ["swiftc", "a.swift", "/tmp/b.swift"])
     XCTAssertEqual(driver1.inputFiles,
-                   [ TypedVirtualPath(file: .constant(.relative(RelativePath("a.swift"))), type: .swift),
-                     TypedVirtualPath(file: .constant(.absolute(AbsolutePath("/tmp/b.swift"))), type: .swift) ])
+                   [ TypedVirtualPath(file: VirtualPath.relative(RelativePath("a.swift")).intern(), type: .swift),
+                     TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/tmp/b.swift")).intern(), type: .swift) ])
     let driver2 = try Driver(args: ["swiftc", "a.swift", "-working-directory", "/wobble", "/tmp/b.swift"])
     XCTAssertEqual(driver2.inputFiles,
-                   [ TypedVirtualPath(file: .constant(.absolute(AbsolutePath("/wobble/a.swift"))), type: .swift),
-                     TypedVirtualPath(file: .constant(.absolute(AbsolutePath("/tmp/b.swift"))), type: .swift) ])
+                   [ TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/wobble/a.swift")).intern(), type: .swift),
+                     TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/tmp/b.swift")).intern(), type: .swift) ])
 
     let driver3 = try Driver(args: ["swift", "-"])
-    XCTAssertEqual(driver3.inputFiles, [ TypedVirtualPath(file: .constant(.standardInput), type: .swift )])
+    XCTAssertEqual(driver3.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
 
     let driver4 = try Driver(args: ["swift", "-", "-working-directory" , "-wobble"])
-    XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .constant(.standardInput), type: .swift )])
+    XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
   }
 
   func testRecordedInputModificationDates() throws {
@@ -256,8 +256,8 @@ final class SwiftDriverTests: XCTestCase {
         "swiftc", main.pathString, utilRelative.pathString,
       ])
       XCTAssertEqual(driver.recordedInputModificationDates, [
-        .init(file: .constant(.absolute(main)), type: .swift) : mainMDate,
-        .init(file: .constant(.relative(utilRelative)), type: .swift) : utilMDate,
+        .init(file: VirtualPath.absolute(main).intern(), type: .swift) : mainMDate,
+        .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift) : utilMDate,
       ])
     }
   }
@@ -434,12 +434,12 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g") { driver in
-      XCTAssertEqual(driver.moduleOutputInfo.output, .auxiliary(.constant(.temporary(RelativePath("foo.swiftmodule")))))
+      XCTAssertEqual(driver.moduleOutputInfo.output, .auxiliary(VirtualPath.temporary(RelativePath("foo.swiftmodule")).intern()))
       XCTAssertEqual(driver.moduleOutputInfo.name, "foo")
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g") { driver in
-      XCTAssertEqual(driver.moduleOutputInfo.output, .auxiliary(.constant(.temporary(RelativePath("wibble.swiftmodule")))))
+      XCTAssertEqual(driver.moduleOutputInfo.output, .auxiliary(VirtualPath.temporary(RelativePath("wibble.swiftmodule")).intern()))
       XCTAssertEqual(driver.moduleOutputInfo.name, "wibble")
     }
 
@@ -1094,9 +1094,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(linkJob.kind, .link)
 
       let cmd = linkJob.commandLine
-      XCTAssertTrue(linkJob.inputs.contains(.init(file: .constant(.temporary(.init("foo.o"))), type: .object)))
-      XCTAssertTrue(linkJob.inputs.contains(.init(file: .constant(.temporary(.init("bar.o"))), type: .object)))
-      XCTAssertTrue(linkJob.inputs.contains(.init(file: .constant(.relative(.init("baz.o"))), type: .object)))
+      XCTAssertTrue(linkJob.inputs.contains(.init(file: VirtualPath.temporary(.init("foo.o")).intern(), type: .object)))
+      XCTAssertTrue(linkJob.inputs.contains(.init(file: VirtualPath.temporary(.init("bar.o")).intern(), type: .object)))
+      XCTAssertTrue(linkJob.inputs.contains(.init(file: VirtualPath.relative(.init("baz.o")).intern(), type: .object)))
       XCTAssertTrue(cmd.contains(.path(.temporary(.init("foo.o")))))
       XCTAssertTrue(cmd.contains(.path(.temporary(.init("bar.o")))))
       XCTAssertTrue(cmd.contains(.path(.relative(.init("baz.o")))))
@@ -1723,7 +1723,7 @@ final class SwiftDriverTests: XCTestCase {
         // This is to match the legacy driver behavior
         // Make sure the supplementary output map has an entry for the Swift file
         // under indexing and its indexData entry is the primary output file
-        let entry = map.entries[.constant(.relative(RelativePath("foo5.swift")))]!
+        let entry = map.entries[VirtualPath.relative(RelativePath("foo5.swift")).intern()]!
         XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(AbsolutePath("/tmp/t.o")))
         return
       default:
@@ -2859,7 +2859,7 @@ final class SwiftDriverTests: XCTestCase {
                                               .path(.relative(.init("main.trace.json")))])
       }
       XCTAssertEqual(tracedJobs.count, 1)
-      XCTAssertTrue(tracedJobs[0].inputs.contains(.init(file: .constant(.relative(.init("bar.swift"))), type: .swift)))
+      XCTAssertTrue(tracedJobs[0].inputs.contains(.init(file: VirtualPath.relative(.init("bar.swift")).intern(), type: .swift)))
     }
     do {
       var env = ProcessEnv.vars
@@ -4305,7 +4305,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't OutputFileMap")
         return
       }
-      let filesA = try XCTUnwrap(mapA.entries[.constant(.relative(RelativePath("a.swift")))])
+      let filesA = try XCTUnwrap(mapA.entries[VirtualPath.relative(RelativePath("a.swift")).intern()])
       XCTAssertTrue(filesA.keys.contains(.swiftModule))
       XCTAssertTrue(filesA.keys.contains(.swiftDocumentation))
       XCTAssertTrue(filesA.keys.contains(.swiftSourceInfoFile))
@@ -4321,7 +4321,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't OutputFileMap")
         return
       }
-      let filesB = try XCTUnwrap(mapB.entries[.constant(.relative(RelativePath("b.swift")))])
+      let filesB = try XCTUnwrap(mapB.entries[VirtualPath.relative(RelativePath("b.swift")).intern()])
       XCTAssertTrue(filesB.keys.contains(.swiftModule))
       XCTAssertTrue(filesB.keys.contains(.swiftDocumentation))
       XCTAssertTrue(filesB.keys.contains(.swiftSourceInfoFile))
@@ -4337,7 +4337,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't OutputFileMap")
         return
       }
-      let filesC = try XCTUnwrap(mapC.entries[.constant(.relative(RelativePath("c.swift")))])
+      let filesC = try XCTUnwrap(mapC.entries[VirtualPath.relative(RelativePath("c.swift")).intern()])
       XCTAssertTrue(filesC.keys.contains(.swiftModule))
       XCTAssertTrue(filesC.keys.contains(.swiftDocumentation))
       XCTAssertTrue(filesC.keys.contains(.swiftSourceInfoFile))
@@ -4455,7 +4455,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't OutputFileMap")
         return
       }
-      XCTAssertEqual(mapA.entries, [.constant(.relative(.init("a.swift"))): [:]])
+      XCTAssertEqual(mapA.entries, [VirtualPath.relative(.init("a.swift")).intern(): [:]])
 
       let jobB = plannedJobs[1]
       let flagB = jobB.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
@@ -4468,7 +4468,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't OutputFileMap")
         return
       }
-      XCTAssertEqual(mapB.entries, [.constant(.relative(.init("b.swift"))): [:]])
+      XCTAssertEqual(mapB.entries, [VirtualPath.relative(.init("b.swift")).intern(): [:]])
     }
 
     do {
@@ -4486,7 +4486,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't OutputFileMap")
         return
       }
-      XCTAssertEqual(mapA.entries, [.constant(.relative(.init("a.swift"))): [:]])
+      XCTAssertEqual(mapA.entries, [VirtualPath.relative(.init("a.swift")).intern(): [:]])
     }
   }
 }

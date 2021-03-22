@@ -50,7 +50,7 @@ extension Driver {
          let baseOutputPath = try? VirtualPath.intern(path: baseOutput) {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
       } else if compilerOutputType?.isTextual == true {
-        return TypedVirtualPath(file: .constant(.standardOutput), type: outputType)
+        return TypedVirtualPath(file: .standardOutput, type: outputType)
       } else if outputType == .swiftModule, let moduleOutput = moduleOutputInfo.output {
         return TypedVirtualPath(file: moduleOutput.outputPath, type: outputType)
       }
@@ -64,10 +64,10 @@ extension Driver {
     }
 
     if !isTopLevel {
-      return TypedVirtualPath(file: .constant(.temporary(.init(baseName.appendingFileTypeExtension(outputType)))),
+      return TypedVirtualPath(file: VirtualPath.temporary(.init(baseName.appendingFileTypeExtension(outputType))).intern(),
                               type: outputType)
     }
-    return TypedVirtualPath(file: .constant(useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType)))), type: outputType)
+    return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
   }
 
   /// Is this compile job top-level

@@ -70,7 +70,7 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadBinarySourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
-    let dependencySource = DependencySource(.constant(.absolute(absolutePath)))!
+    let dependencySource = DependencySource(VirtualPath.absolute(absolutePath).intern())!
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
         contentsOf: dependencySource,
@@ -119,7 +119,7 @@ final class NonincrementalCompilationTests: XCTestCase {
                                                          for: "hello.swiftdeps"))
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
-        contentsOf: DependencySource(.constant(.absolute(absolutePath)))!,
+        contentsOf: DependencySource(VirtualPath.absolute(absolutePath).intern())!,
         on: localFileSystem))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
@@ -173,7 +173,7 @@ final class NonincrementalCompilationTests: XCTestCase {
     let data = try localFileSystem.readFileContents(absolutePath)
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(data: data,
-                                    from: DependencySource(.constant(.absolute(absolutePath)))!,
+                                    from: DependencySource(VirtualPath.absolute(absolutePath).intern())!,
                                     fromSwiftModule: true))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
@@ -890,7 +890,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
       let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data,
-                                                          from: DependencySource(.constant(.absolute(sourcePath)))!,
+                                                          from: DependencySource(VirtualPath.absolute(sourcePath).intern())!,
                                                           fromSwiftModule: false))
       XCTAssertEqual(graph.majorVersion, 1)
       XCTAssertEqual(graph.minorVersion, 0)

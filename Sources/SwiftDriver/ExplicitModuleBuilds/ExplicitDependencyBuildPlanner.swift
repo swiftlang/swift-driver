@@ -260,7 +260,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
         try serializeModuleDependencies(for: moduleId, dependencyArtifacts: swiftDependencyArtifacts)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendPath(dependencyFile)
-      inputs.append(TypedVirtualPath(file: .constant(dependencyFile),
+      inputs.append(TypedVirtualPath(file: dependencyFile.intern(),
                                      type: .jsonSwiftArtifacts))
       // Each individual module binary is still an "input" to ensure the build system gets the
       // order correctly.

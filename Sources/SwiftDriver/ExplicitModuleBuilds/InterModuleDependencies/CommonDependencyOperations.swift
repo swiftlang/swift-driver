@@ -34,8 +34,8 @@ import TSCBasic
        let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
       let newExternalModuleDetails =
         try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                                TextualVirtualPath(path: .constant(.absolute(externalModulePath))))
-      let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: .constant(.absolute(externalModulePath))),
+                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()))
+      let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                sourceFiles: [],
                                directDependencies: currentInfo.directDependencies,
                                details: .swiftPrebuiltExternal(newExternalModuleDetails))

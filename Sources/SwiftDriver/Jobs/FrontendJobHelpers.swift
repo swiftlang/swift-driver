@@ -277,9 +277,9 @@ extension Driver {
           outputPath = outputFileMapPath
         } else if let output = inputOutputMap[input], output.file != .standardOutput, compilerOutputType != nil {
           // Alongside primary output
-          outputPath = .constant(output.file.replacingExtension(with: outputType))
+          outputPath = output.file.replacingExtension(with: outputType).intern()
         } else {
-          outputPath = .constant(.temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))))
+          outputPath = VirtualPath.temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
       } else {
         outputPath = finalOutputPath
@@ -386,7 +386,7 @@ extension Driver {
 
       flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",
                                       input: input,
-                                      output: TypedVirtualPath(file: .constant(remapOutputPath), type: .remap)))
+                                      output: TypedVirtualPath(file: remapOutputPath.intern(), type: .remap)))
     }
 
     if includeModuleTracePath, let tracePath = loadedModuleTracePath {

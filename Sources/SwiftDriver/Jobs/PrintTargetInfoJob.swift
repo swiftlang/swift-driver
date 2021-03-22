@@ -168,7 +168,7 @@ extension Toolchain {
       displayInputs: [],
       inputs: [],
       primaryInputs: [],
-      outputs: [.init(file: .constant(.standardOutput), type: .jsonTargetInfo)],
+      outputs: [.init(file: .standardOutput, type: .jsonTargetInfo)],
       requiresInPlaceExecution: requiresInPlaceExecution,
       supportsResponseFiles: false
     )

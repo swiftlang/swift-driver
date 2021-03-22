@@ -39,7 +39,7 @@ public struct OutputFileMap: Hashable, Codable {
     }
 
     // Form the virtual path.
-    return .constant(.temporary(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType))))
+    return VirtualPath.temporary(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
   }
 
   public func existingOutput(inputFile: VirtualPath.Handle, outputType: FileType) -> VirtualPath.Handle? {
@@ -52,7 +52,7 @@ public struct OutputFileMap: Hashable, Codable {
       guard let path = entries[inputFile]?[.swiftModule] else {
         return nil
       }
-      return .constant(VirtualPath.lookup(path).replacingExtension(with: outputType))
+      return VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
 
     case .object:
       // We may generate .o files from bitcode .bc files, but the output file map
@@ -98,7 +98,7 @@ public struct OutputFileMap: Hashable, Codable {
   public func getInput(outputFile: VirtualPath) -> VirtualPath? {
     entries
       .compactMap {
-        $0.value.values.contains(.constant(outputFile))
+        $0.value.values.contains(outputFile.intern())
           ? VirtualPath.lookup($0.key)
           : nil
       }

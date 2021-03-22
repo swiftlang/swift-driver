@@ -34,7 +34,7 @@ internal extension Driver {
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .constant(.standardOutput), type: .jsonDependencies)],
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
                supportsResponseFiles: true)
   }
 
@@ -73,10 +73,10 @@ internal extension Driver {
 
     // Explicit external targets
     for (moduleId, binaryModulePath) in externalTargetModulePathMap {
+      let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
       placeholderArtifacts.append(
           SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: TextualVirtualPath(path:
-                                                                  .constant(.absolute(binaryModulePath)))))
+                                  modulePath: modPath))
     }
 
     // All other already-scanned Swift modules

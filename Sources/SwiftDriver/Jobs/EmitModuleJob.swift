@@ -42,7 +42,7 @@ extension Driver {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
       if parsedOptions.getLastArgument(.emitDependenciesPath) == nil {
-        path = .constant(VirtualPath.lookup(moduleOutputInfo.output!.outputPath).replacingExtension(with: .dependencies))
+        path = VirtualPath.lookup(moduleOutputInfo.output!.outputPath).replacingExtension(with: .dependencies).intern()
       }
       addSupplementalOutput(path: path, flag: "-emit-dependencies-path", type: .dependencies)
     }
