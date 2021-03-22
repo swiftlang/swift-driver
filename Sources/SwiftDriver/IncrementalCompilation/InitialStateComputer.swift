@@ -138,8 +138,7 @@ extension IncrementalCompilationState.InitialStateComputer {
     catch {
       diagnosticEngine.emit(
         warning: "Could not read \(dependencyGraphPath), will not do cross-module incremental builds")
-      reporter?.reportDisablingIncrementalBuild("Could not read priors from \(dependencyGraphPath)")
-      return nil
+      graphIfPresent = nil
     }
     guard let graph = graphIfPresent
     else {
