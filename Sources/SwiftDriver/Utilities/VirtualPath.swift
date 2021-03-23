@@ -365,17 +365,10 @@ extension VirtualPath {
     fileprivate func intern(virtualPath path: VirtualPath) -> VirtualPath.Handle {
       return self.queue.sync(flags: .barrier) {
         guard let idx = self.uniquer[path.cacheKey] else {
-          if let existing = self.uniquer[path.cacheKey] {
-            // If there's an entry for the canonical path for this key, we just
-            // need to vend its handle.
-            return existing
-          } else {
-            // Otherwise we need to add an entry for the key.
-            let nextSlot = self.table.count
-            self.uniquer[path.cacheKey] = .init(nextSlot)
-            self.table.append(path)
-            return .init(nextSlot)
-          }
+          let nextSlot = self.table.count
+          self.uniquer[path.cacheKey] = .init(nextSlot)
+          self.table.append(path)
+          return .init(nextSlot)
         }
         assert(idx.core >= 0, "Produced invalid index \(idx) for path \(path)")
         return idx
