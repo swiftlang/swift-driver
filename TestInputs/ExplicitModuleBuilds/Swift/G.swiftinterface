@@ -4,5 +4,4 @@
 @_exported import G
 import Swift
 public func overlayFuncG() { }
-let stringG : String = "Build"
 #endif

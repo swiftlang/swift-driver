@@ -576,12 +576,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
                                                             .parentDirectory // bin
                                                             .parentDirectory // toolchain root
-    let stdLibPath = toolchainRootPath.appending(component: "lib")
-                                      .appending(component: "swift")
-                                      .appending(component: driver.targetTriple.osNameUnversioned)
-    let shimsPath = toolchainRootPath.appending(component: "lib")
-                                     .appending(component: "swift")
-                                     .appending(component: "shims")
+
+    let stdLibPath: AbsolutePath
+    let shimsPath: AbsolutePath
+    // On Darwin, use the SDK's stdlib, to make sure the test is more likely to actually
+    // find one.
+    if driver.targetTriple.isDarwin {
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers:         [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      let sdkPath = try executor.checkNonZeroExit(
+        args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
+      stdLibPath = AbsolutePath(sdkPath).appending(component: "usr")
+                                        .appending(component: "lib")
+                                        .appending(component: "swift")
+      shimsPath = stdLibPath.appending(component: "shims")
+    } else {
+      stdLibPath = toolchainRootPath.appending(component: "lib")
+        .appending(component: "swift")
+        .appending(component: driver.targetTriple.osNameUnversioned)
+      shimsPath = toolchainRootPath.appending(component: "lib")
+        .appending(component: "swift")
+        .appending(component: "shims")
+    }
+
     XCTAssertTrue(localFileSystem.exists(stdLibPath),
                   "expected Swift StdLib at: \(stdLibPath.description)")
     XCTAssertTrue(localFileSystem.exists(shimsPath),
