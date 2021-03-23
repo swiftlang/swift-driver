@@ -323,9 +323,12 @@ final class JobExecutorTests: XCTestCase {
           $0 <<< "let bar = 3"
         }
 
-        // FIXME: It's unfortunate we diagnose this twice, once for each job which uses the input.
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
-        verifier.expect(.error("input file '\(other.description)' was modified during the build"))
+        // There's a tool-specific linker error that usually happens here from
+        // whatever job runs last - probably the linker.
+        // It's no use testing for a particular error message, let's just make
+        // sure we emit the diagnostic we need.
+        verifier.permitUnexpected(.error)
         XCTAssertThrowsError(try driver.run(jobs: jobs))
       }
     }

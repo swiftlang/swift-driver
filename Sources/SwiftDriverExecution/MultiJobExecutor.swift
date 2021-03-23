@@ -281,6 +281,16 @@ public final class MultiJobExecutor {
 
     context.reportSkippedJobs()
 
+    // Check for any inputs that were modified during the build. Report these
+    // as errors so we don't e.g. reuse corrupted incremental build state.
+    for (input, recordedModTime) in context.recordedInputModificationDates {
+      guard try fileSystem.lastModificationTime(for: input.file) == recordedModTime else {
+        let err = Job.InputError.inputUnexpectedlyModified(input)
+        context.diagnosticsEngine.emit(err)
+        throw err
+      }
+    }
+
     // Throw the stub error the build didn't finish successfully.
     if !result.success {
       throw Diagnostics.fatalError
@@ -534,8 +544,6 @@ class ExecuteJobRule: LLBuildRule {
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  forceResponseFiles: context.forceResponseFiles)
-
-      try job.verifyInputsNotModified(since: context.recordedInputModificationDates, fileSystem: engine.fileSystem)
 
       let process = try context.processType.launchProcess(
         arguments: arguments, env: env
