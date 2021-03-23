@@ -648,7 +648,7 @@ extension TSCBasic.FileSystem {
     try resolvingVirtualPath(path, apply: exists)
   }
 
-  func lastModificationTime(for file: VirtualPath) throws -> Date {
+  public func lastModificationTime(for file: VirtualPath) throws -> Date {
     try resolvingVirtualPath(file) { path in
       #if os(macOS)
       var s = Darwin.stat()
