@@ -255,7 +255,7 @@ extension Driver {
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
                                                         primaryInputs: [TypedVirtualPath],
                                                         inputsGeneratingCodeCount: Int,
-                                                        inputOutputMap: [TypedVirtualPath: TypedVirtualPath],
+                                                        inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
                                                         includeModuleTracePath: Bool,
                                                         indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
@@ -280,11 +280,19 @@ extension Driver {
       if let input = input {
         if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
           outputPath = outputFileMapPath
-        } else if let output = inputOutputMap[input], output.file != .standardOutput, compilerOutputType != nil {
+        } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput, compilerOutputType != nil {
           // Alongside primary output
           outputPath = output.file.replacingExtension(with: outputType).intern()
         } else {
           outputPath = VirtualPath.temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
+        }
+
+        // Update the input-output file map.
+        let output = TypedVirtualPath(file: outputPath, type: outputType)
+        if inputOutputMap[input] != nil {
+          inputOutputMap[input]!.append(output)
+        } else {
+          inputOutputMap[input] = [output]
         }
       } else {
         outputPath = finalOutputPath
@@ -382,7 +390,7 @@ extension Driver {
       let remapOutputPath: VirtualPath
       if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .remap) {
         remapOutputPath = VirtualPath.lookup(outputFileMapPath)
-      } else if let output = inputOutputMap[input], output.file != .standardOutput {
+      } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput {
         // Alongside primary output
         remapOutputPath = output.file.replacingExtension(with: .remap)
       } else {
@@ -403,7 +411,7 @@ extension Driver {
     if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold {
       var entries = [VirtualPath.Handle: [FileType: VirtualPath.Handle]]()
       for input in primaryInputs {
-        if let output = inputOutputMap[input] {
+        if let output = inputOutputMap[input]?.first {
           addEntry(&entries, input: input, output: output)
         } else {
           // Primary inputs are expected to appear in the output file map even
@@ -424,7 +432,7 @@ extension Driver {
       }
       // To match the legacy driver behavior, make sure we add an entry for the
       // file under indexing and the primary output file path.
-      if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath] {
+      if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath]?.first {
         entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)

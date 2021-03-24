@@ -1018,6 +1018,7 @@ extension Driver {
       buildRecordInfo: buildRecordInfo,
       incrementalCompilationState: incrementalCompilationState,
       showJobLifecycle: showJobLifecycle,
+      argsResolver: executor.resolver,
       diagnosticEngine: diagnosticEngine)
   }
 

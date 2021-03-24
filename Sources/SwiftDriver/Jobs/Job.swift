@@ -94,6 +94,9 @@ public struct Job: Codable, Equatable, Hashable {
   /// The kind of job.
   public var kind: Kind
 
+  /// A map from a primary input to all of its corresponding outputs
+  private var compileInputOutputMap: [TypedVirtualPath : [TypedVirtualPath]]
+
   public init(
     moduleName: String,
     kind: Kind,
@@ -103,6 +106,7 @@ public struct Job: Codable, Equatable, Hashable {
     inputs: [TypedVirtualPath],
     primaryInputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
+    inputOutputMap: [TypedVirtualPath : [TypedVirtualPath]] = [:],
     extraEnvironment: [String: String] = [:],
     requiresInPlaceExecution: Bool = false,
     supportsResponseFiles: Bool = false
@@ -115,6 +119,7 @@ public struct Job: Codable, Equatable, Hashable {
     self.inputs = inputs
     self.primaryInputs = primaryInputs
     self.outputs = outputs
+    self.compileInputOutputMap = inputOutputMap
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
     self.supportsResponseFiles = supportsResponseFiles
@@ -140,6 +145,15 @@ extension Job {
         throw InputError.inputUnexpectedlyModified(input)
       }
     }
+  }
+}
+
+extension Job {
+  // If the job's kind is `.compile`, serve a collection of Outputs corresponding
+  // to a given primary input.
+  public func getCompileInputOutputs(for input: TypedVirtualPath) -> [TypedVirtualPath]? {
+    assert(self.kind == .compile)
+    return compileInputOutputMap[input]
   }
 }
 
