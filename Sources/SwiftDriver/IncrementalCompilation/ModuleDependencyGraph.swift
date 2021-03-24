@@ -479,7 +479,7 @@ extension ModuleDependencyGraph {
       // The empty string is hardcoded as identifiers[0]
       private var identifiers: [String] = [""]
       private var currentDefKey: DependencyKey? = nil
-      private var nodeUses: [DependencyKey: [Int]] = [:]
+      private var nodeUses: [(DependencyKey, Int)] = []
       private var inputDependencySourceMap: [(TypedVirtualPath, DependencySource)] = []
       public private(set) var allNodes: [Node] = []
 
@@ -489,12 +489,10 @@ extension ModuleDependencyGraph {
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
-        for (dependencyKey, useIDs) in self.nodeUses {
-          for useID in useIDs {
-            let isNewUse = self.graph.nodeFinder
-              .record(def: dependencyKey, use: self.allNodes[useID])
-            assert(isNewUse, "Duplicate use def-use arc in graph?")
-          }
+        for (dependencyKey, useID) in self.nodeUses {
+          let isNewUse = self.graph.nodeFinder
+            .record(def: dependencyKey, use: self.allNodes[useID])
+          assert(isNewUse, "Duplicate use def-use arc in graph?")
         }
         for (input, source) in inputDependencySourceMap {
           graph.addMapEntry(input, source)
@@ -588,7 +586,7 @@ extension ModuleDependencyGraph {
           guard let key = self.currentDefKey, record.fields.count == 1 else {
             throw ReadError.malformedDependsOnRecord
           }
-          self.nodeUses[key, default: []].append(Int(record.fields[0]))
+          self.nodeUses.append( (key, Int(record.fields[0])) )
         case .mapNode:
           guard record.fields.count == 2,
                 record.fields[0] < identifiers.count,
