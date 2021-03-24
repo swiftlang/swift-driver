@@ -116,8 +116,10 @@ final class IntegrationTests: IntegrationTestCase {
   // they will fail.
 
   func testLitDriverTests() throws {
-    throw XCTSkip("Not all Driver tests supported")
-    // try runLitTests(suite: "test", "Driver")
+    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+      throw XCTSkip("Not all Driver tests supported")
+    }
+    try runLitTests(suite: "test", "Driver")
   }
 
   func testLitDriverDependenciesTests() throws {
@@ -125,18 +127,24 @@ final class IntegrationTests: IntegrationTestCase {
   }
 
   func testLitDriverValidationTests() throws {
-    throw XCTSkip("Not all Driver validation-tests supported")
-    // try runLitTests(suite: "validation-test", "Driver")
+    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+      throw XCTSkip("Not all Driver validation-tests supported")
+    }
+    try runLitTests(suite: "validation-test", "Driver")
   }
 
   func testLitInterpreterTests() throws {
-    throw XCTSkip("Interpreter tests unsupported")
-    // try self.runLitTests(suite: "test", "Interpreter")
+    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+      throw XCTSkip("Interpreter tests unsupported")
+    }
+    try self.runLitTests(suite: "test", "Interpreter")
   }
 
   func testLitStdlibTests() throws {
-    throw XCTSkip("stdlib tests unsupported")
-    // try self.runLitTests(suite: "test", "stdlib")
+    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+      throw XCTSkip("stdlib tests unsupported")
+    }
+    try self.runLitTests(suite: "test", "stdlib")
   }
 
   func runLitTests(suite: String...) throws {
