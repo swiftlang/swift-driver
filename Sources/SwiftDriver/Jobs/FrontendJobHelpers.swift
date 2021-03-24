@@ -242,6 +242,11 @@ extension Driver {
       commandLine.appendFlags("-module-name", moduleOutputInfo.name)
     }
 
+    // Enable frontend Parseable-output, if needed.
+    if parsedOptions.contains(.useFrontendParseableOutput) {
+      commandLine.appendFlag("-frontend-parseable-output")
+    }
+
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo)
