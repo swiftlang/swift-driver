@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import Foundation
+import TSCBasic
+import TSCUtility
 
 @_spi(Testing) import SwiftDriver
 
@@ -88,4 +90,56 @@ final class ParsableMessageTests: XCTestCase {
       }
       """)
     }
+
+  func testFrontendMessages() throws {
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "main.swift")
+        let output = path.appending(component: "main.o")
+        try localFileSystem.writeFileContents(main) {
+          $0 <<< "print(\"hello, world!\")"
+        }
+        let diags = DiagnosticsEngine()
+        var driver = try Driver(args: ["swiftc", main.pathString,
+                                       "-use-frontend-parseable-output",
+                                       "-o", output.pathString],
+                                env: ProcessEnv.vars,
+                                diagnosticsEngine: diags,
+                                fileSystem: localFileSystem)
+        let jobs = try driver.planBuild()
+        XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
+        XCTAssertEqual(jobs[0].outputs.count, 1)
+        let compileArgs = jobs[0].commandLine
+        XCTAssertTrue(compileArgs.contains((.flag("-frontend-parseable-output"))))
+
+        // Replace the error stream with one we capture here.
+        let errorStream = stderrStream
+        let errorOutputFile = path.appending(component: "dummy_error_stream")
+        TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
+
+        try driver.run(jobs: jobs)
+        let invocationErrorOutput = try localFileSystem.readFileContents(errorOutputFile).description
+        XCTAssertTrue(invocationErrorOutput.contains("""
+{
+  "kind": "began",
+  "name": "compile",
+"""))
+        XCTAssertTrue(invocationErrorOutput.contains("""
+{
+  "kind": "finished",
+  "name": "compile",
+"""))
+        // Restore the error stream to what it was
+        TSCBasic.stderrStream = errorStream
+      }
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-parseable-output",
+                                         "-use-frontend-parseable-output"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.parseableOutput,
+                                                         .useFrontendParseableOutput)))
+      }
+    }
+  }
 }

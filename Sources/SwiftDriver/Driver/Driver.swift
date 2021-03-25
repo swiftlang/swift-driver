@@ -503,6 +503,7 @@ public struct Driver {
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
+    Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
@@ -2089,6 +2090,14 @@ extension Driver {
           diagnosticEngine.emit(Error.missingProfilingData(profilingData))
         }
       }
+    }
+  }
+
+  static func validateParseableOutputArgs(_ parsedOptions: inout ParsedOptions,
+                                          diagnosticEngine: DiagnosticsEngine) {
+    if parsedOptions.contains(.parseableOutput) &&
+        parsedOptions.contains(.useFrontendParseableOutput) {
+      diagnosticEngine.emit(Error.conflictingOptions(.parseableOutput, .useFrontendParseableOutput))
     }
   }
 
