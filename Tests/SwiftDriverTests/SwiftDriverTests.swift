@@ -1289,7 +1289,42 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
+      XCTAssertFalse(cmd.contains(.flag("--start-group")))
+      XCTAssertFalse(cmd.contains(.flag("--end-group")))
     }
+
+    // /usr/lib/swift_static/linux/static-stdlib-args.lnk is required for static
+    // linking on Linux, but is not present in macOS toolchains
+    #if os(Linux)
+    do {
+      // executable linking linux static stdlib
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-static-stdlib", "-target", "x86_64-unknown-linux"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let autolinkExtractJob = plannedJobs[2]
+      XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
+
+      let autolinkCmd = autolinkExtractJob.commandLine
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("foo.o")))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(autolinkCmd.contains(.path(.temporary(RelativePath("Test.autolink")))))
+
+      let linkJob = plannedJobs[3]
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-o")))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("foo.o")))))
+      XCTAssertTrue(cmd.contains(.path(.temporary(RelativePath("bar.o")))))
+      XCTAssertTrue(cmd.contains(.flag("--start-group")))
+      XCTAssertTrue(cmd.contains(.flag("--end-group")))
+      XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-dylib")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+    #endif
 
     do {
       // static WASM linking

@@ -152,6 +152,14 @@ extension GenericUnixToolchain {
         )
       commandLine.appendPath(swiftrtPath)
 
+      // If we are linking statically, we need to add all
+      // dependencies to a library search group to resolve
+      // potential circular dependencies
+      if staticStdlib || staticExecutable {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("--start-group")
+      }
+
       let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
         // Autolink inputs are handled specially
         if input.type == .autolink {
@@ -165,6 +173,11 @@ extension GenericUnixToolchain {
         }
       }
       commandLine.append(contentsOf: inputFiles)
+
+      if staticStdlib || staticExecutable {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("--end-group")
+      }
 
       let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
       for opt in fSystemArgs {
