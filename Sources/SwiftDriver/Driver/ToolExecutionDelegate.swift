@@ -76,29 +76,104 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
       stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
       stdoutStream.flush()
     case .parsableOutput:
-      let beganMessages = constructJobBeganMessages(job: job, arguments: arguments, pid: pid)
-      for beganMessage in beganMessages {
-        let message = ParsableMessage(name: job.kind.rawValue, kind: .began(beganMessage))
+      let messages = constructJobBeganMessages(job: job, arguments: arguments, pid: pid)
+      for beganMessage in messages {
+        emit(ParsableMessage(name: job.kind.rawValue, kind: .began(beganMessage)))
+      }
+    }
+  }
+
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+     if showJobLifecycle {
+      diagnosticEngine.emit(.remark_job_lifecycle("Finished", job))
+    }
+
+    buildRecordInfo?.jobFinished(job: job, result: result)
+
+    // FIXME: Currently, TSCBasic.Process uses NSProcess on Windows and discards
+    // the bits of the exit code used to differentiate between normal and abnormal
+    // termination.
+    #if !os(Windows)
+    if case .signalled = result.exitStatus {
+      anyJobHadAbnormalExit = true
+    }
+    #endif
+
+    switch mode {
+    case .regular, .verbose:
+      let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
+      if !output.isEmpty {
+        Driver.stdErrQueue.sync {
+          stderrStream <<< output
+          stderrStream.flush()
+        }
+      }
+
+    case .parsableOutput:
+      let output = (try? result.utf8Output() + result.utf8stderrOutput()).flatMap { $0.isEmpty ? nil : $0 }
+      let messages: [ParsableMessage]
+
+      switch result.exitStatus {
+      case .terminated(let code):
+        messages = constructJobFinishedMessages(job: job, exitCode: code, output: output,
+                                                pid: pid).map {
+          ParsableMessage(name: job.kind.rawValue, kind: .finished($0))
+        }
+#if !os(Windows)
+      case .signalled(let signal):
+        let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
+        messages = constructJobSignalledMessages(job: job, error: errorMessage, output: output,
+                                                 signal: signal, pid: pid).map {
+          ParsableMessage(name: job.kind.rawValue, kind: .signalled($0))
+        }
+#endif
+      }
+      for message in messages {
         emit(message)
       }
     }
   }
 
-  public func constructJobBeganMessages(job: Job, arguments: [String], pid: Int) -> [BeganMessage] {
+  public func jobSkipped(job: Job) {
+    if showJobLifecycle {
+      diagnosticEngine.emit(.remark_job_lifecycle("Skipped", job))
+    }
+    switch mode {
+    case .regular, .verbose:
+      break
+    case .parsableOutput:
+      let skippedMessage = SkippedMessage(inputs: job.displayInputs.map{ $0.file.name })
+      let message = ParsableMessage(name: job.kind.rawValue, kind: .skipped(skippedMessage))
+      emit(message)
+    }
+  }
+
+  private func emit(_ message: ParsableMessage) {
+    // FIXME: Do we need to do error handling here? Can this even fail?
+    guard let json = try? message.toJSON() else { return }
+    Driver.stdErrQueue.sync {
+      stderrStream <<< json.count <<< "\n"
+      stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
+      stderrStream.flush()
+    }
+  }
+}
+
+// MARK: - Message Construction
+/// Generation of messages from jobs, including breaking down batch compile jobs into constituent messages.
+private extension ToolExecutionDelegate {
+
+  // MARK: - Job Began
+  func constructJobBeganMessages(job: Job, arguments: [String], pid: Int) -> [BeganMessage] {
     let result : [BeganMessage]
-    if job.kind == .compile {
-      if job.primaryInputs.count == 1 {
-        result = [constructSingleBeganMessage(inputs: job.displayInputs,
-                                              outputs: job.outputs,
-                                              arguments: arguments,
-                                              pid: pid,
-                                              realPid: pid)]
-      } else {
-        // Batched compile jobs need to be broken up into multiple messages, one per constituent.
-        result = constructBatchCompileBeginMessages(job: job, arguments: arguments, pid: pid,
-                                                        quasiPIDBase: nextBatchQuasiPID)
-        nextBatchQuasiPID -= result.count
-      }
+    if job.kind == .compile,
+       job.primaryInputs.count > 1 {
+      // Batched compile jobs need to be broken up into multiple messages, one per constituent.
+      result = constructBatchCompileBeginMessages(job: job, arguments: arguments, pid: pid,
+                                                  quasiPIDBase: nextBatchQuasiPID)
+      // Today, parseable-output messages are constructed and emitted synchronously
+      // on `MultiJobExecutor`'s `delegateQueue`. This is why the below operation is safe.
+      nextBatchQuasiPID -= result.count
     } else {
       result = [constructSingleBeganMessage(inputs: job.displayInputs,
                                             outputs: job.outputs,
@@ -110,8 +185,8 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
     return result
   }
 
-  public func constructBatchCompileBeginMessages(job: Job, arguments: [String],
-                                                 pid: Int, quasiPIDBase: Int) -> [BeganMessage] {
+  func constructBatchCompileBeginMessages(job: Job, arguments: [String], pid: Int,
+                                          quasiPIDBase: Int) -> [BeganMessage] {
     precondition(job.kind == .compile && job.primaryInputs.count > 1)
     var quasiPID = quasiPIDBase
     var result : [BeganMessage] = []
@@ -137,12 +212,8 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
     return result
   }
 
-  public func constructSingleBeganMessage(inputs: [TypedVirtualPath],
-                                          outputs: [TypedVirtualPath],
-                                          arguments: [String],
-                                          pid: Int,
-                                          realPid: Int) -> BeganMessage {
-
+  func constructSingleBeganMessage(inputs: [TypedVirtualPath], outputs: [TypedVirtualPath],
+                                   arguments: [String], pid: Int, realPid: Int) -> BeganMessage {
     let outputs: [BeganMessage.Output] = outputs.map {
       .init(path: $0.file.name, type: $0.type.description)
     }
@@ -157,10 +228,82 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
     )
   }
 
+  // MARK: - Job Finished
+  func constructJobFinishedMessages(job: Job, exitCode: Int32, output: String?, pid: Int)
+  -> [FinishedMessage] {
+    let result : [FinishedMessage]
+    if job.kind == .compile,
+       job.primaryInputs.count > 1 {
+      result = constructBatchCompileFinishedMessages(job: job, exitCode: exitCode,
+                                                     output: output, pid: pid)
+    } else {
+      result = [constructSingleFinishedMessage(exitCode: exitCode, output: output,
+                                               pid: pid, realPid: pid)]
+    }
+    return result
+  }
+
+  func constructBatchCompileFinishedMessages(job: Job, exitCode: Int32, output: String?, pid: Int)
+  -> [FinishedMessage] {
+    precondition(job.kind == .compile && job.primaryInputs.count > 1)
+    var result : [FinishedMessage] = []
+    for input in job.primaryInputs {
+      guard let quasiPid = batchJobInputQuasiPIDMap[(job, input)] else {
+        fatalError("Parsable-Output batch sub-job finished with no matching started message: \(job.description) : \(input.file.description)")
+      }
+      result.append(
+        constructSingleFinishedMessage(exitCode: exitCode, output: output,
+                                       pid: quasiPid, realPid: pid))
+    }
+    return result
+  }
+
+  func constructSingleFinishedMessage(exitCode: Int32, output: String?, pid: Int, realPid: Int)
+  -> FinishedMessage {
+    return FinishedMessage(exitStatus: Int(exitCode), output: output, pid: pid, realPid: realPid)
+  }
+
+  // MARK: - Job Signalled
+  func constructJobSignalledMessages(job: Job, error: String, output: String?,
+                                     signal: Int32, pid: Int) -> [SignalledMessage] {
+    let result : [SignalledMessage]
+    if job.kind == .compile,
+       job.primaryInputs.count > 1 {
+      result = constructBatchCompileSignalledMessages(job: job, error: error, output: output,
+                                                      signal: signal, pid: pid)
+    } else {
+      result = [constructSingleSignalledMessage(error: error, output: output, signal: signal,
+                                                pid: pid, realPid: pid)]
+    }
+    return result
+  }
+
+  func constructBatchCompileSignalledMessages(job: Job, error: String, output: String?,
+                                              signal: Int32, pid: Int)
+  -> [SignalledMessage] {
+    precondition(job.kind == .compile && job.primaryInputs.count > 1)
+    var result : [SignalledMessage] = []
+    for input in job.primaryInputs {
+      guard let quasiPid = batchJobInputQuasiPIDMap[(job, input)] else {
+        fatalError("Parsable-Output batch sub-job signalled with no matching started message: \(job.description) : \(input.file.description)")
+      }
+      result.append(
+        constructSingleSignalledMessage(error: error, output: output, signal: signal,
+                                        pid: quasiPid, realPid: pid))
+    }
+    return result
+  }
+
+  func constructSingleSignalledMessage(error: String, output: String?, signal: Int32,
+                                       pid: Int, realPid: Int)
+  -> SignalledMessage {
+    return SignalledMessage(pid: pid, realPid: realPid, output: output,
+                            errorMessage: error, signal: Int(signal))
+  }
 
   /// Best-effort attempt to "fix-up" the individual swift-frontend invocation command line, to pretend
   /// it is an individual single-primary compile job, rather than a batch mode compile with multiple primaries
-  private static func filterPrimaryArguments(in arguments: [String],
+  static func filterPrimaryArguments(in arguments: [String],
                                              input: TypedVirtualPath,
                                              outputs: [TypedVirtualPath]) -> [String] {
     // We must have only one `-primary-file` option specified, the one that corresponds
@@ -194,76 +337,6 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
     }
 
     return result
-  }
-
-  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
-     if showJobLifecycle {
-      diagnosticEngine.emit(.remark_job_lifecycle("Finished", job))
-    }
-
-    buildRecordInfo?.jobFinished(job: job, result: result)
-
-    // FIXME: Currently, TSCBasic.Process uses NSProcess on Windows and discards
-    // the bits of the exit code used to differentiate between normal and abnormal
-    // termination.
-    #if !os(Windows)
-    if case .signalled = result.exitStatus {
-      anyJobHadAbnormalExit = true
-    }
-    #endif
-
-    switch mode {
-    case .regular, .verbose:
-      let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
-      if !output.isEmpty {
-        Driver.stdErrQueue.sync {
-          stderrStream <<< output
-          stderrStream.flush()
-        }
-      }
-
-    case .parsableOutput:
-      let output = (try? result.utf8Output() + result.utf8stderrOutput()).flatMap { $0.isEmpty ? nil : $0 }
-      let message: ParsableMessage
-
-      switch result.exitStatus {
-      case .terminated(let code):
-        let finishedMessage = FinishedMessage(exitStatus: Int(code), pid: pid, output: output)
-        message = ParsableMessage(name: job.kind.rawValue, kind: .finished(finishedMessage))
-
-#if !os(Windows)
-      case .signalled(let signal):
-        let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
-        let signalledMessage = SignalledMessage(pid: pid, output: output, errorMessage: errorMessage, signal: Int(signal))
-        message = ParsableMessage(name: job.kind.rawValue, kind: .signalled(signalledMessage))
-#endif
-      }
-      emit(message)
-    }
-  }
-
-  public func jobSkipped(job: Job) {
-    if showJobLifecycle {
-      diagnosticEngine.emit(.remark_job_lifecycle("Skipped", job))
-    }
-    switch mode {
-    case .regular, .verbose:
-      break
-    case .parsableOutput:
-      let skippedMessage = SkippedMessage(inputs: job.displayInputs.map{ $0.file.name })
-      let message = ParsableMessage(name: job.kind.rawValue, kind: .skipped(skippedMessage))
-      emit(message)
-    }
-  }
-
-  private func emit(_ message: ParsableMessage) {
-    // FIXME: Do we need to do error handling here? Can this even fail?
-    guard let json = try? message.toJSON() else { return }
-    Driver.stdErrQueue.sync {
-      stderrStream <<< json.count <<< "\n"
-      stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
-      stderrStream.flush()
-    }
   }
 }
 

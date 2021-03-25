@@ -20,6 +20,7 @@ final class ParsableMessageTests: XCTestCase {
   func testBeganMessage() throws {
     let message = BeganMessage(
       pid: 1,
+      realPid: 1,
       inputs: ["/path/to/foo.swift"],
       outputs: [
       .init(path: "/path/to/foo.o", type: "object")
@@ -57,7 +58,7 @@ final class ParsableMessageTests: XCTestCase {
   }
 
   func testFinishedMessage() throws {
-    let message = FinishedMessage(exitStatus: 1, pid: 1, output: "hello")
+    let message = FinishedMessage(exitStatus: 1, output: "hello", pid: 1, realPid: 1)
     let finishedMessage = ParsableMessage(name: "compile", kind: .finished(message))
     let encoded = try finishedMessage.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
@@ -74,7 +75,8 @@ final class ParsableMessageTests: XCTestCase {
   }
 
     func testSignalledMessage() throws {
-      let message = SignalledMessage(pid: 2, output: "sig", errorMessage: "err", signal: 3)
+      let message = SignalledMessage(pid: 2, realPid: 2, output: "sig",
+                                     errorMessage: "err", signal: 3)
       let signalledMessage = ParsableMessage(name: "compile", kind: .signalled(message))
       let encoded = try signalledMessage.toJSON()
       let string = String(data: encoded, encoding: .utf8)!
