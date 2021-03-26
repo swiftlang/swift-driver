@@ -52,7 +52,10 @@ final class ParsableMessageTests: XCTestCase {
             "type" : "object"
           }
         ],
-        "pid" : 1
+        "pid" : 1,
+        "process" : {
+          "real_pid" : 1
+        }
       }
       """)
   }
@@ -69,7 +72,10 @@ final class ParsableMessageTests: XCTestCase {
       "kind" : "finished",
       "name" : "compile",
       "output" : "hello",
-      "pid" : 1
+      "pid" : 1,
+      "process" : {
+        "real_pid" : 1
+      }
     }
     """)
   }
@@ -88,6 +94,9 @@ final class ParsableMessageTests: XCTestCase {
         "name" : "compile",
         "output" : "sig",
         "pid" : 2,
+        "process" : {
+          "real_pid" : 2
+        },
         "signal" : 3
       }
       """)
