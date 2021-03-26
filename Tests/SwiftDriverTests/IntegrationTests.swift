@@ -215,7 +215,7 @@ final class IntegrationTests: IntegrationTestCase {
       printCommand(args: commandArgs, extraEnv: extraEnv)
 
       let process = TSCBasic.Process(
-        arguments: args,
+        arguments: commandArgs,
         environment: ProcessEnv.vars.merging(extraEnv) { $1 },
         outputRedirection: .none
       )
