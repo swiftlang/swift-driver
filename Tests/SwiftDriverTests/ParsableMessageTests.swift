@@ -17,6 +17,22 @@ import TSCUtility
 @_spi(Testing) import SwiftDriver
 
 final class ParsableMessageTests: XCTestCase {
+  private func withHijackedBufferedErrorStream(
+    in path: AbsolutePath,
+    prefix: String = "dummy_error_stream",
+    _ body: (AbsolutePath) throws -> ()
+  ) throws {
+    // Replace the error stream with one we capture here.
+    let errorStream = stderrStream
+    let errorOutputFile = path.appending(component: prefix)
+    TSCBasic.stderrStream =
+      try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
+    try body(errorOutputFile)
+    TSCBasic.stderrStream.flush()
+    // Restore the error stream to what it was
+    TSCBasic.stderrStream = errorStream
+  }
+
   func testBeganMessage() throws {
     let message = BeganMessage(
       pid: 1,
@@ -80,68 +96,317 @@ final class ParsableMessageTests: XCTestCase {
     """)
   }
 
-    func testSignalledMessage() throws {
-      let message = SignalledMessage(pid: 2, realPid: 2, output: "sig",
-                                     errorMessage: "err", signal: 3)
-      let signalledMessage = ParsableMessage(name: "compile", kind: .signalled(message))
-      let encoded = try signalledMessage.toJSON()
-      let string = String(data: encoded, encoding: .utf8)!
+  func testSignalledMessage() throws {
+    let message = SignalledMessage(pid: 2, realPid: 2, output: "sig",
+                                   errorMessage: "err", signal: 3)
+    let signalledMessage = ParsableMessage(name: "compile", kind: .signalled(message))
+    let encoded = try signalledMessage.toJSON()
+    let string = String(data: encoded, encoding: .utf8)!
 
-      XCTAssertEqual(string, """
-      {
-        "error-message" : "err",
-        "kind" : "signalled",
-        "name" : "compile",
-        "output" : "sig",
-        "pid" : 2,
-        "process" : {
-          "real_pid" : 2
-        },
-        "signal" : 3
-      }
-      """)
+    XCTAssertEqual(string, """
+    {
+      "error-message" : "err",
+      "kind" : "signalled",
+      "name" : "compile",
+      "output" : "sig",
+      "pid" : 2,
+      "process" : {
+        "real_pid" : 2
+      },
+      "signal" : 3
     }
+    """)
+  }
+
+  func testBeganBatchMessages() throws {
+    do {
+      try withTemporaryDirectory { path in
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let resolver = try ArgsResolver(fileSystem: localFileSystem)
+          var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "test.swiftmodule",
+                                         "main.swift", "test1.swift", "test2.swift",
+                                         "-enable-batch-mode", "-driver-batch-count", "1",
+                                         "-working-directory", "/WorkDir"])
+          let jobs = try driver.planBuild()
+          let compileJob = jobs[0]
+          let args : [String] = try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+          let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
+                                                   buildRecordInfo: nil,
+                                                   incrementalCompilationState: nil,
+                                                   showJobLifecycle: false,
+                                                   argsResolver: resolver,
+                                                   diagnosticEngine: DiagnosticsEngine())
+
+          // Emit the began messages and examine the output
+          toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
+          let errorOutput = try localFileSystem.readFileContents(errorBuffer).description
+
+          // There were 3 messages emitted
+          XCTAssertEqual(errorOutput.components(separatedBy:
+          """
+            "kind" : "began",
+            "name" : "compile",
+          """).count - 1, 3)
+
+          /// One per primary
+          XCTAssertTrue(errorOutput.contains(
+          """
+              \"-primary-file\",
+              \"\\/WorkDir\\/main.swift\",
+              \"\\/WorkDir\\/test1.swift\",
+              \"\\/WorkDir\\/test2.swift\",
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+            "pid" : -1000,
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+            \"inputs\" : [
+              \"\\/WorkDir\\/main.swift\"
+            ],
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+              \"\\/WorkDir\\/main.swift\",
+              \"-primary-file\",
+              \"\\/WorkDir\\/test1.swift\",
+              \"\\/WorkDir\\/test2.swift\",
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+            "pid" : -1001,
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+            \"inputs\" : [
+              \"\\/WorkDir\\/test1.swift\"
+            ],
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+              \"\\/WorkDir\\/main.swift\",
+              \"\\/WorkDir\\/test1.swift\",
+              \"-primary-file\",
+              \"\\/WorkDir\\/test2.swift\",
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+            "pid" : -1002,
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+            \"inputs\" : [
+              \"\\/WorkDir\\/test2.swift\"
+            ],
+          """))
+
+          /// Real PID appeared in every message
+          XCTAssertEqual(errorOutput.components(separatedBy:
+          """
+            \"process\" : {
+              \"real_pid\" : 42
+            }
+          """).count - 1, 3)
+        }
+      }
+    }
+  }
+
+  func testFinishedBatchMessages() throws {
+    do {
+      try withTemporaryDirectory { path in
+        // Take over the error stream just to prevent it being printed in test runs
+        var args: [String]?
+        var compileJob: Job?
+        var toolDelegate: ToolExecutionDelegate?
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let resolver = try ArgsResolver(fileSystem: localFileSystem)
+          var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "test.swiftmodule",
+                                         "main.swift", "test1.swift", "test2.swift",
+                                         "-enable-batch-mode", "-driver-batch-count", "1",
+                                         "-working-directory", "/WorkDir"])
+          let jobs = try driver.planBuild()
+          compileJob = jobs[0]
+          args = try resolver.resolveArgumentList(for: compileJob!, forceResponseFiles: false)
+          toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
+                                               buildRecordInfo: nil,
+                                               incrementalCompilationState: nil,
+                                               showJobLifecycle: false,
+                                               argsResolver: resolver,
+                                               diagnosticEngine: DiagnosticsEngine())
+
+          // First emit the began messages
+          toolDelegate!.jobStarted(job: compileJob!, arguments: args!, pid: 42)
+        }
+        // Now hijack the error stream and emit finished messages
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let resultSuccess = ProcessResult(arguments: args!,
+                                            environment: ProcessEnv.vars,
+                                            exitStatus: ProcessResult.ExitStatus.terminated(code: 0),
+                                            output: Result.success([]),
+                                            stderrOutput: Result.success([]))
+          // Emit the finished messages and examine the output
+          toolDelegate!.jobFinished(job: compileJob!, result: resultSuccess, pid: 42)
+          let errorOutput = try localFileSystem.readFileContents(errorBuffer).description
+          XCTAssertTrue(errorOutput.contains(
+          """
+          {
+            \"exit-status\" : 0,
+            \"kind\" : \"finished\",
+            \"name\" : \"compile\",
+            \"pid\" : -1000,
+            \"process\" : {
+              \"real_pid\" : 42
+            }
+          }
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+          {
+            \"exit-status\" : 0,
+            \"kind\" : \"finished\",
+            \"name\" : \"compile\",
+            \"pid\" : -1001,
+            \"process\" : {
+              \"real_pid\" : 42
+            }
+          }
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+          {
+            \"exit-status\" : 0,
+            \"kind\" : \"finished\",
+            \"name\" : \"compile\",
+            \"pid\" : -1002,
+            \"process\" : {
+              \"real_pid\" : 42
+            }
+          }
+          """))
+        }
+      }
+    }
+  }
+
+  func testSignalledBatchMessages() throws {
+    do {
+      try withTemporaryDirectory { path in
+        // Take over the error stream just to prevent it being printed in test runs
+        var args: [String]?
+        var compileJob: Job?
+        var toolDelegate: ToolExecutionDelegate?
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let resolver = try ArgsResolver(fileSystem: localFileSystem)
+          var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "test.swiftmodule",
+                                         "main.swift", "test1.swift", "test2.swift",
+                                         "-enable-batch-mode", "-driver-batch-count", "1",
+                                         "-working-directory", "/WorkDir"])
+          let jobs = try driver.planBuild()
+          compileJob = jobs[0]
+          args  = try resolver.resolveArgumentList(for: compileJob!,
+                                                   forceResponseFiles: false)
+          toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
+                                               buildRecordInfo: nil,
+                                               incrementalCompilationState: nil,
+                                               showJobLifecycle: false,
+                                               argsResolver: resolver,
+                                               diagnosticEngine: DiagnosticsEngine())
+
+          // First emit the began messages
+          toolDelegate!.jobStarted(job: compileJob!, arguments: args!, pid: 42)
+        }
+        // Now hijack the error stream and emit finished messages
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let resultSignalled = ProcessResult(arguments: args!,
+                                              environment: ProcessEnv.vars,
+                                              exitStatus: ProcessResult.ExitStatus.signalled(signal: 9),
+                                              output: Result.success([]),
+                                              stderrOutput: Result.success([]))
+          // First emit the began messages
+          toolDelegate!.jobFinished(job: compileJob!, result: resultSignalled, pid: 42)
+          let errorOutput = try localFileSystem.readFileContents(errorBuffer).description
+          XCTAssertTrue(errorOutput.contains(
+          """
+          {
+            \"error-message\" : \"Killed: 9\",
+            \"kind\" : \"signalled\",
+            \"name\" : \"compile\",
+            \"pid\" : -1000,
+            \"process\" : {
+              \"real_pid\" : 42
+            },
+            \"signal\" : 9
+          }
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+          {
+            \"error-message\" : \"Killed: 9\",
+            \"kind\" : \"signalled\",
+            \"name\" : \"compile\",
+            \"pid\" : -1001,
+            \"process\" : {
+              \"real_pid\" : 42
+            },
+            \"signal\" : 9
+          }
+          """))
+          XCTAssertTrue(errorOutput.contains(
+          """
+          {
+            \"error-message\" : \"Killed: 9\",
+            \"kind\" : \"signalled\",
+            \"name\" : \"compile\",
+            \"pid\" : -1002,
+            \"process\" : {
+              \"real_pid\" : 42
+            },
+            \"signal\" : 9
+          }
+          """))
+        }
+      }
+    }
+  }
 
   func testFrontendMessages() throws {
     do {
       try withTemporaryDirectory { path in
-        let main = path.appending(component: "main.swift")
-        let output = path.appending(component: "main.o")
-        try localFileSystem.writeFileContents(main) {
-          $0 <<< "print(\"hello, world!\")"
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let main = path.appending(component: "main.swift")
+          let output = path.appending(component: "main.o")
+          try localFileSystem.writeFileContents(main) {
+            $0 <<< "print(\"hello, world!\")"
+          }
+          let diags = DiagnosticsEngine()
+          var driver = try Driver(args: ["swiftc", main.pathString,
+                                         "-use-frontend-parseable-output",
+                                         "-o", output.pathString],
+                                  env: ProcessEnv.vars,
+                                  diagnosticsEngine: diags,
+                                  fileSystem: localFileSystem)
+          let jobs = try driver.planBuild()
+          XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
+          XCTAssertEqual(jobs[0].outputs.count, 1)
+          let compileArgs = jobs[0].commandLine
+          XCTAssertTrue(compileArgs.contains((.flag("-frontend-parseable-output"))))
+          try driver.run(jobs: jobs)
+          let invocationErrorOutput = try localFileSystem.readFileContents(errorBuffer).description
+          XCTAssertTrue(invocationErrorOutput.contains(
+          """
+          {
+            "kind": "began",
+            "name": "compile",
+          """))
+          XCTAssertTrue(invocationErrorOutput.contains(
+          """
+          {
+            "kind": "finished",
+            "name": "compile",
+          """))
         }
-        let diags = DiagnosticsEngine()
-        var driver = try Driver(args: ["swiftc", main.pathString,
-                                       "-use-frontend-parseable-output",
-                                       "-o", output.pathString],
-                                env: ProcessEnv.vars,
-                                diagnosticsEngine: diags,
-                                fileSystem: localFileSystem)
-        let jobs = try driver.planBuild()
-        XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
-        XCTAssertEqual(jobs[0].outputs.count, 1)
-        let compileArgs = jobs[0].commandLine
-        XCTAssertTrue(compileArgs.contains((.flag("-frontend-parseable-output"))))
-
-        // Replace the error stream with one we capture here.
-        let errorStream = stderrStream
-        let errorOutputFile = path.appending(component: "dummy_error_stream")
-        TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
-
-        try driver.run(jobs: jobs)
-        let invocationErrorOutput = try localFileSystem.readFileContents(errorOutputFile).description
-        XCTAssertTrue(invocationErrorOutput.contains("""
-{
-  "kind": "began",
-  "name": "compile",
-"""))
-        XCTAssertTrue(invocationErrorOutput.contains("""
-{
-  "kind": "finished",
-  "name": "compile",
-"""))
-        // Restore the error stream to what it was
-        TSCBasic.stderrStream = errorStream
       }
     }
 
@@ -154,3 +419,4 @@ final class ParsableMessageTests: XCTestCase {
     }
   }
 }
+

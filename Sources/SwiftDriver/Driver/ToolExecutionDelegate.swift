@@ -23,14 +23,14 @@ import Glibc
 #endif
 
 /// Delegate for printing execution information on the command-line.
-final class ToolExecutionDelegate: JobExecutionDelegate {
+@_spi(Testing) public final class ToolExecutionDelegate: JobExecutionDelegate {
   /// Quasi-PIDs are _negative_ PID-like unique keys used to
   /// masquerade batch job constituents as (quasi)processes, when writing
   /// parseable output to consumers that don't understand the idea of a batch
   /// job. They are negative in order to avoid possibly colliding with real
   /// PIDs (which are always positive). We start at -1000 here as a crude but
   /// harmless hedge against colliding with an errno value that might slip
-  /// into the stream of real PIDs (say, due to a TaskQueue bug).
+  /// into the stream of real PIDs.
   static let QUASI_PID_START = -1000
 
   public enum Mode {
@@ -50,12 +50,12 @@ final class ToolExecutionDelegate: JobExecutionDelegate {
   private let argsResolver: ArgsResolver
   private var batchJobInputQuasiPIDMap = DictionaryOfDictionaries<Job, TypedVirtualPath, Int>()
 
-  init(mode: ToolExecutionDelegate.Mode,
-       buildRecordInfo: BuildRecordInfo?,
-       incrementalCompilationState: IncrementalCompilationState?,
-       showJobLifecycle: Bool,
-       argsResolver: ArgsResolver,
-       diagnosticEngine: DiagnosticsEngine) {
+  @_spi(Testing) public init(mode: ToolExecutionDelegate.Mode,
+                             buildRecordInfo: BuildRecordInfo?,
+                             incrementalCompilationState: IncrementalCompilationState?,
+                             showJobLifecycle: Bool,
+                             argsResolver: ArgsResolver,
+                             diagnosticEngine: DiagnosticsEngine) {
     self.mode = mode
     self.buildRecordInfo = buildRecordInfo
     self.incrementalCompilationState = incrementalCompilationState
