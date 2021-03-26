@@ -3236,7 +3236,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
                                       env: ["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": "/bad/path/to/swift-frontend"])) {
         error in
-        XCTAssertEqual(error as? Driver.Error, .failedToRetrieveFrontendTargetInfo)
+        XCTAssertTrue(error is Driver.Error)
+
+        switch error {
+        case Driver.Error.failedToRetrieveFrontendTargetInfo,
+             Driver.Error.failedToRunFrontendToRetrieveTargetInfo:
+          break;
+
+        default:
+          XCTFail("unexpected error \(error)")
+        }
       }
     }
 
