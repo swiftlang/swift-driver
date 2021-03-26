@@ -308,8 +308,6 @@ final class ParsableMessageTests: XCTestCase {
           let errorOutput = try localFileSystem.readFileContents(errorBuffer).description
           XCTAssertTrue(errorOutput.contains(
           """
-          {
-            \"error-message\" : \"Killed: 9\",
             \"kind\" : \"signalled\",
             \"name\" : \"compile\",
             \"pid\" : -1000,
@@ -321,8 +319,6 @@ final class ParsableMessageTests: XCTestCase {
           """))
           XCTAssertTrue(errorOutput.contains(
           """
-          {
-            \"error-message\" : \"Killed: 9\",
             \"kind\" : \"signalled\",
             \"name\" : \"compile\",
             \"pid\" : -1001,
@@ -334,8 +330,6 @@ final class ParsableMessageTests: XCTestCase {
           """))
           XCTAssertTrue(errorOutput.contains(
           """
-          {
-            \"error-message\" : \"Killed: 9\",
             \"kind\" : \"signalled\",
             \"name\" : \"compile\",
             \"pid\" : -1002,
