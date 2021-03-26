@@ -151,13 +151,6 @@ final class ParsableMessageTests: XCTestCase {
           /// One per primary
           XCTAssertTrue(errorOutput.contains(
           """
-              \"-primary-file\",
-              \"\\/WorkDir\\/main.swift\",
-              \"\\/WorkDir\\/test1.swift\",
-              \"\\/WorkDir\\/test2.swift\",
-          """))
-          XCTAssertTrue(errorOutput.contains(
-          """
             "pid" : -1000,
           """))
           XCTAssertTrue(errorOutput.contains(
@@ -168,13 +161,6 @@ final class ParsableMessageTests: XCTestCase {
           """))
           XCTAssertTrue(errorOutput.contains(
           """
-              \"\\/WorkDir\\/main.swift\",
-              \"-primary-file\",
-              \"\\/WorkDir\\/test1.swift\",
-              \"\\/WorkDir\\/test2.swift\",
-          """))
-          XCTAssertTrue(errorOutput.contains(
-          """
             "pid" : -1001,
           """))
           XCTAssertTrue(errorOutput.contains(
@@ -182,13 +168,6 @@ final class ParsableMessageTests: XCTestCase {
             \"inputs\" : [
               \"\\/WorkDir\\/test1.swift\"
             ],
-          """))
-          XCTAssertTrue(errorOutput.contains(
-          """
-              \"\\/WorkDir\\/main.swift\",
-              \"\\/WorkDir\\/test1.swift\",
-              \"-primary-file\",
-              \"\\/WorkDir\\/test2.swift\",
           """))
           XCTAssertTrue(errorOutput.contains(
           """

@@ -199,9 +199,7 @@ private extension ToolExecutionDelegate {
       result.append(
         constructSingleBeganMessage(inputs: [input],
                                     outputs: outputPaths,
-                                    arguments: Self.filterPrimaryArguments(in: arguments,
-                                                                           input: input,
-                                                                           outputs: outputPaths),
+                                    arguments: arguments,
                                     pid: quasiPID,
                                     realPid: pid))
       // Save the quasiPID of this job/input combination in order to generate the correct
@@ -299,44 +297,6 @@ private extension ToolExecutionDelegate {
   -> SignalledMessage {
     return SignalledMessage(pid: pid, realPid: realPid, output: output,
                             errorMessage: error, signal: Int(signal))
-  }
-
-  /// Best-effort attempt to "fix-up" the individual swift-frontend invocation command line, to pretend
-  /// it is an individual single-primary compile job, rather than a batch mode compile with multiple primaries
-  static func filterPrimaryArguments(in arguments: [String],
-                                             input: TypedVirtualPath,
-                                             outputs: [TypedVirtualPath]) -> [String] {
-    // We must have only one `-primary-file` option specified, the one that corresponds
-    // to the primary file whose job this message is faking.
-    var result = arguments.enumerated().compactMap() { index, element -> String? in
-      if element == "-primary-file" {
-        assert(arguments.count > index + 1)
-        return arguments[index + 1].hasSuffix(input.file.basename) ? element : nil
-      }
-      return element
-    }
-
-    // We must have only one `-o` option specified, the one that corresponds
-    // to the primary output file for the current input, whose job this message is faking.
-    let outputPathStrings = outputs.map { $0.file.description }
-    var pathsToRemove : [String] = []
-    result = result.enumerated().compactMap() { index, element -> String? in
-      if element == "-o" {
-        assert(result.count > index + 1)
-        if outputPathStrings.contains(result[index + 1]) {
-          return element
-        } else {
-          pathsToRemove.append(result[index + 1])
-          return nil
-        }
-      }
-      if pathsToRemove.contains(element) {
-        return nil
-      }
-      return element
-    }
-
-    return result
   }
 }
 
