@@ -11,8 +11,22 @@ validation-test/Driver:
     Required changes to test for spaces and json ordering. Still failing.
   Swift(macosx-x86_64) :: Driver/batch_mode_size_limit.swift
     -enable-only-one-dependency-file, Feature not brought to swift-driver on purpose: https://github.com/apple/swift-driver/pull/74
+    
+test/Driver/Dependencies:
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-while-editing-fine.swift
+  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-fine.swift
+    Missing `Handled main.swift`
+    
+  Swift(macosx-x86_64) :: Driver/Dependencies/private-fine.swift
+    Missing `Handled a.swift`
+  
+  Swift(macosx-x86_64) :: Driver/Dependencies/fail-chained-fine.swift
+    Ninja-RelWithDebInfoAssert/swift-macosx-x86_64/test-macosx-x86_64/Driver/Dependencies/Output/fail-chained-fine.swift.script: line 21: syntax error: unexpected end of file
 
 test/Driver:
+  Swift(macosx-x86_64) :: Driver/actions.swift
+    `3: link, {1, 1}, image` expected `3: link, {1, 2}, image`
+  
   Swift(macosx-x86_64) :: Driver/filelists.swift
     ValueError: '-filelist' is not in list
     
@@ -20,9 +34,6 @@ test/Driver:
     Different error message
     Looking for: `unable to execute command`
     Found: `error: could not find executable for '/always/searching/never/finding'`
-    
-  Swift(macosx-x86_64) :: Driver/access-notes.swift
-    error: unknown argument: '-access-notes-path'
     
   Swift(macosx-x86_64) :: Driver/vfs.swift
     C++ driver tests checks that inputs exist, that's missing in swift-driver
@@ -40,8 +51,6 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/emit-dependencies.swift
   Swift(macosx-x86_64) :: Driver/emit-module-summary.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/embed-bitcode-parallel-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/whole-module-build-record.swift
     Exit Code non-zero (no output)
 
   Swift(macosx-x86_64) :: Driver/driver-time-compilation.swift
