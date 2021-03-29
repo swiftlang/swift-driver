@@ -2347,7 +2347,8 @@ extension Driver {
     }
 
     var appliesToFetchingTargetInfo: Bool {
-      return overridePath?.basename != "Python"
+      return overridePath?.basename != "Python" &&
+             overridePath?.basename != "python3"
     }
     func setUpForTargetInfo(_ toolchain: Toolchain) {
       if !appliesToFetchingTargetInfo {

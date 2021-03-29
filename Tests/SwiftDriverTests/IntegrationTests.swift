@@ -23,6 +23,10 @@ private func bundleRoot() -> AbsolutePath {
 
 private let packageDirectory = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
 
+// The "default" here means lit.py will be invoked as an executable, while otherwise let's use
+// python 3 explicitly.
+private let pythonExec = ProcessEnv.vars.keys.contains("SWIFT_DRIVER_INTEGRATION_TESTS_USE_PYTHON_DEFAULT") ? "" : "python3"
+
 func makeDriverSymlinks(
   in tempDir: AbsolutePath,
   with swiftBuildDir: AbsolutePath? = nil
@@ -207,6 +211,7 @@ final class IntegrationTests: IntegrationTestCase {
         "--param", "swift_driver",
         testDir.pathString
       ]
+      let commandArgs = pythonExec.isEmpty ? args : [pythonExec] + args
 
       let extraEnv = [
         "SWIFT": swift.pathString,
@@ -215,10 +220,10 @@ final class IntegrationTests: IntegrationTestCase {
         "LC_ALL": "en_US.UTF-8"
       ]
 
-      printCommand(args: args, extraEnv: extraEnv)
+      printCommand(args: commandArgs, extraEnv: extraEnv)
 
       let process = TSCBasic.Process(
-        arguments: args,
+        arguments: commandArgs,
         environment: ProcessEnv.vars.merging(extraEnv) { $1 },
         outputRedirection: .none
       )
