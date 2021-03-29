@@ -360,5 +360,5 @@ func withArrayOfCStrings(_ strings: [String],
   let _ = unsafeCStrings.withUnsafeBufferPointer {
     action(UnsafeMutablePointer(mutating: $0.baseAddress))
   }
-  for ptr in cstrings { free(ptr) }
+  for ptr in cstrings { if let ptr = ptr { free(ptr) } }
 }
