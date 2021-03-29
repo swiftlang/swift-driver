@@ -39,6 +39,18 @@ import Foundation
   }
 }
 
+@_spi(Testing) public struct ActualProcess: Encodable {
+  public let realPid: Int
+
+  public init(realPid: Int) {
+    self.realPid = realPid
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case realPid = "real_pid"
+  }
+}
+
 @_spi(Testing) public struct BeganMessage: Encodable {
   public struct Output: Encodable {
     public let type: String
@@ -50,6 +62,7 @@ import Foundation
     }
   }
 
+  public let process: ActualProcess
   public let pid: Int
   public let inputs: [String]
   public let outputs: [Output]
@@ -58,12 +71,14 @@ import Foundation
 
   public init(
     pid: Int,
+    realPid: Int,
     inputs: [String],
     outputs: [Output],
     commandExecutable: String,
     commandArguments: [String]
   ) {
     self.pid = pid
+    self.process = ActualProcess(realPid: realPid)
     self.inputs = inputs
     self.outputs = outputs
     self.commandExecutable = commandExecutable
@@ -72,6 +87,7 @@ import Foundation
 
   private enum CodingKeys: String, CodingKey {
     case pid
+    case process
     case inputs
     case outputs
     case commandExecutable = "command_executable"
@@ -94,22 +110,24 @@ import Foundation
 @_spi(Testing) public struct FinishedMessage: Encodable {
   let exitStatus: Int
   let pid: Int
+  let process: ActualProcess
   let output: String?
-
-  // proc-info
 
   public init(
     exitStatus: Int,
+    output: String?,
     pid: Int,
-    output: String?
+    realPid: Int
   ) {
     self.exitStatus = exitStatus
     self.pid = pid
+    self.process = ActualProcess(realPid: realPid)
     self.output = output
   }
 
   private enum CodingKeys: String, CodingKey {
     case pid
+    case process
     case output
     case exitStatus = "exit-status"
   }
@@ -117,12 +135,14 @@ import Foundation
 
 @_spi(Testing) public struct SignalledMessage: Encodable {
   let pid: Int
+  let process: ActualProcess
   let output: String?
   let errorMessage: String
   let signal: Int
 
-  public init(pid: Int, output: String?, errorMessage: String, signal: Int) {
+  public init(pid: Int, realPid: Int, output: String?, errorMessage: String, signal: Int) {
     self.pid = pid
+    self.process = ActualProcess(realPid: realPid)
     self.output = output
     self.errorMessage = errorMessage
     self.signal = signal
@@ -130,6 +150,7 @@ import Foundation
 
   private enum CodingKeys: String, CodingKey {
     case pid
+    case process
     case output
     case errorMessage = "error-message"
     case signal

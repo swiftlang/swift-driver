@@ -104,7 +104,7 @@ extension Driver {
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
                                  indexFilePath: TypedVirtualPath?,
                                  inputs: inout [TypedVirtualPath],
-                                 inputOutputMap: inout [TypedVirtualPath: TypedVirtualPath],
+                                 inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
   -> ([TypedVirtualPath], [TypedVirtualPath]) {
@@ -178,7 +178,7 @@ extension Driver {
                                           outputType: outputType,
                                           isTopLevel: isTopLevel)
         primaryOutputs.append(output)
-        inputOutputMap[input] = output
+        inputOutputMap[input] = [output]
 
         if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
           indexUnitOutputDiffers = true
@@ -197,7 +197,7 @@ extension Driver {
                                         outputType: outputType,
                                         isTopLevel: isTopLevel)
       primaryOutputs.append(output)
-      inputOutputMap[input] = output
+      inputOutputMap[input] = [output]
 
       if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
         indexUnitOutputDiffers = true
@@ -226,7 +226,7 @@ extension Driver {
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = []
     // Used to map primaryInputs to primaryOutputs
-    var inputOutputMap = [TypedVirtualPath: TypedVirtualPath]()
+    var inputOutputMap = [TypedVirtualPath: [TypedVirtualPath]]()
 
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
@@ -265,7 +265,7 @@ extension Driver {
       commandLine: &commandLine,
       primaryInputs: primaryInputs,
       inputsGeneratingCodeCount: inputsGeneratingCodeCount,
-      inputOutputMap: inputOutputMap,
+      inputOutputMap: &inputOutputMap,
       includeModuleTracePath: emitModuleTrace,
       indexFilePath: indexFilePath)
 
@@ -372,6 +372,7 @@ extension Driver {
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
+      inputOutputMap: inputOutputMap,
       supportsResponseFiles: true
     )
   }
