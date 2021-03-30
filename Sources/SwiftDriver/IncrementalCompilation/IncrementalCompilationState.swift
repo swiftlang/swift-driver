@@ -13,7 +13,25 @@ import TSCBasic
 import Foundation
 import SwiftOptions
 
-public class IncrementalCompilationState {
+/// An instance of `IncrementalCompilationState` encapsulates the data necessary
+/// to make incremental build scheduling decisions.
+///
+/// The primary form of interaction with the incremental compilation state is
+/// using it as an oracle to discover the jobs to execute as the incremental
+/// build progresses. After a job completes, call
+/// `IncrementalCompilationState.collectJobsDiscoveredToBeNeededAfterFinishing(job:)`
+/// to both update the incremental state and recieve an array of jobs that
+/// need to be executed in response.
+///
+/// Jobs become "unstuck" as their inputs become available, or may be discovered
+/// by this class as fresh dependency information is integrated.
+///
+/// Threading Considerations
+/// ========================
+///
+/// The public API surface of this class is thread safe, but not re-entrant.
+/// FIXME: This should be an actor.
+public final class IncrementalCompilationState {
 
   /// The oracle for deciding what depends on what. Applies to this whole module.
   @_spi(Testing) public let moduleDependencyGraph: ModuleDependencyGraph
@@ -25,14 +43,23 @@ public class IncrementalCompilationState {
   /// Already batched, and in order of input files.
   public let mandatoryJobsInOrder: [Job]
 
+  /// Jobs to run *after* the last compile, for instance, link-editing.
+  public let jobsAfterCompiles: [Job]
+
+  /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
+  private let confinementQueue: DispatchQueue = DispatchQueue(label: "com.apple.swift-driver.incremental-compilation-state", qos: .userInteractive)
+
   /// Sadly, has to be `var` for formBatchedJobs
+  ///
+  /// After initialization, mutating accesses to the driver must be protected by
+  /// the confinement queue.
   private var driver: Driver
 
   /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
+  ///
+  /// This state is modified during the incremental build. All accesses must
+  /// be protected by the confinement queue.
   private var skippedCompileGroups = [TypedVirtualPath: CompileJobGroup]()
-
-  /// Jobs to run *after* the last compile, for instance, link-editing.
-  public let jobsAfterCompiles: [Job]
 
 // MARK: - Creating IncrementalCompilationState if possible
   /// Return nil if not compiling incrementally
@@ -124,10 +151,6 @@ extension IncrementalCompilationState {
     /// for the first wave to execute.
     let mandatoryJobsInOrder: [Job]
   }
-
-
-
-
 }
 
 extension Driver {
@@ -199,18 +222,20 @@ extension IncrementalCompilationState {
   /// Careful: job may not be primary.
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job) throws -> [Job]? {
-    // Find and deal with inputs that now need to be compiled
-    let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
-    assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
-           "Primaries should not overlap secondaries.")
-    
-    if let reporter = self.reporter {
-      for input in invalidatedInputs {
-        reporter.report(
-          "Queuing because of dependencies discovered later:", input)
+    return try self.confinementQueue.sync {
+      // Find and deal with inputs that now need to be compiled
+      let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
+      assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
+             "Primaries should not overlap secondaries.")
+
+      if let reporter = self.reporter {
+        for input in invalidatedInputs {
+          reporter.report(
+            "Queuing because of dependencies discovered later:", input)
+        }
       }
+      return try getJobs(for: invalidatedInputs)
     }
-    return try getJobs(for: invalidatedInputs)
   }
 
   /// Needed for API compatibility, `result` will be ignored
@@ -222,6 +247,7 @@ extension IncrementalCompilationState {
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
   private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<TypedVirtualPath> {
+    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     guard job.kind == .compile else {
       return Set<TypedVirtualPath>()
     }
@@ -231,8 +257,10 @@ extension IncrementalCompilationState {
     .subtracting(job.primaryInputs) // have already compiled these
   }
 
-  private func collectInputsInvalidated(byCompiling input: TypedVirtualPath)
-  -> TransitivelyInvalidatedInputSet {
+  private func collectInputsInvalidated(
+    byCompiling input: TypedVirtualPath
+  ) -> TransitivelyInvalidatedInputSet {
+    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
       return found
     }
@@ -242,8 +270,10 @@ extension IncrementalCompilationState {
   }
 
   /// Find the jobs that now must be run that were not originally known to be needed.
-  private func getJobs(for invalidatedInputs: Set<TypedVirtualPath>
+  private func getJobs(
+    for invalidatedInputs: Set<TypedVirtualPath>
   ) throws -> [Job] {
+    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     let unbatched = invalidatedInputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input) {
         let primaryInputs = group.compileJob.primaryInputs
@@ -264,12 +294,16 @@ extension IncrementalCompilationState {
 // MARK: - After the build
 extension IncrementalCompilationState {
   var skippedCompilationInputs: Set<TypedVirtualPath> {
-    Set(skippedCompileGroups.keys)
+    return self.confinementQueue.sync {
+      Set(skippedCompileGroups.keys)
+    }
   }
   public var skippedJobs: [Job] {
-    skippedCompileGroups.values
-      .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
-      .flatMap {$0.allJobs()}
+    return self.confinementQueue.sync {
+      skippedCompileGroups.values
+        .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
+        .flatMap {$0.allJobs()}
+    }
   }
 }
 
