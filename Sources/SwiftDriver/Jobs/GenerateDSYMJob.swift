@@ -11,10 +11,18 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  func generateDSYMJob(inputs: [TypedVirtualPath]) throws -> Job {
+  mutating func generateDSYMJob(inputs: [TypedVirtualPath]) throws -> Job {
     assert(inputs.count == 1)
     let input = inputs[0]
-    let outputPath = input.file.replacingExtension(with: .dSYM)
+
+    // Output is final output file + `.dSYM`
+    let outputFile: VirtualPath
+    if let output = parsedOptions.getLastArgument(.o) {
+      outputFile = try VirtualPath(path: output.asSingle)
+    } else {
+      outputFile = outputFileForImage
+    }
+    let outputPath = try VirtualPath(path: outputFile.description.appendingFileTypeExtension(.dSYM))
 
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendPath(input.file)

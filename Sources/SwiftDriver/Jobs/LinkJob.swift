@@ -12,7 +12,7 @@
 import TSCBasic
 
 extension Driver {
-  private var relativeOutputFileForImage: RelativePath {
+  internal var relativeOutputFileForImage: RelativePath {
     if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
       return RelativePath(inputFiles[0].file.basenameWithoutExt)
     }
@@ -24,7 +24,7 @@ extension Driver {
   }
 
   /// Compute the output file for an image output.
-  private var outputFileForImage: VirtualPath {
+  internal var outputFileForImage: VirtualPath {
     return useWorkingDirectory(relativeOutputFileForImage)
   }
 

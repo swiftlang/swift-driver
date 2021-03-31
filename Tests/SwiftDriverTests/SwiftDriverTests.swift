@@ -2859,6 +2859,17 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test"))))
     }
+
+    do {
+      // dSYM generation (-g) with specified output file name with an extension
+      var driver = try Driver(args: commonArgs + ["-g", "-o", "a.out"])
+      let plannedJobs = try driver.planBuild()
+      let generateDSYMJob = plannedJobs.last!
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs.count, 5)
+        XCTAssertEqual(generateDSYMJob.outputs.last?.file, try VirtualPath(path: "a.out.dSYM"))
+      }
+    }
   }
 
   func testEmitModuleTrace() throws {
