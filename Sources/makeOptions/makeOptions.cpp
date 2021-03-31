@@ -60,6 +60,7 @@ enum SwiftFlags {
   ModuleInterfaceOption = (1 << 13),
   SupplementaryOutput = (1 << 14),
   SwiftAPIExtractOption = (1 << 15),
+  SwiftSymbolGraphExtractOption = (1 << 16),
 };
 
 static std::set<std::string> swiftKeywords = { "internal", "static" };
