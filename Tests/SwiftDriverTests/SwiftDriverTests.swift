@@ -1973,6 +1973,23 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].inputs[0].file, .temporary(RelativePath("input.swiftmodule")))
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(AbsolutePath("/tmp/test.swiftmodule")))
     }
+
+    do {
+      // -g is specified
+      // (partial and final product module are saved to temporary directory so merge-modules is omitted)
+      var driver = try Driver(args: ["swiftc", "-g", "input.swift"])
+      let plannedJobs = try driver.planBuild()
+      print(plannedJobs)
+      XCTAssertEqual(plannedJobs.count, 3)
+      // No .mergeModule job
+      #if os(macOS)
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .link, .generateDSYM])
+      #endif
+      #if os(Linux)
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .autolinkExtract, .link])
+      #endif
+      XCTAssertTrue(plannedJobs[0].outputs.contains(TypedVirtualPath(file: VirtualPath.temporary(RelativePath("input.swiftmodule")).intern(), type: .swiftModule)))
+    }
   }
 
   func testEmitModuleSeparately() throws {
@@ -2015,16 +2032,16 @@ final class SwiftDriverTests: XCTestCase {
     // swift-autolink-extract is not present
     #if os(Linux)
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift", "bar.swift"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 5)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .moduleWrap, .link]))
+      XCTAssertEqual(plannedJobs.count, 6)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .compile, .mergeModule, .autolinkExtract, .moduleWrap, .link]))
       let wrapJob = plannedJobs.filter {$0.kind == .moduleWrap} .first!
       XCTAssertEqual(wrapJob.inputs.count, 1)
       XCTAssertTrue(wrapJob.commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
       let mergeJob = plannedJobs.filter {$0.kind == .mergeModule} .first!
       XCTAssertTrue(mergeJob.outputs.contains(wrapJob.inputs.first!))
-      XCTAssertTrue(plannedJobs[4].inputs.contains(wrapJob.outputs.first!))
+      XCTAssertTrue(plannedJobs[5].inputs.contains(wrapJob.outputs.first!))
     }
 
     do {
@@ -2038,19 +2055,19 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-gdwarf-types", "foo.swift"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 4)
-      // Merge module, but no module wrapping.
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule, .autolinkExtract, .link]))
+      XCTAssertEqual(plannedJobs.count, 3)
+      // No merge module/module wrap jobs.
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .autolinkExtract, .link]))
     }
     #endif
     // dsymutil won't be found on other platforms
     #if os(macOS)
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.15", "-g", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.15", "-g", "foo.swift", "bar.swift"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(plannedJobs.count, 5)
       // No module wrapping with Mach-O.
-      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .mergeModule, .link, .generateDSYM])
+      XCTAssertEqual(plannedJobs.map { $0.kind }, [.compile, .compile, .mergeModule, .link, .generateDSYM])
     }
     #endif
   }
