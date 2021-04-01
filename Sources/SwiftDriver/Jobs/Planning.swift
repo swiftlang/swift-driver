@@ -392,16 +392,6 @@ extension Driver {
           !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty),
           compilerMode.usesPrimaryFileInputs
     else { return nil }
-
-    // If there is only 1 module input to this job and its path matches that which we intend
-    // to produce with this merge-modules job, skip it
-    let mergeOutput = moduleOutputInfo.output!.outputPath
-    if moduleInputs.count + moduleInputsFromJobOutputs.count == 1,
-       let soleInput = moduleInputs.first == nil ? moduleInputsFromJobOutputs.first : moduleInputs.first,
-       soleInput.fileHandle == mergeOutput {
-      return nil
-    }
-
     return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
   }
 
