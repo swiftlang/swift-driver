@@ -21,6 +21,9 @@ let package = Package(
     .executable(
       name: "swift-help",
       targets: ["swift-help"]),
+    .executable(
+      name: "swift-build-sdk-interfaces",
+      targets: ["swift-build-sdk-interfaces"]),
     .library(
       name: "SwiftDriver",
       targets: ["SwiftDriver"]),
@@ -92,6 +95,11 @@ let package = Package(
     .target(
       name: "swift-help",
       dependencies: ["SwiftOptions", "ArgumentParser", "SwiftToolsSupport-auto"]),
+
+    /// The help executable.
+    .target(
+      name: "swift-build-sdk-interfaces",
+      dependencies: ["SwiftDriver", "SwiftDriverExecution"]),
 
     /// The `makeOptions` utility (for importing option definitions).
     .target(

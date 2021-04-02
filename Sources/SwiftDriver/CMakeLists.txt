@@ -80,6 +80,7 @@ add_library(SwiftDriver
   Jobs/VerifyDebugInfoJob.swift
   Jobs/VerifyModuleInterfaceJob.swift
   Jobs/WebAssemblyToolchain+LinkerSupport.swift
+  Jobs/PrebuiltModulesJob.swift
 
   Toolchains/DarwinToolchain.swift
   Toolchains/GenericUnixToolchain.swift

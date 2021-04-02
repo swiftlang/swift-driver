@@ -227,6 +227,7 @@ import SwiftOptions
     private enum CodingKeys: String, CodingKey {
       case version = "Version"
       case versionMap = "VersionMap"
+      case canonicalName = "CanonicalName"
     }
 
     struct VersionMap: Decodable {
@@ -234,8 +235,9 @@ import SwiftOptions
         case macOSToCatalystMapping = "macOS_iOSMac"
       }
 
-      var macOSToCatalystMapping: [Version: Version]
+      var macOSToCatalystMapping: [Version: Version] = [:]
 
+      init() {}
       init(from decoder: Decoder) throws {
         let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -256,21 +258,26 @@ import SwiftOptions
         }
       }
     }
-
+    public let versionString: String
     private var version: Version
     private var versionMap: VersionMap
-
+    let canonicalName: String
     init(from decoder: Decoder) throws {
       let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
 
-      let versionString = try keyedContainer.decode(String.self, forKey: .version)
+      self.versionString = try keyedContainer.decode(String.self, forKey: .version)
+      self.canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
       guard let version = Version(potentiallyIncompleteVersionString: versionString) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
                                                debugDescription: "Malformed version string")
       }
       self.version = version
-      self.versionMap = try keyedContainer.decode(VersionMap.self, forKey: .versionMap)
+      if self.canonicalName.hasPrefix("macosx") {
+        self.versionMap = try keyedContainer.decode(VersionMap.self, forKey: .versionMap)
+      } else {
+        self.versionMap = VersionMap()
+      }
     }
 
     func sdkVersion(for triple: Triple) -> Version {
@@ -287,16 +294,20 @@ import SwiftOptions
   // SDK info is computed lazily. This should not generally be accessed directly.
   private var _sdkInfo: DarwinSDKInfo? = nil
 
+  static func readSDKInfo(_ fileSystem: FileSystem, _ sdkPath: VirtualPath.Handle) -> DarwinSDKInfo? {
+    let sdkSettingsPath = VirtualPath.lookup(sdkPath).appending(component: "SDKSettings.json")
+    guard let contents = try? fileSystem.readFileContents(sdkSettingsPath) else { return nil }
+    guard let sdkInfo = try? JSONDecoder().decode(DarwinSDKInfo.self,
+                                                  from: Data(contents.contents)) else { return nil }
+    return sdkInfo
+  }
+
   func getTargetSDKInfo(sdkPath: VirtualPath.Handle) -> DarwinSDKInfo? {
     if let info = _sdkInfo {
       return info
     } else {
-      let sdkSettingsPath = VirtualPath.lookup(sdkPath).appending(component: "SDKSettings.json")
-      guard let contents = try? fileSystem.readFileContents(sdkSettingsPath) else { return nil }
-      guard let sdkInfo = try? JSONDecoder().decode(DarwinSDKInfo.self,
-                                                    from: Data(contents.contents)) else { return nil }
-      self._sdkInfo = sdkInfo
-      return sdkInfo
+      self._sdkInfo = DarwinToolchain.readSDKInfo(fileSystem, sdkPath)
+      return self._sdkInfo
     }
   }
 
