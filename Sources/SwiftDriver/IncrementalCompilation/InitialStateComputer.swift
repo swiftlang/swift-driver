@@ -38,7 +38,8 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let dependencyDotFilesIncludeExternals: Bool = true
     @_spi(Testing) public let dependencyDotFilesIncludeAPINotes: Bool = false
 
-    @_spi(Testing) public let buildTime: Date
+    @_spi(Testing) public let buildStartTime: Date
+    @_spi(Testing) public let buildEndTime: Date
 
     @_spi(Testing) public init(
       _ options: IncrementalCompilationState.Options,
@@ -72,7 +73,8 @@ extension IncrementalCompilationState {
       self.isCrossModuleIncrementalBuildEnabled = options.contains(.enableCrossModuleIncrementalBuild)
       self.verifyDependencyGraphAfterEveryImport = options.contains(.verifyDependencyGraphAfterEveryImport)
       self.emitDependencyDotFileAfterEveryImport = options.contains(.emitDependencyDotFileAfterEveryImport)
-      self.buildTime = maybeBuildRecord?.buildTime ?? .distantPast
+      self.buildStartTime = maybeBuildRecord?.buildStartTime ?? .distantPast
+      self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
     }
 
     func compute(batchJobFormer: inout Driver)
@@ -102,7 +104,9 @@ extension IncrementalCompilationState {
 
       return InitialState(graph: graph,
                           skippedCompileGroups: skippedCompileGroups,
-                          mandatoryJobsInOrder: mandatoryJobsInOrder)
+                          mandatoryJobsInOrder: mandatoryJobsInOrder,
+                          buildStartTime: buildStartTime,
+                          buildEndTime: buildEndTime)
     }
   }
 }

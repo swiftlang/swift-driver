@@ -15,17 +15,18 @@ import SwiftDriver
 import TSCBasic
 import TestUtilities
 
-func assertDriverDiagnostics(
+@discardableResult
+func assertDriverDiagnostics<Result> (
   args: [String],
   env: [String: String] = ProcessEnv.vars,
   file: StaticString = #file, line: UInt = #line,
-  do body: (inout Driver, DiagnosticVerifier) throws -> Void
-) throws {
+  do body: (inout Driver, DiagnosticVerifier) throws -> Result
+) throws -> Result {
   let matcher = DiagnosticVerifier()
   defer { matcher.verify(file: file, line: line) }
 
   var driver = try Driver(args: args, env: env, diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:)]))
-  try body(&driver, matcher)
+  return try body(&driver, matcher)
 }
 
 /// Asserts that the `Driver` it instantiates will only emit warnings and errors
