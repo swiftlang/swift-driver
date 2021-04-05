@@ -19,24 +19,32 @@ public struct BuildRecord {
   public let swiftVersion: String
   /// When testing, the argsHash may be missing from the build record
   public let argsHash: String?
-  public let buildTime: Date
+  /// Next compile, will compare an input mod time against the start time of the previous build
+  public let buildStartTime: Date
+  /// Next compile, will compare an output mod time against the end time of the previous build
+  public let buildEndTime: Date
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
   public init(argsHash: String?,
               swiftVersion: String,
-              buildTime: Date,
+              buildStartTime: Date,
+              buildEndTime: Date,
               inputInfos: [VirtualPath: InputInfo]) {
     self.argsHash = argsHash
     self.swiftVersion = swiftVersion
-    self.buildTime = buildTime
+    self.buildStartTime = buildStartTime
+    self.buildEndTime = buildEndTime
     self.inputInfos = inputInfos
   }
 
   private enum SectionName: String, CaseIterable {
     case swiftVersion = "version"
     case argsHash = "options"
-    case buildTime = "build_time"
+    // Implement this for a smoother transition
+    case legacyBuildStartTime = "build_time"
+    case buildStartTime = "build_start_time"
+    case buildEndTime = "build_end_time"
     case inputInfos = "inputs"
 
     var serializedName: String { rawValue }
@@ -59,7 +67,8 @@ public extension BuildRecord {
     var argsHash: String?
     var swiftVersion: String?
     // Legacy driver does not disable incremental if no buildTime field.
-    var buildTime: Date = .distantPast
+    var buildStartTime: Date = .distantPast
+    var buildEndTime: Date = .distantFuture
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else {
@@ -80,14 +89,23 @@ public extension BuildRecord {
           return nil
         }
         argsHash = s
-     case SectionName.buildTime.serializedName:
-      guard let d = Self.decodeDate(value,
-                                    forInputInfo: false,
-                                    failedToReadOutOfDateMap)
-      else {
-        return nil
-      }
-      buildTime = d
+      case SectionName.buildStartTime.serializedName,
+           SectionName.legacyBuildStartTime.serializedName:
+        guard let d = Self.decodeDate(value,
+                                      forInputInfo: false,
+                                      failedToReadOutOfDateMap)
+        else {
+          return nil
+        }
+        buildStartTime = d
+      case SectionName.buildEndTime.serializedName:
+        guard let d = Self.decodeDate(value,
+                                      forInputInfo: false,
+                                      failedToReadOutOfDateMap)
+        else {
+          return nil
+        }
+        buildEndTime = d
       case SectionName.inputInfos.serializedName:
         guard let ii = Self.decodeInputInfos(value, failedToReadOutOfDateMap) else {
           return nil
@@ -111,7 +129,8 @@ public extension BuildRecord {
     }
     self.init(argsHash: argsHash,
               swiftVersion: sv,
-              buildTime: buildTime,
+              buildStartTime: buildStartTime,
+              buildEndTime: buildEndTime,
               inputInfos: iis)
   }
 
@@ -181,7 +200,8 @@ extension BuildRecord {
        compilationInputModificationDates: [TypedVirtualPath: Date],
        actualSwiftVersion: String,
        argsHash: String!,
-       timeBeforeFirstJob: Date
+       timeBeforeFirstJob: Date,
+       timeAfterLastJob: Date
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
       finishedJobResults.flatMap { entry in
@@ -197,7 +217,8 @@ extension BuildRecord {
     self.init(
       argsHash: argsHash,
       swiftVersion: actualSwiftVersion,
-      buildTime: timeBeforeFirstJob,
+      buildStartTime: timeBeforeFirstJob,
+      buildEndTime: timeAfterLastJob,
       inputInfos: Dictionary(uniqueKeysWithValues: inputInfosArray)
     )
   }
@@ -216,10 +237,11 @@ extension BuildRecord {
           .map {(Yams.Node($0.0, .implicit, .doubleQuoted), Self.encode($0.1))}
       )
     let fieldNodes = [
-      (SectionName.swiftVersion, Yams.Node(swiftVersion,    .implicit, .doubleQuoted)),
-      (SectionName.argsHash,     Yams.Node(currentArgsHash, .implicit, .doubleQuoted)),
-      (SectionName.buildTime,    Self.encode(buildTime)),
-      (SectionName.inputInfos,   inputInfosNode )
+      (SectionName.swiftVersion,    Yams.Node(swiftVersion,    .implicit, .doubleQuoted)),
+      (SectionName.argsHash,        Yams.Node(currentArgsHash, .implicit, .doubleQuoted)),
+      (SectionName.buildStartTime,  Self.encode(buildStartTime)),
+      (SectionName.buildEndTime,    Self.encode(buildEndTime)),
+      (SectionName.inputInfos,      inputInfosNode )
       ] .map { (Yams.Node($0.0.serializedName), $0.1) }
 
     let buildRecordNode = Yams.Node(fieldNodes, .implicit, .block)

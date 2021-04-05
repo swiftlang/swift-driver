@@ -26,7 +26,9 @@ final class NonincrementalCompilationTests: XCTestCase {
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
 
-    try XCTAssertEqual(buildRecord.buildTime,
+    try XCTAssertEqual(buildRecord.buildStartTime,
+                       Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
+    try XCTAssertEqual(buildRecord.buildEndTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
     try XCTAssertEqual(buildRecord.inputInfos,
                        [
@@ -51,8 +53,10 @@ final class NonincrementalCompilationTests: XCTestCase {
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, nil)
 
-    try XCTAssertEqual(buildRecord.buildTime,
+    try XCTAssertEqual(buildRecord.buildStartTime,
                        Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
+    try XCTAssertEqual(buildRecord.buildEndTime,
+                       Date(legacyDriverSecsAndNanos: [1570318779, 32358010]))
     try XCTAssertEqual(buildRecord.inputInfos,
                        [
                         VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
@@ -211,7 +215,8 @@ final class NonincrementalCompilationTests: XCTestCase {
       """
       version: "\(version)"
       options: "\(options)"
-      build_time: [1570318779, 32357931]
+      build_start_time: [1570318779, 32357931]
+      build_end_time: [1580318779, 33357858]
       inputs:
         "\(file2)": !dirty [1570318778, 0]
         "\(main)": [1570083660, 0]
@@ -222,8 +227,10 @@ final class NonincrementalCompilationTests: XCTestCase {
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)
-    XCTAssert(isCloseEnough(buildRecord.buildTime.legacyDriverSecsAndNanos,
+    XCTAssert(isCloseEnough(buildRecord.buildStartTime.legacyDriverSecsAndNanos,
                             [1570318779, 32357931]))
+    XCTAssert(isCloseEnough(buildRecord.buildEndTime.legacyDriverSecsAndNanos,
+                            [1580318779, 33357941]))
 
     XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: file2 )]!.status,
                    .needsCascadingBuild)
@@ -400,11 +407,13 @@ final class IncrementalCompilationTests: XCTestCase {
 }
 
 extension IncrementalCompilationTests {
+  @discardableResult
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
                 extraArguments: [String],
                 expectingRemarks texts: [String],
-                whenAutolinking: [String]) throws {
+                whenAutolinking: [String]
+  ) throws -> Driver? {
     try doABuild(
       message,
       checkDiagnostics: checkDiagnostics,
@@ -413,14 +422,16 @@ extension IncrementalCompilationTests {
       expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
   }
 
+  @discardableResult
   func doABuild(_ message: String,
                 checkDiagnostics: Bool,
                 extraArguments: [String],
                 expecting expectations: [Diagnostic.Message],
-                expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]) throws {
+                expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]
+  ) throws -> Driver? {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
 
-    func doIt(_ driver: inout Driver) {
+    func doTheCompile(_ driver: inout Driver) {
       let jobs = try! driver.planBuild()
       try? driver.run(jobs: jobs)
     }
@@ -430,14 +441,16 @@ extension IncrementalCompilationTests {
       throw XCTSkip("Cannot perform this test on this host")
     }
     let allArgs = commonArgs + extraArguments + sdkArgumentsForTesting
+    let postMortemDriver: Driver?
     if checkDiagnostics {
-      try assertDriverDiagnostics(args: allArgs) {driver, verifier in
+      postMortemDriver = try assertDriverDiagnostics(args: allArgs) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
         expectations.forEach {verifier.expect($0)}
         if driver.isAutolinkExtractJobNeeded {
           autolinkExpectations.forEach {verifier.expect($0)}
         }
-        doIt(&driver)
+        doTheCompile(&driver)
+        return driver
       }
     }
     else {
@@ -447,9 +460,11 @@ extension IncrementalCompilationTests {
       var driver = try Driver(args: allArgs, env: ProcessEnv.vars,
                               diagnosticsEngine: diagnosticEngine,
                               fileSystem: localFileSystem)
-      doIt(&driver)
+      doTheCompile(&driver)
+      postMortemDriver = driver
     }
     print("", to: &stderrStream); stderrStream.flush()
+    return postMortemDriver
   }
 }
 
@@ -580,6 +595,24 @@ extension IncrementalCompilationTests {
     }
   }
 
+  /// Ensure that if an output of post-compile job is missing, the job gets rerun.
+  func testIncrementalPostCompileJob() throws {
+    #if !os(Linux)
+    let driver = try XCTUnwrap(tryInitial(checkDiagnostics: true))
+    for postCompileOutput in try driver.postCompileOutputs() {
+      let absPostCompileOutput = try XCTUnwrap(postCompileOutput.file.absolutePath)
+      try localFileSystem.removeFileTree(absPostCompileOutput)
+      XCTAssertFalse(localFileSystem.exists(absPostCompileOutput))
+      tryNoChange()
+      XCTAssertTrue(localFileSystem.exists(absPostCompileOutput))
+    }
+    #endif
+  }
+
+  private func postCompileOutputs() -> [AbsolutePath] {
+    abort()
+  }
+
   func testIncremental(checkDiagnostics: Bool) throws {
     try tryInitial(checkDiagnostics: checkDiagnostics)
     #if true // sometimes want to skip for debugging
@@ -590,10 +623,10 @@ extension IncrementalCompilationTests {
     tryReplacingMain(checkDiagnostics: checkDiagnostics)
   }
 
-
+  @discardableResult
   func tryInitial(checkDiagnostics: Bool = false,
                   extraArguments: [String] = []
-  ) throws {
+  ) throws -> Driver? {
     try doABuild(
       "initial",
       checkDiagnostics: checkDiagnostics,
@@ -912,3 +945,8 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
 }
 
+fileprivate extension Driver {
+  func postCompileOutputs() throws -> [TypedVirtualPath] {
+    try XCTUnwrap(incrementalCompilationState).jobsAfterCompiles.flatMap {$0.outputs}
+  }
+}

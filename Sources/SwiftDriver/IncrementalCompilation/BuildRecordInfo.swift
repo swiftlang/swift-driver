@@ -167,7 +167,8 @@ import SwiftOptions
         compilationInputModificationDates: compilationInputModificationDates,
         actualSwiftVersion: actualSwiftVersion,
         argsHash: currentArgsHash,
-        timeBeforeFirstJob: timeBeforeFirstJob)
+        timeBeforeFirstJob: timeBeforeFirstJob,
+        timeAfterLastJob: Date())
     }
 
     guard let contents = buildRecord.encode(currentArgsHash: currentArgsHash,

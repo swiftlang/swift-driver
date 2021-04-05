@@ -189,8 +189,6 @@ extension ModuleDependencyGraph.Integrator {
     }
   }
 
-  private var buildTime: Date { destination.info.buildTime }
-
   // A `moduleGraphUseNode` is used by an externalDependency key being integrated.
   // Remember the dependency for later processing in externalDependencies, and
   // also return it in results.

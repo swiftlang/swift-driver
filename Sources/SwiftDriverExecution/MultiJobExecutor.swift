@@ -390,14 +390,27 @@ class ExecuteAllJobsRule: LLBuildRule {
       let subtaskSuccess = try DriverBuildValue(value).success
       // After all compilation jobs are done, we can schedule post-compilation jobs,
       // including merge module and linking jobs.
-      if inputID == allCompilationId && !context.primaryIndices.isEmpty && subtaskSuccess {
-        context.postCompileIndices.forEach {
-          engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: $0), inputID: $0)
-        }
+      if inputID == allCompilationId && subtaskSuccess {
+        schedulePostCompileJobs(engine)
       }
       allInputsSucceeded = allInputsSucceeded && subtaskSuccess
     } catch {
       allInputsSucceeded = false
+    }
+  }
+
+  /// After all compilation jobs have run, figure which, for instance link, jobs must run
+  private func schedulePostCompileJobs(_ engine: LLTaskBuildEngine) {
+    for postCompileIndex in context.postCompileIndices {
+      let job = context.jobs[postCompileIndex]
+      /// If any compile jobs ran, skip the expensive mod-time checks
+      if context.primaryIndices.isEmpty,
+         let incrementalCompilationState = context.incrementalCompilationState,
+         incrementalCompilationState.canSkipPostCompile(job: job) {
+        continue
+      }
+      engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: postCompileIndex),
+                            inputID: postCompileIndex)
     }
   }
 

@@ -46,6 +46,14 @@ public final class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
+  /// Can compare input mod times against this.
+  private let buildStartTime: Date
+
+  /// In order to decide while postCompile jobs to run, need to compare their outputs against the build time
+  private let buildEndTime: Date
+
+  private let fileSystem: FileSystem
+
   /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
   private let confinementQueue: DispatchQueue = DispatchQueue(label: "com.apple.swift-driver.incremental-compilation-state", qos: .userInteractive)
 
@@ -124,6 +132,9 @@ public final class IncrementalCompilationState {
     self.mandatoryJobsInOrder = initial.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initial.graph
+    self.buildStartTime = initial.buildStartTime
+    self.buildEndTime = initial.buildEndTime
+    self.fileSystem = driver.fileSystem
     self.driver = driver
   }
 }
@@ -150,6 +161,10 @@ extension IncrementalCompilationState {
     /// All of the pre-compile or compilation job (groups) known to be required
     /// for the first wave to execute.
     let mandatoryJobsInOrder: [Job]
+    /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
+    let buildStartTime: Date
+    /// The last time this compilation finished. Used to compare against output file mod dates
+    let buildEndTime: Date
   }
 }
 
@@ -288,6 +303,14 @@ extension IncrementalCompilationState {
       }
     }
     return try driver.formBatchedJobs(unbatched, showJobLifecycle: driver.showJobLifecycle)
+  }
+}
+// MARK: - Scheduling post-compile jobs
+extension IncrementalCompilationState {
+  public func canSkipPostCompile(job: Job) -> Bool {
+    job.outputs.allSatisfy {output in
+      let fileModTime = (try? fileSystem.lastModificationTime(for: output.file)) ?? .distantFuture
+      return fileModTime <= buildEndTime}
   }
 }
 
