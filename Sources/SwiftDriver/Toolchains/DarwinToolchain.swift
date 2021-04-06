@@ -165,7 +165,8 @@ import SwiftOptions
                            targetTriple: Triple,
                            targetVariantTriple: Triple?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
-    // On non-darwin hosts, libArcLite is not relevant
+    // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
+    // Guard for the sake of tests runnin on all platforms
     #if os(macOS)
     // Validating arclite library path when link-objc-runtime.
     validateLinkObjcRuntimeARCLiteLib(&parsedOptions,

@@ -1132,6 +1132,8 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // static linking
+      // Locating relevant libraries is dependent on being a macOS host
+      #if os(macOS)
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.9", "-lto=llvm-full"], env: env)
       let plannedJobs = try driver.planBuild()
 
@@ -1161,6 +1163,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains("-lto_library"))
       XCTAssertFalse(cmd.contains("-syslibroot"))
       XCTAssertFalse(cmd.contains("-no_objc_category_merging"))
+      #endif
     }
 
     do {
@@ -1186,12 +1189,15 @@ final class SwiftDriverTests: XCTestCase {
     
     do {
       // lto linking
+      // Locating relevant libraries is dependent on being a macOS host
+      #if os(macOS)
       var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], env: env)
       let plannedJobs1 = try driver1.planBuild()
       XCTAssertFalse(plannedJobs1.contains(where: { $0.kind == .autolinkExtract }))
       let linkJob1 = plannedJobs1.first(where: { $0.kind == .link })
       XCTAssertTrue(linkJob1?.tool.name.contains("ld"))
       XCTAssertTrue(linkJob1?.commandLine.contains(.flag("-lto_library")))
+      #endif
 
       var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
       let plannedJobs2 = try driver2.planBuild()
@@ -2377,7 +2383,10 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
+    // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
+    #if os(macOS)
     try assertNoDriverDiagnostics(args: "swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-link-objc-runtime", "foo.swift")
+    #endif
   }
 
   func testProfileArgValidation() throws {
@@ -3481,6 +3490,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLTOLibraryArg() throws {
+    #if os(macOS)
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
@@ -3499,6 +3509,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertFalse(plannedJobs[1].commandLine.contains("-lto_library"))
     }
+    #endif
   }
 
   func testBCasTopLevelOutput() throws {
