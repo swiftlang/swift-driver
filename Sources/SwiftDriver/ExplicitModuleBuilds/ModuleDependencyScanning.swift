@@ -90,8 +90,8 @@ internal extension Driver {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(placeholderArtifacts)
-    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"),
-                                       contents)
+    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"),
+                                                                  contents)
   }
 
   mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
@@ -281,8 +281,8 @@ internal extension Driver {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(moduleInfos)
-    return .temporaryWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
-                                       contents)
+    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
+                                                                  contents)
   }
 
   fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,

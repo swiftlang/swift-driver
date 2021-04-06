@@ -284,7 +284,7 @@ extension Driver {
           // Alongside primary output
           outputPath = output.file.replacingExtension(with: outputType).intern()
         } else {
-          outputPath = VirtualPath.temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
+          outputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
 
         // Update the input-output file map.
@@ -394,7 +394,8 @@ extension Driver {
         // Alongside primary output
         remapOutputPath = output.file.replacingExtension(with: .remap)
       } else {
-        remapOutputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
+        remapOutputPath =
+          VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
       }
 
       flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",

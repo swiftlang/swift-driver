@@ -15,6 +15,7 @@ import Foundation
 import SwiftDriverExecution
 import TSCBasic
 import XCTest
+import TestUtilities
 
 /// Check that an explicit module build job contains expected inputs and options
 private func checkExplicitModuleBuildJob(job: Job,
@@ -288,8 +289,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
             continue
           case .absolute(AbsolutePath("/Somewhere/B.swiftmodule")):
             continue
-          case .temporaryWithKnownContents(let filePath, _):
-            XCTAssertEqual(filePath.basename, "A-dependencies.json")
+          case .temporaryWithKnownContents(_, _):
+            XCTAssertTrue(matchTemporary(input.file, "A-dependencies.json"))
             continue
           default:
             XCTFail("Unexpected module input: \(input.file)")
@@ -346,7 +347,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
-        switch (job.outputs[0].file) {
+        let outputFilePath = job.outputs[0].file
+        switch (outputFilePath) {
           case .relative(RelativePath("A.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
                                             dependencyOracle: dependencyOracle,
@@ -414,23 +416,15 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .temporary(RelativePath("testExplicitModuleBuildJobs.o")):
-            XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-            let pcmArgs = mainModuleSwiftDetails.extraPcmArgs
-            try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs,
-                                                        moduleInfo: mainModuleInfo,
-                                                        dependencyOracle: dependencyOracle,
-                                                        pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("testExplicitModuleBuildJobs")):
             XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
             XCTAssertEqual(job.kind, .link)
-
-          case .temporary(RelativePath("testExplicitModuleBuildJobs.autolink")):
-            XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-            XCTAssertEqual(job.kind, .autolinkExtract)
-
+          case .temporary(_):
+            let baseName = "testExplicitModuleBuildJobs"
+            XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+                          matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
           default:
-            XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
+            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
         }
       }
     }

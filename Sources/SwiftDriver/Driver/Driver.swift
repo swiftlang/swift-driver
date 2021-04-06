@@ -1924,7 +1924,7 @@ extension Driver {
         moduleOutputPath = try .init(path: moduleFilename)
       }
     } else {
-      moduleOutputPath = .temporary(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
+      moduleOutputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
     }
 
     // Use working directory if specified
@@ -2037,13 +2037,12 @@ extension Driver {
       return outputPath
     }
 
-    // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
     let inputFile = VirtualPath.lookup(input)
     let pchFileName = inputFile.basenameWithoutExt.appendingFileTypeExtension(.pch)
     if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       return try VirtualPath(path: outputDirectory).appending(component: pchFileName).intern()
     } else {
-      return VirtualPath.temporary(RelativePath(pchFileName)).intern()
+      return VirtualPath.createUniqueTemporaryFile(RelativePath(pchFileName)).intern()
     }
   }
 }

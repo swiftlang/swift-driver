@@ -377,7 +377,7 @@ public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleIn
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(dependencyArtifacts)
-    return .temporaryWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
+    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
   }
 
   private func getPCMHashParts(pcmArgs: [String]) -> [String] {

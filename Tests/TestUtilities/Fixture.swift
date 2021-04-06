@@ -1,4 +1,4 @@
-//===-------- DriverExtensions.swift - Driver Testing Extensions ----------===//
+//===------------ Fixture.swift - Driver Testing Extensions --------------===//
 //
 // This source file is part of the Swift.org open source project
 //

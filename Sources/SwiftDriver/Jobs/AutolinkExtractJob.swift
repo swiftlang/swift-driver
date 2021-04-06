@@ -33,7 +33,7 @@ extension Driver {
     // Go through a bit of extra rigmarole to keep the "./" out of the name for
     // the sake of the tests.
     let output: VirtualPath = dir == .temporary(RelativePath("."))
-      ? .temporary(RelativePath(outputBasename))
+      ? VirtualPath.createUniqueTemporaryFile(RelativePath(outputBasename))
       : dir.appending(component: outputBasename)
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })

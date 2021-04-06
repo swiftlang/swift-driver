@@ -30,8 +30,9 @@ extension Toolchain {
     // This action does not require any input files, but all frontend actions require
     // at least one so we fake it.
     // FIXME: Teach -emit-supported-features to not expect any inputs, like -print-target-info does.
-    let dummyInputPath = VirtualPath.temporaryWithKnownContents(.init("dummyInput.swift"),
-                                                                "".data(using: .utf8)!)
+    let dummyInputPath =
+      VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("dummyInput.swift"),
+                                                             "".data(using: .utf8)!)
     commandLine.appendPath(dummyInputPath)
     inputs.append(TypedVirtualPath(file: dummyInputPath.intern(), type: .swift))
     
