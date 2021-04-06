@@ -1436,6 +1436,18 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  private func clangPathInActiveXcode() throws -> AbsolutePath? {
+    #if !os(macOS)
+    return nil
+    #endif
+    let process = Process(arguments: ["xcrun", "-toolchain", "default", "-f", "clang"])
+    try process.launch()
+    let result = try process.waitUntilExit()
+    guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else { return nil }
+    guard let path = String(bytes: try result.output.get(), encoding: .utf8) else { return nil }
+    return path.isEmpty ? nil : AbsolutePath(path.spm_chomp())
+  }
+
   func testCompatibilityLibs() throws {
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
@@ -1537,6 +1549,30 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1iOS))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsiOS))]))
       }
+
+      // libarclite is only relevant on darwin
+      #if os(macOS)
+      do {
+        // Override executive paths and make sure this does not affect the location of the found
+        // libarclite
+        env["SWIFT_DRIVER_SWIFTC_EXEC"] = "/some/path/swiftc"
+        env["SWIFT_DRIVER_CLANG_EXEC"] = "/some/path/clang"
+        guard let clangPathInXcode = try? clangPathInActiveXcode() else {
+          throw XCTSkip()
+        }
+        let clangRelativeArcLite = clangPathInXcode.parentDirectory.parentDirectory
+                                   .appending(components: "lib", "arc", "libarclite_macosx.a")
+
+        var driver = try Driver(args: commonArgs + ["-target", "x86_64-apple-macosx10.9"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(clangRelativeArcLite))]))
+      }
+      #endif
     }
   }
 
