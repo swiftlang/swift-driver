@@ -14,6 +14,15 @@ import TSCUtility
 import SwiftOptions
 
 extension DarwinToolchain {
+  internal func findXcodeClangPath() throws -> AbsolutePath? {
+    let result = try executor.checkNonZeroExit(
+      args: "xcrun", "-toolchain", "default", "-f", "clang",
+      environment: env
+    ).spm_chomp()
+
+    return result.isEmpty ? nil : AbsolutePath(result)
+  }
+
   internal func findXcodeClangLibPath(_ additionalPath: String) throws -> AbsolutePath? {
     let path = try getToolPath(.swiftCompiler)
       .parentDirectory // 'swift'
@@ -24,7 +33,7 @@ extension DarwinToolchain {
 
     // If we don't have a 'lib/arc/' directory, find the "arclite" library
     // relative to the Clang in the active Xcode.
-    if let clangPath = try? getToolPath(.clang) {
+    if let clangPath = try? findXcodeClangPath() {
       return clangPath
         .parentDirectory // 'clang'
         .parentDirectory // 'bin'
