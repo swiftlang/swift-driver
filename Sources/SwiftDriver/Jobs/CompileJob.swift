@@ -121,8 +121,9 @@ extension Driver {
     if usePrimaryInputFileList {
       // primary file list
       commandLine.appendFlag(.primaryFilelist)
-      let path = RelativePath(createTemporaryFileName(prefix: "primaryInputs"))
-      commandLine.appendPath(.fileList(path, .list(primaryInputs.map(\.file))))
+      let fileList = VirtualPath.createUniqueFilelist(RelativePath("primaryInputs"),
+                                                      .list(primaryInputs.map(\.file)))
+      commandLine.appendPath(fileList)
     }
 
     let isTopLevel = isTopLevelOutput(type: outputType)
@@ -296,8 +297,9 @@ extension Driver {
     // Add primary outputs.
     if primaryOutputs.count > fileListThreshold {
       commandLine.appendFlag(.outputFilelist)
-      let path = RelativePath(createTemporaryFileName(prefix: "outputs"))
-      commandLine.appendPath(.fileList(path, .list(primaryOutputs.map { $0.file })))
+      let fileList = VirtualPath.createUniqueFilelist(RelativePath("outputs"),
+                                                      .list(primaryOutputs.map { $0.file }))
+      commandLine.appendPath(fileList)
     } else {
       for primaryOutput in primaryOutputs {
         commandLine.appendFlag(.o)
@@ -309,8 +311,9 @@ extension Driver {
     if !primaryIndexUnitOutputs.isEmpty {
       if primaryIndexUnitOutputs.count > fileListThreshold {
         commandLine.appendFlag(.indexUnitOutputPathFilelist)
-        let path = RelativePath(createTemporaryFileName(prefix: "index-unit-outputs"))
-        commandLine.appendPath(.fileList(path, .list(primaryIndexUnitOutputs.map { $0.file })))
+        let fileList = VirtualPath.createUniqueFilelist(RelativePath("index-unit-outputs"),
+                                                        .list(primaryIndexUnitOutputs.map { $0.file }))
+        commandLine.appendPath(fileList)
       } else {
         for primaryIndexUnitOutput in primaryIndexUnitOutputs {
           commandLine.appendFlag(.indexUnitOutputPath)

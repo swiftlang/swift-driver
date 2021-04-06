@@ -425,6 +425,12 @@ extension VirtualPath {
     return .temporaryWithKnownContents(uniquedRelativePath, data)
   }
 
+  public static func createUniqueFilelist(_ path: RelativePath, _ fileList: FileList)
+  -> VirtualPath {
+    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+    return .fileList(uniquedRelativePath, fileList)
+  }
+
   private static func getUniqueTemporaryPath(for path: RelativePath) -> RelativePath {
     let uniquedBaseName = Self.temporaryFileStore.getUniqueFilename(for: path.basenameWithoutExt)
     // Avoid introducing the the leading dot

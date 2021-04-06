@@ -384,7 +384,6 @@ final class SwiftDriverTests: XCTestCase {
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo=bar=baz", "-debug-prefix-map", "qux=") { driver in
         let jobs = try driver.planBuild()
-      print(jobs[0].commandLine)
         XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-prefix-map")))
         XCTAssertTrue(jobs[0].commandLine.contains(.flag("foo=bar=baz")))
         XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-prefix-map")))

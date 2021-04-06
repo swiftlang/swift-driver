@@ -484,8 +484,8 @@ public struct Driver {
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
     if shouldUseInputFileList {
       let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
-      let path = RelativePath(createTemporaryFileName(prefix: "sources"))
-      self.allSourcesFileList = .fileList(path, .list(swiftInputs.map(\.file)))
+      self.allSourcesFileList = VirtualPath.createUniqueFilelist(RelativePath("sources"),
+                                                                 .list(swiftInputs.map(\.file)))
     } else {
       self.allSourcesFileList = nil
     }
