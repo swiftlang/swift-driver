@@ -3563,6 +3563,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == mergeInterfaceOutputs[0])
+      XCTAssertTrue(verifyJob.outputs.isEmpty)
       XCTAssertTrue(verifyJob.commandLine.contains(.path(mergeInterfaceOutputs[0].file)))
     }
     // No Evolution
