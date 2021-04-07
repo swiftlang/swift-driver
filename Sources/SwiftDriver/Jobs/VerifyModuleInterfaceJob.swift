@@ -19,13 +19,11 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
 
-    // Compute the serialized diagnostics output file
-    let outputFile: TypedVirtualPath
-    if let output = serializedDiagnosticsFilePath {
-      outputFile = TypedVirtualPath(file: output, type: .diagnostics)
-    } else {
-      outputFile = TypedVirtualPath(file: interfaceInput.file.replacingExtension(with: .diagnostics).intern(),
-                                    type: .diagnostics)
+    // Output serialized diagnostics for this job, if specifically requested
+    var outputs: [TypedVirtualPath] = []
+    if let outputPath = outputFileMap?.existingOutput(inputFile: interfaceInput.fileHandle,
+                                                      outputType: .diagnostics) {
+      outputs.append(TypedVirtualPath(file: outputPath, type: .diagnostics))
     }
 
     return Job(
@@ -36,7 +34,7 @@ extension Driver {
       displayInputs: [interfaceInput],
       inputs: inputs,
       primaryInputs: [],
-      outputs: [outputFile]
+      outputs: outputs
     )
   }
 }
