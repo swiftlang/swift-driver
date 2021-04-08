@@ -408,19 +408,19 @@ class ExecuteAllJobsRule: LLBuildRule {
     let didAnyCompileJobsRun = !context.primaryIndices.isEmpty
     /// If any compile jobs ran, skip the expensive mod-time checks
     let scheduleEveryPostCompileJob = didAnyCompileJobsRun
-    guard let incrementalCompilationState = context.incrementalCompilationState,
-          !scheduleEveryPostCompileJob
+    if let incrementalCompilationState = context.incrementalCompilationState,
+       !scheduleEveryPostCompileJob {
+      for postCompileIndex in context.postCompileIndices
+      where !incrementalCompilationState.canSkipPostCompile(job: context.jobs[postCompileIndex]) {
+        schedule(postCompileIndex)
+      }
+    }
     else {
       context.incrementalCompilationState?.reporter?.report(
         "Scheduling all post-compile jobs because something was compiled")
       context.postCompileIndices.forEach(schedule)
-      return
     }
-    for postCompileIndex in context.postCompileIndices
-    where !incrementalCompilationState.canSkipPostCompile(job: context.jobs[postCompileIndex]) {
-      schedule(postCompileIndex)
-    }
-  }
+ }
 
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
     engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
