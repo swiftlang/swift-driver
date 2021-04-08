@@ -1053,9 +1053,12 @@ extension Driver {
   }
 
   private func writeIncrementalBuildInformation(_ jobs: [Job]) {
+    // In case the write fails, don't crash the build.
+    // A mitigation to rdar://76359678.
+    // If the write fails, import incrementality is lost, but it is not a fatal error.
     if let incrementalCompilationState = self.incrementalCompilationState {
       let hadError = incrementalCompilationState.writeDependencyGraph()
-      /// Ensure that a bogus dependency graph is not used next time
+      /// Ensure that a bogus dependency graph is not used next time.
       guard !hadError else {
         buildRecordInfo?.removeBuildRecord()
         return
