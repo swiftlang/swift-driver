@@ -15,6 +15,7 @@ import Foundation
 extension Driver {
   /// Form a backend job.
   mutating func backendJob(input: TypedVirtualPath,
+                           baseInput: TypedVirtualPath?,
                            addJobOutputs: ([TypedVirtualPath]) -> Void)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -55,7 +56,9 @@ extension Driver {
 
     // Add the output file argument if necessary.
     if let compilerOutputType = compilerOutputType {
-      let output = computePrimaryOutput(for: input,
+      // If there is no baseInput (singleCompileMode), primary output computation
+      // is not input-specific, therefore it does not matter which input is passed.
+      let output = computePrimaryOutput(for: baseInput ?? input,
                                         outputType: compilerOutputType,
                                         isTopLevel: isTopLevelOutput(type: compilerOutputType))
       commandLine.appendFlag(.o)

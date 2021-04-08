@@ -284,7 +284,7 @@ extension Driver {
           // Alongside primary output
           outputPath = output.file.replacingExtension(with: outputType).intern()
         } else {
-          outputPath = VirtualPath.temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
+          outputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
 
         // Update the input-output file map.
@@ -394,7 +394,8 @@ extension Driver {
         // Alongside primary output
         remapOutputPath = output.file.replacingExtension(with: .remap)
       } else {
-        remapOutputPath = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
+        remapOutputPath =
+          VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
       }
 
       flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",
@@ -436,9 +437,10 @@ extension Driver {
         entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)
-      let path = RelativePath(createTemporaryFileName(prefix: "supplementaryOutputs"))
+      let fileList = VirtualPath.createUniqueFilelist(RelativePath("supplementaryOutputs"),
+                                                      .outputFileMap(outputFileMap))
       commandLine.appendFlag(.supplementaryOutputFileMap)
-      commandLine.appendPath(.fileList(path, .outputFileMap(outputFileMap)))
+      commandLine.appendPath(fileList)
     } else {
       for flaggedPair in flaggedInputOutputPairs {
         // Add the appropriate flag.
@@ -475,11 +477,4 @@ extension Driver {
   public func isExplicitMainModuleJob(job: Job) -> Bool {
     return job.moduleName == moduleOutputInfo.name
   }
-}
-
-var id: Int = 0
-// I don't like this as a global function, but it needs to be used by both Driver and Toolchain
-func createTemporaryFileName(prefix: String, suffix: String? = nil) -> String {
-  id += 1
-  return prefix + "-\(id)" + (suffix.map { "." + $0 } ?? "")
 }

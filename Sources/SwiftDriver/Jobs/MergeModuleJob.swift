@@ -26,8 +26,9 @@ extension Driver {
     // Input file list.
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
-      let path = RelativePath(createTemporaryFileName(prefix: "inputs"))
-      commandLine.appendPath(.fileList(path, .list(inputsFromOutputs.map { $0.file })))
+      let fileList = VirtualPath.createUniqueFilelist(RelativePath("inputs"),
+                                                      .list(inputsFromOutputs.map { $0.file }))
+      commandLine.appendPath(fileList)
       inputs.append(contentsOf: inputsFromOutputs)
       
       for input in providedInputs {

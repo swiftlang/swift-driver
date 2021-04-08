@@ -260,7 +260,6 @@ extension DarwinToolchain {
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
-      let path = RelativePath(createTemporaryFileName(prefix: "inputs", suffix: "LinkFileList"))
       var inputPaths = [VirtualPath]()
       var inputModules = [VirtualPath]()
       for input in inputs {
@@ -273,7 +272,9 @@ extension DarwinToolchain {
           inputPaths.append(input.file)
         }
       }
-      commandLine.appendPath(.fileList(path, .list(inputPaths)))
+      let fileList = VirtualPath.createUniqueFilelist(RelativePath("inputs.LinkFileList"),
+                                                      .list(inputPaths))
+      commandLine.appendPath(fileList)
       if linkerOutputType != .staticLibrary {
         for module in inputModules {
           commandLine.append(.flag("-add_ast_path"))

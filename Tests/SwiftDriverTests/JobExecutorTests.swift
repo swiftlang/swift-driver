@@ -15,6 +15,7 @@ import TSCUtility
 
 @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
+import TestUtilities
 
 extension Job.ArgTemplate: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
@@ -384,7 +385,7 @@ final class JobExecutorTests: XCTestCase {
         XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
         XCTAssertEqual(jobs[0].outputs.count, 1)
         let compileOutput = jobs[0].outputs[0].file
-        guard case .temporary(.init("main.o")) = compileOutput else {
+        guard matchTemporary(compileOutput, "main.o") else {
           XCTFail("unexpected output")
           return
         }
@@ -422,7 +423,7 @@ final class JobExecutorTests: XCTestCase {
         XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
         XCTAssertEqual(jobs[0].outputs.count, 1)
         let compileOutput = jobs[0].outputs[0].file
-        guard case .temporary(.init("main.o")) = compileOutput else {
+        guard matchTemporary(compileOutput, "main.o") else {
           XCTFail("unexpected output")
           return
         }
@@ -460,7 +461,7 @@ final class JobExecutorTests: XCTestCase {
         XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
         XCTAssertEqual(jobs[0].outputs.count, 1)
         let compileOutput = jobs[0].outputs[0].file
-        guard case .temporary(.init("main.o")) = compileOutput else {
+        guard matchTemporary(compileOutput, "main.o") else {
           XCTFail("unexpected output")
           return
         }

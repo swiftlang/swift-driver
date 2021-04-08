@@ -266,7 +266,7 @@ extension Driver {
       addJob(compile)
       let backendJobs = try compile.outputs.compactMap { output in
         output.type == .llvmBitcode
-          ? try backendJob(input: output, addJobOutputs: addJobOutputs)
+          ? try backendJob(input: output, baseInput: nil, addJobOutputs: addJobOutputs)
           : nil
       }
       backendJobs.forEach(addJob)
@@ -367,7 +367,7 @@ extension Driver {
                                    emitModuleTrace: emitModuleTrace)
       let backendJobs = try compile.outputs.compactMap { output in
         output.type == .llvmBitcode
-          ? try backendJob(input: output, addJobOutputs: addJobOutputs)
+          ? try backendJob(input: output, baseInput: primaryInput, addJobOutputs: addJobOutputs)
           : nil
       }
       assert(backendJobs.count <= 1)

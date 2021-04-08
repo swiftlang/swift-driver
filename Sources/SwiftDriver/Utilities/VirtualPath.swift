@@ -20,6 +20,8 @@ import Darwin
 public enum VirtualPath: Hashable {
   private static var pathCache = PathCache()
 
+  private static var temporaryFileStore = TemporaryFileStore()
+
   /// A relative path that has not been resolved based on the current working
   /// directory.
   case relative(RelativePath)
@@ -33,12 +35,14 @@ public enum VirtualPath: Hashable {
   /// Standard output
   case standardOutput
 
+  /// We would like to direct clients to use the temporary file creation utilities `createUniqueTemporaryFile`, etc.
+  /// To ensure temporary files are unique.
+  /// TODO: If/When Swift gains enum access control, we can prohibit direct instantiation of temporary file cases,
+  /// e.g. `private(init) case temporary(RelativePath)`.
   /// A temporary file with the given name.
   case temporary(RelativePath)
-
   /// A temporary file with the given name and contents.
   case temporaryWithKnownContents(RelativePath, Data)
-
   /// A temporary file that holds a list of paths.
   case fileList(RelativePath, FileList)
 
@@ -400,6 +404,76 @@ extension VirtualPath {
         }
       }
     }
+  }
+}
+
+// MARK: Temporary File Creation
+
+/// Most client contexts require temporary files they request to be unique (e.g. auxiliary compile outputs).
+/// This extension provides a set of utilities to create unique (within driver context) relative paths to temporary files.
+/// Clients are still allowed to instantiate `.temporary` `VirtualPath` values directly because of our inability to specify
+/// enum case access control, but are discouraged from doing so.
+extension VirtualPath {
+  public static func createUniqueTemporaryFile(_ path: RelativePath) -> VirtualPath {
+    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+    return .temporary(uniquedRelativePath)
+  }
+
+  public static func createUniqueTemporaryFileWithKnownContents(_ path: RelativePath, _ data: Data)
+  -> VirtualPath {
+    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+    return .temporaryWithKnownContents(uniquedRelativePath, data)
+  }
+
+  public static func createUniqueFilelist(_ path: RelativePath, _ fileList: FileList)
+  -> VirtualPath {
+    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+    return .fileList(uniquedRelativePath, fileList)
+  }
+
+  private static func getUniqueTemporaryPath(for path: RelativePath) -> RelativePath {
+    let uniquedBaseName = Self.temporaryFileStore.getUniqueFilename(for: path.basenameWithoutExt)
+    // Avoid introducing the the leading dot
+    let dirName = path.dirname == "." ? "" : path.dirname
+    let fileExtension = path.extension.map { ".\($0)" } ?? ""
+    return RelativePath(dirName + uniquedBaseName + fileExtension)
+  }
+
+  /// A cache of created temporary files
+  private final class TemporaryFileStore {
+    private var uniqueFileCountDict: [String: Int]
+    private var queue: DispatchQueue
+
+    init() {
+      self.uniqueFileCountDict = [String: Int]()
+      self.queue = DispatchQueue(label: "com.apple.swift.driver.temp-file-store",
+                                 qos: .userInteractive)
+    }
+
+    fileprivate func getUniqueFilename(for temporaryPathStr: String) -> String {
+      return self.queue.sync() {
+        let newCount: Int
+        if let previouslySeenCount = uniqueFileCountDict[temporaryPathStr] {
+          newCount = previouslySeenCount + 1
+        } else {
+          newCount = 1
+        }
+        uniqueFileCountDict[temporaryPathStr] = newCount
+        return "\(temporaryPathStr)-\(newCount)"
+      }
+    }
+
+    // Used for testing purposes only
+    fileprivate func reset() {
+      return self.queue.sync() {
+        uniqueFileCountDict.removeAll()
+      }
+    }
+  }
+
+  // Reset the temporary file store, for testing purposes only
+  @_spi(Testing) public static func resetTemporaryFileStore() {
+    Self.temporaryFileStore.reset()
   }
 }
 

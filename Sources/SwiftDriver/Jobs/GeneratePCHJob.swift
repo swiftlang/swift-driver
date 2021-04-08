@@ -39,8 +39,9 @@ extension Driver {
         let outputName = input.file.basenameWithoutExt + "-" + String(code, radix: 36)
         path = try VirtualPath(path: outputDirectory).appending(component: outputName.appendingFileTypeExtension(.diagnostics))
       } else {
-        // FIXME: should have '-.*' at the end of the filename, similar to llvm::sys::fs::createTemporaryFile
-        path = .temporary(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
+        path =
+          VirtualPath.createUniqueTemporaryFile(
+            RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
       }
       commandLine.appendPath(path)
       outputs.append(.init(file: path.intern(), type: .diagnostics))
