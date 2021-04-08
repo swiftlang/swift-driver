@@ -307,21 +307,60 @@ extension IncrementalCompilationState {
 }
 // MARK: - Scheduling post-compile jobs
 extension IncrementalCompilationState {
-  public func canSkipPostCompile(job: Job) -> Bool {
-    let neededOutputs = job.outputs.filter {output in
-      let fileModTime = (try? fileSystem.lastModificationTime(for: output.file)) ?? .distantFuture
-      return fileModTime > buildEndTime
+  /// Only used when no compilations have run; otherwise the caller assumes every post-compile
+  /// job is needed, and saves the cost of the filesystem accesses by not calling this function.
+  /// (For instance, if a build is cancelled in the merge-module phase, the compilations may be up-to-date
+  /// but the postcompile-jobs (e.g. link-edit) may still need to be run.
+  /// Since the use-case is rare, this function can afford to be expensive.
+  /// Unlike the check in `IncrementalStateComputer.computeChangedInputs`,
+  /// this function does not rely on build record information, which makes it more expensive but more robust.
+  public func canSkip(job: Job) -> Bool {
+    func report(skipping: Bool, _ details: String, _ file: TypedVirtualPath? = nil) {
+      reporter?.report(
+        "\(skipping ? "S" : "Not s")kipping job: \(job.descriptionForLifecycle); \(details)",
+        file)
     }
-    let canSkip = neededOutputs.isEmpty
-    if let reporter = reporter {
-      if canSkip {
-        reporter.report("Skipping post-compile job: \(job.descriptionForLifecycle)")
+    func modTime(_ path: TypedVirtualPath) -> Date? {
+      try? fileSystem.lastModificationTime(for: path.file)
+    }
+    if job.outputs.isEmpty {
+      report(skipping: false, "No outputs")
+      return false
+    }
+    /// Avoid n**2 stats calls
+    let maybeOldestOutputAndTime: (TypedVirtualPath, Date)? = job.outputs.reduce(nil) {
+      maybeOldestOutputAndTime, output in
+      guard let outputModTime = modTime(output)
+      else {
+        report(skipping: false, "missing output", output)
+        return maybeOldestOutputAndTime
       }
-      for output in neededOutputs {
-        reporter.report("Not skipping post-compile job: \(job.descriptionForLifecycle); need", output)
+      guard let oldestOutputAndModTime = maybeOldestOutputAndTime
+      else {
+        return (output, outputModTime)
+      }
+      return outputModTime < oldestOutputAndModTime.1
+      ? (output, outputModTime)
+      : oldestOutputAndModTime
+    }
+    guard let (oldestOutput, oldestOutputModTime) = maybeOldestOutputAndTime
+    else {
+      return false
+    }
+    for input in job.inputs {
+      guard let inputModTime = modTime(input)
+      else {
+        report(skipping: false, "Missing input", input)
+        return false
+      }
+      guard inputModTime < oldestOutputModTime
+      else {
+        report(skipping: false, "Output \(oldestOutput.file.basename) is older than input:", input)
+        return false
       }
     }
-    return canSkip
+    report(skipping: true, "oldest output is current", oldestOutput)
+    return true
   }
 }
 

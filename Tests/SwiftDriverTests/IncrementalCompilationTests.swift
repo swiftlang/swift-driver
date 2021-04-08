@@ -668,7 +668,7 @@ extension IncrementalCompilationTests {
         "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
         "Skipped Compiling main.swift",
         "Skipped Compiling other.swift",
-        "Skipping post-compile job: Linking theModule",
+        "Incremental compilation: Skipping job: Linking theModule; oldest output is current",
       ],
       whenAutolinking: [])
   }
