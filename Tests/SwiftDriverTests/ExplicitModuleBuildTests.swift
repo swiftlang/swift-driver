@@ -205,6 +205,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             moduleId: .swift("Swift"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
+          case .relative(RelativePath("_Concurrency.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
+                                            moduleId: .swift("_Concurrency"),
+                                            dependencyOracle: dependencyOracle,
+                                            pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("SwiftOnoneSupport"),
@@ -281,6 +286,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for input in mainModuleJob.inputs {
         switch (input.file) {
           case .relative(RelativePath("Swift.swiftmodule")):
+            continue
+          case .relative(RelativePath("_Concurrency.swiftmodule")):
             continue
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             continue
@@ -361,6 +368,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("Swift.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
+                                            dependencyOracle: dependencyOracle,
+                                            pcmFileEncoder: pcmFileEncoder)
+          case .relative(RelativePath("_Concurrency.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
@@ -497,6 +508,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("Swift.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
+                                            dependencyOracle: dependencyOracle,
+                                            pcmFileEncoder: pcmFileEncoder)
+          case .relative(RelativePath("_Concurrency.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
