@@ -669,7 +669,17 @@ final class ExplicitModuleBuildTests: XCTestCase {
         let dependencyGraph =
           try! dependencyOracle.getDependencies(workingDirectory: path,
                                                 commandLine: iterationCommand)
-        if (dependencyGraph.modules.count != expectedNumberOfDependencies) {
+
+        // The _Concurrency module is automatically imported in newer versions
+        // of the Swift compiler. If it happened to be provided, adjust
+        // our expectations accordingly.
+        let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
+          $0.moduleName == "_Concurrency"
+        }
+        let adjustedExpectedNumberOfDependencies =
+            expectedNumberOfDependencies + (hasConcurrencyModule ? 1 : 0)
+
+        if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
           lock.lock()
           print("Unexpected Dependency Scanning Result (\(dependencyGraph.modules.count) modules):")
           dependencyGraph.modules.forEach {
@@ -677,7 +687,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
           lock.unlock()
         }
-        XCTAssertTrue(dependencyGraph.modules.count == expectedNumberOfDependencies)
+        XCTAssertTrue(dependencyGraph.modules.count ==
+                      adjustedExpectedNumberOfDependencies)
       }
     }
   }
