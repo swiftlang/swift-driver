@@ -479,7 +479,7 @@ extension IncrementalCompilationTests {
       (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, {$0.emitDependencyDotFileAfterEveryImport}),
       (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
       (.enableIncrementalImports, {$0.isCrossModuleIncrementalBuildEnabled}),
-      (.disableIncrementalImports, {!$0.isCrossModuleIncrementalBuildEnabled}),
+//      (.disableIncrementalImports, {!$0.isCrossModuleIncrementalBuildEnabled}),
     ]
 
     for (driverOption, stateOptionFn) in optionPairs {

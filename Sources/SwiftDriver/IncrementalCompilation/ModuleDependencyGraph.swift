@@ -674,8 +674,8 @@ extension ModuleDependencyGraph {
       try fileSystem.writeFileContents(path,
                                        bytes: data,
                                        atomically: true)
-    } catch {
-      info.diagnosticEngine.emit(.error_could_not_write_dep_graph(to: path))
+    } catch let e {
+      info.diagnosticEngine.emit(.error_could_not_write_dep_graph(to: path, error: e))
     }
   }
 
@@ -1036,9 +1036,10 @@ fileprivate extension DependencyKey.Designator {
 
 extension Diagnostic.Message {
   fileprivate static func error_could_not_write_dep_graph(
-    to path: VirtualPath
+    to path: VirtualPath,
+    error: Swift.Error
   ) -> Diagnostic.Message {
-    .error("could not write driver dependency graph to \(path)")
+      .error("could not write driver dependency graph to \(path). Returned error was: \(error)")
   }
 }
 

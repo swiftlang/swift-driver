@@ -65,11 +65,11 @@ extension Driver {
     // if necessary. Note because we're interested in *disabling* this feature,
     // we consider the disable form to be the positive and enable to be the
     // negative.
-    if parsedOptions.hasFlag(positive: .disableIncrementalImports,
-                             negative: .enableIncrementalImports,
-                             default: false) {
-      try commandLine.appendLast(.disableIncrementalImports, from: &parsedOptions)
-    }
+//    if parsedOptions.hasFlag(positive: .disableIncrementalImports,
+//                             negative: .enableIncrementalImports,
+//                             default: false) {
+//      try commandLine.appendLast(.disableIncrementalImports, from: &parsedOptions)
+//    }
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(VirtualPath.lookup(moduleOutputInfo.output!.outputPath))

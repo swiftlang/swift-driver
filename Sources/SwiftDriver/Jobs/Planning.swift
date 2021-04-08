@@ -152,12 +152,12 @@ extension Driver {
     if self.parsedOptions.contains(veriOpt) {
       options.formUnion(.verifyDependencyGraphAfterEveryImport)
     }
-    if self.parsedOptions.hasFlag(positive: .enableIncrementalImports,
-                                  negative: .disableIncrementalImports,
-                                  default: true) {
+//    if self.parsedOptions.hasFlag(positive: .enableIncrementalImports,
+//                                  negative: .disableIncrementalImports,
+//                                  default: true) {
       options.formUnion(.enableCrossModuleIncrementalBuild)
       options.formUnion(.readPriorsFromModuleDependencyGraph)
-    }
+//    }
     return options
   }
 
