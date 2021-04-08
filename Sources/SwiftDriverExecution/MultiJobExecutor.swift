@@ -408,17 +408,16 @@ class ExecuteAllJobsRule: LLBuildRule {
     let didAnyCompileJobsRun = !context.primaryIndices.isEmpty
     /// If any compile jobs ran, skip the expensive mod-time checks
     let scheduleEveryPostCompileJob = didAnyCompileJobsRun
-    if scheduleEveryPostCompileJob {
-      context.postCompileIndices.forEach(schedule)
+    guard let incrementalCompilationState = context.incrementalCompilationState,
+          !scheduleEveryPostCompileJob
+    else {
       context.incrementalCompilationState?.reporter?.report(
         "Scheduling all post-compile jobs because something was compiled")
+      context.postCompileIndices.forEach(schedule)
       return
     }
-    for postCompileIndex in context.postCompileIndices {
-      let job = context.jobs[postCompileIndex]
-      if context.incrementalCompilationState?.canSkipPostCompile(job: job) ?? false {
-        continue
-      }
+    for postCompileIndex in context.postCompileIndices
+    where !incrementalCompilationState.canSkipPostCompile(job: context.jobs[postCompileIndex]) {
       schedule(postCompileIndex)
     }
   }
