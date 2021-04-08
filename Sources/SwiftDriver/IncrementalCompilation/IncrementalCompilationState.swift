@@ -496,23 +496,26 @@ extension IncrementalCompilationState {
 // MARK: - Serialization
 
 extension IncrementalCompilationState {
-  @_spi(Testing) public func writeDependencyGraph() {
+  @_spi(Testing) public func writeDependencyGraph() -> Bool {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
     guard moduleDependencyGraph.info.isCrossModuleIncrementalBuildEnabled else {
-      return
+      return false
     }
 
     guard
       let recordInfo = self.driver.buildRecordInfo
     else {
+      // It's OK to silently fail because no build record will be written
+      // so there will be no attempt to use the saved module dependency graph
+      // next time.
       self.driver.diagnosticEngine.emit(
         .warning_could_not_write_dependency_graph)
-      return
+      return true
     }
-    self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
-                                     on: self.driver.fileSystem,
-                                     compilerVersion: recordInfo.actualSwiftVersion)
+    return self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
+                                            on: self.driver.fileSystem,
+                                            compilerVersion: recordInfo.actualSwiftVersion)
   }
 }
 

@@ -988,10 +988,7 @@ extension Driver {
     if !childJobs.isEmpty {
       do {
         defer {
-          self.incrementalCompilationState?.writeDependencyGraph()
-          buildRecordInfo?.writeBuildRecord(
-            jobs,
-            incrementalCompilationState?.skippedCompilationInputs)
+          writeIncrementalBuildInformation(jobs)
         }
         try performTheBuild(allJobs: childJobs,
                             jobExecutionDelegate: toolExecutionDelegate,
@@ -1053,6 +1050,20 @@ extension Driver {
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)
+  }
+
+  private func writeIncrementalBuildInformation(_ jobs: [Job]) {
+    if let incrementalCompilationState = self.incrementalCompilationState {
+      let hadError = incrementalCompilationState.writeDependencyGraph()
+      /// Ensure that a bogus dependency graph is not used next time
+      guard !hadError else {
+        buildRecordInfo?.removeBuildRecord()
+        return
+      }
+    }
+    buildRecordInfo?.writeBuildRecord(
+      jobs,
+      incrementalCompilationState?.skippedCompilationInputs)
   }
 
   private func printBindings(_ job: Job) {

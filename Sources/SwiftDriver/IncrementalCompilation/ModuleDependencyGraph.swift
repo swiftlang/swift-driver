@@ -663,19 +663,22 @@ extension ModuleDependencyGraph {
   ///   - fileSystem: The file system for this location.
   ///   - compilerVersion: A string containing version information for the
   ///                      driver used to create this file.
+  /// - Returns: true if had error
   @_spi(Testing) public func write(
     to path: VirtualPath,
     on fileSystem: FileSystem,
     compilerVersion: String
-  ) {
+  ) -> Bool {
     let data = ModuleDependencyGraph.Serializer.serialize(self, compilerVersion)
 
     do {
       try fileSystem.writeFileContents(path,
                                        bytes: data,
                                        atomically: true)
+      return false
     } catch {
       info.diagnosticEngine.emit(.warning_could_not_write_dep_graph(to: path, error: error))
+      return true
     }
   }
 
