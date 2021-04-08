@@ -411,7 +411,7 @@ class ExecuteAllJobsRule: LLBuildRule {
     if let incrementalCompilationState = context.incrementalCompilationState,
        !scheduleEveryPostCompileJob {
       for postCompileIndex in context.postCompileIndices
-      where !incrementalCompilationState.canSkip(job: context.jobs[postCompileIndex]) {
+      where !incrementalCompilationState.canSkip(postCompileJob: context.jobs[postCompileIndex]) {
         schedule(postCompileIndex)
       }
     }

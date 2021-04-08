@@ -314,53 +314,55 @@ extension IncrementalCompilationState {
   /// Since the use-case is rare, this function can afford to be expensive.
   /// Unlike the check in `IncrementalStateComputer.computeChangedInputs`,
   /// this function does not rely on build record information, which makes it more expensive but more robust.
-  public func canSkip(job: Job) -> Bool {
+  public func canSkip(postCompileJob: Job) -> Bool {
     func report(skipping: Bool, _ details: String, _ file: TypedVirtualPath? = nil) {
       reporter?.report(
-        "\(skipping ? "S" : "Not s")kipping job: \(job.descriptionForLifecycle); \(details)",
+        "\(skipping ? "S" : "Not s")kipping job: \(postCompileJob.descriptionForLifecycle); \(details)",
         file)
     }
-    func modTime(_ path: TypedVirtualPath) -> Date? {
-      try? fileSystem.lastModificationTime(for: path.file)
-    }
-    if job.outputs.isEmpty {
+
+    guard let (oldestOutput, oldestOutputModTime) =
+            findOldestOutputForSkipping(postCompileJob: postCompileJob)
+    else {
       report(skipping: false, "No outputs")
       return false
     }
-    /// Avoid n**2 stats calls
-    let maybeOldestOutputAndTime: (TypedVirtualPath, Date)? = job.outputs.reduce(nil) {
-      maybeOldestOutputAndTime, output in
-      guard let outputModTime = modTime(output)
-      else {
-        report(skipping: false, "missing output", output)
-        return maybeOldestOutputAndTime
-      }
-      guard let oldestOutputAndModTime = maybeOldestOutputAndTime
-      else {
-        return (output, outputModTime)
-      }
-      return outputModTime < oldestOutputAndModTime.1
-      ? (output, outputModTime)
-      : oldestOutputAndModTime
-    }
-    guard let (oldestOutput, oldestOutputModTime) = maybeOldestOutputAndTime
+    guard .distantPast < oldestOutputModTime
     else {
+      report(skipping: false, "Missing output", oldestOutput)
       return false
     }
-    for input in job.inputs {
-      guard let inputModTime = modTime(input)
-      else {
-        report(skipping: false, "Missing input", input)
-        return false
-      }
-      guard inputModTime < oldestOutputModTime
-      else {
-        report(skipping: false, "Output \(oldestOutput.file.basename) is older than input:", input)
-        return false
-      }
+    if let newerInput = findAnInputOf(postCompileJob: postCompileJob,
+                                      newerThan: oldestOutputModTime) {
+      report(skipping: false, "Input \(newerInput.file.basename) is newer than output", oldestOutput)
+      return false
     }
     report(skipping: true, "oldest output is current", oldestOutput)
     return true
+  }
+
+  private func findOldestOutputForSkipping(postCompileJob: Job) -> (TypedVirtualPath, Date)? {
+    var oldestOutputAndModTime: (TypedVirtualPath, Date)? = nil
+    for output in postCompileJob.outputs {
+      guard let outputModTime = modTime(output)
+      else {
+        oldestOutputAndModTime = (output, .distantPast)
+        break
+      }
+      oldestOutputAndModTime = oldestOutputAndModTime.map {
+        $0.1 < outputModTime ? $0 : (output, outputModTime)
+      }
+      ?? (output, outputModTime)
+    }
+    return oldestOutputAndModTime
+  }
+  private func findAnInputOf( postCompileJob: Job, newerThan outputModTime: Date) -> TypedVirtualPath? {
+    postCompileJob.inputs.first { input in
+      outputModTime < (modTime(input) ?? .distantFuture)
+    }
+  }
+  private func modTime(_ path: TypedVirtualPath) -> Date? {
+    try? fileSystem.lastModificationTime(for: path.file)
   }
 }
 
