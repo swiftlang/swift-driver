@@ -422,6 +422,8 @@ extension Triple {
     case armeb
     /// AArch64 (little endian): aarch64
     case aarch64
+    /// AArch64e (little endian): aarch64e
+    case aarch64e
     /// AArch64 (big endian): aarch64_be
     case aarch64_be
     // AArch64 (little endian) ILP32: aarch64_32
@@ -517,7 +519,7 @@ extension Triple {
     // 64-bit RenderScript
     case renderscript64
 
-    fileprivate static func parse(_ archName: Substring) -> Triple.Arch? {
+    static func parse(_ archName: Substring) -> Triple.Arch? {
       switch archName {
       case "i386", "i486", "i586", "i686":
         return .x86
@@ -545,6 +547,8 @@ extension Triple {
         return .arc
       case "arm64":
         return .aarch64
+      case "arm64e":
+        return .aarch64e
       case "arm64_32":
         return .aarch64_32
       case "arm":
@@ -817,7 +821,7 @@ extension Triple {
            .shave, .wasm32, .renderscript32, .aarch64_32:
         return 32
 
-      case .aarch64, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
+      case .aarch64, .aarch64e, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
            .mips64el, .nvptx64, .ppc64, .ppc64le, .riscv64, .sparcv9, .systemz,
            .x86_64, .amdil64, .hsail64, .spir64,  .wasm64, .renderscript64:
         return 64
@@ -1363,7 +1367,7 @@ extension Triple {
 
     fileprivate static func infer(arch: Triple.Arch?, os: Triple.OS?) -> Triple.ObjectFormat {
       switch arch {
-        case nil, .aarch64, .aarch64_32, .arm, .thumb, .x86, .x86_64:
+        case nil, .aarch64, .aarch64e, .aarch64_32, .arm, .thumb, .x86, .x86_64:
           if os?.isDarwin ?? false {
             return .macho
           } else if os?.isWindows ?? false {

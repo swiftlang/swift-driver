@@ -576,39 +576,38 @@ final class ExplicitModuleBuildTests: XCTestCase {
     #endif
   }
 
+  func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
+    let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
+                                                            .parentDirectory // bin
+                                                            .parentDirectory // toolchain root
+    if driver.targetTriple.isDarwin {
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      let sdkPath = try executor.checkNonZeroExit(
+        args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
+      let stdLibPath = AbsolutePath(sdkPath).appending(component: "usr")
+        .appending(component: "lib")
+        .appending(component: "swift")
+      return (stdLibPath, stdLibPath.appending(component: "shims"))
+    } else {
+      return (toolchainRootPath.appending(component: "lib")
+                .appending(component: "swift")
+                .appending(component: driver.targetTriple.osNameUnversioned),
+              toolchainRootPath.appending(component: "lib")
+                .appending(component: "swift")
+                .appending(component: "shims"))
+    }
+  }
+
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
     // Just instantiating to get at the toolchain path
     let driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
                                    "-module-name", "testDependencyScanning",
                                    "test.swift"])
-    let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
-                                                            .parentDirectory // bin
-                                                            .parentDirectory // toolchain root
-
-    let stdLibPath: AbsolutePath
-    let shimsPath: AbsolutePath
-    // On Darwin, use the SDK's stdlib, to make sure the test is more likely to actually
-    // find one.
-    if driver.targetTriple.isDarwin {
-      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers:         [Driver.stderrDiagnosticsHandler]),
-                                             processSet: ProcessSet(),
-                                             fileSystem: localFileSystem,
-                                             env: ProcessEnv.vars)
-      let sdkPath = try executor.checkNonZeroExit(
-        args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
-      stdLibPath = AbsolutePath(sdkPath).appending(component: "usr")
-                                        .appending(component: "lib")
-                                        .appending(component: "swift")
-      shimsPath = stdLibPath.appending(component: "shims")
-    } else {
-      stdLibPath = toolchainRootPath.appending(component: "lib")
-        .appending(component: "swift")
-        .appending(component: driver.targetTriple.osNameUnversioned)
-      shimsPath = toolchainRootPath.appending(component: "lib")
-        .appending(component: "swift")
-        .appending(component: "shims")
-    }
+    let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
 
     XCTAssertTrue(localFileSystem.exists(stdLibPath),
                   "expected Swift StdLib at: \(stdLibPath.description)")
@@ -752,4 +751,80 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertEqual(moduleMap[1].sourceInfoPath!.path.description, "B.swiftsourceinfo")
     XCTAssertEqual(moduleMap[1].isFramework, false)
   }
+// We only care about prebuilt modules in macOS.
+#if os(macOS)
+  func testPrebuiltModuleGenerationJobs() throws {
+    func getInputModules(_ job: Job) -> [String] {
+      return job.inputs.map { input in
+        return input.file.absolutePath!.parentDirectory.basenameWithoutExt
+      }.sorted()
+    }
+
+    func getOutputName(_ job: Job) -> String {
+      XCTAssertTrue(job.outputs.count == 1)
+      return job.outputs[0].file.basename
+    }
+
+    func checkInputOutputIntegrity(_ job: Job) {
+      let name = job.outputs[0].file.basename
+      job.inputs.forEach { input in
+        XCTAssertTrue(input.file.basename == name)
+      }
+    }
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import A\n"
+        $0 <<< "import E\n"
+        $0 <<< "import F\n"
+        $0 <<< "import G\n"
+        $0 <<< "import H\n"
+        $0 <<< "import Swift\n"
+      }
+      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+      let testInputsPath = packageRootPath + "/TestInputs"
+      let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPath,
+                                    ])
+
+      let diagnosticEnging = DiagnosticsEngine()
+      let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, diagnosticEnging)
+      let interfaceMap = try collector.collectSwiftInterfaceMap()
+      XCTAssertTrue(interfaceMap["Swift"]!.count == 2)
+      XCTAssertTrue(interfaceMap["A"]!.count == 2)
+      XCTAssertTrue(interfaceMap["E"]!.count == 2)
+      XCTAssertTrue(interfaceMap["F"]!.count == 2)
+      XCTAssertTrue(interfaceMap["G"]!.count == 2)
+      XCTAssertTrue(interfaceMap["H"]!.count == 2)
+
+      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(interfaceMap,
+                                                                VirtualPath(path: "/tmp/").absolutePath!)
+
+      XCTAssertTrue(danglingJobs.count == 2)
+      XCTAssertTrue(danglingJobs.allSatisfy { job in
+        job.moduleName == "MissingKit"
+      })
+      XCTAssertTrue(jobs.count == 12)
+      XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
+      XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
+      XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
+      let HJobs = jobs.filter { $0.moduleName == "H"}
+      XCTAssertTrue(HJobs.count == 2)
+      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertTrue(getInputModules(HJobs[1]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
+      checkInputOutputIntegrity(HJobs[0])
+      checkInputOutputIntegrity(HJobs[1])
+      let GJobs = jobs.filter { $0.moduleName == "G"}
+      XCTAssertTrue(GJobs.count == 2)
+      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "Swift"])
+      XCTAssertTrue(getInputModules(GJobs[1]) == ["E", "Swift"])
+      XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
+      checkInputOutputIntegrity(GJobs[0])
+      checkInputOutputIntegrity(GJobs[1])
+    }
+  }
+#endif
 }

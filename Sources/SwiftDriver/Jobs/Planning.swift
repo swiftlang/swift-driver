@@ -496,7 +496,7 @@ extension Driver {
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
-  private mutating func gatherModuleDependencies()
+  mutating func gatherModuleDependencies()
   throws -> InterModuleDependencyGraph {
     var dependencyGraph = try performDependencyScan()
 
@@ -550,6 +550,7 @@ extension Driver {
   }
 
 }
+
 
 /// MARK: Planning
 extension Driver {

@@ -312,6 +312,23 @@ public struct Driver {
   /// A global queue for emitting non-interrupted messages into stderr
   public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
 
+
+  lazy var sdkPath: VirtualPath? = {
+    guard let rawSdkPath = frontendTargetInfo.sdkPath?.path else {
+      return nil
+    }
+    return VirtualPath.lookup(rawSdkPath)
+  } ()
+
+  lazy var iosMacFrameworksSearchPath: VirtualPath = {
+    sdkPath!
+      .appending(component: "System")
+      .appending(component: "iOSSupport")
+      .appending(component: "System")
+      .appending(component: "Library")
+      .appending(component: "Frameworks")
+  } ()
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     stdErrQueue.sync {

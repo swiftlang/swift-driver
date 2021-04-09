@@ -2586,6 +2586,7 @@ final class SwiftDriverTests: XCTestCase {
         $0 <<< """
         {
           "Version":"10.15",
+          "CanonicalName": "macosx10.15",
           "VersionMap" : {
               "macOS_iOSMac" : {
                   "10.15" : "13.1",
@@ -2605,6 +2606,7 @@ final class SwiftDriverTests: XCTestCase {
         $0 <<< """
         {
           "Version":"10.15.4",
+          "CanonicalName": "macosx10.15.4",
           "VersionMap" : {
               "macOS_iOSMac" : {
                   "10.14.4" : "12.4",
