@@ -401,18 +401,26 @@ class ExecuteAllJobsRule: LLBuildRule {
 
   /// After all compilation jobs have run, figure which, for instance link, jobs must run
   private func schedulePostCompileJobs(_ engine: LLTaskBuildEngine) {
-    for postCompileIndex in context.postCompileIndices {
-      let job = context.jobs[postCompileIndex]
-      /// If any compile jobs ran, skip the expensive mod-time checks
-      if context.primaryIndices.isEmpty,
-         let incrementalCompilationState = context.incrementalCompilationState,
-         incrementalCompilationState.canSkipPostCompile(job: job) {
-        continue
-      }
+    func schedule(_ postCompileIndex: Int) {
       engine.taskNeedsInput(ExecuteJobRule.RuleKey(index: postCompileIndex),
                             inputID: postCompileIndex)
     }
-  }
+    let didAnyCompileJobsRun = !context.primaryIndices.isEmpty
+    /// If any compile jobs ran, skip the expensive mod-time checks
+    let scheduleEveryPostCompileJob = didAnyCompileJobsRun
+    if let incrementalCompilationState = context.incrementalCompilationState,
+       !scheduleEveryPostCompileJob {
+      for postCompileIndex in context.postCompileIndices
+      where !incrementalCompilationState.canSkip(postCompileJob: context.jobs[postCompileIndex]) {
+        schedule(postCompileIndex)
+      }
+    }
+    else {
+      context.incrementalCompilationState?.reporter?.report(
+        "Scheduling all post-compile jobs because something was compiled")
+      context.postCompileIndices.forEach(schedule)
+    }
+ }
 
   override func inputsAvailable(_ engine: LLTaskBuildEngine) {
     engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))

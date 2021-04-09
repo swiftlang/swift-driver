@@ -37,7 +37,7 @@ public final class IncrementalCompilationState {
   @_spi(Testing) public let moduleDependencyGraph: ModuleDependencyGraph
 
   /// If non-null outputs information for `-driver-show-incremental` for input path
-  private let reporter: Reporter?
+  public let reporter: Reporter?
 
   /// All of the pre-compile or compilation job (groups) known to be required (i.e. in 1st wave).
   /// Already batched, and in order of input files.
@@ -307,10 +307,62 @@ extension IncrementalCompilationState {
 }
 // MARK: - Scheduling post-compile jobs
 extension IncrementalCompilationState {
-  public func canSkipPostCompile(job: Job) -> Bool {
-    job.outputs.allSatisfy {output in
-      let fileModTime = (try? fileSystem.lastModificationTime(for: output.file)) ?? .distantFuture
-      return fileModTime <= buildEndTime}
+  /// Only used when no compilations have run; otherwise the caller assumes every post-compile
+  /// job is needed, and saves the cost of the filesystem accesses by not calling this function.
+  /// (For instance, if a build is cancelled in the merge-module phase, the compilations may be up-to-date
+  /// but the postcompile-jobs (e.g. link-edit) may still need to be run.
+  /// Since the use-case is rare, this function can afford to be expensive.
+  /// Unlike the check in `IncrementalStateComputer.computeChangedInputs`,
+  /// this function does not rely on build record information, which makes it more expensive but more robust.
+  public func canSkip(postCompileJob: Job) -> Bool {
+    func report(skipping: Bool, _ details: String, _ file: TypedVirtualPath? = nil) {
+      reporter?.report(
+        "\(skipping ? "S" : "Not s")kipping job: \(postCompileJob.descriptionForLifecycle); \(details)",
+        file)
+    }
+
+    guard let (oldestOutput, oldestOutputModTime) =
+            findOldestOutputForSkipping(postCompileJob: postCompileJob)
+    else {
+      report(skipping: false, "No outputs")
+      return false
+    }
+    guard .distantPast < oldestOutputModTime
+    else {
+      report(skipping: false, "Missing output", oldestOutput)
+      return false
+    }
+    if let newerInput = findAnInputOf(postCompileJob: postCompileJob,
+                                      newerThan: oldestOutputModTime) {
+      report(skipping: false, "Input \(newerInput.file.basename) is newer than output", oldestOutput)
+      return false
+    }
+    report(skipping: true, "oldest output is current", oldestOutput)
+    return true
+  }
+
+  private func findOldestOutputForSkipping(postCompileJob: Job) -> (TypedVirtualPath, Date)? {
+    var oldestOutputAndModTime: (TypedVirtualPath, Date)? = nil
+    for output in postCompileJob.outputs {
+      guard let outputModTime = modTime(output)
+      else {
+        oldestOutputAndModTime = (output, .distantPast)
+        break
+      }
+      oldestOutputAndModTime = oldestOutputAndModTime.map {
+        $0.1 < outputModTime ? $0 : (output, outputModTime)
+      }
+      ?? (output, outputModTime)
+    }
+    return oldestOutputAndModTime
+  }
+  private func findAnInputOf( postCompileJob: Job, newerThan outputModTime: Date) -> TypedVirtualPath? {
+    postCompileJob.inputs.first { input in
+      outputModTime < (modTime(input) ?? .distantFuture)
+    }
+  }
+  private func modTime(_ path: TypedVirtualPath) -> Date? {
+    try? fileSystem.lastModificationTime(for: path.file)
   }
 }
 
@@ -356,7 +408,7 @@ extension IncrementalCompilationState {
     ///   - message: The message to emit in the remark.
     ///   - path: If non-nil, the path of some file. If the output for an incremental job, will print out the
     ///           source and object files.
-    func report(_ message: String, _ pathIfGiven: TypedVirtualPath?) {
+    public func report(_ message: String, _ pathIfGiven: TypedVirtualPath?) {
        guard let path = pathIfGiven,
             let outputFileMap = outputFileMap,
             let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
@@ -370,7 +422,7 @@ extension IncrementalCompilationState {
     }
 
     /// Entry point for a simple path, won't print the compile job, path could be anything.
-    func report(_ message: String, _ path: VirtualPath?) {
+    public func report(_ message: String, _ path: VirtualPath?) {
       guard let path = path
       else {
         report(message)
@@ -381,7 +433,7 @@ extension IncrementalCompilationState {
     }
 
     /// Entry point if no path.
-    func report(_ message: String) {
+    public func report(_ message: String) {
       diagnosticEngine.emit(.remark_incremental_compilation(because: message))
     }
 
