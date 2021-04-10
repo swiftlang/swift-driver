@@ -771,6 +771,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertTrue(input.file.basename == name)
       }
     }
+    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+    let testInputsPath = packageRootPath + "/TestInputs"
+    let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
+    let diagnosticEnging = DiagnosticsEngine()
+    let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, diagnosticEnging)
+    let interfaceMap = try collector.collectSwiftInterfaceMap()
+
+    // Check interface map always contain everything
+    XCTAssertTrue(interfaceMap["Swift"]!.count == 2)
+    XCTAssertTrue(interfaceMap["A"]!.count == 2)
+    XCTAssertTrue(interfaceMap["E"]!.count == 2)
+    XCTAssertTrue(interfaceMap["F"]!.count == 2)
+    XCTAssertTrue(interfaceMap["G"]!.count == 2)
+    XCTAssertTrue(interfaceMap["H"]!.count == 2)
+
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -781,26 +797,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import H\n"
         $0 <<< "import Swift\n"
       }
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
 
-      let diagnosticEnging = DiagnosticsEngine()
-      let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, diagnosticEnging)
-      let interfaceMap = try collector.collectSwiftInterfaceMap()
-      XCTAssertTrue(interfaceMap["Swift"]!.count == 2)
-      XCTAssertTrue(interfaceMap["A"]!.count == 2)
-      XCTAssertTrue(interfaceMap["E"]!.count == 2)
-      XCTAssertTrue(interfaceMap["F"]!.count == 2)
-      XCTAssertTrue(interfaceMap["G"]!.count == 2)
-      XCTAssertTrue(interfaceMap["H"]!.count == 2)
-
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(interfaceMap,
-                                                                VirtualPath(path: "/tmp/").absolutePath!)
+      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                exhaustive: true)
 
       XCTAssertTrue(danglingJobs.count == 2)
       XCTAssertTrue(danglingJobs.allSatisfy { job in
@@ -824,6 +827,77 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
       checkInputOutputIntegrity(GJobs[0])
       checkInputOutputIntegrity(GJobs[1])
+    }
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import H\n"
+      }
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPath,
+                                    ])
+
+      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                exhaustive: false)
+
+      XCTAssertTrue(danglingJobs.isEmpty)
+      XCTAssertTrue(jobs.count == 12)
+      XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
+      XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
+      XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
+      let HJobs = jobs.filter { $0.moduleName == "H"}
+      XCTAssertTrue(HJobs.count == 2)
+      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertTrue(getInputModules(HJobs[1]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
+      checkInputOutputIntegrity(HJobs[0])
+      checkInputOutputIntegrity(HJobs[1])
+      let GJobs = jobs.filter { $0.moduleName == "G"}
+      XCTAssertTrue(GJobs.count == 2)
+      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "Swift"])
+      XCTAssertTrue(getInputModules(GJobs[1]) == ["E", "Swift"])
+      XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
+      checkInputOutputIntegrity(GJobs[0])
+      checkInputOutputIntegrity(GJobs[1])
+    }
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import Swift\n"
+      }
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPath,
+                                    ])
+
+      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                exhaustive: false)
+
+      XCTAssertTrue(danglingJobs.isEmpty)
+      XCTAssert(jobs.count == 2)
+      XCTAssert(jobs.allSatisfy { $0.moduleName == "Swift" })
+    }
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import F\n"
+      }
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPath,
+                                    ])
+
+      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                exhaustive: false)
+
+      XCTAssertTrue(danglingJobs.isEmpty)
+      XCTAssertTrue(jobs.count == 6)
+      jobs.forEach({ job in
+        // Check we don't pull in other modules than A, F and Swift
+        XCTAssertTrue(["A", "F", "Swift"].contains(job.moduleName))
+        checkInputOutputIntegrity(job)
+      })
     }
   }
 #endif

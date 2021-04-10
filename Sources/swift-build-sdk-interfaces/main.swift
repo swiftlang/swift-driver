@@ -23,6 +23,10 @@ if rawOutputDir.isEmpty {
   exit(1)
 }
 
+/// When -core is specified, only most significant modules are handled. Currently,
+/// they are Foundation and anything below.
+let coreMode = CommandLine.arguments.contains("-core")
+
 class PrebuitGenDelegate: JobExecutionDelegate {
   var failingModules = Set<String>()
   var commandMap: [Int: String] = [:]
@@ -99,7 +103,7 @@ do {
                            to: sysVersionFile)
   let processSet = ProcessSet()
   let inputMap = try collector.collectSwiftInterfaceMap()
-  let allModules = inputMap.keys
+  let allModules = coreMode ? ["Foundation"] : Array(inputMap.keys)
   try withTemporaryFile(suffix: ".swift") {
     let tempPath = $0.path
     try localFileSystem.writeFileContents(tempPath, body: {
@@ -118,7 +122,7 @@ do {
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
-    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(inputMap, outputDir)
+    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
     let delegate = PrebuitGenDelegate()
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),

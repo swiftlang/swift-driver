@@ -197,8 +197,9 @@ extension Driver {
     )
   }
 
-  public mutating func generatePrebuitModuleGenerationJobs(_ inputMap: [String: [PrebuiltModuleInput]],
-                                                           _ prebuiltModuleDir: AbsolutePath) throws -> ([Job], [Job]) {
+  public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
+                                                           into prebuiltModuleDir: AbsolutePath,
+                                                           exhaustive: Bool) throws -> ([Job], [Job]) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
     let dependencyGraph = try gatherModuleDependencies()
@@ -225,22 +226,32 @@ extension Driver {
       return (key, outputPaths)
     })
 
-    func getDependenciesPaths(_ module: String, _ arch: Triple.Arch) throws -> [TypedVirtualPath] {
-      var results: [TypedVirtualPath] = []
+    func collectSwiftModuleNames(_ ids: [ModuleDependencyId]) -> [String] {
+      return ids.compactMap { id in
+        if case .swift(let module) = id {
+          return module
+        }
+        return nil
+      }
+    }
+
+    func getSwiftDependencies(for module: String) -> [String] {
       let info = dependencyGraph.modules[.swift(module)]!
       guard let dependencies = info.directDependencies else {
-        return results
+        return []
       }
+      return collectSwiftModuleNames(dependencies)
+    }
 
-      for dep in dependencies {
-        if case let .swift(moduleName) = dep {
-          if let outputs = outputMap[moduleName] {
-            // Depending only those .swiftmodule files with the same arch kind.
-            // FIXME: handling arm64 and arm64e specifically.
-            let selectOutputs = outputs.filter ({ $0.arch == arch }).map { $0.path }
-            results.append(contentsOf: selectOutputs)
-          }
+    func getOutputPaths(for modules: [String], with arch: Triple.Arch) throws -> [TypedVirtualPath] {
+      var results: [TypedVirtualPath] = []
+      modules.forEach { module in
+        guard let allOutputs = outputMap[module] else {
+          diagnosticEngine.emit(error: "cannot find output paths for \(module)")
+          return
         }
+        let allPaths = allOutputs.filter { $0.arch == arch }.map { $0.path }
+        results.append(contentsOf: allPaths)
       }
       return results
     }
@@ -252,30 +263,43 @@ extension Driver {
         assert(inputPaths.count == outputPaths.count)
         assert(!inputPaths.isEmpty)
         for i in 0..<inputPaths.count {
-          try action(inputPaths[i], outputPaths[i])
+          let (input, output) = (inputPaths[i], outputPaths[i])
+          assert(input.path.file.basenameWithoutExt == output.path.file.basenameWithoutExt)
+          try action(input, output)
         }
       }
     }
-    // Keep track of modules that are not handled.
+    // Keep track of modules we haven't handled.
     var unhandledModules = Set<String>(inputMap.keys)
-    let moduleInfo = dependencyGraph.mainModule
-    if let dependencies = moduleInfo.directDependencies {
-      for dep in dependencies {
-        switch dep {
-        case .swift(let moduleName):
-          // Removed moduleName from the list.
-          unhandledModules.remove(moduleName)
-          try forEachInputOutputPair(moduleName) {
-            jobs.append(try generateSingleModuleBuildingJob(moduleName,
-              prebuiltModuleDir, $0, $1,
-              try getDependenciesPaths(moduleName, $0.arch)))
-          }
-        default:
-          continue
+    if let importedModules = dependencyGraph.mainModule.directDependencies {
+      // Start from those modules explicitly imported into the file under scanning
+      var openModules = collectSwiftModuleNames(importedModules)
+      var idx = 0
+      while idx != openModules.count {
+        let module = openModules[idx]
+        let dependencies = getSwiftDependencies(for: module)
+        try forEachInputOutputPair(module) { input, output in
+          jobs.append(try generateSingleModuleBuildingJob(module,
+            prebuiltModuleDir, input, output,
+            try getOutputPaths(for: dependencies, with: input.arch)))
         }
+        // For each dependency, add to the list to handle if the list doesn't
+        // contain this dependency.
+        dependencies.forEach({ newModule in
+          if !openModules.contains(newModule) {
+            diagnosticEngine.emit(note: "\(newModule) is discovered.")
+            openModules.append(newModule)
+          }
+        })
+        unhandledModules.remove(module)
+        idx += 1
       }
     }
 
+    // We are done if we don't need to handle all inputs exhaustively.
+    if !exhaustive {
+      return (jobs, [])
+    }
     // For each unhandled module, generate dangling jobs for each associated
     // interfaces.
     // The only known usage of this so for is in macosx SDK where some collected
