@@ -48,8 +48,10 @@ class PrebuitGenDelegate: JobExecutionDelegate {
           stderrStream.flush()
         }
       }
+#if !os(Windows)
     case .signalled:
       diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
+#endif
     }
   }
 
