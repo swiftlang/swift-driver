@@ -202,7 +202,9 @@ extension Driver {
                                                            exhaustive: Bool) throws -> ([Job], [Job]) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
-    let dependencyGraph = try gatherModuleDependencies()
+    // We only need Swift dependencies here, so we don't need to invoke gatherModuleDependencies,
+    // which also resolves versioned clang modules.
+    let dependencyGraph = try performDependencyScan()
     var jobs: [Job] = []
     var danglingJobs: [Job] = []
     var inputCount = 0
