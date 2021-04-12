@@ -51,8 +51,14 @@ public final class SwiftDriverExecutor: DriverExecutor {
     } else {
       var childEnv = env
       childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
-
-      let process = try Process.launchProcess(arguments: arguments, env: childEnv)
+      let process : ProcessProtocol
+      if job.inputs.contains(TypedVirtualPath(file: .standardInput, type: .swift)) {
+        process = try Process.launchProcessAndWriteInput(
+          arguments: arguments, env: childEnv, inputFileHandle: FileHandle.standardInput
+        )
+      } else {
+        process = try Process.launchProcess(arguments: arguments, env: childEnv)
+      }
       return try process.waitUntilExit()
     }
   }
