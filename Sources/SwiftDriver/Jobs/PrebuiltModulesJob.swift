@@ -12,6 +12,69 @@
 import TSCBasic
 import SwiftOptions
 
+public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
+  var failingModules = Set<String>()
+  var commandMap: [Int: String] = [:]
+  let diagnosticsEngine: DiagnosticsEngine
+  let verbose: Bool
+  public init(_ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool) {
+    self.diagnosticsEngine = diagnosticsEngine
+    self.verbose = verbose
+  }
+
+  func printJobInfo(_ job: Job, _ start: Bool) {
+    guard verbose else {
+      return
+    }
+    for arg in job.commandLine {
+      if case .path(let p) = arg {
+        if p.extension == "swiftinterface" {
+          Driver.stdErrQueue.sync {
+            stderrStream <<< (start ? "started: " : "finished: ")
+            stderrStream <<< p.absolutePath!.pathString <<< "\n"
+            stderrStream.flush()
+          }
+          return
+        }
+      }
+    }
+  }
+
+  public func jobStarted(job: Job, arguments: [String], pid: Int) {
+    commandMap[pid] = arguments.reduce("") { return $0 + " " + $1 }
+    printJobInfo(job, true)
+  }
+
+  public var hasStdlibFailure: Bool {
+    return failingModules.contains("Swift") || failingModules.contains("_Concurrency")
+  }
+
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    switch result.exitStatus {
+    case .terminated(code: let code):
+      if code == 0 {
+        printJobInfo(job, false)
+      } else {
+        failingModules.insert(job.moduleName)
+        let result: String = try! result.utf8stderrOutput()
+        Driver.stdErrQueue.sync {
+          stderrStream <<< "failed: " <<< commandMap[pid]! <<< "\n"
+          stderrStream <<< result <<< "\n"
+          stderrStream.flush()
+        }
+      }
+#if !os(Windows)
+    case .signalled:
+      diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
+#endif
+    }
+  }
+
+  public func jobSkipped(job: Job) {
+    diagnosticsEngine.emit(.error("\(job.moduleName) skipped"))
+  }
+}
+
 public struct PrebuiltModuleInput {
   // The path to the input/output of the a module building task.
   let path: TypedVirtualPath
@@ -245,14 +308,24 @@ extension Driver {
       return collectSwiftModuleNames(dependencies)
     }
 
-    func getOutputPaths(for modules: [String], with arch: Triple.Arch) throws -> [TypedVirtualPath] {
+    func getOutputPaths(withName modules: [String], loadableFor arch: Triple.Arch) throws -> [TypedVirtualPath] {
       var results: [TypedVirtualPath] = []
       modules.forEach { module in
         guard let allOutputs = outputMap[module] else {
           diagnosticEngine.emit(error: "cannot find output paths for \(module)")
           return
         }
-        let allPaths = allOutputs.filter { $0.arch == arch }.map { $0.path }
+        let allPaths = allOutputs.filter { output in
+          if output.arch == arch {
+            return true
+          }
+          // arm64e interfaces can be loded from an arm64 interface but not vice
+          // versa.
+          if arch == .aarch64 && output.arch == .aarch64e {
+            return true
+          }
+          return false
+        }.map { $0.path }
         results.append(contentsOf: allPaths)
       }
       return results
@@ -283,7 +356,7 @@ extension Driver {
         try forEachInputOutputPair(module) { input, output in
           jobs.append(try generateSingleModuleBuildingJob(module,
             prebuiltModuleDir, input, output,
-            try getOutputPaths(for: dependencies, with: input.arch)))
+            try getOutputPaths(withName: dependencies, loadableFor: input.arch)))
         }
         // For each dependency, add to the list to handle if the list doesn't
         // contain this dependency.
