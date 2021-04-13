@@ -1903,7 +1903,7 @@ final class SwiftDriverTests: XCTestCase {
 
     let expectedDefaultContents: String
     #if os(macOS)
-    expectedDefaultContents = "x86_64-apple-macosx"
+    expectedDefaultContents = "-apple-macosx"
     #elseif os(Linux)
     expectedDefaultContents = "-unknown-linux"
     #else
