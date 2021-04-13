@@ -12,6 +12,69 @@
 import TSCBasic
 import SwiftOptions
 
+public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
+  var failingModules = Set<String>()
+  var commandMap: [Int: String] = [:]
+  let diagnosticsEngine: DiagnosticsEngine
+  let verbose: Bool
+  public init(_ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool) {
+    self.diagnosticsEngine = diagnosticsEngine
+    self.verbose = verbose
+  }
+
+  func printJobInfo(_ job: Job, _ start: Bool) {
+    guard verbose else {
+      return
+    }
+    for arg in job.commandLine {
+      if case .path(let p) = arg {
+        if p.extension == "swiftinterface" {
+          Driver.stdErrQueue.sync {
+            stderrStream <<< (start ? "started: " : "finished: ")
+            stderrStream <<< p.absolutePath!.pathString <<< "\n"
+            stderrStream.flush()
+          }
+          return
+        }
+      }
+    }
+  }
+
+  public func jobStarted(job: Job, arguments: [String], pid: Int) {
+    commandMap[pid] = arguments.reduce("") { return $0 + " " + $1 }
+    printJobInfo(job, true)
+  }
+
+  public var hasStdlibFailure: Bool {
+    return failingModules.contains("Swift") || failingModules.contains("_Concurrency")
+  }
+
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    switch result.exitStatus {
+    case .terminated(code: let code):
+      if code == 0 {
+        printJobInfo(job, false)
+      } else {
+        failingModules.insert(job.moduleName)
+        let result: String = try! result.utf8stderrOutput()
+        Driver.stdErrQueue.sync {
+          stderrStream <<< "failed: " <<< commandMap[pid]! <<< "\n"
+          stderrStream <<< result <<< "\n"
+          stderrStream.flush()
+        }
+      }
+#if !os(Windows)
+    case .signalled:
+      diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
+#endif
+    }
+  }
+
+  public func jobSkipped(job: Job) {
+    diagnosticsEngine.emit(.error("\(job.moduleName) skipped"))
+  }
+}
+
 public struct PrebuiltModuleInput {
   // The path to the input/output of the a module building task.
   let path: TypedVirtualPath

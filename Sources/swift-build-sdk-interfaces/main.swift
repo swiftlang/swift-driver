@@ -38,38 +38,9 @@ if rawOutputDir.isEmpty {
 /// they are Foundation and anything below.
 let coreMode = CommandLine.arguments.contains("-core")
 
-class PrebuitGenDelegate: JobExecutionDelegate {
-  var failingModules = Set<String>()
-  var commandMap: [Int: String] = [:]
-  func jobStarted(job: Job, arguments: [String], pid: Int) {
-    commandMap[pid] = arguments.reduce("") { return $0 + " " + $1 }
-  }
+/// Verbose to print more info
+let verbose = CommandLine.arguments.contains("-v")
 
-  var hasStdlibFailure: Bool {
-    return failingModules.contains("Swift") || failingModules.contains("_Concurrency")
-  }
-
-  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
-    switch result.exitStatus {
-    case .terminated(code: let code):
-      if code != 0 {
-        failingModules.insert(job.moduleName)
-        Driver.stdErrQueue.sync {
-          stderrStream <<< "failed: " <<< commandMap[pid]! <<< "\n"
-          stderrStream.flush()
-        }
-      }
-#if !os(Windows)
-    case .signalled:
-      diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
-#endif
-    }
-  }
-
-  func jobSkipped(job: Job) {
-    diagnosticsEngine.emit(.error("\(job.moduleName) skipped"))
-  }
-}
 do {
   let sdkPath = try VirtualPath(path: sdkPathRaw).absolutePath!
   if !localFileSystem.exists(sdkPath) {
@@ -136,7 +107,7 @@ do {
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
     let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
-    let delegate = PrebuitGenDelegate()
+    let delegate = PrebuitModuleGenerationDelegate(diagnosticsEngine, verbose)
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
