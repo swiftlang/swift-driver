@@ -754,6 +754,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
 // We only care about prebuilt modules in macOS.
 #if os(macOS)
   func testPrebuiltModuleGenerationJobs() throws {
+    #if arch(arm64)
+      // Disabled on Apple Silicon
+      // rdar://76609781
+      throw XCTSkip()
+    #endif
+
     func getInputModules(_ job: Job) -> [String] {
       return job.inputs.map { input in
         return input.file.absolutePath!.parentDirectory.basenameWithoutExt

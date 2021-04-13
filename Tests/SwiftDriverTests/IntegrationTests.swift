@@ -131,6 +131,11 @@ final class IntegrationTests: IntegrationTestCase {
   }
 
   func testLitDriverValidationTests() throws {
+    #if os(macOS) && arch(arm64)
+      // Disabled on Apple Silicon
+      // rdar://76609781
+      throw XCTSkip()
+    #endif
     guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("Not all Driver validation-tests supported")
     }
