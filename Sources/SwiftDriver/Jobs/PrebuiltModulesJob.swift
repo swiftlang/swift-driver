@@ -308,14 +308,24 @@ extension Driver {
       return collectSwiftModuleNames(dependencies)
     }
 
-    func getOutputPaths(for modules: [String], with arch: Triple.Arch) throws -> [TypedVirtualPath] {
+    func getOutputPaths(withName modules: [String], loadableFor arch: Triple.Arch) throws -> [TypedVirtualPath] {
       var results: [TypedVirtualPath] = []
       modules.forEach { module in
         guard let allOutputs = outputMap[module] else {
           diagnosticEngine.emit(error: "cannot find output paths for \(module)")
           return
         }
-        let allPaths = allOutputs.filter { $0.arch == arch }.map { $0.path }
+        let allPaths = allOutputs.filter { output in
+          if output.arch == arch {
+            return true
+          }
+          // arm64e interfaces can be loded from an arm64 interface but not vice
+          // versa.
+          if arch == .aarch64 && output.arch == .aarch64e {
+            return true
+          }
+          return false
+        }.map { $0.path }
         results.append(contentsOf: allPaths)
       }
       return results
@@ -346,7 +356,7 @@ extension Driver {
         try forEachInputOutputPair(module) { input, output in
           jobs.append(try generateSingleModuleBuildingJob(module,
             prebuiltModuleDir, input, output,
-            try getOutputPaths(for: dependencies, with: input.arch)))
+            try getOutputPaths(withName: dependencies, loadableFor: input.arch)))
         }
         // For each dependency, add to the list to handle if the list doesn't
         // contain this dependency.

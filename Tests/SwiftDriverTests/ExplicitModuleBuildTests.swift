@@ -766,11 +766,26 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
 
     func checkInputOutputIntegrity(_ job: Job) {
-      let name = job.outputs[0].file.basename
+      let name = job.outputs[0].file.basenameWithoutExt
+      XCTAssertTrue(job.outputs[0].file.extension == "swiftmodule")
       job.inputs.forEach { input in
-        XCTAssertTrue(input.file.basename == name)
+        XCTAssertTrue(input.file.extension == "swiftmodule")
+        let inputName = input.file.basenameWithoutExt
+        // arm64 interface can depend on ar64e interface
+        if inputName.starts(with: "arm64e-") && name.starts(with: "arm64-") {
+          return
+        }
+        XCTAssertTrue(inputName == name)
       }
     }
+
+    func findJob(_ jobs: [Job],_ module: String, _ basenameWithoutExt: String) -> Job? {
+      return jobs.first { job in
+        return job.moduleName == module &&
+          job.outputs[0].file.basenameWithoutExt == basenameWithoutExt
+      }
+    }
+
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputsPath = packageRootPath + "/TestInputs"
@@ -783,7 +798,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertTrue(interfaceMap["Swift"]!.count == 2)
     XCTAssertTrue(interfaceMap["A"]!.count == 2)
     XCTAssertTrue(interfaceMap["E"]!.count == 2)
-    XCTAssertTrue(interfaceMap["F"]!.count == 2)
+    XCTAssertTrue(interfaceMap["F"]!.count == 3)
     XCTAssertTrue(interfaceMap["G"]!.count == 2)
     XCTAssertTrue(interfaceMap["H"]!.count == 2)
 
@@ -809,7 +824,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(danglingJobs.allSatisfy { job in
         job.moduleName == "MissingKit"
       })
-      XCTAssertTrue(jobs.count == 12)
+      XCTAssertTrue(jobs.count == 13)
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
@@ -842,7 +857,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssertTrue(jobs.count == 12)
+      XCTAssertTrue(jobs.count == 13)
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
@@ -892,11 +907,34 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssertTrue(jobs.count == 6)
+      XCTAssertTrue(jobs.count == 7)
       jobs.forEach({ job in
         // Check we don't pull in other modules than A, F and Swift
         XCTAssertTrue(["A", "F", "Swift"].contains(job.moduleName))
         checkInputOutputIntegrity(job)
+      })
+    }
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import H\n"
+      }
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPath,
+                                    ])
+
+      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                exhaustive: false)
+      let F = findJob(jobs, "F", "arm64-apple-macos")!
+      let H = findJob(jobs, "H", "arm64e-apple-macos")!
+      // Test arm64 interface requires arm64e interfaces as inputs
+      XCTAssertTrue(F.inputs.contains { input in
+        input.file.basenameWithoutExt == "arm64e-apple-macos"
+      })
+      // Test arm64e interface doesn't require arm64 interfaces as inputs
+      XCTAssertTrue(!H.inputs.contains { input in
+        input.file.basenameWithoutExt == "arm64-apple-macos"
       })
     }
   }
