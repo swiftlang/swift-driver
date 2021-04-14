@@ -988,10 +988,7 @@ extension Driver {
     if !childJobs.isEmpty {
       do {
         defer {
-          self.incrementalCompilationState?.writeDependencyGraph()
-          buildRecordInfo?.writeBuildRecord(
-            jobs,
-            incrementalCompilationState?.skippedCompilationInputs)
+          writeIncrementalBuildInformation(jobs)
         }
         try performTheBuild(allJobs: childJobs,
                             jobExecutionDelegate: toolExecutionDelegate,
@@ -1053,6 +1050,27 @@ extension Driver {
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates)
+  }
+
+  private func writeIncrementalBuildInformation(_ jobs: [Job]) {
+    // In case the write fails, don't crash the build.
+    // A mitigation to rdar://76359678.
+    // If the write fails, import incrementality is lost, but it is not a fatal error.
+    if let incrementalCompilationState = self.incrementalCompilationState {
+      do {
+        try incrementalCompilationState.writeDependencyGraph()
+      }
+      catch {
+        diagnosticEngine.emit(
+          .warning("next compile won't be incremental; could not write dependency graph: \(error.localizedDescription)"))
+          /// Ensure that a bogus dependency graph is not used next time.
+          buildRecordInfo?.removeBuildRecord()
+          return
+      }
+    }
+    buildRecordInfo?.writeBuildRecord(
+      jobs,
+      incrementalCompilationState?.skippedCompilationInputs)
   }
 
   private func printBindings(_ job: Job) {

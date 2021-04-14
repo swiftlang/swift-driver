@@ -223,10 +223,6 @@ extension Diagnostic.Message {
   fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
   }
-
-  fileprivate static var warning_could_not_write_dependency_graph: Diagnostic.Message {
-    .warning("next compile won't be incremental; could not write dependency graph")
-  }
 }
 
 // MARK: - Scheduling the 2nd wave
@@ -496,23 +492,32 @@ extension IncrementalCompilationState {
 // MARK: - Serialization
 
 extension IncrementalCompilationState {
-  @_spi(Testing) public func writeDependencyGraph() {
+  enum WriteDependencyGraphError: LocalizedError {
+    case noBuildRecordInfo,
+         couldNotWrite(path: VirtualPath, error: Error)
+    var errorDescription: String? {
+      switch self {
+      case .noBuildRecordInfo:
+        return "No build record information"
+      case let .couldNotWrite(path, error):
+        return "Could not write to \(path), error: \(error.localizedDescription)"
+      }
+    }
+  }
+  @_spi(Testing) public func writeDependencyGraph() throws {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
     guard moduleDependencyGraph.info.isCrossModuleIncrementalBuildEnabled else {
       return
     }
-
     guard
       let recordInfo = self.driver.buildRecordInfo
     else {
-      self.driver.diagnosticEngine.emit(
-        .warning_could_not_write_dependency_graph)
-      return
+      throw WriteDependencyGraphError.noBuildRecordInfo
     }
-    self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
-                                     on: self.driver.fileSystem,
-                                     compilerVersion: recordInfo.actualSwiftVersion)
+    try self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
+                                         on: self.driver.fileSystem,
+                                         compilerVersion: recordInfo.actualSwiftVersion)
   }
 }
 

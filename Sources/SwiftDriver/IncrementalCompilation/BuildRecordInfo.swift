@@ -184,6 +184,13 @@ import SwiftOptions
     }
   }
 
+  func removeBuildRecord() {
+    guard let absPath = buildRecordPath.absolutePath else {
+      return
+    }
+    try? fileSystem.removeFileTree(absPath)
+  }
+
   /// Before writing to the dependencies file path, preserve any previous file
   /// that may have been there. No error handling -- this is just a nicety, it
   /// doesn't matter if it fails.

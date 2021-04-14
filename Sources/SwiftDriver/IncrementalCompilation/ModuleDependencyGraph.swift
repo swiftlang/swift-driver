@@ -663,19 +663,21 @@ extension ModuleDependencyGraph {
   ///   - fileSystem: The file system for this location.
   ///   - compilerVersion: A string containing version information for the
   ///                      driver used to create this file.
+  /// - Returns: true if had error
   @_spi(Testing) public func write(
     to path: VirtualPath,
     on fileSystem: FileSystem,
     compilerVersion: String
-  ) {
+  ) throws {
     let data = ModuleDependencyGraph.Serializer.serialize(self, compilerVersion)
 
     do {
       try fileSystem.writeFileContents(path,
                                        bytes: data,
                                        atomically: true)
-    } catch let e {
-      info.diagnosticEngine.emit(.error_could_not_write_dep_graph(to: path, error: e))
+    } catch {
+      throw IncrementalCompilationState.WriteDependencyGraphError.couldNotWrite(
+        path: path, error: error)
     }
   }
 
@@ -1031,15 +1033,6 @@ fileprivate extension DependencyKey.Designator {
     case .sourceFileProvide(name: _):
       return 6
     }
-  }
-}
-
-extension Diagnostic.Message {
-  fileprivate static func error_could_not_write_dep_graph(
-    to path: VirtualPath,
-    error: Swift.Error
-  ) -> Diagnostic.Message {
-      .error("could not write driver dependency graph to \(path). Returned error was: \(error)")
   }
 }
 
