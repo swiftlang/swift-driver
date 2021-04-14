@@ -118,7 +118,9 @@ do {
       }
     }
     do {
-      try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
+      if !danglingJobs.isEmpty && delegate.shouldRunDanglingJobs {
+        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
+      }
     } catch {
       // Failing of dangling jobs don't fail the process.
       exit(0)
