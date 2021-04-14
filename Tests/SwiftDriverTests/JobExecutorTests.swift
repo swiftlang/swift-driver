@@ -447,13 +447,16 @@ final class JobExecutorTests: XCTestCase {
     }
   }
 
-  func testSaveTemps() throws {
-    #if os(macOS) && arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
+  private func getHostToolchainSdkArg(_ executor: SwiftDriverExecutor) throws -> [String] {
+    #if os(macOS)
+    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    return try ["-sdk", toolchain.sdk.get().pathString]
+    #else
+    return []
     #endif
+  }
 
+  func testSaveTemps() throws {
     do {
       try withTemporaryDirectory { path in
         let main = path.appending(component: "main.swift")
@@ -468,7 +471,7 @@ final class JobExecutorTests: XCTestCase {
         let outputPath = path.appending(component: "finalOutput")
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -506,7 +509,7 @@ final class JobExecutorTests: XCTestCase {
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-save-temps",
                                        "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -544,7 +547,7 @@ final class JobExecutorTests: XCTestCase {
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-Xfrontend", "-debug-crash-immediately",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -564,6 +567,5 @@ final class JobExecutorTests: XCTestCase {
         )
       }
     }
-
   }
 }
