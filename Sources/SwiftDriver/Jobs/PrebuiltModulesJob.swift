@@ -12,8 +12,15 @@
 import TSCBasic
 import SwiftOptions
 
+func isIosMac(_ path: TypedVirtualPath) -> Bool {
+  // Infer macabi interfaces by the file name.
+  // FIXME: more robust way to do this.
+  return path.file.basenameWithoutExt.contains("macabi")
+}
+
 public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
   var failingModules = Set<String>()
+  var succeededJobs: [Job] = []
   var commandMap: [Int: String] = [:]
   let diagnosticsEngine: DiagnosticsEngine
   let verbose: Bool
@@ -22,6 +29,13 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     self.verbose = verbose
   }
 
+  /// Dangling jobs are macabi-only modules. We should run those jobs if foundation
+  /// is built successfully for macabi.
+  public var shouldRunDanglingJobs: Bool {
+    return succeededJobs.contains { job in
+      return isIosMac(job.outputs[0]) && job.moduleName == "Foundation"
+    }
+  }
   func printJobInfo(_ job: Job, _ start: Bool) {
     guard verbose else {
       return
@@ -54,6 +68,7 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     case .terminated(code: let code):
       if code == 0 {
         printJobInfo(job, false)
+        succeededJobs.append(job)
       } else {
         failingModules.insert(job.moduleName)
         let result: String = try! result.utf8stderrOutput()
@@ -224,11 +239,6 @@ extension Driver {
                                                         _ inputPath: PrebuiltModuleInput, _ outputPath: PrebuiltModuleOutput,
                                                         _ dependencies: [TypedVirtualPath]) throws -> Job {
     assert(inputPath.path.file.basenameWithoutExt == outputPath.path.file.basenameWithoutExt)
-    func isIosMac(_ path: TypedVirtualPath) -> Bool {
-      // Infer macabi interfaces by the file name.
-      // FIXME: more robust way to do this.
-      return path.file.basenameWithoutExt.contains("macabi")
-    }
     var commandLine: [Job.ArgTemplate] = []
     commandLine.appendFlag(.compileModuleFromInterface)
     commandLine.appendFlag(.sdk)
