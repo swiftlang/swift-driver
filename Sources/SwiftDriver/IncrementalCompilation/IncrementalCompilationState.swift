@@ -223,10 +223,6 @@ extension Diagnostic.Message {
   fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
   }
-
-  fileprivate static var warning_could_not_write_dependency_graph: Diagnostic.Message {
-    .warning("next compile won't be incremental; could not write dependency graph")
-  }
 }
 
 // MARK: - Scheduling the 2nd wave
@@ -496,26 +492,32 @@ extension IncrementalCompilationState {
 // MARK: - Serialization
 
 extension IncrementalCompilationState {
-  @_spi(Testing) public func writeDependencyGraph() -> Bool {
+  enum WriteDependencyGraphError: LocalizedError {
+    case noBuildRecordInfo,
+         couldNotWrite(path: VirtualPath, error: Error)
+    var errorDescription: String? {
+      switch self {
+      case .noBuildRecordInfo:
+        return "No build record information"
+      case let .couldNotWrite(path, error):
+        return "Could not write to \(path), error: \(error.localizedDescription)"
+      }
+    }
+  }
+  @_spi(Testing) public func writeDependencyGraph() throws {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
     guard moduleDependencyGraph.info.isCrossModuleIncrementalBuildEnabled else {
-      return false
+      return
     }
-
     guard
       let recordInfo = self.driver.buildRecordInfo
     else {
-      // It's OK to silently fail because no build record will be written
-      // so there will be no attempt to use the saved module dependency graph
-      // next time.
-      self.driver.diagnosticEngine.emit(
-        .warning_could_not_write_dependency_graph)
-      return true
+      throw WriteDependencyGraphError.noBuildRecordInfo
     }
-    return self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
-                                            on: self.driver.fileSystem,
-                                            compilerVersion: recordInfo.actualSwiftVersion)
+    try self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
+                                         on: self.driver.fileSystem,
+                                         compilerVersion: recordInfo.actualSwiftVersion)
   }
 }
 

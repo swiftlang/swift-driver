@@ -668,17 +668,16 @@ extension ModuleDependencyGraph {
     to path: VirtualPath,
     on fileSystem: FileSystem,
     compilerVersion: String
-  ) -> Bool {
+  ) throws {
     let data = ModuleDependencyGraph.Serializer.serialize(self, compilerVersion)
 
     do {
       try fileSystem.writeFileContents(path,
                                        bytes: data,
                                        atomically: true)
-      return false
     } catch {
-      info.diagnosticEngine.emit(.warning_could_not_write_dep_graph(to: path, error: error))
-      return true
+      throw IncrementalCompilationState.WriteDependencyGraphError.couldNotWrite(
+        path: path, error: error)
     }
   }
 
@@ -1034,15 +1033,6 @@ fileprivate extension DependencyKey.Designator {
     case .sourceFileProvide(name: _):
       return 6
     }
-  }
-}
-
-extension Diagnostic.Message {
-  fileprivate static func warning_could_not_write_dep_graph(
-    to path: VirtualPath,
-    error: Error
-  ) -> Diagnostic.Message {
-    .warning("could not write driver dependency graph to \(path), Returned error was: \(error.localizedDescription)")
   }
 }
 

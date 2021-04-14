@@ -1057,11 +1057,15 @@ extension Driver {
     // A mitigation to rdar://76359678.
     // If the write fails, import incrementality is lost, but it is not a fatal error.
     if let incrementalCompilationState = self.incrementalCompilationState {
-      let hadError = incrementalCompilationState.writeDependencyGraph()
-      /// Ensure that a bogus dependency graph is not used next time.
-      guard !hadError else {
-        buildRecordInfo?.removeBuildRecord()
-        return
+      do {
+        try incrementalCompilationState.writeDependencyGraph()
+      }
+      catch {
+        diagnosticEngine.emit(
+          .warning("next compile won't be incremental; could not write dependency graph: \(error.localizedDescription)"))
+          /// Ensure that a bogus dependency graph is not used next time.
+          buildRecordInfo?.removeBuildRecord()
+          return
       }
     }
     buildRecordInfo?.writeBuildRecord(

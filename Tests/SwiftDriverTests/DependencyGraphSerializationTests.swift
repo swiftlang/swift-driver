@@ -18,7 +18,7 @@ class DependencyGraphSerializationTests: XCTestCase {
   func roundTrip(_ graph: ModuleDependencyGraph) throws {
     let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
     let fs = InMemoryFileSystem()
-    graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
+    try graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
 
     let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
                                                            info: .mock(fileSystem: fs))!
