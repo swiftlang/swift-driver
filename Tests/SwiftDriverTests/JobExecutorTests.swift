@@ -212,12 +212,8 @@ final class JobExecutorTests: XCTestCase {
 
   /// Ensure the executor is capable of forwarding its standard input to the compile job that requires it.
   func testInputForwarding() throws {
-#if os(macOS)
-    #if arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
-    #endif      
+    #if os(macOS)
+    let hostTriple = try Driver(args: ["swiftc", "test.swift"]).hostTriple
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
@@ -235,7 +231,7 @@ final class JobExecutorTests: XCTestCase {
           "-primary-file",
           // This compile job must read the input from STDIN
           "-",
-          "-target", "x86_64-apple-darwin18.7.0",
+          "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
           .path(.absolute(try toolchain.sdk.get())),
@@ -255,9 +251,7 @@ final class JobExecutorTests: XCTestCase {
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
           "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", "-arch", "x86_64",
-          "-force_load", .path(.absolute(try toolchain.compatibility50.get())),
-          "-force_load", .path(.absolute(try toolchain.compatibilityDynamicReplacements.get())),
+          "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging",
