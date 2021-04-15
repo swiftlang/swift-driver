@@ -754,12 +754,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
 // We only care about prebuilt modules in macOS.
 #if os(macOS)
   func testPrebuiltModuleGenerationJobs() throws {
-    #if arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
-    #endif
-
     func getInputModules(_ job: Job) -> [String] {
       return job.inputs.map { input in
         return input.file.absolutePath!.parentDirectory.basenameWithoutExt
@@ -791,7 +785,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
           job.outputs[0].file.basenameWithoutExt == basenameWithoutExt
       }
     }
-
     let packageRootPath = URL(fileURLWithPath: #file).pathComponents
       .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
     let testInputsPath = packageRootPath + "/TestInputs"
@@ -801,12 +794,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let interfaceMap = try collector.collectSwiftInterfaceMap()
 
     // Check interface map always contain everything
-    XCTAssertTrue(interfaceMap["Swift"]!.count == 2)
-    XCTAssertTrue(interfaceMap["A"]!.count == 2)
-    XCTAssertTrue(interfaceMap["E"]!.count == 2)
+    XCTAssertTrue(interfaceMap["Swift"]!.count == 3)
+    XCTAssertTrue(interfaceMap["A"]!.count == 3)
+    XCTAssertTrue(interfaceMap["E"]!.count == 3)
     XCTAssertTrue(interfaceMap["F"]!.count == 3)
-    XCTAssertTrue(interfaceMap["G"]!.count == 2)
-    XCTAssertTrue(interfaceMap["H"]!.count == 2)
+    XCTAssertTrue(interfaceMap["G"]!.count == 3)
+    XCTAssertTrue(interfaceMap["H"]!.count == 3)
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
@@ -821,7 +814,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
                                                                                 into: VirtualPath(path: "/tmp/").absolutePath!,
                                                                                 exhaustive: true)
@@ -830,22 +822,30 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(danglingJobs.allSatisfy { job in
         job.moduleName == "MissingKit"
       })
-      XCTAssertTrue(jobs.count == 13)
+      XCTAssertTrue(jobs.count == 18)
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
       let HJobs = jobs.filter { $0.moduleName == "H"}
-      XCTAssertTrue(HJobs.count == 2)
-      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertTrue(HJobs.count == 3)
+      // arm64
+      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "A", "E", "E", "F", "F", "G", "G", "Swift", "Swift"])
+      // arm64e
       XCTAssertTrue(getInputModules(HJobs[1]) == ["A", "E", "F", "G", "Swift"])
+      // x86_64
+      XCTAssertTrue(getInputModules(HJobs[2]) == ["A", "E", "F", "G", "Swift"])
       XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
+      XCTAssertTrue(getOutputName(HJobs[1]) != getOutputName(HJobs[2]))
       checkInputOutputIntegrity(HJobs[0])
       checkInputOutputIntegrity(HJobs[1])
+      checkInputOutputIntegrity(HJobs[2])
       let GJobs = jobs.filter { $0.moduleName == "G"}
-      XCTAssertTrue(GJobs.count == 2)
-      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "Swift"])
+      XCTAssertTrue(GJobs.count == 3)
+      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "E", "Swift", "Swift"])
       XCTAssertTrue(getInputModules(GJobs[1]) == ["E", "Swift"])
+      XCTAssertTrue(getInputModules(GJobs[2]) == ["E", "Swift"])
       XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
+      XCTAssertTrue(getOutputName(GJobs[1]) != getOutputName(GJobs[2]))
       checkInputOutputIntegrity(GJobs[0])
       checkInputOutputIntegrity(GJobs[1])
     }
@@ -857,28 +857,33 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
                                                                                 into: VirtualPath(path: "/tmp/").absolutePath!,
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssertTrue(jobs.count == 13)
+      XCTAssertTrue(jobs.count == 18)
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
       let HJobs = jobs.filter { $0.moduleName == "H"}
-      XCTAssertTrue(HJobs.count == 2)
-      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertTrue(HJobs.count == 3)
+      // arm64
+      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "A", "E", "E", "F", "F", "G", "G", "Swift", "Swift"])
+      // arm64e
       XCTAssertTrue(getInputModules(HJobs[1]) == ["A", "E", "F", "G", "Swift"])
+      // x86_64
+      XCTAssertTrue(getInputModules(HJobs[2]) == ["A", "E", "F", "G", "Swift"])
       XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
       checkInputOutputIntegrity(HJobs[0])
       checkInputOutputIntegrity(HJobs[1])
       let GJobs = jobs.filter { $0.moduleName == "G"}
-      XCTAssertTrue(GJobs.count == 2)
-      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "Swift"])
+      XCTAssertTrue(GJobs.count == 3)
+      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "E", "Swift", "Swift"])
       XCTAssertTrue(getInputModules(GJobs[1]) == ["E", "Swift"])
+      XCTAssertTrue(getInputModules(GJobs[2]) == ["E", "Swift"])
       XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
+      XCTAssertTrue(getOutputName(GJobs[1]) != getOutputName(GJobs[2]))
       checkInputOutputIntegrity(GJobs[0])
       checkInputOutputIntegrity(GJobs[1])
     }
@@ -890,13 +895,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
                                                                                 into: VirtualPath(path: "/tmp/").absolutePath!,
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssert(jobs.count == 2)
+      XCTAssert(jobs.count == 3)
       XCTAssert(jobs.allSatisfy { $0.moduleName == "Swift" })
     }
     try withTemporaryDirectory { path in
@@ -907,13 +911,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
                                                                                 into: VirtualPath(path: "/tmp/").absolutePath!,
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssertTrue(jobs.count == 7)
+      XCTAssertTrue(jobs.count == 9)
       jobs.forEach({ job in
         // Check we don't pull in other modules than A, F and Swift
         XCTAssertTrue(["A", "F", "Swift"].contains(job.moduleName))
@@ -928,7 +931,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-
       let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
                                                                                 into: VirtualPath(path: "/tmp/").absolutePath!,
                                                                                 exhaustive: false)
