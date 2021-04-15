@@ -221,6 +221,11 @@ final class JobExecutorTests: XCTestCase {
   /// Ensure the executor is capable of forwarding its standard input to the compile job that requires it.
   func testInputForwarding() throws {
 #if os(macOS)
+    #if arch(arm64)
+      // Disabled on Apple Silicon
+      // rdar://76609781
+      throw XCTSkip()
+    #endif      
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
