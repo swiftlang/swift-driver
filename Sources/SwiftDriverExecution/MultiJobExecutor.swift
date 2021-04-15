@@ -82,6 +82,9 @@ public final class MultiJobExecutor {
     /// The type to use when launching new processes. This mostly serves as an override for testing.
     let processType: ProcessProtocol.Type
 
+    /// The standard input `FileHandle` override for testing.
+    let testInputHandle: FileHandle?
+
     /// If a job fails, the driver needs to stop running jobs.
     private(set) var isBuildCancelled = false
 
@@ -100,7 +103,8 @@ public final class MultiJobExecutor {
       forceResponseFiles: Bool,
       recordedInputModificationDates: [TypedVirtualPath: Date],
       diagnosticsEngine: DiagnosticsEngine,
-      processType: ProcessProtocol.Type = Process.self
+      processType: ProcessProtocol.Type = Process.self,
+      inputHandleOverride: FileHandle? = nil
     ) {
       (
         jobs: self.jobs,
@@ -121,6 +125,7 @@ public final class MultiJobExecutor {
       self.recordedInputModificationDates = recordedInputModificationDates
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
+      self.testInputHandle = inputHandleOverride
     }
 
     private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
@@ -248,6 +253,9 @@ public final class MultiJobExecutor {
   /// The type to use when launching new processes. This mostly serves as an override for testing.
   private let processType: ProcessProtocol.Type
 
+  /// The standard input `FileHandle`  override for testing.
+  let testInputHandle: FileHandle?
+
   public init(
     workload: DriverExecutorWorkload,
     resolver: ArgsResolver,
@@ -257,7 +265,8 @@ public final class MultiJobExecutor {
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
     recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
-    processType: ProcessProtocol.Type = Process.self
+    processType: ProcessProtocol.Type = Process.self,
+    inputHandleOverride: FileHandle? = nil
   ) {
     self.workload = workload
     self.argsResolver = resolver
@@ -268,6 +277,7 @@ public final class MultiJobExecutor {
     self.forceResponseFiles = forceResponseFiles
     self.recordedInputModificationDates = recordedInputModificationDates
     self.processType = processType
+    self.testInputHandle = inputHandleOverride
   }
 
   /// Execute all jobs.
@@ -314,7 +324,8 @@ public final class MultiJobExecutor {
       forceResponseFiles: forceResponseFiles,
       recordedInputModificationDates: recordedInputModificationDates,
       diagnosticsEngine: diagnosticsEngine,
-      processType: processType
+      processType: processType,
+      inputHandleOverride: testInputHandle
     )
   }
 }
@@ -566,9 +577,20 @@ class ExecuteJobRule: LLBuildRule {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  forceResponseFiles: context.forceResponseFiles)
 
-      let process = try context.processType.launchProcess(
-        arguments: arguments, env: env
-      )
+
+      let process : ProcessProtocol
+      // If the input comes from standard input, forward the driver's input to the compile job.
+      if job.inputs.contains(TypedVirtualPath(file: .standardInput, type: .swift)) {
+        let inputFileHandle = context.testInputHandle ?? FileHandle.standardInput
+        process = try context.processType.launchProcessAndWriteInput(
+          arguments: arguments, env: env, inputFileHandle: inputFileHandle
+        )
+      } else {
+        process = try context.processType.launchProcess(
+          arguments: arguments, env: env
+        )
+      }
+
       pid = Int(process.processID)
 
       // Add it to the process set if it's a real process.

@@ -29,6 +29,11 @@ class JobCollectingDelegate: JobExecutionDelegate {
       return .init()
     }
 
+    static func launchProcessAndWriteInput(arguments: [String], env: [String : String],
+                                           inputFileHandle: FileHandle) throws -> StubProcess {
+      return .init()
+    }
+
     var processID: TSCBasic.Process.ProcessID { .init(-1) }
 
     func waitUntilExit() throws -> ProcessResult {
@@ -209,6 +214,84 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertTrue(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be present in the temporary directory")
       try resolver.removeTemporaryDirectory()
       XCTAssertFalse(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be removed from the temporary directory")
+    }
+#endif
+  }
+
+  /// Ensure the executor is capable of forwarding its standard input to the compile job that requires it.
+  func testInputForwarding() throws {
+#if os(macOS)
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    try withTemporaryDirectory { path in
+      let exec = path.appending(component: "main")
+      let compile = Job(
+        moduleName: "main",
+        kind: .compile,
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        commandLine: [
+          "-frontend",
+          "-c",
+          "-primary-file",
+          // This compile job must read the input from STDIN
+          "-",
+          "-target", "x86_64-apple-darwin18.7.0",
+          "-enable-objc-interop",
+          "-sdk",
+          .path(.absolute(try toolchain.sdk.get())),
+          "-module-name", "main",
+          "-o", .path(.temporary(RelativePath("main.o"))),
+        ],
+        inputs: [TypedVirtualPath(file: .standardInput, type: .swift )],
+        primaryInputs: [TypedVirtualPath(file: .standardInput, type: .swift )],
+        outputs: [.init(file: VirtualPath.temporary(RelativePath("main.o")).intern(),
+                        type: .object)]
+      )
+      let link = Job(
+        moduleName: "main",
+        kind: .link,
+        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
+        commandLine: [
+          .path(.temporary(RelativePath("main.o"))),
+          .path(.absolute(try toolchain.clangRT.get())),
+          "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
+          "-lobjc", "-lSystem", "-arch", "x86_64",
+          "-force_load", .path(.absolute(try toolchain.compatibility50.get())),
+          "-force_load", .path(.absolute(try toolchain.compatibilityDynamicReplacements.get())),
+          "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
+          "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
+          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging",
+          "-o", .path(.absolute(exec)),
+        ],
+        inputs: [
+          .init(file: VirtualPath.temporary(RelativePath("main.o")).intern(), type: .object),
+        ],
+        primaryInputs: [],
+        outputs: [.init(file: VirtualPath.relative(RelativePath("main")).intern(), type: .image)]
+      )
+
+      // Create a file with inpuit
+      let inputFile = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(inputFile) {
+        $0 <<< "print(\"Hello, World\")"
+      }
+      // We are going to override he executors standard input FileHandle to the above
+      // input file, to simulate it being piped over standard input to this compilation.
+      let testFile: FileHandle = FileHandle(forReadingAtPath: inputFile.description)!
+      let delegate = JobCollectingDelegate()
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let executor = MultiJobExecutor(workload: .all([compile, link]),
+                                      resolver: resolver, executorDelegate: delegate,
+                                      diagnosticsEngine: DiagnosticsEngine(),
+                                      inputHandleOverride: testFile)
+      try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
+
+      // Execute the resulting program
+      let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
+      XCTAssertEqual(output, "Hello, World\n")
     }
 #endif
   }

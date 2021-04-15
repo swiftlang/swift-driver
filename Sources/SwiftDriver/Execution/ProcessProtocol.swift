@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import Foundation
 
 /// Abstraction for functionality that allows working with subprocesses.
 public protocol ProcessProtocol {
@@ -19,7 +20,7 @@ public protocol ProcessProtocol {
   /// a negative number to represent a "quasi-pid".
   ///
   /// - SeeAlso: https://github.com/apple/swift/blob/main/docs/DriverParseableOutput.rst#quasi-pids
-  var processID: Process.ProcessID { get }
+  var processID: TSCBasic.Process.ProcessID { get }
 
   /// Wait for the process to finish execution.
   @discardableResult
@@ -29,15 +30,39 @@ public protocol ProcessProtocol {
     arguments: [String],
     env: [String: String]
   ) throws -> Self
+
+  static func launchProcessAndWriteInput(
+    arguments: [String],
+    env: [String: String],
+    inputFileHandle: FileHandle
+  ) throws -> Self
 }
 
-extension Process: ProcessProtocol {
+extension TSCBasic.Process: ProcessProtocol {
   public static func launchProcess(
     arguments: [String],
     env: [String: String]
-  ) throws -> Process {
+  ) throws -> TSCBasic.Process {
     let process = Process(arguments: arguments, environment: env)
     try process.launch()
+    return process
+  }
+
+  public static func launchProcessAndWriteInput(
+    arguments: [String],
+    env: [String: String],
+    inputFileHandle: FileHandle
+  ) throws -> TSCBasic.Process {
+    let process = Process(arguments: arguments, environment: env)
+    let processInputStream = try process.launch()
+    var input: Data
+    // Write out the contents of the input handle and close the input stream
+    repeat {
+      input = inputFileHandle.availableData
+      processInputStream.write(input)
+    } while (input.count > 0)
+    processInputStream.flush()
+    try processInputStream.close()
     return process
   }
 }
