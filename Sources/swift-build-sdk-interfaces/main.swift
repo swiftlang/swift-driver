@@ -107,13 +107,13 @@ do {
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
     let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
-    let delegate = PrebuitModuleGenerationDelegate(diagnosticsEngine, verbose)
+    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose)
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
     } catch {
-      // Only fail the process if stdlib failed
-      if delegate.hasStdlibFailure {
+      // Only fail when critical failures happened.
+      if delegate.hasCriticalFailure {
         exit(1)
       }
     }

@@ -12,29 +12,28 @@
 import TSCBasic
 import SwiftOptions
 
-func isIosMac(_ path: TypedVirtualPath) -> Bool {
+func isIosMac(_ path: VirtualPath) -> Bool {
   // Infer macabi interfaces by the file name.
   // FIXME: more robust way to do this.
-  return path.file.basenameWithoutExt.contains("macabi")
+  return path.basenameWithoutExt.contains("macabi")
 }
 
 public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
   var failingModules = Set<String>()
-  var succeededJobs: [Job] = []
   var commandMap: [Int: String] = [:]
   let diagnosticsEngine: DiagnosticsEngine
   let verbose: Bool
-  public init(_ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool) {
+  var failingCriticalOutputs: Set<VirtualPath>
+  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool) {
     self.diagnosticsEngine = diagnosticsEngine
     self.verbose = verbose
+    self.failingCriticalOutputs = Set<VirtualPath>(jobs.compactMap(PrebuitModuleGenerationDelegate.getCriticalOutput))
   }
 
   /// Dangling jobs are macabi-only modules. We should run those jobs if foundation
   /// is built successfully for macabi.
   public var shouldRunDanglingJobs: Bool {
-    return succeededJobs.contains { job in
-      return isIosMac(job.outputs[0]) && job.moduleName == "Foundation"
-    }
+    return !failingCriticalOutputs.contains(where: isIosMac)
   }
   func printJobInfo(_ job: Job, _ start: Bool) {
     guard verbose else {
@@ -54,13 +53,17 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     }
   }
 
+  static func getCriticalOutput(_ job: Job) -> VirtualPath? {
+    return job.moduleName == "Foundation" ? job.outputs[0].file : nil
+  }
+
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
     commandMap[pid] = arguments.reduce("") { return $0 + " " + $1 }
     printJobInfo(job, true)
   }
 
-  public var hasStdlibFailure: Bool {
-    return failingModules.contains("Swift") || failingModules.contains("_Concurrency")
+  public var hasCriticalFailure: Bool {
+    return !failingCriticalOutputs.isEmpty
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
@@ -68,7 +71,7 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     case .terminated(code: let code):
       if code == 0 {
         printJobInfo(job, false)
-        succeededJobs.append(job)
+        failingCriticalOutputs.remove(job.outputs[0].file)
       } else {
         failingModules.insert(job.moduleName)
         let result: String = try! result.utf8stderrOutput()
@@ -254,7 +257,7 @@ extension Driver {
       commandLine.appendFlag(.parseStdlib)
     }
     // Add macabi-specific search path.
-    if isIosMac(inputPath.path) {
+    if isIosMac(inputPath.path.file) {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
     }
