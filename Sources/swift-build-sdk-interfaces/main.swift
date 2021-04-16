@@ -112,7 +112,7 @@ do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
     } catch {
-      // Only fail the process if stdlib failed
+      // Only fail when critical failures happened.
       if delegate.hasCriticalFailure {
         exit(1)
       }
