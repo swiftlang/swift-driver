@@ -307,7 +307,7 @@ public struct Driver {
   @_spi(Testing) public var externalBuildArtifacts: ExternalBuildArtifacts? = nil
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
-  @_spi(Testing) public let supportedFrontendFlags: Set<String>
+  public let supportedFrontendFlags: Set<String>
 
   /// A global queue for emitting non-interrupted messages into stderr
   public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
