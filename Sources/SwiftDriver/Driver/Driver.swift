@@ -2051,10 +2051,10 @@ extension Driver {
     }
     if sdkInfo.canonicalName.hasPrefix("macos") {
       return sdkVersion < Version(10, 15, 0)
-    } else if sdkInfo.canonicalName.hasPrefix("iphoneos") ||
-                sdkInfo.canonicalName.hasPrefix("appletvos") {
+    } else if sdkInfo.canonicalName.hasPrefix("iphone") ||
+                sdkInfo.canonicalName.hasPrefix("appletv") {
       return sdkVersion < Version(13, 0, 0)
-    } else if sdkInfo.canonicalName.hasPrefix("watchos") {
+    } else if sdkInfo.canonicalName.hasPrefix("watch") {
       return sdkVersion < Version(6, 0, 0)
     } else {
       return false
