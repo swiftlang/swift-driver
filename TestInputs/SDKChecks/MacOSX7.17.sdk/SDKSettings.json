@@ -1,0 +1,8 @@
+{
+	"Version": "7.17",
+	"VersionMap": {
+		"macOS_iOSMac": {},
+		"iOSMac_macOS": {}
+	},
+	"CanonicalName": "macosx7.17"
+}

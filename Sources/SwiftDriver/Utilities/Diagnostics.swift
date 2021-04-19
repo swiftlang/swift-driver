@@ -93,6 +93,18 @@ extension Diagnostic.Message {
     .warning("no such SDK: \(path)")
   }
 
+  static func warning_no_sdksettings_json(_ path: String) -> Diagnostic.Message {
+      .warning("Could not read SDKSettings.json for SDK at: \(path)")
+  }
+
+  static func warning_fail_parse_sdk_ver(_ version: String, _ path: String) -> Diagnostic.Message {
+      .warning("Could not parse SDK version '\(version)' at: \(path)")
+  }
+
+  static func error_sdk_too_old(_ path: String) -> Diagnostic.Message {
+      .error("Swift does not support the SDK \(path)")
+  }
+
   static func error_unknown_target(_ target: String) -> Diagnostic.Message {
     .error("unknown target '\(target)'")
   }

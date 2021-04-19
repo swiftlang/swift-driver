@@ -2581,7 +2581,7 @@ final class SwiftDriverTests: XCTestCase {
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     try withTemporaryDirectory { tmpDir in
-      let sdk1 = tmpDir.appending(component: "MacOSX10.15.versioned.sdk")
+      let sdk1 = tmpDir.appending(component: "MacOSX10.15.sdk")
       try localFileSystem.writeFileContents(sdk1.appending(component: "SDKSettings.json")) {
         $0 <<< """
         {
@@ -2601,7 +2601,7 @@ final class SwiftDriverTests: XCTestCase {
         """
       }
 
-      let sdk2 = tmpDir.appending(component: "MacOSX10.15.4.versioned.sdk")
+      let sdk2 = tmpDir.appending(component: "MacOSX10.15.4.sdk")
       try localFileSystem.writeFileContents(sdk2.appending(component: "SDKSettings.json")) {
         $0 <<< """
         {
@@ -2736,6 +2736,60 @@ final class SwiftDriverTests: XCTestCase {
         ]))
       }
     }
+  }
+
+  func testDarwinSDKTooOld() throws {
+    func getSDKPath(sdkDirName: String) -> AbsolutePath {
+      let packageRootPath = AbsolutePath(String(URL(fileURLWithPath: #file).pathComponents
+          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()))
+      let testInputsPath = packageRootPath.appending(component: "TestInputs")
+                                          .appending(component: "SDKChecks")
+      return testInputsPath.appending(component: sdkDirName)
+    }
+    // Ensure an error is emitted for an unsupported SDK
+    func checkSDKUnsupported(sdkDirName: String)
+    throws {
+      let sdkPath = getSDKPath(sdkDirName: sdkDirName)
+      // Get around the check for SDK's existence
+      try localFileSystem.createDirectory(sdkPath)
+      let args = [ "swiftc", "foo.swift", "-sdk", sdkPath.pathString ]
+      try assertDriverDiagnostics(args: args) { driver, verifier in
+        verifier.expect(.error("Swift does not support the SDK \(sdkPath.pathString)"))
+      }
+    }
+
+    // Ensure no error is emitted for a supported SDK
+    func checkSDKOkay(sdkDirName: String) throws {
+      let sdkPath = getSDKPath(sdkDirName: sdkDirName)
+      try localFileSystem.createDirectory(sdkPath)
+      let args = [ "swiftc", "foo.swift", "-sdk", sdkPath.pathString ]
+      try assertNoDiagnostics { de in let _ = try Driver(args: args, diagnosticsEngine: de) }
+    }
+
+    // Ensure old/bogus SDK versions are caught
+    try checkSDKUnsupported(sdkDirName: "tvOS8.0.sdk")
+    try checkSDKUnsupported(sdkDirName: "MacOSX10.8.sdk")
+    try checkSDKUnsupported(sdkDirName: "MacOSX10.9.sdk")
+    try checkSDKUnsupported(sdkDirName: "MacOSX10.10.sdk")
+    try checkSDKUnsupported(sdkDirName: "MacOSX10.11.sdk")
+    try checkSDKUnsupported(sdkDirName: "MacOSX7.17.sdk")
+    try checkSDKUnsupported(sdkDirName: "MacOSX10.14.Internal.sdk")
+    try checkSDKUnsupported(sdkDirName: "iPhoneOS7.sdk")
+    try checkSDKUnsupported(sdkDirName: "iPhoneOS12.99.sdk")
+    try checkSDKUnsupported(sdkDirName: "watchOS2.0.sdk")
+    try checkSDKUnsupported(sdkDirName: "watchOS3.0.sdk")
+    try checkSDKUnsupported(sdkDirName: "watchOS3.0.Internal.sdk")
+
+    // Verify a selection of okay SDKs
+    try checkSDKOkay(sdkDirName: "MacOSX10.15.sdk")
+    try checkSDKOkay(sdkDirName: "MacOSX10.15.4.sdk")
+    try checkSDKOkay(sdkDirName: "MacOSX10.15.Internal.sdk")
+    try checkSDKOkay(sdkDirName: "iPhoneOS13.0.sdk")
+    try checkSDKOkay(sdkDirName: "tvOS13.0.sdk")
+    try checkSDKOkay(sdkDirName: "watchOS6.0.sdk")
+    try checkSDKOkay(sdkDirName: "iPhoneOS.sdk")
+    try checkSDKOkay(sdkDirName: "tvOS.sdk")
+    try checkSDKOkay(sdkDirName: "watchOS.sdk")
   }
 
   func testDarwinLinkerPlatformVersion() throws {
