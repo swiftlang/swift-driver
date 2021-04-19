@@ -22,14 +22,17 @@ guard let sdkPathRaw = ProcessEnv.vars["SDKROOT"] else {
   exit(1)
 }
 
-var rawOutputDir = ""
-if let oid = CommandLine.arguments.firstIndex(of: "-o") {
-  let dirId = oid.advanced(by: 1)
-  if dirId < CommandLine.arguments.count {
-    rawOutputDir = CommandLine.arguments[dirId]
+func getArgument(_ flag: String) -> String? {
+  if let id = CommandLine.arguments.firstIndex(of: flag) {
+    let nextId = id.advanced(by: 1)
+    if nextId < CommandLine.arguments.count {
+      return CommandLine.arguments[nextId]
+    }
   }
+  return nil
 }
-if rawOutputDir.isEmpty {
+
+guard let rawOutputDir = getArgument("-o") else {
   diagnosticsEngine.emit(.error("need to specify -o"))
   exit(1)
 }
@@ -99,10 +102,17 @@ do {
                                            processSet: processSet,
                                            fileSystem: localFileSystem,
                                            env: ProcessEnv.vars)
-    var driver = try Driver(args: ["swiftc",
-                                   "-target", collector.targetTriple,
-                                   tempPath.description,
-                                   "-sdk", sdkPathRaw],
+    var args = ["swiftc",
+                "-target", collector.targetTriple,
+                tempPath.description,
+                "-sdk", sdkPathRaw]
+    let mcpFlag = "-module-cache-path"
+    // Append module cache path if given by the client
+    if let mcp = getArgument(mcpFlag) {
+      args.append(mcpFlag)
+      args.append(mcp)
+    }
+    var driver = try Driver(args: args,
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
