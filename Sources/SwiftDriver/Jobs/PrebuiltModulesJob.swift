@@ -261,6 +261,11 @@ extension Driver {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
     }
+    // Use the specified module cache dir
+    if let mcp = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
+      commandLine.appendFlag(.moduleCachePath)
+      commandLine.append(.path(try VirtualPath(path: mcp)))
+    }
     commandLine.appendFlag(.serializeParseableModuleInterfaceDependencyHashes)
     return Job(
       moduleName: moduleName,
