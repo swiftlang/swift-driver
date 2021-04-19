@@ -2005,13 +2005,42 @@ extension Driver {
 
       if !fileSystem.exists(path) {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
+      } else if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
+                            diagnosticsEngine: diagnosticsEngine) {
+        diagnosticsEngine.emit(.error_sdk_too_old(sdkPath))
+        return nil
       }
-      // .. else check if SDK is too old (we need target triple to diagnose that).
 
       return .absolute(path)
     }
 
     return nil
+  }
+}
+
+// SDK checking: attempt to diagnose if the SDK we are pointed at is too old.
+extension Driver {
+  static func isSDKTooOld(sdkPath: AbsolutePath, fileSystem: FileSystem,
+                          diagnosticsEngine: DiagnosticsEngine) -> Bool {
+    let sdkInfo = DarwinToolchain.readSDKInfo(fileSystem, VirtualPath.absolute(sdkPath).intern())
+    guard let sdkInfo = sdkInfo else {
+      diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.pathString))
+      return false
+    }
+    guard let sdkVersion = Version(potentiallyIncompleteVersionString: sdkInfo.versionString) else {
+      diagnosticsEngine.emit(.warning_fail_parse_sdk_ver(sdkInfo.versionString, sdkPath.pathString))
+      return false
+    }
+    if sdkInfo.canonicalName.hasPrefix("macos") {
+      return sdkVersion < Version(10, 15, 0)
+    } else if sdkInfo.canonicalName.hasPrefix("iphoneos") ||
+                sdkInfo.canonicalName.hasPrefix("appletvos") {
+      return sdkVersion < Version(13, 0, 0)
+    } else if sdkInfo.canonicalName.hasPrefix("watchos") {
+      return sdkVersion < Version(6, 0, 0)
+    } else {
+      return false
+    }
   }
 }
 

@@ -117,8 +117,11 @@ public struct SDKPrebuiltModuleInputsCollector {
     let canonicalName = sdkInfo.canonicalName
     func extractVersion(_ platform: String) -> Substring? {
       if canonicalName.starts(with: platform) {
-        return canonicalName.suffix(from: canonicalName.index(canonicalName.startIndex,
-                                                              offsetBy: platform.count))
+        let versionStartIndex = canonicalName.index(canonicalName.startIndex,
+                                                    offsetBy: platform.count)
+        let delimiterRange = canonicalName.range(of: "internal", options: .backwards)
+        let versionEndIndex = delimiterRange == nil ? canonicalName.endIndex : delimiterRange!.lowerBound
+        return canonicalName[versionStartIndex..<versionEndIndex]
       }
       return nil
     }

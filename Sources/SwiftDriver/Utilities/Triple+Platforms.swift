@@ -171,7 +171,7 @@ extension Triple {
   {
     switch compatibilityPlatform ?? darwinPlatform! {
     case .macOS:
-      return _macOSVersion!
+      return _macOSVersion ?? osVersion
     case .iOS, .tvOS:
       return _iOSVersion
     case .watchOS:
