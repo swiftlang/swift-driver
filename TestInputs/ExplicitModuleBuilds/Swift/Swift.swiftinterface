@@ -1,4 +1,4 @@
 // swift-interface-format-version: 1.0
 // swift-compiler-version: Swift version 5.4-dev (LLVM bd2476a8056e227, Swift 68ac381af6ca0e3)
-// swift-module-flags: -disable-objc-attr-requires-foundation-module -target x86_64-apple-macosx10.9 -enable-objc-interop -enable-library-evolution -module-link-name swiftCore -parse-stdlib -swift-version 5 -O -enforce-exclusivity=unchecked -enable-experimental-concise-pound-file -module-name Swift
+// swift-module-flags: -disable-objc-attr-requires-foundation-module -enable-objc-interop -enable-library-evolution -module-link-name swiftCore -parse-stdlib -swift-version 5 -O -enforce-exclusivity=unchecked -enable-experimental-concise-pound-file -module-name Swift
 import SwiftShims
