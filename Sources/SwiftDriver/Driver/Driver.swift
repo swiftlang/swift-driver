@@ -2040,8 +2040,8 @@ extension Driver {
 extension Driver {
   static func isSDKTooOld(sdkPath: AbsolutePath, fileSystem: FileSystem,
                           diagnosticsEngine: DiagnosticsEngine) -> Bool {
-    let sdkInfo = DarwinToolchain.readSDKInfo(fileSystem, VirtualPath.absolute(sdkPath).intern())
-    guard let sdkInfo = sdkInfo else {
+    let sdkInfoReadAttempt = DarwinToolchain.readSDKInfo(fileSystem, VirtualPath.absolute(sdkPath).intern())
+    guard let sdkInfo = sdkInfoReadAttempt else {
       diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.pathString))
       return false
     }
