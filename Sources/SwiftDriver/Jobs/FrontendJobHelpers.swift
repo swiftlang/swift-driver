@@ -173,6 +173,7 @@ extension Driver {
     try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
     try commandLine.appendLast(.lto, from: &parsedOptions)
     try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
+    try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
