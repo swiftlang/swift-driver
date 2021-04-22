@@ -104,7 +104,7 @@ extension Driver {
 
     try addPrecompileModuleDependenciesJobs(addJob: addJobBeforeCompiles)
     try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
-    try addEmitModuleJob(addJob: addJobBeforeCompiles)
+    try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles, addJobAfterCompiles: addJobAfterCompiles)
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
       addCompileJobGroup: addCompileJobGroup,
@@ -189,9 +189,11 @@ extension Driver {
     )
   }
 
-  private mutating func addEmitModuleJob(addJob: (Job) -> Void) throws {
+  private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void, addJobAfterCompiles: (Job) -> Void) throws {
     if shouldCreateEmitModuleJob {
-      addJob( try emitModuleJob() )
+      let emitModuleJob = try emitModuleJob()
+      addJobBeforeCompiles(emitModuleJob)
+      try addVerifyJobs(mergeJob: emitModuleJob, addJob: addJobAfterCompiles)
     }
   }
 
@@ -227,9 +229,11 @@ extension Driver {
       }
     }
 
-    try addSingleCompileJobs(addJob: addJobBeforeCompiles,
+    if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
-                             emitModuleTrace: loadedModuleTracePath != nil)
+                             emitModuleTrace: loadedModuleTracePath != nil) {
+      try addVerifyJobs(mergeJob: compileJob, addJob: addJobAfterCompiles)
+    }
 
     try addJobsForPrimaryInputs(
       addCompileJobGroup: addCompileJobGroup,
@@ -259,9 +263,9 @@ extension Driver {
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     emitModuleTrace: Bool
-  ) throws {
+  ) throws -> Job? {
     guard case .singleCompile = compilerMode
-    else { return }
+    else { return nil }
 
     if parsedOptions.hasArgument(.embedBitcode),
        inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
@@ -276,6 +280,7 @@ extension Driver {
           : nil
       }
       backendJobs.forEach(addJob)
+      return compile
     } else {
       // We can skip the compile jobs if all we want is a module when it's
       // built separately.
@@ -284,6 +289,7 @@ extension Driver {
                                    addJobOutputs: addJobOutputs,
                                    emitModuleTrace: emitModuleTrace)
       addJob(compile)
+      return compile
     }
   }
 
