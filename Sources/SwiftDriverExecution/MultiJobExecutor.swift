@@ -607,6 +607,13 @@ class ExecuteJobRule: LLBuildRule {
       let result = try process.waitUntilExit()
       let success = result.exitStatus == .terminated(code: EXIT_SUCCESS)
 
+
+      if !success {
+        print("Job failure: \(job)")
+        print("Output: \(try result.utf8Output())")
+        print("Err Output: \(try result.utf8stderrOutput())")
+      }
+
       if !success {
         switch result.exitStatus {
         case let .terminated(code):
