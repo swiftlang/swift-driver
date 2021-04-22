@@ -44,6 +44,9 @@ let coreMode = CommandLine.arguments.contains("-core")
 /// Verbose to print more info
 let verbose = CommandLine.arguments.contains("-v")
 
+/// Skip executing the jobs
+let skipExecution = CommandLine.arguments.contains("-n")
+
 do {
   let sdkPath = try VirtualPath(path: sdkPathRaw).absolutePath!
   if !localFileSystem.exists(sdkPath) {
@@ -117,6 +120,15 @@ do {
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
     let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
+    if verbose {
+      Driver.stdErrQueue.sync {
+        stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
+        stderrStream.flush()
+      }
+    }
+    if skipExecution {
+      exit(0)
+    }
     let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose)
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
