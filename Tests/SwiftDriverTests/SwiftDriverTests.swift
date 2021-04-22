@@ -3640,12 +3640,55 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(verifyJob.outputs.isEmpty)
       XCTAssertTrue(verifyJob.commandLine.contains(.path(mergeInterfaceOutputs[0].file)))
     }
+
     // No Evolution
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface", "-verify-emitted-module-interface"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
+    }
+
+    // Emit-module separately
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-verify-emitted-module-interface",
+                                     "-enable-library-evolution",
+                                     "-experimental-emit-module-separately"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let emitJob = plannedJobs[0]
+      let verifyJob = plannedJobs[1]
+      XCTAssertEqual(emitJob.kind, .emitModule)
+      let emitInterfaceOutput = emitJob.outputs.filter { $0.type == .swiftInterface }
+      XCTAssertTrue(emitInterfaceOutput.count == 1,
+                    "Emit module job should only have one swiftinterface output")
+      XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
+      XCTAssertTrue(verifyJob.inputs.count == 1)
+      XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
+      XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
+    }
+
+    // Whole-module
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-verify-emitted-module-interface",
+                                     "-enable-library-evolution",
+                                     "-whole-module-optimization"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let emitJob = plannedJobs[0]
+      let verifyJob = plannedJobs[1]
+      XCTAssertEqual(emitJob.kind, .compile)
+      let emitInterfaceOutput = emitJob.outputs.filter { $0.type == .swiftInterface }
+      XCTAssertTrue(emitInterfaceOutput.count == 1,
+                    "Emit module job should only have one swiftinterface output")
+      XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
+      XCTAssertTrue(verifyJob.inputs.count == 1)
+      XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
+      XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
     }
   }
 
