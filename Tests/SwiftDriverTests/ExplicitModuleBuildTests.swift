@@ -272,6 +272,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -experimental-explicit-module-build
   func testExplicitModuleBuildJobs() throws {
+    #if arch(arm64)
+       // Disabled on Apple Silicon
+       // rdar://77109455
+       throw XCTSkip()
+    #endif
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -376,6 +381,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testImmediateModeExplicitModuleBuild() throws {
+    #if arch(arm64)
+       // Disabled on Apple Silicon
+       // rdar://77109455
+       throw XCTSkip()
+    #endif
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
