@@ -458,6 +458,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // The macOS-only restriction is temporary while Clang's dependency scanner
     // is gaining the ability to perform name-based module lookup.
     #if os(macOS)
+    #if arch(arm64)
+      // Disabled on Apple Silicon
+      // rdar://76609781
+      throw XCTSkip()
+    #endif
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
