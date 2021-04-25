@@ -17,7 +17,11 @@ if platform.system() == 'Darwin':
 else:
     shared_lib_ext = '.so'
 macos_deployment_target = '10.15'
-macos_target_architectures = ['x86_64','arm64']
+
+def error(message):
+    print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
+    sys.stdout.flush()
+    raise SystemExit(1)
 
 # Tools constructed as a part of the a development build toolchain
 driver_toolchain_tools = ['swift', 'swift-frontend', 'clang', 'swift-help',
@@ -146,10 +150,19 @@ def should_test_parallel():
       return False
   return True
 
-def handle_invocation(toolchain_bin, args):
+def handle_invocation(args):
   swiftpm_args = get_swiftpm_options(args)
-
+  toolchain_bin = os.path.join(args.toolchain, 'bin')
   swift_exec = os.path.join(toolchain_bin, 'swift')
+  swiftc_exec = os.path.join(toolchain_bin, 'swiftc')
+
+  # Platform-specific targets for which we must build swift-driver
+  if args.cross_compile_hosts:
+    targets = args.cross_compile_hosts
+  elif platform.system() == 'Darwin':
+    targets = [get_build_target(swiftc_exec, args) + macos_deployment_target]
+  else:
+    targets = [get_build_target(swiftc_exec, args)]
 
   env = os.environ
   # Use local dependencies (i.e. checked out next to swift-driver).
@@ -163,7 +176,7 @@ def handle_invocation(toolchain_bin, args):
     env['SDKROOT'] = args.sysroot
 
   if args.action == 'build':
-    build_using_cmake(args, toolchain_bin, args.build_path)
+    build_using_cmake(args, toolchain_bin, args.build_path, targets)
 
   elif args.action == 'clean':
     print('Cleaning ' + args.build_path)
@@ -181,8 +194,8 @@ def handle_invocation(toolchain_bin, args):
     swiftpm('test', swift_exec, test_args, env)
   elif args.action == 'install':
     if platform.system() == 'Darwin':
-      build_using_cmake(args, toolchain_bin, args.build_path)
-      install(args, args.build_path)
+      build_using_cmake(args, toolchain_bin, args.build_path, targets)
+      install(args, args.build_path, targets)
     else:
       bin_path = swiftpm_bin_path(swift_exec, swiftpm_args, env)
       swiftpm('build', swift_exec, swiftpm_args, env)
@@ -197,12 +210,16 @@ def non_darwin_install(swiftpm_bin_path, toolchain, verbose):
   for exe in ['swift-driver', 'swift-help']:
     install_binary(exe, swiftpm_bin_path, toolchain_bin, verbose)
 
-def install(args, build_dir):
+def install(args, build_dir, targets):
   # Construct and install universal swift-driver, swift-help executables
   # and libSwiftDriver, libSwiftOptions libraries, along with their dependencies.
-  toolchain_bin = os.path.join(args.toolchain, 'bin')
-  toolchain_lib = os.path.join(args.toolchain, 'lib', 'swift', 'macosx')
-  toolchain_include = os.path.join(args.toolchain, 'include', 'swift')
+  for prefix in args.install_prefixes:
+    install_swiftdriver(args, build_dir, prefix, targets)
+
+def install_swiftdriver(args, build_dir, prefix, targets) :
+  install_bin = os.path.join(prefix, 'bin')
+  install_lib = os.path.join(prefix, 'lib', 'swift', 'macosx')
+  install_include = os.path.join(prefix, 'include', 'swift')
   universal_dir = os.path.join(build_dir, 'universal-apple-macos%s' % macos_deployment_target)
   bin_dir = os.path.join(universal_dir, 'bin')
   lib_dir = os.path.join(universal_dir, 'lib')
@@ -211,35 +228,35 @@ def install(args, build_dir):
   mkdir_p(lib_dir)
 
   # swift-driver and swift-help
-  install_executables(args, build_dir, bin_dir, toolchain_bin)
+  install_executables(args, build_dir, bin_dir, install_bin, targets)
 
   # libSwiftDriver and libSwiftDriverExecution and libSwiftOptions
-  install_libraries(args, build_dir, lib_dir, toolchain_lib)
+  install_libraries(args, build_dir, lib_dir, install_lib, targets)
 
   # Binary Swift Modules:
   # swift-driver: SwiftDriver.swiftmodule, SwiftOptions.swiftmodule
   # TODO: swift-argument-parser: ArgumentParser.swiftmodule (disabled until needed)
   # swift-tools-support-core: TSCUtility.swiftmodule, TSCLibc.swiftmodule, TSCBasic.swiftmodule
-  install_binary_swift_modules(args, build_dir, toolchain_lib)
+  install_binary_swift_modules(args, build_dir, install_lib, targets)
 
   # Modulemaps for C Modules:
   # TSCclibc
-  install_c_module_includes(args, build_dir, toolchain_include)
+  install_c_module_includes(args, build_dir, install_include)
 
 # Install universal binaries for swift-driver and swift-help into the toolchain bin
 # directory
-def install_executables(args, build_dir, universal_bin_dir, toolchain_bin_dir):
+def install_executables(args, build_dir, universal_bin_dir, toolchain_bin_dir, targets):
   for exe in ['swift-driver', 'swift-help']:
     # Fixup rpaths
-    for arch in macos_target_architectures:
-      exe_bin_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+    for target in targets:
+      exe_bin_path = os.path.join(build_dir, target,
                                   args.configuration, 'bin', exe)
-      driver_lib_dir_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+      driver_lib_dir_path = os.path.join(build_dir, target,
                                          args.configuration, 'lib')
       delete_rpath(driver_lib_dir_path, exe_bin_path, args.verbose)
 
       for lib in ['swift-tools-support-core', 'swift-argument-parser']:
-        lib_dir_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+        lib_dir_path = os.path.join(build_dir, target,
                                     args.configuration, 'dependencies',
                                     lib, 'lib')
         delete_rpath(lib_dir_path, exe_bin_path, args.verbose)
@@ -251,8 +268,8 @@ def install_executables(args, build_dir, universal_bin_dir, toolchain_bin_dir):
     output_bin_path = os.path.join(universal_bin_dir, exe)
     lipo_cmd = ['lipo']
     # Inputs
-    for arch in macos_target_architectures:
-      input_bin_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+    for target in targets:
+      input_bin_path = os.path.join(build_dir, target,
                                     args.configuration, 'bin', exe)
       lipo_cmd.append(input_bin_path)
     lipo_cmd.extend(['-create', '-output', output_bin_path])
@@ -260,13 +277,13 @@ def install_executables(args, build_dir, universal_bin_dir, toolchain_bin_dir):
     install_binary(exe, universal_bin_dir, toolchain_bin_dir, args.verbose)
 
 # Install shared libraries for the driver and its dependencies into the toolchain
-def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
+def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, targets):
   # Fixup the SwiftDriver rpath for libSwiftDriver and libSwiftDriverExecution
   for lib in ['libSwiftDriver', 'libSwiftDriverExecution']:
-    for arch in macos_target_architectures:
-      lib_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+    for target in targets:
+      lib_path = os.path.join(build_dir, target,
                                      args.configuration, 'lib', lib + shared_lib_ext)
-      driver_lib_dir_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+      driver_lib_dir_path = os.path.join(build_dir, target,
                                          args.configuration, 'lib')
       delete_rpath(driver_lib_dir_path, lib_path, args.verbose)
 
@@ -275,11 +292,11 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
   tsc_libs = map(lambda d: os.path.join('dependencies', 'swift-tools-support-core', 'lib', d),
                  ['libTSCBasic', 'libTSCLibc', 'libTSCUtility'])
   for lib in driver_libs + tsc_libs:
-    for arch in macos_target_architectures:
-      lib_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+    for target in targets:
+      lib_path = os.path.join(build_dir, target,
                               args.configuration, lib + shared_lib_ext)
       for dep in ['swift-tools-support-core', 'llbuild']:
-        lib_dir_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+        lib_dir_path = os.path.join(build_dir, target,
                                         args.configuration, 'dependencies',
                                         dep, 'lib')
         delete_rpath(lib_dir_path, lib_path, args.verbose)
@@ -289,31 +306,31 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir):
   package_subpath = args.configuration
   for lib in ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution']:
     install_library(args, build_dir, package_subpath, lib,
-                    universal_lib_dir, toolchain_lib_dir, 'swift-driver')
+                    universal_lib_dir, toolchain_lib_dir, 'swift-driver', targets)
 
   # Instal the swift-tools-support core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-tools-support-core')
   for lib in ['libTSCBasic', 'libTSCLibc', 'libTSCUtility']:
     install_library(args, build_dir, package_subpath, lib,
-                    universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core')
+                    universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core', targets)
 
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser')
   install_library(args, build_dir, package_subpath, 'libArgumentParser',
-                  universal_lib_dir, toolchain_lib_dir,'swift-argument-parser')
+                  universal_lib_dir, toolchain_lib_dir,'swift-argument-parser', targets)
 
   package_subpath = os.path.join(args.configuration, 'dependencies', 'llbuild')
   for lib in ['libllbuildSwift', 'libllbuild']:
     install_library(args, build_dir, package_subpath, lib,
-                    universal_lib_dir, toolchain_lib_dir,'llbuild')
+                    universal_lib_dir, toolchain_lib_dir,'llbuild', targets)
 
 # Create a universal shared-library file and install it into the toolchain lib
 def install_library(args, build_dir, package_subpath, lib_name,
-                    universal_lib_dir, toolchain_lib_dir, package_name):
+                    universal_lib_dir, toolchain_lib_dir, package_name, targets):
   shared_lib_file = lib_name + shared_lib_ext
   output_dylib_path = os.path.join(universal_lib_dir, shared_lib_file)
   lipo_cmd = ['lipo']
-  for arch in macos_target_architectures:
-    input_lib_path = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+  for target in targets:
+    input_lib_path = os.path.join(build_dir, target,
                                   package_subpath, 'lib', shared_lib_file)
     lipo_cmd.append(input_lib_path)
   lipo_cmd.extend(['-create', '-output', output_dylib_path])
@@ -321,25 +338,25 @@ def install_library(args, build_dir, package_subpath, lib_name,
   install_binary(shared_lib_file, universal_lib_dir, toolchain_lib_dir, args.verbose)
 
 # Install binary .swiftmodule files for the driver and its dependencies into the toolchain lib
-def install_binary_swift_modules(args, build_dir, toolchain_lib_dir):
+def install_binary_swift_modules(args, build_dir, toolchain_lib_dir, targets):
   # The common subpath from a project's build directory to where its build products are found
   product_subpath = 'swift'
 
   # swift-driver
   package_subpath = os.path.join(args.configuration, product_subpath)
   for module in ['SwiftDriver', 'SwiftOptions']:
-    install_module(args, build_dir, package_subpath, toolchain_lib_dir, module)
+    install_module(args, build_dir, package_subpath, toolchain_lib_dir, module, targets)
 
   # swift-tools-support-core
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-tools-support-core',
                                  product_subpath)
   for module in ['TSCUtility', 'TSCLibc', 'TSCBasic']:
-    install_module(args, build_dir, package_subpath, toolchain_lib_dir, module)
+    install_module(args, build_dir, package_subpath, toolchain_lib_dir, module, targets)
 
   # swift-argument-parser
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser',
                                  product_subpath)
-  install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'ArgumentParser')
+  install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'ArgumentParser', targets)
 
 # Install the modulemaps and headers of the driver's C module dependencies into the toolchain
 # include directory
@@ -349,16 +366,16 @@ def install_c_module_includes(args, build_dir, toolchain_include_dir):
                                   'TSCclibc', 'include')
   install_include_artifacts(args, toolchain_include_dir, tscc_include_dir, 'TSCclibc')
 
-def install_module(args, build_dir, package_subpath, toolchain_lib, module_name):
+def install_module(args, build_dir, package_subpath, toolchain_lib, module_name, targets):
   toolchain_module_dir = os.path.join(toolchain_lib, module_name + '.swiftmodule')
   mkdir_p(toolchain_module_dir)
-  for arch in macos_target_architectures:
-    swift_dir = os.path.join(build_dir, arch + '-apple-macos' + macos_deployment_target,
+  for target in targets:
+    swift_dir = os.path.join(build_dir, target,
                              package_subpath)
     for fileext in ['.swiftmodule', '.swiftdoc']:
       install_binary(module_name + fileext, swift_dir, toolchain_module_dir, args.verbose)
       os.rename(os.path.join(toolchain_module_dir, module_name + fileext),
-                os.path.join(toolchain_module_dir, arch + '-apple-macos' + fileext))
+                os.path.join(toolchain_module_dir, target + fileext))
 
 # Copy over the contents of a module's include directory contents (modulemap, headers, etc.)
 def install_include_artifacts(args, toolchain_include_dir, src_include_dir, dst_module_name):
@@ -367,15 +384,8 @@ def install_include_artifacts(args, toolchain_include_dir, src_include_dir, dst_
     shutil.rmtree(toolchain_module_include_dir, ignore_errors=True)
   shutil.copytree(src_include_dir, toolchain_module_include_dir)
 
-def build_using_cmake(args, toolchain_bin, build_dir):
+def build_using_cmake(args, toolchain_bin, build_dir, targets):
   swiftc_exec = os.path.join(toolchain_bin, 'swiftc')
-
-  # Platform-specific targets for which we must build swift-driver
-  if platform.system() == 'Darwin':
-    targets = [x + '-apple-macos' + macos_deployment_target for x in macos_target_architectures]
-  else:
-    targets = [get_build_target(swiftc_exec, args)]
-
   swift_flags = []
   if args.configuration == 'debug':
     swift_flags.append('-Onone')
@@ -460,9 +470,6 @@ def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flag
     yams_cmake_flags.append('-DCMAKE_C_FLAGS=-target %s' % target)
   else:
     yams_cmake_flags.append('-DCMAKE_C_FLAGS=-fPIC -target %s' % target)
-    if args.dispatch_build_dir:
-      yams_cmake_flags.append(get_dispatch_cmake_arg(args))
-
     if args.foundation_build_dir:
       yams_cmake_flags.append(get_foundation_cmake_arg(args))
   yams_swift_flags = swift_flags[:]
@@ -551,6 +558,18 @@ def main():
   def add_common_args(parser):
     parser.add_argument('--package-path', metavar='PATH', help='directory of the package to build', default='.')
     parser.add_argument('--toolchain', required=True, metavar='PATH', help='build using the toolchain at PATH')
+    parser.add_argument(
+        '--prefix',
+        dest='install_prefixes',
+        nargs='*',
+        help='paths (relative to the project root) where to install build products [%(default)s]',
+        metavar='PATHS')
+    parser.add_argument(
+        '--cross-compile-hosts',
+        dest='cross_compile_hosts',
+        nargs='*',
+        help='List of cross compile hosts targets.',
+        default=[])
     parser.add_argument('--ninja-bin', metavar='PATH', help='ninja binary to use for testing')
     parser.add_argument('--cmake-bin', metavar='PATH', help='cmake binary to use for building')
     parser.add_argument('--build-path', metavar='PATH', default='.build', help='build in the given path')
@@ -573,8 +592,6 @@ def main():
   install_parser = subparsers.add_parser('install', help='build the package')
   add_common_args(install_parser)
 
-  
-
   args = parser.parse_args(sys.argv[1:])
 
   # Canonicalize paths
@@ -587,10 +604,8 @@ def main():
   else:
     args.sysroot = None
 
-  if args.toolchain:
-    toolchain_bin = os.path.join(args.toolchain, 'bin')
-  else:
-    toolchain_bin = ''
+  if args.cross_compile_hosts and not all('apple-macos' in target for target in args.cross_compile_hosts):
+    error('Cross-compilation is currently only supported for the Darwin platform.')
 
   if args.dispatch_build_dir:
     args.dispatch_build_dir = os.path.abspath(args.dispatch_build_dir)
@@ -598,7 +613,11 @@ def main():
   if args.foundation_build_dir:
     args.foundation_build_dir = os.path.abspath(args.foundation_build_dir)
 
-  handle_invocation(toolchain_bin, args)
+  # If a separate prefix has not been specified, installed into the specified toolchain
+  if not args.install_prefixes:
+    args.install_prefixes = [args.toolchain]
+
+  handle_invocation(args)
 
 if __name__ == '__main__':
   main()
