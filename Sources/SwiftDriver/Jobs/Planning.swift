@@ -187,7 +187,7 @@ extension Driver {
     if shouldCreateEmitModuleJob {
       let emitModuleJob = try emitModuleJob()
       addJobBeforeCompiles(emitModuleJob)
-      try addVerifyJobs(mergeJob: emitModuleJob, addJob: addJobAfterCompiles)
+      try addVerifyJobs(emitModuleJob: emitModuleJob, addJob: addJobAfterCompiles)
     }
   }
 
@@ -226,7 +226,7 @@ extension Driver {
     if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
                              emitModuleTrace: loadedModuleTracePath != nil) {
-      try addVerifyJobs(mergeJob: compileJob, addJob: addJobAfterCompiles)
+      try addVerifyJobs(emitModuleJob: compileJob, addJob: addJobAfterCompiles)
     }
 
     try addJobsForPrimaryInputs(
@@ -243,7 +243,7 @@ extension Driver {
         moduleInputs: moduleInputs,
         moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
       addJobAfterCompiles(mergeJob)
-      try addVerifyJobs(mergeJob: mergeJob, addJob: addJobAfterCompiles)
+      try addVerifyJobs(emitModuleJob: mergeJob, addJob: addJobAfterCompiles)
       try addWrapJobOrMergeOutputs(
         mergeJob: mergeJob,
         debugInfo: debugInfo,
@@ -401,7 +401,7 @@ extension Driver {
     return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
   }
 
-  private mutating func addVerifyJobs(mergeJob: Job, addJob: (Job) -> Void )
+  private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
   throws {
     guard
        parsedOptions.hasArgument(.enableLibraryEvolution),
@@ -419,7 +419,7 @@ extension Driver {
 
       let outputType: FileType =
         forPrivate ? .privateSwiftInterface : .swiftInterface
-      let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == outputType }
+      let mergeInterfaceOutputs = emitModuleJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
       let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
