@@ -259,6 +259,8 @@ extension Driver {
     return linkerInputs
   }
 
+  /// When in single compile, add one compile job and possiblity multiple backend jobs.
+  /// Return the compile job if one was created.
   private mutating func addSingleCompileJobs(
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
