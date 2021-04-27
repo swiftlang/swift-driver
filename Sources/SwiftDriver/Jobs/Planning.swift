@@ -185,9 +185,9 @@ extension Driver {
 
   private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void, addJobAfterCompiles: (Job) -> Void) throws {
     if shouldCreateEmitModuleJob {
-      let emitModuleJob = try emitModuleJob()
-      addJobBeforeCompiles(emitModuleJob)
-      try addVerifyJobs(emitModuleJob: emitModuleJob, addJob: addJobAfterCompiles)
+      let emitJob = try emitModuleJob()
+      addJobBeforeCompiles(emitJob)
+      try addVerifyJobs(emitModuleJob: emitJob, addJob: addJobAfterCompiles)
     }
   }
 
