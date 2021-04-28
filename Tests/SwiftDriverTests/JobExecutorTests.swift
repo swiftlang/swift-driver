@@ -95,13 +95,8 @@ extension DarwinToolchain {
 
 final class JobExecutorTests: XCTestCase {
   func testDarwinBasic() throws {
-  #if os(macOS)
-    #if arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
-    #endif
-
+    #if os(macOS)
+    let hostTriple = try Driver(args: ["swiftc", "test.swift"]).hostTriple
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
@@ -142,7 +137,7 @@ final class JobExecutorTests: XCTestCase {
           "-primary-file",
           .path(inputs[ "foo"]!.file),
           .path(inputs["main"]!.file),
-          "-target", "x86_64-apple-darwin18.7.0",
+          "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
           .path(.absolute(try toolchain.sdk.get())),
@@ -164,7 +159,7 @@ final class JobExecutorTests: XCTestCase {
           .path(.relative(RelativePath("foo.swift"))),
           "-primary-file",
           .path(inputs["main"]!.file),
-          "-target", "x86_64-apple-darwin18.7.0",
+          "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
           .path(.absolute(try toolchain.sdk.get())),
@@ -185,9 +180,7 @@ final class JobExecutorTests: XCTestCase {
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
           "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", "-arch", "x86_64",
-          "-force_load", .path(.absolute(try toolchain.compatibility50.get())),
-          "-force_load", .path(.absolute(try toolchain.compatibilityDynamicReplacements.get())),
+          "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
@@ -200,7 +193,6 @@ final class JobExecutorTests: XCTestCase {
         primaryInputs: [],
         outputs: [.init(file: VirtualPath.relative(RelativePath("main")).intern(), type: .image)]
       )
-
       let delegate = JobCollectingDelegate()
       let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link]),
                                       resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
@@ -220,12 +212,8 @@ final class JobExecutorTests: XCTestCase {
 
   /// Ensure the executor is capable of forwarding its standard input to the compile job that requires it.
   func testInputForwarding() throws {
-#if os(macOS)
-    #if arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
-    #endif      
+    #if os(macOS)
+    let hostTriple = try Driver(args: ["swiftc", "test.swift"]).hostTriple
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
@@ -243,7 +231,7 @@ final class JobExecutorTests: XCTestCase {
           "-primary-file",
           // This compile job must read the input from STDIN
           "-",
-          "-target", "x86_64-apple-darwin18.7.0",
+          "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
           .path(.absolute(try toolchain.sdk.get())),
@@ -263,9 +251,7 @@ final class JobExecutorTests: XCTestCase {
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
           "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", "-arch", "x86_64",
-          "-force_load", .path(.absolute(try toolchain.compatibility50.get())),
-          "-force_load", .path(.absolute(try toolchain.compatibilityDynamicReplacements.get())),
+          "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging",
@@ -455,13 +441,16 @@ final class JobExecutorTests: XCTestCase {
     }
   }
 
-  func testSaveTemps() throws {
-    #if os(macOS) && arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
+  private func getHostToolchainSdkArg(_ executor: SwiftDriverExecutor) throws -> [String] {
+    #if os(macOS)
+    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    return try ["-sdk", toolchain.sdk.get().pathString]
+    #else
+    return []
     #endif
+  }
 
+  func testSaveTemps() throws {
     do {
       try withTemporaryDirectory { path in
         let main = path.appending(component: "main.swift")
@@ -476,7 +465,7 @@ final class JobExecutorTests: XCTestCase {
         let outputPath = path.appending(component: "finalOutput")
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -514,7 +503,7 @@ final class JobExecutorTests: XCTestCase {
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-save-temps",
                                        "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -552,7 +541,7 @@ final class JobExecutorTests: XCTestCase {
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-Xfrontend", "-debug-crash-immediately",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -572,6 +561,5 @@ final class JobExecutorTests: XCTestCase {
         )
       }
     }
-
   }
 }
