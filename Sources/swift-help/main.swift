@@ -55,7 +55,11 @@ enum Subcommand: String, CaseIterable {
 }
 
 struct SwiftHelp: ParsableCommand {
-  @Argument var topic: HelpTopic = .driver(.interactive)
+  @Argument(help: "The topic to display help for.")
+  var topic: HelpTopic = .driver(.interactive)
+
+  @Argument(help: "The help subtopics, if applicable.")
+  var subtopics: [String] = []
 
   @Flag(name: .customLong("show-hidden", withSingleDash: true),
         help: "List hidden (unsupported) options")
@@ -89,7 +93,11 @@ struct SwiftHelp: ParsableCommand {
       }
 
       // Execute the subcommand with --help.
-      try exec(path: path.pathString, args: [execName, "--help"])
+      if subtopics.isEmpty {
+        try exec(path: path.pathString, args: [execName, "--help"])
+      } else {
+        try exec(path: path.pathString, args: [execName, "help"] + subtopics)
+      }
     }
   }
 }
