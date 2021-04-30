@@ -127,11 +127,6 @@ final class IntegrationTests: IntegrationTestCase {
   }
 
   func testLitDriverDependenciesTests() throws {
-    #if os(macOS) && arch(arm64)
-      // Disabled on Apple Silicon
-      // rdar://76609781
-      throw XCTSkip()
-    #endif
     try runLitTests(suite: "test", "Driver", "Dependencies")
   }
 
