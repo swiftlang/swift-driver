@@ -30,7 +30,7 @@ import SwiftOptions
   public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
 
   /// A lot of initial state that it's handy to have around.
-  @_spi(Testing) public let info: IncrementalCompilationState.InitialStateComputer
+  @_spi(Testing) public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
   /// For debugging, something to write out files for visualizing graphs
   let dotFileWriter: DependencyGraphDotFileWriter?
@@ -40,7 +40,7 @@ import SwiftOptions
   /// Minimize the number of file system modification-time queries.
   private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
 
-  public init(_ info: IncrementalCompilationState.InitialStateComputer,
+  public init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
               _ phase: Phase
   ) {
     self.info = info
@@ -339,7 +339,7 @@ extension ModuleDependencyGraph {
   /// Return nil if it's not incremental, or if an error occurs.
   private func collectNodesInvalidatedByAttemptingToProcess(
     _ fed: FingerprintedExternalDependency,
-    _ info: IncrementalCompilationState.InitialStateComputer) -> DirectlyInvalidatedNodeSet? {
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) -> DirectlyInvalidatedNodeSet? {
     fed.incrementalDependencySource?
       .read(in: info.fileSystem, reporter: info.reporter)
       .map { unserializedDepGraph in
@@ -462,7 +462,7 @@ extension ModuleDependencyGraph {
   /// - Returns: A fully deserialized ModuleDependencyGraph, or nil if nothing is there
   @_spi(Testing) public static func read(
     from path: VirtualPath,
-    info: IncrementalCompilationState.InitialStateComputer
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) throws -> ModuleDependencyGraph? {
     guard try info.fileSystem.exists(path) else {
       return nil
@@ -483,7 +483,7 @@ extension ModuleDependencyGraph {
       private var inputDependencySourceMap: [(TypedVirtualPath, DependencySource)] = []
       public private(set) var allNodes: [Node] = []
 
-      init(_ info: IncrementalCompilationState.InitialStateComputer) {
+      init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
         self.fileSystem = info.fileSystem
         self.graph = ModuleDependencyGraph(info, .updatingFromAPrior)
       }

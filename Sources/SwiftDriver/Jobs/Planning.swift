@@ -82,6 +82,40 @@ extension Driver {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
 
+    // Determine the initial state for incremental compilation that is required during
+    // the planning process. This state contains the module dependency graph and
+    // cross-module dependency information.
+    let initialIncrementalState =
+      try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
+
+    // Compute the set of all jobs required to build this module
+    let jobsInPhases = try computeJobsForPhasedStandardBuild()
+
+    // Determine the state for incremental compilation
+    let incrementalCompilationState: IncrementalCompilationState?
+    // If no initial state was computed, we will not be performing an incremental build
+    if let initialState = initialIncrementalState {
+      incrementalCompilationState =
+        try IncrementalCompilationState(driver: &self, jobsInPhases: jobsInPhases,
+                                        initialState: initialState)
+    } else {
+      incrementalCompilationState = nil
+    }
+
+    return try (
+      // For compatibility with swiftpm, the driver produces batched jobs
+      // for every job, even when run in incremental mode, so that all jobs
+      // can be returned from `planBuild`.
+      // But in that case, don't emit lifecycle messages.
+      formBatchedJobs(jobsInPhases.allJobs,
+                      showJobLifecycle: showJobLifecycle && incrementalCompilationState == nil),
+      incrementalCompilationState
+    )
+  }
+
+  /// Construct a build plan consisting of *all* jobs required for building the current module (non-incrementally).
+  /// At build time, incremental state will be used to distinguish which of these jobs must run.
+  mutating private func computeJobsForPhasedStandardBuild() throws -> JobsInPhases {
     // Centralize job accumulation here.
     // For incremental compilation, must separate jobs happening before,
     // during, and after compilation.
@@ -104,7 +138,8 @@ extension Driver {
 
     try addPrecompileModuleDependenciesJobs(addJob: addJobBeforeCompiles)
     try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
-    try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles, addJobAfterCompiles: addJobAfterCompiles)
+    try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles,
+                         addJobAfterCompiles: addJobAfterCompiles)
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
       addCompileJobGroup: addCompileJobGroup,
@@ -113,52 +148,9 @@ extension Driver {
                                debugInfo: debugInfo,
                                addJob: addJobAfterCompiles)
 
-    let jobsInPhases = JobsInPhases(
-      beforeCompiles: jobsBeforeCompiles,
-      compileGroups: compileJobGroups,
-      afterCompiles: jobsAfterCompiles
-    )
-
-    // Determine the state for incremental compilation
-    let incrementalCompilationState = try IncrementalCompilationState(
-      driver: &self,
-      options: self.computeIncrementalOptions(),
-      jobsInPhases: jobsInPhases)
-
-    return try (
-      // For compatibility with swiftpm, the driver produces batched jobs
-      // for every job, even when run in incremental mode, so that all jobs
-      // can be returned from `planBuild`.
-      // But in that case, don't emit lifecycle messages.
-      formBatchedJobs(jobsInPhases.allJobs,
-                      showJobLifecycle: showJobLifecycle && incrementalCompilationState == nil),
-      incrementalCompilationState
-    )
-  }
-
-  mutating func computeIncrementalOptions() -> IncrementalCompilationState.Options {
-    var options: IncrementalCompilationState.Options = []
-    if self.parsedOptions.contains(.driverAlwaysRebuildDependents) {
-      options.formUnion(.alwaysRebuildDependents)
-    }
-    if self.parsedOptions.contains(.driverShowIncremental) || self.showJobLifecycle {
-      options.formUnion(.showIncremental)
-    }
-    let emitOpt = Option.driverEmitFineGrainedDependencyDotFileAfterEveryImport
-    if self.parsedOptions.contains(emitOpt) {
-      options.formUnion(.emitDependencyDotFileAfterEveryImport)
-    }
-    let veriOpt = Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport
-    if self.parsedOptions.contains(veriOpt) {
-      options.formUnion(.verifyDependencyGraphAfterEveryImport)
-    }
-    if self.parsedOptions.hasFlag(positive: .enableIncrementalImports,
-                                  negative: .disableIncrementalImports,
-                                  default: true) {
-      options.formUnion(.enableCrossModuleIncrementalBuild)
-      options.formUnion(.readPriorsFromModuleDependencyGraph)
-    }
-    return options
+    return JobsInPhases(beforeCompiles: jobsBeforeCompiles,
+                        compileGroups: compileJobGroups,
+                        afterCompiles: jobsAfterCompiles)
   }
 
   private mutating func addPrecompileModuleDependenciesJobs(addJob: (Job) -> Void) throws {
@@ -324,7 +316,7 @@ extension Driver {
       // Generate a compile job for primary inputs here.
       guard compilerMode.usesPrimaryFileInputs else { break }
 
-       assert(input.type.isPartOfSwiftCompilation)
+      assert(input.type.isPartOfSwiftCompilation)
       // We can skip the compile jobs if all we want is a module when it's
       // built separately.
       let canSkipIfOnlyModule = compilerOutputType == .swiftModule && shouldCreateEmitModuleJob
