@@ -941,7 +941,7 @@ extension ModuleDependencyGraph {
     mock diagnosticEngine: DiagnosticsEngine,
     options: IncrementalCompilationState.Options = [ .verifyDependencyGraphAfterEveryImport ]
   ) {
-    self.init(IncrementalCompilationState.InitialStateComputer.mock(), .buildingWithoutAPrior)
+    self.init(IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(), .buildingWithoutAPrior)
   }
 
 

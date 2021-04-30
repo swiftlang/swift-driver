@@ -475,7 +475,7 @@ extension IncrementalCompilationTests {
 
   func testOptionsParsing() throws {
     let optionPairs: [(
-      Option, (IncrementalCompilationState.InitialStateComputer) -> Bool
+      Option, (IncrementalCompilationState.IncrementalDependencyAndInputSetup) -> Bool
     )] = [
       (.driverAlwaysRebuildDependents, {$0.alwaysRebuildDependents}),
       (.driverShowIncremental, {$0.reporter != nil}),
