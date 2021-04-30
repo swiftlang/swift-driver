@@ -485,6 +485,7 @@ extension Option {
   public static let useMalloc: Option = Option("-use-malloc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allocate internal data structures using malloc (for memory debugging)")
   public static let useStaticResourceDir: Option = Option("-use-static-resource-dir", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use resources in the static resource directory")
   public static let useTabs: Option = Option("-use-tabs", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Use tabs for indentation.", group: .codeFormatting)
+  public static let userModuleVersion: Option = Option("-user-module-version", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Module version specified from Swift module authors")
   public static let validateTbdAgainstIrEQ: Option = Option("-validate-tbd-against-ir=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<level>", helpText: "Compare the symbols in the IR against the TBD file that would be generated.")
   public static let valueRecursionThreshold: Option = Option("-value-recursion-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the maximum depth for direct recursion in value types")
   public static let verifyAdditionalFile: Option = Option("-verify-additional-file", .separate, attributes: [.frontend, .noDriver], helpText: "Verify diagnostics in this file in addition to source files")
@@ -1002,6 +1003,7 @@ extension Option {
       Option.useMalloc,
       Option.useStaticResourceDir,
       Option.useTabs,
+      Option.userModuleVersion,
       Option.validateTbdAgainstIrEQ,
       Option.valueRecursionThreshold,
       Option.verifyAdditionalFile,
