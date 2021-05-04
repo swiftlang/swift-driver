@@ -180,6 +180,15 @@ extension Driver {
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
 
+    // Pass down -user-module-version if we are working with a compiler that
+    // supports it.
+    if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle {
+      if isFrontendArgSupported(.userModuleVersion) {
+        commandLine.appendFlag(.userModuleVersion)
+        commandLine.appendFlag(ver)
+      }
+    }
+
     if let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
