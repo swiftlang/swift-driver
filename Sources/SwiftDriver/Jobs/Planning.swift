@@ -77,7 +77,8 @@ struct CompileJobGroup {
 extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
-  private mutating func planStandardCompile() throws
+  private mutating func planStandardCompile(
+    simulateGetInputFailure: Bool = false) throws
   -> ([Job], IncrementalCompilationState?) {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
@@ -86,7 +87,9 @@ extension Driver {
     // the planning process. This state contains the module dependency graph and
     // cross-module dependency information.
     let initialIncrementalState =
-      try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
+    try IncrementalCompilationState.computeIncrementalStateForPlanning(
+      driver: &self,
+      simulateGetInputFailure: simulateGetInputFailure)
 
     // Compute the set of all jobs required to build this module
     let jobsInPhases = try computeJobsForPhasedStandardBuild()
@@ -603,7 +606,8 @@ extension Driver {
 
   /// Plan a build by producing a set of jobs to complete the build.
   /// Should be private, but compiler bug
-  /*private*/ mutating func planPossiblyIncrementalBuild() throws
+  /*private*/ mutating func planPossiblyIncrementalBuild(
+    simulateGetInputFailure: Bool = false) throws
   -> ([Job], IncrementalCompilationState?) {
 
     if let job = try immediateForwardingJob() {
@@ -634,7 +638,7 @@ extension Driver {
       return (jobs, nil)
 
     case .standardCompile, .batchCompile, .singleCompile:
-      return try planStandardCompile()
+      return try planStandardCompile(simulateGetInputFailure: simulateGetInputFailure)
 
     case .compilePCM:
       if inputFiles.count != 1 {
