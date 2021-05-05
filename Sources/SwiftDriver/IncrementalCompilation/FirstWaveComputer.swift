@@ -1,8 +1,9 @@
-//===--------------- IncrementalCompilationStateComputer.swift - Incremental -----------===//
+import Foundation
+//===--------------- FirstWaveComputer.swift - Incremental --------------===//
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -10,200 +11,65 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
-
-/// Builds the IncrementalCompilationState
-/// Also bundles up an bunch of configuration info
 
 extension IncrementalCompilationState {
 
-  public struct InitialStateComputer {
-    @_spi(Testing) public let jobsInPhases: JobsInPhases
-    @_spi(Testing) public let outputFileMap: OutputFileMap
-    @_spi(Testing) public let buildRecordInfo: BuildRecordInfo
-    @_spi(Testing) public let maybeBuildRecord: BuildRecord?
-    @_spi(Testing) public let reporter: IncrementalCompilationState.Reporter?
-    @_spi(Testing) public let inputFiles: [TypedVirtualPath]
-    @_spi(Testing) public let fileSystem: FileSystem
-    @_spi(Testing) public let showJobLifecycle: Bool
-    @_spi(Testing) public let sourceFiles: SourceFiles
-    @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
-    @_spi(Testing) public let readPriorsFromModuleDependencyGraph: Bool
-    @_spi(Testing) public let alwaysRebuildDependents: Bool
-    @_spi(Testing) public let isCrossModuleIncrementalBuildEnabled: Bool
-    @_spi(Testing) public let verifyDependencyGraphAfterEveryImport: Bool
-    @_spi(Testing) public let emitDependencyDotFileAfterEveryImport: Bool
-    
-    /// Options, someday
-    @_spi(Testing) public let dependencyDotFilesIncludeExternals: Bool = true
-    @_spi(Testing) public let dependencyDotFilesIncludeAPINotes: Bool = false
-
-    @_spi(Testing) public let buildStartTime: Date
-    @_spi(Testing) public let buildEndTime: Date
+  struct FirstWaveComputer {
+    let moduleDependencyGraph: ModuleDependencyGraph
+    let jobsInPhases: JobsInPhases
+    let inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet
+    let inputFiles: [TypedVirtualPath]
+    let sourceFiles: SourceFiles
+    let buildRecordInfo: BuildRecordInfo
+    let maybeBuildRecord: BuildRecord?
+    let fileSystem: FileSystem
+    let showJobLifecycle: Bool
+    let alwaysRebuildDependents: Bool
+    /// If non-null outputs information for `-driver-show-incremental` for input path
+    private let reporter: Reporter?
 
     @_spi(Testing) public init(
-      _ options: IncrementalCompilationState.Options,
-      _ jobsInPhases: JobsInPhases,
-      _ outputFileMap: OutputFileMap,
-      _ buildRecordInfo: BuildRecordInfo,
-      _ buildRecord: BuildRecord?,
-      _ reporter: IncrementalCompilationState.Reporter?,
-      _ inputFiles: [TypedVirtualPath],
-      _ fileSystem: FileSystem,
-      showJobLifecycle: Bool,
-      _ diagnosticEngine: DiagnosticsEngine
+      initialState: IncrementalCompilationState.InitialStateForPlanning,
+      jobsInPhases: JobsInPhases,
+      driver: Driver,
+      reporter: Reporter?
     ) {
+      self.moduleDependencyGraph = initialState.graph
       self.jobsInPhases = jobsInPhases
-      self.outputFileMap = outputFileMap
-      self.buildRecordInfo = buildRecordInfo
-      self.maybeBuildRecord = buildRecord
+      self.inputsInvalidatedByExternals = initialState.inputsInvalidatedByExternals
+      self.inputFiles = driver.inputFiles
+      self.sourceFiles = SourceFiles(
+        inputFiles: inputFiles,
+        buildRecord: initialState.maybeBuildRecord)
+      self.buildRecordInfo = initialState.buildRecordInfo
+      self.maybeBuildRecord = initialState.maybeBuildRecord
+      self.fileSystem = driver.fileSystem
+      self.showJobLifecycle = driver.showJobLifecycle
+      self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
+        .alwaysRebuildDependents)
       self.reporter = reporter
-      self.inputFiles = inputFiles
-      self.fileSystem = fileSystem
-      self.showJobLifecycle = showJobLifecycle
-      assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
-      self.sourceFiles = SourceFiles(inputFiles: inputFiles,
-                                     buildRecord: buildRecord)
-      self.diagnosticEngine = diagnosticEngine
-      // Do not try to reuse a graph from a different compilation, so check
-      // the build record.
-      self.readPriorsFromModuleDependencyGraph = maybeBuildRecord != nil &&
-        options.contains(.readPriorsFromModuleDependencyGraph)
-      self.alwaysRebuildDependents = options.contains(.alwaysRebuildDependents)
-      self.isCrossModuleIncrementalBuildEnabled = options.contains(.enableCrossModuleIncrementalBuild)
-      self.verifyDependencyGraphAfterEveryImport = options.contains(.verifyDependencyGraphAfterEveryImport)
-      self.emitDependencyDotFileAfterEveryImport = options.contains(.emitDependencyDotFileAfterEveryImport)
-      self.buildStartTime = maybeBuildRecord?.buildStartTime ?? .distantPast
-      self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
     }
 
-    func compute(batchJobFormer: inout Driver)
-    throws -> InitialState? {
-      guard sourceFiles.disappeared.isEmpty else {
-        // Would have to cleanse nodes of disappeared inputs from graph
-        // and would have to schedule files dependening on defs from disappeared nodes
-        if let reporter = reporter {
-          reporter.report(
-            "Incremental compilation has been disabled, " +
-              " because  the following inputs were used in the previous compilation but not in this one: "
-              + sourceFiles.disappeared.map {$0.basename} .joined(separator: ", "))
-        }
-        return nil
-      }
-
-      guard let (graph, inputsInvalidatedByExternals) =
-              computeGraphAndInputsInvalidatedByExternals()
-      else {
-        return nil
-      }
-      let (skippedCompileGroups: skippedCompileGroups, mandatoryJobsInOrder) =
-        try computeInputsAndGroups(
-          graph,
-          inputsInvalidatedByExternals,
-          batchJobFormer: &batchJobFormer)
-
-      return InitialState(graph: graph,
-                          skippedCompileGroups: skippedCompileGroups,
-                          mandatoryJobsInOrder: mandatoryJobsInOrder,
-                          buildStartTime: buildStartTime,
-                          buildEndTime: buildEndTime)
+    public func compute(batchJobFormer: inout Driver) throws -> FirstWave {
+      let (skippedCompileGroups, mandatoryJobsInOrder) =
+        try computeInputsAndGroups(batchJobFormer: &batchJobFormer)
+      return FirstWave(
+        skippedCompileGroups: skippedCompileGroups,
+        mandatoryJobsInOrder: mandatoryJobsInOrder)
     }
-  }
-}
-
-// MARK: - building/reading the ModuleDependencyGraph & scheduling externals for 1st wave
-extension IncrementalCompilationState.InitialStateComputer {
-
-  /// Builds or reads the graph
-  /// Returns nil if some input (i.e. .swift file) has no corresponding swiftdeps file.
-  /// Does not cope with disappeared inputs -- would be left in graph
-  /// For inputs with swiftDeps in OFM, but no readable file, puts input in graph map, but no nodes in graph:
-  ///   caller must ensure scheduling of those
-  private func computeGraphAndInputsInvalidatedByExternals()
-  -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)? {
-    precondition(sourceFiles.disappeared.isEmpty,
-                 "Would have to remove nodes from the graph if reading prior")
-    if readPriorsFromModuleDependencyGraph {
-      return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
-    }
-    // Every external is added, but don't want to compile an unchanged input that has an import
-    // so just changed, not changedOrAdded
-    return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
-  }
-
-  private func readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals(
-  ) -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
-  {
-    let dependencyGraphPath = buildRecordInfo.dependencyGraphPath
-    let graphIfPresent: ModuleDependencyGraph?
-    do {
-      graphIfPresent = try ModuleDependencyGraph.read( from: dependencyGraphPath, info: self)
-    }
-    catch {
-      diagnosticEngine.emit(
-        warning: "Could not read \(dependencyGraphPath), will not do cross-module incremental builds")
-      graphIfPresent = nil
-    }
-    guard let graph = graphIfPresent
-    else {
-      return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
-    }
-    guard graph.populateInputDependencySourceMap() else {
-      return nil
-    }
-    graph.dotFileWriter?.write(graph)
-
-    // Any externals not already in graph must be additions which should trigger
-    // recompilation. Thus, `ChangedOrAdded`.
-    let nodesDirectlyInvalidatedByExternals = graph.collectNodesInvalidatedByChangedOrAddedExternals()
-    // Wait till the last minute to do the transitive closure as an optimization.
-    let inputsInvalidatedByExternals = graph.collectInputsUsingInvalidated(
-      nodes: nodesDirectlyInvalidatedByExternals)
-    return (graph, inputsInvalidatedByExternals)
-  }
-
-  /// Builds a graph
-  /// Returns nil if some input (i.e. .swift file) has no corresponding swiftdeps file.
-  /// Does not cope with disappeared inputs
-  /// For inputs with swiftDeps in OFM, but no readable file, puts input in graph map, but no nodes in graph:
-  ///   caller must ensure scheduling of those
-  /// For externalDependencies, puts then in graph.fingerprintedExternalDependencies, but otherwise
-  /// does nothing special.
-  private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals(
-  ) -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
-  {
-    let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
-    assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
-    guard graph.populateInputDependencySourceMap() else {
-      return nil
-    }
-
-    var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedInputSet()
-    for input in sourceFiles.currentInOrder {
-       guard let invalidatedInputs = graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: input)
-      else {
-        return nil
-      }
-      inputsInvalidatedByChangedExternals.formUnion(invalidatedInputs)
-    }
-    reporter?.report("Created dependency graph from swiftdeps files")
-    return (graph, inputsInvalidatedByChangedExternals)
   }
 }
 
 // MARK: - Preparing the first wave
-extension IncrementalCompilationState.InitialStateComputer {
-
+extension IncrementalCompilationState.FirstWaveComputer {
   /// At this stage the graph will have all external dependencies found in the swiftDeps or in the priors
   /// listed in fingerprintExternalDependencies.
-  private func computeInputsAndGroups(
-    _ moduleDependencyGraph: ModuleDependencyGraph,
-    _ inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet,
-    batchJobFormer: inout Driver
-  ) throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
-               mandatoryJobsInOrder: [Job])
+  private func computeInputsAndGroups(batchJobFormer: inout Driver)
+  throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+             mandatoryJobsInOrder: [Job])
   {
     precondition(sourceFiles.disappeared.isEmpty, "unimplemented")
+
     let compileGroups =
       Dictionary(uniqueKeysWithValues:
                   jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
@@ -225,13 +91,12 @@ extension IncrementalCompilationState.InitialStateComputer {
     }
     moduleDependencyGraph.phase = .updatingAfterCompilation
 
-
     let skippedInputs = computeSkippedCompilationInputs(
       inputsInvalidatedByExternals: inputsInvalidatedByExternals,
       moduleDependencyGraph,
       buildRecord)
 
-    let skippedCompileGroups = compileGroups.filter {skippedInputs.contains($0.key)}
+    let skippedCompileGroups = compileGroups.filter { skippedInputs.contains($0.key) }
 
     let mandatoryCompileGroupsInOrder = inputFiles.compactMap {
       input -> CompileJobGroup? in
@@ -250,7 +115,7 @@ extension IncrementalCompilationState.InitialStateComputer {
             mandatoryJobsInOrder: mandatoryJobsInOrder)
   }
 
-  /// Figure out which compilation inputs are *not* mandatory
+  // Figure out which compilation inputs are *not* mandatory
   private func computeSkippedCompilationInputs(
     inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet,
     _ moduleDependencyGraph: ModuleDependencyGraph,
@@ -258,7 +123,7 @@ extension IncrementalCompilationState.InitialStateComputer {
   ) -> Set<TypedVirtualPath> {
     let allGroups = jobsInPhases.compileGroups
     // Input == source file
-    let changedInputs = computeChangedInputs( moduleDependencyGraph, buildRecord)
+    let changedInputs = computeChangedInputs(moduleDependencyGraph, buildRecord)
 
     if let reporter = reporter {
       for input in inputsInvalidatedByExternals {
@@ -268,7 +133,8 @@ extension IncrementalCompilationState.InitialStateComputer {
 
     let inputsHavingMalformedDependencySources =
       sourceFiles.currentInOrder.filter { sourceFile in
-        !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)}
+        !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)
+      }
 
     if let reporter = reporter {
       for input in inputsHavingMalformedDependencySources {
@@ -276,7 +142,7 @@ extension IncrementalCompilationState.InitialStateComputer {
       }
     }
     let inputsMissingOutputs = allGroups.compactMap {
-      $0.outputs.contains {(try? !fileSystem.exists($0.file)) ?? true}
+      $0.outputs.contains { (try? !fileSystem.exists($0.file)) ?? true }
         ? $0.primaryInput
         : nil
     }
@@ -319,7 +185,7 @@ extension IncrementalCompilationState.InitialStateComputer {
     let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(immediatelyCompiledInputs)
     if let reporter = reporter {
-      for skippedInput in sortByCommandLineOrder(skippedInputs)  {
+      for skippedInput in sortByCommandLineOrder(skippedInputs) {
         reporter.report("Skipping input:", skippedInput)
       }
     }
@@ -344,7 +210,7 @@ extension IncrementalCompilationState.InitialStateComputer {
     let datesMatch: Bool
   }
 
-  /// Find the inputs that have changed since last compilation, or were marked as needed a build
+  // Find the inputs that have changed since last compilation, or were marked as needed a build
   private func computeChangedInputs(
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ outOfDateBuildRecord: BuildRecord
@@ -384,10 +250,10 @@ extension IncrementalCompilationState.InitialStateComputer {
     }
   }
 
-  /// Returns the cascaded files to compile in the first wave, even though it may not be need.
-  /// The needs[Non}CascadingBuild stuff was cargo-culted from the legacy driver.
-  /// TODO: something better, e.g. return nothing here, but process changed dependencySource
-  /// before the whole frontend job finished.
+  // Returns the cascaded files to compile in the first wave, even though it may not be need.
+  // The needs[Non}CascadingBuild stuff was cargo-culted from the legacy driver.
+  // TODO: something better, e.g. return nothing here, but process changed dependencySource
+  // before the whole frontend job finished.
   private func collectInputsToBeSpeculativelyRecompiled(
     changedInputs: [ChangedInput],
     externalDependents: TransitivelyInvalidatedInputSet,
@@ -414,7 +280,7 @@ extension IncrementalCompilationState.InitialStateComputer {
     }
   }
 
-  // Collect the files that will be compiled whose dependents should be schedule
+  //Collect the files that will be compiled whose dependents should be schedule
   private func computeCascadingChangedInputs(
     from changedInputs: [ChangedInput],
     inputsMissingOutputs: Set<TypedVirtualPath>

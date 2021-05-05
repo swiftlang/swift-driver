@@ -14,11 +14,11 @@ import TSCBasic
 // MARK: - Asking to write dot files / interface
 public class DependencyGraphDotFileWriter {
   /// Holds file-system and options
-  private let info: IncrementalCompilationState.InitialStateComputer
+  private let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
   private var versionNumber = 0
 
-  init(_ info: IncrementalCompilationState.InitialStateComputer) {
+  init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
     self.info = info
   }
 
