@@ -62,7 +62,7 @@ do {
     outputDir = outputDir.appending(RelativePath(collector.versionString))
   }
   if !localFileSystem.exists(outputDir) {
-    try localFileSystem.createDirectory(outputDir)
+    try localFileSystem.createDirectory(outputDir, recursive: true)
   }
   let swiftcPathRaw = ProcessEnv.vars["SWIFT_EXEC"]
   var swiftcPath: AbsolutePath
