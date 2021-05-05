@@ -182,11 +182,10 @@ extension Driver {
 
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
-    if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle {
-      if isFrontendArgSupported(.userModuleVersion) {
-        commandLine.appendFlag(.userModuleVersion)
-        commandLine.appendFlag(ver)
-      }
+    if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,
+       isFrontendArgSupported(.userModuleVersion) {
+      commandLine.appendFlag(.userModuleVersion)
+      commandLine.appendFlag(ver)
     }
 
     if let workingDirectory = workingDirectory {
