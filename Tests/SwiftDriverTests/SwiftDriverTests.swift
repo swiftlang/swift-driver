@@ -3617,6 +3617,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testUserModuleVersion() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-user-module-version", "12.21"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let mergeJob = plannedJobs[1]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertEqual(mergeJob.kind, .mergeModule)
+      XCTAssertTrue(mergeJob.commandLine.contains(.flag("-user-module-version")))
+      XCTAssertTrue(mergeJob.commandLine.contains(.flag("12.21")))
+    }
+  }
+
   func testVerifyEmittedInterfaceJob() throws {
     // Evolution enabled
     do {
