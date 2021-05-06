@@ -69,81 +69,48 @@ public final class IncrementalCompilationState {
   /// be protected by the confinement queue.
   private var skippedCompileGroups = [TypedVirtualPath: CompileJobGroup]()
 
-// MARK: - Creating IncrementalCompilationState if possible
+  // MARK: - Creating IncrementalCompilationState
   /// Return nil if not compiling incrementally
-  init?(
+  internal init(
     driver: inout Driver,
-    options: Options,
-    jobsInPhases: JobsInPhases
+    jobsInPhases: JobsInPhases,
+    initialState: InitialStateForPlanning
   ) throws {
-    guard driver.shouldAttemptIncrementalCompilation else { return nil }
-
-    if options.contains(.showIncremental) {
+    if initialState.incrementalOptions.contains(.showIncremental) {
       self.reporter = Reporter(diagnosticEngine: driver.diagnosticEngine,
                                outputFileMap: driver.outputFileMap)
     } else {
       self.reporter = nil
     }
 
-    let enablingOrDisabling = options.contains(.enableCrossModuleIncrementalBuild)
+    let enablingOrDisabling =
+      initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild)
       ? "Enabling"
       : "Disabling"
     reporter?.report(
       "\(enablingOrDisabling) incremental cross-module building")
 
+    let firstWave =
+      try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
+                            driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
 
-    guard let outputFileMap = driver.outputFileMap else {
-      driver.diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
-      return nil
-    }
-
-    guard let buildRecordInfo = driver.buildRecordInfo else {
-      reporter?.reportDisablingIncrementalBuild("no build record path")
-      return nil
-    }
-
-    // FIXME: This should work without an output file map. We should have
-    // another way to specify a build record and where to put intermediates.
-    let maybeBuildRecord = buildRecordInfo.populateOutOfDateBuildRecord(
-            inputFiles: driver.inputFiles, reporter: reporter)
-
-    // Forming batch jobs requires passing in the driver "inout". But that's the
-    // only "inout" use needed, among many other values needed from the driver.
-    // So, pass the other values individually, and pass the driver "inout" as
-    // the "batchJobFormer". Maybe someday there will be a better way.
-    guard
-      let initial = try InitialStateComputer(
-        options,
-        jobsInPhases,
-        outputFileMap,
-        buildRecordInfo,
-        maybeBuildRecord,
-        self.reporter,
-        driver.inputFiles,
-        driver.fileSystem,
-        showJobLifecycle: driver.showJobLifecycle,
-        driver.diagnosticEngine)
-        .compute(batchJobFormer: &driver)
-    else {
-      return nil
-    }
-
-    self.skippedCompileGroups = initial.skippedCompileGroups
-    self.mandatoryJobsInOrder = initial.mandatoryJobsInOrder
+    self.skippedCompileGroups = firstWave.skippedCompileGroups
+    self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
-    self.moduleDependencyGraph = initial.graph
-    self.buildStartTime = initial.buildStartTime
-    self.buildEndTime = initial.buildEndTime
+    self.moduleDependencyGraph = initialState.graph
+    self.buildStartTime = initialState.buildStartTime
+    self.buildEndTime = initialState.buildEndTime
     self.fileSystem = driver.fileSystem
     self.driver = driver
   }
 }
 
 // MARK: - Initial State
-
 extension IncrementalCompilationState {
-  /// The initial state of an incremental compilation plan.
-  @_spi(Testing) public struct InitialState {
+  /// The initial state of an incremental compilation plan that consists of the module dependency graph
+  /// and computes which inputs were invalidated by external changes.
+  /// This set of incremental information is used during planning - job-generation, and is computed early.
+  @_spi(Testing) public struct InitialStateForPlanning {
     /// The dependency graph.
     ///
     /// In a status quo build, the dependency graph is derived from the state
@@ -154,6 +121,25 @@ extension IncrementalCompilationState {
     /// In a cross-module build, the dependency graph is derived from prior
     /// state that is serialized alongside the build record.
     let graph: ModuleDependencyGraph
+    /// Information about the last known compilation, incl. the location of build artifacts such as the dependency graph.
+    let buildRecordInfo: BuildRecordInfo
+    /// Record about existence and time of the last compile.
+    let maybeBuildRecord: BuildRecord?
+    /// A set of inputs invalidated by external chagnes.
+    let inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet
+    /// Compiler options related to incremental builds.
+    let incrementalOptions: IncrementalCompilationState.Options
+    /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
+    let buildStartTime: Date
+    /// The last time this compilation finished. Used to compare against output file mod dates
+    let buildEndTime: Date
+  }
+}
+
+// MARK: - First Wave
+extension IncrementalCompilationState {
+  /// The first set of mandatory jobs for inputs which *must* be built
+  struct FirstWave {
     /// The set of compile jobs we can definitely skip given the state of the
     /// incremental dependency graph and the status of the input files for this
     /// incremental build.
@@ -161,10 +147,6 @@ extension IncrementalCompilationState {
     /// All of the pre-compile or compilation job (groups) known to be required
     /// for the first wave to execute.
     let mandatoryJobsInOrder: [Job]
-    /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
-    let buildStartTime: Date
-    /// The last time this compilation finished. Used to compare against output file mod dates
-    let buildEndTime: Date
   }
 }
 
@@ -204,7 +186,7 @@ fileprivate extension CompilerMode {
 }
 
 extension Diagnostic.Message {
-  fileprivate static var warning_incremental_requires_output_file_map: Diagnostic.Message {
+  static var warning_incremental_requires_output_file_map: Diagnostic.Message {
     .warning("ignoring -incremental (currently requires an output file map)")
   }
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
@@ -220,7 +202,7 @@ extension Diagnostic.Message {
     return .remark("Incremental compilation has been disabled: \(why)")
   }
 
-  fileprivate static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
+  static func remark_incremental_compilation(because why: String) -> Diagnostic.Message {
     .remark("Incremental compilation: \(why)")
   }
 }

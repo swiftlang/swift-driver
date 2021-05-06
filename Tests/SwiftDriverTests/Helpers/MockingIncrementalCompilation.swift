@@ -116,23 +116,16 @@ extension BuildRecordInfo {
   }
 }
 
-extension IncrementalCompilationState.InitialStateComputer {
+extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   static func mock(
     options: IncrementalCompilationState.Options = [.verifyDependencyGraphAfterEveryImport],
     diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine(),
     fileSystem: FileSystem = localFileSystem) -> Self {
     let diagnosticsEngine = DiagnosticsEngine()
     let outputFileMap = OutputFileMap()
-    return Self(options,
-              JobsInPhases.none,
-              outputFileMap,
-              BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
-              nil,
-              nil,
-              [],
-              fileSystem,
-              showJobLifecycle: false,
-              diagnosticsEngine)
+    return Self(options, outputFileMap,
+                BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
+                nil, nil, [], fileSystem, diagnosticsEngine)
   }
 }
 
