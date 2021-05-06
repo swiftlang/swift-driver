@@ -367,3 +367,23 @@ extension DependencyKey: Comparable {
 
 extension DependencyKey.Designator: Comparable {
 }
+
+// MARK: - InvalidationReason
+extension ExternalDependency {
+  public enum InvalidationReason: String {
+    case added, changed, testing
+    init?(_ graph: ModuleDependencyGraph,
+          isNewToTheGraph: Bool ,
+          _ externalDependency: ExternalDependency) {
+      if isNewToTheGraph {
+        self = .added
+        return
+      }
+      if graph.hasFileChanged(of: externalDependency) {
+        self = .changed
+        return
+      }
+      return nil
+    }
+  }
+}

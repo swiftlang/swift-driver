@@ -1014,7 +1014,7 @@ extension ModuleDependencyGraph {
     on fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> [DependencySource] {
     var foundSources = [DependencySource]()
-    for dependent in collectUntracedNodesUsing(fingerprintedExternalDependency) {
+    for dependent in collectUntracedNodesUsing(.testing, fingerprintedExternalDependency) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
