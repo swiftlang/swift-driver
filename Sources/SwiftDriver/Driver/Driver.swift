@@ -677,8 +677,9 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
   }
 
-  public mutating func planBuild() throws -> [Job] {
-    let (jobs, incrementalCompilationState) = try planPossiblyIncrementalBuild()
+  public mutating func planBuild( simulateGetInputFailure: Bool = false ) throws -> [Job] {
+    let (jobs, incrementalCompilationState) = try planPossiblyIncrementalBuild(
+      simulateGetInputFailure: simulateGetInputFailure)
     self.incrementalCompilationState = incrementalCompilationState
     return jobs
   }
