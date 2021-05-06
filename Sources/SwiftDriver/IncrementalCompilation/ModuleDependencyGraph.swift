@@ -73,8 +73,9 @@ import SwiftOptions
             info.simulateGetInputFailure ? nil
             : inputDependencySourceMap[source]
     else {
-      info.diagnosticEngine.emit(
-        warning: "\(source.file.basename) not found in inputDependencySourceMap; created for: \(creationPhase), now: \(phase)")
+      info.diagnosticEngine.emit(warning: "Failed to find source file for '\(source.file.basename)', recovering with a full rebuild. Next build will be incremental.")
+      info.reporter?.report(
+        "\(info.simulateGetInputFailure ? "Simulating i" : "I")nput not found in inputDependencySourceMap; created for: \(creationPhase), now: \(phase)")
       return nil
     }
     return input
