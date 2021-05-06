@@ -77,7 +77,7 @@ struct CompileJobGroup {
 extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
-  private mutating func planStandardCompile() throws
+  private mutating func planStandardCompile( simulateGetInputFailure: Bool = false ) throws
   -> ([Job], IncrementalCompilationState?) {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
@@ -122,7 +122,8 @@ extension Driver {
     // Determine the state for incremental compilation
     let incrementalCompilationState = try IncrementalCompilationState(
       driver: &self,
-      options: self.computeIncrementalOptions(),
+      options: self.computeIncrementalOptions(
+        simulateGetInputFailure: simulateGetInputFailure),
       jobsInPhases: jobsInPhases)
 
     return try (
@@ -136,7 +137,8 @@ extension Driver {
     )
   }
 
-  mutating func computeIncrementalOptions() -> IncrementalCompilationState.Options {
+  mutating func computeIncrementalOptions(simulateGetInputFailure: Bool = false
+  ) -> IncrementalCompilationState.Options {
     var options: IncrementalCompilationState.Options = []
     if self.parsedOptions.contains(.driverAlwaysRebuildDependents) {
       options.formUnion(.alwaysRebuildDependents)
@@ -158,6 +160,10 @@ extension Driver {
       options.formUnion(.enableCrossModuleIncrementalBuild)
       options.formUnion(.readPriorsFromModuleDependencyGraph)
     }
+    if simulateGetInputFailure {
+      options.formUnion(.simulateGetInputFailure)
+    }
+
     return options
   }
 
@@ -603,7 +609,7 @@ extension Driver {
 
   /// Plan a build by producing a set of jobs to complete the build.
   /// Should be private, but compiler bug
-  /*private*/ mutating func planPossiblyIncrementalBuild() throws
+  /*private*/ mutating func planPossiblyIncrementalBuild( simulateGetInputFailure: Bool = false ) throws
   -> ([Job], IncrementalCompilationState?) {
 
     if let job = try immediateForwardingJob() {
@@ -634,7 +640,7 @@ extension Driver {
       return (jobs, nil)
 
     case .standardCompile, .batchCompile, .singleCompile:
-      return try planStandardCompile()
+      return try planStandardCompile(simulateGetInputFailure: simulateGetInputFailure)
 
     case .compilePCM:
       if inputFiles.count != 1 {

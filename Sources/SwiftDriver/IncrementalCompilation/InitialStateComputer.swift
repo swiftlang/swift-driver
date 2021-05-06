@@ -33,7 +33,8 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let isCrossModuleIncrementalBuildEnabled: Bool
     @_spi(Testing) public let verifyDependencyGraphAfterEveryImport: Bool
     @_spi(Testing) public let emitDependencyDotFileAfterEveryImport: Bool
-    
+    @_spi(Testing) public let simulateGetInputFailure: Bool
+
     /// Options, someday
     @_spi(Testing) public let dependencyDotFilesIncludeExternals: Bool = true
     @_spi(Testing) public let dependencyDotFilesIncludeAPINotes: Bool = false
@@ -73,6 +74,7 @@ extension IncrementalCompilationState {
       self.isCrossModuleIncrementalBuildEnabled = options.contains(.enableCrossModuleIncrementalBuild)
       self.verifyDependencyGraphAfterEveryImport = options.contains(.verifyDependencyGraphAfterEveryImport)
       self.emitDependencyDotFileAfterEveryImport = options.contains(.emitDependencyDotFileAfterEveryImport)
+      self.simulateGetInputFailure = options.contains(.simulateGetInputFailure)
       self.buildStartTime = maybeBuildRecord?.buildStartTime ?? .distantPast
       self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
     }

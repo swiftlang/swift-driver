@@ -70,10 +70,13 @@ import SwiftOptions
   }
 
   @_spi(Testing) public func getInput(for source: DependencySource) -> TypedVirtualPath? {
-    guard let input = inputDependencySourceMap[source]
+    guard let input =
+            info.simulateGetInputFailure ? nil
+            : inputDependencySourceMap[source]
     else {
-      info.diagnosticEngine.emit(warning: "incremental import failure; recovering with a full rebuild. Next build will be incremental.")
-      info.reporter?.report("Input not found in inputDependencySourceMap; created for: \(creationPhase), now: \(phase): \(source.file.basename)")
+      info.diagnosticEngine.emit(warning: "Failed to find source file for '\(source.file.basename)', recovering with a full rebuild. Next build will be incremental.")
+      info.reporter?.report(
+        "\(info.simulateGetInputFailure ? "Simulating i" : "I")nput not found in inputDependencySourceMap; created for: \(creationPhase), now: \(phase)")
       return nil
     }
     return input
