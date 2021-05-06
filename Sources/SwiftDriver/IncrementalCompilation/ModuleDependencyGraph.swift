@@ -37,6 +37,9 @@ import SwiftOptions
 
   @_spi(Testing) public var phase: Phase
 
+  /// The phase when the graph was created. Used to help diagnose later failures
+  let creationPhase: Phase
+
   /// Minimize the number of file system modification-time queries.
   private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
 
@@ -48,6 +51,7 @@ import SwiftOptions
     ? DependencyGraphDotFileWriter(info)
     : nil
     self.phase = phase
+    self.creationPhase = phase
   }
 
   private func addMapEntry(_ input: TypedVirtualPath, _ dependencySource: DependencySource) {
@@ -64,9 +68,13 @@ import SwiftOptions
     }
     return source
   }
-  @_spi(Testing) public func getInput(for source: DependencySource) -> TypedVirtualPath {
-    guard let input = inputDependencySourceMap[source] else {
-      fatalError("\(source.file) not found in map: \(inputDependencySourceMap)")
+
+  @_spi(Testing) public func getInput(for source: DependencySource) -> TypedVirtualPath? {
+    guard let input = inputDependencySourceMap[source]
+    else {
+      info.diagnosticEngine.emit(warning: "incremental import failure; recovering with a full rebuild. Next build will be incremental.")
+      info.reporter?.report("Input not found in inputDependencySourceMap; created for: \(creationPhase), now: \(phase): \(source.file.basename)")
+      return nil
     }
     return input
   }
@@ -268,13 +276,20 @@ extension ModuleDependencyGraph {
   }
 
   /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
+  /// Return nil if the input could not be found, which should not happen, but can happen when
+  /// the prior graph is read inconsistently.
   func collectInputsUsingInvalidated(
     nodes directlyInvalidatedNodes: DirectlyInvalidatedNodeSet
-  ) -> TransitivelyInvalidatedInputSet {
-    collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes)
-      .reduce(into: TransitivelyInvalidatedInputSet()) { invalidatedInputs, invalidatedSwiftDeps in
-        invalidatedInputs.insert(getInput(for: invalidatedSwiftDeps))
+  ) -> TransitivelyInvalidatedInputSet? {
+    var invalidatedInputs = TransitivelyInvalidatedInputSet()
+    for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
+      guard let invalidatedInput = getInput(for: invalidatedSwiftDeps)
+      else {
+        return nil
       }
+      invalidatedInputs.insert(invalidatedInput)
+    }
+    return invalidatedInputs
   }
 }
 
