@@ -35,6 +35,22 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
 
+set(CMAKE_MACOSX_RPATH YES)
+if(CMAKE_VERSION VERSION_LESS 3.17)
+  if(NOT CMAKE_SYSTEM_NAME STREQUAL Windows)
+    set(CMAKE_EXECUTABLE_RUNTIME_Swift_FLAG "-Xlinker -rpath -Xlinker ")
+    set(CMAKE_SHARED_LIBRARY_RUNTIME_Swift_FLAG "-Xlinker -rpath -Xlinker ")
+
+    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+      set(CMAKE_EXECUTABLE_RUNTIME_Swift_FLAG_SEP "")
+      set(CMAKE_SHARED_LIBRARY_RUNTIME_Swift_FLAG_SEP "")
+    else()
+      set(CMAKE_EXECUTABLE_RUNTIME_Swift_FLAG_SEP ":")
+      set(CMAKE_SHARED_LIBRARY_RUNTIME_Swift_FLAG_SEP ":")
+    endif()
+  endif()
+endif()
+
 find_package(TSC CONFIG REQUIRED)
 
 find_package(LLBuild CONFIG)
