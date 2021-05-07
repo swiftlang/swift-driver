@@ -25,5 +25,6 @@ if(CMAKE_VERSION VERSION_LESS 3.17)
   get_target_property(ARGPARSE_LIB ArgumentParser LOCATION)
   get_filename_component(ARGPARSE_LIB_DIR ${ARGPARSE_LIB} DIRECTORY)
 
-  target_link_options(swift-driver PUBLIC "LINKER:-rpath,${CMAKE_LIBRARY_OUTPUT_DIRECTORY},-rpath,${TSC_LIB_DIR},-rpath,${LLBUILD_LIB_DIR},-rpath,${ARGPARSE_LIB_DIR}")
+  set_target_properties(swift-driver PROPERTEIS
+    BUILD_RPATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY};${TSC_LIB_DIR};${LLBUILD_LIB_DIR};${ARGPARSE_LIB_DIR})
 endif()
