@@ -99,6 +99,32 @@ extension ModuleDependencyGraph {
       }
     }
 
+    var shouldNewExternalDependenciesTriggerInvalidation: Bool {
+      switch self {
+      case .buildingWithoutAPrior:
+       // Reading graph from a swiftdeps file,
+        // so every incremental external dependency found will be new to the
+        // graph. Don't invalidate just 'cause it's new.
+        return false
+
+      case .buildingAfterEachCompilation:
+        // Will be compiling every file, so no need to invalidate based on
+        // found external dependencies.
+        return false
+
+        // Reading a swiftdeps file after a compilation.
+        // A new external dependency represents an addition.
+        // So must invalidate based on it.
+      case .updatingAfterCompilation:
+        return true
+
+      case .updatingFromAPrior:
+        // If the graph was read from priors,
+        // then any new external dependency must also be an addition.
+        return true
+      }
+    }
+
     var isCompilingAllInputsNoMatterWhat: Bool {
       switch self {
       case .buildingAfterEachCompilation:
@@ -239,6 +265,7 @@ extension ModuleDependencyGraph {
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
   /*@_spi(Testing)*/ public func collectUntracedNodesUsing(
+    _ why: ExternalDependency.Why,
     _ fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> DirectlyInvalidatedNodeSet {
     // These nodes will depend on the *interface* of the external Decl.
@@ -251,10 +278,12 @@ extension ModuleDependencyGraph {
     let node = Node(key: key,
                     fingerprint: fingerprintedExternalDependency.fingerprint,
                     dependencySource: nil)
-    return DirectlyInvalidatedNodeSet(
+    let untracedUses = DirectlyInvalidatedNodeSet(
       nodeFinder
         .uses(of: node)
         .filter({ use in use.isUntraced }))
+    info.reporter?.reportInvalidated(untracedUses, by: fingerprintedExternalDependency.externalDependency, why)
+    return untracedUses
   }
 
   /// Find all the inputs known to need recompilation as a consequence of reading a swiftdeps or swiftmodule
@@ -307,38 +336,32 @@ extension ModuleDependencyGraph {
     isPresentInTheGraph: Bool?)
   -> DirectlyInvalidatedNodeSet {
 
+    /// Compute this up front as an optimization.
     let isNewToTheGraph = isPresentInTheGraph != true && fingerprintedExternalDependencies.insert(fed).inserted
 
-    // If the graph already includes prior externals, then any new externals are changes
-    // Short-circuit conjunction may avoid the modTime query
-    let shouldTryToProcess = info.isCrossModuleIncrementalBuildEnabled &&
-      (isNewToTheGraph || hasFileChanged(of: fed.externalDependency))
+   let whyIntegrateForClosure = ExternalDependency.Why(
+    should: fed,
+    whichIsNewToTheGraph: isNewToTheGraph,
+    closeOverSwiftModulesIn: self)
 
-    // Do this no matter what in order to integrate any incremental external dependencies.
-    let invalidatedNodesFromIncrementalExternal = shouldTryToProcess
-      ? collectNodesInvalidatedByAttemptingToProcess(fed, info)
-      : nil
-
-    if phase.isCompilingAllInputsNoMatterWhat {
-      // going to compile every input anyway, less work for callers
-      return DirectlyInvalidatedNodeSet()
+    let invalidatedNodesFromIncrementalExternal = whyIntegrateForClosure.flatMap { why in
+      collectNodesInvalidatedByAttemptingToProcess(why, fed)
     }
 
-    /// When building a graph from scratch, an unchanged but new-to-the-graph external dependendcy should be ignored.
-    /// Otherwise, it represents an added Import
-    let callerWantsTheseChanges = (phase.isUpdating && isNewToTheGraph) ||
-      hasFileChanged(of: fed.externalDependency)
-
-    guard callerWantsTheseChanges else {
+    guard let whyInvalidate = ExternalDependency.Why(
+      shouldUsesOf: fed,
+      whichIsNewToTheGraph: isNewToTheGraph,
+      beInvalidatedIn: self)
+    else {
       return DirectlyInvalidatedNodeSet()
     }
 
     // If there was an error integrating the external dependency, or if it was not an incremental one,
     // return anything that uses that dependency.
-    return invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesUsing(fed)
+    return invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesUsing(whyInvalidate, fed)
   }
 
-  private func hasFileChanged(of externalDependency: ExternalDependency
+ func hasFileChanged(of externalDependency: ExternalDependency
   ) -> Bool {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
@@ -355,14 +378,17 @@ extension ModuleDependencyGraph {
   /// Try to read and integrate an external dependency.
   /// Return nil if it's not incremental, or if an error occurs.
   private func collectNodesInvalidatedByAttemptingToProcess(
-    _ fed: FingerprintedExternalDependency,
-    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) -> DirectlyInvalidatedNodeSet? {
-    fed.incrementalDependencySource?
-      .read(in: info.fileSystem, reporter: info.reporter)
-      .map { unserializedDepGraph in
-        info.reporter?.report("Integrating changes from: \(fed.externalDependency)")
-        return Integrator.integrate(from: unserializedDepGraph, into: self)
-      }
+    _ why: ExternalDependency.Why,
+    _ fed: FingerprintedExternalDependency
+  ) -> DirectlyInvalidatedNodeSet? {
+    guard let source = fed.incrementalDependencySource,
+          let unserializedDepGraph = source.read(in: info.fileSystem, reporter: info.reporter)
+    else {
+      return nil
+    }
+    let invalidatedNodes = Integrator.integrate(from: unserializedDepGraph, into: self)
+    info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
+    return invalidatedNodes
   }
 }
 

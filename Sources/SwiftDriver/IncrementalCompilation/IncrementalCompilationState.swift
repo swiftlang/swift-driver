@@ -428,6 +428,20 @@ extension IncrementalCompilationState {
     func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
       report("Incremental compilation has been disabled, \(why)")
     }
+
+    func reportInvalidated<Nodes: Sequence>(
+      _ nodes: Nodes,
+      by externalDependency: ExternalDependency,
+      _ why: ExternalDependency.Why
+    )
+    where Nodes.Element == ModuleDependencyGraph.Node
+    {
+      let whyString = why.description.capitalized
+      let depString = externalDependency.shortDescription
+      for node in nodes {
+        report("\(whyString): \(depString) -> \(node)")
+      }
+    }
   }
 }
 
