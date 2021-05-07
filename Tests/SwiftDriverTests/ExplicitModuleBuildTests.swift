@@ -829,6 +829,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-module-cache-path"))})
+      XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-bad-file-descriptor-retry-count"))})
       XCTAssertTrue(try jobs.allSatisfy {$0.commandLine.contains(.path(try VirtualPath(path: moduleCachePath)))})
       let HJobs = jobs.filter { $0.moduleName == "H"}
       XCTAssertTrue(HJobs.count == 3)
