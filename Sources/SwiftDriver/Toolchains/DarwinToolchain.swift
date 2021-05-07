@@ -181,7 +181,11 @@ import SwiftOptions
     }
     // Validating darwin unsupported -static-stdlib argument.
     if parsedOptions.hasArgument(.staticStdlib) {
-        throw ToolchainValidationError.argumentNotSupported("-static-stdlib")
+      throw ToolchainValidationError.argumentNotSupported("-static-stdlib")
+    }
+    // Validating darwin unsupported -static-executable argument.
+    if parsedOptions.hasArgument(.staticExecutable) {
+      throw ToolchainValidationError.argumentNotSupported("-static-executable")
     }
     // If a C++ standard library is specified, it has to be libc++.
     if let cxxLib = parsedOptions.getLastArgument(.experimentalCxxStdlib) {
