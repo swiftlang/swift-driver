@@ -436,9 +436,10 @@ extension IncrementalCompilationState {
     )
     where Nodes.Element == ModuleDependencyGraph.Node
     {
+      let whyString = why.description.capitalized
       let depString = externalDependency.shortDescription
       for node in nodes {
-        report("\(why): \(depString) -> \(node)")
+        report("\(whyString): \(depString) -> \(node)")
       }
     }
   }

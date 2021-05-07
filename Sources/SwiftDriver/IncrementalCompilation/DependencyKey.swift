@@ -370,7 +370,7 @@ extension DependencyKey.Designator: Comparable {
 
 // MARK: - InvalidationReason
 extension ExternalDependency {
-  public enum InvalidationReason: String {
+  public enum InvalidationReason: String, CustomStringConvertible {
     case added, changed, testing
     init?(_ graph: ModuleDependencyGraph,
           isNewToTheGraph: Bool ,
@@ -385,5 +385,6 @@ extension ExternalDependency {
       }
       return nil
     }
+    public var description: String { rawValue }
   }
 }
