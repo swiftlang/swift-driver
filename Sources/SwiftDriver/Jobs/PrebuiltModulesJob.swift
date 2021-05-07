@@ -267,6 +267,8 @@ extension Driver {
       commandLine.append(.path(try VirtualPath(path: mcp)))
     }
     commandLine.appendFlag(.serializeParseableModuleInterfaceDependencyHashes)
+    commandLine.appendFlag(.badFileDescriptorRetryCount)
+    commandLine.appendFlag("30")
     return Job(
       moduleName: moduleName,
       kind: .compile,
