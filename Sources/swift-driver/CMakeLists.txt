@@ -12,4 +12,18 @@ target_link_libraries(swift-driver PUBLIC
   SwiftDriver
   SwiftDriverExecution)
 
+# This is a fairly egregious workaround for the fact that in versions < 3.17,
+# executables do not get `-rpath` linker arguments for their linked library
+# dependencies (direct and transitive)
+if(CMAKE_VERSION VERSION_LESS 3.17)
+  get_target_property(TSC_UTIL_LIB TSCUtility LOCATION)
+  get_filename_component(TSC_LIB_DIR ${TSC_UTIL_LIB} DIRECTORY)
 
+  get_target_property(LLBUILD_LIB llbuildSwift LOCATION)
+  get_filename_component(LLBUILD_LIB_DIR ${LLBUILD_LIB} DIRECTORY)
+
+  get_target_property(ARGPARSE_LIB ArgumentParser LOCATION)
+  get_filename_component(ARGPARSE_LIB_DIR ${ARGPARSE_LIB} DIRECTORY)
+
+  target_link_options(swift-driver PUBLIC "LINKER:-rpath,${CMAKE_LIBRARY_OUTPUT_DIRECTORY},-rpath,${TSC_LIB_DIR},-rpath,${LLBUILD_LIB_DIR},-rpath,${ARGPARSE_LIB_DIR}")
+endif()
