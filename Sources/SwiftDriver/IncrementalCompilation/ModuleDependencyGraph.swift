@@ -265,7 +265,7 @@ extension ModuleDependencyGraph {
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
   /*@_spi(Testing)*/ public func collectUntracedNodesUsing(
-    _ why: ExternalDependency.InvalidationReason,
+    _ why: ExternalDependency.Why,
     _ fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> DirectlyInvalidatedNodeSet {
     // These nodes will depend on the *interface* of the external Decl.
@@ -336,30 +336,22 @@ extension ModuleDependencyGraph {
     isPresentInTheGraph: Bool?)
   -> DirectlyInvalidatedNodeSet {
 
+    /// Compute this up front as an optimization.
     let isNewToTheGraph = isPresentInTheGraph != true && fingerprintedExternalDependencies.insert(fed).inserted
 
-    // Even if invalidation won't be reported to the caller, a new or added
-    // incremental external dependency may require integration in order to
-    // transitively close them, (e.g. if an imported module imports a module).
-    let whyIntegrateForClosure = info.isCrossModuleIncrementalBuildEnabled
-    ? ExternalDependency.InvalidationReason(self,
-                                            isNewToTheGraph: isNewToTheGraph,
-                                            fed.externalDependency)
-    : nil
+   let whyIntegrateForClosure = ExternalDependency.Why(
+    should: fed,
+    whichIsNewToTheGraph: isNewToTheGraph,
+    closeOverSwiftModulesIn: self)
 
     let invalidatedNodesFromIncrementalExternal = whyIntegrateForClosure.flatMap { why in
       collectNodesInvalidatedByAttemptingToProcess(why, fed)
     }
 
-    if phase.isCompilingAllInputsNoMatterWhat {
-      // going to compile every input anyway, less work for callers
-      return DirectlyInvalidatedNodeSet()
-    }
-
-    guard let whyInvalidate = ExternalDependency.InvalidationReason(
-      self,
-      isNewToTheGraph: phase.shouldNewExternalDependenciesTriggerInvalidation && isNewToTheGraph,
-      fed.externalDependency)
+    guard let whyInvalidate = ExternalDependency.Why(
+      shouldUsesOf: fed,
+      whichIsNewToTheGraph: isNewToTheGraph,
+      beInvalidatedIn: self)
     else {
       return DirectlyInvalidatedNodeSet()
     }
@@ -386,7 +378,7 @@ extension ModuleDependencyGraph {
   /// Try to read and integrate an external dependency.
   /// Return nil if it's not incremental, or if an error occurs.
   private func collectNodesInvalidatedByAttemptingToProcess(
-    _ why: ExternalDependency.InvalidationReason,
+    _ why: ExternalDependency.Why,
     _ fed: FingerprintedExternalDependency
   ) -> DirectlyInvalidatedNodeSet? {
     guard let source = fed.incrementalDependencySource,
