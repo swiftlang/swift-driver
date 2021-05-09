@@ -184,8 +184,11 @@ final class IntegrationTests: IntegrationTestCase {
       /// The e.g. swift-macosx-x86_64 directory.
       let swiftBuildDir = litConfigDir.parentDirectory
 
-      /// The path to the real frontend we should use.
-      let frontendFile = swiftBuildDir.appending(components: "bin", "swift")
+      /// The path to the real frontend (swift) we should use.
+      let swiftFile = swiftBuildDir.appending(components: "bin", "swift")
+
+      /// The path to the real frontend (swift-frontend) we should use.
+      let frontendFile = swiftBuildDir.appending(components: "bin", "swift-frontend")
 
       /// The path to lit.py.
       let litFile = swiftRootDir.appending(components: "llvm-project", "llvm", "utils", "lit",
@@ -196,7 +199,7 @@ final class IntegrationTests: IntegrationTestCase {
         $0.appending(component: $1)
       }
 
-      for path in [litFile, litConfigFile, frontendFile, testDir] {
+      for path in [litFile, litConfigFile, swiftFile, frontendFile, testDir] {
         guard localFileSystem.exists(path) else {
           XCTFail("Lit tests enabled, but path doesn't exist: \(path)")
           return
@@ -211,6 +214,7 @@ final class IntegrationTests: IntegrationTestCase {
       let args = [
         litFile.pathString, "-svi", "--time-tests",
         "--param", "copy_env=SWIFT_DRIVER_SWIFT_EXEC",
+        "--param", "copy_env=SWIFT_DRIVER_SWIFT_FRONTEND_EXEC",
         "--param", "swift_site_config=\(litConfigFile.pathString)",
         "--param", "swift_driver",
         testDir.pathString
@@ -220,7 +224,8 @@ final class IntegrationTests: IntegrationTestCase {
       let extraEnv = [
         "SWIFT": swift.pathString,
         "SWIFTC": swiftc.pathString,
-        "SWIFT_DRIVER_SWIFT_EXEC": frontendFile.pathString,
+        "SWIFT_DRIVER_SWIFT_EXEC": swiftFile.pathString,
+        "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": frontendFile.pathString,
         "LC_ALL": "en_US.UTF-8"
       ]
 
