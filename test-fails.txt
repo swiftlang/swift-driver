@@ -104,6 +104,7 @@ test/Driver:
   
   Swift(macosx-x86_64) :: Driver/sanitize_address_use_odr_indicator.swift
     Missing: -sanitize-address-use-odr-indicator
+    https://github.com/apple/swift-driver/pull/647
   
   Swift(macosx-x86_64) :: Driver/sanitize_recover.swift
     Missing: unsupported argument 'foo' to option '-sanitize-recover='
