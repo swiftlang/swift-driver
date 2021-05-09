@@ -1,9 +1,5 @@
-Audit of Failing Driver Integration Tests
+Audit of Failing Driver Integration Tests (Errors may be out of date, but failures should be accurate to commit date)
 
-test/Interpreter
-  Swift(macosx-x86_64) :: Interpreter/vtables_multifile_testable.swift
-    Fatal error: multiple producers for output vtables_multifile_testable_helper.swiftmodule
-  
 validation-test/Driver:
   Swift(macosx-x86_64) :: Driver/Dependencies/rdar23148987.swift
     Required changes to test for spaces and json ordering. There is warning and skipped jobs aren't being skipped.
@@ -12,21 +8,7 @@ validation-test/Driver:
   Swift(macosx-x86_64) :: Driver/batch_mode_size_limit.swift
     -enable-only-one-dependency-file, Feature not brought to swift-driver on purpose: https://github.com/apple/swift-driver/pull/74
     
-test/Driver/Dependencies:
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-while-editing-fine.swift
-  Swift(macosx-x86_64) :: Driver/Dependencies/one-way-fine.swift
-    Missing `Handled main.swift`
-    
-  Swift(macosx-x86_64) :: Driver/Dependencies/private-fine.swift
-    Missing `Handled a.swift`
-  
-  Swift(macosx-x86_64) :: Driver/Dependencies/fail-chained-fine.swift
-    Ninja-RelWithDebInfoAssert/swift-macosx-x86_64/test-macosx-x86_64/Driver/Dependencies/Output/fail-chained-fine.swift.script: line 21: syntax error: unexpected end of file
-
 test/Driver:
-  Swift(macosx-x86_64) :: Driver/actions.swift
-    `3: link, {1, 1}, image` expected `3: link, {1, 2}, image`
-  
   Swift(macosx-x86_64) :: Driver/filelists.swift
     ValueError: '-filelist' is not in list
     
@@ -56,9 +38,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/driver-time-compilation.swift
     No output - Implementing would require rebuilding llvm::Timer
 
-  Swift(macosx-x86_64) :: Driver/batch_mode_with_WMO_or_index.swift
-    Test expects specific parameter ordering
-
   Swift(macosx-x86_64) :: Driver/static-archive.swift
   Swift(macosx-x86_64) :: Driver/link-time-opt.swift
   Swift(macosx-x86_64) :: Driver/verbose.swift
@@ -70,7 +49,6 @@ test/Driver:
     Windows
 
   Swift(macosx-x86_64) :: Driver/merge-module.swift
-  Swift(macosx-x86_64) :: Driver/batch_mode_aux_file_order.swift
   Swift(macosx-x86_64) :: Driver/bridging-pch.swift
     Temporary file name postfix (-######). swift-driver doesn't do this, c++ driver does, functionality comes from llvm.
 
@@ -109,9 +87,6 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/driver-use-frontend.swift
     swift-driver checks that frontend exists, c++ driver does not
 
-  Swift(macosx-x86_64) :: Driver/emit-module-from-sib.swift
-    Output is missing some types
-
   Swift(macosx-x86_64) :: Driver/options-interpreter.swift
     Input validation order difference. swift-driver does SDKROOT validation first, c++ driver does objc runtime library validation first.
     swift-driver needs sdk root early because it uses it to get target info.
@@ -121,3 +96,15 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/response-file.swift
     Temporary directory additional level, `TMPDIR` vs `TMPDIR/TemporaryDirectory.#####/`
+
+  Swift(macosx-x86_64) :: Driver/macabi-environment.swift
+  Swift(macosx-x86_64) :: Driver/sdk-version.swift
+    Missing: -target-sdk-version 10.15
+    Likely the cause: warning: Could not read SDKSettings.json for SDK at: SOURCE_DIR/test/Driver/Inputs/MacOSX10.15.versioned.sdk
+  
+  Swift(macosx-x86_64) :: Driver/sanitize_address_use_odr_indicator.swift
+    Missing: -sanitize-address-use-odr-indicator
+  
+  Swift(macosx-x86_64) :: Driver/sanitize_recover.swift
+    Missing: unsupported argument 'foo' to option '-sanitize-recover='
+    https://github.com/apple/swift-driver/pull/645
