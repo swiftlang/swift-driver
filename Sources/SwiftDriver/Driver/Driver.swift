@@ -2426,8 +2426,10 @@ extension Driver {
     }
 
     var appliesToFetchingTargetInfo: Bool {
-      return overridePath?.basename != "Python" &&
-             overridePath?.basename != "python3"
+      guard let path = overridePath else { return true }
+      return path.basename != "Python" &&
+        // starts(with:) to handle both python3 and point versions (Ex: python3.9)
+        !path.basename.starts(with: "python3")
     }
     func setUpForTargetInfo(_ toolchain: Toolchain) {
       if !appliesToFetchingTargetInfo {
