@@ -101,6 +101,7 @@ test/Driver:
   Swift(macosx-x86_64) :: Driver/sdk-version.swift
     Missing: -target-sdk-version 10.15
     Likely the cause: warning: Could not read SDKSettings.json for SDK at: SOURCE_DIR/test/Driver/Inputs/MacOSX10.15.versioned.sdk
+    https://github.com/apple/swift/pull/37338
   
   Swift(macosx-x86_64) :: Driver/sanitize_address_use_odr_indicator.swift
     Missing: -sanitize-address-use-odr-indicator
