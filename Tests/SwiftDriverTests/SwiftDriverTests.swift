@@ -1085,6 +1085,21 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
+    #if os(Linux)
+    do {
+      // Xlinker flags
+      // Ensure that Xlinker flags are passed as such to the clang linker invocation.
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w",
+                                                  "-Xlinker", "-rpath=$ORIGIN",
+                                                  "-target", "x86_64-unknown-linux"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 4)
+      let linkJob = plannedJobs[3]
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-rpath=$ORIGIN")]))
+    }
+    #endif
+
     do {
       // Object file inputs
       var driver = try Driver(args: commonArgs + ["baz.o", "-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
