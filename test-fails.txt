@@ -1,4 +1,4 @@
-Audit of Failing Driver Integration Tests (Errors may be out of date, but failures should be accurate to commit date)
+Audit of Failing Driver Integration Tests (Specific error reasons may be out of date, but which tests failed should be accurate to commit date)
 
 validation-test/Driver:
   Swift(macosx-x86_64) :: Driver/Dependencies/rdar23148987.swift
