@@ -2385,6 +2385,14 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-executable", "-target", "x86_64-apple-macosx10.14",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-executable") = error else {
+        XCTFail()
+        return
+      }
+    }
     
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
                                            "foo.swift"])) { error in
