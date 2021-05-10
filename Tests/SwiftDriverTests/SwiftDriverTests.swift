@@ -1635,18 +1635,21 @@ final class SwiftDriverTests: XCTestCase {
         $1.expect(.warning("option '-sanitize-recover=address' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
       }
     }
+    // "-sanitize=undefined" is not available on x86_64-unknown-linux-gnu
+    #if os(macOS)
     do {
       // multiple sanitizers separately
-      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=thread", "-sanitize=address", "-sanitize-recover=address"]) {
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=undefined", "-sanitize=address", "-sanitize-recover=address"]) {
         $1.forbidUnexpected(.error, .warning)
       }
     }
     do {
       // comma sanitizer + address sanitizer recover together
-      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=thread,address", "-sanitize-recover=address"]) {
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=undefined,address", "-sanitize-recover=address"]) {
         $1.forbidUnexpected(.error, .warning)
       }
     }
+    #endif
   }
 
   func testSanitizerArgs() throws {
