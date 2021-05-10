@@ -2232,7 +2232,6 @@ extension Driver {
       if sanitizer != .address {
         diagnosticEngine.emit(
           .error_unsupported_argument(argument: arg, option: .sanitizeRecoverEQ))
-//          .error_unsupported_argument(argument: arg, arg: Option.sanitizeRecoverEQ))
         continue
       }
       

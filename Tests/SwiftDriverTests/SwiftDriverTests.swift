@@ -1590,8 +1590,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // address sanitizer + address sanitizer recover
       var driver = try Driver(args: commonArgs + ["-sanitize=address", "-sanitize-recover=address"])
-      let plannedJobs = try driver.planBuild()
-
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      
       XCTAssertEqual(plannedJobs.count, 3)
 
       let compileJob = plannedJobs[0]
