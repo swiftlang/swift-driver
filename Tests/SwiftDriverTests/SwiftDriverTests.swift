@@ -1637,13 +1637,13 @@ final class SwiftDriverTests: XCTestCase {
     }
     do {
       // multiple sanitizers separately
-      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=undefined", "-sanitize=address", "-sanitize-recover=address"]) {
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=thread", "-sanitize=address", "-sanitize-recover=address"]) {
         $1.forbidUnexpected(.error, .warning)
       }
     }
     do {
       // comma sanitizer + address sanitizer recover together
-      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=undefined,address", "-sanitize-recover=address"]) {
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=thread,address", "-sanitize-recover=address"]) {
         $1.forbidUnexpected(.error, .warning)
       }
     }
