@@ -139,7 +139,7 @@ extension Driver {
 
     try addPrecompileModuleDependenciesJobs(addJob: addJobBeforeCompiles)
     try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
-    try addEmitModuleJob(addJob: addJobBeforeCompiles)
+    try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles, addJobAfterCompiles: addJobAfterCompiles)
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
       addCompileJobGroup: addCompileJobGroup,
@@ -175,9 +175,11 @@ extension Driver {
     )
   }
 
-  private mutating func addEmitModuleJob(addJob: (Job) -> Void) throws {
+  private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void, addJobAfterCompiles: (Job) -> Void) throws {
     if shouldCreateEmitModuleJob {
-      addJob( try emitModuleJob() )
+      let emitModuleJob = try emitModuleJob()
+      addJobBeforeCompiles(emitModuleJob)
+      try addVerifyJobs(emitModuleJob: emitModuleJob, addJob: addJobAfterCompiles)
     }
   }
 
@@ -213,9 +215,11 @@ extension Driver {
       }
     }
 
-    try addSingleCompileJobs(addJob: addJobBeforeCompiles,
+    if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
-                             emitModuleTrace: loadedModuleTracePath != nil)
+                             emitModuleTrace: loadedModuleTracePath != nil) {
+      try addVerifyJobs(emitModuleJob: compileJob, addJob: addJobAfterCompiles)
+    }
 
     try addJobsForPrimaryInputs(
       addCompileJobGroup: addCompileJobGroup,
@@ -231,7 +235,7 @@ extension Driver {
         moduleInputs: moduleInputs,
         moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
       addJobAfterCompiles(mergeJob)
-      try addVerifyJobs(mergeJob: mergeJob, addJob: addJobAfterCompiles)
+      try addVerifyJobs(emitModuleJob: mergeJob, addJob: addJobAfterCompiles)
       try addWrapJobOrMergeOutputs(
         mergeJob: mergeJob,
         debugInfo: debugInfo,
@@ -241,13 +245,15 @@ extension Driver {
     return linkerInputs
   }
 
+  /// When in single compile, add one compile job and possiblity multiple backend jobs.
+  /// Return the compile job if one was created.
   private mutating func addSingleCompileJobs(
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     emitModuleTrace: Bool
-  ) throws {
+  ) throws -> Job? {
     guard case .singleCompile = compilerMode
-    else { return }
+    else { return nil }
 
     if parsedOptions.hasArgument(.embedBitcode),
        inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
@@ -262,6 +268,7 @@ extension Driver {
           : nil
       }
       backendJobs.forEach(addJob)
+      return compile
     } else {
       // We can skip the compile jobs if all we want is a module when it's
       // built separately.
@@ -270,6 +277,7 @@ extension Driver {
                                    addJobOutputs: addJobOutputs,
                                    emitModuleTrace: emitModuleTrace)
       addJob(compile)
+      return compile
     }
   }
 
@@ -387,7 +395,7 @@ extension Driver {
     return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
   }
 
-  private mutating func addVerifyJobs(mergeJob: Job, addJob: (Job) -> Void )
+  private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
   throws {
     guard
        parsedOptions.hasArgument(.enableLibraryEvolution),
@@ -405,7 +413,7 @@ extension Driver {
 
       let outputType: FileType =
         forPrivate ? .privateSwiftInterface : .swiftInterface
-      let mergeInterfaceOutputs = mergeJob.outputs.filter { $0.type == outputType }
+      let mergeInterfaceOutputs = emitModuleJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
       let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
