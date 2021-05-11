@@ -96,13 +96,7 @@ test/Driver:
 
   Swift(macosx-x86_64) :: Driver/response-file.swift
     Temporary directory additional level, `TMPDIR` vs `TMPDIR/TemporaryDirectory.#####/`
-
-  Swift(macosx-x86_64) :: Driver/macabi-environment.swift
-  Swift(macosx-x86_64) :: Driver/sdk-version.swift
-    Missing: -target-sdk-version 10.15
-    Likely the cause: warning: Could not read SDKSettings.json for SDK at: SOURCE_DIR/test/Driver/Inputs/MacOSX10.15.versioned.sdk
-    https://github.com/apple/swift/pull/37338
   
   Swift(macosx-x86_64) :: Driver/sanitize_recover.swift
     Missing: unsupported argument 'foo' to option '-sanitize-recover='
-    https://github.com/apple/swift-driver/pull/645
+    Fixed by, but error message was changed: https://github.com/apple/swift-driver/pull/645
