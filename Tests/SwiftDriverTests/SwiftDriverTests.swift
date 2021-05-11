@@ -1816,8 +1816,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-sanitize=address")))
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("-sanitize-address-use-odr-indicator")))
     }
-
-    // No test for validation because validation is being done in the frontend
+    do {
+      try assertDriverDiagnostics(args: ["swiftc", "-sanitize=thread", "-sanitize-address-use-odr-indicator", "Test.swift"]) {
+        $1.expect(.warning("option '-sanitize-address-use-odr-indicator' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
+    do {
+      try assertDriverDiagnostics(args: ["swiftc", "-sanitize-address-use-odr-indicator", "Test.swift"]) {
+        $1.expect(.warning("option '-sanitize-address-use-odr-indicator' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
   }
 
   func testBatchModeCompiles() throws {
