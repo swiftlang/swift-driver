@@ -3674,7 +3674,6 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
-                                     "-verify-emitted-module-interface",
                                      "-enable-library-evolution"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
@@ -3701,11 +3700,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
     }
 
+    // Explicitly disabled
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-no-verify-emitted-module-interface"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+    }
+
     // Emit-module separately
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
-                                     "-verify-emitted-module-interface",
                                      "-enable-library-evolution",
                                      "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
@@ -3726,7 +3734,6 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
-                                     "-verify-emitted-module-interface",
                                      "-enable-library-evolution",
                                      "-whole-module-optimization"])
       let plannedJobs = try driver.planBuild()
