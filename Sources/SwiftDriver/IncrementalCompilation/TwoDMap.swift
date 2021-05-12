@@ -14,12 +14,12 @@
 /// A map with 2 keys that can iterate in a number of ways
 public struct TwoDMap<Key1: Hashable, Key2: Hashable, Value: Equatable>: MutableCollection, Equatable {
 
-  private var map1 = DictionaryOfDictionaries<Key1, Key2, Value>()
-  private var map2 = DictionaryOfDictionaries<Key2, Key1, Value>()
+  private var map1 = TwoLevelMap<Key1, Key2, Value>()
+  private var map2 = TwoLevelMap<Key2, Key1, Value>()
 
   public typealias Key = (Key1, Key2)
   public typealias Element = (Key, Value)
-  public typealias Index = DictionaryOfDictionaries<Key1, Key2, Value>.Index
+  public typealias Index = TwoLevelMap<Key1, Key2, Value>.Index
 
   public init() {}
 
