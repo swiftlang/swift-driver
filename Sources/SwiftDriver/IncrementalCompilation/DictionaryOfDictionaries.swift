@@ -92,46 +92,44 @@ extension DictionaryOfDictionaries {
   }
   
   public subscript(key: Key) -> Value? {
-    get {outerDict[key.0]?[key.1]}
+    get { outerDict[key.0]?[key.1] }
     set {
-      if let v = newValue { _ = updateValue(v, forKey: key) }
-      else { _ = removeValue(forKey: key) }
+      if let v = newValue {
+        outerDict[key.0, default: [:]][key.1] = v
+      } else {
+        // Remove the inner key from the inner dictionary.
+        outerDict[key.0]?[key.1] = nil
+
+        // If that was the last entry in the inner dictionary,
+        // remove the entire inner entry.
+        if outerDict[key.0]?.isEmpty == true {
+            outerDict[key.0] = nil
+        }
+      }
     }
   }
   
   public subscript(key: OuterKey) -> [InnerKey: Value]? {
-    get {outerDict[key]}
+    get { outerDict[key] }
     set {
-      if let v = newValue { _ = outerDict.updateValue(v, forKey: key) }
-      else { _ = outerDict.removeValue(forKey: key) }
+      outerDict[key] = newValue
     }
   }
 }
 
 // MARK: - mutating
 extension DictionaryOfDictionaries {
-  mutating func updateValue(_ v: Value, forKey keys : (OuterKey,InnerKey)
+  mutating func updateValue(_ v: Value, forKey key: Key
   ) -> Value? {
-    if var innerDict = outerDict[keys.0] {
-      let old = innerDict.updateValue(v, forKey: keys.1)
-      outerDict.updateValue(innerDict, forKey: keys.0)
-      return old
-    }
-    outerDict.updateValue([keys.1: v], forKey: keys.0)
-    return nil
+    let old = self[key]
+    self[key] = v
+    return old
   }
   
-  mutating func removeValue(forKey keys : (OuterKey,InnerKey)
+  mutating func removeValue(forKey key: Key
   ) -> Value? {
-    guard var innerDict = outerDict[keys.0]
-    else { return nil }
-    let old = innerDict.removeValue(forKey: keys.1)
-    if innerDict.isEmpty {
-      outerDict.removeValue(forKey: keys.0)
-    }
-    else {
-      outerDict.updateValue(innerDict, forKey: keys.0)
-    }
+    let old = self[key]
+    self[key] = nil
     return old
   }
 }
