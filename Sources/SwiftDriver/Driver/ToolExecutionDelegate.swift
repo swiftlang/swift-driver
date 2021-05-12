@@ -48,7 +48,7 @@ import Glibc
 
   private var nextBatchQuasiPID: Int
   private let argsResolver: ArgsResolver
-  private var batchJobInputQuasiPIDMap = DictionaryOfDictionaries<Job, TypedVirtualPath, Int>()
+  private var batchJobInputQuasiPIDMap = TwoLevelMap<Job, TypedVirtualPath, Int>()
 
   @_spi(Testing) public init(mode: ToolExecutionDelegate.Mode,
                              buildRecordInfo: BuildRecordInfo?,
