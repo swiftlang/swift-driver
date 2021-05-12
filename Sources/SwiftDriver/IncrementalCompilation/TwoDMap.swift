@@ -21,8 +21,6 @@ public struct TwoDMap<Key1: Hashable, Key2: Hashable, Value: Equatable>: Mutable
   public typealias Element = (Key, Value)
   public typealias Index = DictionaryOfDictionaries<Key1, Key2, Value>.Index
 
-
-
   public init() {}
 
   public subscript(position: Index) -> Element {
