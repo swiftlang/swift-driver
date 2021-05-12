@@ -1599,6 +1599,73 @@ final class SwiftDriverTests: XCTestCase {
       #endif
     }
   }
+  
+  func testSanitizerRecoverArgs() throws {
+    let commonArgs = ["swiftc", "foo.swift", "bar.swift",]
+    do {
+      // address sanitizer + address sanitizer recover
+      var driver = try Driver(args: commonArgs + ["-sanitize=address", "-sanitize-recover=address"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize-recover=address")))
+    }
+    do {
+      // invalid sanitize recover arg
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize-recover=foo"]) {
+        $1.expect(.error("invalid value 'foo' in '-sanitize-recover='"))
+      }
+    }
+    do {
+      // only address is supported
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize-recover=thread"]) {
+        $1.expect(.error("unsupported argument 'thread' to option '-sanitize-recover='"))
+      }
+    }
+    do {
+      // only address is supported
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize-recover=scudo"]) {
+        $1.expect(.error("unsupported argument 'scudo' to option '-sanitize-recover='"))
+      }
+    }
+    do {
+      // invalid sanitize recover arg
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize-recover=undefined"]) {
+        $1.expect(.error("unsupported argument 'undefined' to option '-sanitize-recover='"))
+      }
+    }
+    do {
+      // no sanitizer + address sanitizer recover
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize-recover=address"]) {
+        $1.expect(.warning("option '-sanitize-recover=address' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
+    do {
+      // thread sanitizer + address sanitizer recover
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=thread", "-sanitize-recover=address"]) {
+        $1.expect(.warning("option '-sanitize-recover=address' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
+    // "-sanitize=undefined" is not available on x86_64-unknown-linux-gnu
+    #if os(macOS)
+    do {
+      // multiple sanitizers separately
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=undefined", "-sanitize=address", "-sanitize-recover=address"]) {
+        $1.forbidUnexpected(.error, .warning)
+      }
+    }
+    do {
+      // comma sanitizer + address sanitizer recover together
+      try assertDriverDiagnostics(args: commonArgs + ["-sanitize=undefined,address", "-sanitize-recover=address"]) {
+        $1.forbidUnexpected(.error, .warning)
+      }
+    }
+    #endif
+  }
 
   func testSanitizerArgs() throws {
   // FIXME: This doesn't work on Linux.
