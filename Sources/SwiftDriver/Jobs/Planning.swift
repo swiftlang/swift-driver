@@ -405,7 +405,7 @@ extension Driver {
        parsedOptions.hasArgument(.enableLibraryEvolution),
        parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                              negative: .noVerifyEmittedModuleInterface,
-                             default: false)
+                             default: true)
     else { return }
 
     func addVerifyJob(forPrivate: Bool) throws {
