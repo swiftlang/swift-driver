@@ -93,20 +93,7 @@ extension DictionaryOfDictionaries {
   
   public subscript(key: Key) -> Value? {
     get { outerDict[key.0]?[key.1] }
-    set {
-      if let v = newValue {
-        outerDict[key.0, default: [:]][key.1] = v
-      } else {
-        // Remove the inner key from the inner dictionary.
-        outerDict[key.0]?[key.1] = nil
-
-        // If that was the last entry in the inner dictionary,
-        // remove the entire inner entry.
-        if outerDict[key.0]?.isEmpty == true {
-            outerDict[key.0] = nil
-        }
-      }
-    }
+    set { outerDict[key.0, default: [:]][key.1] = newValue }
   }
   
   public subscript(key: OuterKey) -> [InnerKey: Value]? {
