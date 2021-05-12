@@ -582,6 +582,8 @@ public struct Driver {
       toolchain: toolchain,
       targetInfo: frontendTargetInfo)
     
+    Self.validateSanitizerAddressUseOdrIndicatorFlag(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
+    
     Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
 
     Self.validateSanitizerCoverageArgs(&parsedOptions,
@@ -2218,6 +2220,16 @@ extension Driver {
     }
   }
   
+  private static func validateSanitizerAddressUseOdrIndicatorFlag(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine,
+    addressSanitizerEnabled: Bool
+  ) {
+    if (parsedOptions.hasArgument(.sanitizeAddressUseOdrIndicator) && !addressSanitizerEnabled) {
+      diagnosticEngine.emit(
+        .warning_option_requires_sanitizer(currentOption: .sanitizeAddressUseOdrIndicator, currentOptionValue: "", sanitizerRequired: .address))
+    }
+  }
   
   /// Validates the set of `-sanitize-recover={sanitizer}` arguments
   private static func validateSanitizerRecoverArgValues(
