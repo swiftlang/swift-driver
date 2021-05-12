@@ -759,21 +759,21 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
-  
+
   func testReferenceDependencies() throws {
     var driver = try Driver(args: ["swiftc", "foo.swift", "-incremental"])
     let plannedJobs = try driver.planBuild()
     XCTAssertTrue(plannedJobs[0].kind == .compile)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-reference-dependencies-path")))
   }
-  
+
   func testDuplicateName() throws {
     assertDiagnostics { diagnosticsEngine, verify in
       _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo.swift"], diagnosticsEngine: diagnosticsEngine)
       verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo.swift'"))
       verify.expect(.note("filenames are used to distinguish private declarations with the same name"))
     }
-    
+
     assertDiagnostics { diagnosticsEngine, verify in
       _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo/foo.swift"], diagnosticsEngine: diagnosticsEngine)
       verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo/foo.swift'"))
@@ -1204,7 +1204,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-    
+
     do {
       // lto linking
       // Locating relevant libraries is dependent on being a macOS host
@@ -1227,7 +1227,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
       let plannedJobs3 = try driver3.planBuild()
       XCTAssertFalse(plannedJobs3.contains(where: { $0.kind == .autolinkExtract }))
-      
+
       let compileJob3 = try XCTUnwrap(plannedJobs3.first(where: { $0.kind == .compile }))
       XCTAssertTrue(compileJob3.outputs.contains { $0.file.basename.hasSuffix(".bc") })
 
@@ -1737,6 +1737,28 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-sanitize=thread", "-sanitize-coverage=edge,indirect-calls,trace-bb,trace-cmp,8bit-counters")
+  }
+
+  func testSanitizerAddressUseOdrIndicator() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-sanitize=address", "-sanitize-address-use-odr-indicator", "Test.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-sanitize=address")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-sanitize-address-use-odr-indicator")))
+    }
+    do {
+      try assertDriverDiagnostics(args: ["swiftc", "-sanitize=thread", "-sanitize-address-use-odr-indicator", "Test.swift"]) {
+        $1.expect(.warning("option '-sanitize-address-use-odr-indicator' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
+    do {
+      try assertDriverDiagnostics(args: ["swiftc", "-sanitize-address-use-odr-indicator", "Test.swift"]) {
+        $1.expect(.warning("option '-sanitize-address-use-odr-indicator' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
   }
 
   func testBatchModeCompiles() throws {
@@ -2392,7 +2414,7 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
-    
+
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib", "-target", "x86_64-apple-macosx10.14",
                                            "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-stdlib") = error else {
@@ -2408,7 +2430,7 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
-    
+
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
                                            "foo.swift"])) { error in
         guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
@@ -3172,7 +3194,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(jobs[0].commandLine.contains("-wmo"))
       XCTAssertTrue(jobs[0].commandLine.contains("-dump-ast"))
     }
-    
+
     try assertDriverDiagnostics(args: ["swiftc", "-index-file", "-dump-ast",
                                        "foo.swift",
                                        "-index-file-path", "foo.swift",
@@ -3300,7 +3322,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       struct MockExecutor: DriverExecutor {
         let resolver: ArgsResolver
-        
+
         func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
@@ -4348,7 +4370,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
   }
-  
+
   func testSourceInfoFileEmitOption() throws {
     // implicit
     do {
