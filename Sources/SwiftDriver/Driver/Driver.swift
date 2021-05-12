@@ -581,6 +581,8 @@ public struct Driver {
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
       targetInfo: frontendTargetInfo)
+    
+    Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
 
     Self.validateSanitizerCoverageArgs(&parsedOptions,
                                        anySanitizersEnabled: !enabledSanitizers.isEmpty,
@@ -1810,6 +1812,10 @@ extension Diagnostic.Message {
   static var verify_debug_info_requires_debug_option: Diagnostic.Message {
     .warning("ignoring '-verify-debug-info'; no debug info is being generated")
   }
+  
+  static func warning_option_requires_sanitizer(currentOption: Option, currentOptionValue: String, sanitizerRequired: Sanitizer) -> Diagnostic.Message {
+      .warning("option '\(currentOption.spelling)\(currentOptionValue)' has no effect when '\(sanitizerRequired)' sanitizer is disabled. Use \(Option.sanitizeEQ.spelling)\(sanitizerRequired) to enable the sanitizer")
+  }
 }
 
 // Module computation.
@@ -2208,6 +2214,45 @@ extension Driver {
       let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
       if parts.count != 2 {
         diagnosticsEngine.emit(.error_opt_invalid_mapping(option: coveragePrefixMap.option, value: value))
+      }
+    }
+  }
+  
+  
+  /// Validates the set of `-sanitize-recover={sanitizer}` arguments
+  private static func validateSanitizerRecoverArgValues(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine,
+    enabledSanitizers: Set<Sanitizer>
+  ){
+    let args = parsedOptions
+      .filter { $0.option == .sanitizeRecoverEQ }
+      .flatMap { $0.argument.asMultiple }
+
+    // No sanitizer args found, we could return.
+    if args.isEmpty {
+      return
+    }
+
+    // Find the sanitizer kind.
+    for arg in args {
+      guard let sanitizer = Sanitizer(rawValue: arg) else {
+        // Unrecognized sanitizer option
+        diagnosticEngine.emit(
+          .error_invalid_arg_value(arg: .sanitizeRecoverEQ, value: arg))
+        continue
+      }
+      
+      // only -sanitize-recover=address is supported
+      if sanitizer != .address {
+        diagnosticEngine.emit(
+          .error_unsupported_argument(argument: arg, option: .sanitizeRecoverEQ))
+        continue
+      }
+      
+      if !enabledSanitizers.contains(sanitizer) {
+        diagnosticEngine.emit(
+          .warning_option_requires_sanitizer(currentOption: .sanitizeRecoverEQ, currentOptionValue: arg, sanitizerRequired: sanitizer))
       }
     }
   }
