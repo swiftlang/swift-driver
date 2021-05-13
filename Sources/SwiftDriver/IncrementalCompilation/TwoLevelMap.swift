@@ -60,15 +60,15 @@ extension TwoLevelMap: Collection {
   /// The position of the first element in a nonempty two-level map.
   public var startIndex: Index {
     guard !outerDict.isEmpty else {
-      return endIndex
+      return .end
     }
 
-    guard let firstNonEmpty = outerDict.first(where: { !$1.isEmpty }) else {
-      return endIndex
+    guard let firstNonEmptyIndex = outerDict.firstIndex(where: { !$1.isEmpty }) else {
+      return .end
     }
 
-    let innerStartIndex = firstNonEmpty.value.startIndex
-    return .notEnd(outerDict.startIndex, innerStartIndex)
+    let innerStartIndex = outerDict[firstNonEmptyIndex].value.startIndex
+    return .notEnd(firstNonEmptyIndex, innerStartIndex)
   }
 
   /// The collection’s “past the end” position—that is, the position one greater
