@@ -11,7 +11,7 @@
         }
       },
       {
-        "package": "llbuild",
+        "package": "swift-llbuild",
         "repositoryURL": "https://github.com/apple/swift-llbuild.git",
         "state": {
           "branch": "main",

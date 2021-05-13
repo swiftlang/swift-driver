@@ -51,12 +51,6 @@ extension ModuleDependencyGraph {
 
 // MARK: - mocking
 
-extension TypedVirtualPath {
-  init(mockInput i: Int) {
-    self.init(file: try! VirtualPath.intern(path: "\(i).swift"), type: .swift)
-  }
-}
-
 extension DependencySource {
   init(mock i: Int) {
     self.init(try! VirtualPath.intern(path: String(i) + "." + FileType.swiftDeps.rawValue))!

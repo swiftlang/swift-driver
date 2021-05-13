@@ -987,9 +987,6 @@ extension ModuleDependencyGraph {
     hadCompilationError: Bool = false
   ) -> DirectlyInvalidatedNodeSet {
     let dependencySource = DependencySource(mock: swiftDepsIndex)
-    // Only needed for serialization testing:
-    mockMapEntry(TypedVirtualPath.init(mockInput: swiftDepsIndex),
-                    dependencySource)
     let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
 
