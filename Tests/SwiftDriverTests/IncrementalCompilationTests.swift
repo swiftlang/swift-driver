@@ -926,7 +926,8 @@ extension IncrementalCompilationTests {
 class CrossModuleIncrementalBuildTests: XCTestCase {
   func makeOutputFileMap(
     in workingDirectory: AbsolutePath,
-    for files: [AbsolutePath]
+    for files: [AbsolutePath],
+    outputTransform transform: (String) -> String = { $0 }
   ) -> String {
     """
     {
@@ -937,15 +938,68 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       """
       ,
       "\(file)": {
-        "dependencies": "\(file.basenameWithoutExt + ".d")",
-        "object": "\(file.pathString + ".o")",
-        "swiftmodule": "\(file.basenameWithoutExt + "~partial.swiftmodule")",
-        "swift-dependencies": "\(file.basenameWithoutExt + ".swiftdeps")"
+        "dependencies": "\(transform(file.basenameWithoutExt) + ".d")",
+        "object": "\(transform(file.pathString) + ".o")",
+        "swiftmodule": "\(transform(file.basenameWithoutExt) + "~partial.swiftmodule")",
+        "swift-dependencies": "\(transform(file.basenameWithoutExt) + ".swiftdeps")"
         }
       """
     }.joined(separator: "\n").appending("\n}"))
   }
-  
+
+  func testChangingOutputFileMap() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let magic = path.appending(component: "magic.swift")
+      try localFileSystem.writeFileContents(magic) {
+        $0 <<< "public func castASpell() {}"
+      }
+
+      let ofm = path.appending(component: "ofm.json")
+      try localFileSystem.writeFileContents(ofm) {
+        $0 <<< self.makeOutputFileMap(in: path, for: [ magic ]) {
+          $0 + "-some_suffix"
+        }
+      }
+
+      do {
+        var driver = try Driver(args: [
+          "swiftc",
+          "-incremental",
+          "-emit-module",
+          "-output-file-map", ofm.pathString,
+          "-module-name", "MagicKit",
+          "-working-directory", path.pathString,
+          "-c",
+          magic.pathString,
+        ])
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+      }
+
+      try localFileSystem.writeFileContents(ofm) {
+        $0 <<< self.makeOutputFileMap(in: path, for: [ magic ]) {
+          $0 + "-some_other_suffix"
+        }
+      }
+
+      do {
+        var driver = try Driver(args: [
+          "swiftc",
+          "-incremental",
+          "-emit-module",
+          "-output-file-map", ofm.pathString,
+          "-module-name", "MagicKit",
+          "-working-directory", path.pathString,
+          "-c",
+          magic.pathString,
+        ])
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+      }
+    }
+  }
+
   func testEmbeddedModuleDependencies() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
