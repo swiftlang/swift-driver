@@ -11,50 +11,63 @@
 //===----------------------------------------------------------------------===//
 
 /// Like a two-way dictionary
+///
+// FIXME: The current use of this abstraction in the driver is
+// fundamentally broken. This data structure should be retired ASAP.
+// See the extended FIXME in its use in
+// `ModuleDependencyGraph.inputDependencySourceMap`
 public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence {
   private var map1: [T1: T2] = [:]
   private var map2: [T2: T1] = [:]
 
   public init() {}
 
+  /// Accesses the value associated with the given key for reading and writing.
+  ///
+  /// - Parameter key: The key to find in the dictionary.
+  /// - Returns: The value associated with key if key is in the bidirectional
+  /// map; otherwise, `nil`.
   public subscript(_ key: T1) -> T2? {
     get {
-      guard let value = map1[key]
-      else {
-        return nil
-      }
-      return value
+      return self.map1[key]
     }
     set {
-      if let someNewValue = newValue {
-        map1[key] = someNewValue
-        map2[someNewValue] = key
-        return
+      // First, strike any existing mappings.
+      if let oldTarget = self.map1.removeValue(forKey: key) {
+        self.map2.removeValue(forKey: oldTarget)
       }
-      if let oldValue = map1.removeValue(forKey: key) {
-        map2.removeValue(forKey: oldValue)
+      // Then construct the forward mapping (or removal).
+      self.map1[key] = newValue
+      if let newValue = newValue {
+        // And finally, the backwards mapping (or removal).
+        self.map2[newValue] = key
       }
     }
   }
+
+  /// Accesses the value associated with the given key for reading and writing.
+  ///
+  /// - Parameter key: The key to find in the dictionary.
+  /// - Returns: The value associated with key if key is in the bidirectional
+  /// map; otherwise, `nil`.
   public subscript(_ key: T2) -> T1? {
     get {
-      guard let value = map2[key]
-      else {
-        return nil
-      }
-      return value
+      return self.map2[key]
     }
     set {
-      if let someNewValue = newValue {
-        map2[key] = someNewValue
-        map1[someNewValue] = key
-        return
+      // First, strike any existing mappings.
+      if let oldSource = self.map2.removeValue(forKey: key) {
+        self.map1.removeValue(forKey: oldSource)
       }
-      if let oldValue = map2.removeValue(forKey: key) {
-        map1.removeValue(forKey: oldValue)
+      // Then construct the reverse mapping (or removal).
+      self.map2[key] = newValue
+      if let newValue = newValue {
+        // And finally the forwards mapping (or removal).
+        self.map1[newValue] = key
       }
     }
   }
+
   public func contains(key: T1) -> Bool {
     map1.keys.contains(key)
   }

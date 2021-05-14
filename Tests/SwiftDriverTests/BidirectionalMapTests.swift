@@ -15,7 +15,7 @@ import SwiftDriver
 
 class BidirectionalMapTests: XCTestCase {
 
-  func testTwoDMap() {
+  func testBiDiMap() {
     func test(_ biMapToTest: BidirectionalMap<Int, String>) {
       zip(biMapToTest.map{$0}.sorted {$0.0 < $1.0}, testContents).forEach {
         XCTAssertEqual($0.0, $1.0)
@@ -48,5 +48,22 @@ class BidirectionalMapTests: XCTestCase {
     biMap2.removeValue(forKey: removed.1)
     test(biMap)
     test(biMap2)
+  }
+
+  func testDirectionality() {
+    var biMap = BidirectionalMap<Int, String>()
+    biMap[1] = "Hello"
+    XCTAssertEqual(biMap["Hello"], 1)
+    XCTAssertEqual(biMap[1], "Hello")
+    biMap[2] = "World"
+    XCTAssertEqual(biMap["World"], 2)
+    XCTAssertEqual(biMap[2], "World")
+
+    biMap["World"] = 3
+    XCTAssertEqual(biMap["World"], 3)
+    XCTAssertEqual(biMap[3], "World")
+    biMap["Hello"] = 4
+    XCTAssertEqual(biMap["Hello"], 4)
+    XCTAssertEqual(biMap[4], "Hello")
   }
 }
