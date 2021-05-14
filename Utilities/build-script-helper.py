@@ -617,8 +617,14 @@ def main():
   else:
     args.sysroot = None
 
-  if args.cross_compile_hosts and not all('apple-macos' in target for target in args.cross_compile_hosts):
-    error('Cross-compilation is currently only supported for the Darwin platform.')
+  swift_exec = os.path.join(os.path.join(args.toolchain, 'bin'), 'swiftc')
+  build_target = get_build_target(swift_exec, args)
+  if (build_target == 'x86_64-apple-macosx' and 'macosx-arm64' in args.cross_compile_hosts):
+      args.cross_compile_hosts = [build_target + macos_deployment_target, 'arm64-apple-macosx%s' % macos_deployment_target]
+  elif (build_target == 'arm64-apple-macosx' and 'macosx-x86_64' in args.cross_compile_hosts):
+      args.cross_compile_hosts = [build_target + macos_deployment_target, 'x86_64-apple-macosx%s' % macos_deployment_target]
+  elif args.cross_compile_hosts:
+      error("cannot cross-compile for %s" % cross_compile_hosts)
 
   if args.cross_compile_hosts and args.local_compiler_build:
     error('Cross-compilation is currently not supported for the local compiler installation')
