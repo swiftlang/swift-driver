@@ -160,10 +160,9 @@ extension ModuleDependencyGraph.Integrator {
     _ integrand: SourceFileDependencyGraph.Node
   ) -> Graph.Node {
     precondition(integrand.isProvides, "Dependencies are arcs in the module graph")
-    let newNode = Graph.Node(
-      key: integrand.key,
-      fingerprint: integrand.fingerprint,
-      dependencySource: sourceGraph.dependencySource)
+    let newNode = Graph.Node(key: integrand.key,
+                             fingerprint: integrand.fingerprint,
+                             dependencySource: sourceGraph.dependencySource)
     let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
     addNew(newNode)
@@ -178,14 +177,15 @@ extension ModuleDependencyGraph.Integrator {
     _ moduleUseNode: Graph.Node
   ) {
     sourceGraph.forEachDefDependedUpon(by: sourceFileUseNode) { def in
-      let isNewUse = destination.nodeFinder.record(def: def.key,
-                                                   use: moduleUseNode)
-      if let externalDependency = def.key.designator.externalDependency,
-         isNewUse {
-        collectNodesInvalidatedByUsing(
-          externalDependency: FingerprintedExternalDependency(externalDependency, def.fingerprint),
-          moduleFileGraphUseNode: moduleUseNode)
+      guard
+        destination.nodeFinder.record(def: def.key, use: moduleUseNode),
+        let externalDependency = def.key.designator.externalDependency
+      else {
+        return
       }
+
+      recordInvalidations(
+        from: FingerprintedExternalDependency(externalDependency, def.fingerprint))
     }
   }
 
@@ -193,24 +193,16 @@ extension ModuleDependencyGraph.Integrator {
   // Remember the dependency for later processing in externalDependencies, and
   // also return it in results.
   // Also the use node has changed.
-  private mutating func collectNodesInvalidatedByUsing(
-    externalDependency fingerprintedExternalDependency: FingerprintedExternalDependency,
-    moduleFileGraphUseNode moduleUseNode: Graph.Node
+  private mutating func recordInvalidations(
+    from externalDependency: FingerprintedExternalDependency
   ) {
-    let invalidated = destination.collectNodesInvalidatedByProcessing(
-      fingerprintedExternalDependency: fingerprintedExternalDependency,
-      isPresentInTheGraph: nil)
-    collectUsesOfSomeExternal(invalidated)
+    let invalidated = destination.integrateExternal(.unknown(externalDependency))
+    invalidatedNodes.formUnion(invalidated)
   }
 }
 
 // MARK: - Results {
 extension ModuleDependencyGraph.Integrator {
-  /*@_spi(Testing)*/
-  mutating func collectUsesOfSomeExternal(_ invalidated: DirectlyInvalidatedNodeSet)
-  {
-    invalidatedNodes.formUnion(invalidated)
-  }
   mutating func addDisappeared(_ node: Graph.Node) {
     assert(isUpdating)
     invalidatedNodes.insert(node)

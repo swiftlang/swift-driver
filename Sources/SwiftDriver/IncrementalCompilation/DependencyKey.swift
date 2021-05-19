@@ -372,8 +372,8 @@ extension DependencyKey.Designator: Comparable {
 extension ExternalDependency {
   /// When explaining incremental decisions, it helps to know why a particular external dependency
   /// was investigated.
-  public enum Why: String, CustomStringConvertible {
-    /// An `Import` of this file was added to the source code.
+  public enum InvalidationReason: String, CustomStringConvertible {
+    /// An `import` of this file was added to the source code.
     case added
 
     /// The imported file has changed.
@@ -381,49 +381,6 @@ extension ExternalDependency {
 
     /// Used when testing invalidation
     case testing
-
-    /// Figure out the reason to invalidate or process a dependency.
-    /// Even if invalidation won't be reported to the caller, a new or added
-    /// incremental external dependency may require integration in order to
-    /// transitively close them, (e.g. if an imported module imports a module).
-    init?(should fed: FingerprintedExternalDependency,
-          whichIsNewToTheGraph isNewToTheGraph: Bool,
-          closeOverSwiftModulesIn graph: ModuleDependencyGraph) {
-      guard graph.info.isCrossModuleIncrementalBuildEnabled
-              else { return nil }
-      self.init(should: fed,
-                whichIsSignificantlyNew: isNewToTheGraph,
-                beInvestigatedIn: graph)
-    }
-
-
-    init?(shouldUsesOf fed: FingerprintedExternalDependency,
-          whichIsNewToTheGraph isNewToTheGraph: Bool,
-          beInvalidatedIn graph: ModuleDependencyGraph) {
-      if graph.phase.isCompilingAllInputsNoMatterWhat {
-        // going to compile every input anyway, less work for callers
-        return nil
-      }
-      let isSignificantlyNew = graph.phase.shouldNewExternalDependenciesTriggerInvalidation && isNewToTheGraph
-      self.init(should: fed,
-                whichIsSignificantlyNew: isSignificantlyNew,
-                beInvestigatedIn: graph)
-    }
-
-    /// Figure out the reason to invalidate or process a dependency
-    private init?(should fed: FingerprintedExternalDependency,
-                  whichIsSignificantlyNew isSignificantlyNew: Bool,
-                  beInvestigatedIn graph: ModuleDependencyGraph) {
-      if isSignificantlyNew {
-        self = .added
-        return
-      }
-      if graph.hasFileChanged(of: fed.externalDependency) {
-        self = .changed
-        return
-      }
-      return nil
-    }
 
     public var description: String { rawValue }
   }
