@@ -103,7 +103,9 @@ extension Driver {
 
   /// Returns true if the -emit-module-separately is active.
   mutating func shouldEmitModuleSeparately() -> Bool {
-    return parsedOptions.hasArgument(.emitModuleSeparately)
+    return parsedOptions.hasFlag(positive: .emitModuleSeparately,
+                                 negative: .noEmitModuleSeparately,
+                                 default: false)
            && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
                                      negative: .noWholeModuleOptimization,
                                      default: false)
