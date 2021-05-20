@@ -3077,7 +3077,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: [
         "swiftc", "-target", "x86_64-apple-macosx10.15", "-g", "-emit-library",
         "-static", "-o", "library.a", "library.swift"
-      ])
+      ], env: env)
       let jobs = try driver.planBuild()
 
       XCTAssertEqual(jobs.count, 3)
