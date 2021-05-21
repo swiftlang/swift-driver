@@ -54,22 +54,20 @@ import SwiftOptions
     self.creationPhase = phase
   }
 
-  private func addMapEntry(_ input: TypedVirtualPath, _ dependencySource: DependencySource) {
-    assert(input.type == .swift && dependencySource.typedFile.type == .swiftDeps)
-    inputDependencySourceMap[input] = dependencySource
-  }
-
-  @_spi(Testing) public func getSource(for input: TypedVirtualPath,
-                                       function: String = #function,
-                                       file: String = #file,
-                                       line: Int = #line) -> DependencySource {
-    guard let source = inputDependencySourceMap[input] else {
+  @_spi(Testing) public func getRequiredSource(for input: TypedVirtualPath,
+                                               function: String = #function,
+                                               file: String = #file,
+                                               line: Int = #line) -> DependencySource {
+    guard let source = inputDependencySourceMap.getSourceIfKnown(for: input)
+    else {
       fatalError("\(input.file.basename) not found in inputDependencySourceMap, \(file):\(line) in \(function)")
     }
     return source
   }
-  @_spi(Testing) public func getInput(for source: DependencySource) -> TypedVirtualPath? {
-    guard let input = inputDependencySourceMap[source] else {
+
+  @_spi(Testing) public func getNeededInput(for source: DependencySource) -> TypedVirtualPath? {
+    guard let input = inputDependencySourceMap.getInputIfKnown(for: source)
+    else {
       info.diagnosticEngine.emit(warning: "Failed to find source file for '\(source.file.basename)', recovering with a full rebuild. Next build will be incremental.")
       return nil
     }
@@ -143,7 +141,7 @@ extension ModuleDependencyGraph {
       return TransitivelyInvalidatedInputSet()
     }
     return collectInputsRequiringCompilationAfterProcessing(
-      dependencySource: getSource(for: input))
+      dependencySource: getRequiredSource(for: input))
   }
 }
 
@@ -163,7 +161,7 @@ extension ModuleDependencyGraph {
   /// speculatively scheduled in the first wave.
   func collectInputsInvalidatedBy(input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputArray {
-    let changedSource = getSource(for: input)
+    let changedSource = getRequiredSource(for: input)
     let allDependencySourcesToRecompile =
       collectSwiftDepsUsing(dependencySource: changedSource)
 
@@ -172,8 +170,8 @@ extension ModuleDependencyGraph {
       guard dependencySource != changedSource else {return nil}
       let dependentSource = inputDependencySourceMap[dependencySource]
       info.reporter?.report(
-        "Found dependent of \(input.file.basename):", dependentSource)
-      return dependentSource
+        "Found dependent of \(input.file.basename):", dependentInput)
+      return dependentInput
     }
   }
 
@@ -190,7 +188,7 @@ extension ModuleDependencyGraph {
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: TypedVirtualPath) -> Bool {
     precondition(file.type == .swift)
-    guard let source = inputDependencySourceMap[file] else {
+    guard let source = inputDependencySourceMap.getSourceIfKnown(for: file) else {
       return false
     }
     return containsNodes(forDependencySource: source)
@@ -200,17 +198,47 @@ extension ModuleDependencyGraph {
     return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
       ?? false
   }
-
-  /// Return true on success
-  func populateInputDependencySourceMap() -> Bool {
+  
+  /// Returns: false on error
+  func populateInputDependencySourceMap(
+    `for` purpose: InputDependencySourceMap.AdditionPurpose
+  ) -> Bool {
     let ofm = info.outputFileMap
-    let de = info.diagnosticEngine
-    return info.inputFiles.reduce(true) { okSoFar, input in
-      ofm.getDependencySource(for: input, diagnosticEngine: de)
-        .map {source in addMapEntry(input, source); return okSoFar } ?? false
+    let diags = info.diagnosticEngine
+    var allFound = true
+    for input in info.inputFiles {
+      if let source = ofm.getDependencySource(for: input, diagnosticEngine: diags) {
+        inputDependencySourceMap.addEntry(input, source, for: purpose)
+      }
+      else {
+        // Don't break in order to report all failures.
+        allFound = false
+      }
     }
+    return allFound
   }
 }
+extension OutputFileMap {
+  fileprivate func getDependencySource(
+    for sourceFile: TypedVirtualPath,
+    diagnosticEngine: DiagnosticsEngine
+  ) -> DependencySource? {
+    assert(sourceFile.type == FileType.swift)
+    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
+                                             outputType: .swiftDeps)
+    else {
+      // The legacy driver fails silently here.
+      diagnosticEngine.emit(
+        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file")
+      )
+      return nil
+    }
+    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
+    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
+    return DependencySource(typedSwiftDepsFile)
+  }
+}
+
 // MARK: - Scheduling the 2nd wave
 extension ModuleDependencyGraph {
   /// After `source` has been compiled, figure out what other source files need compiling.
@@ -220,7 +248,7 @@ extension ModuleDependencyGraph {
   func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet? {
     precondition(input.type == .swift)
-    let dependencySource = getSource(for: input)
+    let dependencySource = getRequiredSource(for: input)
     return collectInputsRequiringCompilationAfterProcessing(
       dependencySource: dependencySource)
   }
@@ -315,7 +343,8 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
     for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = getInput(for: invalidatedSwiftDeps) else {
+      guard let invalidatedInput = getNeededInput(for: invalidatedSwiftDeps)
+      else {
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)
@@ -436,27 +465,6 @@ extension ModuleDependencyGraph {
     let invalidatedNodes = Integrator.integrate(from: unserializedDepGraph, into: self)
     info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
     return invalidatedNodes
-  }
-}
-
-extension OutputFileMap {
-  fileprivate func getDependencySource(
-    for sourceFile: TypedVirtualPath,
-    diagnosticEngine: DiagnosticsEngine
-  ) -> DependencySource? {
-    assert(sourceFile.type == FileType.swift)
-    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
-                                             outputType: .swiftDeps)
-    else {
-      // The legacy driver fails silently here.
-      diagnosticEngine.emit(
-        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file")
-      )
-      return nil
-    }
-    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
-    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
-    return DependencySource(typedSwiftDepsFile)
   }
 }
 
@@ -584,10 +592,11 @@ extension ModuleDependencyGraph {
             .record(def: dependencyKey, use: self.allNodes[useID])
           assert(isNewUse, "Duplicate use def-use arc in graph?")
         }
-        for (input, source) in inputDependencySourceMap {
-          graph.addMapEntry(input, source)
+        for (input, dependencySource) in inputDependencySourceMap {
+          graph.inputDependencySourceMap.addEntry(input,
+                                                  dependencySource,
+                                                  for: .readingPriors)
         }
-
         return self.graph
       }
 
@@ -883,7 +892,7 @@ extension ModuleDependencyGraph {
         }
       }
 
-      for (input, dependencySource) in graph.inputDependencySourceMap {
+      graph.inputDependencySourceMap.enumerateToSerializePriors { input, dependencySource in
         self.addIdentifier(input.file.name)
         self.addIdentifier(dependencySource.file.name)
       }
@@ -1028,7 +1037,8 @@ extension ModuleDependencyGraph {
             }
           }
         }
-        for (input, dependencySource) in graph.inputDependencySourceMap {
+        graph.inputDependencySourceMap.enumerateToSerializePriors {
+          input, dependencySource in
           serializer.stream.writeRecord(serializer.abbreviations[.mapNode]!) {
             $0.append(RecordID.mapNode)
             $0.append(serializer.lookupIdentifierCode(for: input.file.name))
@@ -1164,6 +1174,6 @@ extension ModuleDependencyGraph {
     _ mockInput: TypedVirtualPath,
     _ mockDependencySource: DependencySource
   ) {
-    addMapEntry(mockInput, mockDependencySource)
+    inputDependencySourceMap.addEntry(mockInput, mockDependencySource, for: .mocking)
   }
 }
