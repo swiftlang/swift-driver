@@ -15,15 +15,12 @@ import TSCBasic
 
 // Initial incremental state computation
 extension IncrementalCompilationState {
-  static func computeIncrementalStateForPlanning(
-    driver: inout Driver,
-    simulateGetInputFailure: Bool)
+  static func computeIncrementalStateForPlanning(driver: inout Driver)
     throws -> IncrementalCompilationState.InitialStateForPlanning?
   {
     guard driver.shouldAttemptIncrementalCompilation else { return nil }
 
-    let options = computeIncrementalOptions(driver: &driver,
-                                            simulateGetInputFailure: simulateGetInputFailure)
+    let options = computeIncrementalOptions(driver: &driver)
 
     guard let outputFileMap = driver.outputFileMap else {
       driver.diagnosticEngine.emit(.warning_incremental_requires_output_file_map)
@@ -69,10 +66,7 @@ extension IncrementalCompilationState {
   }
 
   // Extract options relevant to incremental builds
-  static func computeIncrementalOptions(
-    driver: inout Driver,
-    simulateGetInputFailure: Bool)
-  -> IncrementalCompilationState.Options {
+  static func computeIncrementalOptions(driver: inout Driver) -> IncrementalCompilationState.Options {
     var options: IncrementalCompilationState.Options = []
     if driver.parsedOptions.contains(.driverAlwaysRebuildDependents) {
       options.formUnion(.alwaysRebuildDependents)
@@ -93,9 +87,6 @@ extension IncrementalCompilationState {
                                   default: true) {
       options.formUnion(.enableCrossModuleIncrementalBuild)
       options.formUnion(.readPriorsFromModuleDependencyGraph)
-    }
-    if simulateGetInputFailure {
-      options.formUnion(.simulateGetInputFailure)
     }
     return options
   }
@@ -140,10 +131,6 @@ extension IncrementalCompilationState {
     @_spi(Testing) public var emitDependencyDotFileAfterEveryImport: Bool {
       options.contains(.emitDependencyDotFileAfterEveryImport)
     }
-    @_spi(Testing) public var simulateGetInputFailure: Bool {
-      options.contains(.simulateGetInputFailure)
-    }
-
 
     @_spi(Testing) public init(
       _ options: Options,
