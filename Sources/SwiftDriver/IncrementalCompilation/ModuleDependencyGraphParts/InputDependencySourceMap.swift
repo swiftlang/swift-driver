@@ -11,6 +11,8 @@
 import Foundation
 import TSCBasic
 
+/// Maps input source files to- and from- `DependencySource`s containing the swiftdeps paths.
+/// Deliberately at the level of specific intention, for clarity and to facilitate restructuring later.
 @_spi(Testing) public struct InputDependencySourceMap: Equatable {
   
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
@@ -26,21 +28,33 @@ import TSCBasic
   // replaced by a multi-map from swift files to dependency sources,
   // and a regular map from dependency sources to swift files -
   // since that direction really is one-to-one.
-  
+
+  /// Holds the mapping for now. To be replaced later.
   public typealias BiMap = BidirectionalMap<TypedVirtualPath, DependencySource>
   @_spi(Testing) public var biMap = BiMap()
 }
 
 // MARK: - Accessing
 extension InputDependencySourceMap {
-  @_spi(Testing) public func getSourceIfKnown(for input: TypedVirtualPath) -> DependencySource? {
+  /// Find where the swiftdeps are stored for a given source file.
+  ///
+  /// - Parameter input: A source file path
+  /// - Returns: the corresponding `DependencySource`, or nil if none known.
+  @_spi(Testing) public func sourceIfKnown(for input: TypedVirtualPath) -> DependencySource? {
     biMap[input]
   }
 
-  @_spi(Testing) public func getInputIfKnown(for source: DependencySource) -> TypedVirtualPath? {
+  /// Find where the source file is for a given swiftdeps file.
+  ///
+  /// - Parameter source: A `DependencySource` (containing a swiftdeps file)
+  /// - Returns: the corresponding input source file, or nil if none known.
+  @_spi(Testing) public func input(ifKnownFor source: DependencySource) -> TypedVirtualPath? {
     biMap[source]
   }
 
+  /// Enumerate the input <-> dependency source pairs to be serialized
+  ///
+  /// - Parameter eachFn: a function to be called for each pair
   @_spi(Testing) public func enumerateToSerializePriors(
     _ eachFn: (TypedVirtualPath, DependencySource) -> Void
   ) {
@@ -50,14 +64,29 @@ extension InputDependencySourceMap {
 
 // MARK: - Populating
 extension InputDependencySourceMap {
+  /// For structural modifications-to-come, reify the various reasons to add an entry.
   public enum AdditionPurpose {
-    case mocking,
-         buildingFromSwiftDeps,
-         readingPriors,
-         inputsAddedSincePriors }
+    /// For unit testing
+    case mocking
+
+    /// When building a graph from swiftDeps files without priors
+    case buildingFromSwiftDeps
+
+    /// Deserializing the map stored with the priors
+    case readingPriors
+
+    /// After reading the priors, used to add entries for any inputs that might not have been in the priors.
+    case inputsAddedSincePriors
+  }
+
+  /// Add a mapping to & from input source file to swiftDeps file path
+  ///
+  /// - Parameter input: the source file path
+  /// - Parameter dependencySource: the dependency source (holding the swiftdeps path)
+  /// - Parameter why: the purpose for this addition. Will be used for future restructuring.
   @_spi(Testing) public mutating func addEntry(_ input: TypedVirtualPath,
                                                _ dependencySource: DependencySource,
-                                               `for` _ : AdditionPurpose) {
+                                               for why: AdditionPurpose) {
     assert(input.type == .swift && dependencySource.typedFile.type == .swiftDeps)
     biMap[input] = dependencySource
   }
