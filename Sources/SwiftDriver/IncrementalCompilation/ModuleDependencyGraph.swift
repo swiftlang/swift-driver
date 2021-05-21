@@ -313,15 +313,23 @@ extension ModuleDependencyGraph {
     return collectInputsUsingInvalidated(nodes: invalidatedNodes)
   }
 
-  /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
-  /// Return nil if the input could not be found, which should not happen, but somehow does.
+  /// Computes the set of inputs that must be recompiled as a result of the
+  /// invalidation of the given list of nodes.
+  ///
+  /// If the set of invalidated nodes could not be computed because of a failure
+  /// to match a swiftdeps file to its corresponding input file, this function
+  /// return `nil`. This can happen when e.g. the build system changes the
+  /// entries in the output file map out from under us.
+  ///
+  /// - Parameter directlyInvalidatedNodes: The set of invalidated nodes.
+  /// - Returns: The set of inputs that were transitively invalidated, if
+  ///            possible. Or `nil` if such a set could not be computed.
   func collectInputsUsingInvalidated(
     nodes directlyInvalidatedNodes: DirectlyInvalidatedNodeSet
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
     for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = getInput(for: invalidatedSwiftDeps)
-      else {
+      guard let invalidatedInput = getInput(for: invalidatedSwiftDeps) else {
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)
