@@ -364,11 +364,11 @@ final class IncrementalCompilationTests: XCTestCase {
       "Incremental compilation: Queuing Extracting autolink information for module \(module)",
     ]
   }
-  var autolinkLifecycleExpectations: [Diagnostic.Message] {
+  var autolinkLifecycleExpectations: [String] {
     [
       "Starting Extracting autolink information for module \(module)",
       "Finished Extracting autolink information for module \(module)",
-    ].map {.remark($0)}
+    ]
   }
   var commonArgs: [String] {
     [
@@ -412,16 +412,14 @@ extension IncrementalCompilationTests {
                 checkDiagnostics: Bool,
                 extraArguments: [String],
                 expectingRemarks texts: [String],
-                whenAutolinking autolinkExpectations: [Diagnostic.Message],
-                simulateGetInputFailure: Bool = false
+                whenAutolinking: [String]
   ) throws -> Driver? {
     try doABuild(
       message,
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expecting: texts.map {.remark($0)},
-      whenAutolinking: autolinkExpectations,
-      simulateGetInputFailure: simulateGetInputFailure)
+      expectingWhenAutolinking: whenAutolinking.map {.remark($0)})
   }
 
   @discardableResult
@@ -429,13 +427,12 @@ extension IncrementalCompilationTests {
                 checkDiagnostics: Bool,
                 extraArguments: [String],
                 expecting expectations: [Diagnostic.Message],
-                whenAutolinking autolinkExpectations: [Diagnostic.Message],
-                simulateGetInputFailure: Bool = false
+                expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]
   ) throws -> Driver? {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
 
     func doTheCompile(_ driver: inout Driver) {
-      let jobs = try! driver.planBuild(simulateGetInputFailure: simulateGetInputFailure)
+      let jobs = try! driver.planBuild()
       try? driver.run(jobs: jobs)
     }
 
@@ -556,16 +553,6 @@ extension IncrementalCompilationTests {
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
     ])
   }
-
-  func testGetInputFailureRecovery() throws {
-#if !os(Linux)
-    try tryInitial(checkDiagnostics: true)
-    tryNoChange(checkDiagnostics: true)
-    try tryChangingMainWithGetInputFailure()
-    try tryRecoveringFromGetInputFailure()
-#endif
-  }
-
 
   func expectNoDotFiles() {
     guard localFileSystem.exists(derivedDataDir) else { return }
@@ -816,67 +803,6 @@ extension IncrementalCompilationTests {
         "Finished Compiling main.swift, other.swift",
         "Starting Linking theModule",
         "Finished Linking theModule",
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
-  }
-
-  func tryChangingMainWithGetInputFailure() throws {
-    replace(contentsOf: "main", with: "let foo = \"hello\"")
-    try doABuild(
-      "simulating getInput failure",
-      checkDiagnostics: true,
-      extraArguments: [],
-      expecting: [
-        .remark("Incremental compilation: Read dependency graph "),
-        .remark("Incremental compilation: Enabling incremental cross-module building"),
-        .remark("Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}"),
-        .remark("Incremental compilation: May skip current input:  {compile: other.o <= other.swift}"),
-        .remark("Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}"),
-        .remark("Incremental compilation: not scheduling dependents of main.swift; unknown changes"),
-        .remark("Incremental compilation: Skipping input:  {compile: other.o <= other.swift}"),
-        .remark("Found 1 batchable job"),
-        .remark("Forming into 1 batch"),
-        .remark("Adding {compile: main.swift} to batch 0"),
-        .remark("Forming batch job from 1 constituents: main.swift"),
-        .remark("Starting Compiling main.swift"),
-        .remark("Finished Compiling main.swift"),
-        .remark("Incremental compilation: Fingerprint changed for interface of source file main.swiftdeps in main.swiftdeps"),
-        .remark("Incremental compilation: Fingerprint changed for implementation of source file main.swiftdeps in main.swiftdeps"),
-        .remark("Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift"),
-        .warning("Failed to find source file for '"),
-        .remark("Simulating input not found in inputDependencySourceMap; created for: updatingFromAPrior, now: updatingAfterCompilation"),
-        .remark("Incremental compilation: Failed to read some dependencies source; compiling everything  {compile: main.o <= main.swift}"),
-        .remark("Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}"),
-        .remark("Incremental compilation: Scheduling invalidated  {compile: other.o <= other.swift}"),
-        .remark("Found 1 batchable job"),
-        .remark("Forming into 1 batch"),
-        .remark("Adding {compile: other.swift} to batch 0"),
-        .remark("Forming batch job from 1 constituents: other.swift"),
-        .remark("Starting Compiling other.swift"),
-        .remark("Finished Compiling other.swift"),
-        .remark("Incremental compilation: Scheduling all post-compile jobs because something was compiled"),
-        .remark("Starting Linking theModule"),
-        .remark("Finished Linking theModule"),
-      ],
-      whenAutolinking: autolinkLifecycleExpectations,
-      simulateGetInputFailure: true)
-  }
-
-  func tryRecoveringFromGetInputFailure() throws {
-    try! doABuild(
-      "recovering from getInput failure",
-      checkDiagnostics: true,
-      extraArguments: [],
-      expectingRemarks: [
-        "Incremental compilation: Read dependency graph ",
-        "Incremental compilation: Enabling incremental cross-module building",
-        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
-        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
-        "Incremental compilation: Skipping job: Linking theModule; oldest output is current",
-        "Skipped Compiling main.swift",
-        "Skipped Compiling other.swift",
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }

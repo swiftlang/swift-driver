@@ -81,13 +81,8 @@ import SwiftOptions
     return source
   }
   @_spi(Testing) public func getInput(for source: DependencySource) -> TypedVirtualPath? {
-    guard let input =
-            info.simulateGetInputFailure ? nil
-            : inputDependencySourceMap[source]
-    else {
+    guard let input = inputDependencySourceMap[source] else {
       info.diagnosticEngine.emit(warning: "Failed to find source file for '\(source.file.basename)', recovering with a full rebuild. Next build will be incremental.")
-      info.reporter?.report(
-        "\(info.simulateGetInputFailure ? "Simulating i" : "I")nput not found in inputDependencySourceMap; created for: \(creationPhase), now: \(phase)")
       return nil
     }
     return input
@@ -319,8 +314,7 @@ extension ModuleDependencyGraph {
   }
 
   /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
-  /// Return nil if the input could not be found, which should not happen, but can happen when
-  /// the prior graph is read inconsistently.
+  /// Return nil if the input could not be found, which should not happen, but somehow does.
   func collectInputsUsingInvalidated(
     nodes directlyInvalidatedNodes: DirectlyInvalidatedNodeSet
   ) -> TransitivelyInvalidatedInputSet? {

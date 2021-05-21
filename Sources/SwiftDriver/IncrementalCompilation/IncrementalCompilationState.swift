@@ -482,9 +482,6 @@ extension IncrementalCompilationState {
     /// that reads the dependency graph from a serialized format on disk instead
     /// of reading O(N) swiftdeps files.
     public static let readPriorsFromModuleDependencyGraph    = Options(rawValue: 1 << 5)
-    /// Causes `getInput` to fail, in order to allow testing.
-    /// No need to come from a command-line option.
-    public static let simulateGetInputFailure                = Options(rawValue: 1 << 6)
   }
 }
 
