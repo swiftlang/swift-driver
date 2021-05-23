@@ -827,15 +827,9 @@ extension IncrementalCompilationTests {
   /// autolink job.
   /// Much of the code below is taking from testLinking(), but uses the output file map code here.
   func testAutolinkOutputPath() {
-    var env = ProcessEnv.vars
-    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
-    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
-    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
-
     var driver = try! Driver(
       args: commonArgs
-        + ["-emit-library", "-target", "x86_64-unknown-linux"],
-      env: env)
+        + ["-emit-library", "-target", "x86_64-unknown-linux"])
     let plannedJobs = try! driver.planBuild()
     let autolinkExtractJob = try! XCTUnwrap(
       plannedJobs

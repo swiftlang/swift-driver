@@ -996,15 +996,10 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLinking() throws {
-    var env = ProcessEnv.vars
-    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
-    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
-    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
-
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
     do {
       // macOS target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1026,7 +1021,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // iOS target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "arm64-apple-ios10.0"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "arm64-apple-ios10.0"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1048,7 +1043,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // macOS catalyst target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-ios13.0-macabi"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-ios13.0-macabi"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1071,7 +1066,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Xlinker flags
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1091,24 +1086,22 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
-    #if os(Linux)
     do {
       // Xlinker flags
       // Ensure that Xlinker flags are passed as such to the clang linker invocation.
       var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w",
                                                   "-Xlinker", "-rpath=$ORIGIN",
-                                                  "-target", "x86_64-unknown-linux"], env: env)
+                                                  "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       let linkJob = plannedJobs[3]
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-rpath=$ORIGIN")]))
     }
-    #endif
 
     do {
       // Object file inputs
-      var driver = try Driver(args: commonArgs + ["baz.o", "-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["baz.o", "-emit-library", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1128,7 +1121,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // static linking
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
@@ -1158,7 +1151,7 @@ final class SwiftDriverTests: XCTestCase {
       // static linking
       // Locating relevant libraries is dependent on being a macOS host
       #if os(macOS)
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.9", "-lto=llvm-full"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.9", "-lto=llvm-full"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
@@ -1192,7 +1185,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // executable linking
-      var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(3, plannedJobs.count)
       XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
@@ -1215,7 +1208,7 @@ final class SwiftDriverTests: XCTestCase {
       // lto linking
       // Locating relevant libraries is dependent on being a macOS host
       #if os(macOS)
-      var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], env: env)
+      var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"])
       let plannedJobs1 = try driver1.planBuild()
       XCTAssertFalse(plannedJobs1.contains(where: { $0.kind == .autolinkExtract }))
       let linkJob1 = try XCTUnwrap(plannedJobs1.first(where: { $0.kind == .link }))
@@ -1223,14 +1216,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkJob1.commandLine.contains(.flag("-lto_library")))
       #endif
 
-      var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
+      var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"])
       let plannedJobs2 = try driver2.planBuild()
       XCTAssertFalse(plannedJobs2.contains(where: { $0.kind == .autolinkExtract }))
       let linkJob2 = try XCTUnwrap(plannedJobs2.first(where: { $0.kind == .link }))
       XCTAssertTrue(try driver2.toolchain.getToolPath(linkJob2.tool).basename.hasPrefix("clang"))
       XCTAssertTrue(linkJob2.commandLine.contains(.flag("-flto=thin")))
 
-      var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
+      var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"])
       let plannedJobs3 = try driver3.planBuild()
       XCTAssertFalse(plannedJobs3.contains(where: { $0.kind == .autolinkExtract }))
       
@@ -1243,7 +1236,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: commonArgs + ["-emit-executable", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(5, plannedJobs.count)
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .compile, .mergeModule, .link, .generateDSYM])
@@ -1265,7 +1258,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // linux target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -1294,7 +1287,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // static linux linking
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -1328,7 +1321,7 @@ final class SwiftDriverTests: XCTestCase {
     #if os(Linux)
     do {
       // executable linking linux static stdlib
-      var driver = try Driver(args: commonArgs + ["-emit-executable", "-static-stdlib", "-target", "x86_64-unknown-linux"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-static-stdlib", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -1358,7 +1351,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // static WASM linking
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "wasm32-unknown-wasi"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "wasm32-unknown-wasi"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -1393,7 +1386,7 @@ final class SwiftDriverTests: XCTestCase {
         var driver = try Driver(args: commonArgs + ["-emit-executable",
                                                     "-target", "wasm32-unknown-wasi",
                                                     "-resource-dir", path.pathString,
-                                                    "-sdk", "/sdk/path"], env: env)
+                                                    "-sdk", "/sdk/path"])
         let plannedJobs = try driver.planBuild()
 
         XCTAssertEqual(plannedJobs.count, 4)
@@ -1424,10 +1417,8 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testWebAssemblyUnsupportedFeatures() throws {
-    var env = ProcessEnv.vars
-    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
     do {
-      var driver = try Driver(args: ["swift", "-target", "wasm32-unknown-wasi", "foo.swift"], env: env)
+      var driver = try Driver(args: ["swift", "-target", "wasm32-unknown-wasi", "foo.swift"])
       XCTAssertThrowsError(try driver.planBuild()) {
         guard case WebAssemblyToolchain.Error.interactiveModeUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
           XCTFail()
@@ -1437,7 +1428,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "-emit-library", "foo.swift"], env: env)
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "-emit-library", "foo.swift"])
       XCTAssertThrowsError(try driver.planBuild()) {
         guard case WebAssemblyToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
           XCTFail()
@@ -1447,7 +1438,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "-no-static-executable", "foo.swift"], env: env)
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "-no-static-executable", "foo.swift"])
       XCTAssertThrowsError(try driver.planBuild()) {
         guard case WebAssemblyToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
           XCTFail()
@@ -1457,7 +1448,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      XCTAssertThrowsError(try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "foo.swift", "-sanitize=thread"], env: env)) {
+      XCTAssertThrowsError(try Driver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "foo.swift", "-sanitize=thread"])) {
         guard case WebAssemblyToolchain.Error.sanitizersUnsupportedForTarget("wasm32-unknown-wasi") = $0 else {
           XCTFail()
           return
@@ -1480,7 +1471,6 @@ final class SwiftDriverTests: XCTestCase {
 
   func testCompatibilityLibs() throws {
     var env = ProcessEnv.vars
-    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     try withTemporaryDirectory { path in
       let path5_0Mac = path.appending(components: "macosx", "libswiftCompatibility50.a")
       let path5_1Mac = path.appending(components: "macosx", "libswiftCompatibility51.a")
@@ -3085,17 +3075,11 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
-      // As per Unix conventions, /var/empty is expected to exist and be empty.
-      // This gives us a non-existent path that we can use for libtool which
-      // allows us to run this this on non-Darwin platforms.
-      env["SWIFT_DRIVER_LIBTOOL_EXEC"] = "/var/empty/libtool"
-
       // No dSYM generation (-g -emit-library -static)
       var driver = try Driver(args: [
         "swiftc", "-target", "x86_64-apple-macosx10.15", "-g", "-emit-library",
         "-static", "-o", "library.a", "library.swift"
-      ], env: env)
+      ])
       let jobs = try driver.planBuild()
 
       XCTAssertEqual(jobs.count, 3)
@@ -3410,18 +3394,6 @@ final class SwiftDriverTests: XCTestCase {
       try? toolchain.getToolPath(.swiftCompiler).parentDirectory,
       try? toolchain.getToolPath(.clang).parentDirectory
     )
-  }
-
-  func testExecutableFallbackPath() throws {
-    let driver1 = try Driver(args: ["swift", "main.swift"])
-    if !driver1.targetTriple.isDarwin {
-      XCTAssertThrowsError(try driver1.toolchain.getToolPath(.dsymutil))
-    }
-
-    var env = ProcessEnv.vars
-    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
-    let driver2 = try Driver(args: ["swift", "main.swift"], env: env)
-    XCTAssertNoThrow(try driver2.toolchain.getToolPath(.dsymutil))
   }
 
   func testVersionRequest() throws {

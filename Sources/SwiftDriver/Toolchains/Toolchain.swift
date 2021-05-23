@@ -200,14 +200,6 @@ extension Toolchain {
     return "SWIFT_DRIVER_\(lookupName)_EXEC"
   }
 
-  /// Use this property only for testing purposes, for example,
-  /// to enable cross-compiling tests that depends on macOS tooling such as `dsymutil`.
-  ///
-  /// Returns true if `SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK` is set to `1`.
-  private var fallbackToExecutableDefaultPath: Bool {
-    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] == "1"
-  }
-
   /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
@@ -234,8 +226,6 @@ extension Toolchain {
     } else if executable == "swift-frontend" {
       // Temporary shim: fall back to looking for "swift" before failing.
       return try lookup(executable: "swift")
-    } else if fallbackToExecutableDefaultPath {
-      return AbsolutePath("/usr/bin/" + executable)
     } else {
       throw ToolchainError.unableToFind(tool: executable)
     }
