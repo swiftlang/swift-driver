@@ -19,6 +19,7 @@ public protocol DriverExecutor {
   /// Execute a single job and capture the output.
   @discardableResult
   func execute(job: Job,
+               toolPath: AbsolutePath,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
   
@@ -33,6 +34,7 @@ public protocol DriverExecutor {
 
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
+               toolLocations: [Tool: AbsolutePath],
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
@@ -44,7 +46,7 @@ public protocol DriverExecutor {
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
 
   /// Returns a textual description of the job as it would be run by the executor.
-  func description(of job: Job, forceResponseFiles: Bool) throws -> String
+  func description(of job: Job, toolPath: AbsolutePath, forceResponseFiles: Bool) throws -> String
 }
 
 public struct DriverExecutorWorkload {
@@ -55,18 +57,22 @@ public struct DriverExecutorWorkload {
   }
   public let kind: Kind
 
+  public let toolLocations: [Tool: AbsolutePath]
+
   public init(_ allJobs: [Job],
        _ incrementalCompilationState: IncrementalCompilationState?,
-       continueBuildingAfterErrors: Bool
+       continueBuildingAfterErrors: Bool,
+       toolLocations: [Tool: AbsolutePath]
   ) {
       self.continueBuildingAfterErrors = continueBuildingAfterErrors
       self.kind = incrementalCompilationState
         .map {.incremental($0)}
         ?? .all(allJobs)
+      self.toolLocations = toolLocations
   }
 
-  static public func all(_ jobs: [Job]) -> Self {
-    .init(jobs, nil, continueBuildingAfterErrors: false)
+  static public func all(_ jobs: [Job], toolLocations: [Tool: AbsolutePath]) -> Self {
+    .init(jobs, nil, continueBuildingAfterErrors: false, toolLocations: toolLocations)
   }
 }
 
@@ -79,10 +85,12 @@ enum JobExecutionError: Error {
 
 extension DriverExecutor {
   func execute<T: Decodable>(job: Job,
+                             toolPath: AbsolutePath,
                              capturingJSONOutputAs outputType: T.Type,
                              forceResponseFiles: Bool,
                              recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> T {
     let result = try execute(job: job,
+                             toolPath: toolPath,
                              forceResponseFiles: forceResponseFiles,
                              recordedInputModificationDates: recordedInputModificationDates)
     
@@ -103,13 +111,14 @@ extension DriverExecutor {
 
   public func execute(
     jobs: [Job],
+    toolLocations: [Tool: AbsolutePath],
     delegate: JobExecutionDelegate,
     numParallelJobs: Int,
     forceResponseFiles: Bool,
     recordedInputModificationDates: [TypedVirtualPath: Date]
   ) throws {
     try execute(
-      workload: .all(jobs),
+      workload: .all(jobs, toolLocations: toolLocations),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
       forceResponseFiles: forceResponseFiles,

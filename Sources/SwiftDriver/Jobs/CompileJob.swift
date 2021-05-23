@@ -369,7 +369,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: .swiftCompiler,
       commandLine: commandLine,
       displayInputs: primaryInputs,
       inputs: inputs,

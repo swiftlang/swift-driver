@@ -935,7 +935,9 @@ extension Driver {
     // If we're only supposed to print the jobs, do so now.
     if parsedOptions.contains(.driverPrintJobs) {
       for job in jobs {
-        print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
+        print(try executor.description(of: job,
+                                       toolPath: try toolchain.getToolPath(job.tool),
+                                       forceResponseFiles: forceResponseFiles))
       }
       return
     }
@@ -952,7 +954,7 @@ extension Driver {
 
     if parsedOptions.contains(.driverPrintBindings) {
       for job in jobs {
-        printBindings(job)
+        try printBindings(job)
       }
       return
     }
@@ -966,8 +968,8 @@ extension Driver {
     }
 
     if parsedOptions.contains(.driverPrintGraphviz) {
-      var serializer = DOTJobGraphSerializer(jobs: jobs)
-      serializer.writeDOT(to: &stdoutStream)
+      var serializer = DOTJobGraphSerializer(jobs: jobs, toolchain: toolchain)
+      try serializer.writeDOT(to: &stdoutStream)
       stdoutStream.flush()
       return
     }
@@ -1023,6 +1025,7 @@ extension Driver {
         stderrStream.flush()
       }
       try executor.execute(job: inPlaceJob,
+                           toolPath: try toolchain.getToolPath(inPlaceJob.tool),
                            forceResponseFiles: forceResponseFiles,
                            recordedInputModificationDates: recordedInputModificationDates)
     }
@@ -1054,16 +1057,26 @@ extension Driver {
       diagnosticEngine: diagnosticEngine)
   }
 
+  private func toolLocations(for jobs: [Job]) throws -> [Tool: AbsolutePath] {
+    try .init(jobs.map { job in
+      (job.tool, try toolchain.getToolPath(job.tool))
+    }, uniquingKeysWith: { $1 })
+  }
+
   private mutating func performTheBuild(
     allJobs: [Job],
     jobExecutionDelegate: JobExecutionDelegate,
     forceResponseFiles: Bool
   ) throws {
     let continueBuildingAfterErrors = computeContinueBuildingAfterErrors()
+    // Note: this assumes that any jobs discovered later in an incremental compile
+    // won't use any tools not used by the initial set.
+    let tools = try toolLocations(for: allJobs)
     try executor.execute(
       workload: .init(allJobs,
                       incrementalCompilationState,
-                      continueBuildingAfterErrors: continueBuildingAfterErrors),
+                      continueBuildingAfterErrors: continueBuildingAfterErrors,
+                      toolLocations: tools),
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
@@ -1091,9 +1104,9 @@ extension Driver {
       incrementalCompilationState?.skippedCompilationInputs)
   }
 
-  private func printBindings(_ job: Job) {
+  private func printBindings(_ job: Job) throws {
     stdoutStream <<< #"# ""# <<< targetTriple.triple
-    stdoutStream <<< #"" - ""# <<< job.tool.basename
+    stdoutStream <<< #"" - ""# <<< (try toolchain.getToolPath(job.tool).basename)
     stdoutStream <<< #"", inputs: ["#
     stdoutStream <<< job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
 
@@ -2331,10 +2344,12 @@ extension Driver {
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
+    let targetInfoJob = try toolchain.printTargetInfoJob(target: nil,
+                                                         targetVariant: nil,
+                                                         swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo)
     return try executor.execute(
-      job: toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                        swiftCompilerPrefixArgs:
-                                          frontendOverride.prefixArgsForTargetInfo),
+      job: targetInfoJob,
+      toolPath: try toolchain.getToolPath(targetInfoJob.tool),
       capturingJSONOutputAs: FrontendTargetInfo.self,
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).target.triple
@@ -2391,15 +2406,17 @@ extension Driver {
 
     // Query the frontend for target information.
     do {
+      let targetInfoJob = try toolchain.printTargetInfoJob(
+        target: explicitTarget, targetVariant: explicitTargetVariant,
+        sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+        runtimeCompatibilityVersion:
+          parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+        useStaticResourceDir: useStaticResourceDir,
+        swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo
+      )
       var info: FrontendTargetInfo = try executor.execute(
-        job: toolchain.printTargetInfoJob(
-          target: explicitTarget, targetVariant: explicitTargetVariant,
-          sdkPath: sdkPath, resourceDirPath: resourceDirPath,
-          runtimeCompatibilityVersion:
-            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
-          useStaticResourceDir: useStaticResourceDir,
-          swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo
-        ),
+        job: targetInfoJob,
+        toolPath: try toolchain.getToolPath(targetInfoJob.tool),
         capturingJSONOutputAs: FrontendTargetInfo.self,
         forceResponseFiles: false,
         recordedInputModificationDates: [:])

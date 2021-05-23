@@ -1421,7 +1421,7 @@ extension Job {
                                       type: .swift)
     try! self.init(moduleName: "nothing",
                    kind: .compile,
-                   tool: VirtualPath(path: ""),
+                   tool: .swiftCompiler,
                    commandLine: [],
                    inputs:  [input],
                    primaryInputs: [input],

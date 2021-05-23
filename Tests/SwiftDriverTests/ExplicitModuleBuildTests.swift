@@ -816,9 +816,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                      "-module-cache-path", moduleCachePath
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
-                                                                                exhaustive: true)
+      let (jobs, danglingJobs, compilerPath) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                              into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                              exhaustive: true)
 
       XCTAssertTrue(danglingJobs.count == 2)
       XCTAssertTrue(danglingJobs.allSatisfy { job in
@@ -862,9 +862,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
-                                                                                exhaustive: false)
+      let (jobs, danglingJobs, compilerPath) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                              into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                              exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
       XCTAssertTrue(jobs.count == 18)
@@ -900,9 +900,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
-                                                                                exhaustive: false)
+      let (jobs, danglingJobs, compilerPath) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                              into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                              exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
       XCTAssert(jobs.count == 3)
@@ -916,9 +916,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
-                                                                                exhaustive: false)
+      let (jobs, danglingJobs, compilerPath) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                                              into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                              exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
       XCTAssertTrue(jobs.count == 9)
@@ -936,7 +936,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, _, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
                                                                                 into: VirtualPath(path: "/tmp/").absolutePath!,
                                                                                 exhaustive: false)
       let F = findJob(jobs, "F", "arm64-apple-macos")!

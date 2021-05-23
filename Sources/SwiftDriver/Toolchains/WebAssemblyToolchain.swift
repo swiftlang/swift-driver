@@ -93,7 +93,10 @@ import SwiftOptions
          .staticLinker(.llvmThin):
       return try lookup(executable: "llvm-ar")
     case .dynamicLinker:
-      // FIXME: This needs to look in the tools_directory first.
+      if let toolsDirectory = toolDirectory,
+         let clangPath = lookupExecutablePath(filename: "clang", searchPaths: [toolsDirectory]) {
+        return clangPath
+      }
       return try lookup(executable: "clang")
     case .clang:
       return try lookup(executable: "clang")

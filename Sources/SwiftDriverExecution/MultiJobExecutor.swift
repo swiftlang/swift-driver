@@ -91,6 +91,9 @@ public final class MultiJobExecutor {
     /// The value of the option
     let continueBuildingAfterErrors: Bool
 
+    /// The locations of tools used to run jobs.
+    let toolLocations: [SwiftDriver.Tool: AbsolutePath]
+
 
     init(
       argsResolver: ArgsResolver,
@@ -126,6 +129,7 @@ public final class MultiJobExecutor {
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
       self.testInputHandle = inputHandleOverride
+      self.toolLocations = workload.toolLocations
     }
 
     private static func fillInJobsAndProducers(_ workload: DriverExecutorWorkload
@@ -575,6 +579,7 @@ class ExecuteJobRule: LLBuildRule {
     var pid = 0
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
+                                                                 toolPath: context.toolLocations[job.tool]!,
                                                                  forceResponseFiles: context.forceResponseFiles)
 
 

@@ -29,7 +29,7 @@ internal extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               tool: .swiftCompiler,
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
@@ -132,6 +132,7 @@ internal extension Driver {
       // `swift-frontend -scan-dependencies`
       dependencyGraph =
         try self.executor.execute(job: scannerJob,
+                                  toolPath: try toolchain.getToolPath(scannerJob.tool),
                                   capturingJSONOutputAs: InterModuleDependencyGraph.self,
                                   forceResponseFiles: forceResponseFiles,
                                   recordedInputModificationDates: recordedInputModificationDates)
@@ -192,6 +193,7 @@ internal extension Driver {
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     let batchScanResult =
       try self.executor.execute(job: batchScanningJob,
+                                toolPath: try toolchain.getToolPath(batchScanningJob.tool),
                                 forceResponseFiles: forceResponseFiles,
                                 recordedInputModificationDates: recordedInputModificationDates)
     let success = batchScanResult.exitStatus == .terminated(code: EXIT_SUCCESS)
@@ -266,7 +268,7 @@ internal extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               tool: .swiftCompiler,
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
@@ -288,6 +290,7 @@ internal extension Driver {
   fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
                                       using resolver: ArgsResolver) throws -> [String] {
     let (args, _) = try resolver.resolveArgumentList(for: job,
+                                                     toolPath: toolchain.getToolPath(job.tool),
                                                      forceResponseFiles: forceResponseFiles,
                                                      quotePaths: true)
     return args

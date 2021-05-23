@@ -78,7 +78,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .mergeModule,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: .swiftCompiler,
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],

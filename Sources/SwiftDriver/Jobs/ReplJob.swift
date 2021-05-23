@@ -26,7 +26,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .repl,
-      tool: .absolute(try toolchain.getToolPath(.lldb)),
+      tool: .lldb,
       commandLine: lldbCommandLine,
       inputs: inputs,
       primaryInputs: [],

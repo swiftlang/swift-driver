@@ -129,7 +129,9 @@ final class ParsableMessageTests: XCTestCase {
                                          "-working-directory", "/WorkDir"])
           let jobs = try driver.planBuild()
           let compileJob = jobs[0]
-          let args : [String] = try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+          let args : [String] = try resolver.resolveArgumentList(for: compileJob,
+                                                                 toolPath: .init("/path/to/swift-frontent"),
+                                                                 forceResponseFiles: false)
           let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                    buildRecordInfo: nil,
                                                    incrementalCompilationState: nil,
@@ -207,7 +209,9 @@ final class ParsableMessageTests: XCTestCase {
                                          "-working-directory", "/WorkDir"])
           let jobs = try driver.planBuild()
           compileJob = jobs[0]
-          args = try resolver.resolveArgumentList(for: compileJob!, forceResponseFiles: false)
+          args = try resolver.resolveArgumentList(for: compileJob!,
+                                                  toolPath: .init("/path/to/swift-frontent"),
+                                                  forceResponseFiles: false)
           toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                buildRecordInfo: nil,
                                                incrementalCompilationState: nil,
@@ -285,6 +289,7 @@ final class ParsableMessageTests: XCTestCase {
           let jobs = try driver.planBuild()
           compileJob = jobs[0]
           args  = try resolver.resolveArgumentList(for: compileJob!,
+                                                   toolPath: .init("/path/to/swift-frontend"),
                                                    forceResponseFiles: false)
           toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                buildRecordInfo: nil,

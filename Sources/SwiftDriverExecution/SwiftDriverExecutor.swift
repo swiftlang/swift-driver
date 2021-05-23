@@ -33,9 +33,11 @@ public final class SwiftDriverExecutor: DriverExecutor {
   }
 
   public func execute(job: Job,
+                      toolPath: AbsolutePath,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
+                                                               toolPath: toolPath,
                                                                forceResponseFiles: forceResponseFiles)
 
     try job.verifyInputsNotModified(since: recordedInputModificationDates,
@@ -86,8 +88,10 @@ public final class SwiftDriverExecutor: DriverExecutor {
     return try Process.checkNonZeroExit(arguments: args, environment: environment)
   }
 
-  public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
-    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+  public func description(of job: Job, toolPath: AbsolutePath, forceResponseFiles: Bool) throws -> String {
+    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job,
+                                                                    toolPath: toolPath,
+                                                                    forceResponseFiles: forceResponseFiles)
     var result = args.map { $0.spm_shellEscaped() }.joined(separator: " ")
 
     if usedResponseFile {

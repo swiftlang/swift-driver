@@ -25,6 +25,73 @@ public enum Tool: Hashable {
   case swiftHelp
 }
 
+extension Tool: Codable {
+  enum CodingKeys: CodingKey {
+    case swiftCompiler
+    case staticLinker
+    case dynamicLinker
+    case clang
+    case swiftAutolinkExtract
+    case dsymutil
+    case lldb
+    case dwarfdump
+    case swiftHelp
+  }
+
+  public init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    guard let key = values.allKeys.first(where: values.contains) else {
+      throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+    }
+    switch key {
+    case .swiftCompiler:
+      self = .swiftCompiler
+    case .staticLinker:
+      var container = try values.nestedUnkeyedContainer(forKey: .staticLinker)
+      self = .staticLinker(try container.decode(LTOKind?.self))
+    case .dynamicLinker:
+      self = .dynamicLinker
+    case .clang:
+      self = .clang
+    case .swiftAutolinkExtract:
+      self = .swiftAutolinkExtract
+    case .dsymutil:
+      self = .dsymutil
+    case .lldb:
+      self = .lldb
+    case .dwarfdump:
+      self = .dwarfdump
+    case .swiftHelp:
+      self = .swiftHelp
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    switch self {
+    case .swiftCompiler:
+      _ = container.nestedUnkeyedContainer(forKey: .swiftCompiler)
+    case .staticLinker(let ltoKind):
+      var nestedContainer = container.nestedUnkeyedContainer(forKey: .staticLinker)
+      try nestedContainer.encode(ltoKind)
+    case .dynamicLinker:
+      _ = container.nestedUnkeyedContainer(forKey: .dynamicLinker)
+    case .clang:
+      _ = container.nestedUnkeyedContainer(forKey: .clang)
+    case .swiftAutolinkExtract:
+      _ = container.nestedUnkeyedContainer(forKey: .swiftAutolinkExtract)
+    case .dsymutil:
+      _ = container.nestedUnkeyedContainer(forKey: .dsymutil)
+    case .lldb:
+      _ = container.nestedUnkeyedContainer(forKey: .lldb)
+    case .dwarfdump:
+      _ = container.nestedUnkeyedContainer(forKey: .dwarfdump)
+    case .swiftHelp:
+      _ = container.nestedUnkeyedContainer(forKey: .swiftHelp)
+    }
+  }
+}
+
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 @_spi(Testing) public protocol Toolchain {
@@ -77,7 +144,7 @@ public enum Tool: Hashable {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> AbsolutePath
+  ) throws -> Tool
 
   func runtimeLibraryName(
     for sanitizer: Sanitizer,

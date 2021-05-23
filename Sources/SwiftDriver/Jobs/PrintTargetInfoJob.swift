@@ -163,7 +163,7 @@ extension Toolchain {
     return Job(
       moduleName: "",
       kind: .printTargetInfo,
-      tool: .absolute(try getToolPath(.swiftCompiler)),
+      tool: .swiftCompiler,
       commandLine: commandLine,
       displayInputs: [],
       inputs: [],

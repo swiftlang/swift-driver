@@ -53,7 +53,7 @@ extension GenericUnixToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> AbsolutePath {
+  ) throws -> Tool {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
@@ -98,19 +98,11 @@ extension GenericUnixToolchain {
       // Windows rather than msvcprt).  When C++ interop is enabled, we will need to
       // surface this via a driver flag.  For now, opt for the simpler approach of
       // just using `clang` and avoid a dependency on the C++ runtime.
-      var clangPath = try getToolPath(.clang)
-      if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
-        // FIXME: What if this isn't an absolute path?
-        let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
-
-        // If there is a clang in the toolchain folder, use that instead.
-        if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
-          clangPath = tool
-        }
-
-        // Look for binutils in the toolchain folder.
+      if let toolsDirPath = self.toolDirectory {
+        // The toolchain will ensure clang is looked up in the tools directory.
+        // Here, we just need to ensure we look for binutils in the toolchain folder.
         commandLine.appendFlag("-B")
-        commandLine.appendPath(toolsDir)
+        commandLine.appendPath(toolsDirPath)
       }
 
       // Executables on Linux get -pie
@@ -279,14 +271,14 @@ extension GenericUnixToolchain {
       // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return clangPath
+      return .clang
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")
       commandLine.appendPath(outputFile)
 
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
-      return try getToolPath(.staticLinker(lto))
+      return .staticLinker(lto)
     }
 
   }

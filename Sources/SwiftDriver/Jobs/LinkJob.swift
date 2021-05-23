@@ -52,7 +52,7 @@ extension Driver {
     }
 
     // Defer to the toolchain for platform-specific linking
-    let toolPath = try toolchain.addPlatformSpecificLinkerArgs(
+    let tool = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions,
       linkerOutputType: linkerOutputType!,
@@ -68,7 +68,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .link,
-      tool: .absolute(toolPath),
+      tool: tool,
       commandLine: commandLine,
       displayInputs: inputs,
       inputs: inputs,

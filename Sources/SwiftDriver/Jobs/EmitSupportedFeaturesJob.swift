@@ -39,7 +39,7 @@ extension Toolchain {
     return Job(
       moduleName: "",
       kind: .emitSupportedFeatures,
-      tool: .absolute(try getToolPath(.swiftCompiler)),
+      tool: .swiftCompiler,
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
@@ -80,6 +80,7 @@ extension Driver {
                                                       frontendOverride.prefixArgsForTargetInfo)
     let decodedSupportedFlagList = try executor.execute(
       job: frontendFeaturesJob,
+      toolPath: try toolchain.getToolPath(frontendFeaturesJob.tool),
       capturingJSONOutputAs: SupportedCompilerFeatures.self,
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).SupportedArguments

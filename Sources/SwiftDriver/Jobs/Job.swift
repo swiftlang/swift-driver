@@ -59,7 +59,7 @@ public struct Job: Codable, Equatable, Hashable {
   public var moduleName: String
 
   /// The tool to invoke.
-  public var tool: VirtualPath
+  public var tool: Tool
 
   /// The command-line arguments of the job.
   public var commandLine: [ArgTemplate]
@@ -100,7 +100,7 @@ public struct Job: Codable, Equatable, Hashable {
   public init(
     moduleName: String,
     kind: Kind,
-    tool: VirtualPath,
+    tool: Tool,
     commandLine: [ArgTemplate],
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],

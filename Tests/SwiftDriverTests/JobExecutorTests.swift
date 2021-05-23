@@ -130,7 +130,7 @@ final class JobExecutorTests: XCTestCase {
       let compileFoo = Job(
         moduleName: "main",
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: .swiftCompiler,
         commandLine: [
           "-frontend",
           "-c",
@@ -152,7 +152,7 @@ final class JobExecutorTests: XCTestCase {
       let compileMain = Job(
         moduleName: "main",
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: .swiftCompiler,
         commandLine: [
           "-frontend",
           "-c",
@@ -174,7 +174,7 @@ final class JobExecutorTests: XCTestCase {
       let link = Job(
         moduleName: "main",
         kind: .link,
-        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
+        tool: .dynamicLinker,
         commandLine: [
           .path(.temporary(RelativePath("foo.o"))),
           .path(.temporary(RelativePath("main.o"))),
@@ -193,8 +193,10 @@ final class JobExecutorTests: XCTestCase {
         primaryInputs: [],
         outputs: [.init(file: VirtualPath.relative(RelativePath("main")).intern(), type: .image)]
       )
+      let toolLocations = [Tool.swiftCompiler: try toolchain.getToolPath(.swiftCompiler),
+                           Tool.dynamicLinker: try toolchain.getToolPath(.dynamicLinker)]
       let delegate = JobCollectingDelegate()
-      let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link]),
+      let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link], toolLocations: toolLocations),
                                       resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
@@ -224,7 +226,7 @@ final class JobExecutorTests: XCTestCase {
       let compile = Job(
         moduleName: "main",
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: .swiftCompiler,
         commandLine: [
           "-frontend",
           "-c",
@@ -246,7 +248,7 @@ final class JobExecutorTests: XCTestCase {
       let link = Job(
         moduleName: "main",
         kind: .link,
-        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
+        tool: .dynamicLinker,
         commandLine: [
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
@@ -274,7 +276,10 @@ final class JobExecutorTests: XCTestCase {
       let testFile: FileHandle = FileHandle(forReadingAtPath: inputFile.description)!
       let delegate = JobCollectingDelegate()
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let executor = MultiJobExecutor(workload: .all([compile, link]),
+      let toolLocations = [Tool.swiftCompiler: try toolchain.getToolPath(.swiftCompiler),
+                           Tool.dynamicLinker: try toolchain.getToolPath(.dynamicLinker)]
+      let executor = MultiJobExecutor(workload: .all([compile, link],
+                                                     toolLocations: toolLocations),
                                       resolver: resolver, executorDelegate: delegate,
                                       diagnosticsEngine: DiagnosticsEngine(),
                                       inputHandleOverride: testFile)
@@ -291,7 +296,7 @@ final class JobExecutorTests: XCTestCase {
     let job = Job(
       moduleName: "main",
       kind: .compile,
-      tool: .absolute(AbsolutePath("/usr/bin/swift")),
+      tool: .swiftCompiler,
       commandLine: [.flag("something")],
       inputs: [],
       primaryInputs: [],
@@ -300,7 +305,9 @@ final class JobExecutorTests: XCTestCase {
 
     let delegate = JobCollectingDelegate()
     let executor = MultiJobExecutor(
-      workload: .all([job]), resolver: try ArgsResolver(fileSystem: localFileSystem),
+      workload: .all([job],
+                     toolLocations: [.swiftCompiler: .init("/path/to/swift-frontent")]),
+      resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
       diagnosticsEngine: DiagnosticsEngine(),
       processType: JobCollectingDelegate.StubProcess.self
@@ -372,11 +379,13 @@ final class JobExecutorTests: XCTestCase {
                                            env: [:])
     let job = Job(moduleName: "Module",
                   kind: .compile,
-                  tool: .absolute(.init("/path/to/the tool")),
+                  tool: .swiftCompiler,
                   commandLine: [.path(.absolute(.init("/with space"))),
                                 .path(.absolute(.init("/withoutspace")))],
                   inputs: [], primaryInputs: [], outputs: [])
-    XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
+    XCTAssertEqual(try executor.description(of: job,
+                                            toolPath: .init("/path/to/the tool"),
+                                            forceResponseFiles: false),
                    "'/path/to/the tool' '/with space' /withoutspace")
   }
 

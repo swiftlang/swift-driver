@@ -44,16 +44,20 @@ public final class ArgsResolver {
     }
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+  public func resolveArgumentList(for job: Job, toolPath: AbsolutePath, forceResponseFiles: Bool,
                                   quotePaths: Bool = false) throws -> [String] {
-    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles,
+    let (arguments, _) = try resolveArgumentList(for: job,
+                                                 toolPath: toolPath,
+                                                 forceResponseFiles: forceResponseFiles,
                                                  quotePaths: quotePaths)
     return arguments
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+  public func resolveArgumentList(for job: Job,
+                                  toolPath: AbsolutePath,
+                                  forceResponseFiles: Bool,
                                   quotePaths: Bool = false) throws -> ([String], usingResponseFile: Bool) {
-    let tool = try resolve(.path(job.tool), quotePaths: quotePaths)
+    let tool = try resolve(.path(.absolute(toolPath)), quotePaths: quotePaths)
     var arguments = [tool] + (try job.commandLine.map { try resolve($0, quotePaths: quotePaths) })
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
                                                            forceResponseFiles: forceResponseFiles)

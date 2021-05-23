@@ -119,7 +119,7 @@ do {
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
-    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
+    let (jobs, danglingJobs, compilerPath) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
     if verbose {
       Driver.stdErrQueue.sync {
         stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
@@ -131,7 +131,9 @@ do {
     }
     let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose)
     do {
-      try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
+      try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil,
+                                                                 continueBuildingAfterErrors: true,
+                                                                 toolLocations: [.swiftCompiler: compilerPath]),
                            delegate: delegate, numParallelJobs: 128)
     } catch {
       // Only fail when critical failures happened.
@@ -141,7 +143,10 @@ do {
     }
     do {
       if !danglingJobs.isEmpty && delegate.shouldRunDanglingJobs {
-        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
+        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil,
+                                                                   continueBuildingAfterErrors: true,
+                                                                   toolLocations: [.swiftCompiler: compilerPath]),
+                             delegate: delegate, numParallelJobs: 128)
       }
     } catch {
       // Failing of dangling jobs don't fail the process.

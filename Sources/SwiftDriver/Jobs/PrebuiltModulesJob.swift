@@ -275,7 +275,7 @@ extension Driver {
     return Job(
       moduleName: moduleName,
       kind: .compile,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: .swiftCompiler,
       commandLine: commandLine,
       inputs: dependencies,
       primaryInputs: [],
@@ -285,7 +285,7 @@ extension Driver {
 
   public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
                                                            into prebuiltModuleDir: AbsolutePath,
-                                                           exhaustive: Bool) throws -> ([Job], [Job]) {
+                                                           exhaustive: Bool) throws -> ([Job], [Job], AbsolutePath) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
     // We only need Swift dependencies here, so we don't need to invoke gatherModuleDependencies,
@@ -396,7 +396,7 @@ extension Driver {
 
     // We are done if we don't need to handle all inputs exhaustively.
     if !exhaustive {
-      return (jobs, [])
+      return (jobs, [], try toolchain.getToolPath(.swiftCompiler))
     }
     // For each unhandled module, generate dangling jobs for each associated
     // interfaces.
@@ -414,6 +414,6 @@ extension Driver {
 
     // check we've generated jobs for all inputs
     assert(inputCount == jobs.count + danglingJobs.count)
-    return (jobs, danglingJobs)
+    return (jobs, danglingJobs, try toolchain.getToolPath(.swiftCompiler))
   }
 }

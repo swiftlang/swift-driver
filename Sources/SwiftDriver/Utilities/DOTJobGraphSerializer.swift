@@ -16,28 +16,21 @@ import TSCBasic
   var kindCounter = [Job.Kind: Int]()
   var hasEmittedStyling = Set<String>()
   let jobs: [Job]
+  let toolchain: Toolchain
 
   /// Creates a serializer that will serialize the given set of top level jobs.
-  public init(jobs: [Job]) {
+  public init(jobs: [Job], toolchain: Toolchain) {
     self.jobs = jobs
-  }
-
-  /// Gets the name of the tool that's being invoked from a job
-  func findToolName(_ path: VirtualPath) -> String {
-    switch path {
-    case .absolute(let abs): return abs.components.last!
-    case .relative(let rel): return rel.components.last!
-    default: fatalError("no tool for kind \(path)")
-    }
+    self.toolchain = toolchain
   }
 
   /// Gets a unique label for a job name
-  mutating func label(for job: Job) -> String {
+  mutating func label(for job: Job) throws -> String {
     var label = "\(job.kind)"
     if let count = kindCounter[job.kind] {
       label += " \(count)"
     }
-    label += " (\(findToolName(job.tool)))"
+    label += " (\(try toolchain.getToolPath(job.tool).basename))"
     kindCounter[job.kind, default: 0] += 1
     return label
   }
@@ -47,10 +40,10 @@ import TSCBasic
     return "\"" + name.replacingOccurrences(of: "\"", with: "\\\"") + "\""
   }
 
-  public mutating func writeDOT<Stream: TextOutputStream>(to stream: inout Stream) {
+  public mutating func writeDOT<Stream: TextOutputStream>(to stream: inout Stream) throws {
     stream.write("digraph Jobs {\n")
     for job in jobs {
-      let jobName = quoteName(label(for: job))
+      let jobName = quoteName(try label(for: job))
       if !hasEmittedStyling.contains(jobName) {
         stream.write("  \(jobName) [style=bold];\n")
       }
