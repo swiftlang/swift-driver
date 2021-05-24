@@ -469,8 +469,18 @@ extension Driver {
 
     let linkJ = try linkJob(inputs: linkerInputs)
     addJob(linkJ)
-    guard targetTriple.isDarwin, debugInfo.level != nil
-    else {return }
+    guard targetTriple.isDarwin
+    else { return }
+
+    switch linkerOutputType {
+    case .none, .some(.staticLibrary):
+      // Cannot generate a dSYM bundle for a non-image target.
+      return
+
+    case .some(.dynamicLibrary), .some(.executable):
+      guard debugInfo.level != nil
+      else { return }
+    }
 
     let dsymJob = try generateDSYMJob(inputs: linkJ.outputs)
     addJob(dsymJob)

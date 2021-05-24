@@ -3011,6 +3011,24 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      var env = ProcessEnv.vars
+      // As per Unix conventions, /var/empty is expected to exist and be empty.
+      // This gives us a non-existent path that we can use for libtool which
+      // allows us to run this this on non-Darwin platforms.
+      env["SWIFT_DRIVER_LIBTOOL_EXEC"] = "/var/empty/libtool"
+
+      // No dSYM generation (-g -emit-library -static)
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-apple-macosx10.15", "-g", "-emit-library",
+        "-static", "-o", "library.a", "library.swift"
+      ], env: env)
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 3)
+      XCTAssertFalse(jobs.contains { $0.kind == .generateDSYM })
+    }
+
+    do {
       // dSYM generation (-g)
       var driver = try Driver(args: commonArgs + ["-g"])
       let plannedJobs = try driver.planBuild()
