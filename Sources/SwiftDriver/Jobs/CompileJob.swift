@@ -366,12 +366,20 @@ extension Driver {
       let pchInput = TypedVirtualPath(file: pchPath, type: .pch)
       inputs.append(pchInput)
     }
+
+    let displayInputs : [TypedVirtualPath]
+    if case .singleCompile = compilerMode {
+      displayInputs = inputs
+    } else {
+      displayInputs = primaryInputs
+    }
+
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
-      displayInputs: primaryInputs,
+      displayInputs: displayInputs,
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
