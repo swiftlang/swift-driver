@@ -31,6 +31,8 @@ extension Option {
   public static let avoidLocation_: Option = Option("--avoid-location", .flag, alias: Option.avoidLocation, attributes: [.noDriver], helpText: "Avoid serializing the file paths of SDK nodes.")
   public static let avoidToolArgs: Option = Option("-avoid-tool-args", .flag, attributes: [.noDriver], helpText: "Avoid serializing the arguments for invoking the tool.")
   public static let avoidToolArgs_: Option = Option("--avoid-tool-args", .flag, alias: Option.avoidToolArgs, attributes: [.noDriver], helpText: "Avoid serializing the arguments for invoking the tool.")
+  public static let backupModuleInterfacePathEQ: Option = Option("-backup-module-interface-path=", .joined, alias: Option.backupModuleInterfacePath, attributes: [.helpHidden, .frontend, .noDriver])
+  public static let backupModuleInterfacePath: Option = Option("-backup-module-interface-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Directory of module interfaces as backups to those from SDKs")
   public static let badFileDescriptorRetryCount: Option = Option("-bad-file-descriptor-retry-count", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Number of retrying opening a file if previous open returns a bad file descriptor error.")
   public static let baselineDir: Option = Option("-baseline-dir", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "The path to a directory containing baseline files: macos.json, iphoneos.json, appletvos.json, watchos.json, and iosmac.json")
   public static let baselinePath: Option = Option("-baseline-path", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "The path to the Json file that we should use as the baseline")
@@ -259,7 +261,6 @@ extension Option {
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
   public static let enableExperimentalAdditiveArithmeticDerivation: Option = Option("-enable-experimental-additive-arithmetic-derivation", .flag, attributes: [.frontend], helpText: "Enable experimental 'AdditiveArithmetic' derived conformances")
-  public static let enableExperimentalAsyncHandler: Option = Option("-enable-experimental-async-handler", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental @asyncHandler feature")
   public static let enableExperimentalConcisePoundFile: Option = Option("-enable-experimental-concise-pound-file", .flag, attributes: [.frontend, .moduleInterface], helpText: "Enable experimental concise '#file' identifier")
   public static let enableExperimentalConcurrency: Option = Option("-enable-experimental-concurrency", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental concurrency model")
   public static let enableExperimentalCxxInterop: Option = Option("-enable-experimental-cxx-interop", .flag, helpText: "Allow importing C++ modules into Swift (experimental feature)")
@@ -287,7 +288,6 @@ extension Option {
   public static let enableSourceImport: Option = Option("-enable-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable importing of Swift source files")
   public static let enableSpecDevirt: Option = Option("-enable-spec-devirt", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable speculative devirtualization pass.")
   public static let enableSwift3ObjcInference: Option = Option("-enable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable Swift 3's @objc inference rules for NSObject-derived classes and 'dynamic' members (emulates Swift 3 behavior)")
-  public static let enableSwiftcall: Option = Option("-enable-swiftcall", .flag, attributes: [.frontend, .noDriver], helpText: "Enable the use of LLVM swiftcall support")
   public static let enableTargetOsChecking: Option = Option("-enable-target-os-checking", .flag, attributes: [.frontend, .noDriver], helpText: "Enable checking the target OS of serialized modules")
   public static let enableTestableAttrRequiresTestableModule: Option = Option("-enable-testable-attr-requires-testable-module", .flag, attributes: [.frontend, .noDriver], helpText: "Enable checking of @testable")
   public static let enableTesting: Option = Option("-enable-testing", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal API to be accessed for testing")
@@ -457,6 +457,8 @@ extension Option {
   public static let profileUse: Option = Option("-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply a profdata file to enable profile-guided optimization")
   public static let protocolRequirementAllowList: Option = Option("-protocol-requirement-allow-list", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let protocolRequirementAllowList_: Option = Option("--protocol-requirement-allow-list", .separate, alias: Option.protocolRequirementAllowList, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
+  public static let RaccessNoteEQ: Option = Option("-Raccess-note=", .joined, alias: Option.RaccessNote, attributes: [.frontend, .noDriver])
+  public static let RaccessNote: Option = Option("-Raccess-note", .separate, attributes: [.frontend, .noDriver], metaVar: "none|failures|all|all-validate", helpText: "Control access note remarks (default: all)")
   public static let emitCrossImportRemarks: Option = Option("-Rcross-import", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark if a cross-import of a module is triggered.")
   public static let readLegacyTypeInfoPathEQ: Option = Option("-read-legacy-type-info-path=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Read legacy type layout from the given path instead of default path")
   public static let RemoveRuntimeAsserts: Option = Option("-remove-runtime-asserts", .flag, attributes: [.frontend], helpText: "Remove runtime safety checks.")
@@ -549,7 +551,7 @@ extension Option {
   public static let useMalloc: Option = Option("-use-malloc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allocate internal data structures using malloc (for memory debugging)")
   public static let useStaticResourceDir: Option = Option("-use-static-resource-dir", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use resources in the static resource directory")
   public static let useTabs: Option = Option("-use-tabs", .flag, attributes: [.noInteractive, .noBatch, .indent], helpText: "Use tabs for indentation.", group: .codeFormatting)
-  public static let userModuleVersion: Option = Option("-user-module-version", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Module version specified from Swift module authors")
+  public static let userModuleVersion: Option = Option("-user-module-version", .separate, attributes: [.frontend], metaVar: "<vers>", helpText: "Module version specified from Swift module authors")
   public static let validateTbdAgainstIrEQ: Option = Option("-validate-tbd-against-ir=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<level>", helpText: "Compare the symbols in the IR against the TBD file that would be generated.")
   public static let valueRecursionThreshold: Option = Option("-value-recursion-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the maximum depth for direct recursion in value types")
   public static let verifyAdditionalFile: Option = Option("-verify-additional-file", .separate, attributes: [.frontend, .noDriver], helpText: "Verify diagnostics in this file in addition to source files")
@@ -613,6 +615,8 @@ extension Option {
       Option.avoidLocation_,
       Option.avoidToolArgs,
       Option.avoidToolArgs_,
+      Option.backupModuleInterfacePathEQ,
+      Option.backupModuleInterfacePath,
       Option.badFileDescriptorRetryCount,
       Option.baselineDir,
       Option.baselinePath,
@@ -841,7 +845,6 @@ extension Option {
       Option.enableDeserializationRecovery,
       Option.enableDynamicReplacementChaining,
       Option.enableExperimentalAdditiveArithmeticDerivation,
-      Option.enableExperimentalAsyncHandler,
       Option.enableExperimentalConcisePoundFile,
       Option.enableExperimentalConcurrency,
       Option.enableExperimentalCxxInterop,
@@ -869,7 +872,6 @@ extension Option {
       Option.enableSourceImport,
       Option.enableSpecDevirt,
       Option.enableSwift3ObjcInference,
-      Option.enableSwiftcall,
       Option.enableTargetOsChecking,
       Option.enableTestableAttrRequiresTestableModule,
       Option.enableTesting,
@@ -1039,6 +1041,8 @@ extension Option {
       Option.profileUse,
       Option.protocolRequirementAllowList,
       Option.protocolRequirementAllowList_,
+      Option.RaccessNoteEQ,
+      Option.RaccessNote,
       Option.emitCrossImportRemarks,
       Option.readLegacyTypeInfoPathEQ,
       Option.RemoveRuntimeAsserts,
