@@ -609,10 +609,6 @@ extension IncrementalCompilationTests {
     #endif
   }
 
-  private func postCompileOutputs() -> [AbsolutePath] {
-    abort()
-  }
-
   func testIncremental(checkDiagnostics: Bool) throws {
     try tryInitial(checkDiagnostics: checkDiagnostics)
     #if true // sometimes want to skip for debugging
