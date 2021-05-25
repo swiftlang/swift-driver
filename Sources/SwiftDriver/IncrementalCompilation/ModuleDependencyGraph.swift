@@ -209,10 +209,9 @@ extension ModuleDependencyGraph {
     let diags = info.diagnosticEngine
     var allFound = true
     for input in info.inputFiles {
-      if let source = ofm.getDependencySource(for: input, diagnosticEngine: diags) {
+      if let source = ofm.dependencySource(for: input, diagnosticEngine: diags) {
         inputDependencySourceMap.addEntry(input, source, for: purpose)
-      }
-      else {
+      } else {
         // Don't break in order to report all failures.
         allFound = false
       }
@@ -221,7 +220,7 @@ extension ModuleDependencyGraph {
   }
 }
 extension OutputFileMap {
-  fileprivate func getDependencySource(
+  fileprivate func dependencySource(
     for sourceFile: TypedVirtualPath,
     diagnosticEngine: DiagnosticsEngine
   ) -> DependencySource? {
@@ -345,8 +344,7 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
     for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = input(neededFor: invalidatedSwiftDeps)
-      else {
+      guard let invalidatedInput = input(neededFor: invalidatedSwiftDeps) else {
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)
