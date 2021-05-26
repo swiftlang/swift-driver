@@ -499,6 +499,7 @@ extension Option {
   public static let silVerifyAll: Option = Option("-sil-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify SIL after each transform")
   public static let silVerifyNone: Option = Option("-sil-verify-none", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable SIL verification")
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
+  public static let skipSwifttailccMusttailCheck: Option = Option("-skip-swifttailcc-musttail-check", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Skip additional LLVM verification that all tail calls from swifttailcc->swifttailcc are marked musttail.")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
   public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
@@ -1083,6 +1084,7 @@ extension Option {
       Option.silVerifyAll,
       Option.silVerifyNone,
       Option.skipInheritedDocs,
+      Option.skipSwifttailccMusttailCheck,
       Option.skipSynthesizedMembers,
       Option.solverDisableShrink,
       Option.solverExpressionTimeThresholdEQ,
