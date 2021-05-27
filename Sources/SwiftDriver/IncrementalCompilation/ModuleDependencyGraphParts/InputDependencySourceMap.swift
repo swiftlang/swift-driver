@@ -9,9 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
-import TSCBasic
 
-@_spi(Testing) public struct InputDependencySourceMap: Equatable {
+@_spi(Testing) public struct InputDependencySourceMap: Equatable, Sequence {
   
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
   ///
@@ -29,36 +28,19 @@ import TSCBasic
   
   public typealias BiMap = BidirectionalMap<TypedVirtualPath, DependencySource>
   @_spi(Testing) public var biMap = BiMap()
-}
-
-// MARK: - Accessing
-extension InputDependencySourceMap {
-  @_spi(Testing) public func getSourceIfKnown(for input: TypedVirtualPath) -> DependencySource? {
-    biMap[input]
+  
+  @_spi(Testing) public subscript(input: TypedVirtualPath) -> DependencySource? {
+    get { biMap[input] }
+    set { biMap[input] = newValue }
+  }
+  
+  @_spi(Testing) public private(set) subscript(dependencySource: DependencySource) -> TypedVirtualPath? {
+    get { biMap[dependencySource] }
+    set { biMap[dependencySource] = newValue }
   }
 
-  @_spi(Testing) public func getInputIfKnown(for source: DependencySource) -> TypedVirtualPath? {
-    biMap[source]
+  public func makeIterator() -> BiMap.Iterator {
+    biMap.makeIterator()
   }
 
-  @_spi(Testing) public func enumerateToSerializePriors(
-    _ eachFn: (TypedVirtualPath, DependencySource) -> Void
-  ) {
-    biMap.forEach(eachFn)
-  }
-}
-
-// MARK: - Populating
-extension InputDependencySourceMap {
-  public enum AdditionPurpose {
-    case mocking,
-         buildingFromSwiftDeps,
-         readingPriors,
-         inputsAddedSincePriors }
-  @_spi(Testing) public mutating func addEntry(_ input: TypedVirtualPath,
-                                               _ dependencySource: DependencySource,
-                                               `for` _ : AdditionPurpose) {
-    assert(input.type == .swift && dependencySource.typedFile.type == .swiftDeps)
-    biMap[input] = dependencySource
-  }
 }
