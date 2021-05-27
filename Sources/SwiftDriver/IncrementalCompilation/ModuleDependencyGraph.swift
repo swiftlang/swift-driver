@@ -54,19 +54,19 @@ import SwiftOptions
     self.creationPhase = phase
   }
 
-  @_spi(Testing) public func source(requiredFor input: TypedVirtualPath,
-                                    function: String = #function,
-                                    file: String = #file,
-                                    line: Int = #line) -> DependencySource {
-    guard let source = inputDependencySourceMap.sourceIfKnown(for: input)
+  @_spi(Testing) public func getRequiredSource(for input: TypedVirtualPath,
+                                               function: String = #function,
+                                               file: String = #file,
+                                               line: Int = #line) -> DependencySource {
+    guard let source = inputDependencySourceMap.getSourceIfKnown(for: input)
     else {
       fatalError("\(input.file.basename) not found in inputDependencySourceMap, \(file):\(line) in \(function)")
     }
     return source
   }
 
-  @_spi(Testing) public func input(neededFor source: DependencySource) -> TypedVirtualPath? {
-    guard let input = inputDependencySourceMap.input(ifKnownFor: source)
+  @_spi(Testing) public func getNeededInput(for source: DependencySource) -> TypedVirtualPath? {
+    guard let input = inputDependencySourceMap.getInputIfKnown(for: source)
     else {
       info.diagnosticEngine.emit(warning: "Failed to find source file for '\(source.file.basename)', recovering with a full rebuild. Next build will be incremental.")
       return nil
@@ -141,7 +141,7 @@ extension ModuleDependencyGraph {
       return TransitivelyInvalidatedInputSet()
     }
     return collectInputsRequiringCompilationAfterProcessing(
-      dependencySource: source(requiredFor: input))
+      dependencySource: getRequiredSource(for: input))
   }
 }
 
@@ -161,14 +161,14 @@ extension ModuleDependencyGraph {
   /// speculatively scheduled in the first wave.
   func collectInputsInvalidatedBy(input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputArray {
-    let changedSource = source(requiredFor: input)
+    let changedSource = getRequiredSource(for: input)
     let allDependencySourcesToRecompile =
       collectSwiftDepsUsing(dependencySource: changedSource)
 
     return allDependencySourcesToRecompile.compactMap {
       depedencySource in
       guard depedencySource != changedSource else {return nil}
-      let dependentInput = inputDependencySourceMap.input(ifKnownFor: depedencySource)
+      let dependentInput = inputDependencySourceMap.getInputIfKnown(for: depedencySource)
       info.reporter?.report(
         "Found dependent of \(input.file.basename):", dependentInput)
       return dependentInput
@@ -188,7 +188,7 @@ extension ModuleDependencyGraph {
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: TypedVirtualPath) -> Bool {
     precondition(file.type == .swift)
-    guard let source = inputDependencySourceMap.sourceIfKnown(for: file) else {
+    guard let source = inputDependencySourceMap.getSourceIfKnown(for: file) else {
       return false
     }
     return containsNodes(forDependencySource: source)
@@ -201,7 +201,7 @@ extension ModuleDependencyGraph {
   
   /// Returns: false on error
   func populateInputDependencySourceMap(
-    for purpose: InputDependencySourceMap.AdditionPurpose
+    `for` purpose: InputDependencySourceMap.AdditionPurpose
   ) -> Bool {
     let ofm = info.outputFileMap
     let diags = info.diagnosticEngine
@@ -248,7 +248,7 @@ extension ModuleDependencyGraph {
   func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet? {
     precondition(input.type == .swift)
-    let dependencySource = source(requiredFor: input)
+    let dependencySource = getRequiredSource(for: input)
     return collectInputsRequiringCompilationAfterProcessing(
       dependencySource: dependencySource)
   }
@@ -343,7 +343,7 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
     for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = input(neededFor: invalidatedSwiftDeps)
+      guard let invalidatedInput = getNeededInput(for: invalidatedSwiftDeps)
       else {
         return nil
       }
