@@ -24,7 +24,19 @@ import SwiftOptions
   @_spi(Testing) public var nodeFinder = NodeFinder()
   
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
-  @_spi(Testing) public private(set) var inputDependencySourceMap = InputDependencySourceMap()
+  ///
+  // FIXME: The map between swiftdeps and swift files is absolutely *not*
+  // a bijection. In particular, more than one swiftdeps file can be encountered
+  // in the course of deserializing priors *and* reading the output file map
+  // *and* re-reading swiftdeps files after frontends complete
+  // that correspond to the same swift file. These cause two problems:
+  // - overwrites in this data structure that lose data and
+  // - cache misses in `getInput(for:)` that cause the incremental build to
+  // turn over when e.g. entries in the output file map change. This should be
+  // replaced by a multi-map from swift files to dependency sources,
+  // and a regular map from dependency sources to swift files -
+  // since that direction really is one-to-one.
+  @_spi(Testing) public private(set) var inputDependencySourceMap = BidirectionalMap<TypedVirtualPath, DependencySource>()
 
   // The set of paths to external dependencies known to be in the graph
   public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
@@ -1146,7 +1158,7 @@ extension Set where Element == ModuleDependencyGraph.Node {
   }
 }
 
-extension InputDependencySourceMap {
+extension BidirectionalMap where T1 == TypedVirtualPath, T2 == DependencySource {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
   }
