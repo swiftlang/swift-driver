@@ -121,8 +121,7 @@ extension ModuleDependencyGraph.Tracer {
         path.compactMap { node in
           node.dependencySource.map {
             source in
-            graph.inputDependencySourceMap.input(ifKnownFor: source).map {
-              input in
+            graph.inputDependencySourceMap[source].map { input in
               "\(node.key) in \(input.file.basename)"
             }
             ?? "\(node.key)"
