@@ -150,9 +150,7 @@ extension ModuleDependencyGraph {
   func collectNodesInvalidatedByChangedOrAddedExternals() -> DirectlyInvalidatedNodeSet {
     fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
       invalidatedNodes, fed in
-      invalidatedNodes.formUnion (
-        self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed,
-                                                 isPresentInTheGraph: true))
+      invalidatedNodes.formUnion(self.integrateExternal(.known(fed)))
     }
   }
 }
@@ -286,9 +284,9 @@ extension ModuleDependencyGraph {
   /// Given an external dependency & its fingerprint, find any nodes directly using that dependency.
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
-  /*@_spi(Testing)*/ public func collectUntracedNodesUsing(
-    _ why: ExternalDependency.Why,
-    _ fingerprintedExternalDependency: FingerprintedExternalDependency
+  /*@_spi(Testing)*/ public func collectUntracedNodes(
+    from fingerprintedExternalDependency: FingerprintedExternalDependency,
+    _ why: ExternalDependency.InvalidationReason
   ) -> DirectlyInvalidatedNodeSet {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(
@@ -353,45 +351,91 @@ extension ModuleDependencyGraph {
   }
 }
 
-// MARK: - processing external dependencies
+// MARK: - Integrating External Dependencies
+
 extension ModuleDependencyGraph {
+  /// The kinds of external dependencies available to integrate.
+  enum ExternalIntegrand {
+    /// A `known` integrand is known to be present in the graph and requires
+    /// only a mod-time check to determine if it is up to date.
+    case known(FingerprintedExternalDependency)
+    /// An `unknown` integrand is not, up to this point, known to the dependency
+    /// graph. This models the addition of an import that is discovered during
+    /// the incremental build.
+    case unknown(FingerprintedExternalDependency)
 
-  /// Process a possibly-fingerprinted external dependency by reading and integrating, if applicable.
-  /// Return the nodes thus invalidated.
-  /// But always integrate, in order to detect future changes.
-  /// This function does not to the transitive closure; that is left to the callers
-  func collectNodesInvalidatedByProcessing(
-    fingerprintedExternalDependency fed: FingerprintedExternalDependency,
-    isPresentInTheGraph: Bool?)
-  -> DirectlyInvalidatedNodeSet {
-
-    /// Compute this up front as an optimization.
-    let isNewToTheGraph = isPresentInTheGraph != true && fingerprintedExternalDependencies.insert(fed).inserted
-
-   let whyIntegrateForClosure = ExternalDependency.Why(
-    should: fed,
-    whichIsNewToTheGraph: isNewToTheGraph,
-    closeOverSwiftModulesIn: self)
-
-    let invalidatedNodesFromIncrementalExternal = whyIntegrateForClosure.flatMap { why in
-      collectNodesInvalidatedByAttemptingToProcess(why, fed)
+    var externalDependency: FingerprintedExternalDependency {
+      switch self {
+      case .known(let fed): return fed
+      case .unknown(let fed): return fed
+      }
     }
 
-    guard let whyInvalidate = ExternalDependency.Why(
-      shouldUsesOf: fed,
-      whichIsNewToTheGraph: isNewToTheGraph,
-      beInvalidatedIn: self)
-    else {
+    var isKnown: Bool {
+      switch self {
+      case .known(_): return true
+      case .unknown(_): return false
+      }
+    }
+  }
+
+  /// Collects the nodes invalidated by a change to the given external
+  /// dependency after integrating it into the dependency graph.
+  ///
+  /// This function does not to the transitive closure; that is left to the
+  /// callers.
+  ///
+  /// - Parameters:
+  ///   - integrand: The external dependency to integrate.
+  ///   - isKnown: If `true`, the caller is aware of this node and
+  ///              integration should assume it is a known external.
+  ///              If `false`, and the external has not been
+  ///              integrated before, it is treated as a freshly-
+  ///              added external dependency.
+  /// - Returns: The set of module dependency graph nodes invalidated by integration.
+  func integrateExternal(
+    _ integrand: ExternalIntegrand
+  ) -> DirectlyInvalidatedNodeSet {
+    guard let whyInvalidate = self.invalidationReason(for: integrand) else {
       return DirectlyInvalidatedNodeSet()
     }
 
-    // If there was an error integrating the external dependency, or if it was not an incremental one,
-    // return anything that uses that dependency.
-    return invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesUsing(whyInvalidate, fed)
+    if self.info.isCrossModuleIncrementalBuildEnabled {
+      if let ii = integrateIncrementalImport(of: integrand.externalDependency, whyInvalidate) {
+        return ii
+      }
+    }
+
+    // If we're compiling everything anyways, there's no need to trace.
+    // FIXME: Seems like
+    // 1) We could set this flag a lot earlier in some cases
+    // 2) It should apply to incremental imports as well.
+    guard !self.phase.isCompilingAllInputsNoMatterWhat else {
+      return DirectlyInvalidatedNodeSet()
+    }
+    return collectUntracedNodes(from: integrand.externalDependency, whyInvalidate)
   }
 
- func hasFileChanged(of externalDependency: ExternalDependency
-  ) -> Bool {
+  /// Figure out the reason to invalidate or process a dependency.
+  ///
+  /// Even if invalidation won't be reported to the caller, a new or added
+  /// incremental external dependencies may require integration in order to
+  /// transitively close them, (e.g. if an imported module imports a module).
+  private func invalidationReason(
+    for fed: ExternalIntegrand
+  ) -> ExternalDependency.InvalidationReason? {
+    let isNewToTheGraph = !fed.isKnown && fingerprintedExternalDependencies.insert(fed.externalDependency).inserted
+    if self.phase.shouldNewExternalDependenciesTriggerInvalidation && isNewToTheGraph {
+      return .added
+    }
+
+    if self.hasFileChanged(fed.externalDependency.externalDependency) {
+      return .changed
+    }
+    return nil
+  }
+
+  private func hasFileChanged(_ externalDependency: ExternalDependency) -> Bool {
     if let hasChanged = externalDependencyModTimeCache[externalDependency] {
       return hasChanged
     }
@@ -406,12 +450,13 @@ extension ModuleDependencyGraph {
 
   /// Try to read and integrate an external dependency.
   /// Return nil if it's not incremental, or if an error occurs.
-  private func collectNodesInvalidatedByAttemptingToProcess(
-    _ why: ExternalDependency.Why,
-    _ fed: FingerprintedExternalDependency
+  private func integrateIncrementalImport(
+    of fed: FingerprintedExternalDependency,
+    _ why: ExternalDependency.InvalidationReason
   ) -> DirectlyInvalidatedNodeSet? {
-    guard let source = fed.incrementalDependencySource,
-          let unserializedDepGraph = source.read(in: info.fileSystem, reporter: info.reporter)
+    guard
+      let source = fed.incrementalDependencySource,
+      let unserializedDepGraph = source.read(in: info.fileSystem, reporter: info.reporter)
     else {
       return nil
     }

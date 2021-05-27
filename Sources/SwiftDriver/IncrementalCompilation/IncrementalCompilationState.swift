@@ -432,7 +432,7 @@ extension IncrementalCompilationState {
     func reportInvalidated<Nodes: Sequence>(
       _ nodes: Nodes,
       by externalDependency: ExternalDependency,
-      _ why: ExternalDependency.Why
+      _ why: ExternalDependency.InvalidationReason
     )
     where Nodes.Element == ModuleDependencyGraph.Node
     {
