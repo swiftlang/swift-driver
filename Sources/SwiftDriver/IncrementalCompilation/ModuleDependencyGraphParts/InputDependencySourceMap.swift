@@ -33,11 +33,11 @@ import TSCBasic
 
 // MARK: - Accessing
 extension InputDependencySourceMap {
-  @_spi(Testing) public func getSourceIfKnown(for input: TypedVirtualPath) -> DependencySource? {
+  @_spi(Testing) public func sourceIfKnown(for input: TypedVirtualPath) -> DependencySource? {
     biMap[input]
   }
 
-  @_spi(Testing) public func getInputIfKnown(for source: DependencySource) -> TypedVirtualPath? {
+  @_spi(Testing) public func inputIfKnown(for source: DependencySource) -> TypedVirtualPath? {
     biMap[source]
   }
 

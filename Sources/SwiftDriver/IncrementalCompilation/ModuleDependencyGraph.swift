@@ -54,24 +54,15 @@ import SwiftOptions
     self.creationPhase = phase
   }
 
-  @_spi(Testing) public func getRequiredSource(for input: TypedVirtualPath,
-                                               function: String = #function,
-                                               file: String = #file,
-                                               line: Int = #line) -> DependencySource {
-    guard let source = inputDependencySourceMap.getSourceIfKnown(for: input)
+  @_spi(Testing) public func sourceRequired(for input: TypedVirtualPath,
+                                            function: String = #function,
+                                            file: String = #file,
+                                            line: Int = #line) -> DependencySource {
+    guard let source = inputDependencySourceMap.sourceIfKnown(for: input)
     else {
       fatalError("\(input.file.basename) not found in inputDependencySourceMap, \(file):\(line) in \(function)")
     }
     return source
-  }
-
-  @_spi(Testing) public func getNeededInput(for source: DependencySource) -> TypedVirtualPath? {
-    guard let input = inputDependencySourceMap.getInputIfKnown(for: source)
-    else {
-      info.diagnosticEngine.emit(warning: "Failed to find source file for '\(source.file.basename)', recovering with a full rebuild. Next build will be incremental.")
-      return nil
-    }
-    return input
   }
 }
 
@@ -141,7 +132,7 @@ extension ModuleDependencyGraph {
       return TransitivelyInvalidatedInputSet()
     }
     return collectInputsRequiringCompilationAfterProcessing(
-      dependencySource: getRequiredSource(for: input))
+      dependencySource: sourceRequired(for: input))
   }
 }
 
@@ -161,17 +152,16 @@ extension ModuleDependencyGraph {
   /// speculatively scheduled in the first wave.
   func collectInputsInvalidatedBy(input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputArray {
-    let changedSource = getRequiredSource(for: input)
+    let changedSource = sourceRequired(for: input)
     let allDependencySourcesToRecompile =
       collectSwiftDepsUsing(dependencySource: changedSource)
 
     return allDependencySourcesToRecompile.compactMap {
       dependencySource in
       guard dependencySource != changedSource else {return nil}
-      let dependentSource = inputDependencySourceMap[dependencySource]
-      info.reporter?.report(
-        "Found dependent of \(input.file.basename):", dependentInput)
-      return dependentInput
+      let inputToRecompile = inputDependencySourceMap.inputIfKnown(for: dependencySource)
+      info.reporter?.report("Found dependent of \(input.file.basename):", inputToRecompile)
+      return inputToRecompile
     }
   }
 
@@ -188,7 +178,7 @@ extension ModuleDependencyGraph {
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: TypedVirtualPath) -> Bool {
     precondition(file.type == .swift)
-    guard let source = inputDependencySourceMap.getSourceIfKnown(for: file) else {
+    guard let source = inputDependencySourceMap.sourceIfKnown(for: file) else {
       return false
     }
     return containsNodes(forDependencySource: source)
@@ -247,7 +237,7 @@ extension ModuleDependencyGraph {
   func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet? {
     precondition(input.type == .swift)
-    let dependencySource = getRequiredSource(for: input)
+    let dependencySource = sourceRequired(for: input)
     return collectInputsRequiringCompilationAfterProcessing(
       dependencySource: dependencySource)
   }
@@ -342,7 +332,10 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
     for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = input(neededFor: invalidatedSwiftDeps) else {
+      guard let invalidatedInput = inputDependencySourceMap.inputIfKnown(for: invalidatedSwiftDeps)
+      else {
+        info.diagnosticEngine.emit(
+          warning: "Failed to find source file for '\(invalidatedSwiftDeps.file.basename)', recovering with a full rebuild. Next build will be incremental.")
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)
