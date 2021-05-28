@@ -280,6 +280,47 @@ extension IncrementalCompilationTests {
       try tryNoChange(checkDiagnostics: true)
     }
   }
+
+  func testAddingInput() throws {
+#if !os(Linux)
+  try testAddingInput(basenameWithoutExt: "another", defining: "nameInAnother")
+#endif
+  }
+
+  fileprivate struct AddingInputGraphs {
+    let initial, afterAddition, afterAfterAddition: ModuleDependencyGraph
+    var all: [ModuleDependencyGraph] {
+      [initial, afterAddition, afterAfterAddition]
+    }
+    func verify(newInput: String, topLevelName: String) {
+      initial.ensureOmits(sourceBasenameWithoutExt: newInput)
+      initial.ensureOmits(name: topLevelName)
+      XCTAssert(afterAddition.contains(sourceBasenameWithoutExt: newInput))
+      XCTAssert(afterAfterAddition.contains(sourceBasenameWithoutExt: newInput))
+      XCTAssert(afterAddition.contains(name: topLevelName))
+      XCTAssert(afterAfterAddition.contains(name: topLevelName))
+   }
+  }
+
+  private func testAddingInput(basenameWithoutExt: String, defining topLevelName: String
+  ) throws {
+    let initial = try tryInitial(checkDiagnostics: true).moduleDependencyGraph()
+
+    write("func \(topLevelName)() {}", to: basenameWithoutExt)
+    let newInputsPath = inputPath(basename: basenameWithoutExt)
+    OutputFileMapCreator.write(module: module,
+                               inputPaths: inputPathsAndContents.map {$0.0} + [newInputsPath],
+                               derivedData: derivedDataPath,
+                               to: OFM)
+    let afterAddition      = try tryAfterAddition(      newInputBasenameWithoutExt: basenameWithoutExt, definingTopLevel: topLevelName)
+    let afterAfterAddition = try tryAfterAfterAddition( newInputBasenameWithoutExt: basenameWithoutExt)
+
+    let resultantGraphs = AddingInputGraphs(initial: initial,
+                                            afterAddition: afterAddition,
+                                            afterAfterAddition: afterAfterAddition)
+
+    resultantGraphs.verify(newInput: basenameWithoutExt, topLevelName: topLevelName)
+  }
 }
 
 // MARK: - Incremental test stages
@@ -466,6 +507,139 @@ extension IncrementalCompilationTests {
         "Finished Linking theModule",
       ],
       whenAutolinking: autolinkLifecycleExpectations)
+  }
+
+  private func tryAfterAddition(
+    newInputBasenameWithoutExt: String,
+    definingTopLevel topLevelName: String
+  ) throws -> ModuleDependencyGraph {
+    let newInputsPath = inputPath(basename:     newInputBasenameWithoutExt)
+    return try doABuild(
+      "after addition of \(    newInputBasenameWithoutExt)",
+      checkDiagnostics: true,
+      extraArguments: [newInputsPath.pathString],
+      expectingRemarks: [
+        "Incremental compilation: Read dependency graph",
+        "Incremental compilation: Enabling incremental cross-module building",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Scheduling new  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: Has malformed dependency source; will queue  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: Missing an output; will queue  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: Queuing (initial):  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: not scheduling dependents of \(    newInputBasenameWithoutExt).swift: no entry in build record or dependency graph",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
+        "Found 1 batchable job",
+        "Forming into 1 batch",
+        "Adding {compile: \(    newInputBasenameWithoutExt).swift} to batch 0",
+        "Forming batch job from 1 constituents: \(    newInputBasenameWithoutExt).swift",
+        "Starting Compiling \(    newInputBasenameWithoutExt).swift",
+        "Finished Compiling \(    newInputBasenameWithoutExt).swift",
+        "Incremental compilation: New definition: interface of source file \(    newInputBasenameWithoutExt).swiftdeps in \(    newInputBasenameWithoutExt).swiftdeps",
+        "Incremental compilation: New definition: implementation of source file \(    newInputBasenameWithoutExt).swiftdeps in \(    newInputBasenameWithoutExt).swiftdeps",
+        "Incremental compilation: New definition: interface of top-level name '\(topLevelName)' in \(    newInputBasenameWithoutExt).swiftdeps",
+        "Incremental compilation: New definition: implementation of top-level name '\(topLevelName)' in \(    newInputBasenameWithoutExt).swiftdeps",
+        "Incremental compilation: Scheduling all post-compile jobs because something was compiled",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
+        "Skipped Compiling main.swift",
+        "Skipped Compiling other.swift",
+      ],
+      whenAutolinking: autolinkLifecycleExpectations)
+      .moduleDependencyGraph()
+  }
+
+  private func tryAfterAfterAddition(newInputBasenameWithoutExt: String
+  ) throws -> ModuleDependencyGraph {
+    let newInputPath = inputPath(basename: newInputBasenameWithoutExt)
+    return try doABuild(
+      "after after addition of \(newInputBasenameWithoutExt)",
+      checkDiagnostics: true,
+      extraArguments: [newInputPath.pathString],
+      expectingRemarks: [
+        "Incremental compilation: Read dependency graph",
+        "Incremental compilation: Enabling incremental cross-module building",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: May skip current input:  {compile: \(newInputBasenameWithoutExt).o <= \(newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input:  {compile: \(newInputBasenameWithoutExt).o <= \(newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: Skipping job: Linking theModule; oldest output is current",
+        "Skipped Compiling \(newInputBasenameWithoutExt).swift",
+        "Skipped Compiling main.swift",
+        "Skipped Compiling other.swift",
+      ],
+      whenAutolinking: autolinkLifecycleExpectations)
+      .moduleDependencyGraph()
+  }
+}
+fileprivate extension Driver {
+  func moduleDependencyGraph() throws -> ModuleDependencyGraph {
+    do {return try XCTUnwrap(incrementalCompilationState?.moduleDependencyGraph) }
+    catch {
+      XCTFail("no graph")
+      throw error
+    }
+  }
+}
+
+fileprivate extension ModuleDependencyGraph {
+  /// A convenience for testing
+  var allNodes: [Node] {
+    var nodes = [Node]()
+    nodeFinder.forEachNode {nodes.append($0)}
+    return nodes
+  }
+  func contains(sourceBasenameWithoutExt target: String) -> Bool {
+    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target)}
+  }
+  func contains(name target: String) -> Bool {
+    allNodes.contains {$0.contains(name: target)}
+  }
+  func ensureOmits(sourceBasenameWithoutExt target: String) {
+    nodeFinder.forEachNode { node in
+      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target))
+    }
+  }
+  func ensureOmits(name: String) {
+    nodeFinder.forEachNode { node in
+      XCTAssertFalse(node.contains(name: name))
+    }
+  }
+}
+
+fileprivate extension ModuleDependencyGraph.Node {
+  func contains(sourceBasenameWithoutExt target: String) -> Bool {
+    switch key.designator {
+    case .sourceFileProvide(name: let name):
+      return (try? VirtualPath(path: name))
+        .map {$0.basenameWithoutExt == target}
+      ?? false
+    case .externalDepend(let externalDependency):
+      return externalDependency.path.map {
+        $0.basenameWithoutExt == target
+      }
+      ?? false
+    case .topLevel, .dynamicLookup, .nominal, .member, .potentialMember:
+      return false
+    }
+  }
+
+  func contains(name target: String) -> Bool {
+    switch key.designator {
+    case .topLevel(name: let name),
+      .dynamicLookup(name: let name):
+      return name == target
+    case .externalDepend, .sourceFileProvide:
+      return false
+    case .nominal(context: let context),
+         .potentialMember(context: let context):
+      return context.range(of: target) != nil
+    case .member(context: let context, name: let name):
+      return context.range(of: target) != nil || name == target
+    }
   }
 }
 
