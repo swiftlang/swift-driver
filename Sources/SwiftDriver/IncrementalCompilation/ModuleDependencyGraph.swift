@@ -188,9 +188,9 @@ extension ModuleDependencyGraph {
       collectSwiftDepsUsing(dependencySource: changedSource)
 
     return allDependencySourcesToRecompile.compactMap {
-      depedencySource in
-      guard depedencySource != changedSource else {return nil}
-      let dependentSource = inputDependencySourceMap[depedencySource]
+      dependencySource in
+      guard dependencySource != changedSource else {return nil}
+      let dependentSource = inputDependencySourceMap[dependencySource]
       info.reporter?.report(
         "Found dependent of \(input.file.basename):", dependentSource)
       return dependentSource
