@@ -237,7 +237,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     else {
       return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
     }
-    guard graph.populateInputDependencySourceMap() else {
+    guard graph.populateInputDependencySourceMap(for: .inputsAddedSincePriors) else {
       return nil
     }
     graph.dotFileWriter?.write(graph)
@@ -266,7 +266,8 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   {
     let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
     assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
-    guard graph.populateInputDependencySourceMap() else {
+    
+    guard graph.populateInputDependencySourceMap(for: .buildingFromSwiftDeps) else {
       return nil
     }
 
