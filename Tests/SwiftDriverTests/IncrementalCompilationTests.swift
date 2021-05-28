@@ -33,9 +33,12 @@ final class IncrementalCompilationTests: XCTestCase {
     "main": "let foo = 1",
     "other": "let bar = foo"
   ]
+  func inputPath(basename: String) -> AbsolutePath {
+    tempDir.appending(component: basename + ".swift")
+  }
   var inputPathsAndContents: [(AbsolutePath, String)] {
     baseNamesAndContents.map {
-      (tempDir.appending(component: $0.key + ".swift"), $0.value)
+      (inputPath(basename: $0.key), $0.value)
     }
   }
   var derivedDataPath: AbsolutePath {
@@ -79,10 +82,7 @@ final class IncrementalCompilationTests: XCTestCase {
                                derivedData: derivedDataPath,
                                to: OFM)
     for (base, contents) in baseNamesAndContents {
-      let filePath = tempDir.appending(component: "\(base).swift")
-      try! localFileSystem.writeFileContents(filePath) {
-        $0 <<< contents
-      }
+      write(contents, to: base)
     }
   }
 
@@ -173,7 +173,7 @@ extension IncrementalCompilationTests {
       "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
     ])
     removeDotFiles()
-    tryTouchingOther(extraArguments: [
+    try tryTouchingOther(extraArguments: [
       "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
     ])
 
@@ -227,7 +227,7 @@ extension IncrementalCompilationTests {
       let absPostCompileOutput = try XCTUnwrap(postCompileOutput.file.absolutePath)
       try localFileSystem.removeFileTree(absPostCompileOutput)
       XCTAssertFalse(localFileSystem.exists(absPostCompileOutput))
-      tryNoChange()
+      try tryNoChange()
       XCTAssertTrue(localFileSystem.exists(absPostCompileOutput))
     }
     #endif
@@ -255,20 +255,20 @@ extension IncrementalCompilationTests {
 
   func testIncremental(checkDiagnostics: Bool) throws {
     try tryInitial(checkDiagnostics: checkDiagnostics)
-    #if true // sometimes want to skip for debugging
-    tryNoChange(checkDiagnostics: checkDiagnostics)
-    tryTouchingOther(checkDiagnostics: checkDiagnostics)
-    tryTouchingBoth(checkDiagnostics: checkDiagnostics)
-    #endif
-    tryReplacingMain(checkDiagnostics: checkDiagnostics)
+#if true // sometimes want to skip for debugging
+    try tryNoChange(checkDiagnostics: checkDiagnostics)
+    try tryTouchingOther(checkDiagnostics: checkDiagnostics)
+    try tryTouchingBoth(checkDiagnostics: checkDiagnostics)
+#endif
+    try tryReplacingMain(checkDiagnostics: checkDiagnostics)
   }
 
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
-    #if !os(Linux)
+#if !os(Linux)
     try tryInitial(checkDiagnostics: true)
-    tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: true)
-    #endif
+    try tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: true)
+#endif
   }
 
 
@@ -276,8 +276,8 @@ extension IncrementalCompilationTests {
   /// Otherwise the up-to-date calculation in `IncrementalCompilationState` will fail.
   func testBuildRecordDateAccuracy() throws {
     try tryInitial()
-    (1...10).forEach { n in
-      tryNoChange(checkDiagnostics: true)
+    try (1...10).forEach { n in
+      try tryNoChange(checkDiagnostics: true)
     }
   }
 }
@@ -287,7 +287,7 @@ extension IncrementalCompilationTests {
   @discardableResult
   private func tryInitial(checkDiagnostics: Bool = false,
                   extraArguments: [String] = []
-  ) throws -> Driver? {
+  ) throws -> Driver {
     try doABuild(
       "initial",
       checkDiagnostics: checkDiagnostics,
@@ -315,8 +315,8 @@ extension IncrementalCompilationTests {
   }
   private func tryNoChange(checkDiagnostics: Bool = false,
                    extraArguments: [String] = []
-  ) {
-    try! doABuild(
+  ) throws {
+    try doABuild(
       "no-change",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -335,9 +335,9 @@ extension IncrementalCompilationTests {
   }
   private func tryTouchingOther(checkDiagnostics: Bool = false,
                         extraArguments: [String] = []
-  ) {
+  ) throws {
     touch("other")
-    try! doABuild(
+    try doABuild(
       "non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -364,10 +364,10 @@ extension IncrementalCompilationTests {
   }
   private func tryTouchingBoth(checkDiagnostics: Bool = false,
                        extraArguments: [String] = []
- ) {
+ ) throws {
     touch("main")
     touch("other")
-    try! doABuild(
+    try doABuild(
       "non-propagating, both touched",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -396,9 +396,9 @@ extension IncrementalCompilationTests {
 
   private func tryReplacingMain(checkDiagnostics: Bool = false,
                         extraArguments: [String] = []
-  ) {
+  ) throws {
     replace(contentsOf: "main", with: "let foo = \"hello\"")
-    try! doABuild(
+    try doABuild(
       "propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -436,10 +436,10 @@ extension IncrementalCompilationTests {
 
   private func tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: Bool = false,
                                               extraArguments: [String] = []
-  ) {
+  ) throws {
     touch("main")
     let extraArgument = "-driver-always-rebuild-dependents"
-    try! doABuild(
+    try doABuild(
       "non-propagating but \(extraArgument)",
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
@@ -479,12 +479,19 @@ extension IncrementalCompilationTests {
 
   private func replace(contentsOf name: String, with replacement: String ) {
     print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
-    let path = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains("/" + name + ".swift")}.first).0
+    let path = inputPath(basename: name)
     let previousContents = try! localFileSystem.readFileContents(path).cString
     try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
     let newContents = try! localFileSystem.readFileContents(path).cString
     XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
     XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
+  }
+
+  private func write(_ contents: String, to basename: String) {
+    print("*** writing \(contents) to \(basename)")
+    try! localFileSystem.writeFileContents(inputPath(basename: basename)) {
+      $0 <<< contents
+    }
   }
 }
 
@@ -496,7 +503,7 @@ extension IncrementalCompilationTests {
                 extraArguments: [String],
                 expectingRemarks texts: [String],
                 whenAutolinking: [String]
-  ) throws -> Driver? {
+  ) throws -> Driver {
     try doABuild(
       message,
       checkDiagnostics: checkDiagnostics,
@@ -511,42 +518,56 @@ extension IncrementalCompilationTests {
                 extraArguments: [String],
                 expecting expectations: [Diagnostic.Message],
                 expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message]
-  ) throws -> Driver? {
+  ) throws -> Driver {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
-
-    func doTheCompile(_ driver: inout Driver) {
-      let jobs = try! driver.planBuild()
-      try? driver.run(jobs: jobs)
-    }
 
     guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
     else {
       throw XCTSkip("Cannot perform this test on this host")
     }
     let allArgs = commonArgs + extraArguments + sdkArgumentsForTesting
-    let postMortemDriver: Driver?
-    if checkDiagnostics {
-      postMortemDriver = try assertDriverDiagnostics(args: allArgs) {driver, verifier in
-        verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
-        expectations.forEach {verifier.expect($0)}
-        if driver.isAutolinkExtractJobNeeded {
-          autolinkExpectations.forEach {verifier.expect($0)}
-        }
-        doTheCompile(&driver)
-        return driver
+
+    return try checkDiagnostics
+    ? doABuild(expecting: expectations,
+               expectingWhenAutolinking: autolinkExpectations,
+               arguments: allArgs)
+    : doABuildWithoutExpectations(arguments: allArgs)
+  }
+
+  private func doABuild(
+    expecting expectations: [Diagnostic.Message],
+    expectingWhenAutolinking autolinkExpectations: [Diagnostic.Message],
+    arguments: [String]
+  ) throws -> Driver {
+    try assertDriverDiagnostics(args: arguments) {
+      driver, verifier in
+      verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
+      expectations.forEach {verifier.expect($0)}
+      if driver.isAutolinkExtractJobNeeded {
+        autolinkExpectations.forEach {verifier.expect($0)}
       }
-    }
-    else {
-      let diagnosticEngine = DiagnosticsEngine(handlers: [
-        {print($0, to: &stderrStream); stderrStream.flush()}
-      ])
-      var driver = try Driver(args: allArgs, env: ProcessEnv.vars,
-                              diagnosticsEngine: diagnosticEngine,
-                              fileSystem: localFileSystem)
       doTheCompile(&driver)
-      postMortemDriver = driver
+      return driver
     }
+  }
+
+  private func doABuildWithoutExpectations( arguments: [String]
+  ) throws -> Driver {
+    // If not checking, print out the diagnostics
+    let diagnosticEngine = DiagnosticsEngine(handlers: [
+      {print($0, to: &stderrStream); stderrStream.flush()}
+    ])
+    var driver = try Driver(args: arguments, env: ProcessEnv.vars,
+                      diagnosticsEngine: diagnosticEngine,
+                      fileSystem: localFileSystem)
+    doTheCompile(&driver)
+    // Add a newline after any diagnostics for readability
     print("", to: &stderrStream); stderrStream.flush()
-    return postMortemDriver
+    return driver
+  }
+
+  private func doTheCompile(_ driver: inout Driver) {
+    let jobs = try! driver.planBuild()
+    try? driver.run(jobs: jobs)
   }
 }
