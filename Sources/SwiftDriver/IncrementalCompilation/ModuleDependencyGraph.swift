@@ -466,7 +466,7 @@ extension ModuleDependencyGraph {
 // MARK: - verification
 extension ModuleDependencyGraph {
   @discardableResult
-  func verifyGraph() -> Bool {
+  @_spi(Testing) public func verifyGraph() -> Bool {
     nodeFinder.verify()
   }
 }
