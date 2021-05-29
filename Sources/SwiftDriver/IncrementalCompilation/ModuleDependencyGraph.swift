@@ -375,16 +375,10 @@ extension ModuleDependencyGraph {
   /// Collects the nodes invalidated by a change to the given external
   /// dependency after integrating it into the dependency graph.
   ///
-  /// This function does not to the transitive closure; that is left to the
+  /// This function does not do the transitive closure; that is left to the
   /// callers.
   ///
-  /// - Parameters:
-  ///   - integrand: The external dependency to integrate.
-  ///   - isKnown: If `true`, the caller is aware of this node and
-  ///              integration should assume it is a known external.
-  ///              If `false`, and the external has not been
-  ///              integrated before, it is treated as a freshly-
-  ///              added external dependency.
+  /// - Parameter integrand: The external dependency to integrate.
   /// - Returns: The set of module dependency graph nodes invalidated by integration.
   func integrateExternal(
     _ integrand: ExternalIntegrand

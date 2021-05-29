@@ -177,8 +177,10 @@ extension ModuleDependencyGraph.Integrator {
     _ moduleUseNode: Graph.Node
   ) {
     sourceGraph.forEachDefDependedUpon(by: sourceFileUseNode) { def in
+      let isNewUse = destination.nodeFinder.record(def: def.key,
+                                                   use: moduleUseNode)
       guard
-        destination.nodeFinder.record(def: def.key, use: moduleUseNode),
+        isNewUse,
         let externalDependency = def.key.designator.externalDependency
       else {
         return
@@ -197,12 +199,17 @@ extension ModuleDependencyGraph.Integrator {
     from externalDependency: FingerprintedExternalDependency
   ) {
     let invalidated = destination.integrateExternal(.unknown(externalDependency))
-    invalidatedNodes.formUnion(invalidated)
+    recordUsesOfSomeExternal(invalidated)
   }
 }
 
 // MARK: - Results {
 extension ModuleDependencyGraph.Integrator {
+  /*@_spi(Testing)*/
+    mutating func recordUsesOfSomeExternal(_ invalidated: DirectlyInvalidatedNodeSet)
+    {
+      invalidatedNodes.formUnion(invalidated)
+    }
   mutating func addDisappeared(_ node: Graph.Node) {
     assert(isUpdating)
     invalidatedNodes.insert(node)
