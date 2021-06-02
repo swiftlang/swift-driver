@@ -29,6 +29,9 @@
 
   /// Compile a Clang module (.pcm).
   case compilePCM
+
+  /// Dump information about a precompiled Clang module
+  case dumpPCM
 }
 
 /// Information about batch mode, which is used to determine how to form
@@ -43,7 +46,7 @@ extension CompilerMode {
   /// Whether this compilation mode uses -primary-file to specify its inputs.
   public var usesPrimaryFileInputs: Bool {
     switch self {
-    case .immediate, .repl, .singleCompile, .compilePCM:
+    case .immediate, .repl, .singleCompile, .compilePCM, .dumpPCM:
       return false
 
     case .standardCompile, .batchCompile:
@@ -57,14 +60,14 @@ extension CompilerMode {
     case .immediate, .repl, .standardCompile, .batchCompile:
       return false
 
-    case .singleCompile, .compilePCM:
+    case .singleCompile, .compilePCM, .dumpPCM:
       return true
     }
   }
 
   public var isStandardCompilationForPlanning: Bool {
     switch self {
-      case .immediate, .repl, .compilePCM:
+      case .immediate, .repl, .compilePCM, .dumpPCM:
         return false
       case .batchCompile, .standardCompile, .singleCompile:
         return true
@@ -88,7 +91,7 @@ extension CompilerMode {
   // headers.
   public var supportsBridgingPCH: Bool {
     switch self {
-    case .batchCompile, .singleCompile, .standardCompile, .compilePCM:
+    case .batchCompile, .singleCompile, .standardCompile, .compilePCM, .dumpPCM:
       return true
     case .immediate, .repl:
       return false
@@ -111,6 +114,8 @@ extension CompilerMode: CustomStringConvertible {
         return "immediate compilation"
       case .compilePCM:
         return "compile Clang module (.pcm)"
+      case .dumpPCM:
+        return "dump Clang module (.pcm)"
       }
   }
 }

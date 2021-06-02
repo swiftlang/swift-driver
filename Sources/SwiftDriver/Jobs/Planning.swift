@@ -16,6 +16,7 @@ import SwiftOptions
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput
   case emitPCMWrongInputFiles
+  case dumpPCMWrongInputFiles
 
   public var description: String {
     switch self {
@@ -24,6 +25,9 @@ public enum PlanningError: Error, DiagnosticData {
 
     case .emitPCMWrongInputFiles:
       return "Clang module emission requires exactly one input file (the module map)"
+
+    case .dumpPCMWrongInputFiles:
+      return "Emitting information about Clang module requires exactly one input file (pre-compiled module)"
     }
   }
 }
@@ -650,7 +654,13 @@ extension Driver {
       if inputFiles.count != 1 {
         throw PlanningError.emitPCMWrongInputFiles
       }
-      return ([try generatePCMJob(input: inputFiles.first!)], nil)
+      return ([try generateEmitPCMJob(input: inputFiles.first!)], nil)
+
+    case .dumpPCM:
+      if inputFiles.count != 1 {
+        throw PlanningError.dumpPCMWrongInputFiles
+      }
+      return ([try generateDumpPCMJob(input: inputFiles.first!)], nil)
     }
   }
 }
