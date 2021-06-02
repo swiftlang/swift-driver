@@ -192,8 +192,10 @@ extension IncrementalCompilationState.FirstWaveComputer {
     return skippedInputs
   }
 
-  private func sortByCommandLineOrder(_ inputs: Set<TypedVirtualPath>) -> [TypedVirtualPath] {
-    inputFiles.filter (inputs.contains)
+  private func sortByCommandLineOrder(
+    _ inputs: Set<TypedVirtualPath>
+  ) -> LazyFilterSequence<[TypedVirtualPath]> {
+      inputFiles.lazy.filter(inputs.contains)
   }
 
   /// Encapsulates information about an input the driver has determined has
