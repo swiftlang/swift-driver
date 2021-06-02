@@ -180,7 +180,7 @@ fileprivate extension CompilerMode {
   var supportsIncrementalCompilation: Bool {
     switch self {
     case .standardCompile, .immediate, .repl, .batchCompile: return true
-    case .singleCompile, .compilePCM: return false
+    case .singleCompile, .compilePCM, .dumpPCM: return false
     }
   }
 }
