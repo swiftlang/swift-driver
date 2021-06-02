@@ -158,7 +158,7 @@ extension IncrementalCompilationTests {
 extension IncrementalCompilationTests {
   func testDependencyDotFiles() throws {
     expectNoDotFiles()
-    try tryInitial(extraArguments: ["-driver-emit-fine-grained-dependency-dot-file-after-every-import"])
+    try buildInitialState(extraArguments: ["-driver-emit-fine-grained-dependency-dot-file-after-every-import"])
     expect(dotFilesFor: [
       "main.swiftdeps",
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
@@ -169,11 +169,11 @@ extension IncrementalCompilationTests {
 
   func testDependencyDotFilesCross() throws {
     expectNoDotFiles()
-    try tryInitial(extraArguments: [
+    try buildInitialState(extraArguments: [
       "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
     ])
     removeDotFiles()
-    try tryTouchingOther(extraArguments: [
+    try checkNoPropagation(extraArguments: [
       "-driver-emit-fine-grained-dependency-dot-file-after-every-import",
     ])
 
@@ -222,12 +222,12 @@ extension IncrementalCompilationTests {
   /// Ensure that if an output of post-compile job is missing, the job gets rerun.
   func testIncrementalPostCompileJob() throws {
     #if !os(Linux)
-    let driver = try XCTUnwrap(tryInitial(checkDiagnostics: true))
+    let driver = try XCTUnwrap(buildInitialState(checkDiagnostics: true))
     for postCompileOutput in try driver.postCompileOutputs() {
       let absPostCompileOutput = try XCTUnwrap(postCompileOutput.file.absolutePath)
       try localFileSystem.removeFileTree(absPostCompileOutput)
       XCTAssertFalse(localFileSystem.exists(absPostCompileOutput))
-      try tryNoChange()
+      try checkNullBuild()
       XCTAssertTrue(localFileSystem.exists(absPostCompileOutput))
     }
     #endif
@@ -254,20 +254,20 @@ extension IncrementalCompilationTests {
   }
 
   func testIncremental(checkDiagnostics: Bool) throws {
-    try tryInitial(checkDiagnostics: checkDiagnostics)
+    try buildInitialState(checkDiagnostics: checkDiagnostics)
 #if true // sometimes want to skip for debugging
-    try tryNoChange(checkDiagnostics: checkDiagnostics)
-    try tryTouchingOther(checkDiagnostics: checkDiagnostics)
-    try tryTouchingBoth(checkDiagnostics: checkDiagnostics)
+    try checkNullBuild(checkDiagnostics: checkDiagnostics)
+    try checkNoPropagation(checkDiagnostics: checkDiagnostics)
+    try checkReactionToTouchingAll(checkDiagnostics: checkDiagnostics)
 #endif
-    try tryReplacingMain(checkDiagnostics: checkDiagnostics)
+    try checkPropagationOfTopLevelChange(checkDiagnostics: checkDiagnostics)
   }
 
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
 #if !os(Linux)
-    try tryInitial(checkDiagnostics: true)
-    try tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: true)
+    try buildInitialState(checkDiagnostics: true)
+    try checkAlwaysRebuildDependents(checkDiagnostics: true)
 #endif
   }
 
@@ -275,59 +275,56 @@ extension IncrementalCompilationTests {
   /// Ensure that the mod date of the input comes back exactly the same via the build-record.
   /// Otherwise the up-to-date calculation in `IncrementalCompilationState` will fail.
   func testBuildRecordDateAccuracy() throws {
-    try tryInitial()
+    try buildInitialState()
     try (1...10).forEach { n in
-      try tryNoChange(checkDiagnostics: true)
+      try checkNullBuild(checkDiagnostics: true)
     }
   }
+}
+
+// MARK: - Test adding an input
+extension IncrementalCompilationTests {
 
   func testAddingInput() throws {
 #if !os(Linux)
-  try testAddingInput(basenameWithoutExt: "another", defining: "nameInAnother")
+  try testAddingInput(newInput: "another", defining: "nameInAnother")
 #endif
   }
 
-  fileprivate struct AddingInputGraphs {
-    let initial, afterAddition, afterAfterAddition: ModuleDependencyGraph
-    var all: [ModuleDependencyGraph] {
-      [initial, afterAddition, afterAfterAddition]
-    }
-    func verify(newInput: String, topLevelName: String) {
-      initial.ensureOmits(sourceBasenameWithoutExt: newInput)
-      initial.ensureOmits(name: topLevelName)
-      XCTAssert(afterAddition.contains(sourceBasenameWithoutExt: newInput))
-      XCTAssert(afterAfterAddition.contains(sourceBasenameWithoutExt: newInput))
-      XCTAssert(afterAddition.contains(name: topLevelName))
-      XCTAssert(afterAfterAddition.contains(name: topLevelName))
-   }
-  }
-
-  private func testAddingInput(basenameWithoutExt: String, defining topLevelName: String
+  /// Test the addition of an input file
+  ///
+  /// - Parameters:
+  ///   - newInput: basename without extension of new input file
+  ///   - topLevelName: a new top level name defined in the new input
+  private func testAddingInput(newInput: String, defining topLevelName: String
   ) throws {
-    let initial = try tryInitial(checkDiagnostics: true).moduleDependencyGraph()
+    let initial = try buildInitialState(checkDiagnostics: true).moduleDependencyGraph()
+    initial.ensureOmits(sourceBasenameWithoutExt: newInput)
+    initial.ensureOmits(name: topLevelName)
 
-    write("func \(topLevelName)() {}", to: basenameWithoutExt)
-    let newInputsPath = inputPath(basename: basenameWithoutExt)
+    write("func \(topLevelName)() {}", to: newInput)
+    let newInputsPath = inputPath(basename: newInput)
     OutputFileMapCreator.write(module: module,
                                inputPaths: inputPathsAndContents.map {$0.0} + [newInputsPath],
                                derivedData: derivedDataPath,
                                to: OFM)
-    let afterAddition      = try tryAfterAddition(      newInputBasenameWithoutExt: basenameWithoutExt, definingTopLevel: topLevelName)
-    let afterAfterAddition = try tryAfterAfterAddition( newInputBasenameWithoutExt: basenameWithoutExt)
-
-    let resultantGraphs = AddingInputGraphs(initial: initial,
-                                            afterAddition: afterAddition,
-                                            afterAfterAddition: afterAfterAddition)
-
-    resultantGraphs.verify(newInput: basenameWithoutExt, topLevelName: topLevelName)
+    try checkReactionToAddingInput(newInput: newInput, definingTopLevel: topLevelName)
+    try checkRestorationOfIncrementalityAfterAddition(newInput: newInput, definingTopLevel: topLevelName)
   }
 }
 
 // MARK: - Incremental test stages
 extension IncrementalCompilationTests {
+  /// Setup the initial post-build state.
+  ///
+  /// - Parameters:
+  ///   - checkDiagnostics: If true verify the diagnostics
+  ///   - extraArguments: Additional command-line arguments
+  /// - Returns: The `Driver` object
   @discardableResult
-  private func tryInitial(checkDiagnostics: Bool = false,
-                  extraArguments: [String] = []
+  private func buildInitialState(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
   ) throws -> Driver {
     try doABuild(
       "initial",
@@ -354,11 +351,18 @@ extension IncrementalCompilationTests {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
-  private func tryNoChange(checkDiagnostics: Bool = false,
-                   extraArguments: [String] = []
+
+  /// Try a build with no changes.
+  ///
+  /// - Parameters:
+  ///   - checkDiagnostics: If true verify the diagnostics
+  ///   - extraArguments: Additional command-line arguments
+  private func checkNullBuild(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
   ) throws {
     try doABuild(
-      "no-change",
+      "as is",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
@@ -374,12 +378,19 @@ extension IncrementalCompilationTests {
       ],
       whenAutolinking: [])
   }
-  private func tryTouchingOther(checkDiagnostics: Bool = false,
-                        extraArguments: [String] = []
+
+  /// Check reaction to touching a non-propagating input.
+  ///
+  /// - Parameters:
+  ///   - checkDiagnostics: If true verify the diagnostics
+  ///   - extraArguments: Additional command-line arguments
+  private func checkNoPropagation(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
   ) throws {
     touch("other")
     try doABuild(
-      "non-propagating",
+      "touch other; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
@@ -403,13 +414,20 @@ extension IncrementalCompilationTests {
     ],
     whenAutolinking: autolinkLifecycleExpectations)
   }
-  private func tryTouchingBoth(checkDiagnostics: Bool = false,
-                       extraArguments: [String] = []
+
+  /// Check reaction to touching both inputs.
+  ///
+  /// - Parameters:
+  ///   - checkDiagnostics: If true verify the diagnostics
+  ///   - extraArguments: Additional command-line arguments
+  private func checkReactionToTouchingAll(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
  ) throws {
     touch("main")
     touch("other")
     try doABuild(
-      "non-propagating, both touched",
+      "touch both; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
@@ -435,12 +453,18 @@ extension IncrementalCompilationTests {
     whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  private func tryReplacingMain(checkDiagnostics: Bool = false,
-                        extraArguments: [String] = []
+  /// Check reaction to changing a top-level declaration.
+  ///
+  /// - Parameters:
+  ///   - checkDiagnostics: If true verify the diagnostics
+  ///   - extraArguments: Additional command-line arguments
+  private func checkPropagationOfTopLevelChange(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
   ) throws {
     replace(contentsOf: "main", with: "let foo = \"hello\"")
     try doABuild(
-      "propagating into 2nd wave",
+      "replace contents of main; propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
       expectingRemarks: [
@@ -475,13 +499,19 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  private func tryTouchingMainAlwaysRebuildDependents(checkDiagnostics: Bool = false,
-                                              extraArguments: [String] = []
+  /// Check functioning of `-driver-always-rebuild-dependents`
+  ///
+  /// - Parameters:
+  ///   - checkDiagnostics: If true verify the diagnostics
+  ///   - extraArguments: Additional command-line arguments
+  private func checkAlwaysRebuildDependents(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
   ) throws {
     touch("main")
     let extraArgument = "-driver-always-rebuild-dependents"
     try doABuild(
-      "non-propagating but \(extraArgument)",
+      "touch main; non-propagating but \(extraArgument)",
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
       expectingRemarks: [
@@ -509,13 +539,18 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectations)
   }
 
-  private func tryAfterAddition(
-    newInputBasenameWithoutExt: String,
+  /// Check reaction to adding an input file.
+  ///
+  /// - Parameters:
+  ///   - newInput: The basename without extension of the new file
+  ///   - topLevelName: The top-level decl name added by the new file
+  private func checkReactionToAddingInput(
+    newInput: String,
     definingTopLevel topLevelName: String
-  ) throws -> ModuleDependencyGraph {
-    let newInputsPath = inputPath(basename:     newInputBasenameWithoutExt)
-    return try doABuild(
-      "after addition of \(    newInputBasenameWithoutExt)",
+  ) throws {
+    let newInputsPath = inputPath(basename: newInput)
+    let graph = try doABuild(
+      "after addition of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputsPath.pathString],
       expectingRemarks: [
@@ -523,23 +558,23 @@ extension IncrementalCompilationTests {
         "Incremental compilation: Enabling incremental cross-module building",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
-        "Incremental compilation: Scheduling new  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
-        "Incremental compilation: Has malformed dependency source; will queue  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
-        "Incremental compilation: Missing an output; will queue  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
-        "Incremental compilation: Queuing (initial):  {compile: \(    newInputBasenameWithoutExt).o <= \(    newInputBasenameWithoutExt).swift}",
-        "Incremental compilation: not scheduling dependents of \(    newInputBasenameWithoutExt).swift: no entry in build record or dependency graph",
+        "Incremental compilation: Scheduling new  {compile: \(newInput).o <= \(newInput).swift}",
+        "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}",
+        "Incremental compilation: Missing an output; will queue  {compile: \(newInput).o <= \(newInput).swift}",
+        "Incremental compilation: Queuing (initial):  {compile: \(newInput).o <= \(newInput).swift}",
+        "Incremental compilation: not scheduling dependents of \(newInput).swift: no entry in build record or dependency graph",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
         "Found 1 batchable job",
         "Forming into 1 batch",
-        "Adding {compile: \(    newInputBasenameWithoutExt).swift} to batch 0",
-        "Forming batch job from 1 constituents: \(    newInputBasenameWithoutExt).swift",
-        "Starting Compiling \(    newInputBasenameWithoutExt).swift",
-        "Finished Compiling \(    newInputBasenameWithoutExt).swift",
-        "Incremental compilation: New definition: interface of source file \(    newInputBasenameWithoutExt).swiftdeps in \(    newInputBasenameWithoutExt).swiftdeps",
-        "Incremental compilation: New definition: implementation of source file \(    newInputBasenameWithoutExt).swiftdeps in \(    newInputBasenameWithoutExt).swiftdeps",
-        "Incremental compilation: New definition: interface of top-level name '\(topLevelName)' in \(    newInputBasenameWithoutExt).swiftdeps",
-        "Incremental compilation: New definition: implementation of top-level name '\(topLevelName)' in \(    newInputBasenameWithoutExt).swiftdeps",
+        "Adding {compile: \(newInput).swift} to batch 0",
+        "Forming batch job from 1 constituents: \(newInput).swift",
+        "Starting Compiling \(newInput).swift",
+        "Finished Compiling \(newInput).swift",
+        "Incremental compilation: New definition: interface of source file \(newInput).swiftdeps in \(newInput).swiftdeps",
+        "Incremental compilation: New definition: implementation of source file \(newInput).swiftdeps in \(newInput).swiftdeps",
+        "Incremental compilation: New definition: interface of top-level name '\(topLevelName)' in \(newInput).swiftdeps",
+        "Incremental compilation: New definition: implementation of top-level name '\(topLevelName)' in \(newInput).swiftdeps",
         "Incremental compilation: Scheduling all post-compile jobs because something was compiled",
         "Starting Linking theModule",
         "Finished Linking theModule",
@@ -548,13 +583,23 @@ extension IncrementalCompilationTests {
       ],
       whenAutolinking: autolinkLifecycleExpectations)
       .moduleDependencyGraph()
+
+    XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
+    XCTAssert(graph.contains(name: topLevelName))
   }
 
-  private func tryAfterAfterAddition(newInputBasenameWithoutExt: String
-  ) throws -> ModuleDependencyGraph {
-    let newInputPath = inputPath(basename: newInputBasenameWithoutExt)
-    return try doABuild(
-      "after after addition of \(newInputBasenameWithoutExt)",
+  /// Ensure that incremental builds happen after an addition.
+  ///
+  /// - Parameters:
+  ///   - newInput: The basename without extension of the new file
+  ///   - topLevelName: The top-level decl name added by the new file
+  private func checkRestorationOfIncrementalityAfterAddition(
+    newInput: String,
+    definingTopLevel topLevelName: String
+  ) throws {
+    let newInputPath = inputPath(basename: newInput)
+    let graph = try doABuild(
+      "after after addition of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputPath.pathString],
       expectingRemarks: [
@@ -562,19 +607,51 @@ extension IncrementalCompilationTests {
         "Incremental compilation: Enabling incremental cross-module building",
         "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
         "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
-        "Incremental compilation: May skip current input:  {compile: \(newInputBasenameWithoutExt).o <= \(newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: May skip current input:  {compile: \(newInput).o <= \(newInput).swift}",
         "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
         "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
-        "Incremental compilation: Skipping input:  {compile: \(newInputBasenameWithoutExt).o <= \(newInputBasenameWithoutExt).swift}",
+        "Incremental compilation: Skipping input:  {compile: \(newInput).o <= \(newInput).swift}",
         "Incremental compilation: Skipping job: Linking theModule; oldest output is current",
-        "Skipped Compiling \(newInputBasenameWithoutExt).swift",
+        "Skipped Compiling \(newInput).swift",
         "Skipped Compiling main.swift",
         "Skipped Compiling other.swift",
       ],
       whenAutolinking: autolinkLifecycleExpectations)
       .moduleDependencyGraph()
+
+    XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
+    XCTAssert(graph.contains(name: topLevelName))
   }
 }
+
+// MARK: - Incremental test perturbation helpers
+extension IncrementalCompilationTests {
+  private func touch(_ name: String) {
+    print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
+    let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
+    try! localFileSystem.writeFileContents(path) { $0 <<< contents }
+  }
+
+  private func replace(contentsOf name: String, with replacement: String ) {
+    print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
+    let path = inputPath(basename: name)
+    let previousContents = try! localFileSystem.readFileContents(path).cString
+    try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
+    let newContents = try! localFileSystem.readFileContents(path).cString
+    XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
+    XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
+  }
+
+  private func write(_ contents: String, to basename: String) {
+    print("*** writing \(contents) to \(basename)")
+    try! localFileSystem.writeFileContents(inputPath(basename: basename)) {
+      $0 <<< contents
+    }
+  }
+}
+
+// MARK: - Graph inspection
+
 fileprivate extension Driver {
   func moduleDependencyGraph() throws -> ModuleDependencyGraph {
     do {return try XCTUnwrap(incrementalCompilationState?.moduleDependencyGraph) }
@@ -639,32 +716,6 @@ fileprivate extension ModuleDependencyGraph.Node {
       return context.range(of: target) != nil
     case .member(context: let context, name: let name):
       return context.range(of: target) != nil || name == target
-    }
-  }
-}
-
-// MARK: - Incremental test perturbation helpers
-extension IncrementalCompilationTests {
-  private func touch(_ name: String) {
-    print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
-    let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
-    try! localFileSystem.writeFileContents(path) { $0 <<< contents }
-  }
-
-  private func replace(contentsOf name: String, with replacement: String ) {
-    print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
-    let path = inputPath(basename: name)
-    let previousContents = try! localFileSystem.readFileContents(path).cString
-    try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
-    let newContents = try! localFileSystem.readFileContents(path).cString
-    XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
-    XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
-  }
-
-  private func write(_ contents: String, to basename: String) {
-    print("*** writing \(contents) to \(basename)")
-    try! localFileSystem.writeFileContents(inputPath(basename: basename)) {
-      $0 <<< contents
     }
   }
 }
