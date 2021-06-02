@@ -36,7 +36,7 @@ extension ModuleDependencyGraph {
     /// Must be able to change the fingerprint
     private(set) var keyAndFingerprint: KeyAndFingerprintHolder
 
-    var key: DependencyKey { keyAndFingerprint.key }
+    /*@_spi(Testing)*/ public var key: DependencyKey { keyAndFingerprint.key }
     /*@_spi(Testing)*/ public var fingerprint: String? { keyAndFingerprint.fingerprint }
 
     /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
