@@ -4139,6 +4139,19 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testPCMDump() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-dump-pcm", "module.pcm"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertEqual(plannedJobs[0].kind, .dumpPCM)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("module.pcm")))
+      XCTAssertEqual(plannedJobs[0].outputs.count, 0)
+    }
+  }
+
   func testIndexFilePathHandling() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-index-file", "-index-file-path",
