@@ -218,7 +218,7 @@ extension OutputFileMap {
     else {
       // The legacy driver fails silently here.
       diagnosticEngine.emit(
-        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file")
+        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file in the output file map")
       )
       return nil
     }

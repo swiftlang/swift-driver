@@ -165,7 +165,7 @@ extension IncrementalCompilationState {
         if let reporter = reporter {
           reporter.report(
             "Incremental compilation has been disabled, "
-              + " because  the following inputs were used in the previous compilation but not in this one: "
+              + "because the following inputs were used in the previous compilation but not in this one: "
               + sourceFiles.disappeared.map { $0.basename }.joined(separator: ", "))
         }
         return nil
