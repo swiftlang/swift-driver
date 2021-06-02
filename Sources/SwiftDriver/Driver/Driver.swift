@@ -1309,6 +1309,9 @@ extension Driver {
       case .emitPcm:
         return .compilePCM
 
+      case .dumpPcm:
+        return .dumpPCM
+
       default:
         // Output flag doesn't determine the compiler mode.
         break
@@ -1500,6 +1503,9 @@ extension Driver {
 
       case .emitPcm:
         compilerOutputType = .pcm
+
+      case .dumpPcm:
+        compilerOutputType = nil
 
       case .emitImportedModules:
         compilerOutputType = .importedModules

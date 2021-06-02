@@ -27,6 +27,7 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Generate a compiled Clang module.
     case generatePCM = "generate-pcm"
+    case dumpPCM = "dump-pcm"
     case interpret
     case repl
     case verifyDebugInfo = "verify-debug-info"
@@ -187,6 +188,9 @@ extension Job : CustomStringConvertible {
     case .generatePCM:
         return "Compiling Clang module \(moduleName)"
 
+    case .dumpPCM:
+        return "Dump information about Clang module \(displayInputs.first?.file.name ?? "")"
+
     case .interpret:
         return "Interpreting \(displayInputs.first?.file.name ?? "")"
 
@@ -234,7 +238,7 @@ extension Job.Kind {
   public var isSwiftFrontend: Bool {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
-        .generatePCM, .interpret, .repl, .printTargetInfo,
+        .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
         .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
         return true
 
@@ -249,7 +253,7 @@ extension Job.Kind {
     case .compile:
       return true
     case .backend, .mergeModule, .emitModule, .generatePCH,
-         .generatePCM, .interpret, .repl, .printTargetInfo,
+         .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface:
