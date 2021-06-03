@@ -81,6 +81,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift dependencies file.
   case swiftDeps = "swiftdeps"
 
+  /// Serialized dependency scanner state
+  case modDepCache = "moddepcache"
+
   /// Remapping file
   case remap
 
@@ -109,9 +112,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift section of the internal wiki.
   case moduleTrace = "trace.json"
 
-  /// Indexing data directory.
+  /// Indexing data directory
   ///
-  /// The extension isn't real.
+  /// The extension isn't real, rather this FileType specifies a directory path.
   case indexData
 
   /// Output path to record in the indexing data store
@@ -119,10 +122,10 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// This is only needed for use as a key in the output file map.
   case indexUnitOutputPath
 
-  /// Optimization record.
+  /// Optimization record
   case yamlOptimizationRecord = "opt.yaml"
 
-  /// Bitstream optimization record.
+  /// Bitstream optimization record
   case bitstreamOptimizationRecord = "opt.bitstream"
 
   /// Clang compiler module file
@@ -168,6 +171,9 @@ extension FileType: CustomStringConvertible {
 
     case .swiftDeps:
       return "swift-dependencies"
+
+    case .modDepCache:
+        return "dependency-scanner-cache"
 
     case .jsonDependencies:
       return "json-dependencies"
@@ -218,7 +224,7 @@ extension FileType {
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
          .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts,
-         .indexUnitOutputPath:
+         .indexUnitOutputPath, .modDepCache:
       return false
     }
   }
@@ -289,6 +295,8 @@ extension FileType {
       return "objc-header"
     case .swiftDeps:
       return "swift-dependencies"
+    case .modDepCache:
+      return "dependency-scanner-cache"
     case .jsonDependencies:
       return "json-dependencies"
     case .jsonTargetInfo:
@@ -327,7 +335,7 @@ extension FileType {
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
          .pcm, .swiftDeps, .remap, .indexData, .bitstreamOptimizationRecord,
-         .indexUnitOutputPath:
+         .indexUnitOutputPath, .modDepCache:
       return false
     }
   }
@@ -341,7 +349,7 @@ extension FileType {
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
-         .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
+         .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .modDepCache,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
          .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath:
       return false
