@@ -224,11 +224,6 @@ extension Driver {
       }
     }
 
-    if !parsedOptions.hasArgument(.skipSwifttailccMusttailCheck) {
-      commandLine.appendFlag("-Xllvm")
-      commandLine.appendFlag("-enable-swifttailcc-musttail-check")
-    }
-
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
     try commandLine.appendAll(.Xcc, from: &parsedOptions)
