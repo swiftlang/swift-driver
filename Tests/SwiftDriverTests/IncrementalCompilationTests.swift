@@ -362,12 +362,12 @@ extension RemovalTestOptions {
 
 extension IncrementalCompilationTests {
   /// While all cases are being made to work, just test for now in known good cases
-  func testRemovalOfPassingCases() throws {
+  func testRemovalInPassingCases() throws {
     try testRemoval(includeFailingCombos: false)
   }
 
   /// Someday, turn this test on and test all cases
-  func testRemovalOfAllCases() throws {
+  func testRemovalInAllCases() throws {
     throw XCTSkip("unimplemented")
     try testRemoval(includeFailingCombos: true)
   }
@@ -384,9 +384,7 @@ extension IncrementalCompilationTests {
         try testRemoval(optionsToTest)
       }
       else if includeFailingCombos {
-        try XCTExpectFailure("\(optionsToTest) should fail") {
           try testRemoval(optionsToTest)
-        }
       }
     }
 #endif
