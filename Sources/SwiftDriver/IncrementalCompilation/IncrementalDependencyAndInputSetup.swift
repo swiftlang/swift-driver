@@ -59,6 +59,7 @@ extension IncrementalCompilationState {
           driver.diagnosticEngine
         ).compute()
     else {
+      Self.removeDependencyGraphFile(driver)
       return nil
     }
 

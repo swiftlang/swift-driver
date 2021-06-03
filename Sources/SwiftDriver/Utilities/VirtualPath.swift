@@ -707,6 +707,12 @@ extension TSCBasic.FileSystem {
     }
   }
 
+  func removeFileTree(_ path: VirtualPath) throws {
+    try resolvingVirtualPath(path) { absolutePath in
+      try self.removeFileTree(absolutePath)
+    }
+  }
+
   func getFileInfo(_ path: VirtualPath) throws -> TSCBasic.FileInfo {
     try resolvingVirtualPath(path, apply: getFileInfo)
   }

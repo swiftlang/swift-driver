@@ -500,6 +500,7 @@ extension IncrementalCompilationState {
       }
     }
   }
+
   @_spi(Testing) public func writeDependencyGraph() throws {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
@@ -514,6 +515,12 @@ extension IncrementalCompilationState {
     try self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
                                          on: self.driver.fileSystem,
                                          compilerVersion: recordInfo.actualSwiftVersion)
+  }
+
+  @_spi(Testing) public static func removeDependencyGraphFile(_ driver: Driver) {
+    if let path = driver.buildRecordInfo?.dependencyGraphPath {
+      try? driver.fileSystem.removeFileTree(path)
+    }
   }
 }
 
