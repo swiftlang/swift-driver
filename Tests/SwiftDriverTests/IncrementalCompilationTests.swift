@@ -326,7 +326,7 @@ fileprivate enum RemovalTestOption: String, CaseIterable, Comparable, Hashable, 
   case
   removeInputFromInvocation,
   removeSourceFile,
-  removeEntryFromOutputFileMap,
+  removePreviouslyAddedInputFromOutputFileMap,
   removeSwiftDepsFile,
   restoreBadPriors
 
@@ -376,8 +376,6 @@ extension IncrementalCompilationTests {
 #if !os(Linux)
     let knownGoodCombos: [[RemovalTestOption]] = [
       [.removeInputFromInvocation],
-      // next up:
-      // [.removeInputFromInvocation, .restoreBadPriors],
     ]
     for optionsToTest in RemovalTestOptions.allCombinations {
       if knownGoodCombos.contains(optionsToTest) {
@@ -403,7 +401,7 @@ extension IncrementalCompilationTests {
     if options.contains(.removeSwiftDepsFile) {
       removeSwiftDeps(newInput)
     }
-    if options.contains(.removeEntryFromOutputFileMap) {
+    if options.contains(.removePreviouslyAddedInputFromOutputFileMap) {
       // FACTOR
       OutputFileMapCreator.write(module: module,
                                  inputPaths: inputPathsAndContents.map {$0.0},
