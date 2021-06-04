@@ -268,6 +268,8 @@ extension DarwinToolchain {
           inputModules.append(input.file)
         } else if input.type == .object {
           inputPaths.append(input.file)
+        } else if input.type == .tbd {
+          inputPaths.append(input.file)
         } else if input.type == .llvmBitcode {
           inputPaths.append(input.file)
         }
@@ -290,6 +292,8 @@ extension DarwinToolchain {
         if path.type == .swiftModule && linkerOutputType != .staticLibrary {
           return [.flag("-add_ast_path"), .path(path.file)]
         } else if path.type == .object {
+          return [.path(path.file)]
+        } else if path.type == .tbd {
           return [.path(path.file)]
         } else if path.type == .llvmBitcode {
           return [.path(path.file)]
