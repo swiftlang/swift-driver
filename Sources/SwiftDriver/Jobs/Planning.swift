@@ -330,7 +330,7 @@ extension Driver {
                                       addCompileJobGroup: addCompileJobGroup,
                                       addJobOutputs: addJobOutputs)
 
-    case .object, .autolink, .llvmBitcode:
+    case .object, .autolink, .llvmBitcode, .tbd:
       if linkerOutputType != nil {
         addLinkerInput(input)
       } else {
