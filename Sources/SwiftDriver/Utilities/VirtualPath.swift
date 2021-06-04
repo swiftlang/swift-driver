@@ -715,18 +715,33 @@ extension TSCBasic.FileSystem {
     try resolvingVirtualPath(path, apply: exists)
   }
 
+  /// Retrieves the last modification time of the file referenced at the given path.
+  ///
+  /// If the given file path references a symbolic link, the modification time for the *linked file*
+  /// - not the symlink itself - is returned.
+  ///
+  /// - Parameter file: The path to a file.
+  /// - Throws: `SystemError` if the underlying `stat` operation fails.
+  /// - Returns: A `Date` value containing the last modification time.
   public func lastModificationTime(for file: VirtualPath) throws -> Date {
     try resolvingVirtualPath(file) { path in
       #if os(macOS)
       var s = Darwin.stat()
-      let err = lstat(path.pathString, &s)
+      let err = stat(path.pathString, &s)
       guard err == 0 else {
         throw SystemError.stat(errno, path.pathString)
       }
       let ti = (TimeInterval(s.st_mtimespec.tv_sec) - kCFAbsoluteTimeIntervalSince1970) + (1.0e-9 * TimeInterval(s.st_mtimespec.tv_nsec))
       return Date(timeIntervalSinceReferenceDate: ti)
       #else
-      return try localFileSystem.getFileInfo(file).modTime
+      // `getFileInfo` is going to ask Foundation to stat this path, and
+      // Foundation is always going to use `lstat` to do so. This is going to
+      // do the wrong thing for symbolic links, for which we always want to
+      // retrieve the mod time of the underlying file. This makes build systems
+      // that regenerate lots of symlinks but do not otherwise alter the
+      // contents of files - like Bazel - quite happy.
+      let path = resolveSymlinks(path)
+      return try localFileSystem.getFileInfo(path).modTime
       #endif
     }
   }

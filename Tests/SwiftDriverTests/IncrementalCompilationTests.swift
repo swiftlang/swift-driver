@@ -287,6 +287,22 @@ extension IncrementalCompilationTests {
       tryNoChange(checkDiagnostics: true)
     }
   }
+
+  func testSymlinkModification() throws {
+    // Remap
+    // main.swift -> links/main.swift
+    // other.swift -> links/other.swift
+    for (file, _) in self.inputPathsAndContents {
+      try localFileSystem.createDirectory(tempDir.appending(component: "links"))
+      let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
+      try localFileSystem.move(from: file, to: linkTarget)
+      try localFileSystem.removeFileTree(file)
+      try localFileSystem.createSymbolicLink(file, pointingAt: linkTarget, relative: false)
+    }
+    try tryInitial()
+    try checkReactionToTouchingSymlinks(checkDiagnostics: true)
+    try checkReactionToTouchingSymlinkTargets(checkDiagnostics: true)
+  }
 }
 
 // MARK: - Incremental test stages
@@ -532,6 +548,68 @@ extension IncrementalCompilationTests {
         "Incremental compilation: Skipping job: Linking theModule; oldest output is current",
         "Skipped Compiling main.swift",
         "Skipped Compiling other.swift",
+      ],
+      whenAutolinking: autolinkLifecycleExpectations)
+  }
+
+  private func checkReactionToTouchingSymlinks(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
+  ) throws {
+    for (file, _) in self.inputPathsAndContents {
+      try localFileSystem.removeFileTree(file)
+      let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
+      try localFileSystem.createSymbolicLink(file, pointingAt: linkTarget, relative: false)
+    }
+    try doABuild(
+      "touch both symlinks; non-propagating",
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
+      expectingRemarks: [
+        "Enabling incremental cross-module building",
+        "Incremental compilation: Read dependency graph",
+        "Incremental compilation: May skip current input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: May skip current input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping input:  {compile: main.o <= main.swift}",
+        "Incremental compilation: Skipping input:  {compile: other.o <= other.swift}",
+        "Incremental compilation: Skipping job: Linking theModule",
+        "Skipped Compiling main.swift",
+        "Skipped Compiling other.swift",
+      ],
+      whenAutolinking: autolinkLifecycleExpectations)
+  }
+
+  private func checkReactionToTouchingSymlinkTargets(
+    checkDiagnostics: Bool = false,
+    extraArguments: [String] = []
+  ) throws {
+    for (file, contents) in self.inputPathsAndContents {
+      let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
+      try! localFileSystem.writeFileContents(linkTarget) { $0 <<< contents }
+    }
+    try doABuild(
+      "touch both symlink targets; non-propagating",
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
+      expectingRemarks: [
+        "Enabling incremental cross-module building",
+        "Incremental compilation: Read dependency graph",
+        "Incremental compilation: Scheduing changed input  {compile: main.o <= main.swift}",
+        "Incremental compilation: Scheduing changed input  {compile: other.o <= other.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: main.o <= main.swift}",
+        "Incremental compilation: Queuing (initial):  {compile: other.o <= other.swift}",
+        "Incremental compilation: not scheduling dependents of main.swift; unknown changes",
+        "Incremental compilation: not scheduling dependents of other.swift; unknown changes",
+        "Found 2 batchable jobs",
+        "Forming into 1 batch",
+        "Adding {compile: main.swift} to batch 0",
+        "Adding {compile: other.swift} to batch 0",
+        "Forming batch job from 2 constituents: main.swift, other.swift",
+        "Starting Compiling main.swift, other.swift",
+        "Finished Compiling main.swift, other.swift",
+        "Incremental compilation: Scheduling all post-compile jobs because something was compiled",
+        "Starting Linking theModule",
+        "Finished Linking theModule",
       ],
       whenAutolinking: autolinkLifecycleExpectations)
   }
