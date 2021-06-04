@@ -38,6 +38,7 @@ public struct Driver {
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
     case missingModuleDependency(String)
+    case missingContextHashOnSwiftDependency(String)
     case dependencyScanningFailure(Int, String)
     case missingExternalDependency(String)
 
@@ -91,6 +92,8 @@ public struct Driver {
         return "Missing extraPcmArgs to build Clang module: \(moduleName)"
       case .missingModuleDependency(let moduleName):
         return "Missing Module Dependency Info: \(moduleName)"
+      case .missingContextHashOnSwiftDependency(let moduleName):
+        return "Missing Context Hash for Swift dependency: \(moduleName)"
       case .dependencyScanningFailure(let code, let error):
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       case .unableToLoadOutputFileMap(let path):

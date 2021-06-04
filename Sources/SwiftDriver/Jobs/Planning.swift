@@ -526,7 +526,7 @@ extension Driver {
     try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
 
     // Set dependency modules' paths to be saved in the module cache.
-    try updateDependencyModulesWithModuleCachePath(dependencyGraph: &dependencyGraph)
+    try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
 
     // Update the dependency oracle, adding this new dependency graph to its store
     try interModuleDependencyOracle.mergeModules(from: dependencyGraph)
@@ -535,29 +535,61 @@ extension Driver {
   }
 
   /// Update the given inter-module dependency graph to set module paths to be within the module cache,
-  /// if one is present.
-  private mutating func updateDependencyModulesWithModuleCachePath(dependencyGraph:
-                                                                    inout InterModuleDependencyGraph)
+  /// if one is present, and for Swift modules to use the context hash in the file name.
+  private mutating func resolveDependencyModulePaths(dependencyGraph: inout InterModuleDependencyGraph)
   throws {
-    let moduleCachePath = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle
-    if moduleCachePath != nil {
-      for (moduleId, moduleInfo) in dependencyGraph.modules {
-        // Output path on the main module is determined by the invocation arguments.
-        guard moduleId.moduleName != dependencyGraph.mainModuleName else {
-          continue
-        }
-        let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
-        // Only update paths on modules which do not already specify a path beyond their module name
-        // and a file extension.
-        if modulePath.description == moduleId.moduleName + ".swiftmodule" ||
-            modulePath.description == moduleId.moduleName + ".pcm" {
-          // Use VirtualPath to get the OS-specific path separators right.
-          let modulePathInCache =
-            try VirtualPath(path: moduleCachePath!)
-              .appending(component: modulePath.description)
-          dependencyGraph.modules[moduleId]!.modulePath =
-            TextualVirtualPath(path: modulePathInCache.intern())
-        }
+    // For Swift module dependencies, set the output path to include
+    // the module's context hash
+    try resolveSwiftDependencyModuleFileNames(dependencyGraph: &dependencyGraph)
+
+    // If a module cache path is specified, update all module dependencies
+    // to be output into it.
+    if let moduleCachePath = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
+      try resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: &dependencyGraph,
+                                                            moduleCachePath: moduleCachePath)
+    }
+  }
+
+  /// For Swift module dependencies, set the output path to include the module's context hash
+  private mutating func resolveSwiftDependencyModuleFileNames(dependencyGraph: inout InterModuleDependencyGraph)
+  throws {
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      // Output path on the main module is determined by the invocation arguments.
+      guard moduleId.moduleName != dependencyGraph.mainModuleName else {
+        continue
+      }
+      guard case .swift(let swiftDetails) = moduleInfo.details else {
+        continue
+      }
+      guard let contextHash = swiftDetails.contextHash else {
+        throw Driver.Error.missingContextHashOnSwiftDependency(moduleId.moduleName)
+      }
+      let plainPath = VirtualPath.lookup(dependencyGraph.modules[moduleId]!.modulePath.path)
+      let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
+      dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+    }
+  }
+
+  /// Resolve all paths to dependency binary module files to be relative to the module cache path.
+  private mutating func resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: inout InterModuleDependencyGraph,
+                                                                          moduleCachePath: String)
+  throws {
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      // Output path on the main module is determined by the invocation arguments.
+      guard moduleId.moduleName != dependencyGraph.mainModuleName else {
+        continue
+      }
+      let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
+      // Only update paths on modules which do not already specify a path beyond their module name
+      // and a file extension.
+      if modulePath.description == moduleId.moduleName + ".swiftmodule" ||
+          modulePath.description == moduleId.moduleName + ".pcm" {
+        // Use VirtualPath to get the OS-specific path separators right.
+        let modulePathInCache =
+          try VirtualPath(path: moduleCachePath)
+            .appending(component: modulePath.description)
+        dependencyGraph.modules[moduleId]!.modulePath =
+          TextualVirtualPath(path: modulePathInCache.intern())
       }
     }
   }

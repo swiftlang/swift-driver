@@ -167,7 +167,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
                                                   hostTriple: driver.hostTriple,
                                                   env: ProcessEnv.vars)
-      try dependencyOracle
+      let _ = try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
                                        swiftScanLibPath: scanLibPath)
       try dependencyOracle.mergeModules(from: moduleDependencyGraph)
@@ -257,7 +257,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
                                                   hostTriple: driver.hostTriple,
                                                   env: ProcessEnv.vars)
-      try dependencyOracle
+      let _ = try dependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
                                        swiftScanLibPath: scanLibPath)
 
@@ -306,6 +306,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  private func pathMatchesSwiftModule(path: VirtualPath, _ name: String) -> Bool {
+    return path.basenameWithoutExt.starts(with: "\(name)-") &&
+           path.extension! == FileType.swiftModule.rawValue
+  }
+
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -experimental-explicit-module-build
   func testExplicitModuleBuildJobs() throws {
@@ -352,90 +357,105 @@ final class ExplicitModuleBuildTests: XCTestCase {
         try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleName(for: moduleName,
                                                                                  hashParts: hashParts)
       }
+
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
         let outputFilePath = job.outputs[0].file
-        switch (outputFilePath) {
-          case .relative(RelativePath("A.swiftmodule")):
+
+        // Swift dependencies
+        if outputFilePath.extension != nil,
+           outputFilePath.extension! == FileType.swiftModule.rawValue {
+          if pathMatchesSwiftModule(path: outputFilePath, "A") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("E.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("E"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("G.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("G"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("Swift.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("_Concurrency.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgsCurrent,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("G"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgs9,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("G"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          // Module X is a dependency from Clang module "G" discovered only via versioned PCM
-          // re-scan.
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgsCurrent,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("X"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgs9,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("X"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
-                                                          pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("testExplicitModuleBuildJobs")):
-            XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-            XCTAssertEqual(job.kind, .link)
-          case .temporary(_):
-            let baseName = "testExplicitModuleBuildJobs"
-            XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
-                          matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
-          default:
-            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        // Clang Dependencies
+        } else if outputFilePath.extension != nil,
+                  outputFilePath.extension! == FileType.pcm.rawValue {
+          switch (outputFilePath) {
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("G"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgs9,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("G"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            // Module X is a dependency from Clang module "G" discovered only via versioned PCM
+            // re-scan.
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("X"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgs9,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("X"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        } else {
+          switch (outputFilePath) {
+            case .relative(RelativePath("testExplicitModuleBuildJobs")):
+              XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .temporary(_):
+              let baseName = "testExplicitModuleBuildJobs"
+              XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+                            matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
         }
       }
     }
@@ -495,50 +515,71 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in jobs {
         guard job.kind != .interpret else { continue }
         XCTAssertEqual(job.outputs.count, 1)
-        switch (job.outputs[0].file) {
-          case .relative(RelativePath("A.swiftmodule")):
+        let outputFilePath = job.outputs[0].file
+        // Swift dependencies
+        if outputFilePath.extension != nil,
+           outputFilePath.extension! == FileType.swiftModule.rawValue {
+          if pathMatchesSwiftModule(path: outputFilePath, "A") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("Swift.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("_Concurrency.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
+          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent,
-                                                              pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent,
-                                                              pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent,
-                                                              pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
-                                                              pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
-                                                              pcmModuleNameEncoder: pcmModuleNameEncoder)):
-            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
-                                            dependencyOracle: dependencyOracle,
-                                            pcmFileEncoder: pcmFileEncoder)
-          default:
-            XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
+          }
+        // Clang Dependencies
+        } else if outputFilePath.extension != nil,
+                  outputFilePath.extension! == FileType.pcm.rawValue {
+          switch (outputFilePath) {
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        } else {
+          switch (outputFilePath) {
+            case .relative(RelativePath("testExplicitModuleBuildJobs")):
+              XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .temporary(_):
+              let baseName = "testExplicitModuleBuildJobs"
+              XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+                            matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
         }
       }
     }

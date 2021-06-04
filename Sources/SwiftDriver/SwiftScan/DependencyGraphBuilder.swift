@@ -168,12 +168,17 @@ private extension SwiftScan {
       try getStringArrayDetail(from: moduleDetailsRef,
                                using: api.swiftscan_swift_textual_detail_get_extra_pcm_args,
                                fieldName: "extraPCMArgs")
+    let contextHash =
+      try getOptionalStringDetail(from: moduleDetailsRef,
+                          using: api.swiftscan_swift_textual_detail_get_context_hash)
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
+
     return SwiftModuleDetails(moduleInterfacePath: moduleInterfacePath,
                               compiledModuleCandidates: compiledModuleCandidates,
                               bridgingHeaderPath: bridgingHeaderPath,
                               bridgingSourceFiles: bridgingSourceFiles,
                               commandLine: commandLine,
+                              contextHash: contextHash,
                               extraPcmArgs: extraPcmArgs,
                               isFramework: isFramework)
   }
