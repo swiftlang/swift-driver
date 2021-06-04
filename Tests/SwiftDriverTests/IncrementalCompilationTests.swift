@@ -486,7 +486,7 @@ extension IncrementalCompilationTests {
       expecting: [
         .enablingCrossModule,
         .readGraph,
-        .maySkip("main","other"),
+        .maySkip("main", "other"),
         .skipping("main", "other"),
         .skipped("main", "other"),
         .skippingLinking,
@@ -614,7 +614,7 @@ extension IncrementalCompilationTests {
           "Incremental compilation: Immediately scheduling dependent on main.swift  {compile: other.o <= other.swift}",
           "Incremental compilation: Queuing because of the initial set:  {compile: other.o <= other.swift}"),
         .findingAndFormingBatch(2),
-        .addingToBatchThenForming("main","other"),
+        .addingToBatchThenForming("main", "other"),
         .schedulingPostCompileJobs,
         .compiling("main", "other"),
         .linking,
@@ -679,7 +679,7 @@ extension IncrementalCompilationTests {
       expecting: [
         .readGraph,
         .enablingCrossModule,
-        .maySkip("main","other", newInput),
+        .maySkip("main", "other", newInput),
         .skipping("main", "other", newInput),
         .skippingLinking,
         .skipped(newInput, "main", "other"),
