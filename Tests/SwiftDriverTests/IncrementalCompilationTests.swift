@@ -797,6 +797,7 @@ extension IncrementalCompilationTests {
     graph.verifyGraph()
     if removeInputFromInvocation {
       if afterRestoringBadPriors {
+        // FIXME: Fix the driver
         print("*** WARNING: skipping checks, driver fails to cleaned out the graph ***",
               to: &stderrStream); stderrStream.flush()
         return graph
