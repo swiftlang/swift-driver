@@ -353,7 +353,7 @@ fileprivate enum RemovalTestOption: String, CaseIterable, Comparable, Hashable, 
   }
   var mask: Int { 1 << intValue}
   static let maxIntValue = allCases.map {$0.intValue} .max()!
-  static let maxCombinedValue = (1 << maxIntValue) - 1
+  static let maxCombinedValue = (1 << (maxIntValue + 1)) - 1
 
   var description: String { rawValue }
 }
