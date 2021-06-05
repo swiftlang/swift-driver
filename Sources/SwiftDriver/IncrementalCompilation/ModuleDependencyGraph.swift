@@ -24,7 +24,7 @@ import SwiftOptions
   @_spi(Testing) public var nodeFinder = NodeFinder()
   
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
-  @_spi(Testing) public private(set) var inputDependencySourceMap = InputDependencySourceMap()
+  @_spi(Testing) public let inputDependencySourceMap: InputDependencySourceMap
 
   // The set of paths to external dependencies known to be in the graph
   public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
@@ -43,7 +43,7 @@ import SwiftOptions
   /// Minimize the number of file system modification-time queries.
   private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
 
-  public init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+  public init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
               _ phase: Phase
   ) {
     self.info = info
@@ -52,6 +52,11 @@ import SwiftOptions
     : nil
     self.phase = phase
     self.creationPhase = phase
+    guard let inputDependencySourceMap = InputDependencySourceMap(info)
+    else {
+      return nil
+    }
+    self.inputDependencySourceMap = inputDependencySourceMap
   }
 
   @_spi(Testing) public func sourceRequired(for input: TypedVirtualPath,
@@ -188,45 +193,8 @@ extension ModuleDependencyGraph {
     return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
       ?? false
   }
-  
-  /// Returns: false on error
-  func populateInputDependencySourceMap(
-    `for` purpose: InputDependencySourceMap.AdditionPurpose
-  ) -> Bool {
-    let ofm = info.outputFileMap
-    let diags = info.diagnosticEngine
-    var allFound = true
-    for input in info.inputFiles {
-      if let source = ofm.dependencySource(for: input, diagnosticEngine: diags) {
-        inputDependencySourceMap.addEntry(input, source, for: purpose)
-      } else {
-        // Don't break in order to report all failures.
-        allFound = false
-      }
-    }
-    return allFound
-  }
 }
-extension OutputFileMap {
-  fileprivate func dependencySource(
-    for sourceFile: TypedVirtualPath,
-    diagnosticEngine: DiagnosticsEngine
-  ) -> DependencySource? {
-    assert(sourceFile.type == FileType.swift)
-    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
-                                             outputType: .swiftDeps)
-    else {
-      // The legacy driver fails silently here.
-      diagnosticEngine.emit(
-        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file in the output file map")
-      )
-      return nil
-    }
-    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
-    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
-    return DependencySource(typedSwiftDepsFile)
-  }
-}
+
 
 // MARK: - Scheduling the 2nd wave
 extension ModuleDependencyGraph {
@@ -566,9 +534,13 @@ extension ModuleDependencyGraph {
       private var inputDependencySourceMap: [(TypedVirtualPath, DependencySource)] = []
       public private(set) var allNodes: [Node] = []
 
-      init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
+      init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
         self.fileSystem = info.fileSystem
-        self.graph = ModuleDependencyGraph(info, .updatingFromAPrior)
+        guard let graph = ModuleDependencyGraph(info, .updatingFromAPrior)
+        else {
+          return nil
+        }
+        self.graph = graph
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
@@ -576,11 +548,6 @@ extension ModuleDependencyGraph {
           let isNewUse = self.graph.nodeFinder
             .record(def: dependencyKey, use: self.allNodes[useID])
           assert(isNewUse, "Duplicate use def-use arc in graph?")
-        }
-        for (input, dependencySource) in inputDependencySourceMap {
-          graph.inputDependencySourceMap.addEntry(input,
-                                                  dependencySource,
-                                                  for: .readingPriors)
         }
         return self.graph
       }
@@ -717,7 +684,9 @@ extension ModuleDependencyGraph {
       }
     }
 
-    var visitor = Visitor(info)
+    guard var visitor = Visitor(info) else {
+      return nil
+    }
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,
@@ -1150,15 +1119,5 @@ extension InputDependencySourceMap {
 extension Set where Element == FingerprintedExternalDependency {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
-  }
-}
-
-/// This should be in a test file, but addMapEntry should be private.
-extension ModuleDependencyGraph {
-  @_spi(Testing) public func mockMapEntry(
-    _ mockInput: TypedVirtualPath,
-    _ mockDependencySource: DependencySource
-  ) {
-    inputDependencySourceMap.addEntry(mockInput, mockDependencySource, for: .mocking)
   }
 }
