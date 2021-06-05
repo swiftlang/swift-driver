@@ -457,7 +457,6 @@ extension ModuleDependencyGraph {
     case useIDNode          = 4
     case externalDepNode    = 5
     case identifierNode     = 6
-    case mapNode            = 7
 
     /// The human-readable name of this record.
     ///
@@ -478,8 +477,6 @@ extension ModuleDependencyGraph {
         return "EXTERNAL_DEP_NODE"
       case .identifierNode:
         return "IDENTIFIER_NODE"
-      case .mapNode:
-        return "MAP_NODE"
       }
     }
   }
@@ -531,7 +528,6 @@ extension ModuleDependencyGraph {
       private var identifiers: [String] = [""]
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
-      private var inputDependencySourceMap: [(TypedVirtualPath, DependencySource)] = []
       public private(set) var allNodes: [Node] = []
 
       init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
@@ -638,27 +634,6 @@ extension ModuleDependencyGraph {
             throw ReadError.malformedDependsOnRecord
           }
           self.nodeUses.append( (key, Int(record.fields[0])) )
-        case .mapNode:
-          guard record.fields.count == 2,
-                record.fields[0] < identifiers.count,
-                record.fields[1] < identifiers.count
-          else {
-            throw ReadError.malformedModuleDepGraphNodeRecord
-          }
-          let inputPathString = identifiers[Int(record.fields[0])]
-          let dependencySourcePathString = identifiers[Int(record.fields[1])]
-          let inputHandle = try VirtualPath.intern(path: inputPathString)
-          let inputPath = VirtualPath.lookup(inputHandle)
-          let dependencySourceHandle = try VirtualPath.intern(path: dependencySourcePathString)
-          let dependencySourcePath = VirtualPath.lookup(dependencySourceHandle)
-          guard inputPath.extension == FileType.swift.rawValue,
-                dependencySourcePath.extension == FileType.swiftDeps.rawValue,
-                let dependencySource = DependencySource(dependencySourceHandle)
-          else {
-            throw ReadError.malformedMapRecord
-          }
-          let input = TypedVirtualPath(file: inputHandle, type: .swift)
-          inputDependencySourceMap.append((input, dependencySource))
         case .externalDepNode:
           guard record.fields.count == 2,
                 record.fields[0] < identifiers.count,
@@ -784,7 +759,6 @@ extension ModuleDependencyGraph {
         self.emitRecordID(.useIDNode)
         self.emitRecordID(.externalDepNode)
         self.emitRecordID(.identifierNode)
-        self.emitRecordID(.mapNode)
       }
     }
 
@@ -844,11 +818,6 @@ extension ModuleDependencyGraph {
         if let name = key.designator.name {
           self.addIdentifier(name)
         }
-      }
-
-      graph.inputDependencySourceMap.enumerateToSerializePriors { input, dependencySource in
-        self.addIdentifier(input.file.name)
-        self.addIdentifier(dependencySource.file.name)
       }
 
       for edF in graph.fingerprintedExternalDependencies {
@@ -922,13 +891,6 @@ extension ModuleDependencyGraph {
         // identifier data
         .blob
       ])
-      self.abbreviate(.mapNode, [
-        .literal(RecordID.mapNode.rawValue),
-        // input name
-        .vbr(chunkBitWidth: 13),
-        // dependencySource name
-        .vbr(chunkBitWidth: 13),
-      ])
     }
 
     private func abbreviate(
@@ -991,15 +953,6 @@ extension ModuleDependencyGraph {
             }
           }
         }
-        graph.inputDependencySourceMap.enumerateToSerializePriors {
-          input, dependencySource in
-          serializer.stream.writeRecord(serializer.abbreviations[.mapNode]!) {
-            $0.append(RecordID.mapNode)
-            $0.append(serializer.lookupIdentifierCode(for: input.file.name))
-            $0.append(serializer.lookupIdentifierCode(for: dependencySource.file.name))
-          }
-        }
-
         for fingerprintedExternalDependency in graph.fingerprintedExternalDependencies {
           serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
@@ -1095,7 +1048,6 @@ fileprivate extension DependencyKey.Designator {
 extension ModuleDependencyGraph {
   func matches(_ other: ModuleDependencyGraph) -> Bool {
     guard nodeFinder.matches(other.nodeFinder),
-          inputDependencySourceMap.matches(other.inputDependencySourceMap),
           fingerprintedExternalDependencies.matches(other.fingerprintedExternalDependencies)
     else {
       return false
@@ -1105,12 +1057,6 @@ extension ModuleDependencyGraph {
 }
 
 extension Set where Element == ModuleDependencyGraph.Node {
-  fileprivate func matches(_ other: Self) -> Bool {
-    self == other
-  }
-}
-
-extension InputDependencySourceMap {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
   }
