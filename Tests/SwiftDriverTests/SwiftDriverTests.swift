@@ -2453,6 +2453,25 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testClangTarget() throws {
+    var driver = try Driver(args: ["swiftc", "-target",
+                                   "x86_64-apple-macosx10.14", "foo.swift", "bar.swift"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 3)
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-clang-target")))
+    XCTAssert(plannedJobs[1].commandLine.contains(.flag("-target")))
+    XCTAssert(plannedJobs[1].commandLine.contains(.flag("-clang-target")))
+  }
+
+  func testDisableClangTarget() throws {
+    var driver = try Driver(args: ["swiftc", "-target",
+                                   "x86_64-apple-macosx10.14", "foo.swift", "-disable-clang-target"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+    XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-clang-target")))
+  }
 
   func testPCHasCompileInput() throws {
     var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
