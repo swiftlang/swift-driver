@@ -14,13 +14,11 @@ import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
 
-class ModuleDependencyGraphTests: XCTestCase {
-  static let OFM = OutputFileMap()
-
-  let de = DiagnosticsEngine()
+class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
+  static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: 12)
 
   func testBasicLoad() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a->", "b->"]])
 
@@ -38,7 +36,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testIndependentNodes() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a0", "a->"]])
     graph.simulateLoad(1, [.topLevel: ["b0", "b->"]])
@@ -67,7 +65,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testIndependentDepKinds() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "a->"]])
     graph.simulateLoad(1, [.topLevel: ["a", "b->"]])
@@ -78,7 +76,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testIndependentDepKinds2() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a->", "b"]])
     graph.simulateLoad(1, [.topLevel: ["b->", "a"]])
@@ -89,7 +87,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testIndependentMembers() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.member: ["a,aa"]])
     graph.simulateLoad(1, [.member: ["a,bb->"]])
@@ -106,7 +104,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependent() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
@@ -124,7 +122,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependentReverse() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a->", "b->", "c->"]])
     graph.simulateLoad(1, [.topLevel: ["x", "b", "z"]])
@@ -143,7 +141,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependent2() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
     graph.simulateLoad(1, [.nominal: ["x->", "b->", "z->"]])
@@ -162,7 +160,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependent3() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"], .topLevel: ["a"]])
     graph.simulateLoad(1, [.nominal: ["a->"]])
@@ -181,7 +179,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependent4() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
     graph.simulateLoad(1,
@@ -201,7 +199,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependent5() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0,
                        [.nominal: ["a"], .topLevel: ["a"]])
@@ -223,7 +221,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependent6() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.dynamicLookup: ["a", "b", "c"]])
     graph.simulateLoad(1,
@@ -242,7 +240,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleDependentMember() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.member: ["a,aa", "b,bb", "c,cc"]])
     graph.simulateLoad(1,
@@ -262,7 +260,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMultipleDependentsSame() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
     graph.simulateLoad(1, [.nominal: ["x->", "b->", "z->"]])
@@ -285,7 +283,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMultipleDependentsDifferent() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
     graph.simulateLoad(1, [.nominal: ["x->", "b->", "z->"]])
@@ -308,7 +306,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testChainedDependents() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
     graph.simulateLoad(1, [.nominal: ["x->", "b->", "z"]])
@@ -331,7 +329,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testChainedNoncascadingDependents() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
     graph.simulateLoad(1, [.nominal: ["x->", "b->", "#z"]])
@@ -354,7 +352,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testChainedNoncascadingDependents2() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad( 1, [.topLevel: ["x->", "#b->"], .nominal: ["z"]])
@@ -371,7 +369,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMarkTwoNodes() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b"]])
     graph.simulateLoad(1, [.topLevel: ["a->", "z"]])
@@ -409,7 +407,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMarkOneNodeTwice() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
     graph.simulateLoad(1, [.nominal: ["a->"]])
@@ -435,7 +433,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMarkOneNodeTwice2() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
     graph.simulateLoad(1, [.nominal: ["a->"]])
@@ -461,7 +459,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testReloadDetectsChange() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
     graph.simulateLoad(1, [.nominal: ["a->"]])
@@ -488,7 +486,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testNotTransitiveOnceMarked() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
     graph.simulateLoad(1, [.nominal: ["a->"]])
@@ -516,7 +514,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testDependencyLoops() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c", "a->"]])
     graph.simulateLoad(1,
@@ -543,7 +541,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMarkIntransitive() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
@@ -561,7 +559,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMarkIntransitiveTwice() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
@@ -571,7 +569,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMarkIntransitiveThenIndirect() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
@@ -590,7 +588,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleExternal() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
@@ -611,7 +609,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testSimpleExternal2() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
@@ -624,7 +622,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testChainedExternal() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(
       0,
@@ -654,7 +652,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testChainedExternalReverse() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(
       0,
@@ -685,7 +683,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testChainedExternalPreMarked() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(
       0,
@@ -705,7 +703,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testMutualInterfaceHash() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     graph.simulateLoad(0, [.topLevel: ["a", "b->"]])
     graph.simulateLoad(1, [.topLevel: ["a->", "b"]])
 
@@ -714,7 +712,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testEnabledTypeBodyFingerprints() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["B2->"]])
     graph.simulateLoad(1, [.nominal: ["B1", "B2"]])
@@ -730,7 +728,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testBaselineForPrintsAndCrossType() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     // Because when A1 changes, B1 and not B2 is affected, only jobs1 and 2
     // should be recompiled, except type fingerprints is off!
@@ -751,14 +749,14 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testLoadPassesWithFingerprint() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     _ = graph.getInvalidatedNodesForSimulatedLoad(
       0,
       [MockDependencyKind.nominal: ["A@1"]])
   }
 
   func testUseFingerprints() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
 
     // Because when A1 changes, B1 and not B2 is affected, only jobs1 and 2
     // should be recompiled, except type fingerprints is off!
@@ -781,7 +779,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testUseFingerprintsPingPong() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
 
@@ -810,7 +808,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testUseFingerprintsPingPong2() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
 
@@ -840,7 +838,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testCrossTypeDependencyBaseline() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     graph.simulateLoad(0, [.nominal: ["A"]])
     graph.simulateLoad(1, [.nominal: ["B", "C", "A->"]])
     graph.simulateLoad(2, [.nominal: ["B->"]])
@@ -854,7 +852,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testCrossTypeDependency() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
 
@@ -871,7 +869,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testCrossTypeDependencyBaselineWithFingerprints() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     graph.simulateLoad(0, [.nominal: ["A1@1", "A2@2"]])
     graph.simulateLoad(1, [.nominal: ["B1", "C1", "A1->"]])
     graph.simulateLoad(2, [.nominal: ["B1->"]])
@@ -892,7 +890,7 @@ class ModuleDependencyGraphTests: XCTestCase {
   }
 
   func testCrossTypeDependencyWithFingerprints() {
-    let graph = ModuleDependencyGraph(mock: de)
+    let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
 
@@ -934,17 +932,7 @@ enum MockDependencyKind {
   }
 }
 
-
 extension ModuleDependencyGraph {
-
-  convenience init(
-    mock diagnosticEngine: DiagnosticsEngine,
-    options: IncrementalCompilationState.Options = [ .verifyDependencyGraphAfterEveryImport ]
-  ) {
-    self.init(IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(), .buildingWithoutAPrior)
-  }
-
-
   func simulateLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
@@ -986,10 +974,12 @@ extension ModuleDependencyGraph {
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false
   ) -> DirectlyInvalidatedNodeSet {
-    let dependencySource = DependencySource(mock: swiftDepsIndex)
-    // Only needed for serialization testing:
-    mockMapEntry(TypedVirtualPath.init(mockInput: swiftDepsIndex),
-                    dependencySource)
+    let inputPath = TypedVirtualPath(mockInput: swiftDepsIndex)
+    guard let dependencySource = info.outputFileMap.getDependencySource(for: inputPath)
+    else {
+      XCTFail("maxIndex is too small")
+      return DirectlyInvalidatedNodeSet()
+    }
     let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
 

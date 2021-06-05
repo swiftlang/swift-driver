@@ -45,6 +45,36 @@ extension InputDependencySourceMap {
     _ eachFn: (TypedVirtualPath, DependencySource) -> Void
   ) {
     biMap.forEach(eachFn)
+
+extension OutputFileMap {
+  @_spi(Testing) public func getDependencySource(
+    for sourceFile: TypedVirtualPath
+  ) -> DependencySource? {
+    assert(sourceFile.type == FileType.swift)
+    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
+                                             outputType: .swiftDeps)
+    else {
+      return nil
+   }
+    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
+    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
+    return DependencySource(typedSwiftDepsFile)
+  }
+}
+
+extension OutputFileMap {
+  @_spi(Testing) public func getDependencySource(
+    for sourceFile: TypedVirtualPath
+  ) -> DependencySource? {
+    assert(sourceFile.type == FileType.swift)
+    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
+                                             outputType: .swiftDeps)
+    else {
+      return nil
+   }
+    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
+    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
+    return DependencySource(typedSwiftDepsFile)
   }
 }
 
