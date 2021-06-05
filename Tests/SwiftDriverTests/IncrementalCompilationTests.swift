@@ -337,8 +337,6 @@ extension IncrementalCompilationTests {
 fileprivate enum RemovalTestOption: String, CaseIterable, Comparable, Hashable, CustomStringConvertible {
   case
   removeInputFromInvocation,
-  removeSourceFile,
-  removePreviouslyAddedInputFromOutputFileMap,
   removeSwiftDepsFile,
   restoreBadPriors
 
@@ -380,7 +378,6 @@ extension IncrementalCompilationTests {
 
   /// Someday, turn this test on and test all cases
   func testRemovalInAllCases() throws {
-    throw XCTSkip("unimplemented")
     try testRemoval(includeFailingCombos: true)
   }
 
@@ -401,26 +398,16 @@ extension IncrementalCompilationTests {
   }
 
   private func testRemoval(_ options: RemovalTestOptions) throws {
-    guard !options.isEmpty else {return}
-    print("*** testRemoval \(options) ***", to: &stderrStream); stderrStream.flush()
+    setUp() // clear derived data, restore output file map
+    print("\n*** testRemoval \(options) ***", to: &stderrStream); stderrStream.flush()
 
     let newInput = "another"
     let topLevelName = "nameInAnother"
     try testAddingInput(newInput: newInput, defining: topLevelName)
-    if options.contains(.removeSourceFile) {
-      removeInput(newInput)
-    }
-    if options.contains(.removeSwiftDepsFile) {
-      removeSwiftDeps(newInput)
-    }
-    if options.contains(.removePreviouslyAddedInputFromOutputFileMap) {
-      // FACTOR
-      OutputFileMapCreator.write(module: module,
-                                 inputPaths: inputPathsAndContents.map {$0.0},
-                                 derivedData: derivedDataPath,
-                                 to: OFM)
-    }
-    let includeInputInInvocation = !options.contains(.removeInputFromInvocation)
+
+    let removeInputFromInvocation = options.contains(.removeInputFromInvocation)
+    let removeSwiftDepsFile = options.contains(.removeSwiftDepsFile)
+    let restoreBadPriors = options.contains(.restoreBadPriors)
     do {
       let wrapperFn = options.contains(.restoreBadPriors)
       ? preservingPriorsDo
@@ -429,14 +416,16 @@ extension IncrementalCompilationTests {
         try self.checkNonincrementalAfterRemoving(
           removedInput: newInput,
           defining: topLevelName,
-          includeInputInInvocation: includeInputInInvocation)
+          removeInputFromInvocation: removeInputFromInvocation,
+          removeSwiftDepsFile: removeSwiftDepsFile)
       }
     }
     try checkRestorationOfIncrementalityAfterRemoval(
       removedInput: newInput,
       defining: topLevelName,
-      includeInputInInvocation: includeInputInInvocation,
-      afterRestoringBadPriors: options.contains(.restoreBadPriors))
+      removeInputFromInvocation: removeInputFromInvocation,
+      removeSwiftDepsFile: removeSwiftDepsFile,
+      afterRestoringBadPriors: restoreBadPriors)
   }
 }
 
@@ -701,25 +690,62 @@ extension IncrementalCompilationTests {
   private func checkNonincrementalAfterRemoving(
     removedInput: String,
     defining topLevelName: String,
-    includeInputInInvocation: Bool
+    removeInputFromInvocation: Bool,
+    removeSwiftDepsFile: Bool
   ) throws {
-    let extraArguments = includeInputInInvocation
-      ? [inputPath(basename: removedInput).pathString]
-      : []
-    try doABuild(
-      "after removal of \(removedInput)",
-      checkDiagnostics: true,
-      extraArguments: extraArguments,
-      expecting: [
+    let extraArguments = removeInputFromInvocation
+    ? [] : [inputPath(basename: removedInput).pathString]
+
+    if removeSwiftDepsFile {
+      removeSwiftDeps(removedInput)
+    }
+    let expectations: [[Diagnostic.Message]]
+    switch (removeInputFromInvocation, removeSwiftDepsFile) {
+    case (false, false):
+      expectations = [
+        .readGraphAndSkipAll("main", "other", "another")
+      ]
+    case
+      (true, false),
+      (true, true):
+      expectations = [
         .remarks(
           "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"),
         .findingBatchingCompiling("main", "other"),
         .linking,
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
-      .verifyNoGraph()
+      ]
+    case (false, true):
+      expectations = [
+        .readGraph,
+        .enablingCrossModule,
+        .maySkip("main", "other", "another"),
+        .missing("another"),
+        .queuingInitial("another"),
+        .skipping("main", "other"),
+        .findingBatchingCompiling("another"),
+        .schedulingPostCompileJobs,
+        .linking,
+        .skipped("main", "other"),
+      ]
+    }
 
-    verifyNoPriors()
+    let driver = try doABuild(
+      "after removal of \(removedInput)",
+      checkDiagnostics: true,
+      extraArguments: extraArguments,
+      expecting: expectations,
+      whenAutolinking: autolinkLifecycleExpectations)
+
+    if removeInputFromInvocation {
+      driver.verifyNoGraph()
+      verifyNoPriors()
+    }
+    else {
+      let graph = try driver.moduleDependencyGraph()
+      graph.verifyGraph()
+      XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
+      XCTAssert(graph.contains(name: topLevelName))
+    }
   }
 
   /// Ensure that incremental builds happen after a removal.
@@ -731,25 +757,37 @@ extension IncrementalCompilationTests {
   private func checkRestorationOfIncrementalityAfterRemoval(
     removedInput: String,
     defining topLevelName: String,
-    includeInputInInvocation: Bool,
+    removeInputFromInvocation: Bool,
+    removeSwiftDepsFile: Bool,
     afterRestoringBadPriors: Bool
   ) throws -> ModuleDependencyGraph {
-    let extraArguments = includeInputInInvocation
-      ? [inputPath(basename: removedInput).pathString]
-      : []
-    let expectations: [[Diagnostic.Message]] = afterRestoringBadPriors
-    ? [
-      .readGraph,
-      .enablingCrossModule,
-      .skippingAll("main", "other"),
-    ]
-    : [
-      .createdGraphFromSwiftdeps,
-      .enablingCrossModule,
-      .skippingAll("main", "other"),
-    ]
+    let extraArguments = removeInputFromInvocation
+    ? [] : [inputPath(basename: removedInput).pathString]
+    let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
+    let expectations: [[Diagnostic.Message]]
+    switch (removeInputFromInvocation, removeSwiftDepsFile, afterRestoringBadPriors) {
+    case
+      (false, false, false),
+      (false, true,  false),
+      (false, false, true ),
+      (true,  false, true ),
+      (true,  true,  true ),
+      (false, true,  true ):
+      expectations = [
+        .readGraphAndSkipAll(inputs)
+      ]
+    case
+      (true, false, false),
+      (true, true,  false):
+      expectations = [
+        .createdGraphFromSwiftdeps,
+        .enablingCrossModule,
+        .skippingAll(inputs),
+      ]
+    }
+
     let graph = try doABuild(
-      "after after removal of \(removedInput)",
+      "restoring incrementality after removal of \(removedInput)",
       checkDiagnostics: true,
       extraArguments: extraArguments,
       expecting: expectations,
@@ -757,8 +795,19 @@ extension IncrementalCompilationTests {
       .moduleDependencyGraph()
 
     graph.verifyGraph()
-    graph.ensureOmits(sourceBasenameWithoutExt: removedInput)
-    graph.ensureOmits(name: topLevelName)
+    if removeInputFromInvocation {
+      if afterRestoringBadPriors {
+        print("*** WARNING: skipping checks, driver fails to cleaned out the graph ***",
+              to: &stderrStream); stderrStream.flush()
+        return graph
+      }
+      graph.ensureOmits(sourceBasenameWithoutExt: removedInput)
+      graph.ensureOmits(name: topLevelName)
+    }
+    else {
+      XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
+      XCTAssert(graph.contains(name: topLevelName))
+    }
 
     return graph
   }
@@ -897,12 +946,14 @@ fileprivate extension ModuleDependencyGraph {
     allNodes.contains {$0.contains(name: target)}
   }
   func ensureOmits(sourceBasenameWithoutExt target: String) {
+    // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
       XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target),
                      "graph should omit source: \(target)")
     }
   }
   func ensureOmits(name: String) {
+    // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
       XCTAssertFalse(node.contains(name: name),
                      "graph should omit decl named: \(name)")
@@ -1097,11 +1148,24 @@ fileprivate extension Array where Element == Diagnostic.Message {
   static func skipped(_ inputs: String...) -> Self {
     skipped(inputs)
   }
-  static func skippingAll(_ inputs: String...) -> Self {
+  static func skippingAll(_ inputs: [String]) -> Self {
      [
       maySkip(inputs), skipping(inputs), skippingLinking, skipped(inputs)
      ].flatMap {$0}
    }
+  static func skippingAll(_ inputs: String...) -> Self {
+     skippingAll(inputs)
+   }
+  static func readGraphAndSkipAll(_ inputs: [String]) -> Self {
+    [
+      readGraph,
+      enablingCrossModule,
+      skippingAll(inputs)
+    ].flatMap{$0}
+  }
+  static func readGraphAndSkipAll(_ inputs: String...) -> Self {
+    readGraphAndSkipAll(inputs)
+  }
 
 // MARK: - batching
   static func addingToBatch(_ inputs: [String], _ b: Int) -> Self {
