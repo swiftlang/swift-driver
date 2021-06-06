@@ -149,6 +149,20 @@ extension ModuleDependencyGraph {
       invalidatedNodes.formUnion(self.integrateExternal(.known(fed)))
     }
   }
+
+  /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
+  ///
+  /// If the priors were read from an invocation containing a subsuequently removed input,
+  /// the nodes defining decls from that input must be culled.
+  ///
+  /// - Parameter node: The (deserialized) node to test.
+  /// - Returns: true iff the node corresponds to a definition on a removed source file.
+  fileprivate func isForRemovedInput(_ node: Node) -> Bool {
+    guard let dependencySource = node.dependencySource else {
+      return false
+    }
+    return inputDependencySourceMap.inputIfKnown(for: dependencySource) == nil
+  }
 }
 
 // MARK: - Scheduling the first wave
@@ -528,7 +542,13 @@ extension ModuleDependencyGraph {
       private var identifiers: [String] = [""]
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
-      public private(set) var allNodes: [Node] = []
+
+      /// Deserialized nodes, in order appearing in the priors file. If `nil`, the node is for a removed source file.
+      ///
+      /// Since the def-use relationship is serialized according the index of the node in the priors file, this
+      /// `Array` supports the deserialization of the def-use links by mapping index to node.
+      /// The optionality of the contents lets the ``ModuleDependencyGraph/isForRemovedInput`` check to be cached.
+      public private(set) var potentiallyUsedNodes: [Node?] = []
 
       init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
         self.fileSystem = info.fileSystem
@@ -541,8 +561,12 @@ extension ModuleDependencyGraph {
 
       func finalizeGraph() -> ModuleDependencyGraph {
         for (dependencyKey, useID) in self.nodeUses {
+          guard let use = self.potentiallyUsedNodes[useID] else {
+            // Don't record uses of defs of removed files.
+            continue
+          }
           let isNewUse = self.graph.nodeFinder
-            .record(def: dependencyKey, use: self.allNodes[useID])
+            .record(def: dependencyKey, use: use)
           assert(isNewUse, "Duplicate use def-use arc in graph?")
         }
         return self.graph
@@ -561,7 +585,12 @@ extension ModuleDependencyGraph {
       mutating func didExitBlock() throws {}
 
       private mutating func finalize(node newNode: Node) {
-        self.allNodes.append(newNode)
+        if graph.isForRemovedInput(newNode) {
+          // Preserve the mapping of Int to Node for reconstructing def-use links with a placeholder.
+          self.potentiallyUsedNodes.append(nil)
+          return
+        }
+        self.potentiallyUsedNodes.append(newNode)
         let oldNode = self.graph.nodeFinder.insert(newNode)
         assert(oldNode == nil,
                "Integrated the same node twice: \(oldNode!), \(newNode)")
