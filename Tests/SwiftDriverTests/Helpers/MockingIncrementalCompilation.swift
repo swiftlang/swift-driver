@@ -129,14 +129,18 @@ extension BuildRecordInfo {
 extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   static func mock(
     options: IncrementalCompilationState.Options = [.verifyDependencyGraphAfterEveryImport],
-    outputFileMap: OutputFileMap = OutputFileMap(),
+    outputFileMap: OutputFileMap,
     fileSystem: FileSystem = localFileSystem,
     diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine()
   ) -> Self {
     let diagnosticsEngine = DiagnosticsEngine()
-    return Self(options, outputFileMap,
+    // Must set input files in order to avoid graph deserialization from culling
+    let inputFiles = outputFileMap.entries.keys
+      .filter {VirtualPath.lookup($0).extension == FileType.swift.rawValue }
+      .map {TypedVirtualPath(file: $0, type: .swift)}
+     return Self(options, outputFileMap,
                 BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
-                nil, nil, [], fileSystem,
+                nil, nil, inputFiles, fileSystem,
                 diagnosticsEngine)
   }
 }
@@ -176,7 +180,7 @@ struct MockModuleDependencyGraphCreator {
 
 
 extension OutputFileMap {
-  fileprivate static func mock(maxIndex: Int) -> Self {
+  static func mock(maxIndex: Int) -> Self {
     OutputFileMap( entries: (0...maxIndex) .reduce(into: [:]) {
       entries, index in
       let inputHandle = TypedVirtualPath(mockInput: index).file.intern()

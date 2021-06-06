@@ -16,7 +16,8 @@ import TSCBasic
 import TSCUtility
 
 class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
-  static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: 12)
+  static let maxIndex = 12
+  static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: maxIndex)
 
   /// Unit test of the `ModuleDependencyGraph` serialization
   ///
@@ -33,8 +34,9 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       compilerVersion: "Swift 99",
       mockSerializedGraphVersion: alteredVersion)
     do {
+      let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
       _ = try ModuleDependencyGraph.read(from: mockPath,
-                                         info: .mock(fileSystem: fs))
+                                         info: .mock(outputFileMap: outputFileMap, fileSystem: fs))
       XCTFail("Should have thrown an exception")
     }
     catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
@@ -51,8 +53,9 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
     let fs = InMemoryFileSystem()
     try graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
 
+    let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
     let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
-                                                           info: .mock(fileSystem: fs))!
+                                                           info: .mock(outputFileMap: outputFileMap, fileSystem: fs))!
     var originalNodes = Set<ModuleDependencyGraph.Node>()
     graph.nodeFinder.forEachNode {
       originalNodes.insert($0)
