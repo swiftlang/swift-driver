@@ -796,22 +796,6 @@ extension IncrementalCompilationTests {
 
     graph.verifyGraph()
     if removeInputFromInvocation {
-      if afterRestoringBadPriors {
-        // FIXME: Fix the driver
-        // If you incrementally compile with a.swift and b.swift,
-        // at the end, the driver saves a serialized `ModuleDependencyGraph`
-        // contains nodes for declarations defined in both files.
-        // If you then later remove b.swift and recompile, the driver will
-        // see that a file was removed (via comparisons with the saved `BuildRecord`
-        // and will delete the saved priors. However, if for some reason the
-        // saved priors are not deleted, the driver will read saved priors
-        // containing entries for the deleted file. This test simulates that
-        // condition by restoring the deleted priors. The driver ought to be fixed
-        // to cull any entries for removed files from the deserialized priors.
-        print("*** WARNING: skipping checks, driver fails to cleaned out the graph ***",
-              to: &stderrStream); stderrStream.flush()
-        return graph
-      }
       graph.ensureOmits(sourceBasenameWithoutExt: removedInput)
       graph.ensureOmits(name: topLevelName)
     }
