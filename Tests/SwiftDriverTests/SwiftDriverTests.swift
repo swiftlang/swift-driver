@@ -1019,6 +1019,17 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // .tbd inputs are passed down to the linker.
+      var driver = try Driver(args: commonArgs + ["foo.dylib", "foo.tbd", "-target", "x86_64-apple-macosx10.15"], env: env)
+      let plannedJobs = try driver.planBuild()
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "foo.tbd"))))
+      XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "foo.dylib"))))
+    }
+
+    do {
       // iOS target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "arm64-apple-ios10.0"], env: env)
       let plannedJobs = try driver.planBuild()
