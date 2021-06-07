@@ -22,9 +22,10 @@ import TSCBasic
   public typealias BiMap = BidirectionalMap<TypedVirtualPath, DependencySource>
   @_spi(Testing) public let biMap: BiMap
 
-  /// Create the reverse map to map swiftdeps -> input (source) file from the `OutputFileMap`
-   ///
-   /// - Returns: the map, or nil if error
+  /// Based on entries in the `OutputFileMap`, create the bidirectional map to map each source file
+  /// path to- and from- the corresponding swiftdeps file path.
+  ///
+  /// - Returns: the map, or nil if error
   init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
     let outputFileMap = info.outputFileMap
     let diagnosticEngine = info.diagnosticEngine
