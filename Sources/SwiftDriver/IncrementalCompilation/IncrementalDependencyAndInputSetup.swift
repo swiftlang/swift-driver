@@ -256,7 +256,6 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     else {
       return nil
     }
-    
     var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedInputSet()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs =
