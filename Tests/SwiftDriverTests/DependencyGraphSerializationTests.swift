@@ -14,7 +14,9 @@ import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
 
-class DependencyGraphSerializationTests: XCTestCase {
+class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
+  static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: 12)
+
   func roundTrip(_ graph: ModuleDependencyGraph) throws {
     let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
     let fs = InMemoryFileSystem()
@@ -216,8 +218,7 @@ class DependencyGraphSerializationTests: XCTestCase {
     ]
 
     for fixture in fixtures {
-      let de = DiagnosticsEngine()
-      let graph = ModuleDependencyGraph(mock: de)
+      let graph = Self.mockGraphCreator.mockUpAGraph()
       for loadCommand in fixture.commands {
         switch loadCommand {
         case .load(index: let index, nodes: let nodes, fingerprint: let fingerprint):
