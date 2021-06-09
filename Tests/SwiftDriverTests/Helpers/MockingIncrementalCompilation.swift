@@ -13,6 +13,7 @@
 @_spi(Testing) import SwiftDriver
 import TSCBasic
 import Foundation
+import XCTest
 
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
@@ -119,13 +120,15 @@ extension BuildRecordInfo {
 extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   static func mock(
     options: IncrementalCompilationState.Options = [.verifyDependencyGraphAfterEveryImport],
-    diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine(),
-    fileSystem: FileSystem = localFileSystem) -> Self {
+    outputFileMap: OutputFileMap = OutputFileMap(),
+    fileSystem: FileSystem = localFileSystem,
+    diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine()
+  ) -> Self {
     let diagnosticsEngine = DiagnosticsEngine()
-    let outputFileMap = OutputFileMap()
     return Self(options, outputFileMap,
                 BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
-                nil, nil, [], fileSystem, diagnosticsEngine)
+                nil, nil, [], fileSystem,
+                diagnosticsEngine)
   }
 }
 
@@ -137,5 +140,40 @@ func `is`<S: StringProtocol>(dotFileName a: S, lessThan b: S) -> Bool {
 extension Collection where Element: StringProtocol {
   func sortedByDotFileSequenceNumbers() -> [Element] {
     sorted(by: `is`(dotFileName:lessThan:))
+  }
+}
+
+// MARK: - Mocking up a ModuleDependencyGraph
+protocol ModuleDependencyGraphMocker {
+  static var mockGraphCreator: MockModuleDependencyGraphCreator {get}
+}
+
+struct MockModuleDependencyGraphCreator {
+  let maxIndex: Int
+  let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+
+  /// maxIndex must be larger than any index used
+  init(maxIndex: Int) {
+    let outputFileMap = OutputFileMap.mock(maxIndex: maxIndex)
+    self.info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
+      .mock(outputFileMap: outputFileMap)
+    self.maxIndex = maxIndex
+  }
+
+  func mockUpAGraph() -> ModuleDependencyGraph {
+    ModuleDependencyGraph(info, .buildingWithoutAPrior)!
+  }
+}
+
+
+extension OutputFileMap {
+  fileprivate static func mock(maxIndex: Int) -> Self {
+    OutputFileMap( entries: (0...maxIndex) .reduce(into: [:]) {
+      entries, index in
+      let inputHandle = TypedVirtualPath(mockInput: index).file.intern()
+      let swiftDepsHandle = DependencySource(mock: index).file.intern()
+      entries[inputHandle] = [.swiftDeps: swiftDepsHandle]
+    }
+    )
   }
 }

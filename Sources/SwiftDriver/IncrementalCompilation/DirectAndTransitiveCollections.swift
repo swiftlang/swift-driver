@@ -19,7 +19,7 @@ public struct Directly {}
 public struct InvalidatedSet<ClosureLevel, Element: Hashable>: Sequence {
   var contents: Set<Element>
 
-  init(_ s: Set<Element> = Set()) {
+  @_spi(Testing) public init(_ s: Set<Element> = Set()) {
     self.contents = s
   }
   init<Elements: Sequence>(_ elements: Elements)

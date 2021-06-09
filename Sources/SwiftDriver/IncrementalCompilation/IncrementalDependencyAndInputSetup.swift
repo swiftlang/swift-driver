@@ -227,9 +227,6 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     else {
       return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
     }
-    guard graph.populateInputDependencySourceMap(for: .inputsAddedSincePriors) else {
-      return nil
-    }
     graph.dotFileWriter?.write(graph)
 
     // Any externals not already in graph must be additions which should trigger
@@ -255,13 +252,10 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
   -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
   {
-    let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
-    assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
-    
-    guard graph.populateInputDependencySourceMap(for: .buildingFromSwiftDeps) else {
+    guard let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
+    else {
       return nil
     }
-
     var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedInputSet()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs =

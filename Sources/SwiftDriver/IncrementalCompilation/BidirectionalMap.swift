@@ -12,10 +12,6 @@
 
 /// Like a two-way dictionary
 ///
-// FIXME: The current use of this abstraction in the driver is
-// fundamentally broken. This data structure should be retired ASAP.
-// See the extended FIXME in its use in
-// `ModuleDependencyGraph.inputDependencySourceMap`
 public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence {
   private var map1: [T1: T2] = [:]
   private var map2: [T2: T1] = [:]
@@ -74,6 +70,20 @@ public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence 
   public func contains(key: T2) -> Bool {
     map2.keys.contains(key)
   }
+
+  public mutating func updateValue(_ newValue: T2, forKey key: T1) -> T2? {
+    let oldValue = map1.updateValue(newValue, forKey: key)
+    _ = oldValue.map {map2.removeValue(forKey: $0)}
+    map2[newValue] = key
+    return oldValue
+  }
+  public mutating func updateValue(_ newValue: T1, forKey key: T2) -> T1? {
+    let oldValue = map2.updateValue(newValue, forKey: key)
+   _ = oldValue.map {map1.removeValue(forKey: $0)}
+    map1[newValue] = key
+    return oldValue
+  }
+
   public mutating func removeValue(forKey t1: T1) {
     if let t2 = map1[t1] {
       map2.removeValue(forKey: t2)
