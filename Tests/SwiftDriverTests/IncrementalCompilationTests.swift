@@ -272,6 +272,57 @@ extension IncrementalCompilationTests {
     tryReplacingMain(checkDiagnostics: checkDiagnostics)
   }
 
+  func testFileMapMissingMainEntry() throws {
+    OutputFileMapCreator.write(
+      module: module, inputPaths: inputPathsAndContents.map {$0.0},
+      derivedData: derivedDataPath, to: OFM, excludeMainEntry: true)
+    try doABuild("output file map missing main entry", checkDiagnostics: true, extraArguments: [], expecting: [
+          .warning("ignoring -incremental; output file map has no master dependencies entry (\"swift-dependencies\" under \"\")"),
+          .remark("Incremental compilation: Disabling incremental build: no build record path"),
+          .remark("Found 2 batchable job"),
+          .remark("Forming batch job from 2 constituents: main.swift, other.swift"),
+          .remark("Forming into 1 batch"),
+          .remark("Adding {compile: main.swift} to batch 0"),
+          .remark("Adding {compile: other.swift} to batch 0"),
+          .remark("Starting Compiling main.swift, other.swift"),
+          .remark("Finished Compiling main.swift, other.swift"),
+          .remark("Starting Linking theModule"),
+          .remark("Finished Linking theModule"),
+    ], whenAutolinking: [])
+  }
+
+  func testFileMapMissingMainEntryWMO() throws {
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting() else {
+      throw XCTSkip("Cannot perform this test on this host")
+    }
+
+    OutputFileMapCreator.write(
+      module: module, inputPaths: inputPathsAndContents.map {$0.0},
+      derivedData: derivedDataPath, to: OFM, excludeMainEntry: true)
+
+    let args = [
+      "swiftc",
+      "-module-name", module,
+      "-o", derivedDataPath.appending(component: module + ".o").pathString,
+      "-output-file-map", OFM.pathString,
+      "-whole-module-optimization",
+      "-incremental",
+      "-no-color-diagnostics",
+    ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + sdkArgumentsForTesting
+
+    let expectedDiags: [Diagnostic.Message] = [
+      .remark("Incremental compilation has been disabled: it is not compatible with whole module optimization"),
+    ]
+    let _: Driver = try assertDriverDiagnostics(args: args) { driver, verifier in
+      verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
+
+      expectedDiags.forEach {verifier.expect($0)}
+      let jobs = try! driver.planBuild()
+      try! driver.run(jobs: jobs)
+      return driver
+    }
+  }
+
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
     #if !os(Linux)
