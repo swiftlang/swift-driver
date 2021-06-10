@@ -32,6 +32,13 @@ func getArgument(_ flag: String) -> String? {
   return nil
 }
 
+func getArgumentAsPath(_ flag: String) throws -> AbsolutePath? {
+  if let raw = getArgument(flag) {
+    return try VirtualPath(path: raw).absolutePath
+  }
+  return nil
+}
+
 guard let rawOutputDir = getArgument("-o") else {
   diagnosticsEngine.emit(.error("need to specify -o"))
   exit(1)
@@ -119,7 +126,8 @@ do {
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
-    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
+    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap,
+      into: outputDir, exhaustive: !coreMode, dotGraphPath: getArgumentAsPath("-dot-graph-path"))
     if verbose {
       Driver.stdErrQueue.sync {
         stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
