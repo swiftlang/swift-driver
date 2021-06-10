@@ -236,6 +236,57 @@ public struct SDKPrebuiltModuleInputsCollector {
   }
 }
 
+extension InterModuleDependencyGraph {
+  func dumpDotGraph(_ path: AbsolutePath, _ includingPCM: Bool) throws {
+    func isPCM(_ dep: ModuleDependencyId) -> Bool {
+      switch dep {
+      case .clang:
+        return true
+      default:
+        return false
+      }
+    }
+    func dumpModuleName(_ stream: WritableByteStream, _ dep: ModuleDependencyId) {
+      switch dep {
+      case .swift(let name):
+        stream <<< "\"\(name).swiftmodule\""
+      case .clang(let name):
+        stream <<< "\"\(name).pcm\""
+      default:
+        break
+      }
+    }
+    try localFileSystem.writeFileContents(path) {Stream in
+      Stream <<< "digraph {\n"
+      for key in modules.keys {
+        switch key {
+        case .swift(let name):
+          if name == mainModuleName {
+              break
+          }
+          fallthrough
+        case .clang:
+          if !includingPCM && isPCM(key) {
+            break
+          }
+          modules[key]!.directDependencies?.forEach { dep in
+            if !includingPCM && isPCM(dep) {
+              return
+            }
+            dumpModuleName(Stream, key)
+            Stream <<< " -> "
+            dumpModuleName(Stream, dep)
+            Stream <<< ";\n"
+          }
+        default:
+          break
+        }
+      }
+      Stream <<< "}\n"
+    }
+  }
+}
+
 extension Driver {
 
   private mutating func generateSingleModuleBuildingJob(_ moduleName: String,  _ prebuiltModuleDir: AbsolutePath,
@@ -282,12 +333,16 @@ extension Driver {
 
   public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
                                                            into prebuiltModuleDir: AbsolutePath,
-                                                           exhaustive: Bool) throws -> ([Job], [Job]) {
+                                                           exhaustive: Bool,
+                                                           dotGraphPath: AbsolutePath? = nil) throws -> ([Job], [Job]) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
     // We only need Swift dependencies here, so we don't need to invoke gatherModuleDependencies,
     // which also resolves versioned clang modules.
     let dependencyGraph = try performDependencyScan()
+    if let dotGraphPath = dotGraphPath {
+      try dependencyGraph.dumpDotGraph(dotGraphPath, false)
+    }
     var jobs: [Job] = []
     var danglingJobs: [Job] = []
     var inputCount = 0
