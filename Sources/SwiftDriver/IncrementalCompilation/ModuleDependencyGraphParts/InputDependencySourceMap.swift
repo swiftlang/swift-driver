@@ -71,6 +71,12 @@ extension InputDependencySourceMap {
   @_spi(Testing) public func inputIfKnown(for source: DependencySource) -> TypedVirtualPath? {
     simulateGetInputFailure ? nil : biMap[source]
   }
+
+  @_spi(Testing) public func enumerateToSerializePriors(
+    _ eachFn: (TypedVirtualPath, DependencySource) -> Void
+  ) {
+    biMap.forEach(eachFn)
+  }
 }
 
 extension OutputFileMap {
