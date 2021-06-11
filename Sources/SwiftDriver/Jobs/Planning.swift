@@ -85,7 +85,6 @@ extension Driver {
   -> ([Job], IncrementalCompilationState?) {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
-
     // Determine the initial state for incremental compilation that is required during
     // the planning process. This state contains the module dependency graph and
     // cross-module dependency information.

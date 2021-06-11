@@ -314,6 +314,16 @@ final class SwiftDriverTests: XCTestCase {
       }
   }
 
+  func testMultiThreadingOutputs() throws {
+    try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "2", "-whole-module-optimization") {
+      $1.expect(.error("cannot specify -o when generating multiple output files"))
+    }
+
+    try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "0") {
+      $1.expect(.error("cannot specify -o when generating multiple output files"))
+    }
+  }
+
   func testBaseOutputPaths() throws {
     // Test the combination of -c and -o includes the base output path.
     do {
