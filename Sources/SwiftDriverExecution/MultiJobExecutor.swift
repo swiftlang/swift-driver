@@ -191,7 +191,8 @@ public final class MultiJobExecutor {
                                     to producerMap: inout [VirtualPath.Handle: Int]
     ) {
       for output in job.outputs {
-        if let otherJobIndex = producerMap.updateValue(index, forKey: output.fileHandle) {
+        if output.file != .standardOutput,
+           let otherJobIndex = producerMap.updateValue(index, forKey: output.fileHandle) {
           fatalError("multiple producers for output \(output.file): \(job) & \(knownJobs[otherJobIndex])")
         }
         producerMap[output.fileHandle] = index
