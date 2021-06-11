@@ -329,6 +329,20 @@ public struct Driver {
       .appending(component: "Frameworks")
   } ()
 
+  public func isFrontendArgSupported(_ opt: Option) -> Bool {
+    var current = opt.spelling
+    while(true) {
+      if supportedFrontendFlags.contains(current) {
+        return true
+      }
+      if current.starts(with: "-") {
+        current = String(current.dropFirst())
+      } else {
+        return false
+      }
+    }
+  }
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     stdErrQueue.sync {
