@@ -16,12 +16,15 @@ import ArgumentParser
 enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
   case driver(DriverKind)
   case subcommand(Subcommand)
+  case intro
 
   init?(argument topicName: String) {
     if let kind = DriverKind(rawValue: topicName) {
       self = .driver(kind)
     } else if let subcommand = Subcommand(rawValue: topicName) {
       self = .subcommand(subcommand)
+    } else if topicName == "intro" {
+      self = .intro
     } else {
       return nil
     }
@@ -33,6 +36,8 @@ enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
       return kind.rawValue
     case .subcommand(let command):
       return command.rawValue
+    case .intro:
+      return "intro"
     }
   }
 }
@@ -43,13 +48,13 @@ enum Subcommand: String, CaseIterable {
   var description: String {
     switch self {
     case .build:
-      return "SwiftPM - Build sources into binary products"
+      return "Build Swift packages"
     case .package:
-      return "SwiftPM - Perform operations on Swift packages"
+      return "Create and work on packages"
     case .run:
-      return "SwiftPM - Build and run an executable product"
+      return "Run a program from a package"
     case .test:
-      return "SwiftPM - Build and run tests"
+      return "Run package tests"
     }
   }
 }
@@ -65,19 +70,60 @@ struct SwiftHelp: ParsableCommand {
         help: "List hidden (unsupported) options")
   var showHidden: Bool = false
 
+  enum Color256: CustomStringConvertible {
+    case reset
+    case color(foreground: UInt8?, background: UInt8?)
+
+    var description: String {
+      switch self {
+      case .reset:
+        return "\u{001B}[0m"
+      case let .color(foreground, background):
+        let foreground = foreground.map { "\u{001B}[38;5;\($0)m" } ?? ""
+        let background = background.map { "\u{001B}[48;5;\($0)m" } ?? ""
+        return foreground + background
+      }
+    }
+  }
+
+  func printIntro() {
+    let is256Color = ProcessEnv.vars["TERM"] == "xterm-256color"
+    let orangeRed = is256Color ? "\u{001b}[1;38;5;196m" : ""
+    let plain = is256Color ? "\u{001b}[0m" : ""
+    let plainBold = is256Color ? "\u{001b}[1m" : ""
+
+    print("""
+
+    \(orangeRed)Welcome to Swift!\(plain)
+
+    \(plainBold)Subcommands:\(plain)
+
+    """)
+
+    let maxSubcommandNameLength = Subcommand.allCases.map { $0.rawValue.count }.max()!
+
+    for command in Subcommand.allCases {
+      let padding = String(repeating: " ", count: maxSubcommandNameLength - command.rawValue.count)
+      print("  \(plainBold)swift \(command.rawValue)\(plain)\(padding)    \(command.description)")
+    }
+
+    // `repl` not included in `Subcommand`, also print it here.
+    do {
+      let padding = String(repeating: " ", count: maxSubcommandNameLength - "repl".count)
+      print("  \(plainBold)swift repl\(plain)\(padding)    Experiment with Swift code interactively (default)")
+    }
+
+    print("\n  Use \(plainBold)`swift --help`\(plain) for descriptions of available options and flags.")
+    print("\n  Use \(plainBold)`swift help <subcommand>`\(plain) for more information about a subcommand.")
+    print()
+  }
+
   func run() throws {
     let driverOptionTable = OptionTable()
     switch topic {
     case .driver(let kind):
       driverOptionTable.printHelp(driverKind: kind, includeHidden: showHidden)
-      print("\nSUBCOMMANDS (swift <subcommand> [arguments]):")
-      let maxSubcommandNameLength = Subcommand.allCases.map(\.rawValue.count).max()!
-      for subcommand in Subcommand.allCases {
-        let padding = String(repeating: " ", count: maxSubcommandNameLength - subcommand.rawValue.count)
-        print("  \(subcommand.rawValue):\(padding) \(subcommand.description)")
-      }
-      print("\n  Use \"swift help <subcommand>\" for more information about a subcommand")
-
+      printIntro()
     case .subcommand(let subcommand):
       // Try to find the subcommand adjacent to the help tool.
       // If we didn't find the tool there, let the OS search for it.
@@ -98,6 +144,8 @@ struct SwiftHelp: ParsableCommand {
       } else {
         try exec(path: path.pathString, args: [execName, "help"] + subtopics)
       }
+    case .intro:
+      printIntro()
     }
   }
 }

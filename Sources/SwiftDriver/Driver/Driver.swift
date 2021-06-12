@@ -809,6 +809,7 @@ extension Driver {
     // If it is the "built-in" 'repl', then use the normal driver.
     if firstArg == "repl" {
         updatedArgs.remove(at: 1)
+        updatedArgs.append("-repl")
         return (.normal(isRepl: true), updatedArgs)
     }
 
@@ -1406,7 +1407,15 @@ extension Driver {
     }
 
     if driverKind == .interactive {
-      return parsedOptions.hasAnyInput ? .immediate : .repl
+      if parsedOptions.hasAnyInput {
+        return .immediate
+      } else {
+        if parsedOptions.contains(Option.repl) {
+          return .repl
+        } else {
+          return .intro
+        }
+      }
     }
 
     let useWMO = parsedOptions.hasFlag(positive: .wholeModuleOptimization, negative: .noWholeModuleOptimization, default: false)
@@ -2001,7 +2010,7 @@ extension Driver {
     }
 
     // The REPL and immediate mode do not support module output
-    if moduleOutputKind != nil && (compilerMode == .repl || compilerMode == .immediate) {
+    if moduleOutputKind != nil && (compilerMode == .repl || compilerMode == .immediate || compilerMode == .intro) {
       diagnosticsEngine.emit(.error_mode_cannot_emit_module)
       moduleOutputKind = nil
     }
@@ -2011,7 +2020,9 @@ extension Driver {
     var moduleNameIsFallback = false
     if let arg = parsedOptions.getLastArgument(.moduleName) {
       moduleName = arg.asSingle
-    } else if compilerMode == .repl {
+    } else if compilerMode == .repl || compilerMode == .intro {
+      // TODO: Remove the `.intro` check once the REPL no longer launches
+      // by default.
       // REPL mode should always use the REPL module.
       moduleName = "REPL"
     } else if let outputArg = parsedOptions.getLastArgument(.o) {

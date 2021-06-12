@@ -18,6 +18,16 @@ import TestUtilities
 
 final class SwiftDriverTests: XCTestCase {
 
+  private var envWithFakeSwiftHelp: [String: String] {
+    // During build-script builds, build products are not installed into the toolchain
+    // until a project's tests pass. However, we're in the middle of those tests,
+    // so there is no swift-help in the toolchain yet. Set the environment variable
+    // as if we had found it for the purposes of testing build planning.
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = "/tmp/.test-swift-help"
+    return env
+  }
+
   /// Determine if the test's execution environment has LLDB
   /// Used to skip tests that rely on LLDB in such environments.
   private func testEnvHasLLDB() throws -> Bool {
@@ -59,7 +69,7 @@ final class SwiftDriverTests: XCTestCase {
 
     let driver5 = try Driver.invocationRunMode(forArgs: ["swift", "repl"])
     XCTAssertEqual(driver5.mode, .normal(isRepl: true))
-    XCTAssertEqual(driver5.args, ["swift"])
+    XCTAssertEqual(driver5.args, ["swift", "-repl"])
 
     let driver6 = try Driver.invocationRunMode(forArgs: ["swift", "foo", "bar"])
     XCTAssertEqual(driver6.mode, .subcommand("swift-foo"))
@@ -124,7 +134,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(driver1.compilerMode, .immediate)
 
       let driver2 = try Driver(args: ["swift"])
-      XCTAssertEqual(driver2.compilerMode, .repl)
+      XCTAssertEqual(driver2.compilerMode, .intro)
     }
 
     do {
@@ -189,12 +199,9 @@ final class SwiftDriverTests: XCTestCase {
       }
   }
 
-  // This test is dependent on the swift-help executable being available, which
-  // isn't always the case right now.
-  #if false
   func testHelp() throws {
     do {
-      var driver = try Driver(args: ["swift", "--help"])
+      var driver = try Driver(args: ["swift", "--help"], env: envWithFakeSwiftHelp)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let helpJob = plannedJobs.first!
@@ -206,7 +213,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-help-hidden"])
+      var driver = try Driver(args: ["swiftc", "-help-hidden"], env: envWithFakeSwiftHelp)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let helpJob = plannedJobs.first!
@@ -217,7 +224,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(helpJob.commandLine, expected)
     }
   }
-  #endif
 
   func testRuntimeCompatibilityVersion() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "a.swift", "-runtime-compatibility-version", "none")
@@ -2356,10 +2362,19 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift"])
+      var driver = try Driver(args: ["swift"], env: envWithFakeSwiftHelp)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
-      let replJob = plannedJobs.first!
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let versionJob = plannedJobs[0]
+      XCTAssertTrue(versionJob.tool.name.contains("swift"))
+      XCTAssertTrue(versionJob.commandLine.contains(.flag("--version")))
+
+      let helpJob = plannedJobs[1]
+      XCTAssertTrue(helpJob.tool.name.contains("swift-help"))
+      XCTAssertTrue(helpJob.commandLine.contains(.flag("intro")))
+
+      let replJob = plannedJobs[2]
       XCTAssertTrue(replJob.tool.name.contains("lldb"))
       XCTAssertTrue(replJob.requiresInPlaceExecution)
       XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
@@ -3614,12 +3629,12 @@ final class SwiftDriverTests: XCTestCase {
     // A plain `swift` invocation requires lldb to be present
     if try testEnvHasLLDB() {
       do {
-        var driver = try Driver(args: ["swift"])
+        var driver = try Driver(args: ["swift"], env: envWithFakeSwiftHelp)
         XCTAssertNoThrow(try driver.planBuild())
       }
     }
     do {
-      var driver = try Driver(args: ["swiftc"])
+      var driver = try Driver(args: ["swiftc"], env: envWithFakeSwiftHelp)
       XCTAssertThrowsError(try driver.planBuild()) {
         XCTAssertEqual($0 as? Driver.Error, .noInputFiles)
       }

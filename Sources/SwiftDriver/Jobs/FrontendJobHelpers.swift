@@ -64,6 +64,8 @@ extension Driver {
         commandLine.appendFlag(.target)
         commandLine.appendFlag(targetTriple.triple)
       }
+    case .intro:
+      break
     }
 
     // Pass down -clang-target.
@@ -270,7 +272,7 @@ extension Driver {
     }
 
     // Repl Jobs shouldn't include -module-name.
-    if compilerMode != .repl {
+    if compilerMode != .repl && compilerMode != .intro {
       commandLine.appendFlags("-module-name", moduleOutputInfo.name)
     }
 
