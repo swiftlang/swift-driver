@@ -53,11 +53,11 @@ final class IncrementalCompilationTests: XCTestCase {
   func swiftDepsPath(basename: String) -> AbsolutePath {
     derivedDataPath.appending(component: "\(basename).swiftdeps")
   }
-  fileprivate var autolinkIncrementalExpectations: [Diagnostic.Message] {
-      .queuingExtractingAutolink(module)
+  fileprivate var autolinkIncrementalExpectedDiags: [Diagnostic.Message] {
+    queuingExtractingAutolink(module)
   }
-  fileprivate var autolinkLifecycleExpectations: [Diagnostic.Message] {
-      .extractingAutolink(module)
+  fileprivate var autolinkLifecycleExpectedDiags: [Diagnostic.Message] {
+    extractingAutolink(module)
   }
   var commonArgs: [String] {
     [
@@ -113,8 +113,8 @@ extension IncrementalCompilationTests {
         "initial",
         checkDiagnostics: false,
         extraArguments: [ driverOption.spelling ],
-        expecting: [],
-        whenAutolinking: [])
+        whenAutolinking: []
+      ) {}
 
       guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
       else {
@@ -446,18 +446,18 @@ extension IncrementalCompilationTests {
       "initial",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        // Leave off the part after the colon because it varies on Linux:
-        // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
-        // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-        .enablingCrossModule,
-        .cannotReadBuildRecord,
-        .disablingIncrementalCannotReadBuildRecord,
-        .createdGraphFromSwiftdeps,
-        .findingBatchingCompiling("main", "other"),
-        .schedLinking,
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      // Leave off the part after the colon because it varies on Linux:
+      // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
+      // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
+      enablingCrossModule
+      cannotReadBuildRecord
+      disablingIncrementalCannotReadBuildRecord
+      createdGraphFromSwiftdeps
+      findingBatchingCompiling("main", "other")
+      schedLinking
+    }
   }
 
   /// Try a build with no changes.
@@ -473,15 +473,15 @@ extension IncrementalCompilationTests {
       "as is",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        .enablingCrossModule,
-        .readGraph,
-        .maySkip("main", "other"),
-        .skipping("main", "other"),
-        .skipped("main", "other"),
-        .skippingLinking,
-      ],
-      whenAutolinking: [])
+      whenAutolinking: []
+    ) {
+        enablingCrossModule
+        readGraph
+        maySkip("main", "other")
+        skipping("main", "other")
+        skipped("main", "other")
+        skippingLinking
+    }
   }
 
   /// Check reaction to touching a non-propagating input.
@@ -498,19 +498,19 @@ extension IncrementalCompilationTests {
       "touch other; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        .enablingCrossModule,
-        .maySkip("main"),
-        .schedulingChanged("other"),
-        .queuingInitial("other"),
-        .notSchedulingDependentsUnknownChanges("other"),
-        .skipping("main"),
-        .readGraph,
-        .findingBatchingCompiling("other"),
-        .schedLinking,
-        .skipped("main"),
-    ],
-    whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      maySkip("main")
+      schedulingChanged("other")
+      queuingInitial("other")
+      notSchedulingDependentsUnknownChanges("other")
+      skipping("main")
+      readGraph
+      findingBatchingCompiling("other")
+      schedLinking
+      skipped("main")
+    }
   }
 
   /// Check reaction to touching both inputs.
@@ -528,16 +528,16 @@ extension IncrementalCompilationTests {
       "touch both; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        .enablingCrossModule,
-        .readGraph,
-        .schedulingChanged("main", "other"),
-        .queuingInitial("main", "other"),
-        .notSchedulingDependentsUnknownChanges("main", "other"),
-        .findingBatchingCompiling("main", "other"),
-        .schedLinking,
-    ],
-    whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      readGraph
+      schedulingChanged("main", "other")
+      queuingInitial("main", "other")
+      notSchedulingDependentsUnknownChanges("main", "other")
+      findingBatchingCompiling("main", "other")
+      schedLinking
+    }
   }
 
   /// Check reaction to changing a top-level declaration.
@@ -554,25 +554,24 @@ extension IncrementalCompilationTests {
       "replace contents of main; propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        .readGraph,
-        .enablingCrossModule,
-        .schedulingChanged("main"),
-        .maySkip("other"),
-        .queuingInitial("main"),
-        .notSchedulingDependentsUnknownChanges("main"),
-        .skipping("other"),
-        .findingBatchingCompiling("main"),
-        .fingerprintChanged(.interface, "main"),
-        .fingerprintChanged(.implementation, "main"),
-        .remarks(
-          "Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
-          "Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}",
-          "Incremental compilation: Scheduling invalidated  {compile: other.o <= other.swift}"),
-        .findingBatchingCompiling("other"),
-        .schedLinking,
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      schedulingChanged("main")
+      maySkip("other")
+      queuingInitial("main")
+      notSchedulingDependentsUnknownChanges("main")
+      skipping("other")
+      findingBatchingCompiling("main")
+      fingerprintChanged(.interface, "main")
+      fingerprintChanged(.implementation, "main")
+      "Incremental compilation: Traced: interface of source file main.swiftdeps in main.swift -> interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift"
+      "Incremental compilation: Queuing because of dependencies discovered later:  {compile: other.o <= other.swift}"
+      "Incremental compilation: Scheduling invalidated  {compile: other.o <= other.swift}"
+      findingBatchingCompiling("other")
+      schedLinking
+    }
   }
 
   /// Check functioning of `-driver-always-rebuild-dependents`
@@ -590,26 +589,24 @@ extension IncrementalCompilationTests {
       "touch main; non-propagating but \(extraArgument)",
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
-      expecting: [
-        .enablingCrossModule,
-        .readGraph,
-        .maySkip("other"),
-        .queuingInitial("main"),
-        .schedulingAlwaysRebuild("main"),
-        .remarks(
-          "Incremental compilation: Traced: interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift",
-          "Incremental compilation: Found dependent of main.swift:  {compile: other.o <= other.swift}"),
-        .schedulingChanged("main"),
-        .remarks(
-          "Incremental compilation: Immediately scheduling dependent on main.swift  {compile: other.o <= other.swift}",
-          "Incremental compilation: Queuing because of the initial set:  {compile: other.o <= other.swift}"),
-        .findingAndFormingBatch(2),
-        .addingToBatchThenForming("main", "other"),
-        .schedulingPostCompileJobs,
-        .compiling("main", "other"),
-        .linking,
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      readGraph
+      maySkip("other")
+      queuingInitial("main")
+      schedulingAlwaysRebuild("main")
+      "Incremental compilation: Traced: interface of top-level name 'foo' in main.swift -> implementation of source file other.swiftdeps in other.swift"
+      "Incremental compilation: Found dependent of main.swift:  {compile: other.o <= other.swift}"
+      schedulingChanged("main")
+      "Incremental compilation: Immediately scheduling dependent on main.swift  {compile: other.o <= other.swift}"
+      "Incremental compilation: Queuing because of the initial set:  {compile: other.o <= other.swift}"
+      findingAndFormingBatch(2)
+      addingToBatchThenForming("main", "other")
+      schedulingPostCompileJobs
+      compiling("main", "other")
+      linking
+    }
   }
 
   /// Check reaction to adding an input file.
@@ -622,32 +619,31 @@ extension IncrementalCompilationTests {
     definingTopLevel topLevelName: String
   ) throws {
     let newInputsPath = inputPath(basename: newInput)
-    let graph = try doABuild(
+    let driver = try doABuild(
       "after addition of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputsPath.pathString],
-      expecting: [
-        .readGraph,
-        .enablingCrossModule,
-        .maySkip("main", "other"),
-        .schedulingNew(newInput),
-        .remarks(
-          "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}"),
-        .missing(newInput),
-        .queuingInitial(newInput),
-        .notSchedulingDependentsNoEntry(newInput),
-        .skipping("main", "other"),
-        .findingBatchingCompiling(newInput),
-        .newDefinitionOfSourceFile(.interface,      newInput),
-        .newDefinitionOfSourceFile(.implementation, newInput),
-        .newDefinitionOfTopLevelName(.interface,      name: topLevelName, input: newInput),
-        .newDefinitionOfTopLevelName(.implementation, name: topLevelName, input: newInput),
-        .schedLinking,
-        .skipped("main", "other"),
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
-      .moduleDependencyGraph()
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      maySkip("main", "other")
+      schedulingNew(newInput)
+      "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}"
+      missing(newInput)
+      queuingInitial(newInput)
+      notSchedulingDependentsNoEntry(newInput)
+      skipping("main", "other")
+      findingBatchingCompiling(newInput)
+      newDefinitionOfSourceFile(.interface,      newInput)
+      newDefinitionOfSourceFile(.implementation, newInput)
+      newDefinitionOfTopLevelName(.interface,      name: topLevelName, input: newInput)
+      newDefinitionOfTopLevelName(.implementation, name: topLevelName, input: newInput)
+      schedLinking
+      skipped("main", "other")
+    }
 
+    let graph = try driver.moduleDependencyGraph()
     XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
     XCTAssert(graph.contains(name: topLevelName))
   }
@@ -662,21 +658,21 @@ extension IncrementalCompilationTests {
     definingTopLevel topLevelName: String
   ) throws {
     let newInputPath = inputPath(basename: newInput)
-    let graph = try doABuild(
+    let driver = try doABuild(
       "after after addition of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputPath.pathString],
-      expecting: [
-        .readGraph,
-        .enablingCrossModule,
-        .maySkip("main", "other", newInput),
-        .skipping("main", "other", newInput),
-        .skippingLinking,
-        .skipped(newInput, "main", "other"),
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
-      .moduleDependencyGraph()
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      maySkip("main", "other", newInput)
+      skipping("main", "other", newInput)
+      skippingLinking
+      skipped(newInput, "main", "other")
+    }
 
+    let graph = try driver.moduleDependencyGraph()
     XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
     XCTAssert(graph.contains(name: topLevelName))
   }
@@ -699,42 +695,35 @@ extension IncrementalCompilationTests {
     if removeSwiftDepsFile {
       removeSwiftDeps(removedInput)
     }
-    let expectations: [[Diagnostic.Message]]
-    switch (removeInputFromInvocation, removeSwiftDepsFile) {
-    case (false, false):
-      expectations = [
-        .readGraphAndSkipAll("main", "other", removedInput)
-      ]
-    case
-      (true, false),
-      (true, true):
-      expectations = [
-        .remarks(
-          "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"),
-        .findingBatchingCompiling("main", "other"),
-        .linking,
-      ]
-    case (false, true):
-      expectations = [
-        .readGraph,
-        .enablingCrossModule,
-        .maySkip("main", "other", removedInput),
-        .missing(removedInput),
-        .queuingInitial(removedInput),
-        .skipping("main", "other"),
-        .findingBatchingCompiling(removedInput),
-        .schedulingPostCompileJobs,
-        .linking,
-        .skipped("main", "other"),
-      ]
-    }
 
     let driver = try doABuild(
       "after removal of \(removedInput)",
       checkDiagnostics: true,
       extraArguments: extraArguments,
-      expecting: expectations,
-      whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      switch (removeInputFromInvocation, removeSwiftDepsFile) {
+      case (false, false):
+        readGraphAndSkipAll("main", "other", removedInput)
+      case
+        (true, false),
+        (true, true):
+        "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"
+        findingBatchingCompiling("main", "other")
+        linking
+      case (false, true):
+        readGraph
+        enablingCrossModule
+        maySkip("main", "other", removedInput)
+        missing(removedInput)
+        queuingInitial(removedInput)
+        skipping("main", "other")
+        findingBatchingCompiling(removedInput)
+        schedulingPostCompileJobs
+        linking
+        skipped("main", "other")
+      }
+    }
 
     if removeInputFromInvocation {
       driver.verifyNoGraph()
@@ -764,36 +753,32 @@ extension IncrementalCompilationTests {
     let extraArguments = removeInputFromInvocation
     ? [] : [inputPath(basename: removedInput).pathString]
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
-    let expectations: [[Diagnostic.Message]]
-    switch (removeInputFromInvocation, removeSwiftDepsFile, afterRestoringBadPriors) {
-    case
-      (false, false, false),
-      (false, true,  false),
-      (false, false, true ),
-      (true,  false, true ),
-      (true,  true,  true ),
-      (false, true,  true ):
-      expectations = [
-        .readGraphAndSkipAll(inputs)
-      ]
-    case
-      (true, false, false),
-      (true, true,  false):
-      expectations = [
-        .createdGraphFromSwiftdeps,
-        .enablingCrossModule,
-        .skippingAll(inputs),
-      ]
-    }
 
-    let graph = try doABuild(
+    let driver = try doABuild(
       "restoring incrementality after removal of \(removedInput)",
       checkDiagnostics: true,
       extraArguments: extraArguments,
-      expecting: expectations,
-      whenAutolinking: autolinkLifecycleExpectations)
-      .moduleDependencyGraph()
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      switch (removeInputFromInvocation, removeSwiftDepsFile, afterRestoringBadPriors) {
+      case
+        (false, false, false),
+        (false, true,  false),
+        (false, false, true ),
+        (true,  false, true ),
+        (true,  true,  true ),
+        (false, true,  true ):
+          readGraphAndSkipAll(inputs)
+      case
+        (true, false, false),
+        (true, true,  false):
+          createdGraphFromSwiftdeps
+          enablingCrossModule
+          skippingAll(inputs)
+      }
+    }
 
+    let graph = try driver.moduleDependencyGraph()
     graph.verifyGraph()
     if removeInputFromInvocation {
       if afterRestoringBadPriors {
@@ -836,15 +821,15 @@ extension IncrementalCompilationTests {
       "touch both symlinks; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        .enablingCrossModule,
-        .readGraph,
-        .maySkip("main", "other"),
-        .skipping("main", "other"),
-        .skippingLinking,
-        .skipped("main", "other"),
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+        enablingCrossModule
+        readGraph
+        maySkip("main", "other")
+        skipping("main", "other")
+        skippingLinking
+        skipped("main", "other")
+    }
   }
 
   private func checkReactionToTouchingSymlinkTargets(
@@ -859,17 +844,17 @@ extension IncrementalCompilationTests {
       "touch both symlink targets; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
-      expecting: [
-        .enablingCrossModule,
-        .readGraph,
-        .schedulingChanged("main", "other"),
-        .queuingInitial("main", "other"),
-        .notSchedulingDependentsUnknownChanges("main", "other"),
-        .findingBatchingCompiling("main", "other"),
-        .schedulingPostCompileJobs,
-        .linking,
-      ],
-      whenAutolinking: autolinkLifecycleExpectations)
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+        enablingCrossModule
+        readGraph
+        schedulingChanged("main", "other")
+        queuingInitial("main", "other")
+        notSchedulingDependentsUnknownChanges("main", "other")
+        findingBatchingCompiling("main", "other")
+        schedulingPostCompileJobs
+        linking
+    }
   }
 }
 
@@ -1008,11 +993,12 @@ fileprivate extension ModuleDependencyGraph.Node {
 // MARK: - Build helpers
 extension IncrementalCompilationTests {
   @discardableResult
-  fileprivate func doABuild(_ message: String,
-                checkDiagnostics: Bool,
-                extraArguments: [String],
-                expecting expectations: [[Diagnostic.Message]],
-                whenAutolinking autolinkExpectations: [Diagnostic.Message]
+  fileprivate func doABuild(
+    _ message: String,
+    checkDiagnostics: Bool,
+    extraArguments: [String],
+    whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
+    @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
   ) throws -> Driver {
     print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
 
@@ -1023,23 +1009,23 @@ extension IncrementalCompilationTests {
     let allArgs = commonArgs + extraArguments + sdkArgumentsForTesting
 
     return try checkDiagnostics
-    ? doABuild(expecting: expectations,
-               whenAutolinking: autolinkExpectations,
+    ? doABuild(whenAutolinking: autolinkExpectedDiags,
+               expecting: expectedDiags(),
                arguments: allArgs)
     : doABuildWithoutExpectations(arguments: allArgs)
   }
 
   private func doABuild(
-    expecting expectations: [[Diagnostic.Message]],
-    whenAutolinking autolinkExpectations: [Diagnostic.Message],
+    whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
+    expecting expectedDiags: [Diagnostic.Message],
     arguments: [String]
   ) throws -> Driver {
     try assertDriverDiagnostics(args: arguments) {
       driver, verifier in
       verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
-      expectations.forEach {$0.forEach {verifier.expect($0)}}
+      expectedDiags.forEach {verifier.expect($0)}
       if driver.isAutolinkExtractJobNeeded {
-        autolinkExpectations.forEach {verifier.expect($0)}
+        autolinkExpectedDiags.forEach {verifier.expect($0)}
       }
       doTheCompile(&driver)
       return driver
@@ -1067,192 +1053,230 @@ extension IncrementalCompilationTests {
   }
 }
 
-// MARK: - Expectation (sequence) coding
-fileprivate extension Array where Element == Diagnostic.Message {
+// MARK: - Concisely specifiying sequences of diagnostics
+
+/// Build an array of diagnostics from a closure containing various things
+@resultBuilder fileprivate enum DiagsBuilder {}
+/// Build a series of messages from series of messages
+extension DiagsBuilder {
+  static func buildBlock(_ components: [Diagnostic.Message]...) -> [Diagnostic.Message] {
+    components.flatMap {$0}
+  }
+}
+
+/// A statement can be String, Message, or \[Message\]
+extension DiagsBuilder {
+  static func buildExpression(_ expression: String) -> [Diagnostic.Message] {
+    // Default a string to a remark
+    [.remark(expression)]
+  }
+  static func buildExpression(_ expression: [Diagnostic.Message]) -> [Diagnostic.Message] {
+    expression
+  }
+  static func buildExpression(_ expression: Diagnostic.Message) -> [Diagnostic.Message] {
+    [expression]
+  }
+}
+
+/// Handle control structures
+extension DiagsBuilder {
+  static func buildArray(_ components: [[Diagnostic.Message]]) -> [Diagnostic.Message] {
+    components.flatMap{$0}
+  }
+  static func buildEither(first component: [Diagnostic.Message]) -> [Diagnostic.Message] {
+    component
+  }
+  static func buildEither(second component: [Diagnostic.Message]) -> [Diagnostic.Message] {
+    component
+  }
+}
+
+// MARK: - Shorthand diagnostics & sequences
+
+/// Allow tests to specify diagnostics without extra punctuation
+fileprivate protocol DiagVerifiable {}
+
+extension IncrementalCompilationTests: DiagVerifiable {}
+
+extension DiagVerifiable {
+  private typealias DB = DiagsBuilder // reduce the clutter
+
   // MARK: - misc
-  static func remarks(_ msgs: String...) -> Self {
-    remarks(msgs)
+  @DB var enablingCrossModule: [Diagnostic.Message] {
+    "Incremental compilation: Enabling incremental cross-module building"
   }
-  static func remarks(_ msgs: [String]) -> Self {
-    msgs.map(Element.remark)
-  }
-  /// Shorthand for a series of remarks depending on inputs
-  static func remarks(about inputs: [String], _ stringFromInput: (String) -> String) -> Self {
-    remarks(inputs.map(stringFromInput))
-  }
-  static let enablingCrossModule: Self =
-    remarks("Incremental compilation: Enabling incremental cross-module building")
-
   // MARK: - build record
-  static let cannotReadBuildRecord: Self =
-    remarks("Incremental compilation: Incremental compilation could not read build record at")
-  static let disablingIncrementalCannotReadBuildRecord: Self =
-    remarks("Incremental compilation: Disabling incremental build: could not read build record")
-
+  @DB var cannotReadBuildRecord: [Diagnostic.Message] {
+    "Incremental compilation: Incremental compilation could not read build record at"
+  }
+  @DB var disablingIncrementalCannotReadBuildRecord: [Diagnostic.Message] {
+    "Incremental compilation: Disabling incremental build: could not read build record"
+  }
   // MARK: - graph
-  static let createdGraphFromSwiftdeps: Self =
-    remarks("Incremental compilation: Created dependency graph from swiftdeps files")
-  static let readGraph: Self =
-    remarks("Incremental compilation: Read dependency graph")
-
+  @DB var createdGraphFromSwiftdeps: [Diagnostic.Message] {
+    "Incremental compilation: Created dependency graph from swiftdeps files"
+  }
+  @DB var readGraph: [Diagnostic.Message] {
+    "Incremental compilation: Read dependency graph"
+  }
   // MARK: - dependencies
-  static func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> Self {
-    remarks("Incremental compilation: Fingerprint changed for \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps")
+  @DB func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
+     "Incremental compilation: Fingerprint changed for \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps"
   }
-  static func newDefinitionOfSourceFile(_ aspect: DependencyKey.DeclAspect, _ input: String) -> Self {
-    remarks("Incremental compilation: New definition: \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps")
+
+  @DB func newDefinitionOfSourceFile(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: New definition: \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps"
   }
-  static func newDefinitionOfTopLevelName(_ aspect: DependencyKey.DeclAspect, name: String, input: String) -> Self {
-    remarks("Incremental compilation: New definition: \(aspect) of top-level name '\(name)' in \(input).swiftdeps")
+  @DB func newDefinitionOfTopLevelName(_ aspect: DependencyKey.DeclAspect, name: String, input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: New definition: \(aspect) of top-level name '\(name)' in \(input).swiftdeps"
   }
 
   // MARK: - scheduling
-  static func schedulingAlwaysRebuild(_ input: String) -> Self {
-    remarks("Incremental compilation: scheduling dependents of \(input).swift; -driver-always-rebuild-dependents")
+  @DB func schedulingAlwaysRebuild(_ input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: scheduling dependents of \(input).swift; -driver-always-rebuild-dependents"
   }
-  static func schedulingNew(_ input: String) -> Self {
-    remarks("Incremental compilation: Scheduling new  {compile: \(input).o <= \(input).swift}")
+  @DB func schedulingNew(_ input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Scheduling new  {compile: \(input).o <= \(input).swift}"
   }
-  static func schedulingChanged(_ inputs: String...) -> Self {
-    remarks(about: inputs) {input in
-      "Incremental compilation: Scheduing changed input  {compile: \(input).o <= \(input).swift}"}
+  @DB func schedulingChanged(_ inputs: String...) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: Scheduing changed input  {compile: \(input).o <= \(input).swift}"
+    }
   }
-  static func notSchedulingDependentsNoEntry(_ input: String) -> Self {
-    remarks("Incremental compilation: not scheduling dependents of \(input).swift: no entry in build record or dependency graph")
+  @DB func notSchedulingDependentsNoEntry(_ input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: not scheduling dependents of \(input).swift: no entry in build record or dependency graph"
   }
-  static func notSchedulingDependentsUnknownChanges(_ inputs: String...) -> Self {
-    remarks(about: inputs) {input in
+  @DB func notSchedulingDependentsUnknownChanges(_ inputs: String...) -> [Diagnostic.Message] {
+    for input in inputs {
       "Incremental compilation: not scheduling dependents of \(input).swift; unknown changes"
     }
   }
-  static func queuingInitial(_ inputs: String...) -> Self {
-    remarks(about: inputs) {input in
+  @DB func queuingInitial(_ inputs: String...) -> [Diagnostic.Message] {
+    for input in inputs {
       "Incremental compilation: Queuing (initial):  {compile: \(input).o <= \(input).swift}"
     }
   }
-  static func missing(_ input: String) -> Self {
-    remarks("Incremental compilation: Missing an output; will queue  {compile: \(input).o <= \(input).swift}")
+  @DB func missing(_ input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Missing an output; will queue  {compile: \(input).o <= \(input).swift}"
   }
 
 // MARK: - skipping
-  static func maySkip(_ inputs: [String]) -> Self {
-    remarks(about: inputs) {input in
+  @DB func maySkip(_ inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
       "Incremental compilation: May skip current input:  {compile: \(input).o <= \(input).swift}"
     }
   }
-  static func maySkip(_ inputs: String...) -> Self {
+  @DB func maySkip(_ inputs: String...) -> [Diagnostic.Message] {
     maySkip(inputs)
   }
- static func skipping(_ inputs: [String]) -> Self {
-   remarks(about: inputs) {input in
-     "Incremental compilation: Skipping input:  {compile: \(input).o <= \(input).swift}"
-   }
- }
-  static func skipping(_ inputs: String...) -> Self {
+  @DB func skipping(_ inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: Skipping input:  {compile: \(input).o <= \(input).swift}"
+    }
+  }
+  @DB func skipping(_ inputs: String...) -> [Diagnostic.Message] {
     skipping(inputs)
   }
- static func skipped(_ inputs: [String]) -> Self {
-   remarks(about: inputs) {input in
-   "Skipped Compiling \(input).swift"
-   }
- }
-  static func skipped(_ inputs: String...) -> Self {
+  @DB func skipped(_ inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Skipped Compiling \(input).swift"
+    }
+  }
+  @DB func skipped(_ inputs: String...) -> [Diagnostic.Message] {
     skipped(inputs)
   }
-  static func skippingAll(_ inputs: [String]) -> Self {
-     [
-      maySkip(inputs), skipping(inputs), skippingLinking, skipped(inputs)
-     ].flatMap {$0}
-   }
-  static func skippingAll(_ inputs: String...) -> Self {
-     skippingAll(inputs)
-   }
-  static func readGraphAndSkipAll(_ inputs: [String]) -> Self {
-    [
-      readGraph,
-      enablingCrossModule,
-      skippingAll(inputs)
-    ].flatMap{$0}
+  @DB func skippingAll(_ inputs: [String]) -> [Diagnostic.Message] {
+    maySkip(inputs)
+    skipping(inputs)
+    skippingLinking
+    skipped(inputs)
   }
-  static func readGraphAndSkipAll(_ inputs: String...) -> Self {
+  @DB func skippingAll(_ inputs: String...) -> [Diagnostic.Message] {
+    skippingAll(inputs)
+  }
+  @DB func readGraphAndSkipAll(_ inputs: [String]) -> [Diagnostic.Message] {
+    readGraph
+    enablingCrossModule
+    skippingAll(inputs)
+  }
+  @DB func readGraphAndSkipAll(_ inputs: String...) -> [Diagnostic.Message] {
     readGraphAndSkipAll(inputs)
   }
 
-// MARK: - batching
-  static func addingToBatch(_ inputs: [String], _ b: Int) -> Self {
-    remarks(about: inputs) {input in
+  // MARK: - batching
+  @DB func addingToBatch(_ inputs: [String], _ b: Int) -> [Diagnostic.Message] {
+    for input in inputs {
       "Adding {compile: \(input).swift} to batch \(b)"
     }
   }
-  static func formingBatch(_ inputs: [String]) -> Self {
-      remarks("Forming batch job from \(inputs.count) constituents: \(inputs.map{$0 + ".swift"}.joined(separator: ", "))")
+  @DB func formingBatch(_ inputs: [String]) -> [Diagnostic.Message] {
+    "Forming batch job from \(inputs.count) constituents: \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
-  static func foundBatchableJobs(_ jobCount: Int) -> Self {
+  @DB func foundBatchableJobs(_ jobCount: Int) -> [Diagnostic.Message] {
     // Omitting the "s" from "jobs" works for either 1 or many, since
     // the verifier does prefix matching.
-    remarks("Found \(jobCount) batchable job")
+    "Found \(jobCount) batchable job"
   }
-  static let formingOneBatch: Self = remarks("Forming into 1 batch")
+  @DB var formingOneBatch: [Diagnostic.Message] { "Forming into 1 batch"}
 
-  static func findingAndFormingBatch(_ jobCount: Int) -> Self {
-    [foundBatchableJobs(jobCount), formingOneBatch].flatMap{$0}
+  @DB func findingAndFormingBatch(_ jobCount: Int) -> [Diagnostic.Message] {
+    foundBatchableJobs(jobCount); formingOneBatch
   }
-  static func addingToBatchThenForming(_ inputs: [String]) -> Self {
-    [addingToBatch(inputs, 0), formingBatch(inputs)].flatMap{$0}
+  @DB func addingToBatchThenForming(_ inputs: [String]) -> [Diagnostic.Message] {
+    addingToBatch(inputs, 0); formingBatch(inputs)
   }
-  static func addingToBatchThenForming(_ inputs: String...) -> Self {
+  @DB func addingToBatchThenForming(_ inputs: String...) -> [Diagnostic.Message] {
     addingToBatchThenForming(inputs)
-  }
+ }
 
   // MARK: - compiling
-  static func starting(_ inputs: [String]) -> Self {
-    remarks("Starting Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))")
+  @DB func starting(_ inputs: [String]) -> [Diagnostic.Message] {
+     "Starting Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
-  static func finished(_ inputs: [String]) -> Self {
-    remarks("Finished Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))")
+  @DB func finished(_ inputs: [String]) -> [Diagnostic.Message] {
+     "Finished Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
-  static func compiling(_ inputs: [String]) -> Self {
-    [starting(inputs), finished(inputs)].flatMap{$0}
+  @DB func compiling(_ inputs: [String]) -> [Diagnostic.Message] {
+    starting(inputs); finished(inputs)
   }
-  static func compiling(_ inputs: String...) -> Self {
+  @DB func compiling(_ inputs: String...) -> [Diagnostic.Message] {
     compiling(inputs)
   }
 
 // MARK: - batching and compiling
-  static func findingBatchingCompiling(_ inputs: String...) -> Self {
-    [
-      findingAndFormingBatch(inputs.count),
-      addingToBatchThenForming(inputs),
-      compiling(inputs)
-    ].flatMap {$0}
+  @DB func findingBatchingCompiling(_ inputs: String...) -> [Diagnostic.Message] {
+    findingAndFormingBatch(inputs.count)
+    addingToBatchThenForming(inputs)
+    compiling(inputs)
   }
 
   // MARK: - linking
-  static let schedulingPostCompileJobs: Self =
-  remarks("Incremental compilation: Scheduling all post-compile jobs because something was compiled")
+  @DB var schedulingPostCompileJobs: [Diagnostic.Message] {
+    "Incremental compilation: Scheduling all post-compile jobs because something was compiled"
+  }
+  @DB var startingLinking: [Diagnostic.Message] { "Starting Linking theModule" }
 
-  static let startingLinking: Self = remarks("Starting Linking theModule")
+  @DB var finishedLinking: [Diagnostic.Message] { "Finished Linking theModule" }
 
-  static let finishedLinking: Self = remarks("Finished Linking theModule")
+  @DB var skippingLinking: [Diagnostic.Message] {
+    "Incremental compilation: Skipping job: Linking theModule; oldest output is current"
+  }
+  @DB var schedLinking: [Diagnostic.Message] { schedulingPostCompileJobs; linking }
 
-  static let skippingLinking: Self =
-    remarks("Incremental compilation: Skipping job: Linking theModule; oldest output is current")
-
-  static let schedLinking: Self = [schedulingPostCompileJobs, linking].flatMap{$0}
-
-  static let linking: Self = [startingLinking + finishedLinking].flatMap{$0}
+  @DB var linking: [Diagnostic.Message] { startingLinking; finishedLinking}
 
   // MARK: - autolinking
-  static func queuingExtractingAutolink(_ module: String) -> Self {
-      remarks("Incremental compilation: Queuing Extracting autolink information for module \(module)")
+  @DB func queuingExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Queuing Extracting autolink information for module \(module)"
   }
-  static func startingExtractingAutolink(_ module: String) -> Self {
-      remarks("Starting Extracting autolink information for module \(module)")
+  @DB func startingExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
+    "Starting Extracting autolink information for module \(module)"
   }
-  static func finishedExtractingAutolink(_ module: String) -> Self {
-      remarks("Finished Extracting autolink information for module \(module)")
+  @DB func finishedExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
+    "Finished Extracting autolink information for module \(module)"
   }
-  static func extractingAutolink(_ module: String) -> Self {
-    [startingExtractingAutolink(module), finishedExtractingAutolink(module)].flatMap{$0}
+  @DB func extractingAutolink(_ module: String) -> [Diagnostic.Message] {
+    startingExtractingAutolink(module)
+    finishedExtractingAutolink(module)
   }
 }
