@@ -1134,84 +1134,84 @@ fileprivate protocol DiagVerifiable {}
 extension IncrementalCompilationTests: DiagVerifiable {}
 
 extension DiagVerifiable {
-  private typealias DB = DiagsBuilder // reduce the clutter
+
 
   // MARK: - misc
-  @DB var enablingCrossModule: [Diagnostic.Message] {
+  @DiagsBuilder var enablingCrossModule: [Diagnostic.Message] {
     "Incremental compilation: Enabling incremental cross-module building"
   }
-  @DB func disabledForRemoval(_ removedInput: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func disabledForRemoval(_ removedInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"
   }
   // MARK: - build record
-  @DB var cannotReadBuildRecord: [Diagnostic.Message] {
+  @DiagsBuilder var cannotReadBuildRecord: [Diagnostic.Message] {
     "Incremental compilation: Incremental compilation could not read build record at"
   }
-  @DB var disablingIncrementalCannotReadBuildRecord: [Diagnostic.Message] {
+  @DiagsBuilder var disablingIncrementalCannotReadBuildRecord: [Diagnostic.Message] {
     "Incremental compilation: Disabling incremental build: could not read build record"
   }
   // MARK: - graph
-  @DB var createdGraphFromSwiftdeps: [Diagnostic.Message] {
+  @DiagsBuilder var createdGraphFromSwiftdeps: [Diagnostic.Message] {
     "Incremental compilation: Created dependency graph from swiftdeps files"
   }
-  @DB var readGraph: [Diagnostic.Message] {
+  @DiagsBuilder var readGraph: [Diagnostic.Message] {
     "Incremental compilation: Read dependency graph"
   }
   // MARK: - dependencies
-  @DB func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
      "Incremental compilation: Fingerprint changed for \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps"
   }
 
-  @DB func newDefinitionOfSourceFile(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func newDefinitionOfSourceFile(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: New definition: \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps"
   }
-  @DB func newDefinitionOfTopLevelName(_ aspect: DependencyKey.DeclAspect, name: String, input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func newDefinitionOfTopLevelName(_ aspect: DependencyKey.DeclAspect, name: String, input: String) -> [Diagnostic.Message] {
     "Incremental compilation: New definition: \(aspect) of top-level name '\(name)' in \(input).swiftdeps"
   }
 
-  @DB func foundDependent(of defInput: String, compiling useInput: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func foundDependent(of defInput: String, compiling useInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Found dependent of \(defInput).swift:  {compile: \(useInput).o <= \(useInput).swift}"
   }
-  @DB func hasMalformed(_ newInput: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func hasMalformed(_ newInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}"
   }
-  @DB func failedToFindSource(_ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func failedToFindSource(_ input: String) -> [Diagnostic.Message] {
       .warning("Failed to find source file for '\(input).swiftdeps', recovering with a full rebuild. Next build will be incremental.")
   }
-  @DB func failedToReadSomeSource(compiling input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func failedToReadSomeSource(compiling input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Failed to read some dependencies source; compiling everything  {compile: \(input).o <= \(input).swift}"
   }
 
   // MARK: - tracing
-  @DB func trace(@TraceBuilder _ steps: () -> String) -> [Diagnostic.Message] {
+  @DiagsBuilder func trace(@TraceBuilder _ steps: () -> String) -> [Diagnostic.Message] {
     steps()
   }
 
   // MARK: - scheduling
-  @DB func schedulingAlwaysRebuild(_ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func schedulingAlwaysRebuild(_ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: scheduling dependents of \(input).swift; -driver-always-rebuild-dependents"
   }
-  @DB func schedulingNew(_ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func schedulingNew(_ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Scheduling new  {compile: \(input).o <= \(input).swift}"
   }
 
-  @DB func schedulingChanged(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func schedulingChanged(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Incremental compilation: Scheduing changed input  {compile: \(input).o <= \(input).swift}"
     }
   }
-  @DB func schedulingChanged(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func schedulingChanged(_ inputs: String...) -> [Diagnostic.Message] {
     schedulingChanged(inputs)
   }
 
-  @DB func schedulingInvalidated(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func schedulingInvalidated(_ inputs: [String]) -> [Diagnostic.Message] {
      for input in inputs {
        "Incremental compilation: Scheduling invalidated  {compile: \(input).o <= \(input).swift}"
      }
   }
-  @DB func schedulingInvalidated(_ inputs: String...) -> [Diagnostic.Message] { schedulingInvalidated(inputs) }
+  @DiagsBuilder func schedulingInvalidated(_ inputs: String...) -> [Diagnostic.Message] { schedulingInvalidated(inputs) }
 
-  @DB func schedulingChangedInitialQueuing(_ inputs: String...) -> [Diagnostic.Message]  {
+  @DiagsBuilder func schedulingChangedInitialQueuing(_ inputs: String...) -> [Diagnostic.Message]  {
     for input in inputs {
       schedulingChanged(input)
       queuingInitial(input)
@@ -1219,178 +1219,178 @@ extension DiagVerifiable {
     }
   }
 
-  @DB func schedulingDependent(of defInput: String, compiling useInput: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func schedulingDependent(of defInput: String, compiling useInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Immediately scheduling dependent on \(defInput).swift  {compile: \(useInput).o <= \(useInput).swift}"
   }
 
-  @DB func notSchedulingDependentsNoEntry(_ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func notSchedulingDependentsNoEntry(_ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: not scheduling dependents of \(input).swift: no entry in build record or dependency graph"
   }
 
-  @DB func notSchedulingDependentsUnknownChanges(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func notSchedulingDependentsUnknownChanges(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Incremental compilation: not scheduling dependents of \(input).swift; unknown changes"
     }
   }
-  @DB func notSchedulingDependentsUnknownChanges(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func notSchedulingDependentsUnknownChanges(_ inputs: String...) -> [Diagnostic.Message] {
     notSchedulingDependentsUnknownChanges(inputs)
   }
 
-  @DB func missing(_ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func missing(_ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Missing an output; will queue  {compile: \(input).o <= \(input).swift}"
   }
 
-  @DB func queuingInitial(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingInitial(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Incremental compilation: Queuing (initial):  {compile: \(input).o <= \(input).swift}"
     }
   }
-  @DB func queuingInitial(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingInitial(_ inputs: String...) -> [Diagnostic.Message] {
     queuingInitial(inputs)
   }
 
-  @DB func queuingBecauseInitial(_ input: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingBecauseInitial(_ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Queuing because of the initial set:  {compile: \(input).o <= \(input).swift}"
   }
 
-  @DB func queuingLater(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingLater(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Incremental compilation: Queuing because of dependencies discovered later:  {compile: \(input).o <= \(input).swift}"
     }
   }
-  @DB func queuingLater(_ inputs: String...) -> [Diagnostic.Message] { queuingLater(inputs) }
+  @DiagsBuilder func queuingLater(_ inputs: String...) -> [Diagnostic.Message] { queuingLater(inputs) }
 
-  @DB func queuingLaterSchedInvalBatchLink(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingLaterSchedInvalBatchLink(_ inputs: [String]) -> [Diagnostic.Message] {
     queuingLater(inputs)
     schedulingInvalidated(inputs)
   }
-  @DB func queuingLaterSchedInvalBatchLink(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingLaterSchedInvalBatchLink(_ inputs: String...) -> [Diagnostic.Message] {
     queuingLaterSchedInvalBatchLink(inputs)
   }
 
 
 // MARK: - skipping
-  @DB func maySkip(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func maySkip(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Incremental compilation: May skip current input:  {compile: \(input).o <= \(input).swift}"
     }
   }
-  @DB func maySkip(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func maySkip(_ inputs: String...) -> [Diagnostic.Message] {
     maySkip(inputs)
   }
-  @DB func skipping(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func skipping(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Incremental compilation: Skipping input:  {compile: \(input).o <= \(input).swift}"
     }
   }
-  @DB func skipping(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func skipping(_ inputs: String...) -> [Diagnostic.Message] {
     skipping(inputs)
   }
-  @DB func skipped(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func skipped(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
       "Skipped Compiling \(input).swift"
     }
   }
-  @DB func skipped(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func skipped(_ inputs: String...) -> [Diagnostic.Message] {
     skipped(inputs)
   }
-  @DB func skippingAll(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func skippingAll(_ inputs: [String]) -> [Diagnostic.Message] {
     maySkip(inputs)
     skipping(inputs)
     skippingLinking
     skipped(inputs)
   }
-  @DB func skippingAll(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func skippingAll(_ inputs: String...) -> [Diagnostic.Message] {
     skippingAll(inputs)
   }
-  @DB func readGraphAndSkipAll(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func readGraphAndSkipAll(_ inputs: [String]) -> [Diagnostic.Message] {
     readGraph
     enablingCrossModule
     skippingAll(inputs)
   }
-  @DB func readGraphAndSkipAll(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func readGraphAndSkipAll(_ inputs: String...) -> [Diagnostic.Message] {
     readGraphAndSkipAll(inputs)
   }
 
   // MARK: - batching
-  @DB func addingToBatch(_ inputs: [String], _ b: Int) -> [Diagnostic.Message] {
+  @DiagsBuilder func addingToBatch(_ inputs: [String], _ b: Int) -> [Diagnostic.Message] {
     for input in inputs {
       "Adding {compile: \(input).swift} to batch \(b)"
     }
   }
-  @DB func formingBatch(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func formingBatch(_ inputs: [String]) -> [Diagnostic.Message] {
     "Forming batch job from \(inputs.count) constituents: \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
-  @DB func formingBatch(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func formingBatch(_ inputs: String...) -> [Diagnostic.Message] {
     formingBatch(inputs)
   }
-  @DB func foundBatchableJobs(_ jobCount: Int) -> [Diagnostic.Message] {
+  @DiagsBuilder func foundBatchableJobs(_ jobCount: Int) -> [Diagnostic.Message] {
     // Omitting the "s" from "jobs" works for either 1 or many, since
     // the verifier does prefix matching.
     "Found \(jobCount) batchable job"
   }
-  @DB var formingOneBatch: [Diagnostic.Message] { "Forming into 1 batch"}
+  @DiagsBuilder var formingOneBatch: [Diagnostic.Message] { "Forming into 1 batch"}
 
-  @DB func findingAndFormingBatch(_ jobCount: Int) -> [Diagnostic.Message] {
+  @DiagsBuilder func findingAndFormingBatch(_ jobCount: Int) -> [Diagnostic.Message] {
     foundBatchableJobs(jobCount); formingOneBatch
   }
-  @DB func addingToBatchThenForming(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func addingToBatchThenForming(_ inputs: [String]) -> [Diagnostic.Message] {
     addingToBatch(inputs, 0); formingBatch(inputs)
   }
-  @DB func addingToBatchThenForming(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func addingToBatchThenForming(_ inputs: String...) -> [Diagnostic.Message] {
     addingToBatchThenForming(inputs)
  }
 
   // MARK: - compiling
-  @DB func starting(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func starting(_ inputs: [String]) -> [Diagnostic.Message] {
      "Starting Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
-  @DB func finished(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func finished(_ inputs: [String]) -> [Diagnostic.Message] {
      "Finished Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
-  @DB func compiling(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func compiling(_ inputs: [String]) -> [Diagnostic.Message] {
     starting(inputs); finished(inputs)
   }
-  @DB func compiling(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func compiling(_ inputs: String...) -> [Diagnostic.Message] {
     compiling(inputs)
   }
 
 // MARK: - batching and compiling
-  @DB func findingBatchingCompiling(_ inputs: [String]) -> [Diagnostic.Message] {
+  @DiagsBuilder func findingBatchingCompiling(_ inputs: [String]) -> [Diagnostic.Message] {
     findingAndFormingBatch(inputs.count)
     addingToBatchThenForming(inputs)
     compiling(inputs)
   }
-  @DB func findingBatchingCompiling(_ inputs: String...) -> [Diagnostic.Message] {
+  @DiagsBuilder func findingBatchingCompiling(_ inputs: String...) -> [Diagnostic.Message] {
     findingBatchingCompiling(inputs)
   }
 
   // MARK: - linking
-  @DB var schedulingPostCompileJobs: [Diagnostic.Message] {
+  @DiagsBuilder var schedulingPostCompileJobs: [Diagnostic.Message] {
     "Incremental compilation: Scheduling all post-compile jobs because something was compiled"
   }
-  @DB var startingLinking: [Diagnostic.Message] { "Starting Linking theModule" }
+  @DiagsBuilder var startingLinking: [Diagnostic.Message] { "Starting Linking theModule" }
 
-  @DB var finishedLinking: [Diagnostic.Message] { "Finished Linking theModule" }
+  @DiagsBuilder var finishedLinking: [Diagnostic.Message] { "Finished Linking theModule" }
 
-  @DB var skippingLinking: [Diagnostic.Message] {
+  @DiagsBuilder var skippingLinking: [Diagnostic.Message] {
     "Incremental compilation: Skipping job: Linking theModule; oldest output is current"
   }
-  @DB var schedLinking: [Diagnostic.Message] { schedulingPostCompileJobs; linking }
+  @DiagsBuilder var schedLinking: [Diagnostic.Message] { schedulingPostCompileJobs; linking }
 
-  @DB var linking: [Diagnostic.Message] { startingLinking; finishedLinking}
+  @DiagsBuilder var linking: [Diagnostic.Message] { startingLinking; finishedLinking}
 
   // MARK: - autolinking
-  @DB func queuingExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func queuingExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
     "Incremental compilation: Queuing Extracting autolink information for module \(module)"
   }
-  @DB func startingExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func startingExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
     "Starting Extracting autolink information for module \(module)"
   }
-  @DB func finishedExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func finishedExtractingAutolink(_ module: String) -> [Diagnostic.Message] {
     "Finished Extracting autolink information for module \(module)"
   }
-  @DB func extractingAutolink(_ module: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func extractingAutolink(_ module: String) -> [Diagnostic.Message] {
     startingExtractingAutolink(module)
     finishedExtractingAutolink(module)
   }
