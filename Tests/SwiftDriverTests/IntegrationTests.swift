@@ -14,7 +14,7 @@ import TSCBasic
 
 
 #if os(macOS)
-private func bundleRoot() -> AbsolutePath {
+internal func bundleRoot() -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
         return AbsolutePath(bundle.bundlePath).parentDirectory
     }
