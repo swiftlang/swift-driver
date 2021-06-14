@@ -66,6 +66,15 @@ extension Driver {
       }
     }
 
+    // Pass down -clang-target.
+    // If not specified otherwise, we should use the same triple as -target
+    if !parsedOptions.hasArgument(.disableClangTarget) &&
+        isFrontendArgSupported(.clangTarget) {
+      let clangTriple = parsedOptions.getLastArgument(.clangTarget)?.asSingle ?? targetTriple.triple
+      commandLine.appendFlag(.clangTarget)
+      commandLine.appendFlag(clangTriple)
+    }
+
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
