@@ -181,6 +181,26 @@ internal final class SwiftScan {
     return resultGraphMap
   }
 
+  @_spi(Testing) public func canLoadStoreScannerCache() -> Bool {
+    return api.swiftscan_scanner_cache_load != nil &&
+           api.swiftscan_scanner_cache_serialize != nil &&
+           api.swiftscan_scanner_cache_reset != nil
+  }
+
+  func serializeScannerCache(to path: AbsolutePath) {
+    api.swiftscan_scanner_cache_serialize(scanner,
+                                          path.description.cString(using: String.Encoding.utf8))
+  }
+
+  func loadScannerCache(from path: AbsolutePath) -> Bool {
+    return api.swiftscan_scanner_cache_load(scanner,
+                                            path.description.cString(using: String.Encoding.utf8))
+  }
+
+  func resetScannerCache() {
+    api.swiftscan_scanner_cache_reset(scanner)
+  }
+
   @_spi(Testing) public func canQuerySupportedArguments() -> Bool {
     return api.swiftscan_compiler_supported_arguments_query != nil &&
            api.swiftscan_string_set_dispose != nil
@@ -226,12 +246,21 @@ private extension swiftscan_functions_t {
       }
       return sym
     }
+    // Supported features/flags query
     self.swiftscan_string_set_dispose =
       try loadOptional("swiftscan_string_set_dispose")
     self.swiftscan_compiler_supported_arguments_query =
       try loadOptional("swiftscan_compiler_supported_arguments_query")
     self.swiftscan_compiler_supported_features_query =
       try loadOptional("swiftscan_compiler_supported_features_query")
+
+    // Dependency scanner serialization/deserialization features
+    self.swiftscan_scanner_cache_serialize =
+      try loadOptional("swiftscan_scanner_cache_serialize")
+    self.swiftscan_scanner_cache_load =
+      try loadOptional("swiftscan_scanner_cache_load")
+    self.swiftscan_scanner_cache_reset =
+      try loadOptional("swiftscan_scanner_cache_reset")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {

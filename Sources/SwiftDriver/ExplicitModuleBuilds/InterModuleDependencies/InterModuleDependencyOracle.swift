@@ -73,6 +73,34 @@ public class InterModuleDependencyOracle {
     }
   }
 
+  @_spi(Testing) public func serializeScannerCache(to path: AbsolutePath) {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to serialize scanner cache with no scanner instance.")
+    }
+    if swiftScan.canLoadStoreScannerCache() {
+      swiftScan.serializeScannerCache(to: path)
+    }
+  }
+
+  @_spi(Testing) public func loadScannerCache(from path: AbsolutePath) -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to load scanner cache with no scanner instance.")
+    }
+    if swiftScan.canLoadStoreScannerCache() {
+      return swiftScan.loadScannerCache(from: path)
+    }
+    return false
+  }
+
+  @_spi(Testing) public func resetScannerCache() {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    if swiftScan.canLoadStoreScannerCache() {
+      swiftScan.resetScannerCache()
+    }
+  }
+
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
 
   /// Queue to sunchronize accesses to the scanner

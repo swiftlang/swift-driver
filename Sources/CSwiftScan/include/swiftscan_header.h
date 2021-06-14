@@ -200,17 +200,20 @@ typedef struct {
   //=== Scanner Functions ---------------------------------------------------===//  
   swiftscan_scanner_t (*swiftscan_scanner_create)(void);
   void (*swiftscan_scanner_dispose)(swiftscan_scanner_t);
-
   swiftscan_dependency_graph_t
   (*swiftscan_dependency_graph_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
-
   swiftscan_batch_scan_result_t *
   (*swiftscan_batch_scan_result_create)(swiftscan_scanner_t,
                                         swiftscan_batch_scan_input_t *,
                                         swiftscan_scan_invocation_t);
-
   swiftscan_import_set_t
   (*swiftscan_import_set_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
+
+  //=== Scanner Cache Functions ---------------------------------------------===//
+  void (*swiftscan_scanner_cache_serialize)(swiftscan_scanner_t scanner, const char * path);
+  bool (*swiftscan_scanner_cache_load)(swiftscan_scanner_t scanner, const char * path);
+  void (*swiftscan_scanner_cache_reset)(swiftscan_scanner_t scanner);
+
 } swiftscan_functions_t;
 
 #endif // SWIFT_C_DEPENDENCY_SCAN_H
