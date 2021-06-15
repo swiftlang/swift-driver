@@ -758,7 +758,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testMergeModuleEmittingDependencies() throws {
-    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999"])
+    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-no-emit-module-separately"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertTrue(plannedJobs[0].kind == .compile)
     XCTAssertTrue(plannedJobs[1].kind == .compile)
@@ -769,6 +769,15 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-serialize-diagnostics-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-serialize-diagnostics-path")))
+  }
+
+  func testEmitModuleEmittingDependencies() throws {
+    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-experimental-emit-module-separately"])
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertTrue(plannedJobs[0].kind == .emitModule)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-dependencies-path")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
 
   func testReferenceDependencies() throws {
@@ -2088,7 +2097,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testMergeModulesOnly() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-source-info-path", "/foo/bar/Test.swiftsourceinfo"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-source-info-path", "/foo/bar/Test.swiftsourceinfo", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule]))
@@ -2116,7 +2125,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule" ])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
@@ -2128,7 +2137,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Make sure the swiftdoc path is correct for a relative module
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "Test.swiftmodule" ])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "Test.swiftmodule", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
@@ -2140,7 +2149,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Make sure the swiftdoc path is correct for an inferred module
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
@@ -2152,7 +2161,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // -o specified
-      var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "/tmp/test.swiftmodule", "input.swift"])
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "/tmp/test.swiftmodule", "input.swift", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3290,7 +3299,7 @@ final class SwiftDriverTests: XCTestCase {
     // Reset the temporary store to ensure predictable results.
     VirtualPath.resetTemporaryFileStore()
     var driver = try Driver(args: [
-      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info"
+      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info", "-no-emit-module-separately"
     ])
     let plannedJobs = try driver.planBuild()
 
@@ -4141,7 +4150,7 @@ final class SwiftDriverTests: XCTestCase {
 
     // Ensure the merge-module step is not passed the precompiled header
     do {
-      var driver = try Driver(args: ["swiftc", "-emit-module", "-import-objc-header", "header.h", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-emit-module", "-import-objc-header", "header.h", "foo.swift", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
 
@@ -4743,7 +4752,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testFilelist() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"])
+      var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
 
       let jobA = plannedJobs[0]
