@@ -111,7 +111,7 @@ extension Driver {
   mutating func shouldEmitModuleSeparately() -> Bool {
     return parsedOptions.hasFlag(positive: .emitModuleSeparately,
                                  negative: .noEmitModuleSeparately,
-                                 default: false)
+                                 default: true)
            && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
                                      negative: .noWholeModuleOptimization,
                                      default: false)
