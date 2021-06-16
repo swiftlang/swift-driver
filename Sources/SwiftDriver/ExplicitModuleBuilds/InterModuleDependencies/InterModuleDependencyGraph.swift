@@ -266,3 +266,7 @@ public struct InterModuleDependencyGraph: Codable {
   /// Information about the main module.
   public var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }
 }
+
+public struct InterModuleDependencyImports: Codable {
+  public var imports: [String]
+}
