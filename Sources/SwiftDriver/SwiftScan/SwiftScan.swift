@@ -92,6 +92,33 @@ internal final class SwiftScan {
     dylib.leak()
   }
 
+  func preScanImports(workingDirectory: AbsolutePath,
+                      invocationCommand: [String]) throws -> InterModuleDependencyImports {
+    // Create and configure the scanner invocation
+    let invocation = api.swiftscan_scan_invocation_create()
+    defer { api.swiftscan_scan_invocation_dispose(invocation) }
+    api.swiftscan_scan_invocation_set_working_directory(invocation,
+                                                        workingDirectory
+                                                          .description
+                                                          .cString(using: String.Encoding.utf8))
+    withArrayOfCStrings(invocationCommand) { invocationStringArray in
+      api.swiftscan_scan_invocation_set_argv(invocation,
+                                             Int32(invocationCommand.count),
+                                             invocationStringArray)
+    }
+
+    let importSetRefOrNull = api.swiftscan_import_set_create(scanner, invocation)
+    guard let importSetRef = importSetRefOrNull else {
+      throw DependencyScanningError.dependencyScanFailed
+    }
+
+    let importSet = try constructImportSet(from: importSetRef)
+    // Free the memory allocated for the in-memory representation of the import set
+    // returned by the scanner, now that we have translated it.
+    api.swiftscan_import_set_dispose(importSetRef)
+    return importSet
+  }
+
   func scanDependencies(workingDirectory: AbsolutePath,
                         invocationCommand: [String]) throws -> InterModuleDependencyGraph {
     // Create and configure the scanner invocation

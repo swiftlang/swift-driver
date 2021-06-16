@@ -52,6 +52,16 @@ public class InterModuleDependencyOracle {
     }
   }
 
+  @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
+                                             commandLine: [String])
+  throws -> InterModuleDependencyImports {
+    precondition(hasScannerInstance)
+    return try queue.sync {
+      return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
+                                                      invocationCommand: commandLine)
+    }
+  }
+
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
   /// Returns True if a library instance exists (either verified or newly-created).
   @_spi(Testing) public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
