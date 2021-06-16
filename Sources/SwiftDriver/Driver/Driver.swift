@@ -24,6 +24,7 @@ public struct Driver {
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
     case integratedReplRemoved
+    case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
     case unableToLoadOutputFileMap(String)
     case unableToDecodeFrontendTargetInfo(String?, [String], String)
@@ -57,6 +58,8 @@ public struct Driver {
         return "subcommand passed to driver"
       case .integratedReplRemoved:
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
+      case .cannotSpecify_OForMultipleOutputs:
+        return "cannot specify -o when generating multiple output files"
       case .conflictingOptions(let one, let two):
         return "conflicting options '\(one.spelling)' and '\(two.spelling)'"
       case let .unableToDecodeFrontendTargetInfo(outputString, arguments, errorDesc):
@@ -693,6 +696,8 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+
+    try verifyOutputOptions()
   }
 
   public mutating func planBuild( simulateGetInputFailure: Bool = false ) throws -> [Job] {
@@ -776,6 +781,29 @@ extension Driver {
       return nil
     }
     return kind
+  }
+}
+
+extension Driver {
+  // Detect mis-use of multi-threading and output file options
+  private func verifyOutputOptions() throws {
+    if compilerOutputType != .swiftModule,
+       parsedOptions.hasArgument(.o),
+       linkerOutputType == nil {
+      let shouldComplain: Bool
+      if numThreads > 0 {
+        // Multi-threading compilation has multiple outputs unless there's only
+        // one input.
+        shouldComplain = self.inputFiles.count > 1
+      } else {
+        // Single-threaded compilation is a problem if we're compiling more than
+        // one file.
+        shouldComplain = self.inputFiles.filter { $0.type.isPartOfSwiftCompilation }.count > 1 && .singleCompile != compilerMode
+      }
+      if shouldComplain {
+        diagnosticEngine.emit(Error.cannotSpecify_OForMultipleOutputs)
+      }
+    }
   }
 }
 
