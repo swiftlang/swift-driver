@@ -372,27 +372,10 @@ extension RemovalTestOptions {
 }
 
 extension IncrementalCompilationTests {
-  /// While all cases are being made to work, just test for now in known good cases
-  func testRemovalInPassingCases() throws {
-    try testRemoval(includeFailingCombos: false)
-  }
-
-  func testRemovalInAllCases() throws {
-    try testRemoval(includeFailingCombos: true)
-  }
-
-  func testRemoval(includeFailingCombos: Bool) throws {
+  func testRemoval() throws {
 #if !os(Linux)
-    let knownGoodCombos: [[RemovalTestOption]] = [
-      [.removeInputFromInvocation],
-    ]
     for optionsToTest in RemovalTestOptions.allCombinations {
-      if knownGoodCombos.contains(optionsToTest) {
-        try testRemoval(optionsToTest)
-      }
-      else if includeFailingCombos {
-          try testRemoval(optionsToTest)
-      }
+      try testRemoval(optionsToTest)
     }
 #endif
   }
