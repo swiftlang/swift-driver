@@ -372,27 +372,10 @@ extension RemovalTestOptions {
 }
 
 extension IncrementalCompilationTests {
-  /// While all cases are being made to work, just test for now in known good cases
-  func testRemovalInPassingCases() throws {
-    try testRemoval(includeFailingCombos: false)
-  }
-
-  func testRemovalInAllCases() throws {
-    try testRemoval(includeFailingCombos: true)
-  }
-
-  func testRemoval(includeFailingCombos: Bool) throws {
+  func testRemoval() throws {
 #if !os(Linux)
-    let knownGoodCombos: [[RemovalTestOption]] = [
-      [.removeInputFromInvocation],
-    ]
     for optionsToTest in RemovalTestOptions.allCombinations {
-      if knownGoodCombos.contains(optionsToTest) {
-        try testRemoval(optionsToTest)
-      }
-      else if includeFailingCombos {
-          try testRemoval(optionsToTest)
-      }
+      try testRemoval(optionsToTest)
     }
 #endif
   }
@@ -826,6 +809,11 @@ extension IncrementalCompilationTests {
         // containing entries for the deleted file. This test simulates that
         // condition by restoring the deleted priors. The driver ought to be fixed
         // to cull any entries for removed files from the deserialized priors.
+        //
+        // There is a wrinkle: How can a node for a decl in a removed file be
+        // distinguished from a node for a decl in an incrementally-imported
+        // external dependency? In both cases the node's `dependencySource`
+        // is for a file that is not in the `inputFiles`.
         print("*** WARNING: skipping checks, driver fails to cleaned out the graph ***",
               to: &stderrStream); stderrStream.flush()
         return graph
