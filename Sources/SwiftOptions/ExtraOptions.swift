@@ -17,6 +17,10 @@ extension Option {
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
   public static let noEmitModuleSeparately: Option = Option("-no-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Force using merge-module as the incremental build mode")
   public static let useFrontendParseableOutput: Option = Option("-use-frontend-parseable-output", .flag, attributes: [.helpHidden], helpText: "Emit parseable-output from swift-frontend jobs instead of from the driver")
+  public static let emitAPIBaseline: Option = Option("-emit-api-baseline", .flag, attributes: [.noInteractive, .supplementaryOutput], helpText: "Emit an API baseline file for the module")
+  public static let emitAPIBaselinePath: Option = Option("-emit-api-baseline-path", .separate, attributes: [.noInteractive, .supplementaryOutput, .argumentIsPath], metaVar: "<path>", helpText: "Emit an API baseline file for the module to <path>")
+  public static let emitABIBaseline: Option = Option("-emit-abi-baseline", .flag, attributes: [.noInteractive, .supplementaryOutput], helpText: "Emit an ABI baseline file for the module")
+  public static let emitABIBaselinePath: Option = Option("-emit-abi-baseline-path", .separate, attributes: [.noInteractive, .supplementaryOutput, .argumentIsPath], metaVar: "<path>", helpText: "Emit an ABI baseline file for the module to <path>")
 
   public static var extraOptions: [Option] {
     return [
@@ -26,7 +30,11 @@ extension Option {
       Option.driverWarnUnusedOptions,
       Option.emitModuleSeparately,
       Option.noEmitModuleSeparately,
-      Option.useFrontendParseableOutput
+      Option.useFrontendParseableOutput,
+      Option.emitAPIBaseline,
+      Option.emitAPIBaselinePath,
+      Option.emitABIBaseline,
+      Option.emitABIBaselinePath
     ]
   }
 }

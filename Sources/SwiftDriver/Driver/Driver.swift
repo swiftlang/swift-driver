@@ -41,6 +41,7 @@ public struct Driver {
     case missingContextHashOnSwiftDependency(String)
     case dependencyScanningFailure(Int, String)
     case missingExternalDependency(String)
+    case baselineGenerationRequiresTopLevelModule(String)
 
     public var description: String {
       switch self {
@@ -100,6 +101,8 @@ public struct Driver {
         return "unable to load output file map '\(path)': no such file or directory"
       case .missingExternalDependency(let moduleName):
         return "Missing External dependency info for module: \(moduleName)"
+      case .baselineGenerationRequiresTopLevelModule(let arg):
+        return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       }
     }
   }
@@ -287,6 +290,12 @@ public struct Driver {
 
   /// Path to the Swift module source information file.
   let moduleSourceInfoPath: VirtualPath.Handle?
+
+  /// Path to the module API baseline file.
+  let apiBaselinePath: VirtualPath.Handle?
+
+  /// Path to the module ABI baseline file.
+  let abiBaselinePath: VirtualPath.Handle?
 
   /// Force the driver to emit the module first and then run compile jobs. This could be used to unblock
   /// dependencies in parallel builds.
@@ -587,7 +596,9 @@ public struct Driver {
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
       targetInfo: frontendTargetInfo)
-    
+
+    Self.validateDigesterArgs(&parsedOptions, moduleOutputInfo: moduleOutputInfo, diagnosticEngine: diagnosticsEngine)
+
     Self.validateSanitizerAddressUseOdrIndicatorFlag(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
     
     Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
@@ -663,6 +674,28 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name,
         projectDirectory: projectDirectory)
+    self.apiBaselinePath = try Self.computeDigesterBaselineOutputPath(
+      &parsedOptions,
+      moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
+      type: .jsonAPIBaseline,
+      isOutput: .emitAPIBaseline,
+      outputPath: .emitAPIBaselinePath,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      outputFileMap: self.outputFileMap,
+      moduleName: moduleOutputInfo.name,
+      projectDirectory: projectDirectory)
+    self.abiBaselinePath = try Self.computeDigesterBaselineOutputPath(
+      &parsedOptions,
+      moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
+      type: .jsonABIBaseline,
+      isOutput: .emitABIBaseline,
+      outputPath: .emitABIBaselinePath,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      outputFileMap: self.outputFileMap,
+      moduleName: moduleOutputInfo.name,
+      projectDirectory: projectDirectory)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
         outputPath: .emitModuleInterfacePath,
@@ -2196,6 +2229,18 @@ extension Driver {
     }
   }
 
+  static func validateDigesterArgs(_ parsedOptions: inout ParsedOptions,
+                                   moduleOutputInfo: ModuleOutputInfo,
+                                   diagnosticEngine: DiagnosticsEngine) {
+    if moduleOutputInfo.output?.isTopLevel != true {
+      for arg in parsedOptions.arguments(for: .emitAPIBaseline, .emitAPIBaselinePath,
+                                            .emitABIBaseline, .emitABIBaselinePath) {
+        diagnosticEngine.emit(Error.baselineGenerationRequiresTopLevelModule(arg.option.spelling))
+      }
+    }
+  }
+
+
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
                                     workingDirectory: AbsolutePath?,
@@ -2649,6 +2694,33 @@ extension Driver {
                                                 moduleName: moduleName,
                                                 projectDirectory: projectDirectory)
   }
+
+  static func computeDigesterBaselineOutputPath(
+    _ parsedOptions: inout ParsedOptions,
+    moduleOutputPath: VirtualPath.Handle?,
+    type: FileType,
+    isOutput: Option,
+    outputPath: Option,
+    compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    outputFileMap: OutputFileMap?,
+    moduleName: String,
+    projectDirectory: VirtualPath.Handle?
+  ) throws -> VirtualPath.Handle? {
+    // Only emit a baseline if at least of the arguments was provided.
+    guard parsedOptions.hasArgument(isOutput, outputPath) else { return nil }
+    return try computeModuleAuxiliaryOutputPath(&parsedOptions,
+                                                moduleOutputPath: moduleOutputPath,
+                                                type: type,
+                                                isOutput: isOutput,
+                                                outputPath: outputPath,
+                                                compilerOutputType: compilerOutputType,
+                                                compilerMode: compilerMode,
+                                                outputFileMap: outputFileMap,
+                                                moduleName: moduleName,
+                                                projectDirectory: projectDirectory)
+  }
+
 
 
   /// Determine the output path for a module auxiliary output.
