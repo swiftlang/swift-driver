@@ -39,6 +39,8 @@ public struct Job: Codable, Equatable, Hashable {
     case help
     case generateAPIBaseline = "generate-api-baseline"
     case generateABIBaseline = "generate-abi-baseline"
+    case compareAPIBaseline = "compare-api-baseline"
+    case compareABIBaseline = "compare-abi-baseline"
   }
 
   public enum ArgTemplate: Equatable, Hashable {
@@ -228,6 +230,12 @@ extension Job : CustomStringConvertible {
 
     case .generateABIBaseline:
       return "Generating ABI baseline file for module \(moduleName)"
+
+    case .compareAPIBaseline:
+      return "Comparing API of \(moduleName) to baseline"
+
+    case .compareABIBaseline:
+      return "Comparing ABI of \(moduleName) to baseline"
     }
   }
 
@@ -251,7 +259,7 @@ extension Job.Kind {
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap,
-        .generateAPIBaseline, .generateABIBaseline:
+        .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline, .compareABIBaseline:
         return false
     }
   }
@@ -266,7 +274,8 @@ extension Job.Kind {
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
-         .generateAPIBaseline, .generateABIBaseline:
+         .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
+         .compareABIBaseline:
       return false
     }
   }
