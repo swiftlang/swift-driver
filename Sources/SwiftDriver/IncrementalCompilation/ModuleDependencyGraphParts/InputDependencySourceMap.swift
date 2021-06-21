@@ -57,10 +57,15 @@ extension InputDependencySourceMap {
 // MARK: - Populating
 extension InputDependencySourceMap {
   public enum AdditionPurpose {
-    case mocking,
-         buildingFromSwiftDeps,
-         readingPriors,
-         inputsAddedSincePriors }
+    /// For testing:
+    case mocking
+    /// When building from a `swiftdeps` file:
+    case buildingFromSwiftDeps
+    /// When deserializing the map from a prior build:
+    case readingPriors
+    /// Adding an entry for an input added to the build since the priors were stored:
+    case inputsAddedSincePriors
+  }
   @_spi(Testing) public mutating func addEntry(_ input: TypedVirtualPath,
                                                _ dependencySource: DependencySource,
                                                `for` _ : AdditionPurpose) {
