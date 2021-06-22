@@ -354,9 +354,10 @@ final class ParsableMessageTests: XCTestCase {
             $0 <<< "print(\"hello, world!\")"
           }
           let diags = DiagnosticsEngine()
+          let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
           var driver = try Driver(args: ["swiftc", main.pathString,
                                          "-use-frontend-parseable-output",
-                                         "-o", output.pathString],
+                                         "-o", output.pathString] + sdkArgumentsForTesting,
                                   env: ProcessEnv.vars,
                                   diagnosticsEngine: diags,
                                   fileSystem: localFileSystem)
