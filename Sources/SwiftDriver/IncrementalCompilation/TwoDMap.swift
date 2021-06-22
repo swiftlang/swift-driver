@@ -86,9 +86,4 @@ public struct TwoDMap<Key1: Hashable, Key2: Hashable, Value: Equatable>: Mutable
     }
     return true
   }
-
-  public func compactMap<R>(_ fn: ((Key1, Key2), Value) -> R?) -> [R]
-  {
-    map1.compactMap(fn)
-  }
 }
