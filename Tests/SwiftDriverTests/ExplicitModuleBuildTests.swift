@@ -586,6 +586,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testExplicitModuleBuildEndToEnd() throws {
+    throw XCTSkip("rdar://79594631")
+    /*
     // The macOS-only restriction is temporary while Clang's dependency scanner
     // is gaining the ability to perform name-based module lookup.
     #if os(macOS)
@@ -615,6 +617,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif
+    */
   }
 
   func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
