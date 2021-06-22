@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Like a two-way dictionary
+/// Provides a bidirectional mapping between two keys.
 ///
-public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence {
+/// `BidirectionalMap` provides efficient O(1) lookups in both directions.
+public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable {
   private var map1: [T1: T2] = [:]
   private var map2: [T2: T1] = [:]
 
@@ -63,40 +64,53 @@ public struct BidirectionalMap<T1: Hashable, T2: Hashable>: Equatable, Sequence 
       }
     }
   }
+}
 
-  public func contains(key: T1) -> Bool {
-    map1.keys.contains(key)
-  }
-  public func contains(key: T2) -> Bool {
-    map2.keys.contains(key)
-  }
-
+extension BidirectionalMap {
+  /// Updates the value stored in the bidirectional map for the given key,
+  /// or adds a new set of key-value pairs if the key have an entry in the map.
+  ///
+  /// If access to the old value is not necessary, it is more efficient to use
+  /// the subscript operator to perform an in-place update.
+  ///
+  /// - Parameters:
+  ///   - v: The new value to add to the two-level map.
+  ///   - key: The two-level key to associate with value.
+  /// - Returns: The value that was replaced, or `nil` if a new key-value pair was added.
+  @discardableResult
   public mutating func updateValue(_ newValue: T2, forKey key: T1) -> T2? {
-    let oldValue = map1.updateValue(newValue, forKey: key)
-    _ = oldValue.map {map2.removeValue(forKey: $0)}
-    map2[newValue] = key
-    return oldValue
-  }
-  public mutating func updateValue(_ newValue: T1, forKey key: T2) -> T1? {
-    let oldValue = map2.updateValue(newValue, forKey: key)
-   _ = oldValue.map {map1.removeValue(forKey: $0)}
-    map1[newValue] = key
-    return oldValue
+    let old = self[key]
+    self[key] = newValue
+    return old
   }
 
-  public mutating func removeValue(forKey t1: T1) {
-    if let t2 = map1[t1] {
-      map2.removeValue(forKey: t2)
-    }
-    map1.removeValue(forKey: t1)
+  /// Updates the value stored in the bidirectional map for the given key,
+  /// or adds a new set of key-value pairs if the key have an entry in the map.
+  ///
+  /// If access to the old value is not necessary, it is more efficient to use
+  /// the subscript operator to perform an in-place update.
+  ///
+  /// - Parameters:
+  ///   - v: The new value to add to the two-level map.
+  ///   - key: The two-level key to associate with value.
+  /// - Returns: The value that was replaced, or `nil` if a new key-value pair was added.
+  @discardableResult
+  public mutating func updateValue(_ newValue: T1, forKey key: T2) -> T1? {
+    let old = self[key]
+    self[key] = newValue
+    return old
   }
-  public mutating func removeValue(forKey t2: T2) {
-    if let t1 = map2[t2] {
-      map1.removeValue(forKey: t1)
-    }
-    map2.removeValue(forKey: t2)
-  }
+}
+
+extension BidirectionalMap: Sequence {
+  /// Provides an iterator that yields pairs of the key-to-key mappings.
+  ///
+  /// - Warning: The order of the returned mappings is not stable. In general,
+  ///            avoid iterating over a bidirectional map unless order does not
+  ///            matter for the algorithm in question.
+  ///
+  /// - Returns: An iterator value for this bidirectional map.
   public func makeIterator() -> Dictionary<T1, T2>.Iterator {
-    map1.makeIterator()
+    self.map1.makeIterator()
   }
 }

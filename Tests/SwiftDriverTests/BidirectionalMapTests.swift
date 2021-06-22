@@ -14,7 +14,6 @@ import XCTest
 import SwiftDriver
 
 class BidirectionalMapTests: XCTestCase {
-
   func testBiDiMap() {
     func test(_ biMapToTest: BidirectionalMap<Int, String>) {
       zip(biMapToTest.map{$0}.sorted {$0.0 < $1.0}, testContents).forEach {
@@ -24,10 +23,10 @@ class BidirectionalMapTests: XCTestCase {
       for (i, s) in testContents.map({$0}) {
         XCTAssertEqual(biMapToTest[i], s)
         XCTAssertEqual(biMapToTest[s], i)
-        XCTAssertTrue(biMapToTest.contains(key: i))
-        XCTAssertTrue(biMapToTest.contains(key: s))
-        XCTAssertFalse(biMapToTest.contains(key: -1))
-        XCTAssertFalse(biMapToTest.contains(key: "gazorp"))
+        XCTAssertNotNil(biMapToTest[i])
+        XCTAssertNotNil(biMapToTest[s])
+        XCTAssertNil(biMapToTest[-1])
+        XCTAssertNil(biMapToTest["gazorp"])
       }
     }
     
@@ -37,15 +36,15 @@ class BidirectionalMapTests: XCTestCase {
       biMap[i] = s
     }
     test(biMap)
-    biMap.removeValue(forKey: testContents.count)
+    biMap[testContents.count] = nil
     test(biMap)
-    biMap.removeValue(forKey: "gazorp")
+    biMap["gazorp"] = nil
     test(biMap)
 
     let removed = testContents.removeFirst()
     var biMap2 = biMap
-    biMap.removeValue(forKey: removed.0)
-    biMap2.removeValue(forKey: removed.1)
+    biMap[removed.0] = nil
+    biMap2[removed.1] = nil
     test(biMap)
     test(biMap2)
   }
