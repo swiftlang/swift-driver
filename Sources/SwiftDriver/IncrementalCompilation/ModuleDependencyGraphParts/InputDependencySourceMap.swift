@@ -12,14 +12,13 @@ import Foundation
 import TSCBasic
 
 @_spi(Testing) public struct InputDependencySourceMap: Equatable {
+  public typealias BiMap = BidirectionalMap<TypedVirtualPath, DependencySource>
   
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
   ///
-  // This map caches the same information as in the `OutputFileMap`, but it
-  // optimizes the reverse lookup, and includes path interning via `DependencySource`.
-  // Once created, it does not change.
-  
-  public typealias BiMap = BidirectionalMap<TypedVirtualPath, DependencySource>
+  /// This map caches the same information as in the `OutputFileMap`, but it
+  /// optimizes the reverse lookup, and includes path interning via `DependencySource`.
+  /// Once created, it does not change.
   @_spi(Testing) public let biMap: BiMap
 
   /// Based on entries in the `OutputFileMap`, create the bidirectional map to map each source file
