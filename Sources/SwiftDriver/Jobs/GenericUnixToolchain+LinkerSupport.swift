@@ -14,6 +14,10 @@ import SwiftOptions
 
 extension GenericUnixToolchain {
   private func defaultLinker(for targetTriple: Triple) -> String? {
+    if targetTriple.os == .openbsd {
+      return "lld"
+    }
+
     switch targetTriple.arch {
     case .arm, .aarch64, .armeb, .thumb, .thumbeb:
       // BFD linker has issues wrt relocation of the protocol conformance
