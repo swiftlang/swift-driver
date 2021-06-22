@@ -274,6 +274,8 @@ extension Triple {
       return environment == .android ? "android" : "linux"
     case .freeBSD:
       return "freebsd"
+    case .openbsd:
+      return "openbsd"
     case .win32:
       switch environment {
       case .cygnus:
@@ -295,9 +297,8 @@ extension Triple {
     // Explicitly spell out the remaining cases to force a compile error when
     // Triple updates
     case .ananas, .cloudABI, .dragonFly, .fuchsia, .kfreebsd, .lv2, .netbsd,
-         .openbsd, .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl,
-         .amdhsa, .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd,
-         .emscripten:
+         .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl, .amdhsa,
+         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd, .emscripten:
       return nil
     }
   }
