@@ -586,8 +586,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testExplicitModuleBuildEndToEnd() throws {
-    throw XCTSkip("rdar://79594631")
-    /*
     // The macOS-only restriction is temporary while Clang's dependency scanner
     // is gaining the ability to perform name-based module lookup.
     #if os(macOS)
@@ -605,19 +603,23 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
                                      "-experimental-explicit-module-build",
                                      "-working-directory", path.pathString,
-                                     main.pathString],
+                                     // TODO: clang targets need to be taught
+                                     // how to work with explicit modules
+                                     // properly.
+                                     "-disable-clang-target",
+                                     main.pathString] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
     #endif
-    */
   }
 
   func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
