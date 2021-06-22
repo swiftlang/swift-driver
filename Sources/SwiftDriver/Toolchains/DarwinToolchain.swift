@@ -17,7 +17,7 @@ import SwiftOptions
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
-@_spi(Testing) public final class DarwinToolchain: Toolchain {
+public final class DarwinToolchain: Toolchain {
   public let env: [String: String]
 
   /// Doubles as path cache and point for overriding normal lookup

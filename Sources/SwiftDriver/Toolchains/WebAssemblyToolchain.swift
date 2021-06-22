@@ -13,7 +13,7 @@ import TSCBasic
 import SwiftOptions
 
 /// Toolchain for WebAssembly-based systems.
-@_spi(Testing) public final class WebAssemblyToolchain: Toolchain {
+public final class WebAssemblyToolchain: Toolchain {
   @_spi(Testing) public enum Error: Swift.Error, DiagnosticData {
     case interactiveModeUnsupportedForTarget(String)
     case dynamicLibrariesUnsupportedForTarget(String)

@@ -13,6 +13,8 @@
 import TSCBasic
 import Foundation
 
+/// A type that is capable of executing compilation jobs on some underlying
+/// build service.
 public protocol DriverExecutor {
   var resolver: ArgsResolver { get }
 
