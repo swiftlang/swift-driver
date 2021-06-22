@@ -263,3 +263,106 @@ extension String {
     return self + "." + ext
   }
 }
+
+extension OutputFileMap {
+  /// Tries to create a view of the bidirectional mapping from swift files and
+  /// swiftdeps files in this output file map.
+  ///
+  /// This method tolerates output file maps that have missing swiftdeps entries
+  /// for swift inputs by returning `nil`. The given diagnostic engine also
+  /// reports any missing or duplicated entries.
+  ///
+  /// - Parameters:
+  ///   - inputFiles: The set of inputs to retrieve
+  ///   - diagnosticEngine: The diagnostic engine to write into if the output
+  ///                       file map is malformed.
+  /// - Returns: An immutable view of the swift-swiftdeps mapping in this output
+  ///            file map, or `nil` if any diagnostics are emitted.
+  @_spi(Testing) public func makeDependencyView(
+    from inputFiles: [TypedVirtualPath],
+    _ diagnosticEngine: DiagnosticsEngine
+  ) -> DependencyView? {
+    assert(self.onlySourceFilesHaveSwiftDeps())
+    var hadError = false
+    let reverseMapping = inputFiles.reduce(into: [DependencySource: TypedVirtualPath]()) { backMap, input in
+      guard input.type == .swift else { return }
+      guard
+        let dependencySource = self.getDependencySource(for: input)
+      else {
+        // The legacy driver fails silently here.
+        diagnosticEngine.emit(
+          .remarkDisabled("\(input.file.basename) has no swiftDeps file")
+        )
+        hadError = true
+        // Don't stop at the first problem.
+        return
+      }
+
+      if let sameSourceForInput = backMap.updateValue(input, forKey: dependencySource) {
+        diagnosticEngine.emit(
+          .remarkDisabled(
+            "\(dependencySource) and \(sameSourceForInput) have the same input file in the output file map: \(input)")
+        )
+        hadError = true
+      }
+    }
+
+    if hadError {
+      return nil
+    }
+
+    return DependencyView(self, reverseMapping)
+  }
+
+  /// A bidirectional view of the subset of the mapping between swift files and
+  /// swiftdeps files in the output file map.
+  ///
+  /// This map caches the same information as in the `OutputFileMap`, but it
+  /// optimizes the reverse lookup, and includes path interning via `DependencySource`.
+  @_spi(Testing) public struct DependencyView: Equatable {
+    /// Maps swiftdeps files back to their associated swift files.
+    @_spi(Testing) public let reverseMapping: [DependencySource: TypedVirtualPath]
+
+    /// A copy of the output file map that provides the forward mapping from swift
+    /// files to swiftdeps file.
+    @_spi(Testing) public let outputFileMap: OutputFileMap
+
+    /// Based on entries in the `OutputFileMap`, create the bidirectional map to map each source file
+    /// path to- and from- the corresponding swiftdeps file path.
+    fileprivate init(
+      _ ofm: OutputFileMap,
+      _ reverseMapping: [DependencySource: TypedVirtualPath]
+    ) {
+      self.outputFileMap = ofm
+      self.reverseMapping = reverseMapping
+    }
+  }
+}
+
+// MARK: - Accessing
+
+extension OutputFileMap.DependencyView {
+  @_spi(Testing) public func source(for input: TypedVirtualPath) -> DependencySource? {
+    self.outputFileMap.getDependencySource(for: input)
+  }
+
+  @_spi(Testing) public func input(for source: DependencySource) -> TypedVirtualPath? {
+    self.reverseMapping[source]
+  }
+}
+
+extension OutputFileMap {
+  @_spi(Testing) public func getDependencySource(
+    for sourceFile: TypedVirtualPath
+  ) -> DependencySource? {
+    assert(sourceFile.type == FileType.swift)
+    guard let swiftDepsPath = existingOutput(inputFile: sourceFile.fileHandle,
+                                             outputType: .swiftDeps)
+    else {
+      return nil
+   }
+    assert(VirtualPath.lookup(swiftDepsPath).extension == FileType.swiftDeps.rawValue)
+    let typedSwiftDepsFile = TypedVirtualPath(file: swiftDepsPath, type: .swiftDeps)
+    return DependencySource(typedSwiftDepsFile)
+  }
+}

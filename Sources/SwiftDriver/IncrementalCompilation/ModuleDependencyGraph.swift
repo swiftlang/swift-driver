@@ -24,7 +24,7 @@ import SwiftOptions
   @_spi(Testing) public var nodeFinder = NodeFinder()
   
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
-  @_spi(Testing) public let inputDependencySourceMap: InputDependencySourceMap
+  @_spi(Testing) public let inputDependencySourceMap: OutputFileMap.DependencyView
 
   // The set of paths to external dependencies known to be in the graph
   public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
@@ -53,7 +53,9 @@ import SwiftOptions
     : nil
     self.phase = phase
     self.creationPhase = phase
-    guard let inputDependencySourceMap = InputDependencySourceMap(info)
+    guard
+      let inputDependencySourceMap = self.info.outputFileMap.makeDependencyView(from: info.inputFiles,
+                                                                                info.diagnosticEngine)
     else {
       return nil
     }
