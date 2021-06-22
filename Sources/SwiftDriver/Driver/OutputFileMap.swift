@@ -321,11 +321,11 @@ extension OutputFileMap {
   /// optimizes the reverse lookup, and includes path interning via `DependencySource`.
   @_spi(Testing) public struct DependencyView: Equatable {
     /// Maps swiftdeps files back to their associated swift files.
-    @_spi(Testing) public let reverseMapping: [DependencySource: TypedVirtualPath]
+    private let reverseMapping: [DependencySource: TypedVirtualPath]
 
     /// A copy of the output file map that provides the forward mapping from swift
     /// files to swiftdeps file.
-    @_spi(Testing) public let outputFileMap: OutputFileMap
+    private let outputFileMap: OutputFileMap
 
     /// Based on entries in the `OutputFileMap`, create the bidirectional map to map each source file
     /// path to- and from- the corresponding swiftdeps file path.
