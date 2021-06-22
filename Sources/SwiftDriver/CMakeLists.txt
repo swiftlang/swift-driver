@@ -39,7 +39,6 @@ add_library(SwiftDriver
   "IncrementalCompilation/ModuleDependencyGraphParts/NodeFinder.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/DependencySource.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/Tracer.swift"
-  "IncrementalCompilation/BidirectionalMap.swift"
   "IncrementalCompilation/BuildRecord.swift"
   "IncrementalCompilation/BuildRecordInfo.swift"
   "IncrementalCompilation/DependencyGraphDotFileWriter.swift"

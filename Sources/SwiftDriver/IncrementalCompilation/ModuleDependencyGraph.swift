@@ -43,8 +43,9 @@ import SwiftOptions
   /// Minimize the number of file system modification-time queries.
   private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
 
-  public init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-              _ phase: Phase
+  public init?(
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    _ phase: Phase
   ) {
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
@@ -63,7 +64,7 @@ import SwiftOptions
                                             function: String = #function,
                                             file: String = #file,
                                             line: Int = #line) -> DependencySource {
-    guard let source = inputDependencySourceMap.sourceIfKnown(for: input)
+    guard let source = inputDependencySourceMap.source(for: input)
     else {
       fatalError("\(input.file.basename) not found in inputDependencySourceMap, \(file):\(line) in \(function)")
     }
@@ -164,7 +165,7 @@ extension ModuleDependencyGraph {
     return allDependencySourcesToRecompile.compactMap {
       dependencySource in
       guard dependencySource != changedSource else {return nil}
-      let inputToRecompile = inputDependencySourceMap.inputIfKnown(for: dependencySource)
+      let inputToRecompile = inputDependencySourceMap.input(for: dependencySource)
       info.reporter?.report("Found dependent of \(input.file.basename):", inputToRecompile)
       return inputToRecompile
     }
@@ -183,7 +184,7 @@ extension ModuleDependencyGraph {
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: TypedVirtualPath) -> Bool {
     precondition(file.type == .swift)
-    guard let source = inputDependencySourceMap.sourceIfKnown(for: file) else {
+    guard let source = inputDependencySourceMap.source(for: file) else {
       return false
     }
     return containsNodes(forDependencySource: source)
@@ -300,7 +301,7 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
     for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = inputDependencySourceMap.inputIfKnown(for: invalidatedSwiftDeps)
+      guard let invalidatedInput = inputDependencySourceMap.input(for: invalidatedSwiftDeps)
       else {
         info.diagnosticEngine.emit(
           warning: "Failed to find source file for '\(invalidatedSwiftDeps.file.basename)', recovering with a full rebuild. Next build will be incremental.")

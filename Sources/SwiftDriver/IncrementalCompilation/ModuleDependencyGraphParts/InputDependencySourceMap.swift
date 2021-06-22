@@ -11,30 +11,32 @@
 import Foundation
 import TSCBasic
 
+/// Maps input files (e.g. .swift) to and from the DependencySource object.
+///
+/// This map caches the same information as in the `OutputFileMap`, but it
+/// optimizes the reverse lookup, and includes path interning via `DependencySource`.
 @_spi(Testing) public struct InputDependencySourceMap: Equatable {
-  public typealias BiMap = BidirectionalMap<TypedVirtualPath, DependencySource>
-  
   /// Maps input files (e.g. .swift) to and from the DependencySource object.
-  ///
-  /// This map caches the same information as in the `OutputFileMap`, but it
-  /// optimizes the reverse lookup, and includes path interning via `DependencySource`.
-  /// Once created, it does not change.
-  @_spi(Testing) public let biMap: BiMap
+  @_spi(Testing) public let reverseMapping: [DependencySource: TypedVirtualPath]
+
+  /// A copy of the output file map that provides the forward mapping.
+  @_spi(Testing) public let outputFileMap: OutputFileMap
 
   /// Based on entries in the `OutputFileMap`, create the bidirectional map to map each source file
   /// path to- and from- the corresponding swiftdeps file path.
   ///
   /// - Returns: the map, or nil if error
   init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
-    let outputFileMap = info.outputFileMap
+    self.outputFileMap = info.outputFileMap
     let diagnosticEngine = info.diagnosticEngine
 
     assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
     var hadError = false
-    self.biMap = info.inputFiles.reduce(into: BiMap()) { biMap, input in
-      guard input.type == .swift else {return}
-      guard let dependencySource = outputFileMap.getDependencySource(for: input)
-       else {
+    self.reverseMapping = info.inputFiles.reduce(into: [DependencySource: TypedVirtualPath]()) { backMap, input in
+      guard input.type == .swift else { return }
+      guard
+        let dependencySource = info.outputFileMap.getDependencySource(for: input)
+      else {
          // The legacy driver fails silently here.
          diagnosticEngine.emit(
            .remarkDisabled("\(input.file.basename) has no swiftDeps file")
@@ -43,7 +45,8 @@ import TSCBasic
          // Don't stop at the first problem.
          return
        }
-       if let sameSourceForInput = biMap.updateValue(dependencySource, forKey: input) {
+
+       if let sameSourceForInput = backMap.updateValue(input, forKey: dependencySource) {
          diagnosticEngine.emit(
            .remarkDisabled(
              "\(dependencySource) and \(sameSourceForInput) have the same input file in the output file map: \(input)")
@@ -51,6 +54,7 @@ import TSCBasic
          hadError = true
        }
      }
+
      if hadError {
        return nil
      }
@@ -58,13 +62,14 @@ import TSCBasic
 }
 
 // MARK: - Accessing
+
 extension InputDependencySourceMap {
-  @_spi(Testing) public func sourceIfKnown(for input: TypedVirtualPath) -> DependencySource? {
-    biMap[input]
+  @_spi(Testing) public func source(for input: TypedVirtualPath) -> DependencySource? {
+    self.outputFileMap.getDependencySource(for: input)
   }
 
-  @_spi(Testing) public func inputIfKnown(for source: DependencySource) -> TypedVirtualPath? {
-    biMap[source]
+  @_spi(Testing) public func input(for source: DependencySource) -> TypedVirtualPath? {
+    self.reverseMapping[source]
   }
 }
 
