@@ -163,9 +163,9 @@ extension IncrementalCompilationTests {
     expectNoDotFiles()
     try buildInitialState(extraArguments: ["-driver-emit-fine-grained-dependency-dot-file-after-every-import"])
     expect(dotFilesFor: [
-      "main.swiftdeps",
+      "main.swift",
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
-      "other.swiftdeps",
+      "other.swift",
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
     ])
   }
@@ -182,7 +182,7 @@ extension IncrementalCompilationTests {
 
     expect(dotFilesFor: [
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
-      "other.swiftdeps",
+      "other.swift",
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
     ])
   }
@@ -1192,14 +1192,14 @@ extension DiagVerifiable {
   }
   // MARK: - dependencies
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
-     "Incremental compilation: Fingerprint changed for \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps"
+     "Incremental compilation: Fingerprint changed for \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
 
   @DiagsBuilder func newDefinitionOfSourceFile(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
-    "Incremental compilation: New definition: \(aspect) of source file \(input).swiftdeps in \(input).swiftdeps"
+    "Incremental compilation: New definition: \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
   @DiagsBuilder func newDefinitionOfTopLevelName(_ aspect: DependencyKey.DeclAspect, name: String, input: String) -> [Diagnostic.Message] {
-    "Incremental compilation: New definition: \(aspect) of top-level name '\(name)' in \(input).swiftdeps"
+    "Incremental compilation: New definition: \(aspect) of top-level name '\(name)' in \(input).swift"
   }
 
   @DiagsBuilder func foundDependent(of defInput: String, compiling useInput: String) -> [Diagnostic.Message] {
@@ -1209,7 +1209,7 @@ extension DiagVerifiable {
     "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}"
   }
   @DiagsBuilder func failedToFindSource(_ input: String) -> [Diagnostic.Message] {
-      .warning("Failed to find source file for '\(input).swiftdeps', recovering with a full rebuild. Next build will be incremental.")
+      .warning("Failed to find source file '\(input).swift' in command line, recovering with a full rebuild. Next build will be incremental.")
   }
   @DiagsBuilder func failedToReadSomeSource(compiling input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Failed to read some dependencies source; compiling everything  {compile: \(input).o <= \(input).swift}"
@@ -1230,7 +1230,7 @@ extension DiagVerifiable {
 
   @DiagsBuilder func schedulingChanged(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
-      "Incremental compilation: Scheduing changed input  {compile: \(input).o <= \(input).swift}"
+      "Incremental compilation: Scheduling changed input  {compile: \(input).o <= \(input).swift}"
     }
   }
   @DiagsBuilder func schedulingChanged(_ inputs: String...) -> [Diagnostic.Message] {

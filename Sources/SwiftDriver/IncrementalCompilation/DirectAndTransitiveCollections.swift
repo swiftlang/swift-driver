@@ -43,6 +43,9 @@ public struct InvalidatedSet<ClosureLevel, Element: Hashable>: Sequence {
   public func compactMap<R>(_ transform: (Element) -> R? ) -> InvalidatedArray<ClosureLevel, R> {
     InvalidatedArray(contents.compactMap(transform))
   }
+  public func filter(_ isIncluded: (Element) -> Bool) -> InvalidatedArray<ClosureLevel, Element> {
+    InvalidatedArray(contents.filter(isIncluded))
+  }
 }
 
 extension InvalidatedSet where Element: Comparable {

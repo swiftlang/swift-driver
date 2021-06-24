@@ -239,7 +239,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     let nodesDirectlyInvalidatedByExternals =
       graph.collectNodesInvalidatedByChangedOrAddedExternals()
     // Wait till the last minute to do the transitive closure as an optimization.
-    guard let inputsInvalidatedByExternals = graph.collectInputsUsingInvalidated(
+    guard let inputsInvalidatedByExternals = graph.collectInputsInBuildUsingInvalidated(
       nodes: nodesDirectlyInvalidatedByExternals)
     else {
       return nil

@@ -20,7 +20,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public let typedFile: TypedVirtualPath
 
   init(_ typedFile: TypedVirtualPath) {
-    assert( typedFile.type == .swiftDeps ||
+    assert( typedFile.type == .swift ||
             typedFile.type == .swiftModule)
       self.typedFile = typedFile
   }
@@ -30,7 +30,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public init?(_ file: VirtualPath.Handle) {
     let ext = VirtualPath.lookup(file).extension
     guard let type =
-      ext == FileType.swiftDeps  .rawValue ? FileType.swiftDeps :
+      ext == FileType.swift      .rawValue ? FileType.swift :
       ext == FileType.swiftModule.rawValue ? FileType.swiftModule
       : nil
     else {
@@ -51,23 +51,52 @@ extension DependencySource {
   /// Throws if a read error
   /// Returns nil if no dependency info there.
   public func read(
-    in fileSystem: FileSystem,
-    reporter: IncrementalCompilationState.Reporter?
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> SourceFileDependencyGraph? {
-    let graphIfPresent: SourceFileDependencyGraph?
+    guard let fileToRead = fileToRead(info: info) else {return nil}
     do {
-      graphIfPresent = try SourceFileDependencyGraph.read(
-        from: self,
-        on: fileSystem)
+      return try SourceFileDependencyGraph.read(from: fileToRead, on: info.fileSystem)
     }
     catch {
-      let msg = "Could not read \(file) \(error.localizedDescription)"
-      reporter?.report(msg, typedFile)
+      let msg = "Could not read \(fileToRead) \(error.localizedDescription)"
+      info.reporter?.report(msg, fileToRead)
       return nil
     }
-    return graphIfPresent
+  }
+
+  /// Find the file to actually read the dependencies from
+  /// - Parameter info: a bundle of useful information
+  /// - Returns: The corresponding swiftdeps file for a swift file, or the swiftmodule file for an incremental imports source.
+  public func fileToRead(
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) -> TypedVirtualPath? {
+    typedFile.type != .swift
+    ? typedFile
+    : info.outputFileMap.getSwiftDeps(for: typedFile, diagnosticEngine: info.diagnosticEngine)
   }
 }
+
+
+extension OutputFileMap {
+  fileprivate func getSwiftDeps(
+    for sourceFile: TypedVirtualPath,
+    diagnosticEngine: DiagnosticsEngine
+  ) -> TypedVirtualPath? {
+    assert(sourceFile.type == FileType.swift)
+    guard let swiftDepsHandle = existingOutput(inputFile: sourceFile.fileHandle,
+                                             outputType: .swiftDeps)
+    else {
+      // The legacy driver fails silently here.
+      diagnosticEngine.emit(
+        .remarkDisabled("\(sourceFile.file.basename) has no swiftDeps file")
+      )
+      return nil
+    }
+    assert(VirtualPath.lookup(swiftDepsHandle).extension == FileType.swiftDeps.rawValue)
+    return TypedVirtualPath(file: swiftDepsHandle, type: .swiftDeps)
+  }
+}
+
 
 // MARK: - comparing
 extension DependencySource: Comparable {

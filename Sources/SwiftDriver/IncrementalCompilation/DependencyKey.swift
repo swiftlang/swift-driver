@@ -300,7 +300,7 @@ public struct DependencyKey: CustomStringConvertible {
       case let .externalDepend(externalDependency):
         return "import '\(externalDependency.shortDescription)'"
       case let .sourceFileProvide(name: name):
-        return "source file \((try? VirtualPath(path: name).basename) ?? name)"
+        return "source file from \((try? VirtualPath(path: name).basename) ?? name)"
       }
     }
   }

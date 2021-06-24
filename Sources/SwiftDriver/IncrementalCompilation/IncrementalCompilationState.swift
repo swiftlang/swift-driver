@@ -542,22 +542,46 @@ extension OutputFileMap {
 }
 
 // MARK: SourceFiles
+
+/// Handy information about the source files in the current invocation
 @_spi(Testing) public struct SourceFiles {
+  /// The current files in same order as the invocation
   let currentInOrder: [TypedVirtualPath]
-  private let previous: Set<VirtualPath>
+
+  /// The set of current files (actually the handles)
+  let currentSet: Set<VirtualPath.Handle>
+
+  /// Handles of the input files in the previous invocation
+  private let previous: Set<VirtualPath.Handle>
+
+  /// The files that were in the previous but not in the current invocation
   let disappeared: [VirtualPath]
 
   init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord?) {
     self.currentInOrder = inputFiles.filter {$0.type == .swift}
-    let currentSet = Set(currentInOrder.map {$0.file} )
-    self.previous = buildRecord.map {
-      Set($0.inputInfos.keys)
-    } ?? Set()
-
-    self.disappeared = previous.filter {!currentSet.contains($0)}
+    self.currentSet = currentInOrder.reduce(into: Set()) {
+      currentSet, currentFile in
+      currentSet.insert(currentFile.fileHandle)
+    }
+    guard let buildRecord = buildRecord else {
+      self.previous = Set()
+      self.disappeared = []
+      return
+    }
+    var previous = Set<VirtualPath.Handle>()
+    var disappeared = [VirtualPath]()
+    for prevPath in buildRecord.inputInfos.keys {
+      let handle = prevPath.intern()
+      previous.insert(handle)
+      if !currentSet.contains(handle) {
+        disappeared.append(prevPath)
+      }
+    }
+    self.previous = previous
+    self.disappeared = disappeared.sorted {$0.name < $1.name}
   }
 
   func isANewInput(_ file: VirtualPath) -> Bool {
-    !previous.contains(file)
+    !previous.contains(file.intern())
   }
 }

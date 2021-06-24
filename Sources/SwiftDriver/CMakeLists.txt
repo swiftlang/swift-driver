@@ -33,13 +33,11 @@ add_library(SwiftDriver
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
 
-  "IncrementalCompilation/ModuleDependencyGraphParts/InputDependencySourceMap.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/Integrator.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/Node.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/NodeFinder.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/DependencySource.swift"
   "IncrementalCompilation/ModuleDependencyGraphParts/Tracer.swift"
-  "IncrementalCompilation/BidirectionalMap.swift"
   "IncrementalCompilation/BuildRecord.swift"
   "IncrementalCompilation/BuildRecordInfo.swift"
   "IncrementalCompilation/DependencyGraphDotFileWriter.swift"

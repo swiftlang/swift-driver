@@ -150,7 +150,6 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
       let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data,
-                                                          from: DependencySource(VirtualPath.absolute(sourcePath).intern())!,
                                                           fromSwiftModule: false))
       XCTAssertEqual(graph.majorVersion, 1)
       XCTAssertEqual(graph.minorVersion, 0)

@@ -22,8 +22,8 @@ public class DependencyGraphDotFileWriter {
     self.info = info
   }
 
-  func write(_ sfdg: SourceFileDependencyGraph) {
-    let basename = sfdg.dependencySource.shortDescription
+  func write(_ sfdg: SourceFileDependencyGraph, for file: TypedVirtualPath) {
+    let basename = file.file.basename
     write(sfdg, basename: basename)
   }
   
@@ -41,6 +41,7 @@ fileprivate extension DependencyGraphDotFileWriter {
     try! info.fileSystem.writeFileContents(path) { stream in
       var s = DOTDependencyGraphSerializer<Graph>(
         graph,
+        graphID: basename,
         stream,
         includeExternals: info.dependencyDotFilesIncludeExternals,
         includeAPINotes: info.dependencyDotFilesIncludeAPINotes)
@@ -58,16 +59,12 @@ fileprivate extension DependencyGraphDotFileWriter {
 
 // MARK: - Making dependency graphs exportable
 fileprivate protocol ExportableGraph {
-  var graphID: String {get}
   associatedtype Node: ExportableNode
   func forEachExportableNode(_ visit: (Node) -> Void)
   func forEachExportableArc(_ visit: (Node, Node) -> Void)
 }
 
 extension SourceFileDependencyGraph: ExportableGraph {
-   fileprivate var graphID: String {
-    return try! VirtualPath(path: sourceFileName).basename
-  }
   fileprivate func forEachExportableNode<Node: ExportableNode>(_ visit: (Node) -> Void) {
     forEachNode { visit($0 as! Node) }
   }
@@ -180,17 +177,20 @@ fileprivate extension DependencyKey.Designator {
 fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
   private let includeExternals: Bool
   private let includeAPINotes: Bool
+  private let graphID: String
   private let graph: Graph
   private var nodeIDs = [Graph.Node: Int]()
   private var out: WritableByteStream
 
   fileprivate init(
     _ graph: Graph,
+    graphID: String,
     _ stream: WritableByteStream,
     includeExternals: Bool,
     includeAPINotes: Bool
   ) {
     self.graph = graph
+    self.graphID = graphID
     self.out = stream
     self.includeExternals = includeExternals
     self.includeAPINotes = includeAPINotes
@@ -205,7 +205,7 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
   }
 
   private func emitPrelude() {
-    out <<< "digraph " <<< graph.graphID.quoted <<< " {\n"
+    out <<< "digraph " <<< graphID.quoted <<< " {\n"
   }
   private mutating func emitLegend() {
     for dummy in DependencyKey.Designator.oneOfEachKind {
