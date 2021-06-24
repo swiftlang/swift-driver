@@ -12,6 +12,7 @@
 
 @_spi(Testing) import SwiftDriver
 import TSCBasic
+import TSCUtility
 import Foundation
 import XCTest
 
@@ -47,6 +48,12 @@ extension ModuleDependencyGraph {
         XCTAssertTrue(nodeIDs.contains(use), "Node ID was not registered! \(use), \(String(describing: use.fingerprint))")
       }
     }
+  }
+}
+
+extension Version {
+  var withAlteredMinor: Self {
+    Self(major, minor + 1, patch)
   }
 }
 

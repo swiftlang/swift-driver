@@ -36,7 +36,7 @@ import SwiftOptions
   let buildRecordPath: VirtualPath
   let fileSystem: FileSystem
   let currentArgsHash: String
-  let actualSwiftVersion: String
+  @_spi(Testing) public let actualSwiftVersion: String
   let timeBeforeFirstJob: Date
   let diagnosticEngine: DiagnosticsEngine
   let compilationInputModificationDates: [TypedVirtualPath: Date]
