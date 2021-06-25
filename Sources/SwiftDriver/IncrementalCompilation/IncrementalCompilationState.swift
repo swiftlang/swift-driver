@@ -552,7 +552,7 @@ extension OutputFileMap {
   let currentSet: Set<VirtualPath.Handle>
 
   /// Handles of the input files in the previous invocation
-  private let previous: Set<VirtualPath.Handle>
+  private let previousSet: Set<VirtualPath.Handle>
 
   /// The files that were in the previous but not in the current invocation
   let disappeared: [VirtualPath]
@@ -564,7 +564,7 @@ extension OutputFileMap {
       currentSet.insert(currentFile.fileHandle)
     }
     guard let buildRecord = buildRecord else {
-      self.previous = Set()
+      self.previousSet = Set()
       self.disappeared = []
       return
     }
@@ -577,11 +577,11 @@ extension OutputFileMap {
         disappeared.append(prevPath)
       }
     }
-    self.previous = previous
+    self.previousSet = previous
     self.disappeared = disappeared.sorted {$0.name < $1.name}
   }
 
   func isANewInput(_ file: VirtualPath) -> Bool {
-    !previous.contains(file.intern())
+    !previousSet.contains(file.intern())
   }
 }
