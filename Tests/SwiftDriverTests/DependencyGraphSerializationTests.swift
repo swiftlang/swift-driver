@@ -26,17 +26,20 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
     let fs = InMemoryFileSystem()
     let graph = Self.mockGraphCreator.mockUpAGraph()
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
+    let alteredVersion = currentVersion.withAlteredMinor
     try graph.write(
       to: mockPath,
       on: fs,
       compilerVersion: "Swift 99",
-      mockSerializedGraphVersion: currentVersion.withAlteredMinor)
+      mockSerializedGraphVersion: alteredVersion)
     do {
       _ = try ModuleDependencyGraph.read(from: mockPath,
                                          info: .mock(fileSystem: fs))
       XCTFail("Should have thrown an exception")
     }
-    catch ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion {
+    catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
+      XCTAssertEqual(expected, currentVersion)
+      XCTAssertEqual(read, alteredVersion)
     }
     catch {
       XCTFail("Threw an unexpected exception: \(error.localizedDescription)")

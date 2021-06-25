@@ -1190,7 +1190,7 @@ extension DiagVerifiable {
     "Incremental compilation: Read dependency graph"
   }
   @DiagsBuilder var couldNotReadPriors: [Diagnostic.Message] {
-      .warning("Will not do cross-module incremental builds, wrong version of priors at '")
+      .warning("Will not do cross-module incremental builds, wrong version of priors; expected")
   }
   // MARK: - dependencies
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {

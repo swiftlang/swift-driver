@@ -487,7 +487,7 @@ extension ModuleDependencyGraph {
     case badMagic
     case noRecordBlock
     case malformedMetadataRecord
-    case mismatchedSerializedGraphVersion
+    case mismatchedSerializedGraphVersion(expected: Version, read: Version)
     case unexpectedMetadataRecord
     case malformedFingerprintRecord
     case malformedIdentifierRecord
@@ -668,10 +668,15 @@ extension ModuleDependencyGraph {
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,
-          visitor.compilerVersionString != nil,
-          Version(Int(major), Int(minor), 0) == Self.serializedGraphVersion
+          visitor.compilerVersionString != nil
     else {
-      throw ReadError.mismatchedSerializedGraphVersion
+      throw ReadError.malformedMetadataRecord
+    }
+    let readVersion = Version(Int(major), Int(minor), 0)
+    guard readVersion == Self.serializedGraphVersion
+    else {
+      throw ReadError.mismatchedSerializedGraphVersion(
+        expected: Self.serializedGraphVersion, read: readVersion)
     }
     let graph = visitor.finalizeGraph()
     info.reporter?.report("Read dependency graph", path)
