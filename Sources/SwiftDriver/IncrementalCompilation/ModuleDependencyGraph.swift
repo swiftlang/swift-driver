@@ -22,9 +22,6 @@ import SwiftOptions
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph {
 
   @_spi(Testing) public var nodeFinder = NodeFinder()
-  
-  /// Maps input files (e.g. .swift) to and from the DependencySource object.
-  @_spi(Testing) public let inputDependencySourceMap: InputDependencySourceMap
 
   // The set of paths to external dependencies known to be in the graph
   public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
@@ -44,7 +41,7 @@ import SwiftOptions
   private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
 
   public init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-              _ phase: Phase
+               _ phase: Phase
   ) {
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
@@ -52,22 +49,6 @@ import SwiftOptions
     : nil
     self.phase = phase
     self.creationPhase = phase
-    guard let inputDependencySourceMap = InputDependencySourceMap(info)
-    else {
-      return nil
-    }
-    self.inputDependencySourceMap = inputDependencySourceMap
-  }
-
-  @_spi(Testing) public func sourceRequired(for input: TypedVirtualPath,
-                                            function: String = #function,
-                                            file: String = #file,
-                                            line: Int = #line) -> DependencySource {
-    guard let source = inputDependencySourceMap.sourceIfKnown(for: input)
-    else {
-      fatalError("\(input.file.basename) not found in inputDependencySourceMap, \(file):\(line) in \(function)")
-    }
-    return source
   }
 }
 
@@ -136,8 +117,7 @@ extension ModuleDependencyGraph {
     if info.sourceFiles.isANewInput(input.file) {
       return TransitivelyInvalidatedInputSet()
     }
-    return collectInputsRequiringCompilationAfterProcessing(
-      dependencySource: sourceRequired(for: input))
+    return collectInputsRequiringCompilationAfterProcessing(input: input)
   }
 }
 
@@ -153,40 +133,39 @@ extension ModuleDependencyGraph {
 
 // MARK: - Scheduling the first wave
 extension ModuleDependencyGraph {
-  /// Find all the sources that depend on `sourceFile`. For some source files, these will be
-  /// speculatively scheduled in the first wave.
-  func collectInputsInvalidatedBy(input: TypedVirtualPath
+  /// Find all the sources that depend on `changedInput`.
+  ///
+  /// For some source files, these will be speculatively scheduled in the first wave.
+  /// - Parameter changedInput: The input file that changed since the last build
+  /// - Returns: The input files that must be recompiled, excluding `changedInput`
+  func collectInputsInvalidatedBy(changedInput: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputArray {
-    let changedSource = sourceRequired(for: input)
-    let allDependencySourcesToRecompile =
-      collectSwiftDepsUsing(dependencySource: changedSource)
+    let changedSource = DependencySource(changedInput)
+    let allUses = collectInputsUsing(dependencySource: changedSource)
 
-    return allDependencySourcesToRecompile.compactMap {
-      dependencySource in
-      guard dependencySource != changedSource else {return nil}
-      let inputToRecompile = inputDependencySourceMap.inputIfKnown(for: dependencySource)
-      info.reporter?.report("Found dependent of \(input.file.basename):", inputToRecompile)
-      return inputToRecompile
+    return allUses.filter {
+      user in
+      guard user != changedInput else {return false}
+      info.reporter?.report(
+        "Found dependent of \(changedInput.file.basename):", user)
+      return true
     }
   }
 
-  /// Find all the swiftDeps files that depend on `dependencySource`.
+  /// Find all the input files that depend on `dependencySource`.
   /// Really private, except for testing.
-  /*@_spi(Testing)*/ public func collectSwiftDepsUsing(
+  /*@_spi(Testing)*/ public func collectInputsUsing(
     dependencySource: DependencySource
-  ) -> TransitivelyInvalidatedSourceSet {
+  ) -> TransitivelyInvalidatedInputSet {
     let nodes = nodeFinder.findNodes(for: dependencySource) ?? [:]
     /// Tests expect this to be reflexive
-    return collectSwiftDepsUsingInvalidated(nodes: DirectlyInvalidatedNodeSet(nodes.values))
+    return collectInputsUsingInvalidated(nodes: DirectlyInvalidatedNodeSet(nodes.values))
   }
 
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: TypedVirtualPath) -> Bool {
     precondition(file.type == .swift)
-    guard let source = inputDependencySourceMap.sourceIfKnown(for: file) else {
-      return false
-    }
-    return containsNodes(forDependencySource: source)
+    return containsNodes(forDependencySource: DependencySource(file))
   }
 
   func containsNodes(forDependencySource source: DependencySource) -> Bool {
@@ -200,26 +179,27 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   /// After `source` has been compiled, figure out what other source files need compiling.
   /// Used to schedule the 2nd wave.
-  /// Return nil in case of an error.
-  /// May return a source that has already been compiled.
+  ///
+  /// - Parameter input: The file that has just been compiled
+  /// - Returns: The input files that must be compiled now that `input` has been compiled.
+  /// These may include inptus that do not need compilation because this build already compiled them.
+  /// In case of an error, such as a missing entry in the `OutputFileMap`, nil is returned.
   func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet? {
-    precondition(input.type == .swift)
-    let dependencySource = sourceRequired(for: input)
-    return collectInputsRequiringCompilationAfterProcessing(
-      dependencySource: dependencySource)
+    return collectInputsRequiringCompilationAfterProcessing(input: input)
   }
 }
 
 // MARK: - Scheduling either wave
 extension ModuleDependencyGraph {
   
-  /// Given a set of invalidated nodes, find all swiftDeps dependency sources containing defs that transitively use
-  /// any of the invalidated nodes.
-  /*@_spi(Testing)*/
-  public func collectSwiftDepsUsingInvalidated(
+  /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
+  ///
+  /// - Parameter nodes: A set of graph nodes for changed declarations.
+  /// - Returns: All source files containing declarations that transitively depend upon the changed declarations.
+  public func collectInputsUsingInvalidated(
     nodes: DirectlyInvalidatedNodeSet
-  ) -> TransitivelyInvalidatedSourceSet
+  ) -> TransitivelyInvalidatedInputSet
   {
     // Is this correct for the 1st wave after having read a prior?
     // Yes, because
@@ -230,19 +210,32 @@ extension ModuleDependencyGraph {
       in: self,
       diagnosticEngine: info.diagnosticEngine)
       .tracedUses
-    return affectedNodes.reduce(into: TransitivelyInvalidatedSourceSet()) {
-      invalidatedSources, affectedNode in
+    return affectedNodes.reduce(into: TransitivelyInvalidatedInputSet()) {
+      invalidatedInputs, affectedNode in
       if let source = affectedNode.dependencySource,
-          source.typedFile.type == .swiftDeps {
-        invalidatedSources.insert(source)
+          source.typedFile.type == .swift {
+        invalidatedInputs.insert(source.typedFile)
       }
     }
   }
 
+  /// Is this source file part of this build?
+  ///
+  /// - Parameter sourceFile: the Swift source-code file in question
+  /// - Returns: true iff this file was in the command-line invocation of the driver
+  fileprivate func isPartOfBuild(_ sourceFile: TypedVirtualPath) -> Bool {
+    info.sourceFiles.currentSet.contains(sourceFile.fileHandle)
+  }
+
   /// Given an external dependency & its fingerprint, find any nodes directly using that dependency.
+  ///
+  /// - Parameters:
+  ///   - fingerprintedExternalDependency: the dependency to trace
+  ///   - why: why the dependecy must be traced
+  /// - Returns: any nodes that directly use (depend upon) that external dependency.
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
-  /*@_spi(Testing)*/ public func collectUntracedNodes(
+  public func collectUntracedNodes(
     from fingerprintedExternalDependency: FingerprintedExternalDependency,
     _ why: ExternalDependency.InvalidationReason
   ) -> DirectlyInvalidatedNodeSet {
@@ -264,24 +257,28 @@ extension ModuleDependencyGraph {
     return untracedUses
   }
 
-  /// Find all the inputs known to need recompilation as a consequence of reading a swiftdeps or swiftmodule
-  /// `dependencySource` - The file to read containing dependency information
-  /// Returns `nil` on error
+  /// Find all the inputs known to need recompilation as a consequence of processing a swiftdeps file.
+  ///
+  /// - Parameter input: The input file whose swiftdeps file contains the dependencies to be read and integrated.
+  /// - Returns: `nil` on error, or the inputs discovered to be requiring compilation.
   private func collectInputsRequiringCompilationAfterProcessing(
-    dependencySource: DependencySource
+    input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet? {
-    assert(dependencySource.typedFile.type == .swiftDeps)
-    guard let sourceGraph = dependencySource.read(in: info.fileSystem,
-                                                  reporter: info.reporter)
+    assert(input.type == .swift)
+    let dependencySource = DependencySource(input)
+    guard let sourceGraph = dependencySource.read(info: info)
     else {
       // to preserve legacy behavior cancel whole thing
       info.diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
-          because: "malformed dependencies file '\(dependencySource.typedFile)'"))
+          because: "malformed dependencies file '\(dependencySource.fileToRead(info: info)?.file.name ?? "none?!")'"))
       return nil
     }
-    let invalidatedNodes = Integrator.integrate(from: sourceGraph, into: self)
-    return collectInputsUsingInvalidated(nodes: invalidatedNodes)
+    let invalidatedNodes = Integrator.integrate(
+      from: sourceGraph,
+      dependencySource: dependencySource,
+      into: self)
+    return collectInputsInBuildUsingInvalidated(nodes: invalidatedNodes)
   }
 
   /// Computes the set of inputs that must be recompiled as a result of the
@@ -295,15 +292,15 @@ extension ModuleDependencyGraph {
   /// - Parameter directlyInvalidatedNodes: The set of invalidated nodes.
   /// - Returns: The set of inputs that were transitively invalidated, if
   ///            possible. Or `nil` if such a set could not be computed.
-  func collectInputsUsingInvalidated(
+  func collectInputsInBuildUsingInvalidated(
     nodes directlyInvalidatedNodes: DirectlyInvalidatedNodeSet
   ) -> TransitivelyInvalidatedInputSet? {
     var invalidatedInputs = TransitivelyInvalidatedInputSet()
-    for invalidatedSwiftDeps in collectSwiftDepsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard let invalidatedInput = inputDependencySourceMap.inputIfKnown(for: invalidatedSwiftDeps)
+    for invalidatedInput in collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes) {
+      guard isPartOfBuild(invalidatedInput)
       else {
         info.diagnosticEngine.emit(
-          warning: "Failed to find source file for '\(invalidatedSwiftDeps.file.basename)', recovering with a full rebuild. Next build will be incremental.")
+          warning: "Failed to find source file '\(invalidatedInput.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental.")
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)
@@ -411,11 +408,14 @@ extension ModuleDependencyGraph {
   ) -> DirectlyInvalidatedNodeSet? {
     guard
       let source = fed.incrementalDependencySource,
-      let unserializedDepGraph = source.read(in: info.fileSystem, reporter: info.reporter)
+      let unserializedDepGraph = source.read(info: info)
     else {
       return nil
     }
-    let invalidatedNodes = Integrator.integrate(from: unserializedDepGraph, into: self)
+    let invalidatedNodes = Integrator.integrate(
+      from: unserializedDepGraph,
+      dependencySource: source,
+      into: self)
     info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
     return invalidatedNodes
   }
@@ -449,7 +449,8 @@ extension ModuleDependencyGraph {
   ///            changes to the underlying serialization format.
   ///
   /// - Minor number 1: Don't serialize the `inputDepedencySourceMap`
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 1, 0)
+  /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 2, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
@@ -605,11 +606,11 @@ extension ModuleDependencyGraph {
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
           let key = DependencyKey(aspect: declAspect, designator: designator)
-          let hasSwiftDeps = Int(record.fields[4]) != 0
-          let swiftDepsStr = hasSwiftDeps ? identifiers[Int(record.fields[5])] : nil
+          let hasDepSource = Int(record.fields[4]) != 0
+          let depSourceStr = hasDepSource ? identifiers[Int(record.fields[5])] : nil
           let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint ? fingerprintStr : nil
-          guard let dependencySource = try swiftDepsStr
+          guard let dependencySource = try depSourceStr
                   .map({ try VirtualPath.intern(path: $0) })
                   .map(DependencySource.init)
           else {

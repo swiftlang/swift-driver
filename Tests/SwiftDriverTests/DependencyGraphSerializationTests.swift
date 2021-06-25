@@ -67,7 +67,6 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
                   "Round trip failed! Symmetric difference - \(originalNodes.symmetricDifference(deserializedNodes))")
 
     XCTAssertEqual(graph.nodeFinder.usesByDef, deserializedGraph.nodeFinder.usesByDef)
-    XCTAssertEqual(graph.inputDependencySourceMap, deserializedGraph.inputDependencySourceMap)
     XCTAssertEqual(graph.fingerprintedExternalDependencies,
                    deserializedGraph.fingerprintedExternalDependencies)
   }

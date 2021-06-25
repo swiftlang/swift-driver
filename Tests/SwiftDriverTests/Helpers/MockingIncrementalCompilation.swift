@@ -67,11 +67,7 @@ extension TypedVirtualPath {
 
 extension DependencySource {
   init(mock i: Int) {
-    self.init(try! VirtualPath.intern(path: String(i) + "." + FileType.swiftDeps.rawValue))!
-  }
-
-  var mockID: Int {
-    Int(file.basenameWithoutExt)!
+    self.init(try! VirtualPath.intern(path: String(i) + "." + FileType.swift.rawValue))!
   }
 
   var sourceFileProvideNameForMockDependencySource: String {
@@ -80,6 +76,12 @@ extension DependencySource {
 
   var interfaceHashForMockDependencySource: String {
     file.name
+  }
+}
+
+extension TypedVirtualPath {
+  var mockID: Int {
+    Int(file.basenameWithoutExt)!
   }
 }
 

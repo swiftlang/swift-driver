@@ -36,7 +36,13 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph.Tracer {
 
   /// Find all uses of `defs` that have not already been traced.
-  /// (If already traced, jobs have already been scheduled.)
+  ///
+  /// - Parameters:
+  ///   - defNodes: Nodes for changed declarations
+  ///   - graph: The graph hosting the nodes
+  ///   - diagnosticEngine: The complaint department
+  /// - Returns: all uses of the changed nodes that have not already been traced. These represent
+  /// heretofore-unschedule compilations that are now required.
   static func collectPreviouslyUntracedNodesUsing(
     defNodes: DirectlyInvalidatedNodeSet,
     in graph: ModuleDependencyGraph,
@@ -121,11 +127,9 @@ extension ModuleDependencyGraph.Tracer {
         path.compactMap { node in
           node.dependencySource.map {
             source in
-            graph.inputDependencySourceMap.inputIfKnown(for: source).map {
-              input in
-              "\(node.key) in \(input.file.basename)"
-            }
-            ?? "\(node.key)"
+            source.typedFile.type == .swift
+            ? "\(node.key) in \(source.file.basename)"
+            : "\(node.key)"
           }
         }
         .joined(separator: " -> ")

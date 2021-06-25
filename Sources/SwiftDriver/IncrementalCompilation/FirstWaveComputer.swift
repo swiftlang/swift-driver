@@ -236,7 +236,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
         return nil
 
       case .upToDate:
-        reporter?.report("Scheduing changed input", input)
+        reporter?.report("Scheduling changed input", input)
       case .newlyAdded:
         reporter?.report("Scheduling new", input)
       case .needsCascadingBuild:
@@ -269,12 +269,13 @@ extension IncrementalCompilationState.FirstWaveComputer {
 
     return inputsToBeCertainlyRecompiled.reduce(into: Set()) {
       speculativelyRecompiledInputs, certainlyRecompiledInput in
-      let speculativeDependents = moduleDependencyGraph.collectInputsInvalidatedBy(input: certainlyRecompiledInput)
+      let speculativeDependents = moduleDependencyGraph.collectInputsInvalidatedBy(changedInput: certainlyRecompiledInput)
       for speculativeDependent in speculativeDependents
       where !inputsToBeCertainlyRecompiled.contains(speculativeDependent) {
         if speculativelyRecompiledInputs.insert(speculativeDependent).inserted {
           reporter?.report(
-            "Immediately scheduling dependent on \(certainlyRecompiledInput.file.basename)", speculativeDependent)
+            "Immediately scheduling dependent on \(certainlyRecompiledInput.file.basename)",
+            speculativeDependent)
         }
       }
     }
