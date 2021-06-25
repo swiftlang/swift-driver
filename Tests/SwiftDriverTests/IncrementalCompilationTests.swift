@@ -320,8 +320,6 @@ extension IncrementalCompilationTests {
                                 on: localFileSystem,
                                 compilerVersion: compilerVersion,
                                 mockSerializedGraphVersion: incrementedVersion)
-    // Reset mod time to priors modTime on newly-written priors
-    // in order to support a future priors mod-time check
 
     try checkReactionToObsoletePriors()
     try checkNullBuild(checkDiagnostics: true)
