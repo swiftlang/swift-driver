@@ -105,7 +105,11 @@ public extension Driver {
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
                                        swiftScanLibPath: scanLibPath) == false {
       fallbackToFrontend = true
-      diagnosticEngine.emit(.warn_scanner_frontend_fallback())
+      // This warning is mostly useful for debugging the driver, so let's hide it
+      // when libSwiftDriver is used, instead of a swift-driver executable.
+      if !integratedDriver {
+        diagnosticEngine.emit(.warn_scanner_frontend_fallback())
+      }
     }
     return fallbackToFrontend
   }
