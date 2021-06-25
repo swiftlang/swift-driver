@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import TSCBasic
+import TSCUtility
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
@@ -297,6 +298,33 @@ extension IncrementalCompilationTests {
     try checkReactionToTouchingSymlinks(checkDiagnostics: true)
     try checkReactionToTouchingSymlinkTargets(checkDiagnostics: true)
   }
+
+  /// Ensure that the driver can detect and then recover from a priors version mismatch
+  func testPriorsVersionDetectionAndRecovery() throws {
+#if !os(Linux)
+    // create a baseline priors
+    try buildInitialState(checkDiagnostics: true)
+    let driver = try checkNullBuild(checkDiagnostics: true)
+
+    // Read the priors, change the minor version, and write it back out
+    let outputFileMap = try driver.moduleDependencyGraph().info.outputFileMap
+    let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
+      .mock(outputFileMap: outputFileMap)
+    let priorsWithOldVersion = try ModuleDependencyGraph.read(
+      from: .absolute(priorsPath),
+      info: info)
+    // let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
+    let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
+    let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
+    try priorsWithOldVersion?.write(to: .absolute(priorsPath),
+                                on: localFileSystem,
+                                compilerVersion: compilerVersion,
+                                mockSerializedGraphVersion: incrementedVersion)
+
+    try checkReactionToObsoletePriors()
+    try checkNullBuild(checkDiagnostics: true)
+#endif
+  }
 }
 
 // MARK: - Test adding an input
@@ -454,10 +482,11 @@ extension IncrementalCompilationTests {
   /// - Parameters:
   ///   - checkDiagnostics: If true verify the diagnostics
   ///   - extraArguments: Additional command-line arguments
+  @discardableResult
   private func checkNullBuild(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
-  ) throws {
+  ) throws -> Driver {
     try doABuild(
       "as is",
       checkDiagnostics: checkDiagnostics,
@@ -829,6 +858,19 @@ extension IncrementalCompilationTests {
     return graph
   }
 
+  private func checkReactionToObsoletePriors() throws {
+    try doABuild(
+      "check reaction to obsolete priors",
+      checkDiagnostics: true,
+      extraArguments: [],
+      whenAutolinking: autolinkLifecycleExpectedDiags) {
+      couldNotReadPriors
+      createdGraphFromSwiftdeps
+      enablingCrossModule
+      skippingAll("main", "other")
+    }
+  }
+
   private func checkReactionToTouchingSymlinks(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
@@ -1144,6 +1186,9 @@ extension DiagVerifiable {
   }
   @DiagsBuilder var readGraph: [Diagnostic.Message] {
     "Incremental compilation: Read dependency graph"
+  }
+  @DiagsBuilder var couldNotReadPriors: [Diagnostic.Message] {
+      .warning("Will not do cross-module incremental builds, wrong version of priors; expected")
   }
   // MARK: - dependencies
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {

@@ -447,7 +447,9 @@ extension ModuleDependencyGraph {
   ///
   /// - WARNING: You *must* increment the minor version number when making any
   ///            changes to the underlying serialization format.
-  fileprivate static let version = Version(1, 0, 0)
+  ///
+  /// - Minor number 1: Don't serialize the `inputDepedencySourceMap`
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 1, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
@@ -481,10 +483,11 @@ extension ModuleDependencyGraph {
     }
   }
 
-  fileprivate enum ReadError: Error {
+  @_spi(Testing) public enum ReadError: Error {
     case badMagic
     case noRecordBlock
     case malformedMetadataRecord
+    case mismatchedSerializedGraphVersion(expected: Version, read: Version)
     case unexpectedMetadataRecord
     case malformedFingerprintRecord
     case malformedIdentifierRecord
@@ -665,10 +668,15 @@ extension ModuleDependencyGraph {
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,
-          visitor.compilerVersionString != nil,
-          Version(Int(major), Int(minor), 0) == Self.version
+          visitor.compilerVersionString != nil
     else {
       throw ReadError.malformedMetadataRecord
+    }
+    let readVersion = Version(Int(major), Int(minor), 0)
+    guard readVersion == Self.serializedGraphVersion
+    else {
+      throw ReadError.mismatchedSerializedGraphVersion(
+        expected: Self.serializedGraphVersion, read: readVersion)
     }
     let graph = visitor.finalizeGraph()
     info.reporter?.report("Read dependency graph", path)
@@ -691,13 +699,17 @@ extension ModuleDependencyGraph {
   ///   - fileSystem: The file system for this location.
   ///   - compilerVersion: A string containing version information for the
   ///                      driver used to create this file.
+  ///   - mockSerializedGraphVersion: Overrides the standard version for testing
   /// - Returns: true if had error
   @_spi(Testing) public func write(
     to path: VirtualPath,
     on fileSystem: FileSystem,
-    compilerVersion: String
+    compilerVersion: String,
+    mockSerializedGraphVersion: Version? = nil
   ) throws {
-    let data = ModuleDependencyGraph.Serializer.serialize(self, compilerVersion)
+    let data = ModuleDependencyGraph.Serializer.serialize(
+      self, compilerVersion,
+      mockSerializedGraphVersion ?? Self.serializedGraphVersion)
 
     do {
       try fileSystem.writeFileContents(path,
@@ -711,6 +723,7 @@ extension ModuleDependencyGraph {
 
   fileprivate final class Serializer {
     let compilerVersion: String
+    let serializedGraphVersion: Version
     let stream = BitstreamWriter()
     private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
     private var identifiersToWrite = [String]()
@@ -719,8 +732,10 @@ extension ModuleDependencyGraph {
     fileprivate private(set) var nodeIDs = [Node: Int]()
     private var lastNodeID: Int = 0
 
-    private init(compilerVersion: String) {
+    private init(compilerVersion: String,
+                 serializedGraphVersion: Version) {
       self.compilerVersion = compilerVersion
+      self.serializedGraphVersion = serializedGraphVersion
     }
 
     private func emitSignature() {
@@ -765,10 +780,8 @@ extension ModuleDependencyGraph {
     private func writeMetadata() {
       self.stream.writeRecord(self.abbreviations[.metadata]!, {
         $0.append(RecordID.metadata)
-        // Major version
-        $0.append(1 as UInt32)
-        // Minor version
-        $0.append(0 as UInt32)
+        $0.append(serializedGraphVersion.majorForWriting)
+        $0.append(serializedGraphVersion.minorForWriting)
       },
       blob: self.compilerVersion)
     }
@@ -903,9 +916,12 @@ extension ModuleDependencyGraph {
 
     public static func serialize(
       _ graph: ModuleDependencyGraph,
-      _ compilerVersion: String
+      _ compilerVersion: String,
+      _ serializedGraphVersion: Version
     ) -> ByteString {
-      let serializer = Serializer(compilerVersion: compilerVersion)
+      let serializer = Serializer(
+        compilerVersion: compilerVersion,
+        serializedGraphVersion: serializedGraphVersion)
       serializer.emitSignature()
       serializer.writeBlockInfoBlock()
 
@@ -1065,5 +1081,18 @@ extension Set where Element == ModuleDependencyGraph.Node {
 extension Set where Element == FingerprintedExternalDependency {
   fileprivate func matches(_ other: Self) -> Bool {
     self == other
+  }
+}
+
+fileprivate extension Version {
+  var majorForWriting: UInt32 {
+    let r = UInt32(Int64(major))
+    assert(Int(r) == Int(major))
+    return r
+  }
+  var minorForWriting: UInt32 {
+    let r = UInt32(Int64(minor))
+    assert(Int(r) == Int(minor))
+    return r
   }
 }

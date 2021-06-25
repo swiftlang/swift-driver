@@ -207,7 +207,7 @@ public struct Driver {
   /// Info needed to write and maybe read the build record.
   /// Only present when the driver will be writing the record.
   /// Only used for reading when compiling incrementally.
-  let buildRecordInfo: BuildRecordInfo?
+  @_spi(Testing) public let buildRecordInfo: BuildRecordInfo?
 
   /// A build-record-relative path to the location of a serialized copy of the
   /// driver's dependency graph.

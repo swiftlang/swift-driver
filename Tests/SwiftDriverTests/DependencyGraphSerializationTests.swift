@@ -13,9 +13,38 @@
 import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
+import TSCUtility
 
 class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
   static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: 12)
+
+  /// Unit test of the `ModuleDependencyGraph` serialization
+  ///
+  /// Ensure that a round-trip fails when the minor version number changes
+  func testSerializedVersionChangeDetection() throws {
+    let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
+    let fs = InMemoryFileSystem()
+    let graph = Self.mockGraphCreator.mockUpAGraph()
+    let currentVersion = ModuleDependencyGraph.serializedGraphVersion
+    let alteredVersion = currentVersion.withAlteredMinor
+    try graph.write(
+      to: mockPath,
+      on: fs,
+      compilerVersion: "Swift 99",
+      mockSerializedGraphVersion: alteredVersion)
+    do {
+      _ = try ModuleDependencyGraph.read(from: mockPath,
+                                         info: .mock(fileSystem: fs))
+      XCTFail("Should have thrown an exception")
+    }
+    catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
+      XCTAssertEqual(expected, currentVersion)
+      XCTAssertEqual(read, alteredVersion)
+    }
+    catch {
+      XCTFail("Threw an unexpected exception: \(error.localizedDescription)")
+    }
+  }
 
   func roundTrip(_ graph: ModuleDependencyGraph) throws {
     let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
