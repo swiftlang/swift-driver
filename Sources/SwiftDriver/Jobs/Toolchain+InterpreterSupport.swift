@@ -38,17 +38,9 @@ extension DarwinToolchain {
     targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
-    let runtimePaths = try runtimeLibraryPaths(
-      for: targetInfo,
-      parsedOptions: &parsedOptions,
-      sdkPath: sdkPath,
-      isShared: true
-    ).map { $0.name }
-
     addPathEnvironmentVariableIfNeeded("DYLD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
-                                       parsedOptions: &parsedOptions,
-                                       extraPaths: runtimePaths)
+                                       parsedOptions: &parsedOptions)
 
     addPathEnvironmentVariableIfNeeded("DYLD_FRAMEWORK_PATH", to: &envVars,
                                        currentEnv: env, option: .F,
