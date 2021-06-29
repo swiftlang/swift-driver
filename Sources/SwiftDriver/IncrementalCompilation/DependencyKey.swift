@@ -308,16 +308,12 @@ public struct DependencyKey: CustomStringConvertible {
   /*@_spi(Testing)*/ public let aspect: DeclAspect
   /*@_spi(Testing)*/ public let designator: Designator
 
-  private let cachedHash: Int
-
-
   /*@_spi(Testing)*/ public init(
     aspect: DeclAspect,
     designator: Designator)
   {
     self.aspect = aspect
     self.designator = designator
-    self.cachedHash = Self.computeHash(aspect, designator)
   }
 
   /*@_spi(Testing)*/ public var correspondingImplementation: Self? {
@@ -338,35 +334,16 @@ public struct DependencyKey: CustomStringConvertible {
   }
 }
 
-extension DependencyKey: Equatable, Hashable {
-
-  private static func computeHash(_ aspect: DeclAspect, _ designator: Designator) -> Int {
-    var h = Hasher()
-    h.combine(aspect)
-    h.combine(designator)
-    return h.finalize()
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(cachedHash)
-  }
-
-  public static func ==(lhs: Self, rhs: Self) -> Bool {
-    lhs.aspect == rhs.aspect && lhs.designator == rhs.designator
-  }
-}
-
-// MARK: - Comparing
-/// Needed to sort nodes to make tracing deterministic to test against emitted diagnostics
-extension DependencyKey: Comparable {
+extension DependencyKey: Equatable, Hashable, Comparable {
   public static func < (lhs: Self, rhs: Self) -> Bool {
-    lhs.aspect != rhs.aspect ? lhs.aspect < rhs.aspect :
-      lhs.designator < rhs.designator
+    guard lhs.aspect == rhs.aspect else {
+      return lhs.aspect < rhs.aspect
+    }
+    return lhs.designator < rhs.designator
   }
 }
 
-extension DependencyKey.Designator: Comparable {
-}
+extension DependencyKey.Designator: Comparable {}
 
 // MARK: - InvalidationReason
 extension ExternalDependency {
