@@ -213,8 +213,8 @@ extension SourceFileDependencyGraph {
                             defsIDependUpon: defsNodeDependUpon,
                             isProvides: isProvides)
         self.key = nil
-        defsNodeDependUpon = []
-        nodes.append(node)
+        self.defsNodeDependUpon.removeAll(keepingCapacity: true)
+        self.nodes.append(node)
       }
       mutating func visit(record: BitcodeElement.Record) throws {
         guard let kind = RecordKind(rawValue: record.id) else { throw ReadError.unknownRecord }
@@ -249,7 +249,7 @@ extension SourceFileDependencyGraph {
           self.key = DependencyKey(aspect: declAspect, designator: designator)
           self.fingerprint = nil
           self.nodeSequenceNumber = nextSequenceNumber
-          self.defsNodeDependUpon = []
+          self.defsNodeDependUpon.removeAll(keepingCapacity: true)
 
           nextSequenceNumber += 1
         case .fingerprintNode:
