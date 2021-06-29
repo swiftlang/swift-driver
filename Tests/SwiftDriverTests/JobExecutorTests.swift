@@ -474,9 +474,10 @@ final class JobExecutorTests: XCTestCase {
                                                fileSystem: localFileSystem,
                                                env: ProcessEnv.vars)
         let outputPath = path.appending(component: "finalOutput")
+        let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting() ?? []
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + sdkArgumentsForTesting,
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -511,10 +512,11 @@ final class JobExecutorTests: XCTestCase {
                                                fileSystem: localFileSystem,
                                                env: ProcessEnv.vars)
         let outputPath = path.appending(component: "finalOutput")
+        let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting() ?? []
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-save-temps",
                                        "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + sdkArgumentsForTesting,
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,
@@ -549,10 +551,11 @@ final class JobExecutorTests: XCTestCase {
                                                fileSystem: localFileSystem,
                                                env: ProcessEnv.vars)
         let outputPath = path.appending(component: "finalOutput")
+        let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting() ?? []
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-Xfrontend", "-debug-crash-immediately",
-                                       "-o", outputPath.pathString],
+                                       "-o", outputPath.pathString] + sdkArgumentsForTesting,
                                 env: ProcessEnv.vars,
                                 diagnosticsEngine: diags,
                                 fileSystem: localFileSystem,

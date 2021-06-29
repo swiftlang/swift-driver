@@ -557,6 +557,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
+      let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting() ?? []
       let packageRootPath = URL(fileURLWithPath: #file).pathComponents
           .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
       let testInputsPath = packageRootPath + "/TestInputs"
@@ -567,7 +568,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", swiftModuleInterfacesPath,
                                      "-experimental-explicit-module-build",
                                      "-working-directory", path.pathString,
-                                     main.pathString],
+                                     main.pathString] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
