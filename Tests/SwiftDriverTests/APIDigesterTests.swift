@@ -92,6 +92,54 @@ class APIDigesterTests: XCTestCase {
         XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(projectDirPath.appending(component: "foo.abi.json")))]))
       }
     }
+    do {
+      try withTemporaryDirectory { path in
+        let ofmPath = path.appending(component: "ofm.json")
+        try localFileSystem.writeFileContents(ofmPath) {
+          $0 <<< """
+          {
+            "": {
+              "abi-baseline-json": "/path/to/baseline.abi.json"
+            }
+          }
+          """
+        }
+        var driver = try Driver(args: ["swiftc", "-wmo", "-emit-module",
+                                       "-emit-module-interface", "-enable-library-evolution",
+                                       path.appending(component: "foo.swift").pathString,
+                                       "-emit-digester-baseline",
+                                       "-digester-mode", "abi",
+                                       "-o", path.appending(component: "foo.swiftmodule").pathString,
+                                       "-output-file-map", ofmPath.pathString,
+                                      ])
+        let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
+        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/path/to/baseline.abi.json")))]))
+      }
+    }
+    do {
+      try withTemporaryDirectory { path in
+        let ofmPath = path.appending(component: "ofm.json")
+        try localFileSystem.writeFileContents(ofmPath) {
+          $0 <<< """
+          {
+            "": {
+              "swiftsourceinfo": "/path/to/sourceinfo"
+            }
+          }
+          """
+        }
+        var driver = try Driver(args: ["swiftc", "-wmo", "-emit-module",
+                                       "-emit-module-interface", "-enable-library-evolution",
+                                       path.appending(component: "foo.swift").pathString,
+                                       "-emit-digester-baseline",
+                                       "-digester-mode", "abi",
+                                       "-o", path.appending(component: "foo.swiftmodule").pathString,
+                                       "-output-file-map", ofmPath.pathString,
+                                      ])
+        let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
+        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/path/to/sourceinfo.abi.json")))]))
+      }
+    }
   }
 
   func testBaselineGenerationJobFlags() throws {
