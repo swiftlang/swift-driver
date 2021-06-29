@@ -225,13 +225,12 @@ extension SourceFileDependencyGraph {
             throw ReadError.unexpectedMetadataRecord
           }
           guard record.fields.count == 2,
-                case .blob(let compilerVersionBlob) = record.payload,
-                let compilerVersionString = String(data: compilerVersionBlob, encoding: .utf8)
+                case .blob(let compilerVersionBlob) = record.payload
           else { throw ReadError.malformedMetadataRecord }
 
           self.majorVersion = record.fields[0]
           self.minorVersion = record.fields[1]
-          self.compilerVersionString = compilerVersionString
+          self.compilerVersionString = String(decoding: compilerVersionBlob, as: UTF8.self)
         case .sourceFileDepGraphNode:
           try finalizeNode()
           let kindCode = record.fields[0]
@@ -255,22 +254,22 @@ extension SourceFileDependencyGraph {
         case .fingerprintNode:
           guard key != nil,
                 record.fields.count == 0,
-                case .blob(let fingerprintBlob) = record.payload,
-                let fingerprint = String(data: fingerprintBlob, encoding: .utf8) else {
+                case .blob(let fingerprintBlob) = record.payload
+          else {
             throw ReadError.malformedFingerprintRecord
           }
-          self.fingerprint = fingerprint
+          self.fingerprint = String(decoding: fingerprintBlob, as: UTF8.self)
         case .dependsOnDefinitionNode:
           guard key != nil,
                 record.fields.count == 1 else { throw ReadError.malformedDependsOnDefinitionRecord }
           self.defsNodeDependUpon.append(Int(record.fields[0]))
         case .identifierNode:
           guard record.fields.count == 0,
-                case .blob(let identifierBlob) = record.payload,
-                let identifier = String(data: identifierBlob, encoding: .utf8) else {
+                case .blob(let identifierBlob) = record.payload
+          else {
             throw ReadError.malformedIdentifierRecord
           }
-          identifiers.append(identifier)
+          identifiers.append(String(decoding: identifierBlob, as: UTF8.self))
         }
       }
     }
