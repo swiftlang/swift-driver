@@ -2326,7 +2326,12 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       XCTAssertFalse(job.commandLine.contains(.flag("--")))
+      // On darwin, swift ships in the OS. Immediate mode should use that runtime.
+      #if os(macOS)
+      XCTAssertFalse(job.extraEnvironment.keys.contains("\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH"))
+      #else
       XCTAssertTrue(job.extraEnvironment.keys.contains("\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH"))
+      #endif
     }
 
     do {
