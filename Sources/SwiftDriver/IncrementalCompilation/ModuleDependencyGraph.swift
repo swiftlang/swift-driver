@@ -583,21 +583,19 @@ extension ModuleDependencyGraph {
             throw ReadError.unexpectedMetadataRecord
           }
           guard record.fields.count == 2,
-                case .blob(let compilerVersionBlob) = record.payload,
-                let compilerVersionString = String(data: compilerVersionBlob, encoding: .utf8)
+                case .blob(let compilerVersionBlob) = record.payload
           else { throw ReadError.malformedMetadataRecord }
 
           self.majorVersion = record.fields[0]
           self.minorVersion = record.fields[1]
-          self.compilerVersionString = compilerVersionString
+          self.compilerVersionString = String(decoding: compilerVersionBlob, as: UTF8.self)
         case .moduleDepGraphNode:
           let kindCode = record.fields[0]
           guard record.fields.count == 7,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
                 record.fields[2] < identifiers.count,
                 record.fields[3] < identifiers.count,
-                case .blob(let fingerprintBlob) = record.payload,
-                let fingerprintStr = String(data: fingerprintBlob, encoding: .utf8)
+                case .blob(let fingerprintBlob) = record.payload
           else {
             throw ReadError.malformedModuleDepGraphNodeRecord
           }
@@ -609,7 +607,7 @@ extension ModuleDependencyGraph {
           let hasDepSource = Int(record.fields[4]) != 0
           let depSourceStr = hasDepSource ? identifiers[Int(record.fields[5])] : nil
           let hasFingerprint = Int(record.fields[6]) != 0
-          let fingerprint = hasFingerprint ? fingerprintStr : nil
+          let fingerprint = hasFingerprint ? String(decoding: fingerprintBlob, as: UTF8.self) : nil
           guard let dependencySource = try depSourceStr
                   .map({ try VirtualPath.intern(path: $0) })
                   .map(DependencySource.init)
@@ -641,24 +639,22 @@ extension ModuleDependencyGraph {
         case .externalDepNode:
           guard record.fields.count == 2,
                 record.fields[0] < identifiers.count,
-                case .blob(let fingerprintBlob) = record.payload,
-                let fingerprintStr = String(data: fingerprintBlob, encoding: .utf8)
+                case .blob(let fingerprintBlob) = record.payload
           else {
             throw ReadError.malformedExternalDepNodeRecord
           }
           let path = identifiers[Int(record.fields[0])]
           let hasFingerprint = Int(record.fields[1]) != 0
-          let fingerprint = hasFingerprint ? fingerprintStr : nil
+          let fingerprint = hasFingerprint ? String(decoding: fingerprintBlob, as: UTF8.self) : nil
           self.graph.fingerprintedExternalDependencies.insert(
             FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
-                case .blob(let identifierBlob) = record.payload,
-                let identifier = String(data: identifierBlob, encoding: .utf8)
+                case .blob(let identifierBlob) = record.payload
           else {
             throw ReadError.malformedIdentifierRecord
           }
-          identifiers.append(identifier)
+          identifiers.append(String(decoding: identifierBlob, as: UTF8.self))
         }
       }
     }
