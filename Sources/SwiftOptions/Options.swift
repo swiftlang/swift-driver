@@ -336,7 +336,7 @@ extension Option {
   public static let glineTablesOnly: Option = Option("-gline-tables-only", .flag, attributes: [.frontend], helpText: "Emit minimal debug info for backtraces only", group: .g)
   public static let gnone: Option = Option("-gnone", .flag, attributes: [.frontend], helpText: "Don't emit debug info", group: .g)
   public static let groupInfoPath: Option = Option("-group-info-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The path to collect the group information of the compiled module")
-  public static let debugOnSil: Option = Option("-gsil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Write the SIL into a file and generate debug-info to debug on SIL  level.")
+  public static let legacyGsil: Option = Option("-gsil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, use '-sil-based-debuginfo' instead")
   public static let g: Option = Option("-g", .flag, attributes: [.frontend], helpText: "Emit debug info. This is the preferred setting for debugging with LLDB.", group: .g)
   public static let helpHidden: Option = Option("-help-hidden", .flag, attributes: [.helpHidden, .frontend], helpText: "Display available options, including hidden options")
   public static let helpHidden_: Option = Option("--help-hidden", .flag, alias: Option.helpHidden, attributes: [.helpHidden, .frontend], helpText: "Display available options, including hidden options")
@@ -504,6 +504,7 @@ extension Option {
   public static let serializeModuleInterfaceDependencyHashes: Option = Option("-serialize-module-interface-dependency-hashes", .flag, attributes: [.frontend, .noDriver])
   public static let serializeParseableModuleInterfaceDependencyHashes: Option = Option("-serialize-parseable-module-interface-dependency-hashes", .flag, alias: Option.serializeModuleInterfaceDependencyHashes, attributes: [.frontend, .noDriver])
   public static let showDiagnosticsAfterFatal: Option = Option("-show-diagnostics-after-fatal", .flag, attributes: [.frontend, .noDriver], helpText: "Keep emitting subsequent diagnostics after a fatal error")
+  public static let debugOnSil: Option = Option("-sil-based-debuginfo", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Write the SIL into a file and generate debug-info to debug on SIL  level.")
   public static let silDebugSerialization: Option = Option("-sil-debug-serialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not eliminate functions in Mandatory Inlining/SILCombine dead functions. (for debugging only)")
   public static let silInlineCallerBenefitReductionFactor: Option = Option("-sil-inline-caller-benefit-reduction-factor", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<2>", helpText: "Controls the aggressiveness of performance inlining in -Osize mode by reducing the base benefits of a caller (lower value permits more inlining!)")
   public static let silInlineThreshold: Option = Option("-sil-inline-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<50>", helpText: "Controls the aggressiveness of performance inlining")
@@ -935,7 +936,7 @@ extension Option {
       Option.glineTablesOnly,
       Option.gnone,
       Option.groupInfoPath,
-      Option.debugOnSil,
+      Option.legacyGsil,
       Option.g,
       Option.helpHidden,
       Option.helpHidden_,
@@ -1103,6 +1104,7 @@ extension Option {
       Option.serializeModuleInterfaceDependencyHashes,
       Option.serializeParseableModuleInterfaceDependencyHashes,
       Option.showDiagnosticsAfterFatal,
+      Option.debugOnSil,
       Option.silDebugSerialization,
       Option.silInlineCallerBenefitReductionFactor,
       Option.silInlineThreshold,
