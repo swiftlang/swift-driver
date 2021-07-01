@@ -2468,6 +2468,9 @@ final class SwiftDriverTests: XCTestCase {
   func testClangTarget() throws {
     var driver = try Driver(args: ["swiftc", "-target",
                                    "x86_64-apple-macosx10.14", "foo.swift", "bar.swift"])
+    guard driver.isFrontendArgSupported(.clangTarget) else {
+      throw XCTSkip("Skipping: compiler does not support '-clang-target'")
+    }
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
@@ -3808,6 +3811,9 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-user-module-version", "12.21"])
+      guard driver.isFrontendArgSupported(.userModuleVersion) else {
+        throw XCTSkip("Skipping: compiler does not support '-user-module-version'")
+      }
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
       let compileJob = plannedJobs[0]
