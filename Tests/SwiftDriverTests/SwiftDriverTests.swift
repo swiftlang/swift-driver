@@ -3299,7 +3299,7 @@ final class SwiftDriverTests: XCTestCase {
     // Reset the temporary store to ensure predictable results.
     VirtualPath.resetTemporaryFileStore()
     var driver = try Driver(args: [
-      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info", "-no-emit-module-separately"
+      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info", "-experimental-emit-module-separately"
     ])
     let plannedJobs = try driver.planBuild()
 
@@ -3312,25 +3312,21 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(output,
     """
     digraph Jobs {
-      "compile (swift-frontend)" [style=bold];
+      "emitModule (swift-frontend)" [style=bold];
       "test.swift" [fontsize=12];
+      "test.swift" -> "emitModule (swift-frontend)" [color=blue];
+      "test.swiftmodule" [fontsize=12];
+      "emitModule (swift-frontend)" -> "test.swiftmodule" [color=green];
+      "test.swiftdoc" [fontsize=12];
+      "emitModule (swift-frontend)" -> "test.swiftdoc" [color=green];
+      "compile (swift-frontend)" [style=bold];
       "test.swift" -> "compile (swift-frontend)" [color=blue];
       "test-1.o" [fontsize=12];
       "compile (swift-frontend)" -> "test-1.o" [color=green];
-      "test-1.swiftmodule" [fontsize=12];
-      "compile (swift-frontend)" -> "test-1.swiftmodule" [color=green];
-      "test-1.swiftdoc" [fontsize=12];
-      "compile (swift-frontend)" -> "test-1.swiftdoc" [color=green];
       "autolinkExtract (swift-autolink-extract)" [style=bold];
       "test-1.o" -> "autolinkExtract (swift-autolink-extract)" [color=blue];
       "test-2.autolink" [fontsize=12];
       "autolinkExtract (swift-autolink-extract)" -> "test-2.autolink" [color=green];
-      "mergeModule (swift-frontend)" [style=bold];
-      "test-1.swiftmodule" -> "mergeModule (swift-frontend)" [color=blue];
-      "test.swiftmodule" [fontsize=12];
-      "mergeModule (swift-frontend)" -> "test.swiftmodule" [color=green];
-      "test.swiftdoc" [fontsize=12];
-      "mergeModule (swift-frontend)" -> "test.swiftdoc" [color=green];
       "link (clang)" [style=bold];
       "test-1.o" -> "link (clang)" [color=blue];
       "test-2.autolink" -> "link (clang)" [color=blue];
@@ -3343,21 +3339,17 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(output,
     """
     digraph Jobs {
-      "compile (swift-frontend)" [style=bold];
+      "emitModule (swift-frontend)" [style=bold];
       "test.swift" [fontsize=12];
+      "test.swift" -> "emitModule (swift-frontend)" [color=blue];
+      "test.swiftmodule" [fontsize=12];
+      "emitModule (swift-frontend)" -> "test.swiftmodule" [color=green];
+      "test.swiftdoc" [fontsize=12];
+      "emitModule (swift-frontend)" -> "test.swiftdoc" [color=green];
+      "compile (swift-frontend)" [style=bold];
       "test.swift" -> "compile (swift-frontend)" [color=blue];
       "test-1.o" [fontsize=12];
       "compile (swift-frontend)" -> "test-1.o" [color=green];
-      "test-1.swiftmodule" [fontsize=12];
-      "compile (swift-frontend)" -> "test-1.swiftmodule" [color=green];
-      "test-1.swiftdoc" [fontsize=12];
-      "compile (swift-frontend)" -> "test-1.swiftdoc" [color=green];
-      "mergeModule (swift-frontend)" [style=bold];
-      "test-1.swiftmodule" -> "mergeModule (swift-frontend)" [color=blue];
-      "test.swiftmodule" [fontsize=12];
-      "mergeModule (swift-frontend)" -> "test.swiftmodule" [color=green];
-      "test.swiftdoc" [fontsize=12];
-      "mergeModule (swift-frontend)" -> "test.swiftdoc" [color=green];
       "link (\(dynamicLinker))" [style=bold];
       "test-1.o" -> "link (\(dynamicLinker))" [color=blue];
       "test" [fontsize=12];
