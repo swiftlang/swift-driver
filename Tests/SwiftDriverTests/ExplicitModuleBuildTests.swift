@@ -327,12 +327,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
                                      "-experimental-explicit-module-build",
-                                     main.pathString])
+                                     main.pathString] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
@@ -346,8 +347,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let pcmArgsCurrent = mainModuleSwiftDetails.extraPcmArgs
       var pcmArgs9 = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.9"]
+      var pcmArgs15 = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.15"]
       if driver.targetTriple.isDarwin {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
+        pcmArgs15.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
       }
       let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
         try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
@@ -436,6 +439,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
                                               dependencyOracle: dependencyOracle,
                                               pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs15,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs15, moduleId: .clang("SwiftShims"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
@@ -473,12 +481,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swift",
                                      "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
                                      "-experimental-explicit-module-build",
-                                     main.pathString])
+                                     main.pathString] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
 
@@ -501,8 +510,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let pcmArgsCurrent = mainModuleSwiftDetails.extraPcmArgs
       var pcmArgs9 = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.9"]
+      var pcmArgs15 = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.15"]
       if driver.targetTriple.isDarwin {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
+        pcmArgs15.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
       }
       let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
         try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
@@ -558,6 +569,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
+                                              dependencyOracle: dependencyOracle,
+                                              pcmFileEncoder: pcmFileEncoder)
+            case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs15,
+                                                            pcmModuleNameEncoder: pcmModuleNameEncoder)):
+              try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs15, moduleId: .clang("SwiftShims"),
                                               dependencyOracle: dependencyOracle,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
@@ -689,13 +705,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let scannerCommand = ["-scan-dependencies",
                             "-import-prescan",
                             "-I", cHeadersPath,
                             "-I", swiftModuleInterfacesPath,
                             "-I", stdLibPath.description,
                             "-I", shimsPath.description,
-                            main.pathString]
+                            main.pathString] + sdkArgumentsForTesting
 
       let imports =
         try! dependencyOracle.getImports(workingDirectory: path,
@@ -737,12 +754,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let scannerCommand = ["-scan-dependencies",
                             "-I", cHeadersPath,
                             "-I", swiftModuleInterfacesPath,
                             "-I", stdLibPath.description,
                             "-I", shimsPath.description,
-                            main.pathString]
+                            main.pathString] + sdkArgumentsForTesting
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
@@ -806,12 +824,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let scannerCommand = ["-scan-dependencies",
+                            "-disable-implicit-concurrency-module-import",
                             "-I", cHeadersPath,
                             "-I", swiftModuleInterfacesPath,
                             "-I", stdLibPath.description,
                             "-I", shimsPath.description,
-                            main.pathString]
+                            main.pathString] + sdkArgumentsForTesting
 
       let scanLibPath = try Driver.getScanLibPath(of: toolchain,
                                                   hostTriple: hostTriple,
