@@ -1689,13 +1689,13 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSanitizerArgs() throws {
-  // FIXME: This doesn't work on Linux.
-  #if os(macOS)
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
       "-emit-executable", "-target", "x86_64-apple-macosx10.9",
       "-module-name", "Test"
     ]
+  // FIXME: This doesn't work on Linux.
+  #if os(macOS)
     do {
       // address sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=address"])
@@ -1807,6 +1807,31 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=scudo")))
     }
     #endif
+  #endif
+
+  // FIXME: This test will fail when not run on Android, because the driver uses
+  //        the existence of the runtime support libraries to determine if
+  //        a sanitizer is supported. Until we allow cross-compiling with
+  //        sanitizers, this test is disabled outside Android.
+  #if os(Android)
+    do {
+      var driver = try Driver(
+        args: commonArgs + [
+          "-target", "aarch64-unknown-linux-android", "-sanitize=address"
+        ]
+      )
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+      let linkJob = plannedJobs[3]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
+    }
   #endif
   }
 
@@ -2202,7 +2227,7 @@ final class SwiftDriverTests: XCTestCase {
   func testModuleWrapJob() throws {
     // FIXME: These tests will fail when run on macOS, because
     // swift-autolink-extract is not present
-    #if os(Linux)
+    #if os(Linux) || os(Android)
     do {
       var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-linux-gnu", "-g", "foo.swift"])
       let plannedJobs = try driver.planBuild()
@@ -2389,7 +2414,7 @@ final class SwiftDriverTests: XCTestCase {
     let expectedDefaultContents: String
     #if os(macOS)
     expectedDefaultContents = "-apple-macosx"
-    #elseif os(Linux)
+    #elseif os(Linux) || os(Android)
     expectedDefaultContents = "-unknown-linux"
     #else
     expectedDefaultContents = "-"
@@ -2678,7 +2703,7 @@ final class SwiftDriverTests: XCTestCase {
 
     // FIXME: This will fail when run on macOS, because
     // swift-autolink-extract is not present
-    #if os(Linux)
+    #if os(Linux) || os(Android)
     do {
       var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-unknown-linux-gnu", "test.swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
@@ -3322,7 +3347,7 @@ final class SwiftDriverTests: XCTestCase {
     serializer.writeDOT(to: &output)
 
     let dynamicLinker = driver.targetTriple.isDarwin ? "ld" : "clang"
-    #if os(Linux)
+    #if os(Linux) || os(Android)
     XCTAssertEqual(output,
     """
     digraph Jobs {

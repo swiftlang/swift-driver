@@ -105,6 +105,7 @@ import TSCBasic
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String {
-    return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).a"
+    let environment = (targetTriple.environment == .android) ? "-android" : ""
+    return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName)\(environment).a"
   }
 }
