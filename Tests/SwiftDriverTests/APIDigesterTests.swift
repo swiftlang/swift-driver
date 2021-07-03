@@ -283,6 +283,9 @@ class APIDigesterTests: XCTestCase {
                                      "-emit-digester-baseline"
                                     ],
                               env: ProcessEnv.vars)
+      guard driver.supportedFrontendFlags.contains("disable-fail-on-error") else {
+        throw XCTSkip("Skipping: swift-api-digester does not support '-disable-fail-on-error'")
+      }
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
@@ -344,6 +347,9 @@ class APIDigesterTests: XCTestCase {
                                      "-digester-mode", "abi"
                                     ],
                               env: ProcessEnv.vars)
+      guard driver.supportedFrontendFlags.contains("disable-fail-on-error") else {
+        throw XCTSkip("Skipping: swift-api-digester does not support '-disable-fail-on-error'")
+      }
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
