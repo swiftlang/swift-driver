@@ -376,9 +376,16 @@ extension ModuleDependencyGraph {
   private func invalidationReason(
     for fed: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
-    let isNewToTheGraph = !fed.isKnown && fingerprintedExternalDependencies.insert(fed.externalDependency).inserted
-    if self.phase.shouldNewExternalDependenciesTriggerInvalidation && isNewToTheGraph {
-      return .added
+    guard fed.isKnown else {
+      if fingerprintedExternalDependencies.insert(fed.externalDependency).inserted {
+        return .added
+      } else {
+        // If a file is unknown, but previously added, then this is probably a clean build, which wouldn't have a build record.
+        // This will result in dependencies being processed for each input (because it will be considered always changed).
+        // We can skip, because a previous input has already integrated this dependency,
+        // which is why it's in `fingerprintedExternalDependencies`.
+        return nil
+      }
     }
 
     if self.hasFileChanged(fed.externalDependency.externalDependency) {
