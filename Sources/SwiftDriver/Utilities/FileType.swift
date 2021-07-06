@@ -136,12 +136,6 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// Clang Module Map
   case clangModuleMap = "modulemap"
-
-  /// API baseline JSON
-  case jsonAPIBaseline = "api.json"
-
-  /// ABI baseline JSON
-  case jsonABIBaseline = "abi.json"
 }
 
 extension FileType: CustomStringConvertible {
@@ -213,12 +207,6 @@ extension FileType: CustomStringConvertible {
 
     case .diagnostics:
       return "diagnostics"
-
-    case .jsonAPIBaseline:
-      return "api-baseline-json"
-
-    case .jsonABIBaseline:
-      return "abi-baseline-json"
     }
   }
 }
@@ -236,7 +224,7 @@ extension FileType {
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
          .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
+         .indexUnitOutputPath, .modDepCache:
       return false
     }
   }
@@ -331,10 +319,6 @@ extension FileType {
       return "diagnostics"
     case .indexUnitOutputPath:
       return "index-unit-output-path"
-    case .jsonAPIBaseline:
-      return "api-baseline-json"
-    case .jsonABIBaseline:
-      return "abi-baseline-json"
     }
   }
 }
@@ -346,7 +330,7 @@ extension FileType {
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline:
+         .jsonTargetInfo, .jsonSwiftArtifacts:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -367,8 +351,7 @@ extension FileType {
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .modDepCache,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
-         .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath, .jsonAPIBaseline,
-         .jsonABIBaseline:
+         .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath:
       return false
     }
   }
