@@ -955,14 +955,14 @@ extension ModuleDependencyGraph {
   -> [Int]
   {
     phase = .updatingAfterCompilation
-    let directlyIinvalidatedNodes = getInvalidatedNodesForSimulatedLoad(
+    let directlyInvalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
 
-    return collectInputsUsingInvalidated(nodes: directlyIinvalidatedNodes)
+    return collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes)
       .map { $0.mockID }
   }
 
@@ -1006,7 +1006,7 @@ extension ModuleDependencyGraph {
     on fingerprintedExternalDependency: FingerprintedExternalDependency
   ) -> [TypedVirtualPath] {
     var foundSources = [TypedVirtualPath]()
-    for dependent in collectUntracedNodes(from: fingerprintedExternalDependency, .testing) {
+    for dependent in collectUntracedNodes(thatUse: fingerprintedExternalDependency, .testing) {
       let dependencySource = dependent.dependencySource!
       foundSources.append(dependencySource.typedFile)
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive

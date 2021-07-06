@@ -37,12 +37,13 @@ import SwiftOptions
   /// The phase when the graph was created. Used to help diagnose later failures
   let creationPhase: Phase
 
-  /// Minimize the number of file system modification-time queries.
-  private var externalDependencyModTimeCache = [ExternalDependency: Bool]()
+  fileprivate var currencyCache: ExternalDependencyCurrencyCache
 
   public init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
                _ phase: Phase
   ) {
+    self.currencyCache = ExternalDependencyCurrencyCache(
+      info.fileSystem, buildStartTime: info.buildStartTime)
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
     ? DependencyGraphDotFileWriter(info)
@@ -54,11 +55,21 @@ import SwiftOptions
 
 extension ModuleDependencyGraph {
   public enum Phase {
-    case
-    buildingWithoutAPrior,
-    updatingFromAPrior,
-    updatingAfterCompilation,
-    buildingAfterEachCompilation
+    /// Building a graph from swiftdeps files
+    case buildingWithoutAPrior
+
+    /// Building a graph by reading a prior graph
+    /// and updating for changed external dependencies
+    case updatingFromAPrior
+
+    /// Updating a graph from a `swiftdeps` file for an input that was just compiled
+    /// Or, updating a graph from a `swiftmodule` file (i.e. external dependency) that was transitively found to be
+    /// added as the `swiftdeps` file was processed.
+    case updatingAfterCompilation
+
+    /// This is a clean incremental build. All inputs are being compiled and after each compilation,
+    /// the graph is being built from the new `swiftdeps` file.
+    case buildingAfterEachCompilation
 
     var isUpdating: Bool {
       switch self {
@@ -69,41 +80,10 @@ extension ModuleDependencyGraph {
       }
     }
 
-    var shouldNewExternalDependenciesTriggerInvalidation: Bool {
-      switch self {
-      case .buildingWithoutAPrior:
-       // Reading graph from a swiftdeps file,
-        // so every incremental external dependency found will be new to the
-        // graph. Don't invalidate just 'cause it's new.
-        return false
-
-      case .buildingAfterEachCompilation:
-        // Will be compiling every file, so no need to invalidate based on
-        // found external dependencies.
-        return false
-
-        // Reading a swiftdeps file after a compilation.
-        // A new external dependency represents an addition.
-        // So must invalidate based on it.
-      case .updatingAfterCompilation:
-        return true
-
-      case .updatingFromAPrior:
-        // If the graph was read from priors,
-        // then any new external dependency must also be an addition.
-        return true
-      }
+    var isWholeGraphPresent: Bool {
+      self != .buildingWithoutAPrior
     }
-
-    var isCompilingAllInputsNoMatterWhat: Bool {
-      switch self {
-      case .buildingAfterEachCompilation:
-        return true
-      case .buildingWithoutAPrior, .updatingFromAPrior, .updatingAfterCompilation:
-        return false
-      }
-    }
-  }
+ }
 }
 
 // MARK: - Building from swiftdeps
@@ -126,7 +106,8 @@ extension ModuleDependencyGraph {
   func collectNodesInvalidatedByChangedOrAddedExternals() -> DirectlyInvalidatedNodeSet {
     fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
       invalidatedNodes, fed in
-      invalidatedNodes.formUnion(self.integrateExternal(.known(fed)))
+      invalidatedNodes.formUnion(self.incrementallyFindNodesInvalidated(
+        by: ExternalIntegrand(fed, shouldBeIn: self)))
     }
   }
 
@@ -252,24 +233,24 @@ extension ModuleDependencyGraph {
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
   public func collectUntracedNodes(
-    from fingerprintedExternalDependency: FingerprintedExternalDependency,
+    thatUse externalDefs: FingerprintedExternalDependency,
     _ why: ExternalDependency.InvalidationReason
   ) -> DirectlyInvalidatedNodeSet {
     // These nodes will depend on the *interface* of the external Decl.
     let key = DependencyKey(
       aspect: .interface,
-      designator: .externalDepend(fingerprintedExternalDependency.externalDependency))
+      designator: .externalDepend(externalDefs.externalDependency))
     // DependencySource is OK as a nil placeholder because it's only used to find
     // the corresponding implementation node and there won't be any for an
     // external dependency node.
     let node = Node(key: key,
-                    fingerprint: fingerprintedExternalDependency.fingerprint,
+                    fingerprint: externalDefs.fingerprint,
                     dependencySource: nil)
     let untracedUses = DirectlyInvalidatedNodeSet(
       nodeFinder
         .uses(of: node)
         .filter({ use in use.isUntraced }))
-    info.reporter?.reportInvalidated(untracedUses, by: fingerprintedExternalDependency.externalDependency, why)
+    info.reporter?.reportInvalidated(untracedUses, by: externalDefs.externalDependency, why)
     return untracedUses
   }
 
@@ -330,94 +311,139 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   /// The kinds of external dependencies available to integrate.
   enum ExternalIntegrand {
-    /// A `known` integrand is known to be present in the graph and requires
-    /// only a mod-time check to determine if it is up to date.
-    case known(FingerprintedExternalDependency)
-    /// An `unknown` integrand is not, up to this point, known to the dependency
-    /// graph. This models the addition of an import that is discovered during
-    /// the incremental build.
-    case unknown(FingerprintedExternalDependency)
+    /// An `old` integrand is one that, when found, is known to already be in ``ModuleDependencyGraph/fingerprintedExternalDependencies``
+    case old(FingerprintedExternalDependency)
+    /// A `new` integrand is one that, when found was not already in ``ModuleDependencyGraph/fingerprintedExternalDependencies``
+    case new(FingerprintedExternalDependency)
+
+    init(_ fed: FingerprintedExternalDependency,
+         in graph: ModuleDependencyGraph ) {
+      self = graph.fingerprintedExternalDependencies.insert(fed).inserted
+      ? .old(fed)
+      : .new(fed)
+    }
+
+    init(_ fed: FingerprintedExternalDependency,
+         shouldBeIn graph: ModuleDependencyGraph ) {
+      assert(graph.fingerprintedExternalDependencies.contains(fed))
+      self = .old(fed)
+    }
+
 
     var externalDependency: FingerprintedExternalDependency {
       switch self {
-      case .known(let fed): return fed
-      case .unknown(let fed): return fed
-      }
-    }
-
-    var isKnown: Bool {
-      switch self {
-      case .known(_): return true
-      case .unknown(_): return false
+      case .new(let fed), .old(let fed): return fed
       }
     }
   }
 
+  /// Find the nodes *directly* invaliadated by some external dependency
+  ///
+  /// This function does not do the transitive closure; that is left to the callers.
+  func findNodesInvalidated(
+    by integrand: ExternalIntegrand
+  ) -> DirectlyInvalidatedNodeSet {
+    // If the whole graph isn't present yet, the driver must not integrate
+    // incrementally because it would have to integrate the same `swiftmodule`
+    // repeatedy for each new `swiftdeps` read.
+    self.info.isCrossModuleIncrementalBuildEnabled && self.phase.isWholeGraphPresent
+    ?    incrementallyFindNodesInvalidated(by: integrand)
+    : indiscriminatelyFindNodesInvalidated(by: integrand)
+  }
+
   /// Collects the nodes invalidated by a change to the given external
   /// dependency after integrating it into the dependency graph.
+  /// Use best-effort to integrate incrementally, by reading the `swiftmodule` file.
   ///
   /// This function does not do the transitive closure; that is left to the
   /// callers.
   ///
   /// - Parameter integrand: The external dependency to integrate.
   /// - Returns: The set of module dependency graph nodes invalidated by integration.
-  func integrateExternal(
-    _ integrand: ExternalIntegrand
+  func incrementallyFindNodesInvalidated(
+    by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
-    guard let whyInvalidate = self.invalidationReason(for: integrand) else {
+    assert(self.info.isCrossModuleIncrementalBuildEnabled)
+
+    guard let whyIntegrate = whyIncrementallyFindNodesInvalidated(by: integrand) else {
       return DirectlyInvalidatedNodeSet()
     }
-
-    if self.info.isCrossModuleIncrementalBuildEnabled {
-      if let ii = integrateIncrementalImport(of: integrand.externalDependency, whyInvalidate) {
-        return ii
-      }
-    }
-
-    // If we're compiling everything anyways, there's no need to trace.
-    // FIXME: Seems like
-    // 1) We could set this flag a lot earlier in some cases
-    // 2) It should apply to incremental imports as well.
-    guard !self.phase.isCompilingAllInputsNoMatterWhat else {
-      return DirectlyInvalidatedNodeSet()
-    }
-    return collectUntracedNodes(from: integrand.externalDependency, whyInvalidate)
+    return integrateIncrementalImport(of: integrand.externalDependency, whyIntegrate)
+           ?? indiscriminatelyFindNodesInvalidated(by: integrand)
   }
 
-  /// Figure out the reason to invalidate or process a dependency.
+  /// Collects the nodes invalidated by a change to the given external
+  /// dependency after integrating it into the dependency graph.
+  ///
+  /// Do not try to be incremental; do not read the `swiftmodule` file.
+  ///
+  /// This function does not do the transitive closure; that is left to the
+  /// callers.
+  /// If called when incremental imports is enabled, it's a fallback.
+  ///
+  /// - Parameter integrand: The external dependency to integrate.
+  /// - Returns: The set of module dependency graph nodes invalidated by integration.
+  private func indiscriminatelyFindNodesInvalidated(
+    by integrand: ExternalIntegrand
+  ) -> DirectlyInvalidatedNodeSet {
+    if let reason = whyIndiscriminatelyFindNodesInvalidated(by: integrand) {
+      return collectUntracedNodes(thatUse: integrand.externalDependency, reason)
+    }
+    return DirectlyInvalidatedNodeSet()
+  }
+
+  /// Figure out the reason to integrate, (i.e. process) a dependency that will be read and integrated.
   ///
   /// Even if invalidation won't be reported to the caller, a new or added
   /// incremental external dependencies may require integration in order to
   /// transitively close them, (e.g. if an imported module imports a module).
-  private func invalidationReason(
-    for fed: ExternalIntegrand
+  ///
+  /// - Parameter fed: The external dependency, with fingerprint and origin info to be integrated
+  /// - Returns: nil if no integration is needed, or else why the integration is happening
+  private func whyIncrementallyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
-    let isNewToTheGraph = !fed.isKnown && fingerprintedExternalDependencies.insert(fed.externalDependency).inserted
-    if self.phase.shouldNewExternalDependenciesTriggerInvalidation && isNewToTheGraph {
+   switch integrand {
+   case .new:
       return .added
-    }
-
-    if self.hasFileChanged(fed.externalDependency.externalDependency) {
+   case .old where self.currencyCache.isCurrent(integrand.externalDependency.externalDependency):
+      // The most current version is already in the graph
+      return nil
+    case .old:
       return .changed
     }
-    return nil
   }
 
-  private func hasFileChanged(_ externalDependency: ExternalDependency) -> Bool {
-    if let hasChanged = externalDependencyModTimeCache[externalDependency] {
-      return hasChanged
+  /// Compute the reason for (non-incrementally) invalidating nodes
+  ///
+  /// Parameter integrand: The exernal dependency causing the invalidation
+  /// Returns: nil if no invalidation is needed, otherwise the reason.
+  private func whyIndiscriminatelyFindNodesInvalidated(by integrand: ExternalIntegrand
+  ) -> ExternalDependency.InvalidationReason? {
+    switch self.phase {
+    case .buildingWithoutAPrior, .updatingFromAPrior:
+      // If the external dependency has changed, better recompile any dependents
+      return self.currencyCache.isCurrent(integrand.externalDependency.externalDependency)
+      ? nil : .changed
+    case .updatingAfterCompilation:
+      switch integrand {
+      case .new:
+        // An import was added, some other file that does not import this might (transitively) depend on it
+        // so do the invalidation.
+        return .added
+      case .old:
+        // Not new to the graph in general, and this file was already compiled,
+        // so no work needed.
+        return nil
+      }
+    case .buildingAfterEachCompilation:
+      // No need to do any invalidation; every file will be compiled anyway
+      return nil
     }
-    guard let depFile = externalDependency.path else {
-      return true
-    }
-    let fileModTime = (try? info.fileSystem.lastModificationTime(for: depFile)) ?? .distantFuture
-    let hasChanged = fileModTime >= info.buildStartTime
-    externalDependencyModTimeCache[externalDependency] = hasChanged
-    return hasChanged
   }
 
   /// Try to read and integrate an external dependency.
-  /// Return nil if it's not incremental, or if an error occurs.
+  ///
+  /// Return: nil if an error occurs, or the set of directly affected nodes.
   private func integrateIncrementalImport(
     of fed: FingerprintedExternalDependency,
     _ why: ExternalDependency.InvalidationReason
@@ -433,7 +459,51 @@ extension ModuleDependencyGraph {
       dependencySource: source,
       into: self)
     info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
+    // When doing incremental imports, never read the same swiftmodule twice
+    self.currencyCache.beCurrent(fed.externalDependency)
     return invalidatedNodes
+  }
+
+  /// Remember if an external dependency need not be integrated in order to avoid redundant work.
+  ///
+  /// If using incremental imports, a given build should not read the same `swiftmodule` twice:
+  /// Because when using incremental imports, the whole graph is present, a single read of a `swiftmodule`
+  /// can invalidate any input file that depends on a changed external declaration.
+  ///
+  /// If not using incremental imports, a given build may have to invalidate nodes more than once for the same `swiftmodule`:
+  /// For example, on a clean build, as each initial `swiftdeps` is integrated, if the file uses a changed `swiftmodule`,
+  /// iit must be scheduled for recompilation. Thus invalidation happens for every dependent input file.
+  fileprivate struct ExternalDependencyCurrencyCache {
+    private let fileSystem: FileSystem
+    private let buildStartTime: Date
+    private var currencyCache = [ExternalDependency: Bool]()
+
+    init(_ fileSystem: FileSystem, buildStartTime: Date) {
+      self.fileSystem = fileSystem
+      self.buildStartTime = buildStartTime
+    }
+
+    mutating func beCurrent(_ externalDependency: ExternalDependency) {
+      self.currencyCache[externalDependency] = true
+    }
+
+    mutating func isCurrent(_ externalDependency: ExternalDependency) -> Bool {
+      if let cachedResult = self.currencyCache[externalDependency] {
+        return cachedResult
+      }
+      let uncachedResult = isCurrentWRTFileSystem(externalDependency)
+      self.currencyCache[externalDependency] = uncachedResult
+      return uncachedResult
+    }
+
+    private func isCurrentWRTFileSystem(_ externalDependency: ExternalDependency) -> Bool {
+      if let depFile = externalDependency.path,
+         let fileModTime = try? self.fileSystem.lastModificationTime(for: depFile),
+         fileModTime < self.buildStartTime {
+        return true
+      }
+      return false
+    }
   }
 }
 
