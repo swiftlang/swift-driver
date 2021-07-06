@@ -23,7 +23,6 @@ public enum Tool: Hashable {
   case lldb
   case dwarfdump
   case swiftHelp
-  case swiftAPIDigester
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers

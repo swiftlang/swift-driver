@@ -34,8 +34,6 @@ public struct Driver {
     case missingProfilingData(String)
     case conditionalCompilationFlagHasRedundantPrefix(String)
     case conditionalCompilationFlagIsNotValidIdentifier(String)
-    case baselineGenerationRequiresTopLevelModule(String)
-    case optionRequiresAnother(String, String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
@@ -102,10 +100,6 @@ public struct Driver {
         return "unable to load output file map '\(path)': no such file or directory"
       case .missingExternalDependency(let moduleName):
         return "Missing External dependency info for module: \(moduleName)"
-      case .baselineGenerationRequiresTopLevelModule(let arg):
-        return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
-      case .optionRequiresAnother(let first, let second):
-        return "'\(first)' cannot be specified if '\(second)' is not present"
       }
     }
   }
@@ -293,12 +287,6 @@ public struct Driver {
 
   /// Path to the Swift module source information file.
   let moduleSourceInfoPath: VirtualPath.Handle?
-
-  /// Path to the module's digester baseline file.
-  let digesterBaselinePath: VirtualPath.Handle?
-
-  /// The mode the API digester should run in.
-  let digesterMode: DigesterMode
 
   /// Force the driver to emit the module first and then run compile jobs. This could be used to unblock
   /// dependencies in parallel builds.
@@ -547,16 +535,6 @@ public struct Driver {
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
-    var mode = DigesterMode.api
-    if let modeArg = parsedOptions.getLastArgument(.digesterMode)?.asSingle {
-      if let digesterMode = DigesterMode(rawValue: modeArg) {
-        mode = digesterMode
-      } else {
-        diagnosticsEngine.emit(Error.invalidArgumentValue(Option.digesterMode.spelling, modeArg))
-      }
-    }
-    self.digesterMode = mode
-
     Self.validateWarningControlArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateProfilingArgs(&parsedOptions,
                                fileSystem: fileSystem,
@@ -609,7 +587,7 @@ public struct Driver {
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
       targetInfo: frontendTargetInfo)
-
+    
     Self.validateSanitizerAddressUseOdrIndicatorFlag(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
     
     Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
@@ -685,15 +663,6 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name,
         projectDirectory: projectDirectory)
-    self.digesterBaselinePath = try Self.computeDigesterBaselineOutputPath(
-      &parsedOptions,
-      moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
-      mode: self.digesterMode,
-      compilerOutputType: compilerOutputType,
-      compilerMode: compilerMode,
-      outputFileMap: self.outputFileMap,
-      moduleName: moduleOutputInfo.name,
-      projectDirectory: projectDirectory)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
         outputPath: .emitModuleInterfacePath,
@@ -730,12 +699,6 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-
-    Self.validateDigesterArgs(&parsedOptions,
-                              moduleOutputInfo: moduleOutputInfo,
-                              digesterMode: self.digesterMode,
-                              swiftInterfacePath: self.swiftInterfacePath,
-                              diagnosticEngine: diagnosticsEngine)
 
     try verifyOutputOptions()
   }
@@ -2233,36 +2196,6 @@ extension Driver {
     }
   }
 
-  static func validateDigesterArgs(_ parsedOptions: inout ParsedOptions,
-                                   moduleOutputInfo: ModuleOutputInfo,
-                                   digesterMode: DigesterMode,
-                                   swiftInterfacePath: VirtualPath.Handle?,
-                                   diagnosticEngine: DiagnosticsEngine) {
-    if moduleOutputInfo.output?.isTopLevel != true {
-      for arg in parsedOptions.arguments(for: .emitDigesterBaseline, .emitDigesterBaselinePath, .compareToBaselinePath) {
-        diagnosticEngine.emit(Error.baselineGenerationRequiresTopLevelModule(arg.option.spelling))
-      }
-    }
-
-    if parsedOptions.hasArgument(.serializeBreakingChangesPath) && !parsedOptions.hasArgument(.compareToBaselinePath) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.serializeBreakingChangesPath.spelling,
-                                                        Option.compareToBaselinePath.spelling))
-    }
-    if parsedOptions.hasArgument(.digesterBreakageAllowlistPath) && !parsedOptions.hasArgument(.compareToBaselinePath) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.digesterBreakageAllowlistPath.spelling,
-                                                        Option.compareToBaselinePath.spelling))
-    }
-    if digesterMode == .abi && !parsedOptions.hasArgument(.enableLibraryEvolution) {
-      diagnosticEngine.emit(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
-                                                        Option.enableLibraryEvolution.spelling))
-    }
-    if digesterMode == .abi && swiftInterfacePath == nil {
-      diagnosticEngine.emit(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
-                                                        Option.emitModuleInterface.spelling))
-    }
-  }
-
-
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
                                     workingDirectory: AbsolutePath?,
@@ -2716,31 +2649,6 @@ extension Driver {
                                                 moduleName: moduleName,
                                                 projectDirectory: projectDirectory)
   }
-
-  static func computeDigesterBaselineOutputPath(
-    _ parsedOptions: inout ParsedOptions,
-    moduleOutputPath: VirtualPath.Handle?,
-    mode: DigesterMode,
-    compilerOutputType: FileType?,
-    compilerMode: CompilerMode,
-    outputFileMap: OutputFileMap?,
-    moduleName: String,
-    projectDirectory: VirtualPath.Handle?
-  ) throws -> VirtualPath.Handle? {
-    // Only emit a baseline if at least of the arguments was provided.
-    guard parsedOptions.hasArgument(.emitDigesterBaseline, .emitDigesterBaselinePath) else { return nil }
-    return try computeModuleAuxiliaryOutputPath(&parsedOptions,
-                                                moduleOutputPath: moduleOutputPath,
-                                                type: mode.baselineFileType,
-                                                isOutput: .emitDigesterBaseline,
-                                                outputPath: .emitDigesterBaselinePath,
-                                                compilerOutputType: compilerOutputType,
-                                                compilerMode: compilerMode,
-                                                outputFileMap: outputFileMap,
-                                                moduleName: moduleName,
-                                                projectDirectory: projectDirectory)
-  }
-
 
 
   /// Determine the output path for a module auxiliary output.
