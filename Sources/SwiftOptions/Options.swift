@@ -387,6 +387,7 @@ extension Option {
   public static let location: Option = Option("-location", .separate, attributes: [.noDriver], metaVar: "<location>", helpText: "Filter nodes with the given location.")
   public static let location_: Option = Option("--location", .separate, alias: Option.location, attributes: [.noDriver], metaVar: "<location>", helpText: "Filter nodes with the given location.")
   public static let lto: Option = Option("-lto=", .joined, attributes: [.frontend, .noInteractive], helpText: "Specify the LTO type to either 'llvm-thin' or 'llvm-full'")
+  public static let ltoLibrary: Option = Option("-lto-library", .separate, attributes: [.frontend, .argumentIsPath, .noInteractive], metaVar: "<lto-library>", helpText: "Perform LTO with <lto-library>")
   public static let L: Option = Option("-L", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Add directory to library link search path", group: .linkerOption)
   public static let l: Option = Option("-l", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linkerOption)
   public static let mergeModules: Option = Option("-merge-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Merge the input modules without otherwise processing them", group: .modes)

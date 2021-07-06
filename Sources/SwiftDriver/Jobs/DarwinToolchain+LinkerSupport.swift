@@ -338,7 +338,12 @@ extension DarwinToolchain {
     )
 
     if lto != nil {
-      try addLTOLibArgs(to: &commandLine)
+      if let arg = parsedOptions.getLastArgument(.ltoLibrary)?.asSingle {
+        commandLine.appendFlag("-lto_library")
+        commandLine.appendPath(try VirtualPath(path: arg))
+      } else {
+        try addLTOLibArgs(to: &commandLine)
+      }
     }
 
     let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)

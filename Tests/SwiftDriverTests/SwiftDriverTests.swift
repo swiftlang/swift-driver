@@ -3786,12 +3786,32 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
     }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-lto-library", "/foo/libLTO.dylib", "-target", "x86_64-apple-macos11.0"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
+    }
+    
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
     }
+    
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-lto-library", "/foo/libLTO.dylib", "-target", "x86_64-apple-macos11.0"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
+    }
+    
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
