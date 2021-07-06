@@ -730,6 +730,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
+    #if os(macOS) && arch(arm64)
+      // Temporarily disabled on Apple Silicon
+      throw XCTSkip()
+    #endif
     let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
