@@ -52,46 +52,9 @@ public extension Driver {
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
-    // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalBuildArtifacts = externalBuildArtifacts {
-      let dependencyPlaceholderMapFile =
-        try serializeExternalDependencyArtifacts(externalBuildArtifacts: externalBuildArtifacts)
-      commandLine.appendFlag("-placeholder-dependency-module-map-file")
-      commandLine.appendPath(dependencyPlaceholderMapFile)
-    }
-
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file) })
     return (inputs, commandLine)
-  }
-
-  /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-  private func serializeExternalDependencyArtifacts(externalBuildArtifacts: ExternalBuildArtifacts)
-  throws -> VirtualPath {
-    let (externalTargetModulePathMap, externalModuleInfoMap)  = externalBuildArtifacts
-    var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
-
-    // Explicit external targets
-    for (moduleId, binaryModulePath) in externalTargetModulePathMap {
-      let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
-      placeholderArtifacts.append(
-          SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: modPath))
-    }
-
-    // All other already-scanned Swift modules
-    for (moduleId, moduleInfo) in externalModuleInfoMap
-    where !externalTargetModulePathMap.keys.contains(moduleId) {
-      guard case .swift(_) = moduleId else { continue }
-      placeholderArtifacts.append(
-          SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: moduleInfo.modulePath))
-    }
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted]
-    let contents = try encoder.encode(placeholderArtifacts)
-    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"),
-                                                                  contents)
   }
 
   /// Returns false if the lib is available and ready to use

@@ -16,12 +16,6 @@ import Foundation
 /// A map from a module identifier to a path to its .swiftmodule file.
 public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath]
 
-// FIXME: ExternalBuildArtifacts is a temporary backwards-compatibility shim
-// to help transition SwiftPM to the new API.
-/// A tuple all external artifacts a build system may pass in as input to the explicit build of the current module
-/// Consists of a map of externally-built targets, and a map of all previously discovered/scanned modules.
-public typealias ExternalBuildArtifacts = (ExternalTargetModulePathMap, ModuleInfoMap)
-
 /// In Explicit Module Build mode, this planner is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
 /// that specify said explicit module dependencies.
@@ -444,7 +438,7 @@ extension ExplicitDependencyBuildPlanner {
 
 /// Encapsulates some of the common queries of the ExplicitDependencyBuildPlanner with error-checking
 /// on the dependency graph's structure.
-internal extension InterModuleDependencyGraph {
+@_spi(Testing) public extension InterModuleDependencyGraph {
   func moduleInfo(of moduleId: ModuleDependencyId) throws -> ModuleInfo {
     guard let moduleInfo = modules[moduleId] else {
       throw Driver.Error.missingModuleDependency(moduleId.moduleName)
