@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import errno
+import re
 
 if platform.system() == 'Darwin':
     shared_lib_ext = '.dylib'
@@ -96,7 +97,11 @@ def get_swiftpm_options(args):
       os.path.join(args.toolchain, 'lib', 'swift', 'Block'),
     ]
 
-    if 'ANDROID_DATA' in os.environ:
+    if args.cross_compile_hosts:
+      swiftpm_args += ['--destination', args.cross_compile_config]
+
+    if 'ANDROID_DATA' in os.environ or (args.cross_compile_hosts and re.match(
+        'android-', args.cross_compile_hosts[0])):
       swiftpm_args += [
         '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/android',
         # SwiftPM will otherwise try to compile against GNU strerror_r on
@@ -180,8 +185,13 @@ def handle_invocation(args):
   if args.sysroot:
     env['SDKROOT'] = args.sysroot
 
+  env['SWIFT_EXEC'] = '%sc' % (swift_exec)
+
   if args.action == 'build':
-    build_using_cmake(args, toolchain_bin, args.build_path, targets)
+    if args.cross_compile_hosts and not re.match('-macosx', args.cross_compile_hosts[0]):
+      swiftpm('build', swift_exec, swiftpm_args, env)
+    else:
+      build_using_cmake(args, toolchain_bin, args.build_path, targets)
 
   elif args.action == 'clean':
     print('Cleaning ' + args.build_path)
@@ -191,7 +201,6 @@ def handle_invocation(args):
         tool_path = os.path.join(toolchain_bin, tool)
         if os.path.exists(tool_path):
             env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (tool_path)
-    env['SWIFT_EXEC'] = '%sc' % (swift_exec)
     test_args = swiftpm_args
     test_args += ['-Xswiftc', '-enable-testing']
     if should_test_parallel():
@@ -208,16 +217,17 @@ def handle_invocation(args):
     else:
       bin_path = swiftpm_bin_path(swift_exec, swiftpm_args, env)
       swiftpm('build', swift_exec, swiftpm_args, env)
-      non_darwin_install(bin_path, args.toolchain, args.verbose)
+      non_darwin_install(args, bin_path)
   else:
     assert False, 'unknown action \'{}\''.format(args.action)
 
 # Installation flow for non-darwin platforms, only copies over swift-driver and swift-help
 # TODO: Unify CMake-based installation flow used on Darwin with this
-def non_darwin_install(swiftpm_bin_path, toolchain, verbose):
-  toolchain_bin = os.path.join(toolchain, 'bin')
-  for exe in executables_to_install:
-    install_binary(exe, swiftpm_bin_path, toolchain_bin, verbose)
+def non_darwin_install(args, swiftpm_bin_path):
+  for prefix in args.install_prefixes:
+    prefix_bin = os.path.join(prefix, 'bin')
+    for exe in executables_to_install:
+      install_binary(exe, swiftpm_bin_path, prefix_bin, args.verbose)
 
 def install(args, build_dir, targets):
   # Construct and install universal swift-driver, swift-help executables
@@ -584,6 +594,10 @@ def main():
         nargs='*',
         help='List of cross compile hosts targets.',
         default=[])
+    parser.add_argument(
+        '--cross-compile-config',
+        metavar='PATH',
+        help="A JSON SPM config file with Swift flags for cross-compilation")
     parser.add_argument('--ninja-bin', metavar='PATH', help='ninja binary to use for testing')
     parser.add_argument('--cmake-bin', metavar='PATH', help='cmake binary to use for building')
     parser.add_argument('--build-path', metavar='PATH', default='.build', help='build in the given path')
@@ -626,6 +640,8 @@ def main():
       args.cross_compile_hosts = [build_target + macos_deployment_target, 'arm64-apple-macosx%s' % macos_deployment_target]
   elif (build_target == 'arm64-apple-macosx' and 'macosx-x86_64' in args.cross_compile_hosts):
       args.cross_compile_hosts = [build_target + macos_deployment_target, 'x86_64-apple-macosx%s' % macos_deployment_target]
+  elif args.cross_compile_hosts and re.match('android-', args.cross_compile_hosts[0]):
+      print('Cross-compiling for %s' % args.cross_compile_hosts[0])
   elif args.cross_compile_hosts:
       error("cannot cross-compile for %s" % cross_compile_hosts)
 
