@@ -305,12 +305,9 @@ public struct Driver {
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
   @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
 
-  // TODO: Once the clients have transitioned to using the InterModuleDependencyOracle API,
-  // this must convey information about the externally-prebuilt targets only
-  /// All external artifacts a build system (e.g. SwiftPM) may pass in as input to the explicit
-  /// build of the current module. Consists of a map of externally-built targets, and a map of all previously
-  /// discovered/scanned modules and their infos.
-  @_spi(Testing) public var externalBuildArtifacts: ExternalBuildArtifacts? = nil
+  /// A dictionary of external targets that are a part of the same build, mapping to filesystem paths
+  /// of their module files
+  @_spi(Testing) public var externalTargetModulePathMap: ExternalTargetModulePathMap? = nil
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
@@ -387,9 +384,14 @@ public struct Driver {
   ///   expand response files, etc. By default this is the local filesystem.
   /// - Parameter executor: Used by the driver to execute jobs. The default argument
   ///   is present to streamline testing, it shouldn't be used in production.
-  /// - Parameter externalBuildArtifacts: All external artifacts a build system may pass in as input to the explicit
-  ///   build of the current module. Consists of a map of externally-built targets, and a map of all previously
-  ///   discovered/scanned modules.
+  /// - Parameter integratedDriver: Used to distinguish whether the driver is being used as
+  ///   an executable or as a library.
+  /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
+  ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
+  /// - Parameter externalTargetModulePathMap: A dictionary of external targets that are a part of
+  ///   the same build, mapping to filesystem paths of their module files.
+  /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
+  ///   shared across different module builds by a build system.
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
@@ -398,9 +400,6 @@ public struct Driver {
     executor: DriverExecutor,
     integratedDriver: Bool = true,
     compilerExecutableDir: AbsolutePath? = nil,
-    // FIXME: Duplication with externalBuildArtifacts and externalTargetModulePathMap
-    // is a temporary backwards-compatibility shim to help transition SwiftPM to the new API
-    externalBuildArtifacts: ExternalBuildArtifacts? = nil,
     externalTargetModulePathMap: ExternalTargetModulePathMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
@@ -411,10 +410,8 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
-    if let externalArtifacts = externalBuildArtifacts {
-      self.externalBuildArtifacts = externalArtifacts
-    } else if let externalTargetPaths = externalTargetModulePathMap {
-      self.externalBuildArtifacts = (externalTargetPaths, [:])
+    if let externalTargetPaths = externalTargetModulePathMap {
+      self.externalTargetModulePathMap = externalTargetPaths
     }
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
@@ -507,14 +504,6 @@ public struct Driver {
       self.interModuleDependencyOracle = dependencyOracle
     } else {
       self.interModuleDependencyOracle = InterModuleDependencyOracle()
-
-      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
-      // used by SwiftPM
-      if let externalArtifacts = externalBuildArtifacts {
-        if !externalArtifacts.1.isEmpty {
-          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
-        }
-      }
     }
 
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)

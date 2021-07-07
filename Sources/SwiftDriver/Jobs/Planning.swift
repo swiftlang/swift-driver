@@ -509,17 +509,13 @@ extension Driver {
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
-  mutating func gatherModuleDependencies()
+  @_spi(Testing) public mutating func gatherModuleDependencies()
   throws -> InterModuleDependencyGraph {
     var dependencyGraph = try performDependencyScan()
 
-    if externalBuildArtifacts != nil {
-      // Resolve placeholder dependencies in the dependency graph, if any.
-      // TODO: Should be deprecated once switched over to libSwiftScan in the clients
-      try dependencyGraph.resolvePlaceholderDependencies(for: externalBuildArtifacts!,
-                                                         using: interModuleDependencyOracle)
-
-      try dependencyGraph.resolveExternalDependencies(for: externalBuildArtifacts!)
+    if let externalTargetPaths = externalTargetModulePathMap {
+      // Resolve external dependencies in the dependency graph, if any.
+      try dependencyGraph.resolveExternalDependencies(for: externalTargetPaths)
     }
 
     // Re-scan Clang modules at all the targets they will be built against.
@@ -528,9 +524,6 @@ extension Driver {
     // Set dependency modules' paths to be saved in the module cache.
     try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
 
-    // Update the dependency oracle, adding this new dependency graph to its store
-    try interModuleDependencyOracle.mergeModules(from: dependencyGraph)
-
     return dependencyGraph
   }
 
@@ -538,16 +531,16 @@ extension Driver {
   /// if one is present, and for Swift modules to use the context hash in the file name.
   private mutating func resolveDependencyModulePaths(dependencyGraph: inout InterModuleDependencyGraph)
   throws {
-    // For Swift module dependencies, set the output path to include
-    // the module's context hash
-    try resolveSwiftDependencyModuleFileNames(dependencyGraph: &dependencyGraph)
-
     // If a module cache path is specified, update all module dependencies
     // to be output into it.
     if let moduleCachePath = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
       try resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: &dependencyGraph,
                                                             moduleCachePath: moduleCachePath)
     }
+
+    // For Swift module dependencies, set the output path to include
+    // the module's context hash
+    try resolveSwiftDependencyModuleFileNames(dependencyGraph: &dependencyGraph)
   }
 
   /// For Swift module dependencies, set the output path to include the module's context hash
