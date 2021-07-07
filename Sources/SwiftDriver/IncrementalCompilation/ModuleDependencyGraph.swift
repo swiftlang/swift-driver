@@ -81,7 +81,14 @@ extension ModuleDependencyGraph {
     }
 
     var isWholeGraphPresent: Bool {
-      self != .buildingWithoutAPrior
+      !isBuilding
+    }
+
+    var isBuilding: Bool {
+      switch self {
+      case .buildingWithoutAPrior, .buildingAfterEachCompilation: return true
+      case .updatingFromAPrior, .updatingAfterCompilation: return false
+      }
     }
  }
 }
@@ -425,16 +432,8 @@ extension ModuleDependencyGraph {
       return self.currencyCache.isCurrent(integrand.externalDependency.externalDependency)
       ? nil : .changed
     case .updatingAfterCompilation:
-      switch integrand {
-      case .new:
-        // An import was added, some other file that does not import this might (transitively) depend on it
-        // so do the invalidation.
-        return .added
-      case .old:
-        // Not new to the graph in general, and this file was already compiled,
-        // so no work needed.
-        return nil
-      }
+      // Since this file has been compiled anyway, no need
+      return nil
     case .buildingAfterEachCompilation:
       // No need to do any invalidation; every file will be compiled anyway
       return nil
