@@ -1188,7 +1188,7 @@ extension DiagVerifiable {
   // MARK: - dependencies
   @DiagsBuilder func reading(deps inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
-      "Incremental compilation: Reading deps from \(input).swift"
+      "Incremental compilation: Reading dependencies from \(input).swift"
     }
   }
   @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {

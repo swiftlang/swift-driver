@@ -21,6 +21,8 @@ import TestUtilities
 /// - seealso: Test
 struct CompiledSourceCollector {
   private var collectedCompiledBasenames = [String]()
+  private var collectedReadDependenciesInOrder = [String]()
+  private var collectedReadDependencies = Set<String>()
 
   private func getCompiledBasenames(from d: Diagnostic) -> [String] {
     let dd = d.description
@@ -38,9 +40,29 @@ struct CompiledSourceCollector {
       .compactMap {String($0)}
   }
 
+  private func getReadDependencies(from d: Diagnostic) -> String? {
+    let dd = d.description
+    guard let startOfReading = dd.range(of: "Reading dependencies ")?.upperBound
+    else {
+      return nil
+    }
+    return String(dd.suffix(from: startOfReading))
+  }
+
+  private mutating func appendReadDependency(_ dep: String) {
+    collectedReadDependenciesInOrder.append(dep)
+    let wasNew = collectedReadDependencies.insert(dep).inserted
+    guard wasNew || dep.hasSuffix(FileType.swift.rawValue)
+    else {
+      XCTFail("Swiftmodule \(dep) read twice")
+      return
+    }
+  }
+
   /// Process a diagnistic
   mutating func handle(diagnostic d: Diagnostic) {
     collectedCompiledBasenames.append(contentsOf: getCompiledBasenames(from: d))
+    getReadDependencies(from: d).map {appendReadDependency($0)}
   }
 
   /// Returns the basenames of the compiled files, e.g. for `/a/b/foo.swift`, returns `foo.swift`.

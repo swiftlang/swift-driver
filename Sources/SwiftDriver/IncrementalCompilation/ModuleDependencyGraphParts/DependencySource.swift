@@ -55,7 +55,7 @@ extension DependencySource {
   ) -> SourceFileDependencyGraph? {
     guard let fileToRead = fileToRead(info: info) else {return nil}
     do {
-      info.reporter?.report("Reading deps from \(description)")
+      info.reporter?.report("Reading dependencies from \(description)")
       return try SourceFileDependencyGraph.read(from: fileToRead, on: info.fileSystem)
     }
     catch {
