@@ -25,7 +25,7 @@ def error(message):
 
 # Tools constructed as a part of the a development build toolchain
 driver_toolchain_tools = ['swift', 'swift-frontend', 'clang', 'swift-help',
-                          'swift-autolink-extract', 'lldb']
+                          'swift-autolink-extract', 'lldb', 'swift-api-digester']
 
 executables_to_install = ['swift-driver', 'swift-help', 'swift-build-sdk-interfaces']
 
