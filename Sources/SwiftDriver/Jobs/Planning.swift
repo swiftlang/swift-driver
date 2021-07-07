@@ -147,6 +147,7 @@ extension Driver {
       addJobBeforeCompiles: addJobBeforeCompiles,
       addCompileJobGroup: addCompileJobGroup,
       addJobAfterCompiles: addJobAfterCompiles)
+    try addAPIDigesterJobs(addJob: addJobAfterCompiles)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
                                addJob: addJobAfterCompiles)
@@ -459,6 +460,17 @@ extension Driver {
       assert(mergeModuleOutputs.count == 1,
              "Merge module job should only have one swiftmodule output")
       addLinkerInput(mergeModuleOutputs[0])
+    }
+  }
+
+  private mutating func addAPIDigesterJobs(addJob: (Job) -> Void) throws {
+    guard let moduleOutputPath = moduleOutputInfo.output?.outputPath else { return }
+    if let apiBaselinePath = self.digesterBaselinePath {
+      try addJob(digesterBaselineGenerationJob(modulePath: moduleOutputPath, outputPath: apiBaselinePath, mode: digesterMode))
+    }
+    if let baselineArg = parsedOptions.getLastArgument(.compareToBaselinePath)?.asSingle,
+       let baselinePath = try? VirtualPath.intern(path: baselineArg) {
+      addJob(try digesterCompareToBaselineJob(modulePath: moduleOutputPath, baselinePath: baselinePath, mode: digesterMode))
     }
   }
 

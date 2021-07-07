@@ -54,6 +54,13 @@ public struct OutputFileMap: Hashable, Codable {
       }
       return VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
 
+    case .jsonAPIBaseline, .jsonABIBaseline:
+      // Infer paths for these entities using .swiftsourceinfo path.
+      guard let path = entries[inputFile]?[.swiftSourceInfoFile] else {
+        return nil
+      }
+      return VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
+
     case .object:
       // We may generate .o files from bitcode .bc files, but the output file map
       // uses .swift file as the key for .o file paths. So we need to dig further.
