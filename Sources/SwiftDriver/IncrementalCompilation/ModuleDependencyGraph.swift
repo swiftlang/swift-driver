@@ -79,18 +79,7 @@ extension ModuleDependencyGraph {
         return true
       }
     }
-
-    var isWholeGraphPresent: Bool {
-      !isBuilding
-    }
-
-    var isBuilding: Bool {
-      switch self {
-      case .buildingWithoutAPrior, .buildingAfterEachCompilation: return true
-      case .updatingFromAPrior, .updatingAfterCompilation: return false
-      }
-    }
- }
+  }
 }
 
 // MARK: - Building from swiftdeps
@@ -350,10 +339,7 @@ extension ModuleDependencyGraph {
   func findNodesInvalidated(
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
-    // If the whole graph isn't present yet, the driver must not integrate
-    // incrementally because it would have to integrate the same `swiftmodule`
-    // repeatedy for each new `swiftdeps` read.
-    self.info.isCrossModuleIncrementalBuildEnabled && self.phase.isWholeGraphPresent
+    self.info.isCrossModuleIncrementalBuildEnabled
     ?    incrementallyFindNodesInvalidated(by: integrand)
     : indiscriminatelyFindNodesInvalidated(by: integrand)
   }
