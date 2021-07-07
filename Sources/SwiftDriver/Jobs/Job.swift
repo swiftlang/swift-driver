@@ -37,6 +37,10 @@ public struct Job: Codable, Equatable, Hashable {
     case scanDependencies = "scan-dependencies"
     case verifyModuleInterface = "verify-emitted-module-interface"
     case help
+    case generateAPIBaseline = "generate-api-baseline"
+    case generateABIBaseline = "generate-abi-baseline"
+    case compareAPIBaseline = "compare-api-baseline"
+    case compareABIBaseline = "compare-abi-baseline"
   }
 
   public enum ArgTemplate: Equatable, Hashable {
@@ -220,6 +224,18 @@ extension Job : CustomStringConvertible {
 
     case .verifyModuleInterface:
       return "Verifying emitted module interface for module \(moduleName)"
+
+    case .generateAPIBaseline:
+      return "Generating API baseline file for module \(moduleName)"
+
+    case .generateABIBaseline:
+      return "Generating ABI baseline file for module \(moduleName)"
+
+    case .compareAPIBaseline:
+      return "Comparing API of \(moduleName) to baseline"
+
+    case .compareABIBaseline:
+      return "Comparing ABI of \(moduleName) to baseline"
     }
   }
 
@@ -242,7 +258,8 @@ extension Job.Kind {
         .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
         return true
 
-    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap:
+    case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap,
+        .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline, .compareABIBaseline:
         return false
     }
   }
@@ -256,7 +273,9 @@ extension Job.Kind {
          .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
-         .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface:
+         .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
+         .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
+         .compareABIBaseline:
       return false
     }
   }

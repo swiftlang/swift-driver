@@ -18,6 +18,14 @@ extension Option {
   public static let noEmitModuleSeparately: Option = Option("-no-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Force using merge-module as the incremental build mode")
   public static let useFrontendParseableOutput: Option = Option("-use-frontend-parseable-output", .flag, attributes: [.helpHidden], helpText: "Emit parseable-output from swift-frontend jobs instead of from the driver")
 
+  // API digester operations
+  public static let emitDigesterBaseline: Option = Option("-emit-digester-baseline", .flag, attributes: [.noInteractive, .supplementaryOutput], helpText: "Emit a baseline file for the module using the API digester")
+  public static let emitDigesterBaselinePath: Option = Option("-emit-digester-baseline-path", .separate, attributes: [.noInteractive, .supplementaryOutput, .argumentIsPath], metaVar: "<path>", helpText: "Emit a baseline file for the module to <path> using the API digester")
+  public static let compareToBaselinePath: Option = Option("-compare-to-baseline-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Compare the built module to the baseline at <path> and diagnose breaking changes using the API digester")
+  public static let serializeBreakingChangesPath: Option = Option("-serialize-breaking-changes-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Serialize breaking changes found by the API digester to <path>")
+  public static let digesterBreakageAllowlistPath: Option = Option("-digester-breakage-allowlist-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "The path to a list of permitted breaking changes the API digester should ignore")
+  public static let digesterMode: Option = Option("-digester-mode", .separate, attributes: [.noInteractive], metaVar: "<api|abi>", helpText: "Whether the API digester should run in API or ABI mode (defaults to API checking)")
+
   public static var extraOptions: [Option] {
     return [
       Option.driverPrintGraphviz,
@@ -26,7 +34,13 @@ extension Option {
       Option.driverWarnUnusedOptions,
       Option.emitModuleSeparately,
       Option.noEmitModuleSeparately,
-      Option.useFrontendParseableOutput
+      Option.useFrontendParseableOutput,
+      Option.emitDigesterBaseline,
+      Option.emitDigesterBaselinePath,
+      Option.compareToBaselinePath,
+      Option.serializeBreakingChangesPath,
+      Option.digesterBreakageAllowlistPath,
+      Option.digesterMode
     ]
   }
 }
