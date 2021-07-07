@@ -1053,6 +1053,13 @@ extension Driver {
         stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< " "
         stderrStream.flush()
       }
+      // In verbose mode, print out the job
+      if parsedOptions.contains(.v) {
+        let arguments: [String] = try executor.resolver.resolveArgumentList(for: inPlaceJob,
+                                                                            forceResponseFiles: forceResponseFiles)
+        stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+        stdoutStream.flush()
+      }
       try executor.execute(job: inPlaceJob,
                            forceResponseFiles: forceResponseFiles,
                            recordedInputModificationDates: recordedInputModificationDates)
