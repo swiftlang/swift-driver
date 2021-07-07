@@ -525,6 +525,7 @@ extension IncrementalCompilationTests {
       skipping("main")
       readGraph
       findingBatchingCompiling("other")
+      reading(deps: "other")
       schedLinking
       skipped("main")
     }
@@ -551,6 +552,7 @@ extension IncrementalCompilationTests {
       readGraph
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
       schedLinking
     }
   }
@@ -579,6 +581,7 @@ extension IncrementalCompilationTests {
       notSchedulingDependentsUnknownChanges("main")
       skipping("other")
       findingBatchingCompiling("main")
+      reading(deps: "main")
       fingerprintChanged(.interface, "main")
       fingerprintChanged(.implementation, "main")
       trace {
@@ -588,6 +591,7 @@ extension IncrementalCompilationTests {
       }
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
+      reading(deps: "other")
       schedLinking
     }
   }
@@ -626,6 +630,7 @@ extension IncrementalCompilationTests {
       addingToBatchThenForming("main", "other")
       schedulingPostCompileJobs
       compiling("main", "other")
+      reading(deps: "main", "other")
       linking
     }
   }
@@ -902,6 +907,7 @@ extension IncrementalCompilationTests {
       readGraph
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
       schedulingPostCompileJobs
       linking
     }
