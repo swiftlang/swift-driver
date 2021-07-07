@@ -473,6 +473,7 @@ extension IncrementalCompilationTests {
       disablingIncrementalCannotReadBuildRecord
       createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
       schedLinking
     }
   }
@@ -655,6 +656,7 @@ extension IncrementalCompilationTests {
       notSchedulingDependentsNoEntry(newInput)
       skipping("main", "other")
       findingBatchingCompiling(newInput)
+      reading(deps: newInput)
       newDefinitionOfSourceFile(.interface,      newInput)
       newDefinitionOfSourceFile(.implementation, newInput)
       newDefinitionOfTopLevelName(.interface,      name: topLevelName, input: newInput)
@@ -679,7 +681,7 @@ extension IncrementalCompilationTests {
   ) throws {
     let newInputPath = inputPath(basename: newInput)
     let driver = try doABuild(
-      "after after addition of \(newInput)",
+      "after restoration of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputPath.pathString],
       whenAutolinking: autolinkLifecycleExpectedDiags
@@ -725,9 +727,11 @@ extension IncrementalCompilationTests {
       switch (removeInputFromInvocation, removeSwiftDepsFile) {
       case (false, false):
         readGraphAndSkipAll("main", "other", removedInput)
-      case
-        (true, false),
-        (true, true):
+      case (true, false):
+        disabledForRemoval(removedInput)
+        findingBatchingCompiling("main", "other")
+        linking
+      case (true, true):
         disabledForRemoval(removedInput)
         findingBatchingCompiling("main", "other")
         linking
@@ -739,6 +743,7 @@ extension IncrementalCompilationTests {
         queuingInitial(removedInput)
         skipping("main", "other")
         findingBatchingCompiling(removedInput)
+        reading(deps: removedInput)
         schedulingPostCompileJobs
         linking
         skipped("main", "other")
@@ -781,7 +786,13 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      !removeInputFromInvocation || afterRestoringBadPriors ? readGraph : createdGraphFromSwiftdeps
+      if !removeInputFromInvocation || afterRestoringBadPriors {
+        readGraph
+      }
+      else {
+        reading(deps: inputs)
+        createdGraphFromSwiftdeps
+      }
       enablingCrossModule
 
       if !removedFileDependsOnChangedFile {
@@ -794,6 +805,7 @@ extension IncrementalCompilationTests {
         notSchedulingDependentsUnknownChanges("main")
         skipping(unchangedInputs)
         findingBatchingCompiling("main")
+        reading(deps: "main")
 
         fingerprintChanged(.interface, "main")
         fingerprintChanged(.implementation, "main")
@@ -815,6 +827,7 @@ extension IncrementalCompilationTests {
         schedulingInvalidated(affectedInputsInBuild)
         let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
         findingBatchingCompiling(affectedInputsInInvocationOrder)
+        reading(deps: affectedInputsInInvocationOrder)
         schedLinking
       }
     }
@@ -840,6 +853,7 @@ extension IncrementalCompilationTests {
       extraArguments: [],
       whenAutolinking: autolinkLifecycleExpectedDiags) {
       couldNotReadPriors
+      reading(deps: "main", "other")
       createdGraphFromSwiftdeps
       enablingCrossModule
       skippingAll("main", "other")
@@ -1166,6 +1180,14 @@ extension DiagVerifiable {
       .warning("Will not do cross-module incremental builds, wrong version of priors; expected")
   }
   // MARK: - dependencies
+  @DiagsBuilder func reading(deps inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: Reading deps from \(input).swift"
+    }
+  }
+  @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {
+    reading(deps: inputs)
+  }
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
      "Incremental compilation: Fingerprint changed for \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
