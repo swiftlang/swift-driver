@@ -174,7 +174,7 @@ struct MockModuleDependencyGraphCreator {
   }
 
   func mockUpAGraph() -> ModuleDependencyGraph {
-    ModuleDependencyGraph(info, .buildingWithoutAPrior)!
+    ModuleDependencyGraph(info, .buildingFromSwiftDeps)
   }
 }
 

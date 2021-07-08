@@ -230,7 +230,13 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     }
     guard let graph = graphIfPresent
     else {
-      return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
+      // Do not fall back to `buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals`
+      // because it would be unsound to read a `swiftmodule` file with only a partial set of integrated `swiftdeps`.
+      // A fingerprint change in such a `swiftmodule` would not be able to propagate and invalidate a use
+      // in a as-yet-unread swiftdeps file.
+      //
+      // Instead, just compile everything. It's OK to be unsound then because every file will be compiled anyway.
+      return bulidEmptyGraphAndCompileEverything()
     }
     graph.dotFileWriter?.write(graph)
 
@@ -257,10 +263,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
   -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
   {
-    guard let graph = ModuleDependencyGraph(self, .buildingWithoutAPrior)
-    else {
-      return nil
-    }
+    let graph = ModuleDependencyGraph(self, .buildingFromSwiftDeps)
     var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedInputSet()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs =
@@ -272,5 +275,11 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     }
     reporter?.report("Created dependency graph from swiftdeps files")
     return (graph, inputsInvalidatedByChangedExternals)
+  }
+
+  private func bulidEmptyGraphAndCompileEverything()
+  -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet) {
+    let graph = ModuleDependencyGraph(self, .buildingAfterEachCompilation)
+    return (graph, TransitivelyInvalidatedInputSet(sourceFiles.currentInOrder))
   }
 }

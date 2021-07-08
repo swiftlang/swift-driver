@@ -39,15 +39,15 @@ import SwiftOptions
 
   fileprivate var currencyCache: ExternalDependencyCurrencyCache
 
-  public init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+  public init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
                _ phase: Phase
   ) {
     self.currencyCache = ExternalDependencyCurrencyCache(
       info.fileSystem, buildStartTime: info.buildStartTime)
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
-    ? DependencyGraphDotFileWriter(info)
-    : nil
+      ? DependencyGraphDotFileWriter(info)
+      : nil
     self.phase = phase
     self.creationPhase = phase
   }
@@ -55,8 +55,8 @@ import SwiftOptions
 
 extension ModuleDependencyGraph {
   public enum Phase {
-    /// Building a graph from swiftdeps files
-    case buildingWithoutAPrior
+    /// Building a graph from swiftdeps files, will never do this if incremental imports are enabled.
+    case buildingFromSwiftDeps
 
     /// Building a graph by reading a prior graph
     /// and updating for changed external dependencies
@@ -73,7 +73,7 @@ extension ModuleDependencyGraph {
 
     var isUpdating: Bool {
       switch self {
-      case .buildingWithoutAPrior, .buildingAfterEachCompilation:
+      case .buildingFromSwiftDeps, .buildingAfterEachCompilation:
         return false
       case .updatingAfterCompilation, .updatingFromAPrior:
         return true
@@ -86,7 +86,7 @@ extension ModuleDependencyGraph {
 
     var isBuilding: Bool {
       switch self {
-      case .buildingWithoutAPrior, .buildingAfterEachCompilation: return true
+      case .buildingFromSwiftDeps, .buildingAfterEachCompilation: return true
       case .updatingFromAPrior, .updatingAfterCompilation: return false
       }
     }
@@ -350,16 +350,8 @@ extension ModuleDependencyGraph {
   func findNodesInvalidated(
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
-    // If the whole graph isn't present yet, the driver must not integrate
-    // incrementally because it would have to integrate the same `swiftmodule`
-    // repeatedy for each new `swiftdeps` read so that external
-    // fingerprint changes would invalidate matching nodes in the
-    // yet-to-be-read swiftdeps.
-    //
     // If the integrand has no fingerprint, it's academic, cannot integrate it incrementally.
-    self.info.isCrossModuleIncrementalBuildEnabled &&
-    self.phase.isWholeGraphPresent &&
-    integrand.externalDependency.fingerprint != nil
+    self.info.isCrossModuleIncrementalBuildEnabled && integrand.externalDependency.fingerprint != nil
     ?    incrementallyFindNodesInvalidated(by: integrand)
     : indiscriminatelyFindNodesInvalidated(by: integrand)
   }
@@ -377,6 +369,8 @@ extension ModuleDependencyGraph {
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
     assert(self.info.isCrossModuleIncrementalBuildEnabled)
+    // Better not be reading swiftdeps one-by-one for a selective compilation
+    precondition(self.phase != .buildingFromSwiftDeps)
 
     guard let whyIntegrate = whyIncrementallyFindNodesInvalidated(by: integrand) else {
       return DirectlyInvalidatedNodeSet()
@@ -433,7 +427,7 @@ extension ModuleDependencyGraph {
   private func whyIndiscriminatelyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
     switch self.phase {
-    case .buildingWithoutAPrior, .updatingFromAPrior:
+    case .buildingFromSwiftDeps, .updatingFromAPrior:
       // If the external dependency has changed, better recompile any dependents
       return self.currencyCache.isCurrent(integrand.externalDependency.externalDependency)
       ? nil : .changed
@@ -631,12 +625,9 @@ extension ModuleDependencyGraph {
       /// The optionality of the contents lets the ``ModuleDependencyGraph/isForRemovedInput`` check to be cached.
       public private(set) var potentiallyUsedNodes: [Node?] = []
 
-      init?(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
+      init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
         self.fileSystem = info.fileSystem
-        guard let graph = ModuleDependencyGraph(info, .updatingFromAPrior)
-        else {
-          return nil
-        }
+        let graph = ModuleDependencyGraph(info, .updatingFromAPrior)
         self.graph = graph
       }
 
@@ -765,9 +756,7 @@ extension ModuleDependencyGraph {
       }
     }
 
-    guard var visitor = Visitor(info) else {
-      return nil
-    }
+    var visitor = Visitor(info)
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
           let minor = visitor.minorVersion,
