@@ -113,7 +113,7 @@ extension ModuleDependencyGraph {
   func collectNodesInvalidatedByChangedOrAddedExternals() -> DirectlyInvalidatedNodeSet {
     fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
       invalidatedNodes, fed in
-      invalidatedNodes.formUnion(self.incrementallyFindNodesInvalidated(
+      invalidatedNodes.formUnion(self.findNodesInvalidated(
         by: ExternalIntegrand(fed, shouldBeIn: self)))
     }
   }
@@ -355,7 +355,11 @@ extension ModuleDependencyGraph {
     // repeatedy for each new `swiftdeps` read so that external
     // fingerprint changes would invalidate matching nodes in the
     // yet-to-be-read swiftdeps.
-    self.info.isCrossModuleIncrementalBuildEnabled && self.phase.isWholeGraphPresent
+    //
+    // If the integrand has no fingerprint, it's academic, cannot integrate it incrementally.
+    self.info.isCrossModuleIncrementalBuildEnabled &&
+    self.phase.isWholeGraphPresent &&
+    integrand.externalDependency.fingerprint != nil
     ?    incrementallyFindNodesInvalidated(by: integrand)
     : indiscriminatelyFindNodesInvalidated(by: integrand)
   }
