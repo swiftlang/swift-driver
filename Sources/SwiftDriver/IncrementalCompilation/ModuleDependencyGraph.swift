@@ -459,13 +459,13 @@ extension ModuleDependencyGraph {
     else {
       return nil
     }
+    // When doing incremental imports, never read the same swiftmodule twice
+    self.currencyCache.beCurrent(fed.externalDependency)
     let invalidatedNodes = Integrator.integrate(
       from: unserializedDepGraph,
       dependencySource: source,
       into: self)
     info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
-    // When doing incremental imports, never read the same swiftmodule twice
-    self.currencyCache.beCurrent(fed.externalDependency)
     return invalidatedNodes
   }
 
