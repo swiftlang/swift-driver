@@ -55,6 +55,7 @@ add_library(SwiftDriver
   "IncrementalCompilation/SourceFileDependencyGraph.swift"
   "IncrementalCompilation/TwoDMap.swift"
 
+  Jobs/APIDigesterJobs.swift
   Jobs/AutolinkExtractJob.swift
   Jobs/BackendJob.swift
   Jobs/CommandLineArguments.swift
