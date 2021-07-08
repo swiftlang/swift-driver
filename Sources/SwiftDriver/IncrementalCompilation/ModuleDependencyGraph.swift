@@ -326,8 +326,8 @@ extension ModuleDependencyGraph {
     init(_ fed: FingerprintedExternalDependency,
          in graph: ModuleDependencyGraph ) {
       self = graph.fingerprintedExternalDependencies.insert(fed).inserted
-      ? .old(fed)
-      : .new(fed)
+      ? .new(fed)
+      : .old(fed)
     }
 
     init(_ fed: FingerprintedExternalDependency,
