@@ -186,6 +186,10 @@ extension IncrementalCompilationState {
         incrementalOptions: options, buildStartTime: buildStartTime,
         buildEndTime: buildEndTime)
     }
+
+    var buildTimeSpan: ClosedRange<Date> {
+      buildStartTime...buildEndTime
+    }
   }
 }
 
@@ -223,9 +227,15 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
         warning: "Will not do cross-module incremental builds, wrong version of priors; expected \(expected) but read \(read) at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
+    catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsDate, timeSpan) {
+      diagnosticEngine.emit(
+        warning: "Will not do cross-module incremental builds, priors saved at \(priorsDate), " +
+        "but the previous build happend from \(timeSpan.lowerBound) to \(timeSpan.upperBound), at '\(dependencyGraphPath)'")
+      graphIfPresent = nil
+    }
     catch {
       diagnosticEngine.emit(
-        warning: "Will not do cross-module incremental builds, could not read priors at '\(dependencyGraphPath)'")
+        warning: "Could not read priors, will not do cross-module incremental builds: \(error.localizedDescription), at \(dependencyGraphPath)")
       graphIfPresent = nil
     }
     guard let graph = graphIfPresent
