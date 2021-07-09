@@ -393,10 +393,11 @@ extension ModuleDependencyGraph {
   private func indiscriminatelyFindNodesInvalidated(
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
-    if let reason = whyIndiscriminatelyFindNodesInvalidated(by: integrand) {
-      return collectUntracedNodes(thatUse: integrand.externalDependency, reason)
+    guard let reason = whyIndiscriminatelyFindNodesInvalidated(by: integrand)
+    else {
+      return DirectlyInvalidatedNodeSet()
     }
-    return DirectlyInvalidatedNodeSet()
+    return collectUntracedNodes(thatUse: integrand.externalDependency, reason)
   }
 
   /// Figure out the reason to integrate, (i.e. process) a dependency that will be read and integrated.
@@ -471,7 +472,7 @@ extension ModuleDependencyGraph {
   ///
   /// If not using incremental imports, a given build may have to invalidate nodes more than once for the same `swiftmodule`:
   /// For example, on a clean build, as each initial `swiftdeps` is integrated, if the file uses a changed `swiftmodule`,
-  /// iit must be scheduled for recompilation. Thus invalidation happens for every dependent input file.
+  /// it must be scheduled for recompilation. Thus invalidation happens for every dependent input file.
   fileprivate struct ExternalDependencyCurrencyCache {
     private let fileSystem: FileSystem
     private let buildStartTime: Date

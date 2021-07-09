@@ -21,7 +21,6 @@ import TestUtilities
 /// - seealso: Test
 struct CompiledSourceCollector {
   private var collectedCompiledBasenames = [String]()
-  private var collectedReadDependenciesInOrder = [String]()
   private var collectedReadDependencies = Set<String>()
 
   private func getCompiledBasenames(from d: Diagnostic) -> [String] {
@@ -50,7 +49,6 @@ struct CompiledSourceCollector {
   }
 
   private mutating func appendReadDependency(_ dep: String) {
-    collectedReadDependenciesInOrder.append(dep)
     let wasNew = collectedReadDependencies.insert(dep).inserted
     guard wasNew || dep.hasSuffix(FileType.swift.rawValue)
     else {
