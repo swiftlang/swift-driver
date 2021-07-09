@@ -825,9 +825,9 @@ extension IncrementalCompilationTests {
           fingerprintChanged(.interface, "main")
           fingerprintChanged(.implementation, "main")
 
-          let affectedInputs = removeInputFromInvocation && !afterRestoringBadPriors
-          ? ["other"]
-          : [removedInput, "other"]
+          let affectedInputs = removeInputFromInvocation
+            ? ["other"]
+            : [removedInput, "other"]
           for input in affectedInputs {
             trace {
               TraceStep(.interface, source: "main")
@@ -836,10 +836,6 @@ extension IncrementalCompilationTests {
                         input == removedInput && afterRestoringBadPriors
                         ? nil : input)
             }
-          }
-          if removeInputFromInvocation && afterRestoringBadPriors {
-            failedToFindSource(removedInput)
-            failedToReadSomeSource(compiling: "main")
           }
           let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
           queuingLater(affectedInputsInBuild)
