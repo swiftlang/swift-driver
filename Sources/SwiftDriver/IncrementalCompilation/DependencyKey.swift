@@ -348,7 +348,7 @@ extension DependencyKey.Designator: Comparable {}
 // MARK: - InvalidationReason
 extension ExternalDependency {
   /// When explaining incremental decisions, it helps to know why a particular external dependency
-  /// was investigated.
+  /// caused invalidation.
   public enum InvalidationReason: String, CustomStringConvertible {
     /// An `import` of this file was added to the source code.
     case added
@@ -356,7 +356,7 @@ extension ExternalDependency {
     /// The imported file has changed.
     case changed
 
-    /// Used when testing invalidation
+    /// Used when testing
     case testing
 
     public var description: String { rawValue }

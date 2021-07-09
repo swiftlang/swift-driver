@@ -233,7 +233,8 @@ extension ModuleDependencyGraph.Integrator {
   private mutating func recordInvalidations(
     from externalDependency: FingerprintedExternalDependency
   ) {
-    let invalidated = destination.integrateExternal(.unknown(externalDependency))
+    let integrand = ModuleDependencyGraph.ExternalIntegrand(externalDependency, in: destination)
+    let invalidated = destination.findNodesInvalidated(by: integrand)
     recordUsesOfSomeExternal(invalidated)
   }
 }

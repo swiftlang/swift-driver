@@ -473,6 +473,7 @@ extension IncrementalCompilationTests {
       disablingIncrementalCannotReadBuildRecord
       createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
       schedLinking
     }
   }
@@ -524,6 +525,7 @@ extension IncrementalCompilationTests {
       skipping("main")
       readGraph
       findingBatchingCompiling("other")
+      reading(deps: "other")
       schedLinking
       skipped("main")
     }
@@ -550,6 +552,7 @@ extension IncrementalCompilationTests {
       readGraph
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
       schedLinking
     }
   }
@@ -578,6 +581,7 @@ extension IncrementalCompilationTests {
       notSchedulingDependentsUnknownChanges("main")
       skipping("other")
       findingBatchingCompiling("main")
+      reading(deps: "main")
       fingerprintChanged(.interface, "main")
       fingerprintChanged(.implementation, "main")
       trace {
@@ -587,6 +591,7 @@ extension IncrementalCompilationTests {
       }
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
+      reading(deps: "other")
       schedLinking
     }
   }
@@ -625,6 +630,7 @@ extension IncrementalCompilationTests {
       addingToBatchThenForming("main", "other")
       schedulingPostCompileJobs
       compiling("main", "other")
+      reading(deps: "main", "other")
       linking
     }
   }
@@ -649,12 +655,12 @@ extension IncrementalCompilationTests {
       enablingCrossModule
       maySkip("main", "other")
       schedulingNew(newInput)
-      hasMalformed(newInput)
       missing(newInput)
       queuingInitial(newInput)
       notSchedulingDependentsNoEntry(newInput)
       skipping("main", "other")
       findingBatchingCompiling(newInput)
+      reading(deps: newInput)
       newDefinitionOfSourceFile(.interface,      newInput)
       newDefinitionOfSourceFile(.implementation, newInput)
       newDefinitionOfTopLevelName(.interface,      name: topLevelName, input: newInput)
@@ -679,7 +685,7 @@ extension IncrementalCompilationTests {
   ) throws {
     let newInputPath = inputPath(basename: newInput)
     let driver = try doABuild(
-      "after after addition of \(newInput)",
+      "after restoration of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputPath.pathString],
       whenAutolinking: autolinkLifecycleExpectedDiags
@@ -725,9 +731,11 @@ extension IncrementalCompilationTests {
       switch (removeInputFromInvocation, removeSwiftDepsFile) {
       case (false, false):
         readGraphAndSkipAll("main", "other", removedInput)
-      case
-        (true, false),
-        (true, true):
+      case (true, false):
+        disabledForRemoval(removedInput)
+        findingBatchingCompiling("main", "other")
+        linking
+      case (true, true):
         disabledForRemoval(removedInput)
         findingBatchingCompiling("main", "other")
         linking
@@ -739,6 +747,7 @@ extension IncrementalCompilationTests {
         queuingInitial(removedInput)
         skipping("main", "other")
         findingBatchingCompiling(removedInput)
+        reading(deps: removedInput)
         schedulingPostCompileJobs
         linking
         skipped("main", "other")
@@ -774,47 +783,67 @@ extension IncrementalCompilationTests {
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
     let extraArguments = removeInputFromInvocation
       ? [] : [inputPath(basename: removedInput).pathString]
-    
+    let haveGraph = !removeInputFromInvocation || afterRestoringBadPriors
+    let mainChanged = removedFileDependsOnChangedFile
+    let changedInputs = mainChanged ? ["main"] : []
+    let unchangedInputs = inputs.filter {!changedInputs.contains($0)}
+
     let driver = try doABuild(
       "restoring incrementality after removal of \(removedInput)",
       checkDiagnostics: true,
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      !removeInputFromInvocation || afterRestoringBadPriors ? readGraph : createdGraphFromSwiftdeps
+      if haveGraph {
+        readGraph
+      }
       enablingCrossModule
 
-      if !removedFileDependsOnChangedFile {
+      if changedInputs.isEmpty && haveGraph {
         skippingAll(inputs)
-      } else {
-        schedulingChanged("main")
-        let unchangedInputs = inputs.filter {$0 != "main"}
+      }
+      else {
+        let firstWave = haveGraph ? changedInputs : inputs
+        let omittedFromFirstWave = haveGraph ? unchangedInputs : []
+        let forcedInFirstWave = haveGraph ? [] : inputs
+        schedulingChanged(changedInputs)
         maySkip(unchangedInputs)
-        queuingInitial("main")
-        notSchedulingDependentsUnknownChanges("main")
-        skipping(unchangedInputs)
-        findingBatchingCompiling("main")
-
-        fingerprintChanged(.interface, "main")
-        fingerprintChanged(.implementation, "main")
-
-        let affectedInputs = removeInputFromInvocation
-        ? ["other"]
-        : [removedInput, "other"]
-        for input in affectedInputs {
-          trace {
-            TraceStep(.interface, source: "main")
-            TraceStep(.interface, .topLevel(name: "foo"), "main")
-            TraceStep(.implementation, .sourceFileProvide(name: "\(input).swiftdeps"),
-                      input == removedInput && afterRestoringBadPriors
-                      ? nil : input)
+        queuingInitial(firstWave)
+        notSchedulingDependentsUnknownChanges(changedInputs)
+        skipping(omittedFromFirstWave)
+        findingBatchingCompiling(firstWave)
+        reading(deps: firstWave)
+        if !haveGraph {
+          for (input, name) in [("main", "foo"), ("other", "bar")] {
+            newDefinitionOfSourceFile(.interface,      input)
+            newDefinitionOfSourceFile(.implementation, input)
+            newDefinitionOfTopLevelName(.interface,      name: name, input: input)
+            newDefinitionOfTopLevelName(.implementation, name: name, input: input)
           }
         }
-        let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
-        queuingLater(affectedInputsInBuild)
-        schedulingInvalidated(affectedInputsInBuild)
-        let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
-        findingBatchingCompiling(affectedInputsInInvocationOrder)
+        else {
+          fingerprintChanged(.interface, "main")
+          fingerprintChanged(.implementation, "main")
+
+          let affectedInputs = removeInputFromInvocation
+            ? ["other"]
+            : [removedInput, "other"]
+          for input in affectedInputs {
+            trace {
+              TraceStep(.interface, source: "main")
+              TraceStep(.interface, .topLevel(name: "foo"), "main")
+              TraceStep(.implementation, .sourceFileProvide(name: "\(input).swiftdeps"),
+                        input == removedInput && afterRestoringBadPriors
+                        ? nil : input)
+            }
+          }
+          let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
+          queuingLater(affectedInputsInBuild)
+          schedulingInvalidated(affectedInputsInBuild)
+          let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
+          findingBatchingCompiling(affectedInputsInInvocationOrder)
+          reading(deps: affectedInputsInInvocationOrder)
+        }
         schedLinking
       }
     }
@@ -839,10 +868,22 @@ extension IncrementalCompilationTests {
       checkDiagnostics: true,
       extraArguments: [],
       whenAutolinking: autolinkLifecycleExpectedDiags) {
-      couldNotReadPriors
-      createdGraphFromSwiftdeps
-      enablingCrossModule
-      skippingAll("main", "other")
+        couldNotReadPriors
+        enablingCrossModule
+        maySkip("main", "other")
+        queuingInitial("main", "other")
+        findingBatchingCompiling("main", "other")
+        reading(deps: "main")
+        newDefinitionOfSourceFile(.interface, "main")
+        newDefinitionOfSourceFile(.implementation, "main")
+        newDefinitionOfTopLevelName(.interface, name: "foo", input: "main")
+        newDefinitionOfTopLevelName(.implementation, name: "foo", input: "main")
+        reading(deps: "other")
+        newDefinitionOfSourceFile(.interface, "other")
+        newDefinitionOfSourceFile(.implementation, "other")
+        newDefinitionOfTopLevelName(.interface, name: "bar", input: "other")
+        newDefinitionOfTopLevelName(.implementation, name: "bar", input: "other")
+        schedLinking
     }
   }
 
@@ -888,6 +929,7 @@ extension IncrementalCompilationTests {
       readGraph
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
       schedulingPostCompileJobs
       linking
     }
@@ -1166,6 +1208,14 @@ extension DiagVerifiable {
       .warning("Will not do cross-module incremental builds, wrong version of priors; expected")
   }
   // MARK: - dependencies
+  @DiagsBuilder func reading(deps inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: Reading dependencies from \(input).swift"
+    }
+  }
+  @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {
+    reading(deps: inputs)
+  }
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
      "Incremental compilation: Fingerprint changed for \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
@@ -1180,8 +1230,21 @@ extension DiagVerifiable {
   @DiagsBuilder func foundDependent(of defInput: String, compiling useInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Found dependent of \(defInput).swift:  {compile: \(useInput).o <= \(useInput).swift}"
   }
-  @DiagsBuilder func hasMalformed(_ newInput: String) -> [Diagnostic.Message] {
-    "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}"
+  @DiagsBuilder func hasMalformed(_ inputs: [String]) -> [Diagnostic.Message] {
+    for newInput in inputs {
+      "Incremental compilation: Has malformed dependency source; will queue  {compile: \(newInput).o <= \(newInput).swift}"
+    }
+  }
+  @DiagsBuilder func hasMalformed(_ inputs: String...) -> [Diagnostic.Message] {
+    hasMalformed(inputs)
+  }
+  @DiagsBuilder func invalidatedExternally(_ inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: Invalidated externally; will queue  {compile: \(input).o <= \(input).swift}"
+    }
+  }
+  @DiagsBuilder func invalidatedExternally(_ inputs: String...) -> [Diagnostic.Message] {
+    invalidatedExternally(inputs)
   }
   @DiagsBuilder func failedToFindSource(_ input: String) -> [Diagnostic.Message] {
       .warning("Failed to find source file '\(input).swift' in command line, recovering with a full rebuild. Next build will be incremental.")

@@ -131,13 +131,13 @@ extension IncrementalCompilationState.FirstWaveComputer {
       }
     }
 
-    let inputsHavingMalformedDependencySources =
-      sourceFiles.currentInOrder.filter { sourceFile in
-        !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)
-      }
+    let inputsMissingFromGraph = sourceFiles.currentInOrder.filter { sourceFile in
+      !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)
+    }
 
-    if let reporter = reporter {
-      for input in inputsHavingMalformedDependencySources {
+    if let reporter = reporter,
+       moduleDependencyGraph.phase == .buildingFromSwiftDeps {
+      for input in inputsMissingFromGraph {
         reporter.report("Has malformed dependency source; will queue", input)
       }
     }
@@ -156,7 +156,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
     let definitelyRequiredInputs =
       Set(changedInputs.map({ $0.filePath }) +
             inputsInvalidatedByExternals +
-            inputsHavingMalformedDependencySources +
+            inputsMissingFromGraph +
             inputsMissingOutputs)
     if let reporter = reporter {
       for scheduledInput in sortByCommandLineOrder(definitelyRequiredInputs) {
