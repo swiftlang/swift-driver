@@ -280,6 +280,6 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   private func bulidEmptyGraphAndCompileEverything()
   -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet) {
     let graph = ModuleDependencyGraph(self, .buildingAfterEachCompilation)
-    return (graph, TransitivelyInvalidatedInputSet(sourceFiles.currentInOrder))
+    return (graph, TransitivelyInvalidatedInputSet())
   }
 }
