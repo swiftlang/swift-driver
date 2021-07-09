@@ -206,7 +206,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
     }
     // Every external is added, but don't want to compile an unchanged input that has an import
-    // so just changed, not changedOrAdded
+    // so just changed, not changedOrAdded.
     return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
   }
 

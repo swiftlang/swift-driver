@@ -424,7 +424,7 @@ extension ModuleDependencyGraph {
   /// Compute the reason for (non-incrementally) invalidating nodes
   ///
   /// Parameter integrand: The exernal dependency causing the invalidation
-  /// Returns: nil if no invalidation is needed, otherwise the reason.
+  /// - Returns: nil if no invalidation is needed, otherwise the reason.
   private func whyIndiscriminatelyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
     switch self.phase {
@@ -443,7 +443,7 @@ extension ModuleDependencyGraph {
 
   /// Try to read and integrate an external dependency.
   ///
-  /// Return: nil if an error occurs, or the set of directly affected nodes.
+  /// - Returns: nil if an error occurs, or the set of directly affected nodes.
   private func integrateIncrementalImport(
     of fed: FingerprintedExternalDependency,
     _ why: ExternalDependency.InvalidationReason
