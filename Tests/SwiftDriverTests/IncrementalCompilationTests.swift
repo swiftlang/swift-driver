@@ -312,9 +312,18 @@ extension IncrementalCompilationTests {
                  extraArguments: [],
                  whenAutolinking: []) {
       savedGraphNotFromPriorBuild
-      createdGraphFromSwiftdeps
       enablingCrossModule
-      skippingAll(inputs)
+      maySkip(inputs)
+      queuingInitial(inputs)
+      findingBatchingCompiling(inputs)
+      for (input, name) in [("main", "foo"), ("other", "bar")] {
+        reading(deps: input)
+        newDefinitionOfSourceFile(.interface, input)
+        newDefinitionOfSourceFile(.implementation, input)
+        newDefinitionOfTopLevelName(.interface, name: name, input: input)
+        newDefinitionOfTopLevelName(.implementation, name: name, input: input)
+      }
+      schedLinking
     }
     #endif
   }
@@ -1017,10 +1026,22 @@ extension IncrementalCompilationTests {
   /// Save and restore priors across a call to the argument, ensuring that the restored priors have a valid modTime
   private func preservingPriorsDo(_ fn: () throws -> Driver ) throws {
     let contents = try XCTUnwrap(readPriors())
-    let driver = try fn()
+    _ = try fn()
     writePriors(contents)
+    let buildRecordContents = try localFileSystem.readFileContents(masterSwiftDepsPath).cString
+    guard let buildRecord = BuildRecord(contents: buildRecordContents, failedToReadOutOfDateMap: {
+      maybeWhy in
+      XCTFail("could not read build record")
+    })
+    else {
+      XCTFail()
+      return
+    }
+    let goodModTime = { start, end in
+      start.advanced(by: end.timeIntervalSince(start) / 2.0)
+    }(buildRecord.buildStartTime, buildRecord.buildEndTime)
     try setModTime(of: .absolute(priorsPath),
-                   to: XCTUnwrap(driver.buildRecordInfo).timeBeforeFirstJob)
+                   to: goodModTime)
   }
 
   private func verifyNoPriors() {
