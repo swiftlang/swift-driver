@@ -168,7 +168,8 @@ extension ModuleDependencyGraph {
 // MARK: - Getting a graph read from priors ready to use
 extension ModuleDependencyGraph {
   func collectNodesInvalidatedByChangedOrAddedExternals() -> DirectlyInvalidatedNodeSet {
-    fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
+    assert(info.isCrossModuleIncrementalBuildEnabled)
+    return fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
       invalidatedNodes, fed in
       invalidatedNodes.formUnion (
         self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed,
@@ -387,6 +388,10 @@ extension ModuleDependencyGraph {
     externalDependencyModTimeCache[externalDependency] = hasChanged
     return hasChanged
   }
+  
+  func beCurrent(_ externalDependency: ExternalDependency) {
+    externalDependencyModTimeCache[externalDependency] = false
+  }
 
   /// Try to read and integrate an external dependency.
   /// Return nil if it's not incremental, or if an error occurs.
@@ -399,6 +404,7 @@ extension ModuleDependencyGraph {
     else {
       return nil
     }
+    beCurrent(fed.externalDependency) // Don't read the same external twice
     let invalidatedNodes = Integrator.integrate(from: unserializedDepGraph, into: self)
     info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
     return invalidatedNodes
