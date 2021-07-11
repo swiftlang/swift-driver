@@ -136,7 +136,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
         !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)
       }
 
-    if let reporter = reporter {
+    if let reporter = reporter,
+       moduleDependencyGraph.phase == .buildingWithoutAPrior {
       for input in inputsMissingFromGraph {
         reporter.report("Has malformed dependency source; will queue", input)
       }
