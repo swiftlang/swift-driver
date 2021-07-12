@@ -51,8 +51,8 @@ import TSCBasic
       return "non-path: '\(fileName)'"
     }
     switch path.extension {
-    case FileType.swiftModule.rawValue:
-      // Swift modules have an extra component at the end that is not descriptive
+    case FileType.swiftModule.rawValue, FileType.swiftInterface.rawValue:
+      // These have an extra component at the end that is not descriptive
       return path.parentDirectory.basename
     default:
       return path.basename

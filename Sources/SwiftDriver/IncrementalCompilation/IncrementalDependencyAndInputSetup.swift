@@ -124,7 +124,7 @@ extension IncrementalCompilationState {
     // Do not try to reuse a graph from a different compilation, so check
     // the build record.
     @_spi(Testing) public var readPriorsFromModuleDependencyGraph: Bool {
-      maybeBuildRecord != nil && options.contains(.readPriorsFromModuleDependencyGraph)
+      options.contains(.readPriorsFromModuleDependencyGraph)
     }
     @_spi(Testing) public var alwaysRebuildDependents: Bool {
       options.contains(.alwaysRebuildDependents)
@@ -233,16 +233,14 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
         warning: "Could not read \(dependencyGraphPath), will not do cross-module incremental builds")
       graphIfPresent = nil
     }
-    guard let graph = graphIfPresent
-    else {
-      // Do not fall back to `buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals`
-      // because it would be unsound to read a `swiftmodule` file with only a partial set of integrated `swiftdeps`.
-      // A fingerprint change in such a `swiftmodule` would not be able to propagate and invalidate a use
-      // in a as-yet-unread swiftdeps file.
-      //
-      // Instead, just compile everything. It's OK to be unsound then because every file will be compiled anyway.
-      return bulidEmptyGraphAndCompileEverything()
-    }
+    // Do not fall back to `buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals`
+    // because it would be unsound to read a `swiftmodule` file with only a partial set of integrated `swiftdeps`.
+    // A fingerprint change in such a `swiftmodule` would not be able to propagate and invalidate a use
+    // in a as-yet-unread swiftdeps file.
+    //
+    // Instead, just compile everything. It's OK to be unsound then because every file will be compiled anyway.
+    // Do this by creating an empty graph here.
+    let graph = graphIfPresent ?? ModuleDependencyGraph(self, .buildingAfterEachCompilation)
     guard graph.populateInputDependencySourceMap() else {
       return nil
     }
@@ -287,11 +285,5 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     }
     reporter?.report("Created dependency graph from swiftdeps files")
     return (graph, inputsInvalidatedByChangedExternals)
-  }
-  
-  private func bulidEmptyGraphAndCompileEverything()
-  -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet) {
-    let graph = ModuleDependencyGraph(self, .buildingAfterEachCompilation)
-    return (graph, TransitivelyInvalidatedInputSet())
   }
 }

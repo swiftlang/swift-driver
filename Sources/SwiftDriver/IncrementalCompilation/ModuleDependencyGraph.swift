@@ -357,22 +357,23 @@ extension ModuleDependencyGraph {
     should: fed,
     whichIsNewToTheGraph: isNewToTheGraph,
     closeOverSwiftModulesIn: self)
+    
+    // collectNodesInvalidatedByAttemptingToProcess will change the currency cache
+    // so get this reason now.
+    let whyInvalidate = ExternalDependency.Why(
+      shouldUsesOf: fed,
+      whichIsNewToTheGraph: isNewToTheGraph,
+      beInvalidatedIn: self)
 
     let invalidatedNodesFromIncrementalExternal = whyIntegrateForClosure.flatMap { why in
       collectNodesInvalidatedByAttemptingToProcess(why, fed)
     }
 
-    guard let whyInvalidate = ExternalDependency.Why(
-      shouldUsesOf: fed,
-      whichIsNewToTheGraph: isNewToTheGraph,
-      beInvalidatedIn: self)
-    else {
-      return DirectlyInvalidatedNodeSet()
-    }
-
     // If there was an error integrating the external dependency, or if it was not an incremental one,
     // return anything that uses that dependency.
-    return invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesUsing(whyInvalidate, fed)
+    return invalidatedNodesFromIncrementalExternal
+    ?? whyInvalidate.map {collectUntracedNodesUsing($0, fed)}
+    ?? DirectlyInvalidatedNodeSet()
   }
 
  func hasFileChanged(of externalDependency: ExternalDependency
