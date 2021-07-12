@@ -159,6 +159,7 @@ extension IncrementalCompilationTests {
     expectNoDotFiles()
     try tryInitial(extraArguments: ["-driver-emit-fine-grained-dependency-dot-file-after-every-import"])
     expect(dotFilesFor: [
+      DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
       "main.swiftdeps",
       DependencyGraphDotFileWriter.moduleDependencyGraphBasename,
       "other.swiftdeps",
@@ -322,7 +323,6 @@ extension IncrementalCompilationTests {
         "Enabling incremental cross-module building",
         "Incremental compilation: Incremental compilation could not read build record at",
         "Incremental compilation: Disabling incremental build: could not read build record",
-        "Incremental compilation: Created dependency graph from swiftdeps files",
         "Found 2 batchable jobs",
         "Forming into 1 batch",
         "Adding {compile: main.swift} to batch 0",
