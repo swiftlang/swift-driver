@@ -37,7 +37,7 @@ import SwiftOptions
   let fileSystem: FileSystem
   let currentArgsHash: String
   @_spi(Testing) public let actualSwiftVersion: String
-  let timeBeforeFirstJob: Date
+  @_spi(Testing) public let timeBeforeFirstJob: Date
   let diagnosticEngine: DiagnosticsEngine
   let compilationInputModificationDates: [TypedVirtualPath: Date]
 
@@ -254,7 +254,7 @@ import SwiftOptions
   ///
   /// FIXME: This is a little ridiculous. We could probably just replace the
   /// build record outright with a serialized format.
-  var dependencyGraphPath: VirtualPath {
+  @_spi(Testing) public var dependencyGraphPath: VirtualPath {
     let filename = buildRecordPath.basenameWithoutExt
     return buildRecordPath
       .parentDirectory

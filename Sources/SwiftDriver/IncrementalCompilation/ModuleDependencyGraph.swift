@@ -587,6 +587,7 @@ extension ModuleDependencyGraph {
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
+    case timeTravellingPriors(Date, ClosedRange<Date>)
   }
 
   /// Attempts to read a serialized dependency graph from the given path.
@@ -594,18 +595,17 @@ extension ModuleDependencyGraph {
   /// - Parameters:
   ///   - path: The absolute path to the file to be read.
   ///   - fileSystem: The file system on which to search.
-  ///   - diagnosticEngine: The diagnostics engine.
-  ///   - reporter: An optional reporter used to log information about
+  ///   - info: The setup state
   /// - Throws: An error describing any failures to read the graph from the given file.
   /// - Returns: A fully deserialized ModuleDependencyGraph, or nil if nothing is there
   @_spi(Testing) public static func read(
     from path: VirtualPath,
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) throws -> ModuleDependencyGraph? {
-    guard try info.fileSystem.exists(path) else {
+    guard let data = try serializedPriorGraph(from: path,
+                                              info: info) else {
       return nil
     }
-    let data = try info.fileSystem.readFileContents(path)
 
     struct Visitor: BitstreamVisitor {
       private let fileSystem: FileSystem
@@ -774,6 +774,49 @@ extension ModuleDependencyGraph {
     let graph = visitor.finalizeGraph()
     info.reporter?.report("Read dependency graph", path)
     return graph
+  }
+
+  /// Ensure the saved path points to saved graph from the prior build, and read it.
+  ///
+  /// Parameters:
+  /// - path: the saved graph file path
+  /// - info: the setup information
+  /// - Returns: the file contents on success, nil if no such file exists
+  private static func serializedPriorGraph(
+    from path: VirtualPath,
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) throws -> ByteString? {
+    guard try info.fileSystem.exists(path) else {
+      return nil
+    }
+    try ensurePriorsCreatedDuringPriorBuild(at: path, info: info)
+    return try info.fileSystem.readFileContents(path)
+  }
+
+  /// Check that the file containing the saved `ModuleDependencyGraph` was created during the
+  /// previous build, and thus reflects the final state of that graph for the previous build.
+  ///
+  /// This check ensures that any differences in imported `swiftmodule`s will be accurately detected.
+  /// In the normal course of events, a stale priors file should not exist.
+  /// However, in the case of unforeseen circumstances, stale priors might be possible.
+  /// For the cost of one stat on the priors file, we get to cover that case, and prevent potential future problems.
+  /// Ideally, the priors would be merged into the build record. Until that happens, do this check.
+  /// - Parameters:
+  ///   - path: the path of the priors file
+  ///   - info: holds file file system, etc, for the check
+  /// - Returns: nothing, but throws ``ModuleDependencyGraph/ReadError/timeTravellingPriors``
+  /// if the file was not created at the right time.
+  fileprivate static func ensurePriorsCreatedDuringPriorBuild(
+    at path: VirtualPath,
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) throws {
+    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path)
+    else {
+      return
+    }
+    let priorBuildTimeSpan = info.buildTimeSpan
+    guard priorBuildTimeSpan.contains(priorsModTime) else {
+      throw ReadError.timeTravellingPriors(priorsModTime, priorBuildTimeSpan)
+    }
   }
 }
 

@@ -299,6 +299,35 @@ extension IncrementalCompilationTests {
     try checkReactionToTouchingSymlinkTargets(checkDiagnostics: true)
   }
 
+  /// Ensure that a saved prior module dependency graph is rejected if not from the previous build
+  func testObsoletePriors() throws {
+#if !os(Linux)
+    let before = Date()
+    let driver = try buildInitialState(checkDiagnostics: true)
+    let path = try XCTUnwrap(driver.buildRecordInfo?.dependencyGraphPath)
+    try setModTime(of: path, to: before) // Make priors too old
+    let inputs = ["main", "other"]
+    try doABuild("null with old priors",
+                 checkDiagnostics: true,
+                 extraArguments: [],
+                 whenAutolinking: []) {
+      savedGraphNotFromPriorBuild
+      enablingCrossModule
+      maySkip(inputs)
+      queuingInitial(inputs)
+      findingBatchingCompiling(inputs)
+      for (input, name) in [("main", "foo"), ("other", "bar")] {
+        reading(deps: input)
+        newDefinitionOfSourceFile(.interface, input)
+        newDefinitionOfSourceFile(.implementation, input)
+        newDefinitionOfTopLevelName(.interface, name: name, input: input)
+        newDefinitionOfTopLevelName(.implementation, name: name, input: input)
+      }
+      schedLinking
+    }
+    #endif
+  }
+
   /// Ensure that the driver can detect and then recover from a priors version mismatch
   func testPriorsVersionDetectionAndRecovery() throws {
 #if !os(Linux)
@@ -313,13 +342,14 @@ extension IncrementalCompilationTests {
     let priorsWithOldVersion = try ModuleDependencyGraph.read(
       from: .absolute(priorsPath),
       info: info)
-    // let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
+    let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
     let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
     let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
     try priorsWithOldVersion?.write(to: .absolute(priorsPath),
                                 on: localFileSystem,
                                 compilerVersion: compilerVersion,
                                 mockSerializedGraphVersion: incrementedVersion)
+    try setModTime(of: .absolute(priorsPath), to: priorsModTime)
 
     try checkReactionToObsoletePriors()
     try checkNullBuild(checkDiagnostics: true)
@@ -424,7 +454,7 @@ extension IncrementalCompilationTests {
     do {
       let wrapperFn = options.contains(.restoreBadPriors)
       ? preservingPriorsDo
-      : {try $0()}
+      : {_ = try $0()}
       try wrapperFn {
         try self.checkNonincrementalAfterRemoving(
           removedInput: newInput,
@@ -714,7 +744,7 @@ extension IncrementalCompilationTests {
     defining topLevelName: String,
     removeInputFromInvocation: Bool,
     removeSwiftDepsFile: Bool
-  ) throws {
+  ) throws -> Driver {
     let extraArguments = removeInputFromInvocation
     ? [] : [inputPath(basename: removedInput).pathString]
 
@@ -764,6 +794,7 @@ extension IncrementalCompilationTests {
       XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
       XCTAssert(graph.contains(name: topLevelName))
     }
+    return driver
   }
 
   /// Ensure that incremental builds happen after a removal.
@@ -944,6 +975,17 @@ extension IncrementalCompilationTests {
     try! localFileSystem.writeFileContents(path) { $0 <<< contents }
   }
 
+  /// Set modification time of a file
+  ///
+  /// - Parameters:
+  ///   - path: The file whose modificaiton time to change
+  ///   - newModTime: The desired modification time
+  fileprivate func setModTime(of path: VirtualPath, to newModTime: Date) throws {
+    var fileAttributes = try FileManager.default.attributesOfItem(atPath: path.name)
+    fileAttributes[.modificationDate] = newModTime
+    try FileManager.default.setAttributes(fileAttributes, ofItemAtPath: path.name)
+  }
+
   private func removeInput(_ name: String) {
     print("*** removing input \(name) ***", to: &stderrStream); stderrStream.flush()
     try! localFileSystem.removeFileTree(inputPath(basename: name))
@@ -981,10 +1023,25 @@ extension IncrementalCompilationTests {
     try! localFileSystem.writeFileContents(priorsPath, bytes: contents)
   }
 
-  private func preservingPriorsDo(_ fn: () throws -> Void ) throws {
+  /// Save and restore priors across a call to the argument, ensuring that the restored priors have a valid modTime
+  private func preservingPriorsDo(_ fn: () throws -> Driver ) throws {
     let contents = try XCTUnwrap(readPriors())
-    try fn()
+    _ = try fn()
     writePriors(contents)
+    let buildRecordContents = try localFileSystem.readFileContents(masterSwiftDepsPath).cString
+    guard let buildRecord = BuildRecord(contents: buildRecordContents, failedToReadOutOfDateMap: {
+      maybeWhy in
+      XCTFail("could not read build record")
+    })
+    else {
+      XCTFail()
+      return
+    }
+    let goodModTime = { start, end in
+      start.advanced(by: end.timeIntervalSince(start) / 2.0)
+    }(buildRecord.buildStartTime, buildRecord.buildEndTime)
+    try setModTime(of: .absolute(priorsPath),
+                   to: goodModTime)
   }
 
   private func verifyNoPriors() {
@@ -1189,6 +1246,10 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func disabledForRemoval(_ removedInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"
+  }
+  @DiagsBuilder var savedGraphNotFromPriorBuild: [Diagnostic.Message] {
+      .warning(
+      "Will not do cross-module incremental builds, priors saved at ")
   }
   // MARK: - build record
   @DiagsBuilder var cannotReadBuildRecord: [Diagnostic.Message] {
