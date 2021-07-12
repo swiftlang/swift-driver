@@ -15,11 +15,9 @@ import TSCBasic
   /// For targets that are built alongside the driver's current module, the scanning action will report them as
   /// textual targets to be built from source. Because we can rely on these targets to have been built prior
   /// to the driver's current target, we resolve such external targets as prebuilt binary modules, in the graph.
-  mutating func resolveExternalDependencies(for externalBuildArtifacts: ExternalBuildArtifacts)
+  mutating func resolveExternalDependencies(for externalTargetModulePathMap: ExternalTargetModulePathMap)
   throws {
-    let externalTargetModulePathMap = externalBuildArtifacts.0
-
-     for (externalModuleId, externalModulePath) in externalTargetModulePathMap {
+    for (externalModuleId, externalModulePath) in externalTargetModulePathMap {
       // Replace the occurence of a Swift module to-be-built from source-file
       // to an info that describes a pre-built binary module.
       let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
@@ -30,53 +28,18 @@ import TSCBasic
         // a dependency on a target that is not actually used.
         continue
       }
-
-       let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
+      
+      let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
       let newExternalModuleDetails =
-        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()))
+      try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                              TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()))
       let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                sourceFiles: [],
                                directDependencies: currentInfo.directDependencies,
                                details: .swiftPrebuiltExternal(newExternalModuleDetails))
 
-       Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
+      Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
                          replacementInfo: newInfo, in: &modules)
-    }
-  }
-}
-
-@_spi(Testing) public extension InterModuleDependencyOracle {
-  /// An API to allow clients to accumulate InterModuleDependencyGraphs across mutiple main externalModules/targets
-  /// into a single collection of discovered externalModules.
-  func mergeModules(from dependencyGraph: InterModuleDependencyGraph) throws {
-    try queue.sync {
-      for (moduleId, moduleInfo) in dependencyGraph.modules {
-        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &externalModules)
-      }
-    }
-  }
-
-  // This is a backwards-compatibility shim to handle existing ModuleInfoMap-based API
-  // used by SwiftPM
-  func mergeModules(from moduleInfoMap: ModuleInfoMap) throws {
-    try queue.sync {
-      for (moduleId, moduleInfo) in moduleInfoMap {
-        try InterModuleDependencyGraph.mergeModule(moduleId, moduleInfo, into: &externalModules)
-      }
-    }
-  }
-}
-
-public extension InterModuleDependencyGraph {
-  // This is a shim for backwards-compatibility with existing API used by SwiftPM.
-  // TODO: After SwiftPM switches to using the oracle, this should be deleted.
-  static func mergeModules(
-    from dependencyGraph: InterModuleDependencyGraph,
-    into discoveredModules: inout ModuleInfoMap
-  ) throws {
-    for (moduleId, moduleInfo) in dependencyGraph.modules {
-      try mergeModule(moduleId, moduleInfo, into: &discoveredModules)
     }
   }
 }
