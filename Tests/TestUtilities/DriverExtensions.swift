@@ -21,7 +21,8 @@ extension Driver {
     args: [String],
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-    fileSystem: FileSystem = localFileSystem
+    fileSystem: FileSystem = localFileSystem,
+    integratedDriver: Bool = true
   ) throws {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                        processSet: ProcessSet(),
@@ -31,7 +32,8 @@ extension Driver {
                   env: env,
                   diagnosticsEngine: diagnosticsEngine,
                   fileSystem: fileSystem,
-                  executor: executor)
+                  executor: executor,
+                  integratedDriver: integratedDriver)
   }
 
   /// For tests that need to set the sdk path.
