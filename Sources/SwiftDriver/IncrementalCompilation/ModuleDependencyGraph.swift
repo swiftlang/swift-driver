@@ -168,7 +168,8 @@ extension ModuleDependencyGraph {
 // MARK: - Getting a graph read from priors ready to use
 extension ModuleDependencyGraph {
   func collectNodesInvalidatedByChangedOrAddedExternals() -> DirectlyInvalidatedNodeSet {
-    fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
+    assert(info.isCrossModuleIncrementalBuildEnabled)
+    return fingerprintedExternalDependencies.reduce(into: DirectlyInvalidatedNodeSet()) {
       invalidatedNodes, fed in
       invalidatedNodes.formUnion (
         self.collectNodesInvalidatedByProcessing(fingerprintedExternalDependency: fed,
@@ -356,22 +357,23 @@ extension ModuleDependencyGraph {
     should: fed,
     whichIsNewToTheGraph: isNewToTheGraph,
     closeOverSwiftModulesIn: self)
+    
+    // collectNodesInvalidatedByAttemptingToProcess will change the currency cache
+    // so get this reason now.
+    let whyInvalidate = ExternalDependency.Why(
+      shouldUsesOf: fed,
+      whichIsNewToTheGraph: isNewToTheGraph,
+      beInvalidatedIn: self)
 
     let invalidatedNodesFromIncrementalExternal = whyIntegrateForClosure.flatMap { why in
       collectNodesInvalidatedByAttemptingToProcess(why, fed)
     }
 
-    guard let whyInvalidate = ExternalDependency.Why(
-      shouldUsesOf: fed,
-      whichIsNewToTheGraph: isNewToTheGraph,
-      beInvalidatedIn: self)
-    else {
-      return DirectlyInvalidatedNodeSet()
-    }
-
     // If there was an error integrating the external dependency, or if it was not an incremental one,
     // return anything that uses that dependency.
-    return invalidatedNodesFromIncrementalExternal ?? collectUntracedNodesUsing(whyInvalidate, fed)
+    return invalidatedNodesFromIncrementalExternal
+    ?? whyInvalidate.map {collectUntracedNodesUsing($0, fed)}
+    ?? DirectlyInvalidatedNodeSet()
   }
 
  func hasFileChanged(of externalDependency: ExternalDependency
@@ -387,6 +389,10 @@ extension ModuleDependencyGraph {
     externalDependencyModTimeCache[externalDependency] = hasChanged
     return hasChanged
   }
+  
+  func beCurrent(_ externalDependency: ExternalDependency) {
+    externalDependencyModTimeCache[externalDependency] = false
+  }
 
   /// Try to read and integrate an external dependency.
   /// Return nil if it's not incremental, or if an error occurs.
@@ -399,6 +405,7 @@ extension ModuleDependencyGraph {
     else {
       return nil
     }
+    beCurrent(fed.externalDependency) // Don't read the same external twice
     let invalidatedNodes = Integrator.integrate(from: unserializedDepGraph, into: self)
     info.reporter?.reportInvalidated(invalidatedNodes, by: fed.externalDependency, why)
     return invalidatedNodes
