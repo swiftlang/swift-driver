@@ -37,6 +37,7 @@ import Glibc
     case verbose
     case parsableOutput
     case regular
+    case silent
   }
 
   public let mode: Mode
@@ -70,7 +71,7 @@ import Glibc
       diagnosticEngine.emit(.remark_job_lifecycle("Starting", job))
     }
     switch mode {
-    case .regular:
+    case .regular, .silent:
       break
     case .verbose:
       stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
@@ -100,6 +101,9 @@ import Glibc
     #endif
 
     switch mode {
+    case .silent:
+      break
+
     case .regular, .verbose:
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
       if !output.isEmpty {
@@ -139,7 +143,7 @@ import Glibc
       diagnosticEngine.emit(.remark_job_lifecycle("Skipped", job))
     }
     switch mode {
-    case .regular, .verbose:
+    case .regular, .verbose, .silent:
       break
     case .parsableOutput:
       let skippedMessage = SkippedMessage(inputs: job.displayInputs.map{ $0.file.name })
