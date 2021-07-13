@@ -56,6 +56,7 @@ extension DependencySource {
   ) -> SourceFileDependencyGraph? {
     let graphIfPresent: SourceFileDependencyGraph?
     do {
+      reporter?.report("Reading dependencies from \(description)")
       graphIfPresent = try SourceFileDependencyGraph.read(
         from: self,
         on: fileSystem)

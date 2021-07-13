@@ -51,7 +51,7 @@ struct CompiledSourceCollector {
 
   private mutating func appendReadDependency(_ dep: String) {
     let wasNew = collectedReadDependencies.insert(dep).inserted
-    guard wasNew || dep.hasSuffix(FileType.swift.rawValue)
+    guard wasNew || dep.hasSuffix(FileType.swiftDeps.rawValue)
     else {
       XCTFail("Swiftmodule \(dep) read twice")
       return
