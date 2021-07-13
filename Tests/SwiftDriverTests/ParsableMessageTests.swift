@@ -344,6 +344,32 @@ final class ParsableMessageTests: XCTestCase {
     }
   }
 
+  func testSilentIntegratedMode() throws {
+    do {
+      try withTemporaryDirectory { path in
+        try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+          let main = path.appending(component: "main.swift")
+          let output = path.appending(component: "main.o")
+          try localFileSystem.writeFileContents(main) {
+            $0 <<< "nonexistentPrint(\"hello, compilation error!\")"
+          }
+          let diags = DiagnosticsEngine()
+          let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+          var driver = try Driver(args: ["swiftc", main.pathString,
+                                         "-o", output.pathString] + sdkArgumentsForTesting,
+                                  env: ProcessEnv.vars,
+                                  diagnosticsEngine: diags,
+                                  fileSystem: localFileSystem,
+                                  integratedDriver: true)
+          let jobs = try driver.planBuild()
+          XCTAssertThrowsError(try driver.run(jobs: jobs))
+          let invocationErrorOutput = try localFileSystem.readFileContents(errorBuffer).description
+          XCTAssertFalse(invocationErrorOutput.contains("error: cannot find 'nonexistentPrint' in scope"))
+        }
+      }
+    }
+  }
+
   func testFrontendMessages() throws {
     do {
       try withTemporaryDirectory { path in
@@ -360,7 +386,8 @@ final class ParsableMessageTests: XCTestCase {
                                          "-o", output.pathString] + sdkArgumentsForTesting,
                                   env: ProcessEnv.vars,
                                   diagnosticsEngine: diags,
-                                  fileSystem: localFileSystem)
+                                  fileSystem: localFileSystem,
+                                  integratedDriver: false)
           let jobs = try driver.planBuild()
           XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
           XCTAssertEqual(jobs[0].outputs.count, 1)
