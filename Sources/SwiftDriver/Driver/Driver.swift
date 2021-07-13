@@ -1102,11 +1102,14 @@ extension Driver {
   mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
-    // FIXME: Old driver does _something_ if both are passed. Not sure if we want to support that.
+    // FIXME: Old driver does _something_ if both -parseable-output and -v are passed.
+    // Not sure if we want to support that.
     if parsedOptions.contains(.parseableOutput) {
       mode = .parsableOutput
     } else if parsedOptions.contains(.v) {
       mode = .verbose
+    } else if integratedDriver {
+      mode = .silent
     }
 
     return ToolExecutionDelegate(
