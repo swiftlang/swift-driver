@@ -28,7 +28,7 @@ public enum Tool: Hashable {
 
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
-@_spi(Testing) public protocol Toolchain {
+public protocol Toolchain {
   init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, compilerExecutableDir: AbsolutePath?, toolDirectory: AbsolutePath?)
 
   var env: [String: String] { get }
