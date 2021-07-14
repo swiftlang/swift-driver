@@ -52,7 +52,8 @@ let package = Package(
       dependencies: [
         "SwiftOptions",
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-        "CSwiftScan", "Yams"
+        "CSwiftScan",
+        .product(name: "Yams", package: "Yams"),
       ]),
 
     /// The execution library.
