@@ -1,5 +1,5 @@
-// swift-tools-version:5.1
-// In order to support users running on the latest Xcodes, please ensure that
+// swift-tools-version:5.5
+// In order to support users running on legacy Xcodes, please ensure that
 // Package.swift is kept in sync with this file.
 import PackageDescription
 import class Foundation.ProcessInfo
@@ -43,18 +43,26 @@ let package = Package(
   targets: [
 
     /// C modules wrapper for _InternalLibSwiftScan.
-    .target(name: "CSwiftScan"),
+    .target(name: "CSwiftScan",
+            exclude: [ "CMakeLists.txt" ]),
 
     /// The driver library.
     .target(
       name: "SwiftDriver",
-      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto",
-                     "CSwiftScan", "Yams"]),
+      dependencies: [
+        "SwiftOptions",
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+        "CSwiftScan",
+        .product(name: "Yams", package: "Yams"),
+      ]),
 
     /// The execution library.
     .target(
       name: "SwiftDriverExecution",
-      dependencies: ["SwiftDriver", "SwiftToolsSupport-auto"]),
+      dependencies: [
+        "SwiftDriver",
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
+      ]),
 
     /// Driver tests.
     .testTarget(
@@ -65,7 +73,11 @@ let package = Package(
     /// IncrementalImport tests
     .testTarget(
       name: "IncrementalImportTests",
-      dependencies: ["IncrementalTestFramework", "TestUtilities", "SwiftToolsSupport-auto"]),
+      dependencies: [
+        "IncrementalTestFramework",
+        "TestUtilities",
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+      ]),
 
     .target(
       name: "IncrementalTestFramework",
@@ -83,28 +95,34 @@ let package = Package(
     /// The options library.
     .target(
       name: "SwiftOptions",
-      dependencies: ["SwiftToolsSupport-auto"]),
+      dependencies: [
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+      ]),
     .testTarget(
       name: "SwiftOptionsTests",
       dependencies: ["SwiftOptions"]),
 
     /// The primary driver executable.
-    .target(
+    .executableTarget(
       name: "swift-driver",
       dependencies: ["SwiftDriverExecution", "SwiftDriver"]),
 
     /// The help executable.
-    .target(
+    .executableTarget(
       name: "swift-help",
-      dependencies: ["SwiftOptions", "ArgumentParser", "SwiftToolsSupport-auto"]),
+      dependencies: [
+        "SwiftOptions",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+      ]),
 
     /// The help executable.
-    .target(
+    .executableTarget(
       name: "swift-build-sdk-interfaces",
       dependencies: ["SwiftDriver", "SwiftDriverExecution"]),
 
     /// The `makeOptions` utility (for importing option definitions).
-    .target(
+    .executableTarget(
       name: "makeOptions",
       dependencies: []),
   ],
@@ -123,7 +141,9 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
             .package(path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += ["llbuildSwift"]
+    package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
+      .product(name: "llbuildSwift", package: "swift-llbuild"),
+    ]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
