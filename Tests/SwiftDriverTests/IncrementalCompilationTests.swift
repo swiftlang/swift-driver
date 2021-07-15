@@ -836,7 +836,6 @@ extension IncrementalCompilationTests {
       else {
         let firstWave = haveGraph ? changedInputs : inputs
         let omittedFromFirstWave = haveGraph ? unchangedInputs : []
-        let forcedInFirstWave = haveGraph ? [] : inputs
         schedulingChanged(changedInputs)
         maySkip(unchangedInputs)
         queuingInitial(firstWave)
