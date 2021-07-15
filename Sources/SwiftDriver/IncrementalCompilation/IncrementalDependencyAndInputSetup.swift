@@ -226,7 +226,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsModTime: priorsModTime, buildRecordModTime: buildRecordModTime) {
       diagnosticEngine.emit(
         warning: "Will not do cross-module incremental builds, priors saved at \(priorsModTime)), " +
-        "but the previous build started at \(buildRecordModTime), at '\(dependencyGraphPath)'")
+        "but the previous build started at \(buildRecordModTime) [delta: \(priorsModTime.timeIntervalSince(buildRecordModTime))], at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
     catch {
