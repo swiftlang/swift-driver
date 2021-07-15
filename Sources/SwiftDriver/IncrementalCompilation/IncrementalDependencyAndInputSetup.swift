@@ -186,10 +186,6 @@ extension IncrementalCompilationState {
         incrementalOptions: options, buildStartTime: buildStartTime,
         buildEndTime: buildEndTime)
     }
-
-    var buildTimeSpan: ClosedRange<Date> {
-      buildStartTime...buildEndTime
-    }
   }
 }
 
@@ -227,10 +223,10 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
         warning: "Will not do cross-module incremental builds, wrong version of priors; expected \(expected) but read \(read) at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
-    catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsDate, timeSpan) {
+    catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsModTime: priorsModTime, buildRecordModTime: buildRecordModTime) {
       diagnosticEngine.emit(
-        warning: "Will not do cross-module incremental builds, priors saved at \(priorsDate), " +
-        "but the previous build happend from \(timeSpan.lowerBound) to \(timeSpan.upperBound), at '\(dependencyGraphPath)'")
+        warning: "Will not do cross-module incremental builds, priors saved at \(priorsModTime)), " +
+        "but the previous build started at \(buildRecordModTime), at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
     catch {

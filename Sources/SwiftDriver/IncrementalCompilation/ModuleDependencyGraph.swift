@@ -587,7 +587,7 @@ extension ModuleDependencyGraph {
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
-    case timeTravellingPriors(Date, ClosedRange<Date>)
+    case timeTravellingPriors(priorsModTime: Date, buildRecordModTime: Date)
   }
 
   /// Attempts to read a serialized dependency graph from the given path.
@@ -809,13 +809,14 @@ extension ModuleDependencyGraph {
   fileprivate static func ensurePriorsCreatedDuringPriorBuild(
     at path: VirtualPath,
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) throws {
-    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path)
+    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path),
+          let buildRecordModTime =
+            try? info.fileSystem.lastModificationTime(for: info.buildRecordInfo.buildRecordPath)
     else {
       return
     }
-    let priorBuildTimeSpan = info.buildTimeSpan
-    guard priorBuildTimeSpan.contains(priorsModTime) else {
-      throw ReadError.timeTravellingPriors(priorsModTime, priorBuildTimeSpan)
+    guard info.buildStartTime <= priorsModTime else {
+      throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime, buildRecordModTime: buildRecordModTime)
     }
   }
 }
