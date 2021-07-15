@@ -134,16 +134,19 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
         package.dependencies += [
             .package(url: "https://github.com/apple/swift-llbuild.git", .branch("main")),
         ]
+        package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
+            .product(name: "llbuildSwift", package: "swift-llbuild"),
+        ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
         // like `update-checkout`, which control the sources externally.
         package.dependencies += [
-            .package(path: "../llbuild"),
+            .package(name: "llbuild", path: "../llbuild"),
+        ]
+        package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
+            .product(name: "llbuildSwift", package: "llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
-      .product(name: "llbuildSwift", package: "swift-llbuild"),
-    ]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
