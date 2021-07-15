@@ -302,7 +302,7 @@ extension IncrementalCompilationTests {
   /// Ensure that a saved prior module dependency graph is rejected if not from the previous build
   func testObsoletePriors() throws {
 #if !os(Linux)
-    let before = Date()
+    let before = Date().advanced(by: -2.0)
     let driver = try buildInitialState(checkDiagnostics: true)
     let path = try XCTUnwrap(driver.buildRecordInfo?.dependencyGraphPath)
     try setModTime(of: path, to: before) // Make priors too old

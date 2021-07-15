@@ -223,10 +223,12 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
         warning: "Will not do cross-module incremental builds, wrong version of priors; expected \(expected) but read \(read) at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
-    catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsModTime: priorsModTime, buildRecordModTime: buildRecordModTime) {
+    catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
+                                                                   buildRecordModTime: buildRecordModTime,
+                                                                   priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart) {
       diagnosticEngine.emit(
         warning: "Will not do cross-module incremental builds, priors saved at \(priorsModTime)), " +
-        "but the previous build started at \(buildRecordModTime) [delta: \(priorsModTime.timeIntervalSince(buildRecordModTime))], at '\(dependencyGraphPath)'")
+        "but the previous build started at \(buildRecordModTime) [priorsTimeIntervalSinceStart: \(priorsTimeIntervalSinceStart)], at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
     catch {

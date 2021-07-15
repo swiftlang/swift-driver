@@ -587,7 +587,9 @@ extension ModuleDependencyGraph {
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
-    case timeTravellingPriors(priorsModTime: Date, buildRecordModTime: Date)
+    case timeTravellingPriors(priorsModTime: Date,
+                              buildRecordModTime: Date,
+                              priorsTimeIntervalSinceStart: TimeInterval)
   }
 
   /// Attempts to read a serialized dependency graph from the given path.
@@ -815,8 +817,12 @@ extension ModuleDependencyGraph {
     else {
       return
     }
-    guard info.buildStartTime <= priorsModTime else {
-      throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime, buildRecordModTime: buildRecordModTime)
+    let priorsTimeIntervalSinceStart = priorsModTime.timeIntervalSince(buildRecordModTime)
+    // CI seems to emit identical times; I'm not sure why. So compare to -1.
+    guard -1.0 < priorsTimeIntervalSinceStart else {
+      throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
+                                           buildRecordModTime: buildRecordModTime,
+                                           priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart)
     }
   }
 }
