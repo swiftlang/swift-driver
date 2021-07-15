@@ -386,6 +386,7 @@ extension Option {
   public static let localizationPath: Option = Option("-localization-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Path to localized diagnostic messages directory")
   public static let location: Option = Option("-location", .separate, attributes: [.noDriver], metaVar: "<location>", helpText: "Filter nodes with the given location.")
   public static let location_: Option = Option("--location", .separate, alias: Option.location, attributes: [.noDriver], metaVar: "<location>", helpText: "Filter nodes with the given location.")
+  public static let ltoLibrary: Option = Option("-lto-library", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<lto-library>", helpText: "Perform LTO with <lto-library>")
   public static let lto: Option = Option("-lto=", .joined, attributes: [.frontend, .noInteractive], helpText: "Specify the LTO type to either 'llvm-thin' or 'llvm-full'")
   public static let L: Option = Option("-L", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Add directory to library link search path", group: .linkerOption)
   public static let l: Option = Option("-l", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linkerOption)
@@ -986,6 +987,7 @@ extension Option {
       Option.localizationPath,
       Option.location,
       Option.location_,
+      Option.ltoLibrary,
       Option.lto,
       Option.L,
       Option.l,
