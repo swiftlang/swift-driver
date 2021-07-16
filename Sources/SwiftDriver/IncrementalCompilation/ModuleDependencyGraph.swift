@@ -588,7 +588,7 @@ extension ModuleDependencyGraph {
     case unknownKind
     case unknownDependencySourceExtension
     case timeTravellingPriors(priorsModTime: Date,
-                              buildRecordModTime: Date,
+                              buildStartTime: Date,
                               priorsTimeIntervalSinceStart: TimeInterval)
   }
 
@@ -811,17 +811,16 @@ extension ModuleDependencyGraph {
   fileprivate static func ensurePriorsCreatedDuringPriorBuild(
     at path: VirtualPath,
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) throws {
-    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path),
-          let buildRecordModTime =
-            try? info.fileSystem.lastModificationTime(for: info.buildRecordInfo.buildRecordPath)
+    let buildStartTime = info.buildStartTime
+    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path)
     else {
       return
     }
-    let priorsTimeIntervalSinceStart = priorsModTime.timeIntervalSince(buildRecordModTime)
+    let priorsTimeIntervalSinceStart = priorsModTime.timeIntervalSince(buildStartTime)
     // CI seems to emit identical times; I'm not sure why. So compare to -1.
-    guard -1.0 < priorsTimeIntervalSinceStart else {
+    guard -1.0 <= priorsTimeIntervalSinceStart else {
       throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
-                                           buildRecordModTime: buildRecordModTime,
+                                           buildStartTime: buildStartTime,
                                            priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart)
     }
   }
