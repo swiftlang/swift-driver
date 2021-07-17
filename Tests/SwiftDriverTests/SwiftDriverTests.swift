@@ -3958,6 +3958,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
     }
 
+    // Disabled by default in merge-module
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-no-emit-module-separately"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+    }
+
     // Emit-module separately
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
