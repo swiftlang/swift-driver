@@ -2453,6 +2453,50 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testClangTargetForExplicitModule() throws {
+    // Check -clang-target is on by defualt when explicit module is on.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import Swift"
+      }
+      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build", "-target",
+                                     "x86_64-apple-macosx10.14", main.pathString])
+      guard driver.isFrontendArgSupported(.clangTarget) else {
+        throw XCTSkip("Skipping: compiler does not support '-clang-target'")
+      }
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.contains { job in
+        job.commandLine.contains(.flag("-clang-target"))
+      })
+    }
+    // Check -disable-clang-target works
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import Swift"
+      }
+      var driver = try Driver(args: ["swiftc", "-disable-clang-target",
+                                     "-experimental-explicit-module-build", "-target",
+                                     "x86_64-apple-macosx10.14", main.pathString])
+      guard driver.isFrontendArgSupported(.clangTarget) else {
+        throw XCTSkip("Skipping: compiler does not support '-clang-target'")
+      }
+      let plannedJobs = try driver.planBuild()
+      XCTAssertFalse(plannedJobs.contains { job in
+        job.commandLine.contains(.flag("-clang-target"))
+      })
+    }
+  }
+
+  func testDisableClangTargetForImplicitModule() throws {
+    var driver = try Driver(args: ["swiftc", "-target",
+                                   "x86_64-apple-macosx10.14", "foo.swift"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+    XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-clang-target")))
+  }
 
   func testPCHasCompileInput() throws {
     var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])

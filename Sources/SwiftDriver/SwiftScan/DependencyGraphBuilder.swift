@@ -42,6 +42,16 @@ internal extension SwiftScan {
     return resultGraph
   }
 
+  /// From a reference to a binary-format set of module imports return by libSwiftScan pre-scan query,
+  /// construct an instance of an `InterModuleDependencyImports` set
+  func constructImportSet(from importSetRef: swiftscan_import_set_t) throws
+  -> InterModuleDependencyImports {
+    guard let importsRef = api.swiftscan_import_set_get_imports(importSetRef) else {
+      throw DependencyScanningError.missingField("import_set.imports")
+    }
+    return InterModuleDependencyImports(imports: try toSwiftStringArray(importsRef.pointee))
+  }
+
   /// From a reference to a binary-format dependency graph collection returned by libSwiftScan batch scan query,
   /// corresponding to the specified batch scan input (`BatchScanModuleInfo`), construct instances of
   /// `InterModuleDependencyGraph` for each result.

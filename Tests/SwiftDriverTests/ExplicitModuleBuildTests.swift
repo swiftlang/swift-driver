@@ -136,7 +136,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
 
     // Ensure all transitive dependencies got added as well.
     for transitiveDependencyId in dependencyInfo.directDependencies! {
-      try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
+      try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs,
                                                   moduleInfo: dependencyOracle.getExternalModuleInfo(of: transitiveDependencyId)!,
                                                   dependencyOracle: dependencyOracle,
                                                   pcmFileEncoder: pcmFileEncoder)
@@ -406,7 +406,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             dependencyOracle: dependencyOracle,
                                             pcmFileEncoder: pcmFileEncoder)
           // Module X is a dependency from Clang module "G" discovered only via versioned PCM
-          // re-scan. 
+          // re-scan.
           case .relative(pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgsCurrent,
                                                           pcmModuleNameEncoder: pcmModuleNameEncoder)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("X"),
@@ -602,24 +602,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
-  /// Test the libSwiftScan dependency scanning.
-  func testDependencyScanning() throws {
+  private func getDriverArtifactsForScanning() throws -> (stdLibPath: AbsolutePath,
+                                                          shimsPath: AbsolutePath,
+                                                          toolchain: Toolchain,
+                                                          hostTriple: Triple) {
     // Just instantiating to get at the toolchain path
     let driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
                                    "-module-name", "testDependencyScanning",
                                    "test.swift"])
     let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
-
     XCTAssertTrue(localFileSystem.exists(stdLibPath),
                   "expected Swift StdLib at: \(stdLibPath.description)")
     XCTAssertTrue(localFileSystem.exists(shimsPath),
                   "expected Swift Shims at: \(shimsPath.description)")
+    return (stdLibPath, shimsPath, driver.toolchain, driver.hostTriple)
+  }
+
+  /// Test the libSwiftScan dependency scanning (import-prescan).
+  func testDependencyImportPrescan() throws {
+    let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
-    let scanLibPath = try Driver.getScanLibPath(of: driver.toolchain,
-                                                hostTriple: driver.hostTriple,
+    let scanLibPath = try Driver.getScanLibPath(of: toolchain,
+                                                hostTriple: hostTriple,
                                                 env: ProcessEnv.vars)
     guard try dependencyOracle
             .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
@@ -627,7 +634,55 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTFail("Dependency scanner library not found")
       return
     }
-    
+
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+      let testInputsPath = packageRootPath + "/TestInputs"
+      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
+      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let scannerCommand = ["-scan-dependencies",
+                            "-import-prescan",
+                            "-I", cHeadersPath,
+                            "-I", swiftModuleInterfacesPath,
+                            "-I", stdLibPath.description,
+                            "-I", shimsPath.description,
+                            main.pathString]
+
+      let imports =
+        try! dependencyOracle.getImports(workingDirectory: path,
+                                         commandLine: scannerCommand)
+      let expectedImports = ["C", "E", "G", "Swift", "SwiftOnoneSupport"]
+      // Dependnig on how recent the platform we are running on, the Concurrency module may or may not be present.
+      let expectedImports2 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency"]
+      XCTAssertTrue(Set(imports.imports) == Set(expectedImports) || Set(imports.imports) == Set(expectedImports2))
+    }
+  }
+
+  /// Test the libSwiftScan dependency scanning.
+  func testDependencyScanning() throws {
+    let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = InterModuleDependencyOracle()
+    let scanLibPath = try Driver.getScanLibPath(of: toolchain,
+                                                hostTriple: hostTriple,
+                                                env: ProcessEnv.vars)
+    guard try dependencyOracle
+            .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                           swiftScanLibPath: scanLibPath) else {
+      XCTFail("Dependency scanner library not found")
+      return
+    }
+
     // Create a simple test case.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
@@ -654,8 +709,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Module `X` is only imported on Darwin when:
       // #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 110000
       let expectedNumberOfDependencies: Int
-      if driver.targetTriple.isMacOSX,
-         driver.targetTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
+      if hostTriple.isMacOSX,
+         hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 11
       } else {
         expectedNumberOfDependencies = 12
