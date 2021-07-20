@@ -98,13 +98,15 @@ extension ModuleDependencyGraph {
   /// Integrates `input` as needed and returns any inputs that were invalidated by external dependencies
   /// When creating a graph from swiftdeps files, this operation is performed for each input.
   func collectInputsRequiringCompilationFromExternalsFoundByCompiling(
-    input: TypedVirtualPath
+    input: TypedVirtualPath,
+    confinementQueue: DispatchQueue? = nil
   ) -> TransitivelyInvalidatedInputSet? {
     // do not try to read swiftdeps of a new input
     if info.sourceFiles.isANewInput(input.file) {
       return TransitivelyInvalidatedInputSet()
     }
-    return collectInputsRequiringCompilationAfterProcessing(input: input)
+    return collectInputsRequiringCompilationAfterProcessing(input: input,
+                                                            confinementQueue: confinementQueue)
   }
 }
 
@@ -188,9 +190,10 @@ extension ModuleDependencyGraph {
   /// - Returns: The input files that must be compiled now that `input` has been compiled.
   /// These may include inptus that do not need compilation because this build already compiled them.
   /// In case of an error, such as a missing entry in the `OutputFileMap`, nil is returned.
-  func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath
+  func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath,
+                                         confinementQueue: DispatchQueue
   ) -> TransitivelyInvalidatedInputSet? {
-    return collectInputsRequiringCompilationAfterProcessing(input: input)
+    return collectInputsRequiringCompilationAfterProcessing(input: input, confinementQueue: confinementQueue)
   }
 }
 
@@ -266,7 +269,8 @@ extension ModuleDependencyGraph {
   /// - Parameter input: The input file whose swiftdeps file contains the dependencies to be read and integrated.
   /// - Returns: `nil` on error, or the inputs discovered to be requiring compilation.
   private func collectInputsRequiringCompilationAfterProcessing(
-    input: TypedVirtualPath
+    input: TypedVirtualPath,
+    confinementQueue: DispatchQueue?
   ) -> TransitivelyInvalidatedInputSet? {
     assert(input.type == .swift)
     let dependencySource = DependencySource(input)
@@ -278,11 +282,14 @@ extension ModuleDependencyGraph {
           because: "malformed dependencies file '\(dependencySource.fileToRead(info: info)?.file.name ?? "none?!")'"))
       return nil
     }
-    let invalidatedNodes = Integrator.integrate(
-      from: sourceGraph,
-      dependencySource: dependencySource,
-      into: self)
-    return collectInputsInBuildUsingInvalidated(nodes: invalidatedNodes)
+    func invalidateAndCollect() -> TransitivelyInvalidatedInputSet? {
+      let invalidatedNodes = Integrator.integrate(
+        from: sourceGraph,
+        dependencySource: dependencySource,
+        into: self)
+      return collectInputsInBuildUsingInvalidated(nodes: invalidatedNodes)
+    }
+    return confinementQueue.map { $0.sync(execute: invalidateAndCollect) } ?? invalidateAndCollect()
   }
 
   /// Computes the set of inputs that must be recompiled as a result of the

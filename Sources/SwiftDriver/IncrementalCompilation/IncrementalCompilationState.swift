@@ -215,7 +215,6 @@ extension IncrementalCompilationState {
   /// Careful: job may not be primary.
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job) throws -> [Job]? {
-    return try self.confinementQueue.sync {
       // Find and deal with inputs that now need to be compiled
       let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
       assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
@@ -229,7 +228,6 @@ extension IncrementalCompilationState {
       }
       return try getJobs(for: invalidatedInputs)
     }
-  }
 
   /// Needed for API compatibility, `result` will be ignored
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
@@ -240,7 +238,6 @@ extension IncrementalCompilationState {
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
   private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<TypedVirtualPath> {
-    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     guard job.kind == .compile else {
       return Set<TypedVirtualPath>()
     }
@@ -253,8 +250,8 @@ extension IncrementalCompilationState {
   private func collectInputsInvalidated(
     byCompiling input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet {
-    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
-    if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
+    if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input,
+                                                                           confinementQueue: confinementQueue) {
       return found
     }
     self.reporter?.report(
@@ -266,21 +263,22 @@ extension IncrementalCompilationState {
   private func getJobs(
     for invalidatedInputs: Set<TypedVirtualPath>
   ) throws -> [Job] {
-    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
-    let unbatched = invalidatedInputs.flatMap { input -> [Job] in
-      if let group = skippedCompileGroups.removeValue(forKey: input) {
-        let primaryInputs = group.compileJob.primaryInputs
-        assert(primaryInputs.count == 1)
-        assert(primaryInputs[0] == input)
-        self.reporter?.report("Scheduling invalidated", input)
-        return group.allJobs()
+    try confinementQueue.sync {
+      let unbatched = invalidatedInputs.flatMap { input -> [Job] in
+        if let group = skippedCompileGroups.removeValue(forKey: input) {
+          let primaryInputs = group.compileJob.primaryInputs
+          assert(primaryInputs.count == 1)
+          assert(primaryInputs[0] == input)
+          self.reporter?.report("Scheduling invalidated", input)
+          return group.allJobs()
+        }
+        else {
+          self.reporter?.report("Tried to schedule invalidated input again", input)
+          return []
+        }
       }
-      else {
-        self.reporter?.report("Tried to schedule invalidated input again", input)
-        return []
-      }
+      return try driver.formBatchedJobs(unbatched, showJobLifecycle: driver.showJobLifecycle)
     }
-    return try driver.formBatchedJobs(unbatched, showJobLifecycle: driver.showJobLifecycle)
   }
 }
 // MARK: - Scheduling post-compile jobs
