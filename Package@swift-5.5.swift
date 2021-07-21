@@ -54,7 +54,8 @@ let package = Package(
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
         "CSwiftScan",
         .product(name: "Yams", package: "Yams"),
-      ]),
+      ],
+      exclude: ["CMakeLists.txt"]),
 
     /// The execution library.
     .target(
@@ -62,7 +63,8 @@ let package = Package(
       dependencies: [
         "SwiftDriver",
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
-      ]),
+      ],
+      exclude: ["CMakeLists.txt"]),
 
     /// Driver tests.
     .testTarget(
@@ -97,7 +99,8 @@ let package = Package(
       name: "SwiftOptions",
       dependencies: [
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-      ]),
+      ],
+      exclude: ["CMakeLists.txt"]),
     .testTarget(
       name: "SwiftOptionsTests",
       dependencies: ["SwiftOptions"]),
@@ -105,7 +108,8 @@ let package = Package(
     /// The primary driver executable.
     .executableTarget(
       name: "swift-driver",
-      dependencies: ["SwiftDriverExecution", "SwiftDriver"]),
+      dependencies: ["SwiftDriverExecution", "SwiftDriver"],
+      exclude: ["CMakeLists.txt"]),
 
     /// The help executable.
     .executableTarget(
@@ -114,12 +118,14 @@ let package = Package(
         "SwiftOptions",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-      ]),
+      ],
+      exclude: ["CMakeLists.txt"]),
 
     /// The help executable.
     .executableTarget(
       name: "swift-build-sdk-interfaces",
-      dependencies: ["SwiftDriver", "SwiftDriverExecution"]),
+      dependencies: ["SwiftDriver", "SwiftDriverExecution"],
+      exclude: ["CMakeLists.txt"]),
 
     /// The `makeOptions` utility (for importing option definitions).
     .executableTarget(
