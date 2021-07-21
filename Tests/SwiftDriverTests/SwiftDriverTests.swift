@@ -1122,6 +1122,16 @@ final class SwiftDriverTests: XCTestCase {
     #endif
 
     do {
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-no-toolchain-stdlib-rpath",
+                                                  "-target", "aarch64-unknown-linux"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 4)
+      let linkJob = plannedJobs[3]
+      let cmd = linkJob.commandLine
+      XCTAssertFalse(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-rpath"), .flag("-Xlinker")]))
+    }
+
+    do {
       // Object file inputs
       var driver = try Driver(args: commonArgs + ["baz.o", "-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
