@@ -200,6 +200,7 @@ extension Driver {
     try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
+    try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
 
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
