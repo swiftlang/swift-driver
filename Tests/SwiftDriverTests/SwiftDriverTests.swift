@@ -4802,6 +4802,15 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testWarnConcurrency() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-warn-concurrency", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-warn-concurrency")))
+    }
+  }
+
   func testRelativeResourceDir() throws {
     do {
       var driver = try Driver(args: ["swiftc",
