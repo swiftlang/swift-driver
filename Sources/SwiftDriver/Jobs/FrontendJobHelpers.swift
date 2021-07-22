@@ -199,6 +199,7 @@ extension Driver {
     try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
+    try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
 
     if let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
