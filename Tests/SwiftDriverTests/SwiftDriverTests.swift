@@ -769,21 +769,21 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
-  
+
   func testReferenceDependencies() throws {
     var driver = try Driver(args: ["swiftc", "foo.swift", "-incremental"])
     let plannedJobs = try driver.planBuild()
     XCTAssertTrue(plannedJobs[0].kind == .compile)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-reference-dependencies-path")))
   }
-  
+
   func testDuplicateName() throws {
     assertDiagnostics { diagnosticsEngine, verify in
       _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo.swift"], diagnosticsEngine: diagnosticsEngine)
       verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo.swift'"))
       verify.expect(.note("filenames are used to distinguish private declarations with the same name"))
     }
-    
+
     assertDiagnostics { diagnosticsEngine, verify in
       _ = try? Driver(args: ["swiftc", "-c", "foo.swift", "foo/foo.swift"], diagnosticsEngine: diagnosticsEngine)
       verify.expect(.error("filename \"foo.swift\" used twice: 'foo.swift' and 'foo/foo.swift'"))
@@ -1235,7 +1235,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-    
+
     do {
       // lto linking
       // Locating relevant libraries is dependent on being a macOS host
@@ -1258,7 +1258,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
       let plannedJobs3 = try driver3.planBuild()
       XCTAssertFalse(plannedJobs3.contains(where: { $0.kind == .autolinkExtract }))
-      
+
       let compileJob3 = try XCTUnwrap(plannedJobs3.first(where: { $0.kind == .compile }))
       XCTAssertTrue(compileJob3.outputs.contains { $0.file.basename.hasSuffix(".bc") })
 
@@ -1630,14 +1630,14 @@ final class SwiftDriverTests: XCTestCase {
       #endif
     }
   }
-  
+
   func testSanitizerRecoverArgs() throws {
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",]
     do {
       // address sanitizer + address sanitizer recover
       var driver = try Driver(args: commonArgs + ["-sanitize=address", "-sanitize-recover=address"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      
+
       XCTAssertEqual(plannedJobs.count, 3)
 
       let compileJob = plannedJobs[0]
@@ -2598,7 +2598,7 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
-    
+
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib", "-target", "x86_64-apple-macosx10.14",
                                            "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-stdlib") = error else {
@@ -2614,7 +2614,7 @@ final class SwiftDriverTests: XCTestCase {
         return
       }
     }
-    
+
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
                                            "foo.swift"])) { error in
         guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
@@ -3452,7 +3452,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(jobs[0].commandLine.contains("-wmo"))
       XCTAssertTrue(jobs[0].commandLine.contains("-dump-ast"))
     }
-    
+
     try assertDriverDiagnostics(args: ["swiftc", "-index-file", "-dump-ast",
                                        "foo.swift",
                                        "-index-file-path", "foo.swift",
@@ -3580,7 +3580,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       struct MockExecutor: DriverExecutor {
         let resolver: ArgsResolver
-        
+
         func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
@@ -3728,6 +3728,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testVerboseImmediateMode() throws {
+    #if os(macOS) && arch(arm64)
+      // Temporarily disabled on Apple Silicon
+      // rdar://80558898
+      throw XCTSkip()
+    #endif
+
 // There is nothing particularly macOS-specific about this test other than
 // the use of some macOS-specific XCTest functionality to determine the
 // test bundle that contains the swift-driver executable.
@@ -3842,7 +3848,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
     }
-    
+
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-lto-library", "/foo/libLTO.dylib", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
@@ -3851,14 +3857,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
       XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
     }
-    
+
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
     }
-    
+
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-lto-library", "/foo/libLTO.dylib", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
@@ -3867,7 +3873,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
       XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
     }
-    
+
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
@@ -4721,7 +4727,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(jobs.count == 1)
     XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
   }
-  
+
   func testSourceInfoFileEmitOption() throws {
     // implicit
     do {
