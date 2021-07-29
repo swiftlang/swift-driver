@@ -26,7 +26,7 @@ class CleanBuildPeformanceTests: XCTestCase {
     let limit = 100 // This is the real test, optimized code.
     #endif
 
-    try testCleanBuildSwiftDepsPerformance(swiftDepsDirectoryPath.pathString, atMost: limit)
+    try testCleanBuildSwiftDepsPerformance(swiftDepsDirectory: swiftDepsDirectoryPath.pathString, atMost: limit)
   }
 
   /// Test the cost of reading `swiftdeps` files without doing a full build.
@@ -38,7 +38,7 @@ class CleanBuildPeformanceTests: XCTestCase {
   /// - Parameters:
   ///    - swiftDepsDirectory: where the swiftdeps files are, either absolute, or relative to the current directory
   ///    - limit: the maximum number of swiftdeps files to process.
-  func testCleanBuildSwiftDepsPerformance(_ swiftDepsDirectory: String, atMost limit: Int = .max) throws {
+  func testCleanBuildSwiftDepsPerformance(swiftDepsDirectory: String, atMost limit: Int = .max) throws {
     let (outputFileMap, inputs) = try createOFMAndInputs(swiftDepsDirectory, atMost: limit)
 
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
