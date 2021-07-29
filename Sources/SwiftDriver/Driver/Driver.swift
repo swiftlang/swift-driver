@@ -2072,7 +2072,7 @@ extension Driver {
     }
 
     // Delete trailing /.
-    sdkPath = sdkPath.map { $0.last == "/" ? String($0.dropLast()) : $0 }
+    sdkPath = sdkPath.map { $0.count > 1 && $0.last == "/" ? String($0.dropLast()) : $0 }
 
     // Validate the SDK if we found one.
     if let sdkPath = sdkPath {
