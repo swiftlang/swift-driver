@@ -17,14 +17,8 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// This test relies on sample `swiftdeps` files to be present in `<project-folder>/TestInputs/SampleSwiftDeps`.
   /// If the serialization format changes, they will need to be regenerated.
   /// To regenerate them:
-  /// - Remove the existing files in `<project-folder>/TestInputs/SampleSwiftDeps`
-  /// - Do a clean, debug build of this project.
-  /// - cd into the derived data folder (i.e. `~/Library/Developer/Xcode/DerivedData`)
-  /// - Find the most recent folder there, say by running `ls -ltr`
-  /// - Dive into that folder (e.g. `swift-driver-gudirqzdevjksmheyrbnqibnlpqq`)
-  /// - Dive into the `Objects-normal` folder for the `SwiftDriver` target (e.g. `./Build/Intermediates.noindex/swift-driver.build/Debug/SwiftDriver.build/Objects-normal/x86_64`)
-  /// - Copy all the `swiftdeps` files: `cp *.swiftdeps <project-folder>/TestInputs/SampleSwiftDeps`
-  ///
+  /// `cd` to the package directory, then:
+  /// `rm TestInputs/SampleSwiftDeps/*; swift build; find .build -name \*.swiftdeps -a -exec cp \{\} TestInputs/SampleSwiftDeps \;`
   func testCleanBuildSwiftDepsPerformance() throws {
     let packageRootPath = AbsolutePath(#file)
       .parentDirectory
