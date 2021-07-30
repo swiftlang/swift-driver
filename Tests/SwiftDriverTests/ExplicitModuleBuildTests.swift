@@ -215,6 +215,52 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
+    do {
+      let externalDetails: ExternalTargetModuleDetailsMap =
+            [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/A.swiftmodule"),
+                                                      isFramework: true)]
+      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
+                                     "-module-name", "testModuleDependencyBuildCommandGenerationWithExternalFramework",
+                                     "test.swift"])
+      var moduleDependencyGraph =
+            try JSONDecoder().decode(
+              InterModuleDependencyGraph.self,
+              from: ModuleDependenciesInputs.simpleDependencyGraphInput.data(using: .utf8)!)
+      // Key part of this test, using the external info to generate dependency pre-build jobs
+      try moduleDependencyGraph.resolveExternalDependencies(for: externalDetails)
+      driver.explicitDependencyBuildPlanner =
+        try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
+                                           toolchain: driver.toolchain)
+      let modulePrebuildJobs =
+        try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
+
+      XCTAssertEqual(modulePrebuildJobs.count, 1)
+      let job = modulePrebuildJobs.first!
+      // Load the dependency JSON and verify this dependency was encoded correctly
+      let explicitDepsFlag =
+        SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
+      XCTAssert(job.commandLine.contains(explicitDepsFlag))
+      let jsonDepsPathIndex = job.commandLine.firstIndex(of: explicitDepsFlag)
+      let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
+      guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
+        XCTFail("No JSON dependency file path found.")
+        return
+      }
+      guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
+        XCTFail("Unexpected path type")
+        return
+      }
+      let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
+                                                    from: contents)
+      XCTAssertEqual(dependencyInfoList.count, 1)
+      let dependencyArtifacts =
+        dependencyInfoList.first(where:{ $0.moduleName == "A" })!
+      // Ensure this is a framework, as specified by the externalDetails above.
+      XCTAssertEqual(dependencyArtifacts.isFramework, true)
+    }
+  }
+
   private func pathMatchesSwiftModule(path: VirtualPath, _ name: String) -> Bool {
     return path.basenameWithoutExt.starts(with: "\(name)-") &&
            path.extension! == FileType.swiftModule.rawValue

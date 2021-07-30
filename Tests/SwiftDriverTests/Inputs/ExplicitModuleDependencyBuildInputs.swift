@@ -396,6 +396,82 @@ enum ModuleDependenciesInputs {
     """
   }
 
+  static var simpleDependencyGraphInput: String {
+    """
+    {
+      "mainModuleName": "main",
+      "modules": [
+        {
+          "swift": "main"
+        },
+        {
+          "modulePath": "main.swiftmodule",
+          "sourceFiles": [
+            "/main/main.swift"
+          ],
+          "directDependencies": [
+            {
+              "swift": "B"
+            },
+          ],
+          "details": {
+            "swift": {
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "swift" : "B"
+        },
+        {
+          "modulePath" : "B.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies" : [
+            {
+              "swift": "A"
+            },
+          ],
+          "details" : {
+            "swift" : {
+              "moduleInterfacePath": "B.swiftmodule/B.swiftinterface",
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ],
+            }
+          }
+        },
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "/tmp/A.swiftmodule",
+          "sourceFiles": [
+            "/A/A.swift"
+          ],
+          "directDependencies" : [
+          ],
+          "details": {
+            "swift": {
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
   static var mergeGraphInput2: String {
     """
     {
