@@ -129,6 +129,10 @@ extension SourceFileDependencyGraph {
   }
 
   /// Returns nil if there was no dependency info
+  ///
+  /// Warning: if the serialization format changes, it will be necessary to regenerate the `swiftdeps`
+  /// files in `TestInputs/SampleSwiftDeps`.
+  /// See ``CleanBuildPerformanceTests/testCleanBuildSwiftDepsPerformance``.
   static func read(
     from typedFile: TypedVirtualPath,
     on fileSystem: FileSystem

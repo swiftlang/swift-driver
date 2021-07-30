@@ -188,7 +188,8 @@ extension ModuleDependencyGraph {
   /// - Returns: The input files that must be compiled now that `input` has been compiled.
   /// These may include inptus that do not need compilation because this build already compiled them.
   /// In case of an error, such as a missing entry in the `OutputFileMap`, nil is returned.
-  func collectInputsRequiringCompilation(byCompiling input: TypedVirtualPath
+  @_spi(Testing) public func collectInputsRequiringCompilation(
+    byCompiling input: TypedVirtualPath
   ) -> TransitivelyInvalidatedInputSet? {
     return collectInputsRequiringCompilationAfterProcessing(input: input)
   }

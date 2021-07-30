@@ -1,0 +1,20 @@
+version: "Apple Swift version 5.5 (swiftlang-1300.0.24.7 clang-1300.0.23.1)"
+options: "3ceaa05b1c0ed3cbf21b02034b352536006f74e8438cda5ec737e54a58b529e0"
+build_start_time: [1627665162, 69974899]
+build_end_time: [1627665165, 499423027]
+inputs:
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Constructor.swift": [1627665152, 24553775]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Decoder.swift": [1627665152, 24842262]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Emitter.swift": [1627665152, 25173187]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Encoder.swift": [1627665152, 25722026]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Mark.swift": [1627665152, 25939464]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Node.Mapping.swift": [1627665152, 26179313]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Node.Scalar.swift": [1627665152, 26351451]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Node.Sequence.swift": [1627665152, 26534557]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Node.swift": [1627665152, 26773452]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Parser.swift": [1627665152, 26996135]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Representer.swift": [1627665152, 27221679]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Resolver.swift": [1627665152, 27447700]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/String+Yams.swift": [1627665152, 27634620]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/Tag.swift": [1627665152, 27837753]
+  "/Volumes/AS/repos/swift-driver/swift-driver/.build/checkouts/Yams/Sources/Yams/YamlError.swift": [1627665152, 28302192]
