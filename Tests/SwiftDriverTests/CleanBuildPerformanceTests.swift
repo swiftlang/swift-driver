@@ -18,7 +18,7 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// If the serialization format changes, they will need to be regenerated.
   /// To regenerate them:
   /// `cd` to the package directory, then:
-  /// `rm TestInputs/SampleSwiftDeps/*; swift build; find .build -name \*.swiftdeps -a -exec cp \{\} TestInputs/SampleSwiftDeps \;`
+  /// `rm TestInputs/SampleSwiftDeps/*; rm -rf .build; swift build; find .build -name \*.swiftdeps -a -exec cp \{\} TestInputs/SampleSwiftDeps \;`
   func testCleanBuildSwiftDepsPerformance() throws {
     let packageRootPath = AbsolutePath(#file)
       .parentDirectory
