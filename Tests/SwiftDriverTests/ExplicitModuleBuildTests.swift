@@ -59,6 +59,8 @@ throws {
   // Ensure the frontend was prohibited from doing implicit module builds
   XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
   XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
+  XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-module-maps"))))
+
   try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: downstreamPCMArgs,
                                               moduleInfo: moduleInfo,
                                               dependencyGraph: dependencyGraph,

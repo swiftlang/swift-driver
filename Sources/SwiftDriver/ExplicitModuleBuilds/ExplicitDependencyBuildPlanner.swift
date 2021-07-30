@@ -254,7 +254,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                                           commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
-                            "-fno-implicit-modules")
+                            "-fno-implicit-modules", "-Xcc", "-Xclang", "-Xcc", "-fno-implicit-module-maps")
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
     try addModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
