@@ -532,9 +532,9 @@ extension Driver {
   throws -> InterModuleDependencyGraph {
     var dependencyGraph = try performDependencyScan()
 
-    if let externalTargetPaths = externalTargetModulePathMap {
+    if let externalTargetDetails = externalTargetModuleDetailsMap {
       // Resolve external dependencies in the dependency graph, if any.
-      try dependencyGraph.resolveExternalDependencies(for: externalTargetPaths)
+      try dependencyGraph.resolveExternalDependencies(for: externalTargetDetails)
     }
 
     // Re-scan Clang modules at all the targets they will be built against.

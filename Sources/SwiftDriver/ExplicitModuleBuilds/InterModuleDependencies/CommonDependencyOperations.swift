@@ -15,9 +15,10 @@ import TSCBasic
   /// For targets that are built alongside the driver's current module, the scanning action will report them as
   /// textual targets to be built from source. Because we can rely on these targets to have been built prior
   /// to the driver's current target, we resolve such external targets as prebuilt binary modules, in the graph.
-  mutating func resolveExternalDependencies(for externalTargetModulePathMap: ExternalTargetModulePathMap)
+  mutating func resolveExternalDependencies(for externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap)
   throws {
-    for (externalModuleId, externalModulePath) in externalTargetModulePathMap {
+    for (externalModuleId, externalModuleDetails) in externalTargetModuleDetailsMap {
+      let externalModulePath = externalModuleDetails.path
       // Replace the occurence of a Swift module to-be-built from source-file
       // to an info that describes a pre-built binary module.
       let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
@@ -32,12 +33,12 @@ import TSCBasic
       let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
       let newExternalModuleDetails =
       try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                              TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()))
+                                              TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                             isFramework: externalModuleDetails.isFramework)
       let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                sourceFiles: [],
                                directDependencies: currentInfo.directDependencies,
                                details: .swiftPrebuiltExternal(newExternalModuleDetails))
-
       Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
                          replacementInfo: newInfo, in: &modules)
     }
