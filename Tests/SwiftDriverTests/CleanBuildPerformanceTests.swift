@@ -6,13 +6,25 @@ import XCTest
 import TSCBasic
 import TSCUtility
 
-class CleanBuildPeformanceTests: XCTestCase {
+class CleanBuildPerformanceTests: XCTestCase {
   /// Test the cost of reading `swiftdeps` files without doing a full build. Use the files in "TestInputs/SampleSwiftDeps"
   ///
   /// When doing an incremental but clean build, after every file is compiled, its `swiftdeps` file must be
   /// deserialized and integrated into the `ModuleDependencyGraph`.
   /// This test allows us to profile an optimize this work. (Set up the scheme to run optimized code.)
   /// It reads and integrages every swiftdeps file in a given directory.
+  ///
+  /// This test relies on sample `swiftdeps` files to be present in `<project-folder>/TestInputs/SampleSwiftDeps`.
+  /// If the serialization format changes, they will need to be regenerated.
+  /// To regenerate them:
+  /// - Remove the existing files in `<project-folder>/TestInputs/SampleSwiftDeps`
+  /// - Do a clean, debug build of this project.
+  /// - cd into the derived data folder (i.e. `~/Library/Developer/Xcode/DerivedData`)
+  /// - Find the most recent folder there, say by running `ls -ltr`
+  /// - Dive into that folder (e.g. `swift-driver-gudirqzdevjksmheyrbnqibnlpqq`)
+  /// - Dive into the `Objects-normal` folder for the `SwiftDriver` target (e.g. `./Build/Intermediates.noindex/swift-driver.build/Debug/SwiftDriver.build/Objects-normal/x86_64`)
+  /// - Copy all the `swiftdeps` files: `cp *.swiftdeps <project-folder>/TestInputs/SampleSwiftDeps`
+  ///
   func testCleanBuildSwiftDepsPerformance() throws {
     let packageRootPath = AbsolutePath(#file)
       .parentDirectory
@@ -47,7 +59,7 @@ class CleanBuildPeformanceTests: XCTestCase {
     measure {readSwiftDeps(for: inputs, into: g)}
   }
 
-  /// Build the `OutputFileMap` and input vector for ``testCleanBuildSwiftDepsPeformance(_, atMost)``
+  /// Build the `OutputFileMap` and input vector for ``testCleanBuildSwiftDepsPerformance(_, atMost)``
   private func createOFMAndInputs(_ swiftDepsDirectory: String,
                                   atMost limit: Int
   ) throws -> (OutputFileMap, [TypedVirtualPath]) {

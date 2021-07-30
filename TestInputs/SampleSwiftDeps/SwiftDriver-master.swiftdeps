@@ -1,7 +1,7 @@
 version: "Apple Swift version 5.5 (swiftlang-1300.0.25.5 clang-1300.0.25.10)"
 options: "3be04b690b511d456be12d853c8e7fb7309bef38797becec3c22b376201a90a8"
-build_start_time: [1627496245, 317927837]
-build_end_time: [1627496247, 721446990]
+build_start_time: [1627596511, 218058109]
+build_end_time: [1627596515, 256640911]
 inputs:
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/Driver/CompilerMode.swift": [1625521979, 959767341]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/Driver/DebugInfo.swift": [1600823671, 315656185]
@@ -27,27 +27,27 @@ inputs:
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/ExplicitModuleBuilds/SerializableModuleArtifacts.swift": [1613079834, 429231166]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/BuildRecord.swift": [1625876913, 229929924]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/BuildRecordInfo.swift": [1626739245, 929402828]
-  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/DependencyGraphDotFileWriter.swift": [1626146246, 291733264]
-  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/DependencyKey.swift": [1626146246, 292123317]
+  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/DependencyGraphDotFileWriter.swift": [1627585166, 798580884]
+  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/DependencyKey.swift": [1627596510, 854910850]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/DirectAndTransitiveCollections.swift": [1626146246, 292512893]
   ? "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ExternalDependencyAndFingerprintEnforcer.swift"
-  : [1613155630, 113029241]
+  : [1627585166, 799714326]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/FirstWaveComputer.swift": [1626146246, 292912721]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/IncrementalCompilationState.swift": [1627419265, 278774738]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/IncrementalDependencyAndInputSetup.swift": [1627074310, 980928897]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/InputInfo.swift": [1611860399, 215799808]
-  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/KeyAndFingerprintHolder.swift": [1613777730, 935869216]
-  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraph.swift": [1627496244, 751050949]
+  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/KeyAndFingerprintHolder.swift": [1627585166, 800019264]
+  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraph.swift": [1627587212, 593955516]
   ? "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraphParts/DependencySource.swift"
-  : [1626284117, 587732791]
+  : [1627585166, 801980972]
   ? "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraphParts/Integrator.swift"
-  : [1627491462, 87707281]
-  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraphParts/Node.swift": [1626146246, 295569896]
+  : [1627585166, 802685737]
+  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraphParts/Node.swift": [1627585166, 803627014]
   ? "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraphParts/NodeFinder.swift"
-  : [1627074310, 985350370]
+  : [1627585166, 804693698]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/ModuleDependencyGraphParts/Tracer.swift": [1627491783, 366018056]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/Multidictionary.swift": [1624410282, 355341434]
-  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/SourceFileDependencyGraph.swift": [1627491783, 367422819]
+  "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/SourceFileDependencyGraph.swift": [1627595512, 107480287]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/TwoDMap.swift": [1627074310, 989362716]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/IncrementalCompilation/TwoLevelMap.swift": [1626146246, 297149658]
   "/Volumes/AS/repos/swift-driver/swift-driver/Sources/SwiftDriver/Jobs/APIDigesterJobs.swift": [1626739245, 930324316]
