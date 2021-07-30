@@ -23,6 +23,7 @@ public struct Driver {
     case invalidArgumentValue(String, String)
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
+    case externalTargetDetailsAPIError
     case integratedReplRemoved
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
@@ -57,6 +58,8 @@ public struct Driver {
         return "relative frontend path: \(path)"
       case .subcommandPassedToDriver:
         return "subcommand passed to driver"
+      case .externalTargetDetailsAPIError:
+        return "Cannot specify both: externalTargetModulePathMap and externalTargetModuleDetailsMap"
       case .integratedReplRemoved:
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .cannotSpecify_OForMultipleOutputs:
@@ -307,7 +310,7 @@ public struct Driver {
 
   /// A dictionary of external targets that are a part of the same build, mapping to filesystem paths
   /// of their module files
-  @_spi(Testing) public var externalTargetModulePathMap: ExternalTargetModulePathMap? = nil
+  @_spi(Testing) public var externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
@@ -388,8 +391,11 @@ public struct Driver {
   ///   an executable or as a library.
   /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
-  /// - Parameter externalTargetModulePathMap: A dictionary of external targets that are a part of
-  ///   the same build, mapping to filesystem paths of their module files.
+  /// - Parameter externalTargetModulePathMap: DEPRECATED: A dictionary of external targets
+  ///   that are a part of the same build, mapping to filesystem paths of their module files.
+  /// - Parameter externalTargetModuleDetailsMap: A dictionary of external targets that are a part of
+  ///   the same build, mapping to a details value which includes a filesystem path of their
+  ///   `.swiftmodule` and a flag indicating whether the external target is a framework.
   /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
   ///   shared across different module builds by a build system.
   public init(
@@ -400,7 +406,9 @@ public struct Driver {
     executor: DriverExecutor,
     integratedDriver: Bool = true,
     compilerExecutableDir: AbsolutePath? = nil,
+    // Deprecated in favour of the below `externalTargetModuleDetailsMap`
     externalTargetModulePathMap: ExternalTargetModulePathMap? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     self.env = env
@@ -410,8 +418,15 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
+    if externalTargetModulePathMap != nil && externalTargetModuleDetailsMap != nil {
+      throw Error.externalTargetDetailsAPIError
+    }
     if let externalTargetPaths = externalTargetModulePathMap {
-      self.externalTargetModulePathMap = externalTargetPaths
+      self.externalTargetModuleDetailsMap = externalTargetPaths.mapValues {
+        ExternalTargetModuleDetails(path: $0, isFramework: false)
+      }
+    } else if let externalTargetDetails = externalTargetModuleDetailsMap {
+      self.externalTargetModuleDetailsMap = externalTargetDetails
     }
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {

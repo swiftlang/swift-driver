@@ -14,7 +14,21 @@ import TSCUtility
 import Foundation
 
 /// A map from a module identifier to a path to its .swiftmodule file.
+/// Deprecated in favour of the below `ExternalTargetModuleDetails`
 public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath]
+
+/// Details about an external target, including the path to its .swiftmodule file
+/// and whether it is a framework.
+public struct ExternalTargetModuleDetails {
+  @_spi(Testing) public init(path: AbsolutePath, isFramework: Bool) {
+    self.path = path
+    self.isFramework = isFramework
+  }
+  let path: AbsolutePath
+  let isFramework: Bool
+}
+
+public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalTargetModuleDetails]
 
 /// In Explicit Module Build mode, this planner is responsible for generating and providing
 /// build jobs for all module dependencies and providing compile command options
@@ -317,16 +331,17 @@ public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath
                                     modulePath: TextualVirtualPath(path: clangModulePath),
                                     moduleMapPath: dependencyClangModuleDetails.moduleMapPath))
         case .swiftPrebuiltExternal:
-          let compiledModulePath = try dependencyGraph
-                                         .swiftPrebuiltDetails(of: dependencyId)
-                                         .compiledModulePath
+          let prebuiltModuleDetails = try dependencyGraph.swiftPrebuiltDetails(of: dependencyId)
+          let compiledModulePath = prebuiltModuleDetails.compiledModulePath
+          let isFramework = prebuiltModuleDetails.isFramework
           let swiftModulePath: TypedVirtualPath =
             .init(file: compiledModulePath.path, type: .swiftModule)
           // Accumulate the requried information about this dependency
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
             SwiftModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle)))
+                                    modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
+                                    isFramework: isFramework))
         case .swiftPlaceholder:
           fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
       }
