@@ -294,8 +294,10 @@ extension GenericUnixToolchain {
       commandLine.appendFlag("crs")
       commandLine.appendPath(outputFile)
 
-      commandLine.append(contentsOf: inputs.filter { $0.type == .object }
-                                           .map { .path($0.file) })
+      commandLine.append(contentsOf: inputs.lazy.filter {
+                            lto == nil ? $0.type == .object
+                                       : $0.type == .object || $0.type == .llvmBitcode
+                         }.map { .path($0.file) })
       return try getToolPath(.staticLinker(lto))
     }
 
