@@ -50,7 +50,7 @@ let package = Package(
       name: "SwiftDriver",
       dependencies: ["SwiftOptions", "SwiftToolsSupport-auto",
                      "CSwiftScan", "Yams"],
-      exclude: ["CMakeLists.txt", SwiftDriver.docc]),
+      exclude: ["CMakeLists.txt", "SwiftDriver.docc"]),
 
     /// The execution library.
     .target(
