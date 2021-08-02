@@ -20,7 +20,7 @@ public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath
 /// Details about an external target, including the path to its .swiftmodule file
 /// and whether it is a framework.
 public struct ExternalTargetModuleDetails {
-  @_spi(Testing) public init(path: AbsolutePath, isFramework: Bool) {
+  public init(path: AbsolutePath, isFramework: Bool) {
     self.path = path
     self.isFramework = isFramework
   }
