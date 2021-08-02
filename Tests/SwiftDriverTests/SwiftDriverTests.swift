@@ -3442,6 +3442,10 @@ final class SwiftDriverTests: XCTestCase {
   func testRegressions() throws {
     var driverWithEmptySDK = try Driver(args: ["swiftc", "-sdk", "", "file.swift"])
     _ = try driverWithEmptySDK.planBuild()
+
+    var driver = try Driver(args: ["swiftc", "foo.swift", "-sdk", "/"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/")))]))
   }
 
   func testDumpASTOverride() throws {
