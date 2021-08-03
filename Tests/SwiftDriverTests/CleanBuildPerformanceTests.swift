@@ -20,6 +20,11 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// `cd` to the package directory, then:
   /// `rm TestInputs/SampleSwiftDeps/*; rm -rf .build; swift build; find .build -name \*.swiftdeps -a -exec cp \{\} TestInputs/SampleSwiftDeps \;`
   func testCleanBuildSwiftDepsPerformance() throws {
+    #if !os(macOS)
+      // rdar://81411914
+      throw XCTSkip()
+    #endif
+
     let packageRootPath = AbsolutePath(#file)
       .parentDirectory
       .parentDirectory
