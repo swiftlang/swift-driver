@@ -45,7 +45,7 @@ dependencies. For example, the Swift Driver reports back a curious thing to
 build systems that care to ask for make-style dependencies: every file depends
 upon every other file. This dense dependency graph allows the driver to take
 control of rebuilding Swift files, and ensures that 
-[incremental builds](doc://SwiftDriver/IncrementalBuilds) work with these
+incremental builds (see <doc:IncrementalBuilds>) work with these
 systems out of the box.
 
 Further implicit build schemes are implemented by both Clang and Swift to 
