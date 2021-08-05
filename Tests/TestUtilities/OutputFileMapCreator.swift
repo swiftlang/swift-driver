@@ -18,23 +18,28 @@ public struct OutputFileMapCreator {
   private let module: String
   private let inputPaths: [AbsolutePath]
   private let derivedData: AbsolutePath
+  // The main entry isn't required for some WMO builds
+  private let excludeMainEntry: Bool
 
-  private init(module: String, inputPaths: [AbsolutePath], derivedData: AbsolutePath) {
+  private init(module: String, inputPaths: [AbsolutePath], derivedData: AbsolutePath, excludeMainEntry: Bool) {
     self.module = module
     self.inputPaths = inputPaths
     self.derivedData = derivedData
+    self.excludeMainEntry = excludeMainEntry
   }
 
   public static func write(module: String,
                            inputPaths: [AbsolutePath],
                            derivedData: AbsolutePath,
-                           to dst: AbsolutePath) {
-    let creator = Self(module: module, inputPaths: inputPaths, derivedData: derivedData)
+                           to dst: AbsolutePath,
+                           excludeMainEntry: Bool = false) {
+    let creator = Self(module: module, inputPaths: inputPaths, derivedData: derivedData, excludeMainEntry: excludeMainEntry)
     try! localFileSystem.writeIfChanged(path: dst, bytes: ByteString(creator.generateData()))
   }
 
   private func generateDict() -> [String: [String: String]] {
     let master = ["swift-dependencies": "\(derivedData.pathString)/\(module)-master.swiftdeps"]
+    let mainEntryDict = self.excludeMainEntry ? [:] : ["": master]
     func baseNameEntry(_ s: AbsolutePath) -> [String: String] {
       [
         "dependencies": ".d",
@@ -46,10 +51,11 @@ public struct OutputFileMapCreator {
       ]
       .mapValues {"\(derivedData.appending(component: s.basenameWithoutExt))\($0)"}
     }
+
     return Dictionary(uniqueKeysWithValues:
                         inputPaths.map { ("\($0)", baseNameEntry($0)) }
     )
-    .merging(["": master]) {_, _ in fatalError()}
+    .merging(mainEntryDict) {_, _ in fatalError()}
   }
 
   private func generateData() -> Data {

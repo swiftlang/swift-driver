@@ -266,6 +266,45 @@ extension IncrementalCompilationTests {
     try checkPropagationOfTopLevelChange(checkDiagnostics: checkDiagnostics)
   }
 
+  func testFileMapMissingMainEntry() throws {
+    try buildInitialState(checkDiagnostics: true)
+    OutputFileMapCreator.write(
+      module: module, inputPaths: inputPathsAndContents.map {$0.0},
+      derivedData: derivedDataPath, to: OFM, excludeMainEntry: true)
+    try doABuild("output file map missing main entry", checkDiagnostics: true, extraArguments: [], whenAutolinking: []) {
+      missingMainDependencyEntry
+      disablingIncremental
+      foundBatchableJobs(2)
+      formingOneBatch
+      addingToBatchThenForming("main", "other")
+      compiling("main", "other")
+      startingLinking
+      finishedLinking
+    }
+  }
+
+  func testFileMapMissingMainEntryWMO() throws {
+    try buildInitialState(checkDiagnostics: true)
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
+    else {
+      throw XCTSkip("Cannot perform this test on this host")
+    }
+
+    OutputFileMapCreator.write(
+      module: module, inputPaths: inputPathsAndContents.map {$0.0},
+      derivedData: derivedDataPath, to: OFM, excludeMainEntry: true)
+
+    let args = [
+      "swiftc",
+      "-module-name", module,
+      "-o", derivedDataPath.appending(component: module + ".o").pathString,
+      "-output-file-map", OFM.pathString,
+      "-whole-module-optimization",
+      "-no-color-diagnostics",
+    ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + sdkArgumentsForTesting
+    _ = try doABuild(whenAutolinking: [], expecting: [], arguments: args)
+  }
+
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
   func testAlwaysRebuildDependents() throws {
 #if !os(Linux)
@@ -1256,6 +1295,12 @@ extension DiagVerifiable {
   }
   @DiagsBuilder var disablingIncrementalCannotReadBuildRecord: [Diagnostic.Message] {
     "Incremental compilation: Disabling incremental build: could not read build record"
+  }
+  @DiagsBuilder var missingMainDependencyEntry: [Diagnostic.Message] {
+    .warning("ignoring -incremental; output file map has no master dependencies entry (\"swift-dependencies\" under \"\")")
+  }
+  @DiagsBuilder var disablingIncremental: [Diagnostic.Message] {
+    "Incremental compilation: Disabling incremental build: no build record path"
   }
   // MARK: - graph
   @DiagsBuilder var createdGraphFromSwiftdeps: [Diagnostic.Message] {
