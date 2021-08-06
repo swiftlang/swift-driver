@@ -14,8 +14,8 @@ import TSCBasic
 import SwiftOptions
 
 extension Diagnostic.Message {
-  static func warn_scanner_frontend_fallback() -> Diagnostic.Message {
-    .warning("Fallback to `swift-frontend` dependency scanner invocation")
+  static func warn_scanner_frontend_fallback(path: String) -> Diagnostic.Message {
+    .warning("Fallback to `swift-frontend` dependency scanner invocation, could not open/locate: \(path)")
   }
 }
 
@@ -95,7 +95,7 @@ public extension Driver {
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
                                        swiftScanLibPath: scanLibPath) == false {
       fallbackToFrontend = true
-      diagnosticEngine.emit(.warn_scanner_frontend_fallback())
+      diagnosticEngine.emit(.warn_scanner_frontend_fallback(path: scanLibPath.pathString))
     }
     return fallbackToFrontend
   }

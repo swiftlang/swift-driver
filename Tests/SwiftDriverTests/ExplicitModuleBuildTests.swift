@@ -174,14 +174,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in modulePrebuildJobs {
         XCTAssertEqual(job.outputs.count, 1)
         XCTAssertFalse(driver.isExplicitMainModuleJob(job: job))
-        let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
-          try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
-                                                                                       hashParts: hashParts)
-        }
-        let pcmModuleNameEncoder = { (moduleName: String, hashParts: [String]) -> String in
-          try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleName(for: moduleName,
-                                                                                   hashParts: hashParts)
-        }
+
+        let (pcmFileEncoder, pcmModuleNameEncoder) = pcmEncoderProducer(dependencyGraph: moduleDependencyGraph, driver: driver)
         switch (job.outputs[0].file) {
           case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs,
                                                           pcmModuleNameEncoder: pcmModuleNameEncoder)):
@@ -268,6 +262,39 @@ final class ExplicitModuleBuildTests: XCTestCase {
            path.extension! == FileType.swiftModule.rawValue
   }
 
+  private func pcmEncoderProducer(dependencyGraph: InterModuleDependencyGraph,
+                                  driver: Driver)
+  -> ((ModuleInfo, [String]) -> VirtualPath.Handle, (String, [String]) -> String) {
+    var driverCopy = driver
+    let moduleMapIncludedHashParts = { (_ moduleName: String, _ hashParts: [String]) -> [String] in
+      let moduleDetails = try? dependencyGraph.clangModuleDetails(of: .clang(moduleName))
+      let lookupHashParts: [String]
+      if let details = moduleDetails {
+        let moduleMapPath = details.moduleMapPath.path.description
+        lookupHashParts = [moduleMapPath] + hashParts
+      } else {
+        // No such module found, no modulemap
+        lookupHashParts = hashParts
+      }
+      return lookupHashParts
+    }
+
+    let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
+      let plainModulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
+      let moduleName = plainModulePath.basenameWithoutExt
+      let lookupHashParts = moduleMapIncludedHashParts(moduleName, hashParts)
+      return try! driverCopy.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
+                                                                                   hashParts: lookupHashParts)
+    }
+
+    let pcmModuleNameEncoder = { (moduleName: String, hashParts: [String]) -> String in
+      let lookupHashParts = moduleMapIncludedHashParts(moduleName, hashParts)
+      return try! driverCopy.explicitDependencyBuildPlanner!.targetEncodedClangModuleName(for: moduleName,
+                                                                                      hashParts: lookupHashParts)
+    }
+    return (pcmFileEncoder, pcmModuleNameEncoder)
+  }
+
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -experimental-explicit-module-build
   func testExplicitModuleBuildJobs() throws {
@@ -308,14 +335,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
         pcmArgs15.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
       }
-      let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
-        try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
-                                                                                     hashParts: hashParts)
-      }
-      let pcmModuleNameEncoder = { (moduleName: String, hashParts: [String]) -> String in
-        try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleName(for: moduleName,
-                                                                                 hashParts: hashParts)
-      }
+
+      let (pcmFileEncoder, pcmModuleNameEncoder) = pcmEncoderProducer(dependencyGraph: dependencyGraph, driver: driver)
 
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
@@ -352,6 +373,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         // Clang Dependencies
         } else if outputFilePath.extension != nil,
                   outputFilePath.extension! == FileType.pcm.rawValue {
+
           switch (outputFilePath) {
             case .relative(pcmArgsEncodedRelativeModulePath(for: "A", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
@@ -470,14 +492,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
         pcmArgs9.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
         pcmArgs15.append(contentsOf: ["-Xcc", "-fapinotes-swift-version=5"])
       }
-      let pcmFileEncoder = { (moduleInfo: ModuleInfo, hashParts: [String]) -> VirtualPath.Handle in
-        try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleFilePath(for: moduleInfo,
-                                                                                     hashParts: hashParts)
-      }
-      let pcmModuleNameEncoder = { (moduleName: String, hashParts: [String]) -> String in
-        try! driver.explicitDependencyBuildPlanner!.targetEncodedClangModuleName(for: moduleName,
-                                                                                 hashParts: hashParts)
-      }
+
+      let (pcmFileEncoder, pcmModuleNameEncoder) = pcmEncoderProducer(dependencyGraph: dependencyGraph, driver: driver)
+
       for job in jobs {
         guard job.kind != .interpret else { continue }
         XCTAssertEqual(job.outputs.count, 1)
