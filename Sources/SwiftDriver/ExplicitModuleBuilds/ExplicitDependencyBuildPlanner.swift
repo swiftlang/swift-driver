@@ -219,10 +219,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                               inputs: &inputs,
                                               commandLine: &commandLine)
 
+        let moduleMapPath = moduleDetails.moduleMapPath.path
         // Encode the target triple pcm args into the output `.pcm` filename
         let targetEncodedModulePath =
           try targetEncodedClangModuleFilePath(for: moduleInfo,
-                                               hashParts: getPCMHashParts(pcmArgs: pcmArgs))
+                                               hashParts: getPCMHashParts(pcmArgs: pcmArgs,
+                                                                          moduleMapPath: moduleMapPath.description))
         outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                                 "-o", targetEncodedModulePath.description)
@@ -230,7 +232,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         // The only required input is the .modulemap for this module.
         // Command line options in the dependency scanner output will include the
         // required modulemap, so here we must only add it to the list of inputs.
-        inputs.append(TypedVirtualPath(file: moduleDetails.moduleMapPath.path,
+        inputs.append(TypedVirtualPath(file: moduleMapPath,
                                        type: .clangModuleMap))
 
         jobs.append(Job(
@@ -322,9 +324,11 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
           let dependencyClangModuleDetails =
             try dependencyGraph.clangModuleDetails(of: dependencyId)
+          let moduleMapPath = dependencyClangModuleDetails.moduleMapPath.path
           let clangModulePath =
             try targetEncodedClangModuleFilePath(for: dependencyInfo,
-                                                 hashParts: getPCMHashParts(pcmArgs: pcmArgs))
+                                                 hashParts: getPCMHashParts(pcmArgs: pcmArgs,
+                                                                            moduleMapPath: moduleMapPath.description))
           // Accumulate the requried information about this dependency
           clangDependencyArtifacts.append(
             ClangModuleArtifactInfo(name: dependencyId.moduleName,
@@ -389,11 +393,14 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
   }
 
-  private func getPCMHashParts(pcmArgs: [String]) -> [String] {
+  private func getPCMHashParts(pcmArgs: [String], moduleMapPath: String) -> [String] {
+    var results: [String] = []
+    results.append(moduleMapPath)
+    results.append(contentsOf: pcmArgs)
     if integratedDriver {
-      return pcmArgs
+      return results
     }
-    var results = pcmArgs
+
     // We need this to enable explict modules in the driver-as-executable mode. For instance,
     // we have two Swift targets A and B, where A depends on X.pcm which in turn depends on Y.pcm,
     // and B only depends on Y.pcm. In the driver-as-executable mode, the build system isn't aware
@@ -445,7 +452,7 @@ extension ExplicitDependencyBuildPlanner {
     #else
     hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
     #endif
-    let resultingName = moduleName + hashedArguments
+    let resultingName = moduleName + "-" + hashedArguments
     hashedModuleNameCache[cacheQuery] = resultingName
     return resultingName
   }
