@@ -14,9 +14,9 @@ import Foundation
 
 extension Driver {
   /// Form a backend job.
-  mutating func backendJob(input: TypedVirtualPath,
-                           baseInput: TypedVirtualPath?,
-                           addJobOutputs: ([TypedVirtualPath]) -> Void)
+  func backendJob(input: TypedVirtualPath,
+                  baseInput: TypedVirtualPath?,
+                  addJobOutputs: ([TypedVirtualPath]) -> Void)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs = [TypedVirtualPath]()
@@ -43,13 +43,13 @@ extension Driver {
     }
 
     // Handle the CPU and its preferences.
-    try commandLine.appendLast(.targetCpu, from: &parsedOptions)
+    try commandLine.appendLast(.targetCpu, from: parsedOptions)
 
     // Enable optimizations, but disable all LLVM-IR-level transformations.
-    try commandLine.appendLast(in: .O, from: &parsedOptions)
+    try commandLine.appendLast(in: .O, from: parsedOptions)
     commandLine.appendFlag(.disableLlvmOptzns)
 
-    try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
+    try commandLine.appendLast(.parseStdlib, from: parsedOptions)
 
     commandLine.appendFlag(.moduleName)
     commandLine.appendFlag(moduleOutputInfo.name)

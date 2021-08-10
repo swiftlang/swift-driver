@@ -40,7 +40,7 @@ extension Driver {
   }
 
   /// Link the given inputs.
-  mutating func linkJob(inputs: [TypedVirtualPath]) throws -> Job {
+  func linkJob(inputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = []
 
     // Compute the final output file
@@ -54,7 +54,7 @@ extension Driver {
     // Defer to the toolchain for platform-specific linking
     let toolPath = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       linkerOutputType: linkerOutputType!,
       inputs: inputs,
       outputFile: outputFile,

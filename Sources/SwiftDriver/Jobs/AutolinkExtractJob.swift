@@ -20,7 +20,7 @@ extension Driver {
     [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil
   }
 
-  mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {
+  func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {
     guard let firstInput = inputs.first, isAutolinkExtractJobNeeded else {
       return nil
     }

@@ -455,7 +455,7 @@ public struct Driver {
     // Determine the compilation mode.
     self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
     
-    self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(&parsedOptions,
+    self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(parsedOptions,
                                                                                         diagnosticEngine: diagnosticsEngine,
                                                                                         compilerMode: compilerMode)
 
@@ -481,7 +481,7 @@ public struct Driver {
     // Build the toolchain and determine target information.
     (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
         try Self.computeToolchain(
-          &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+          self.parsedOptions, diagnosticsEngine: diagnosticEngine,
           compilerMode: self.compilerMode, env: env,
           executor: self.executor, fileSystem: fileSystem,
           useStaticResourceDir: self.useStaticResourceDir,
@@ -489,12 +489,12 @@ public struct Driver {
 
     // Compute the host machine's triple
     self.hostTriple =
-      try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+      try Self.computeHostTriple(self.parsedOptions, diagnosticsEngine: diagnosticEngine,
                                  toolchain: self.toolchain, executor: self.executor,
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
-    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    let inputFiles = try Self.collectInputFiles(self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
@@ -533,7 +533,7 @@ public struct Driver {
       self.interModuleDependencyOracle = InterModuleDependencyOracle()
     }
 
-    self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    self.fileListThreshold = try Self.computeFileListThreshold(self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
     if shouldUseInputFileList {
       let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
@@ -543,13 +543,13 @@ public struct Driver {
       self.allSourcesFileList = nil
     }
 
-    self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    self.lto = Self.ltoKind(parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
     (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Multithreading.
-    self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
-    self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
+    self.numThreads = Self.determineNumThreads(parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
+    self.numParallelJobs = Self.determineNumParallelJobs(parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
 
     var mode = DigesterMode.api
     if let modeArg = parsedOptions.getLastArgument(.digesterMode)?.asSingle {
@@ -561,26 +561,26 @@ public struct Driver {
     }
     self.digesterMode = mode
 
-    Self.validateWarningControlArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
-    Self.validateProfilingArgs(&parsedOptions,
+    Self.validateWarningControlArgs(parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateProfilingArgs(parsedOptions,
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
-    Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
-    Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
-    Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
-    Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
-    try toolchain.validateArgs(&parsedOptions,
+    Self.validateParseableOutputArgs(parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateCompilationConditionArgs(parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateFrameworkSearchPathArgs(parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateCoverageArgs(parsedOptions, diagnosticsEngine: diagnosticEngine)
+    try toolchain.validateArgs(parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
                                diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
-    self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    self.debugInfo = Self.computeDebugInfo(parsedOptions, diagnosticsEngine: diagnosticEngine)
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     self.moduleOutputInfo = try Self.computeModuleInfo(
-      &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
+      parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
       debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine,
       workingDirectory: self.workingDirectory)
 
@@ -595,50 +595,50 @@ public struct Driver {
       parsedOptions: parsedOptions,
       recordedInputModificationDates: recordedInputModificationDates)
 
-    self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
-    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
+    self.importedObjCHeader = try Self.computeImportedObjCHeader(parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
+    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(parsedOptions,
                                                                                compilerMode: compilerMode,
                                                                                importedObjCHeader: importedObjCHeader,
                                                                                outputFileMap: outputFileMap)
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerFeatures(of: self.toolchain, hostTriple: self.hostTriple,
-                                                parsedOptions: &self.parsedOptions,
+                                                parsedOptions: self.parsedOptions,
                                                 diagnosticsEngine: diagnosticEngine,
                                                 fileSystem: fileSystem, executor: executor,
                                                 env: env)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
-      &parsedOptions,
+      parsedOptions,
       diagnosticEngine: diagnosticEngine,
       toolchain: toolchain,
       targetInfo: frontendTargetInfo)
 
-    Self.validateSanitizerAddressUseOdrIndicatorFlag(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
+    Self.validateSanitizerAddressUseOdrIndicatorFlag(parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
     
-    Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
+    Self.validateSanitizerRecoverArgValues(parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
 
-    Self.validateSanitizerCoverageArgs(&parsedOptions,
+    Self.validateSanitizerCoverageArgs(parsedOptions,
                                        anySanitizersEnabled: !enabledSanitizers.isEmpty,
                                        diagnosticsEngine: diagnosticsEngine)
 
     // Supplemental outputs.
     self.dependenciesFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .dependencies, isOutputOptions: [.emitDependencies],
+        parsedOptions, type: .dependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.referenceDependenciesPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .swiftDeps, isOutputOptions: shouldAttemptIncrementalCompilation ? [.incremental] : [],
+        parsedOptions, type: .swiftDeps, isOutputOptions: shouldAttemptIncrementalCompilation ? [.incremental] : [],
         outputPath: .emitReferenceDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .diagnostics, isOutputOptions: [.serializeDiagnostics],
+        parsedOptions, type: .diagnostics, isOutputOptions: [.serializeDiagnostics],
         outputPath: .serializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -646,7 +646,7 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
     // FIXME: -fixits-output-path
     self.objcGeneratedHeaderPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .objcHeader, isOutputOptions: [.emitObjcHeader],
+        parsedOptions, type: .objcHeader, isOutputOptions: [.emitObjcHeader],
         outputPath: .emitObjcHeaderPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -657,7 +657,7 @@ public struct Driver {
       self.loadedModuleTracePath = try VirtualPath.intern(path: loadedModuleTraceEnvVar)
     } else {
       self.loadedModuleTracePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .moduleTrace, isOutputOptions: [.emitLoadedModuleTrace],
+        parsedOptions, type: .moduleTrace, isOutputOptions: [.emitLoadedModuleTrace],
         outputPath: .emitLoadedModuleTracePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -666,14 +666,14 @@ public struct Driver {
     }
 
     self.tbdPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .tbd, isOutputOptions: [.emitTbd],
+        parsedOptions, type: .tbd, isOutputOptions: [.emitTbd],
         outputPath: .emitTbdPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(
-        &parsedOptions, moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
+        parsedOptions, moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
@@ -682,7 +682,7 @@ public struct Driver {
       moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
       fileSystem: self.fileSystem)
     self.moduleSourceInfoPath = try Self.computeModuleSourceInfoOutputPath(
-        &parsedOptions,
+        parsedOptions,
         moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -690,7 +690,7 @@ public struct Driver {
         moduleName: moduleOutputInfo.name,
         projectDirectory: projectDirectory)
     self.digesterBaselinePath = try Self.computeDigesterBaselineOutputPath(
-      &parsedOptions,
+      parsedOptions,
       moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
       mode: self.digesterMode,
       compilerOutputType: compilerOutputType,
@@ -699,7 +699,7 @@ public struct Driver {
       moduleName: moduleOutputInfo.name,
       projectDirectory: projectDirectory)
     self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
+        parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
         outputPath: .emitModuleInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -707,7 +707,7 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
 
     self.swiftPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
+        parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
         outputPath: .emitPrivateModuleInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -727,7 +727,7 @@ public struct Driver {
       }
     }
     self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: optimizationRecordFileType,
+        parsedOptions, type: optimizationRecordFileType,
         isOutputOptions: [.saveOptimizationRecord, .saveOptimizationRecordEQ],
         outputPath: .saveOptimizationRecordPath,
         compilerOutputType: compilerOutputType,
@@ -735,7 +735,7 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
 
-    Self.validateDigesterArgs(&parsedOptions,
+    Self.validateDigesterArgs(parsedOptions,
                               moduleOutputInfo: moduleOutputInfo,
                               digesterMode: self.digesterMode,
                               swiftInterfacePath: self.swiftInterfacePath,
@@ -816,7 +816,7 @@ extension Driver {
 }
 
 extension Driver {
-  private static func ltoKind(_ parsedOptions: inout ParsedOptions,
+  private static func ltoKind(_ parsedOptions: ParsedOptions,
                               diagnosticsEngine: DiagnosticsEngine) -> LTOKind? {
     guard let arg = parsedOptions.getLastArgument(.lto)?.asSingle else { return nil }
     guard let kind = LTOKind(rawValue: arg) else {
@@ -995,7 +995,7 @@ extension Driver {
   }
 
   /// Run the driver.
-  public mutating func run(
+  public func run(
     jobs: [Job]
   ) throws {
     if parsedOptions.hasArgument(.v) {
@@ -1114,7 +1114,7 @@ extension Driver {
     }
   }
 
-  mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {
+  func createToolExecutionDelegate() -> ToolExecutionDelegate {
     var mode: ToolExecutionDelegate.Mode = .regular
 
     // FIXME: Old driver does _something_ if both -parseable-output and -v are passed.
@@ -1136,7 +1136,7 @@ extension Driver {
       diagnosticEngine: diagnosticEngine)
   }
 
-  private mutating func performTheBuild(
+  private func performTheBuild(
     allJobs: [Job],
     jobExecutionDelegate: JobExecutionDelegate,
     forceResponseFiles: Bool
@@ -1316,7 +1316,7 @@ extension Driver {
   /// value is not parsable as an `Int`, emits an error and returns `nil`.
   /// Otherwise, returns the parsed value.
   private static func parseIntOption(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     option: Option,
     diagnosticsEngine: DiagnosticsEngine
   ) -> Int? {
@@ -1335,7 +1335,7 @@ extension Driver {
 
 extension Driver {
   private static func computeFileListThreshold(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> Int {
     let hasUseFileLists = parsedOptions.hasArgument(.driverUseFilelists)
@@ -1439,9 +1439,9 @@ extension Driver {
 
     // For batch mode, collect information
     if wantBatchMode {
-      let batchSeed = parseIntOption(&parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine)
-      let batchCount = parseIntOption(&parsedOptions, option: .driverBatchCount, diagnosticsEngine: diagnosticsEngine)
-      let batchSizeLimit = parseIntOption(&parsedOptions, option: .driverBatchSizeLimit, diagnosticsEngine: diagnosticsEngine)
+      let batchSeed = parseIntOption(parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine)
+      let batchCount = parseIntOption(parsedOptions, option: .driverBatchCount, diagnosticsEngine: diagnosticsEngine)
+      let batchSizeLimit = parseIntOption(parsedOptions, option: .driverBatchSizeLimit, diagnosticsEngine: diagnosticsEngine)
       return .batchCompile(BatchModeInfo(seed: batchSeed, count: batchCount, sizeLimit: batchSizeLimit))
     }
 
@@ -1496,7 +1496,7 @@ extension Driver {
 
   /// Collect all of the input files from the parsed options, translating them into input files.
   private static func collectInputFiles(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> [TypedVirtualPath] {
     var swiftFiles = [String: String]() // [Basename: Path]
@@ -1668,7 +1668,7 @@ extension Driver {
   /// Determine the number of threads to use for a multithreaded build,
   /// or zero to indicate a single-threaded build.
   static func determineNumThreads(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     compilerMode: CompilerMode, diagnosticsEngine: DiagnosticsEngine
   ) -> Int {
     guard let numThreadsArg = parsedOptions.getLastArgument(.numThreads) else {
@@ -1691,11 +1691,11 @@ extension Driver {
 
   /// Determine the number of parallel jobs to execute.
   static func determineNumParallelJobs(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
     env: [String: String]
   ) -> Int? {
-    guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
+    guard let numJobs = parseIntOption(parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
       return nil
     }
 
@@ -1712,7 +1712,7 @@ extension Driver {
     return numJobs
   }
 
-  private mutating func computeContinueBuildingAfterErrors() -> Bool {
+  private func computeContinueBuildingAfterErrors() -> Bool {
     // Note: Batch mode handling of serialized diagnostics requires that all
     // batches get to run, in order to make sure that all diagnostics emitted
     // during the compilation end up in at least one serialized diagnostic file.
@@ -1739,7 +1739,7 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
+  private static func computeDebugInfo(_ parsedOptions: ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
     for debugPrefixMap in parsedOptions.arguments(for: .debugPrefixMap) {
@@ -1805,7 +1805,7 @@ extension Driver {
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
   /// sanitizers that were requested.
   static func parseSanitizerArgValues(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     toolchain: Toolchain,
     targetInfo: FrontendTargetInfo
@@ -1838,7 +1838,7 @@ extension Driver {
       var sanitizerSupported = try toolchain.runtimeLibraryExists(
         for: sanitizer,
         targetInfo: targetInfo,
-        parsedOptions: &parsedOptions,
+        parsedOptions: parsedOptions,
         isShared: sanitizer != .fuzzer
       )
 
@@ -1936,7 +1936,7 @@ extension Driver {
   /// FIXME: Why "maybe"? Why isn't this all known in advance as captured in
   /// linkerOutputType?
   private static func maybeBuildingExecutable(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     linkerOutputType: LinkOutputType?
   ) -> Bool {
     switch linkerOutputType {
@@ -1959,7 +1959,7 @@ extension Driver {
 
   /// Determine how the module will be emitted and the name of the module.
   private static func computeModuleInfo(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     linkerOutputType: LinkOutputType?,
@@ -2028,7 +2028,7 @@ extension Driver {
 
     func fallbackOrDiagnose(_ error: Diagnostic.Message) {
       moduleNameIsFallback = true
-      if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
+      if compilerOutputType == nil || maybeBuildingExecutable(parsedOptions, linkerOutputType: linkerOutputType) {
         moduleName = "main"
       }
       else {
@@ -2090,7 +2090,7 @@ extension Driver {
 extension Driver {
   /// Computes the path to the SDK.
   private static func computeSDKPath(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     compilerMode: CompilerMode,
     toolchain: Toolchain,
     targetTriple: Triple?,
@@ -2176,7 +2176,7 @@ extension Driver {
 extension Driver {
   /// Compute the path of the imported Objective-C header.
   static func computeImportedObjCHeader(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     compilerMode: CompilerMode,
     diagnosticEngine: DiagnosticsEngine
   ) throws -> VirtualPath.Handle? {
@@ -2197,7 +2197,7 @@ extension Driver {
   }
 
   /// Compute the path of the generated bridging PCH for the Objective-C header.
-  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
+  static func computeBridgingPrecompiledHeader(_ parsedOptions: ParsedOptions,
                                                compilerMode: CompilerMode,
                                                importedObjCHeader: VirtualPath.Handle?,
                                                outputFileMap: OutputFileMap?) throws -> VirtualPath.Handle? {
@@ -2239,7 +2239,7 @@ extension Diagnostic.Message {
 
 // MARK: Miscellaneous Argument Validation
 extension Driver {
-  static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions,
+  static func validateWarningControlArgs(_ parsedOptions: ParsedOptions,
                                          diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
@@ -2247,7 +2247,7 @@ extension Driver {
     }
   }
 
-  static func validateDigesterArgs(_ parsedOptions: inout ParsedOptions,
+  static func validateDigesterArgs(_ parsedOptions: ParsedOptions,
                                    moduleOutputInfo: ModuleOutputInfo,
                                    digesterMode: DigesterMode,
                                    swiftInterfacePath: VirtualPath.Handle?,
@@ -2277,7 +2277,7 @@ extension Driver {
   }
 
 
-  static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
+  static func validateProfilingArgs(_ parsedOptions: ParsedOptions,
                                     fileSystem: FileSystem,
                                     workingDirectory: AbsolutePath?,
                                     diagnosticEngine: DiagnosticsEngine) {
@@ -2297,7 +2297,7 @@ extension Driver {
     }
   }
 
-  static func validateParseableOutputArgs(_ parsedOptions: inout ParsedOptions,
+  static func validateParseableOutputArgs(_ parsedOptions: ParsedOptions,
                                           diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.contains(.parseableOutput) &&
         parsedOptions.contains(.useFrontendParseableOutput) {
@@ -2305,7 +2305,7 @@ extension Driver {
     }
   }
 
-  static func validateCompilationConditionArgs(_ parsedOptions: inout ParsedOptions,
+  static func validateCompilationConditionArgs(_ parsedOptions: ParsedOptions,
                                                diagnosticEngine: DiagnosticsEngine) {
     for arg in parsedOptions.arguments(for: .D).map(\.argument.asSingle) {
       if arg.contains("=") {
@@ -2318,7 +2318,7 @@ extension Driver {
     }
   }
 
-  static func validateFrameworkSearchPathArgs(_ parsedOptions: inout ParsedOptions,
+  static func validateFrameworkSearchPathArgs(_ parsedOptions: ParsedOptions,
                                               diagnosticEngine: DiagnosticsEngine) {
     for arg in parsedOptions.arguments(for: .F, .Fsystem).map(\.argument.asSingle) {
       if arg.hasSuffix(".framework") || arg.hasSuffix(".framework/") {
@@ -2327,7 +2327,7 @@ extension Driver {
     }
   }
 
-  private static func validateCoverageArgs(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) {
+  private static func validateCoverageArgs(_ parsedOptions: ParsedOptions, diagnosticsEngine: DiagnosticsEngine) {
     for coveragePrefixMap in parsedOptions.arguments(for: .coveragePrefixMap) {
       let value = coveragePrefixMap.argument.asSingle
       let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
@@ -2338,7 +2338,7 @@ extension Driver {
   }
   
   private static func validateSanitizerAddressUseOdrIndicatorFlag(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     addressSanitizerEnabled: Bool
   ) {
@@ -2350,7 +2350,7 @@ extension Driver {
   
   /// Validates the set of `-sanitize-recover={sanitizer}` arguments
   private static func validateSanitizerRecoverArgValues(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     enabledSanitizers: Set<Sanitizer>
   ){
@@ -2386,7 +2386,7 @@ extension Driver {
     }
   }
 
-  private static func validateSanitizerCoverageArgs(_ parsedOptions: inout ParsedOptions,
+  private static func validateSanitizerCoverageArgs(_ parsedOptions: ParsedOptions,
                                                     anySanitizersEnabled: Bool,
                                                     diagnosticsEngine: DiagnosticsEngine) {
     var foundRequiredArg = false
@@ -2440,13 +2440,13 @@ extension Driver {
   #endif
 
   static func computeHostTriple(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
     toolchain: Toolchain,
     executor: DriverExecutor,
     swiftCompilerPrefixArgs: [String]) throws -> Triple {
 
-    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
+    let frontendOverride = try FrontendOverride(parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
     return try executor.execute(
@@ -2459,7 +2459,7 @@ extension Driver {
   }
 
   static func computeToolchain(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
     compilerMode: CompilerMode,
     env: [String: String],
@@ -2497,12 +2497,12 @@ extension Driver {
                                        compilerExecutableDir: compilerExecutableDir,
                                        toolDirectory: toolDir)
 
-    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
+    let frontendOverride = try FrontendOverride(parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
     // Find the SDK, if any.
     let sdkPath: VirtualPath? = Self.computeSDKPath(
-      &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
+      parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
       targetTriple: explicitTarget, fileSystem: fileSystem,
       diagnosticsEngine: diagnosticsEngine, env: env)
 
@@ -2583,7 +2583,7 @@ extension Driver {
       prefixArgs = []
     }
 
-    init(_ parsedOptions: inout ParsedOptions, _ diagnosticsEngine: DiagnosticsEngine) throws {
+    init(_ parsedOptions: ParsedOptions, _ diagnosticsEngine: DiagnosticsEngine) throws {
       guard let arg = parsedOptions.getLastArgument(.driverUseFrontendPath)
       else {
         self = Self()
@@ -2625,7 +2625,7 @@ extension Driver {
 extension Driver {
   /// Determine the output path for a supplementary output.
   static func computeSupplementaryOutputPath(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     type: FileType,
     isOutputOptions: [Option],
     outputPath: Option,
@@ -2690,14 +2690,14 @@ extension Driver {
 
   /// Determine the output path for a module documentation.
   static func computeModuleDocOutputPath(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
     moduleName: String
   ) throws -> VirtualPath.Handle? {
-    return try computeModuleAuxiliaryOutputPath(&parsedOptions,
+    return try computeModuleAuxiliaryOutputPath(parsedOptions,
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftDocumentation,
                                                 isOutput: .emitModuleDoc,
@@ -2710,7 +2710,7 @@ extension Driver {
 
   /// Determine the output path for a module source info.
   static func computeModuleSourceInfoOutputPath(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
@@ -2719,7 +2719,7 @@ extension Driver {
     projectDirectory: VirtualPath.Handle?
   ) throws -> VirtualPath.Handle? {
     guard !parsedOptions.hasArgument(.avoidEmitModuleSourceInfo) else { return nil }
-    return try computeModuleAuxiliaryOutputPath(&parsedOptions,
+    return try computeModuleAuxiliaryOutputPath(parsedOptions,
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftSourceInfoFile,
                                                 isOutput: .emitModuleSourceInfo,
@@ -2732,7 +2732,7 @@ extension Driver {
   }
 
   static func computeDigesterBaselineOutputPath(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
     mode: DigesterMode,
     compilerOutputType: FileType?,
@@ -2743,7 +2743,7 @@ extension Driver {
   ) throws -> VirtualPath.Handle? {
     // Only emit a baseline if at least of the arguments was provided.
     guard parsedOptions.hasArgument(.emitDigesterBaseline, .emitDigesterBaselinePath) else { return nil }
-    return try computeModuleAuxiliaryOutputPath(&parsedOptions,
+    return try computeModuleAuxiliaryOutputPath(parsedOptions,
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: mode.baselineFileType,
                                                 isOutput: .emitDigesterBaseline,
@@ -2759,7 +2759,7 @@ extension Driver {
 
   /// Determine the output path for a module auxiliary output.
   static func computeModuleAuxiliaryOutputPath(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
     type: FileType,
     isOutput: Option?,

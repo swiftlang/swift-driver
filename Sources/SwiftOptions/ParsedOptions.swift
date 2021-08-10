@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 /// Describes a single parsed option with its argument (if any).
-public struct ParsedOption {
-  public enum Argument {
+public struct ParsedOption: Hashable {
+  public enum Argument: Hashable {
     case none
     case single(String)
     case multiple([String])
@@ -80,6 +80,27 @@ extension ParsedOption: CustomStringConvertible {
   }
 }
 
+/// In order to someday warn if options are not used, track those. Use a `class` rather than a `struct`
+/// so that consuming an option does not count as mutating the `Driver`.
+/// Otherwise, any ``Driver`` method, such as ``Driver/compileJob(primaryInputs:outputType:addJobOutputs:emitModuleTrace:)``
+/// would have to be `mutating`, but for most purposes, we don't care about consumed options.
+private class UnconsumedOptionsBox {
+  var unconsumedByIndex = [Bool]()
+
+  func insert(_ parsedOption: ParsedOption) {
+    assert(unconsumedByIndex.count == parsedOption.index)
+    unconsumedByIndex.append(true)
+  }
+
+  func beConsumed(_ parsedOption: ParsedOption) {
+    unconsumedByIndex[parsedOption.index] = false
+  }
+
+  func contains(_ parsedOption: ParsedOption) -> Bool {
+    unconsumedByIndex[parsedOption.index]
+  }
+}
+
 /// Capture a list of command-line arguments that have been parsed
 /// into a list of options with their arguments.
 public struct ParsedOptions {
@@ -101,7 +122,7 @@ public struct ParsedOptions {
   /// Indication of which of the parsed options have been "consumed" by the
   /// driver. Any unconsumed options could have been omitted from the command
   /// line.
-  private var consumed: [Bool] = []
+  private let unconsumedOptionsBox = UnconsumedOptionsBox()
 }
 
 extension ParsedOptions {
@@ -122,7 +143,7 @@ extension ParsedOptions {
       index: parsedOptions.count
     )
     parsedOptions.append(parsed)
-    consumed.append(false)
+    unconsumedOptionsBox.insert(parsed)
   }
 
   mutating func addInput(_ input: String) {
@@ -173,11 +194,11 @@ extension ParsedOptions {
   /// Return all options that match the given predicate.
   ///
   /// Any options that match the `isIncluded` predicate will be marked "consumed".
-  public mutating func filter(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> [ParsedOption] {
+  public func filter(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> [ParsedOption] {
     var result: [ParsedOption] = []
     for option in parsedOptions {
       if try isIncluded(option) {
-        consumed[option.index] = true
+        unconsumedOptionsBox.beConsumed(option)
         result.append(option)
       }
     }
@@ -185,44 +206,44 @@ extension ParsedOptions {
     return result
   }
 
-  public mutating func arguments(for options: Option...) -> [ParsedOption] {
+  public func arguments(for options: Option...) -> [ParsedOption] {
     return arguments(for: options)
   }
 
-  public mutating func arguments(for options: [Option]) -> [ParsedOption] {
+  public func arguments(for options: [Option]) -> [ParsedOption] {
     // The relative ordering of different options is sometimes significant, so
     // sort the results by their position in the command line.
     return options.flatMap { lookup($0) }.sorted { $0.index < $1.index }
   }
 
-  public mutating func arguments(in group: Option.Group) -> [ParsedOption] {
+  public func arguments(in group: Option.Group) -> [ParsedOption] {
     return groupIndex[group, default: []]
   }
 
-  public mutating func last(for options: Option...) -> ParsedOption? {
+  public func last(for options: Option...) -> ParsedOption? {
     return last(for: options)
   }
 
-  public mutating func last(for options: [Option]) -> ParsedOption? {
+  public func last(for options: [Option]) -> ParsedOption? {
     return arguments(for: options).last
   }
 
   /// Return the last parsed options that matches the given predicate.
   ///
   /// Any options that match the `isIncluded` predicate will be marked "consumed".
-  public mutating func last(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> ParsedOption? {
+  public func last(where isIncluded: (ParsedOption) throws -> Bool) rethrows -> ParsedOption? {
     return try filter(where: isIncluded).last
   }
 
   /// Does this contain a particular option.
-  public mutating func contains(_ option: Option) -> Bool {
+  public func contains(_ option: Option) -> Bool {
     assert(option.alias == nil, "Don't check for aliased options")
     return !lookup(option).isEmpty
   }
 
   /// Determine whether the parsed options contains an option in the given
   /// group.
-  public mutating func contains(in group: Option.Group) -> Bool {
+  public func contains(in group: Option.Group) -> Bool {
     return getLast(in: group) != nil
   }
 
@@ -247,17 +268,17 @@ extension ParsedOptions {
     optionIndex[option.canonical.spelling, default: []]
   }
 
-  internal mutating func lookup(_ option: Option) -> [ParsedOption] {
+  internal func lookup(_ option: Option) -> [ParsedOption] {
     let opts = lookupWithoutConsuming(option)
     for opt in opts {
-      consumed[opt.index] = true
+      unconsumedOptionsBox.beConsumed(opt)
     }
     return opts
   }
 
   /// Find all of the inputs.
   public var allInputs: [String] {
-    mutating get {
+    get {
       lookup(.INPUT).map { $0.argument.asSingle }
     }
   }
@@ -272,9 +293,9 @@ extension ParsedOptions {
   /// true if the option is present, false if the negation is present, and
   /// `default` if neither option is given. If both the option and its
   /// negation are present, the last one wins.
-  public mutating func hasFlag(positive: Option,
-                               negative: Option,
-                               default: Bool) -> Bool {
+  public func hasFlag(positive: Option,
+                         negative: Option,
+                         default: Bool) -> Bool {
     let positiveOpt = lookup(positive).last
     let negativeOpt = lookup(negative).last
 
@@ -295,19 +316,22 @@ extension ParsedOptions {
   }
 
   /// Get the last argument matching the given option.
-  public mutating func getLastArgument(_ option: Option) -> Argument? {
+  public func getLastArgument(_ option: Option) -> Argument? {
     assert(option.alias == nil, "Don't check for aliased options")
     return lookup(option).last?.argument
   }
 
   /// Get the last parsed option within the given option group.
   /// FIXME: Should mark the gotten option as "used". That's why must be `mutating`
-  public mutating func getLast(in group: Option.Group) -> ParsedOption? {
+  public func getLast(in group: Option.Group) -> ParsedOption? {
     return groupIndex[group]?.last
   }
 
   /// Remove argument from parsed options.
   public mutating func eraseArgument(_ option: Option) {
+    parsedOptions
+      .filter { $0.option == option }
+      .forEach { unconsumedOptionsBox.beConsumed($0)}
     parsedOptions.removeAll { $0.option == option }
     optionIndex.removeValue(forKey: option.spelling)
     if let group = option.group {
@@ -316,6 +340,7 @@ extension ParsedOptions {
   }
 
   public var unconsumedOptions: [ParsedOption] {
-    zip(parsedOptions, consumed).filter { !$0.1 }.map(\.0)
+    // option indices are not matched with parsedOptions because of `eraseArgument` above
+    parsedOptions.filter(unconsumedOptionsBox.contains)
   }
 }

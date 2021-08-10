@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath) throws -> Job {
+  func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")

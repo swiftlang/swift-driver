@@ -19,7 +19,7 @@ extension Toolchain {
     to env: inout [String : String],
     currentEnv: [String: String],
     option: Option,
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     extraPaths: [String] = []
     ) {
     let argPaths = parsedOptions.arguments(for: option)
@@ -33,18 +33,18 @@ extension Toolchain {
 extension DarwinToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     sdkPath: VirtualPath.Handle?,
     targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     addPathEnvironmentVariableIfNeeded("DYLD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
-                                       parsedOptions: &parsedOptions)
+                                       parsedOptions: parsedOptions)
 
     addPathEnvironmentVariableIfNeeded("DYLD_FRAMEWORK_PATH", to: &envVars,
                                        currentEnv: env, option: .F,
-                                       parsedOptions: &parsedOptions)
+                                       parsedOptions: parsedOptions)
 
     return envVars
   }
@@ -53,21 +53,21 @@ extension DarwinToolchain {
 extension GenericUnixToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
     env: [String : String],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     sdkPath: VirtualPath.Handle?,
     targetInfo: FrontendTargetInfo) throws -> [String: String] {
     var envVars: [String: String] = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
       for: targetInfo,
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       sdkPath: sdkPath,
       isShared: true
     ).map { $0.name }
 
     addPathEnvironmentVariableIfNeeded("LD_LIBRARY_PATH", to: &envVars,
                                        currentEnv: env, option: .L,
-                                       parsedOptions: &parsedOptions,
+                                       parsedOptions: parsedOptions,
                                        extraPaths: runtimePaths)
 
     return envVars

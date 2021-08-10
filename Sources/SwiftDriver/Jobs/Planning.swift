@@ -89,7 +89,7 @@ extension Driver {
     // the planning process. This state contains the module dependency graph and
     // cross-module dependency information.
     let initialIncrementalState =
-      try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
+      try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: self)
 
     // Compute the set of all jobs required to build this module
     let jobsInPhases = try computeJobsForPhasedStandardBuild()
@@ -99,7 +99,7 @@ extension Driver {
     // If no initial state was computed, we will not be performing an incremental build
     if let initialState = initialIncrementalState {
       incrementalCompilationState =
-        try IncrementalCompilationState(driver: &self, jobsInPhases: jobsInPhases,
+        try IncrementalCompilationState(driver: self, jobsInPhases: jobsInPhases,
                                         initialState: initialState)
     } else {
       incrementalCompilationState = nil
@@ -165,7 +165,7 @@ extension Driver {
   }
 
 
-  private mutating func addPrecompileBridgingHeaderJob(addJob: (Job) -> Void) throws {
+  private func addPrecompileBridgingHeaderJob(addJob: (Job) -> Void) throws {
     guard
       let importedObjCHeader = importedObjCHeader,
       let bridgingPrecompiledHeader = bridgingPrecompiledHeader
@@ -251,7 +251,7 @@ extension Driver {
 
   /// When in single compile, add one compile job and possiblity multiple backend jobs.
   /// Return the compile job if one was created.
-  private mutating func addSingleCompileJobs(
+  private func addSingleCompileJobs(
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     emitModuleTrace: Bool
@@ -356,7 +356,7 @@ extension Driver {
     }
   }
 
-  private mutating func createAndAddCompileJobGroup(
+  private func createAndAddCompileJobGroup(
     primaryInput: TypedVirtualPath,
     emitModuleTrace: Bool,
     canSkipIfOnlyModule: Bool,
@@ -470,7 +470,7 @@ extension Driver {
     }
   }
 
-  private mutating func addAPIDigesterJobs(addJob: (Job) -> Void) throws {
+  private func addAPIDigesterJobs(addJob: (Job) -> Void) throws {
     guard let moduleOutputPath = moduleOutputInfo.output?.outputPath else { return }
     if let apiBaselinePath = self.digesterBaselinePath {
       try addJob(digesterBaselineGenerationJob(modulePath: moduleOutputPath, outputPath: apiBaselinePath, mode: digesterMode))
@@ -528,7 +528,7 @@ extension Driver {
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 
-  @_spi(Testing) public mutating func gatherModuleDependencies()
+  @_spi(Testing) public func gatherModuleDependencies()
   throws -> InterModuleDependencyGraph {
     var dependencyGraph = try performDependencyScan()
 
@@ -548,7 +548,7 @@ extension Driver {
 
   /// Update the given inter-module dependency graph to set module paths to be within the module cache,
   /// if one is present, and for Swift modules to use the context hash in the file name.
-  private mutating func resolveDependencyModulePaths(dependencyGraph: inout InterModuleDependencyGraph)
+  private func resolveDependencyModulePaths(dependencyGraph: inout InterModuleDependencyGraph)
   throws {
     // If a module cache path is specified, update all module dependencies
     // to be output into it.
@@ -563,7 +563,7 @@ extension Driver {
   }
 
   /// For Swift module dependencies, set the output path to include the module's context hash
-  private mutating func resolveSwiftDependencyModuleFileNames(dependencyGraph: inout InterModuleDependencyGraph)
+  private func resolveSwiftDependencyModuleFileNames(dependencyGraph: inout InterModuleDependencyGraph)
   throws {
     for (moduleId, moduleInfo) in dependencyGraph.modules {
       // Output path on the main module is determined by the invocation arguments.
@@ -583,8 +583,8 @@ extension Driver {
   }
 
   /// Resolve all paths to dependency binary module files to be relative to the module cache path.
-  private mutating func resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: inout InterModuleDependencyGraph,
-                                                                          moduleCachePath: String)
+  private func resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: inout InterModuleDependencyGraph,
+                                                                 moduleCachePath: String)
   throws {
     for (moduleId, moduleInfo) in dependencyGraph.modules {
       // Output path on the main module is determined by the invocation arguments.
@@ -613,7 +613,7 @@ extension Driver {
 extension Driver {
   /// Create a job if needed for simple requests that can be immediately
   /// forwarded to the frontend.
-  public mutating func immediateForwardingJob() throws -> Job? {
+  public func immediateForwardingJob() throws -> Job? {
     if parsedOptions.hasArgument(.printTargetInfo) {
       let sdkPath = try parsedOptions.getLastArgument(.sdk).map { try VirtualPath(path: $0.asSingle) }
       let resourceDirPath = try parsedOptions.getLastArgument(.resourceDir).map { try VirtualPath(path: $0.asSingle) }
@@ -727,7 +727,7 @@ extension Driver {
   ///
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
   /// compilation. But `compileJob` intermixes the output computation with other stuff.
-  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool) throws -> [Job] {
+  func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool) throws -> [Job] {
     guard compilerMode.isBatchCompile else {
       // Don't even go through the logic so as to not print out confusing
       // "batched foobar" messages.

@@ -14,7 +14,7 @@ import SwiftOptions
 
 extension Driver {
   /// Add the appropriate compile mode option to the command line for a compile job.
-  mutating func addCompileModeOption(outputType: FileType?, commandLine: inout [Job.ArgTemplate]) {
+  func addCompileModeOption(outputType: FileType?, commandLine: inout [Job.ArgTemplate]) {
     if let compileOption = outputType?.frontendCompileOption {
       commandLine.appendFlag(compileOption)
     } else {
@@ -26,7 +26,7 @@ extension Driver {
     }
   }
 
-  mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) -> TypedVirtualPath? {
+  func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) -> TypedVirtualPath? {
     if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .indexUnitOutputPath) {
       return TypedVirtualPath(file: path, type: outputType)
     }
@@ -39,8 +39,8 @@ extension Driver {
     return nil
   }
 
-  mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
-                                        isTopLevel: Bool) -> TypedVirtualPath {
+  func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
+                            isTopLevel: Bool) -> TypedVirtualPath {
     if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
       return TypedVirtualPath(file: path, type: outputType)
     }
@@ -101,12 +101,12 @@ extension Driver {
   /// Add the compiler inputs for a frontend compilation job, and return the
   /// corresponding primary set of outputs and, if not identical, the output
   /// paths to record in the index data (empty otherwise).
-  mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
-                                 indexFilePath: TypedVirtualPath?,
-                                 inputs: inout [TypedVirtualPath],
-                                 inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
-                                 outputType: FileType?,
-                                 commandLine: inout [Job.ArgTemplate])
+  func addCompileInputs(primaryInputs: [TypedVirtualPath],
+                        indexFilePath: TypedVirtualPath?,
+                        inputs: inout [TypedVirtualPath],
+                        inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
+                        outputType: FileType?,
+                        commandLine: inout [Job.ArgTemplate])
   -> ([TypedVirtualPath], [TypedVirtualPath]) {
     let useInputFileList: Bool
     if let allSourcesFileList = allSourcesFileList {
@@ -218,7 +218,7 @@ extension Driver {
   }
 
   /// Form a compile job, which executes the Swift frontend to produce various outputs.
-  mutating func compileJob(primaryInputs: [TypedVirtualPath],
+  func compileJob(primaryInputs: [TypedVirtualPath],
                            outputType: FileType?,
                            addJobOutputs: ([TypedVirtualPath]) -> Void,
                            emitModuleTrace: Bool)
@@ -255,8 +255,8 @@ extension Driver {
     // -save-optimization-record and -save-optimization-record= have different meanings.
     // In this case, we specifically want to pass the EQ variant to the frontend
     // to control the output type of optimization remarks (YAML or bitstream).
-    try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
-    try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
+    try commandLine.appendLast(.saveOptimizationRecordEQ, from: parsedOptions)
+    try commandLine.appendLast(.saveOptimizationRecordPasses, from: parsedOptions)
 
     let inputsGeneratingCodeCount = primaryInputs.isEmpty
       ? inputs.count
@@ -271,9 +271,9 @@ extension Driver {
       indexFilePath: indexFilePath)
 
     // Forward migrator flags.
-    try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
-    try commandLine.appendLast(.apiDiffDataDir, from: &parsedOptions)
-    try commandLine.appendLast(.dumpUsr, from: &parsedOptions)
+    try commandLine.appendLast(.apiDiffDataFile, from: parsedOptions)
+    try commandLine.appendLast(.apiDiffDataDir, from: parsedOptions)
+    try commandLine.appendLast(.dumpUsr, from: parsedOptions)
 
     if parsedOptions.hasArgument(.parseStdlib) {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
@@ -286,9 +286,9 @@ extension Driver {
       commandLine.appendFlag(.parseAsLibrary)
     }
 
-    try commandLine.appendLast(.parseSil, from: &parsedOptions)
+    try commandLine.appendLast(.parseSil, from: parsedOptions)
 
-    try commandLine.appendLast(.migrateKeepObjcVisibility, from: &parsedOptions)
+    try commandLine.appendLast(.migrateKeepObjcVisibility, from: parsedOptions)
 
     if numThreads > 0 {
       commandLine.appendFlags("-num-threads", numThreads.description)
@@ -322,7 +322,7 @@ extension Driver {
       }
     }
 
-    try commandLine.appendLast(.embedBitcodeMarker, from: &parsedOptions)
+    try commandLine.appendLast(.embedBitcodeMarker, from: parsedOptions)
 
     // For `-index-file` mode add `-disable-typo-correction`, since the errors
     // will be ignored and it can be expensive to do typo-correction.
@@ -331,7 +331,7 @@ extension Driver {
     }
 
     if parsedOptions.contains(.indexStorePath) {
-      try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+      try commandLine.appendLast(.indexStorePath, from: parsedOptions)
       if !parsedOptions.contains(.indexIgnoreSystemModules) {
         commandLine.appendFlag(.indexSystemModules)
       }
@@ -342,15 +342,15 @@ extension Driver {
       commandLine.appendFlag(.debugInfoStoreInvocation)
     }
 
-    try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
-    try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
-    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
-    try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
-    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
+    try commandLine.appendLast(.trackSystemDependencies, from: parsedOptions)
+    try commandLine.appendLast(.CrossModuleOptimization, from: parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: parsedOptions)
+    try commandLine.appendLast(.runtimeCompatibilityVersion, from: parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: parsedOptions)
 
     if compilerMode.isSingleCompilation {
-      try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
-      try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+      try commandLine.appendLast(.emitSymbolGraph, from: parsedOptions)
+      try commandLine.appendLast(.emitSymbolGraphDir, from: parsedOptions)
     }
 
     addJobOutputs(outputs)

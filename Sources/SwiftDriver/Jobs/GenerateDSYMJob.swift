@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func generateDSYMJob(inputs: [TypedVirtualPath]) throws -> Job {
+  func generateDSYMJob(inputs: [TypedVirtualPath]) throws -> Job {
     assert(inputs.count == 1)
     let input = inputs[0]
 

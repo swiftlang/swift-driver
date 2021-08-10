@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func interpretJob(inputs allInputs: [TypedVirtualPath]) throws -> Job {
+  func interpretJob(inputs allInputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
 
@@ -30,14 +30,14 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
 
-    try commandLine.appendLast(.parseSil, from: &parsedOptions)
-    try commandLine.appendAll(.l, .framework, from: &parsedOptions)
+    try commandLine.appendLast(.parseSil, from: parsedOptions)
+    try commandLine.appendAll(.l, .framework, from: parsedOptions)
 
     // The immediate arguments must be last.
-    try commandLine.appendLast(.DASHDASH, from: &parsedOptions)
+    try commandLine.appendLast(.DASHDASH, from: parsedOptions)
 
     let extraEnvironment = try toolchain.platformSpecificInterpreterEnvironmentVariables(
-      env: self.env, parsedOptions: &parsedOptions,
+      env: self.env, parsedOptions: parsedOptions,
       sdkPath: frontendTargetInfo.sdkPath?.path, targetInfo: self.frontendTargetInfo)
 
     return Job(

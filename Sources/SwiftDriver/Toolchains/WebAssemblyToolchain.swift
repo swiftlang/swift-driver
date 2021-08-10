@@ -135,7 +135,7 @@ public final class WebAssemblyToolchain: Toolchain {
   }
 
   public func platformSpecificInterpreterEnvironmentVariables(env: [String : String],
-                                                              parsedOptions: inout ParsedOptions,
+                                                              parsedOptions: ParsedOptions,
                                                               sdkPath: VirtualPath.Handle?,
                                                               targetInfo: FrontendTargetInfo) throws -> [String : String] {
     throw Error.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)

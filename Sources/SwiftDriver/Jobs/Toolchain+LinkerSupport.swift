@@ -22,7 +22,7 @@ extension Toolchain {
 
   func clangLibraryPath(
     for targetInfo: FrontendTargetInfo,
-    parsedOptions: inout ParsedOptions
+    parsedOptions: ParsedOptions
   ) throws -> VirtualPath {
     return VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
       .appending(components: "clang", "lib",
@@ -31,7 +31,7 @@ extension Toolchain {
 
   func runtimeLibraryPaths(
     for targetInfo: FrontendTargetInfo,
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     sdkPath: VirtualPath.Handle?,
     isShared: Bool
   ) throws -> [VirtualPath] {
@@ -60,11 +60,11 @@ extension Toolchain {
     named name: String,
     to commandLine: inout [Job.ArgTemplate],
     for targetInfo: FrontendTargetInfo,
-    parsedOptions: inout ParsedOptions
+    parsedOptions: ParsedOptions
   ) throws {
     let path = try clangLibraryPath(
       for: targetInfo,
-      parsedOptions: &parsedOptions)
+      parsedOptions: parsedOptions)
       .appending(component: name)
     commandLine.appendPath(path)
   }
@@ -72,7 +72,7 @@ extension Toolchain {
   func runtimeLibraryExists(
     for sanitizer: Sanitizer,
     targetInfo: FrontendTargetInfo,
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     isShared: Bool
   ) throws -> Bool {
     let runtimeName = try runtimeLibraryName(
@@ -82,7 +82,7 @@ extension Toolchain {
     )
     let path = try clangLibraryPath(
       for: targetInfo,
-      parsedOptions: &parsedOptions
+      parsedOptions: parsedOptions
     ).appending(component: runtimeName)
     return try fileSystem.exists(path)
   }
@@ -93,7 +93,7 @@ extension Toolchain {
 extension DarwinToolchain {
   func addArgsToLinkStdlib(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     targetInfo: FrontendTargetInfo,
     linkerOutputType: LinkOutputType,
     fileSystem: FileSystem
@@ -131,7 +131,7 @@ extension DarwinToolchain {
     // relative to the compiler.
     let runtimePaths = try runtimeLibraryPaths(
       for: targetInfo,
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       sdkPath: targetInfo.sdkPath?.path,
       isShared: true
     )
@@ -141,7 +141,7 @@ extension DarwinToolchain {
     }
 
     let rpaths = StdlibRpathRule(
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       targetInfo: targetInfo
     )
     for path in rpaths.paths(runtimeLibraryPaths: runtimePaths) {
@@ -165,7 +165,7 @@ extension DarwinToolchain {
     case none
 
     /// Determines the appropriate rule for the given set of options.
-    init(parsedOptions: inout ParsedOptions, targetInfo: FrontendTargetInfo) {
+    init(parsedOptions: ParsedOptions, targetInfo: FrontendTargetInfo) {
       if parsedOptions.hasFlag(
         positive: .toolchainStdlibRpath,
         negative: .noToolchainStdlibRpath,

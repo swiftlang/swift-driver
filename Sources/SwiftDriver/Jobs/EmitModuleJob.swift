@@ -12,7 +12,7 @@
 extension Driver {
   /// Add options that are common to command lines that emit modules, e.g.,
   /// options for the paths of various module files.
-  mutating func addCommonModuleOptions(
+  func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
       outputs: inout [TypedVirtualPath],
       isMergeModule: Bool
@@ -49,7 +49,7 @@ extension Driver {
   }
 
   /// Form a job that emits a single module
-  @_spi(Testing) public mutating func emitModuleJob() throws -> Job {
+  @_spi(Testing) public func emitModuleJob() throws -> Job {
     let moduleOutputPath = moduleOutputInfo.output!.outputPath
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
@@ -94,7 +94,7 @@ extension Driver {
 
   /// Returns true if the emit module job should be created.
   var shouldCreateEmitModuleJob: Bool {
-    mutating get {
+    get {
       return moduleOutputInfo.output != nil
         && (forceEmitModuleBeforeCompile
             || shouldEmitModuleSeparately())
@@ -102,7 +102,7 @@ extension Driver {
   }
 
   /// Returns true if the -emit-module-separately is active.
-  mutating func shouldEmitModuleSeparately() -> Bool {
+  func shouldEmitModuleSeparately() -> Bool {
     return parsedOptions.hasFlag(positive: .emitModuleSeparately,
                                  negative: .noEmitModuleSeparately,
                                  default: false)

@@ -25,7 +25,7 @@ internal extension Driver {
   // the dependency scanner. We must ensure to re-scan Clang modules at all targets at which
   // they will be compiled and record a super-set of the module's dependencies at all targets.
   /// For each clang module, compute its dependencies at all targets at which it will be compiled.
-  mutating func resolveVersionedClangDependencies(dependencyGraph: inout InterModuleDependencyGraph)
+  func resolveVersionedClangDependencies(dependencyGraph: inout InterModuleDependencyGraph)
   throws {
     // Traverse the dependency graph, collecting extraPCMArgs along each path
     // to all Clang modules, and compute a set of distinct PCMArgs across all paths to a

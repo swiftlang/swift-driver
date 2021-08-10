@@ -63,14 +63,14 @@ public protocol Toolchain {
   func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 
   /// Perform platform-specific argument validation.
-  func validateArgs(_ parsedOptions: inout ParsedOptions,
+  func validateArgs(_ parsedOptions: ParsedOptions,
                     targetTriple: Triple,
                     targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) throws
 
   /// Adds platform-specific linker flags to the provided command line
   func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     linkerOutputType: LinkOutputType,
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
@@ -88,7 +88,7 @@ public protocol Toolchain {
 
   func platformSpecificInterpreterEnvironmentVariables(
     env: [String: String],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     sdkPath: VirtualPath.Handle?,
     targetInfo: FrontendTargetInfo) throws -> [String: String]
 
@@ -188,7 +188,7 @@ extension Toolchain {
     return AbsolutePath(path)
   }
 
-  public func validateArgs(_ parsedOptions: inout ParsedOptions,
+  public func validateArgs(_ parsedOptions: ParsedOptions,
                            targetTriple: Triple,
                            targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) {}
 

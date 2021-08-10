@@ -23,7 +23,7 @@ public extension Driver {
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// dependency graph including all Swift and C module files and
   /// source files.
-  mutating private func dependencyScanningJob() throws -> Job {
+  private func dependencyScanningJob() throws -> Job {
     let (inputs, commandLine) = try dependencyScannerInvocationCommand()
 
     // Construct the scanning job.
@@ -40,7 +40,7 @@ public extension Driver {
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
-  mutating private func dependencyScannerInvocationCommand()
+  private func dependencyScannerInvocationCommand()
   throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []
@@ -90,7 +90,7 @@ public extension Driver {
     }
   }
 
-  mutating func performImportPrescan() throws -> InterModuleDependencyImports {
+  func performImportPrescan() throws -> InterModuleDependencyImports {
     let preScanJob = try importPreScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let imports: InterModuleDependencyImports
@@ -118,7 +118,7 @@ public extension Driver {
     return imports
   }
 
-  mutating internal func performDependencyScan() throws -> InterModuleDependencyGraph {
+  internal func performDependencyScan() throws -> InterModuleDependencyGraph {
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
@@ -145,7 +145,7 @@ public extension Driver {
     return dependencyGraph
   }
 
-  mutating internal func performBatchDependencyScan(moduleInfos: [BatchScanModuleInfo])
+  internal func performBatchDependencyScan(moduleInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     let batchScanningJob = try batchDependencyScanningJob(for: moduleInfos)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
@@ -215,7 +215,7 @@ public extension Driver {
   }
 
   /// Precompute the set of module names as imported by the current module
-  mutating private func importPreScanningJob() throws -> Job {
+  private func importPreScanningJob() throws -> Job {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -243,7 +243,7 @@ public extension Driver {
   }
 
   /// Precompute the dependencies for a given collection of modules using swift frontend's batch scanning mode
-  mutating private func batchDependencyScanningJob(for moduleInfos: [BatchScanModuleInfo]) throws -> Job {
+  private func batchDependencyScanningJob(for moduleInfos: [BatchScanModuleInfo]) throws -> Job {
     var inputs: [TypedVirtualPath] = []
 
     // Aggregate the fast dependency scanner arguments

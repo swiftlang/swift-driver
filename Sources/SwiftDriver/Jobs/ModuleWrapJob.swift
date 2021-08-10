@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func moduleWrapJob(moduleInput: TypedVirtualPath) throws -> Job {
+  func moduleWrapJob(moduleInput: TypedVirtualPath) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
 
     commandLine.appendFlags("-modulewrap")

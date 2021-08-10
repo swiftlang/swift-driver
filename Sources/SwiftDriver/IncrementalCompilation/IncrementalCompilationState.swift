@@ -61,7 +61,7 @@ public final class IncrementalCompilationState {
   ///
   /// After initialization, mutating accesses to the driver must be protected by
   /// the confinement queue.
-  private var driver: Driver
+  private let driver: Driver
 
   /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
   ///
@@ -72,7 +72,7 @@ public final class IncrementalCompilationState {
   // MARK: - Creating IncrementalCompilationState
   /// Return nil if not compiling incrementally
   internal init(
-    driver: inout Driver,
+    driver: Driver,
     jobsInPhases: JobsInPhases,
     initialState: InitialStateForPlanning
   ) throws {
@@ -92,7 +92,7 @@ public final class IncrementalCompilationState {
 
     let firstWave =
       try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
-                            driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
+                            driver: driver, reporter: reporter).compute(batchJobFormer: driver)
 
     self.skippedCompileGroups = firstWave.skippedCompileGroups
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
@@ -153,7 +153,7 @@ extension IncrementalCompilationState {
 extension Driver {
   /// Check various arguments to rule out incremental compilation if need be.
   static func shouldAttemptIncrementalCompilation(
-    _ parsedOptions: inout ParsedOptions,
+    _ parsedOptions: ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
     compilerMode: CompilerMode
   ) -> Bool {

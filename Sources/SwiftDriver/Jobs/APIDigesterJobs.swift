@@ -44,7 +44,7 @@ enum DigesterMode: String {
 }
 
 extension Driver {
-  mutating func digesterBaselineGenerationJob(modulePath: VirtualPath.Handle, outputPath: VirtualPath.Handle, mode: DigesterMode) throws -> Job {
+  func digesterBaselineGenerationJob(modulePath: VirtualPath.Handle, outputPath: VirtualPath.Handle, mode: DigesterMode) throws -> Job {
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendFlag("-dump-sdk")
 
@@ -65,7 +65,7 @@ extension Driver {
     )
   }
 
-  mutating func digesterCompareToBaselineJob(modulePath: VirtualPath.Handle, baselinePath: VirtualPath.Handle, mode: DigesterMode) throws -> Job {
+  func digesterCompareToBaselineJob(modulePath: VirtualPath.Handle, baselinePath: VirtualPath.Handle, mode: DigesterMode) throws -> Job {
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendFlag("-diagnose-sdk")
     commandLine.appendFlag("-disable-fail-on-error")
@@ -106,9 +106,9 @@ extension Driver {
     )
   }
 
-  private mutating func addCommonDigesterOptions(_ commandLine: inout [Job.ArgTemplate],
-                                                 modulePath: VirtualPath.Handle,
-                                                 mode: DigesterMode) throws {
+  private func addCommonDigesterOptions(_ commandLine: inout [Job.ArgTemplate],
+                                        modulePath: VirtualPath.Handle,
+                                        mode: DigesterMode) throws {
     commandLine.appendFlag("-module")
     commandLine.appendFlag(moduleOutputInfo.name)
     if mode == .abi {
@@ -140,13 +140,13 @@ extension Driver {
     commandLine.appendFlag(.resourceDir)
     commandLine.appendPath(VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path))
 
-    try commandLine.appendAll(.I, from: &parsedOptions)
-    try commandLine.appendAll(.F, from: &parsedOptions)
+    try commandLine.appendAll(.I, from: parsedOptions)
+    try commandLine.appendAll(.F, from: parsedOptions)
     for systemFramework in parsedOptions.arguments(for: .Fsystem) {
       commandLine.appendFlag(.iframework)
       commandLine.appendFlag(systemFramework.argument.asSingle)
     }
 
-    try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
+    try commandLine.appendLast(.swiftVersion, from: parsedOptions)
   }
 }

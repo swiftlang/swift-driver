@@ -55,7 +55,7 @@ extension DarwinToolchain {
 
   func addLinkRuntimeLibraryRPath(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     targetInfo: FrontendTargetInfo,
     darwinLibName: String
   ) throws {
@@ -76,14 +76,14 @@ extension DarwinToolchain {
 
     let clangPath = try clangLibraryPath(
       for: targetInfo,
-      parsedOptions: &parsedOptions)
+      parsedOptions: parsedOptions)
     commandLine.appendFlag("-rpath")
     commandLine.appendPath(clangPath)
   }
 
   func addLinkSanitizerLibArgsForDarwin(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     targetInfo: FrontendTargetInfo,
     sanitizer: Sanitizer,
     isShared: Bool
@@ -103,13 +103,13 @@ extension DarwinToolchain {
       named: sanitizerName,
       to: &commandLine,
       for: targetInfo,
-      parsedOptions: &parsedOptions
+      parsedOptions: parsedOptions
     )
 
     if isShared {
       try addLinkRuntimeLibraryRPath(
         to: &commandLine,
-        parsedOptions: &parsedOptions,
+        parsedOptions: parsedOptions,
         targetInfo: targetInfo,
         darwinLibName: sanitizerName
       )
@@ -118,12 +118,12 @@ extension DarwinToolchain {
 
   private func addProfileGenerationArgs(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     targetInfo: FrontendTargetInfo
   ) throws {
     guard parsedOptions.hasArgument(.profileGenerate) else { return }
     let clangPath = try clangLibraryPath(for: targetInfo,
-                                         parsedOptions: &parsedOptions)
+                                         parsedOptions: parsedOptions)
 
     for runtime in targetInfo.target.triple.darwinPlatform!.profileLibraryNameSuffixes {
       let clangRTPath = clangPath
@@ -167,7 +167,7 @@ extension DarwinToolchain {
 
   private func addArgsToLinkARCLite(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     targetTriple: Triple
   ) throws {
     guard parsedOptions.hasFlag(
@@ -197,7 +197,7 @@ extension DarwinToolchain {
   /// options for a Darwin platform.
   public func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     linkerOutputType: LinkOutputType,
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
@@ -218,7 +218,7 @@ extension DarwinToolchain {
                     inputs: inputs,
                     linkerOutputType: linkerOutputType)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
-                                parsedOptions: &parsedOptions,
+                                parsedOptions: parsedOptions,
                                 commandLine: &commandLine,
                                 sanitizers: sanitizers,
                                 linkerOutputType: linkerOutputType,
@@ -231,7 +231,7 @@ extension DarwinToolchain {
                     inputs: inputs,
                     linkerOutputType: linkerOutputType)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
-                                parsedOptions: &parsedOptions,
+                                parsedOptions: parsedOptions,
                                 commandLine: &commandLine,
                                 sanitizers: sanitizers,
                                 linkerOutputType: linkerOutputType,
@@ -305,7 +305,7 @@ extension DarwinToolchain {
   }
 
   private func addDynamicLinkerFlags(targetInfo: FrontendTargetInfo,
-                                     parsedOptions: inout ParsedOptions,
+                                     parsedOptions: ParsedOptions,
                                      commandLine: inout [Job.ArgTemplate],
                                      sanitizers: Set<Sanitizer>,
                                      linkerOutputType: LinkOutputType,
@@ -325,7 +325,7 @@ extension DarwinToolchain {
     let compilerRTPath =
       try clangLibraryPath(
         for: targetInfo,
-        parsedOptions: &parsedOptions)
+        parsedOptions: parsedOptions)
       .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
     if try fileSystem.exists(compilerRTPath) {
       commandLine.append(.path(compilerRTPath))
@@ -333,7 +333,7 @@ extension DarwinToolchain {
 
     try addArgsToLinkARCLite(
       to: &commandLine,
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       targetTriple: targetTriple
     )
 
@@ -365,7 +365,7 @@ extension DarwinToolchain {
       }
       try addLinkSanitizerLibArgsForDarwin(
         to: &commandLine,
-        parsedOptions: &parsedOptions,
+        parsedOptions: parsedOptions,
         targetInfo: targetInfo,
         sanitizer: sanitizer,
         isShared: sanitizer != .fuzzer
@@ -398,7 +398,7 @@ extension DarwinToolchain {
 
     try addArgsToLinkStdlib(
       to: &commandLine,
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       targetInfo: targetInfo,
       linkerOutputType: linkerOutputType,
       fileSystem: fileSystem
@@ -406,7 +406,7 @@ extension DarwinToolchain {
 
     try addProfileGenerationArgs(
       to: &commandLine,
-      parsedOptions: &parsedOptions,
+      parsedOptions: parsedOptions,
       targetInfo: targetInfo
     )
 
@@ -425,7 +425,7 @@ extension DarwinToolchain {
     try commandLine.append(
       contentsOf: parsedOptions.arguments(in: .linkerOption)
     )
-    try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
+    try commandLine.appendAllArguments(.Xlinker, from: parsedOptions)
   }
 }
 

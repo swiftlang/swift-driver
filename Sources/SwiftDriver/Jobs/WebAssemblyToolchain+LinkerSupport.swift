@@ -15,7 +15,7 @@ import SwiftOptions
 extension WebAssemblyToolchain {
   public func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     linkerOutputType: LinkOutputType,
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
@@ -73,7 +73,7 @@ extension WebAssemblyToolchain {
 
       let runtimePaths = try runtimeLibraryPaths(
         for: targetInfo,
-        parsedOptions: &parsedOptions,
+        parsedOptions: parsedOptions,
         sdkPath: targetInfo.sdkPath?.path,
         isShared: false
       )
@@ -135,15 +135,15 @@ extension WebAssemblyToolchain {
       }
 
       // Run clang++ in verbose mode if "-v" is set
-      try commandLine.appendLast(.v, from: &parsedOptions)
+      try commandLine.appendLast(.v, from: parsedOptions)
 
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.append(
         contentsOf: parsedOptions.arguments(in: .linkerOption)
       )
-      try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
-      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+      try commandLine.appendAllArguments(.Xlinker, from: parsedOptions)
+      try commandLine.appendAllArguments(.XclangLinker, from: parsedOptions)
 
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)

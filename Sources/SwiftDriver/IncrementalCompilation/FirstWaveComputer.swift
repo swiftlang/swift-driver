@@ -50,9 +50,9 @@ extension IncrementalCompilationState {
       self.reporter = reporter
     }
 
-    public func compute(batchJobFormer: inout Driver) throws -> FirstWave {
+    public func compute(batchJobFormer: Driver) throws -> FirstWave {
       let (skippedCompileGroups, mandatoryJobsInOrder) =
-        try computeInputsAndGroups(batchJobFormer: &batchJobFormer)
+        try computeInputsAndGroups(batchJobFormer: batchJobFormer)
       return FirstWave(
         skippedCompileGroups: skippedCompileGroups,
         mandatoryJobsInOrder: mandatoryJobsInOrder)
@@ -64,7 +64,7 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState.FirstWaveComputer {
   /// At this stage the graph will have all external dependencies found in the swiftDeps or in the priors
   /// listed in fingerprintExternalDependencies.
-  private func computeInputsAndGroups(batchJobFormer: inout Driver)
+  private func computeInputsAndGroups(batchJobFormer: Driver)
   throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
              mandatoryJobsInOrder: [Job])
   {

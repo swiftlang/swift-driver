@@ -163,7 +163,7 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  public func validateArgs(_ parsedOptions: inout ParsedOptions,
+  public func validateArgs(_ parsedOptions: ParsedOptions,
                            targetTriple: Triple,
                            targetVariantTriple: Triple?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
@@ -171,12 +171,12 @@ public final class DarwinToolchain: Toolchain {
     // Guard for the sake of tests runnin on all platforms
     #if os(macOS)
     // Validating arclite library path when link-objc-runtime.
-    validateLinkObjcRuntimeARCLiteLib(&parsedOptions,
+    validateLinkObjcRuntimeARCLiteLib(parsedOptions,
                                       targetTriple: targetTriple,
                                       diagnosticsEngine: diagnosticsEngine)
     #endif
     // Validating apple platforms deployment targets.
-    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple)
+    try validateDeploymentTarget(parsedOptions, targetTriple: targetTriple)
     if let targetVariantTriple = targetVariantTriple,
        !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
       throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
@@ -197,7 +197,7 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
+  func validateDeploymentTarget(_ parsedOptions: ParsedOptions,
                                 targetTriple: Triple) throws {
     // Check minimum supported OS versions.
     if targetTriple.isMacOSX,
@@ -222,7 +222,7 @@ public final class DarwinToolchain: Toolchain {
     }
   }
     
-  func validateLinkObjcRuntimeARCLiteLib(_ parsedOptions: inout ParsedOptions,
+  func validateLinkObjcRuntimeARCLiteLib(_ parsedOptions: ParsedOptions,
                                            targetTriple: Triple,
                                            diagnosticsEngine: DiagnosticsEngine) {
     if parsedOptions.hasFlag(positive: .linkObjcRuntime, negative: .noLinkObjcRuntime, default: targetTriple.supports(.compatibleObjCRuntime)) {

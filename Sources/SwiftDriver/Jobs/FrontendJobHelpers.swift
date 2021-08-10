@@ -46,7 +46,7 @@ extension Driver {
     case computed
   }
   /// Add frontend options that are common to different frontend invocations.
-  mutating func addCommonFrontendOptions(
+  func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
@@ -122,85 +122,85 @@ extension Driver {
     }
 
     // Handle the CPU and its preferences.
-    try commandLine.appendLast(.targetCpu, from: &parsedOptions)
+    try commandLine.appendLast(.targetCpu, from: parsedOptions)
 
     if let sdkPath = frontendTargetInfo.sdkPath?.path {
       commandLine.appendFlag(.sdk)
       commandLine.append(.path(VirtualPath.lookup(sdkPath)))
     }
 
-    try commandLine.appendAll(.I, from: &parsedOptions)
-    try commandLine.appendAll(.F, .Fsystem, from: &parsedOptions)
-    try commandLine.appendAll(.vfsoverlay, from: &parsedOptions)
+    try commandLine.appendAll(.I, from: parsedOptions)
+    try commandLine.appendAll(.F, .Fsystem, from: parsedOptions)
+    try commandLine.appendAll(.vfsoverlay, from: parsedOptions)
 
-    try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
-    try commandLine.appendLast(.autolinkForceLoad, from: &parsedOptions)
+    try commandLine.appendLast(.AssertConfig, from: parsedOptions)
+    try commandLine.appendLast(.autolinkForceLoad, from: parsedOptions)
 
     if let colorOption = parsedOptions.last(for: .colorDiagnostics, .noColorDiagnostics) {
       commandLine.appendFlag(colorOption.option)
     } else if shouldColorDiagnostics() {
       commandLine.appendFlag(.colorDiagnostics)
     }
-    try commandLine.appendLast(.fixitAll, from: &parsedOptions)
-    try commandLine.appendLast(.warnSwift3ObjcInferenceMinimal, .warnSwift3ObjcInferenceComplete, from: &parsedOptions)
-    try commandLine.appendLast(.warnImplicitOverrides, from: &parsedOptions)
-    try commandLine.appendLast(.typoCorrectionLimit, from: &parsedOptions)
-    try commandLine.appendLast(.enableAppExtension, from: &parsedOptions)
-    try commandLine.appendLast(.enableLibraryEvolution, from: &parsedOptions)
-    try commandLine.appendLast(.enableTesting, from: &parsedOptions)
-    try commandLine.appendLast(.enablePrivateImports, from: &parsedOptions)
-    try commandLine.appendLast(.enableCxxInterop, from: &parsedOptions)
-    try commandLine.appendLast(in: .g, from: &parsedOptions)
-    try commandLine.appendLast(.debugInfoFormat, from: &parsedOptions)
-    try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
-    try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
-    try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
-    try commandLine.appendLast(.nostdimport, from: &parsedOptions)
-    try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
-    try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
-    try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
-    try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
-    try commandLine.appendLast(.RpassEQ, from: &parsedOptions)
-    try commandLine.appendLast(.RpassMissedEQ, from: &parsedOptions)
-    try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)
-    try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
-    try commandLine.appendLast(.profileUse, from: &parsedOptions)
-    try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
-    try commandLine.appendLast(.warningsAsErrors, .noWarningsAsErrors, from: &parsedOptions)
-    try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
-    try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
-    try commandLine.appendLast(.sanitizeAddressUseOdrIndicator, from: &parsedOptions)
-    try commandLine.appendLast(.sanitizeCoverageEQ, from: &parsedOptions)
-    try commandLine.appendLast(.static, from: &parsedOptions)
-    try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
-    try commandLine.appendLast(.enforceExclusivityEQ, from: &parsedOptions)
-    try commandLine.appendLast(.statsOutputDir, from: &parsedOptions)
-    try commandLine.appendLast(.traceStatsEvents, from: &parsedOptions)
-    try commandLine.appendLast(.profileStatsEvents, from: &parsedOptions)
-    try commandLine.appendLast(.profileStatsEntities, from: &parsedOptions)
-    try commandLine.appendLast(.solverShrinkUnsolvedThreshold, from: &parsedOptions)
-    try commandLine.appendLast(in: .O, from: &parsedOptions)
-    try commandLine.appendLast(.RemoveRuntimeAsserts, from: &parsedOptions)
-    try commandLine.appendLast(.AssumeSingleThreaded, from: &parsedOptions)
-    try commandLine.appendLast(.packageDescriptionVersion, from: &parsedOptions)
-    try commandLine.appendLast(.serializeDiagnosticsPath, from: &parsedOptions)
-    try commandLine.appendLast(.debugDiagnosticNames, from: &parsedOptions)
-    try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
-    try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
-    try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
-    try commandLine.appendLast(.diagnosticStyle, from: &parsedOptions)
-    try commandLine.appendLast(.locale, from: &parsedOptions)
-    try commandLine.appendLast(.localizationPath, from: &parsedOptions)
-    try commandLine.appendLast(.requireExplicitAvailability, from: &parsedOptions)
-    try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
-    try commandLine.appendLast(.lto, from: &parsedOptions)
-    try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
-    try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)
-    try commandLine.appendAll(.D, from: &parsedOptions)
-    try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
-    try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
-    try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
-    try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
+    try commandLine.appendLast(.fixitAll, from: parsedOptions)
+    try commandLine.appendLast(.warnSwift3ObjcInferenceMinimal, .warnSwift3ObjcInferenceComplete, from: parsedOptions)
+    try commandLine.appendLast(.warnImplicitOverrides, from: parsedOptions)
+    try commandLine.appendLast(.typoCorrectionLimit, from: parsedOptions)
+    try commandLine.appendLast(.enableAppExtension, from: parsedOptions)
+    try commandLine.appendLast(.enableLibraryEvolution, from: parsedOptions)
+    try commandLine.appendLast(.enableTesting, from: parsedOptions)
+    try commandLine.appendLast(.enablePrivateImports, from: parsedOptions)
+    try commandLine.appendLast(.enableCxxInterop, from: parsedOptions)
+    try commandLine.appendLast(in: .g, from: parsedOptions)
+    try commandLine.appendLast(.debugInfoFormat, from: parsedOptions)
+    try commandLine.appendLast(.importUnderlyingModule, from: parsedOptions)
+    try commandLine.appendLast(.moduleCachePath, from: parsedOptions)
+    try commandLine.appendLast(.moduleLinkName, from: parsedOptions)
+    try commandLine.appendLast(.nostdimport, from: parsedOptions)
+    try commandLine.appendLast(.parseStdlib, from: parsedOptions)
+    try commandLine.appendLast(.solverMemoryThreshold, from: parsedOptions)
+    try commandLine.appendLast(.valueRecursionThreshold, from: parsedOptions)
+    try commandLine.appendLast(.warnSwift3ObjcInference, from: parsedOptions)
+    try commandLine.appendLast(.RpassEQ, from: parsedOptions)
+    try commandLine.appendLast(.RpassMissedEQ, from: parsedOptions)
+    try commandLine.appendLast(.suppressWarnings, from: parsedOptions)
+    try commandLine.appendLast(.profileGenerate, from: parsedOptions)
+    try commandLine.appendLast(.profileUse, from: parsedOptions)
+    try commandLine.appendLast(.profileCoverageMapping, from: parsedOptions)
+    try commandLine.appendLast(.warningsAsErrors, .noWarningsAsErrors, from: parsedOptions)
+    try commandLine.appendLast(.sanitizeEQ, from: parsedOptions)
+    try commandLine.appendLast(.sanitizeRecoverEQ, from: parsedOptions)
+    try commandLine.appendLast(.sanitizeAddressUseOdrIndicator, from: parsedOptions)
+    try commandLine.appendLast(.sanitizeCoverageEQ, from: parsedOptions)
+    try commandLine.appendLast(.static, from: parsedOptions)
+    try commandLine.appendLast(.swiftVersion, from: parsedOptions)
+    try commandLine.appendLast(.enforceExclusivityEQ, from: parsedOptions)
+    try commandLine.appendLast(.statsOutputDir, from: parsedOptions)
+    try commandLine.appendLast(.traceStatsEvents, from: parsedOptions)
+    try commandLine.appendLast(.profileStatsEvents, from: parsedOptions)
+    try commandLine.appendLast(.profileStatsEntities, from: parsedOptions)
+    try commandLine.appendLast(.solverShrinkUnsolvedThreshold, from: parsedOptions)
+    try commandLine.appendLast(in: .O, from: parsedOptions)
+    try commandLine.appendLast(.RemoveRuntimeAsserts, from: parsedOptions)
+    try commandLine.appendLast(.AssumeSingleThreaded, from: parsedOptions)
+    try commandLine.appendLast(.packageDescriptionVersion, from: parsedOptions)
+    try commandLine.appendLast(.serializeDiagnosticsPath, from: parsedOptions)
+    try commandLine.appendLast(.debugDiagnosticNames, from: parsedOptions)
+    try commandLine.appendLast(.scanDependencies, from: parsedOptions)
+    try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: parsedOptions)
+    try commandLine.appendLast(.printEducationalNotes, from: parsedOptions)
+    try commandLine.appendLast(.diagnosticStyle, from: parsedOptions)
+    try commandLine.appendLast(.locale, from: parsedOptions)
+    try commandLine.appendLast(.localizationPath, from: parsedOptions)
+    try commandLine.appendLast(.requireExplicitAvailability, from: parsedOptions)
+    try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: parsedOptions)
+    try commandLine.appendLast(.lto, from: parsedOptions)
+    try commandLine.appendLast(.accessNotesPath, from: parsedOptions)
+    try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: parsedOptions)
+    try commandLine.appendAll(.D, from: parsedOptions)
+    try commandLine.appendAll(.debugPrefixMap, from: parsedOptions)
+    try commandLine.appendAllArguments(.Xfrontend, from: parsedOptions)
+    try commandLine.appendAll(.coveragePrefixMap, from: parsedOptions)
+    try commandLine.appendLast(.warnConcurrency, from: parsedOptions)
 
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
@@ -246,8 +246,8 @@ extension Driver {
     }
 
     // Pass through any subsystem flags.
-    try commandLine.appendAll(.Xllvm, from: &parsedOptions)
-    try commandLine.appendAll(.Xcc, from: &parsedOptions)
+    try commandLine.appendAll(.Xllvm, from: parsedOptions)
+    try commandLine.appendAll(.Xcc, from: parsedOptions)
 
     if let importedObjCHeader = importedObjCHeader,
         bridgingHeaderHandling != .ignored {
@@ -256,7 +256,7 @@ extension Driver {
           let pch = bridgingPrecompiledHeader {
         if parsedOptions.contains(.pchOutputDir) {
           commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
-          try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
+          try commandLine.appendLast(.pchOutputDir, from: parsedOptions)
           if !compilerMode.isSingleCompilation {
             commandLine.appendFlag(.pchDisableValidation)
           }
@@ -283,12 +283,12 @@ extension Driver {
                                                            frontendTargetInfo: frontendTargetInfo)
   }
 
-  mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
-                                                        primaryInputs: [TypedVirtualPath],
-                                                        inputsGeneratingCodeCount: Int,
-                                                        inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
-                                                        includeModuleTracePath: Bool,
-                                                        indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
+  func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
+                                               primaryInputs: [TypedVirtualPath],
+                                               inputsGeneratingCodeCount: Int,
+                                               inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
+                                               includeModuleTracePath: Bool,
+                                               indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.

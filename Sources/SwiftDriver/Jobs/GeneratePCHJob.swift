@@ -14,7 +14,7 @@ import TSCBasic
 import TSCUtility
 
 extension Driver {
-  mutating func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath) throws -> Job {
+  func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath) throws -> Job {
     var inputs = [TypedVirtualPath]()
     var outputs = [TypedVirtualPath]()
 
@@ -25,7 +25,7 @@ extension Driver {
     try addCommonFrontendOptions(
       commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .parsed)
 
-    try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    try commandLine.appendLast(.indexStorePath, from: parsedOptions)
 
     // TODO: Should this just be pch output with extension changed?
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
@@ -50,12 +50,12 @@ extension Driver {
     inputs.append(input)
     commandLine.appendPath(input.file)
 
-    try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    try commandLine.appendLast(.indexStorePath, from: parsedOptions)
 
     commandLine.appendFlag(.emitPch)
 
     if parsedOptions.hasArgument(.pchOutputDir) {
-      try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
+      try commandLine.appendLast(.pchOutputDir, from: parsedOptions)
     } else {
       commandLine.appendFlag(.o)
       commandLine.appendPath(output.file)

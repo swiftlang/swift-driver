@@ -18,7 +18,7 @@ extension Driver {
   /// (https://clang.llvm.org/docs/Modules.html#module-map-language) and the
   /// output is a compiled module that also includes the additional information
   /// needed by Swift's Clang importer, e.g., the Swift name lookup tables.
-  mutating func generateEmitPCMJob(input: TypedVirtualPath) throws -> Job {
+  func generateEmitPCMJob(input: TypedVirtualPath) throws -> Job {
     var inputs = [TypedVirtualPath]()
     var outputs = [TypedVirtualPath]()
 
@@ -50,7 +50,7 @@ extension Driver {
     try addCommonFrontendOptions(
       commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .ignored)
 
-    try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    try commandLine.appendLast(.indexStorePath, from: parsedOptions)
 
     return Job(
       moduleName: moduleOutputInfo.name,
@@ -67,7 +67,7 @@ extension Driver {
   /// Create a job that dumps information about a Clang module
   ///
   /// The input is a Clang Pre-compiled module file (.pcm).
-  mutating func generateDumpPCMJob(input: TypedVirtualPath) throws -> Job {
+  func generateDumpPCMJob(input: TypedVirtualPath) throws -> Job {
     var inputs = [TypedVirtualPath]()
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
 

@@ -49,7 +49,7 @@ extension GenericUnixToolchain {
 
   public func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
+    parsedOptions: ParsedOptions,
     linkerOutputType: LinkOutputType,
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
@@ -136,7 +136,7 @@ extension GenericUnixToolchain {
 
       let runtimePaths = try runtimeLibraryPaths(
         for: targetInfo,
-        parsedOptions: &parsedOptions,
+        parsedOptions: parsedOptions,
         sdkPath: targetInfo.sdkPath?.path,
         isShared: hasRuntimeArgs
       )
@@ -270,7 +270,7 @@ extension GenericUnixToolchain {
       }
 
       // Run clang++ in verbose mode if "-v" is set
-      try commandLine.appendLast(.v, from: &parsedOptions)
+      try commandLine.appendLast(.v, from: parsedOptions)
 
       // These custom arguments should be right before the object file at the
       // end.
@@ -283,7 +283,7 @@ extension GenericUnixToolchain {
         commandLine.appendFlag(.Xlinker)
         commandLine.appendFlag(linkerOpt.argument.asSingle)
       }
-      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+      try commandLine.appendAllArguments(.XclangLinker, from: parsedOptions)
 
       // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)

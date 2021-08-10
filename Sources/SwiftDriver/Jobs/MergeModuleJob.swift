@@ -13,7 +13,7 @@
 import TSCBasic
 
 extension Driver {
-  mutating func mergeModuleJob(inputs providedInputs: [TypedVirtualPath],
+  func mergeModuleJob(inputs providedInputs: [TypedVirtualPath],
                                inputsFromOutputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
@@ -59,8 +59,8 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
 
-    try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
-    try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+    try commandLine.appendLast(.emitSymbolGraph, from: parsedOptions)
+    try commandLine.appendLast(.emitSymbolGraphDir, from: parsedOptions)
 
     // Propagate the disable flag for cross-module incremental builds
     // if necessary. Note because we're interested in *disabling* this feature,
@@ -69,7 +69,7 @@ extension Driver {
     if parsedOptions.hasFlag(positive: .disableIncrementalImports,
                              negative: .enableIncrementalImports,
                              default: false) {
-      try commandLine.appendLast(.disableIncrementalImports, from: &parsedOptions)
+      try commandLine.appendLast(.disableIncrementalImports, from: parsedOptions)
     }
 
     commandLine.appendFlag(.o)

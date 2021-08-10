@@ -53,7 +53,7 @@ extension Toolchain {
 
 extension Driver {
   static func computeSupportedCompilerFeatures(of toolchain: Toolchain, hostTriple: Triple,
-                                               parsedOptions: inout ParsedOptions,
+                                               parsedOptions: ParsedOptions,
                                                diagnosticsEngine: DiagnosticsEngine,
                                                fileSystem: FileSystem,
                                                executor: DriverExecutor, env: [String: String])
@@ -72,7 +72,7 @@ extension Driver {
 //    }
 
     // Invoke `swift-frontend -emit-supported-features`
-    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
+    let frontendOverride = try FrontendOverride(parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
     let frontendFeaturesJob =
