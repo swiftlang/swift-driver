@@ -3940,6 +3940,8 @@ final class SwiftDriverTests: XCTestCase {
 
   func testVerifyEmittedInterfaceJob() throws {
     // Evolution enabled
+    var envVars = ProcessEnv.vars
+    envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = "YES"
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
@@ -3965,7 +3967,7 @@ final class SwiftDriverTests: XCTestCase {
     // No Evolution
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
-                                     "foo", "-emit-module-interface", "-verify-emitted-module-interface"])
+                                     "foo", "-emit-module-interface", "-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
     }
@@ -3975,7 +3977,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
                                      "-enable-library-evolution",
-                                     "-no-verify-emitted-module-interface"])
+                                     "-no-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
     }
@@ -3985,9 +3987,19 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
                                      "-enable-library-evolution",
-                                     "-no-emit-module-separately"])
+                                     "-no-emit-module-separately"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
+    }
+
+    // Disabled when no "ENABLE_DEFAULT_INTERFACE_VERIFIER" found in the environment
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-experimental-emit-module-separately"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
     }
 
     // Emit-module separately
@@ -3995,7 +4007,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
                                      "-enable-library-evolution",
-                                     "-experimental-emit-module-separately"])
+                                     "-experimental-emit-module-separately"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
       let emitJob = plannedJobs[0]
@@ -4015,7 +4027,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
                                      "-enable-library-evolution",
-                                     "-whole-module-optimization"])
+                                     "-whole-module-optimization"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
       let emitJob = plannedJobs[0]

@@ -439,6 +439,12 @@ extension Driver {
                               default: false)
     else { return }
 
+    // FIXME: remove this when we are confident to enable interface verification
+    // by default.
+    if env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] == nil &&
+        !parsedOptions.hasArgument(.verifyEmittedModuleInterface) {
+      return
+    }
     func addVerifyJob(forPrivate: Bool) throws {
       let isNeeded =
         forPrivate
