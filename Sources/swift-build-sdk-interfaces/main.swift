@@ -137,7 +137,7 @@ do {
     if skipExecution {
       exit(0)
     }
-    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose)
+    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logPath: try getArgumentAsPath("-log-path"))
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
