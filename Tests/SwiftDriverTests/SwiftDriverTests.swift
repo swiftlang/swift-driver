@@ -1016,6 +1016,22 @@ final class SwiftDriverTests: XCTestCase {
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
 
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
+    do{
+      // Linker flags with and without space
+      var driver = try Driver(args: commonArgs + ["-lsomelib","-l","otherlib"], env:env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-lsomelib")))
+      XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
+    }
+
     do {
       // macOS target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
@@ -2302,6 +2318,13 @@ final class SwiftDriverTests: XCTestCase {
       return false
     }
 
+    func isSquashedArgContains(arg: Job.ArgTemplate, checkOpt: Job.ArgTemplate) -> Bool {
+      if case let .squashedArgumentList(option: _, args: args) = arg {
+        return args.contains(checkOpt)
+      }
+      return false
+    }
+
     do {
       var driver = try Driver(args: ["swift"])
       let plannedJobs = try driver.planBuild()
@@ -2345,6 +2368,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertThrowsError(try driver.planBuild()) { error in
         XCTAssertEqual(error as? PlanningError, .replReceivedInput)
       }
+    }
+
+    do{
+      // Linked library arguments with space
+      var driver = try Driver(args: ["swift", "-repl", "-l", "somelib", "-lotherlib"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let replJob = plannedJobs.first!
+      XCTAssertTrue(replJob.tool.name.contains("lldb"))
+      XCTAssertTrue(replJob.requiresInPlaceExecution)
+      let cmd = replJob.commandLine
+      XCTAssert(cmd.contains(where: { isExpectedLLDBREPLFlag($0) }))
+      XCTAssertTrue(isSquashedArgContains(arg:cmd[0],checkOpt: .flag("-lsomelib")))
+      XCTAssertTrue(isSquashedArgContains(arg:cmd[0],checkOpt: .flag("-lotherlib")))
     }
   }
 
@@ -2411,7 +2448,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift", "-L/path/to/lib", "-F/path/to/framework", "foo.swift"])
+      var driver = try Driver(args: ["swift", "-L/path/to/lib", "-F/path/to/framework", "-lsomelib", "-l", "otherlib", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
@@ -2425,6 +2462,9 @@ final class SwiftDriverTests: XCTestCase {
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(job.extraEnvironment.contains { $0 == "DYLD_FRAMEWORK_PATH" && $1.contains("/path/to/framework") })
       }
+
+      XCTAssertTrue(job.commandLine.contains(.flag("-lsomelib")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-lotherlib")))
     }
   }
 
