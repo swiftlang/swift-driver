@@ -422,8 +422,14 @@ extension DarwinToolchain {
 
     // These custom arguments should be right before the object file at the
     // end.
-    try commandLine.append(
-      contentsOf: parsedOptions.arguments(in: .linkerOption)
+    try commandLine.appendAllExcept(
+      includeList:[.linkerOption],
+      excludeList:[.l],
+      from: &parsedOptions
+    )
+    addLinkedLibArgs(
+      to: &commandLine,
+      parsedOptions: &parsedOptions
     )
     try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
   }

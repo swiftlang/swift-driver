@@ -274,8 +274,14 @@ extension GenericUnixToolchain {
 
       // These custom arguments should be right before the object file at the
       // end.
-      try commandLine.append(
-        contentsOf: parsedOptions.arguments(in: .linkerOption)
+      try commandLine.appendAllExcept(
+        includeList:[.linkerOption],
+        excludeList:[.l],
+        from: &parsedOptions
+      )
+      addLinkedLibArgs(
+        to: &commandLine,
+        parsedOptions: &parsedOptions
       )
       // Because we invoke `clang` as the linker executable, we must still
       // use `-Xlinker` for linker-specific arguments.

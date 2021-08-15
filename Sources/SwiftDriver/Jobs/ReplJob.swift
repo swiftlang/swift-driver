@@ -19,7 +19,11 @@ extension Driver {
     // FIXME: MSVC runtime flags
 
     try commandLine.appendLast(.importObjcHeader, from: &parsedOptions)
-    try commandLine.appendAll(.l, .framework, .L, from: &parsedOptions)
+    toolchain.addLinkedLibArgs(
+      to: &commandLine,
+      parsedOptions: &parsedOptions
+    )
+    try commandLine.appendAll(.framework, .L, from: &parsedOptions)
 
     // Squash important frontend options into a single argument for LLDB.
     let lldbCommandLine: [Job.ArgTemplate] = [.squashedArgumentList(option: "--repl=", args: commandLine)]
