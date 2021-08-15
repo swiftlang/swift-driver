@@ -254,12 +254,12 @@ public final class DarwinToolchain: Toolchain {
         let mappingDict = try keyedContainer.decode([String: String].self, forKey: .macOSToCatalystMapping)
         self.macOSToCatalystMapping = [:]
         try mappingDict.forEach { key, value in
-          guard let newKey = Version(potentiallyIncompleteVersionString: key) else {
+          guard let newKey = try? Version(versionString: key, usesLenientParsing: true) else {
             throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
                                                    in: keyedContainer,
                                                    debugDescription: "Malformed version string")
           }
-          guard let newValue = Version(potentiallyIncompleteVersionString: value) else {
+          guard let newValue = try? Version(versionString: value, usesLenientParsing: true) else {
             throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
                                                    in: keyedContainer,
                                                    debugDescription: "Malformed version string")
@@ -277,7 +277,7 @@ public final class DarwinToolchain: Toolchain {
 
       self.versionString = try keyedContainer.decode(String.self, forKey: .version)
       self.canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
-      guard let version = Version(potentiallyIncompleteVersionString: versionString) else {
+      guard let version = try? Version(versionString: versionString, usesLenientParsing: true) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
                                                debugDescription: "Malformed version string")
