@@ -149,6 +149,24 @@ extension Array where Element == Job.ArgTemplate {
     }
   }
 
+  /// Append all parsed options from the given groups except from excludeList to this command line.
+  mutating func appendAllExcept(includeList: [Option.Group], excludeList: [Option], from parsedOptions: inout ParsedOptions) throws {
+    for group in includeList{
+      for optGroup in parsedOptions.arguments(in: group){
+        var isExcluded = false
+        for exclude in excludeList {
+          if optGroup.option == exclude {
+            isExcluded = true
+            break
+          }
+        }
+        if !isExcluded {
+          try append(optGroup)
+        }
+      }
+    }
+  }
+
   /// Append the last of the given flags that appears in the parsed options,
   /// or the flag that corresponds to the default value if neither
   /// appears.

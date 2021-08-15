@@ -86,6 +86,15 @@ extension Toolchain {
     ).appending(component: runtimeName)
     return try fileSystem.exists(path)
   }
+
+  func addLinkedLibArgs(
+    to commandLine: inout [Job.ArgTemplate],
+    parsedOptions: inout ParsedOptions
+  ) {
+    for match in parsedOptions.arguments(for: .l) {
+      commandLine.appendFlag(match.option.spelling+match.argument.asSingle)
+    }
+  }
 }
 
 // MARK: - Common argument routines
