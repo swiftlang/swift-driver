@@ -17,23 +17,21 @@ import TSCUtility
 
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 
-guard let sdkPathRaw = ProcessEnv.vars["SDKROOT"] else {
-  diagnosticsEngine.emit(.error("need to set SDKROOT"))
-  exit(1)
-}
-
-func getArgument(_ flag: String) -> String? {
+func getArgument(_ flag: String, _ env: String? = nil) -> String? {
   if let id = CommandLine.arguments.firstIndex(of: flag) {
     let nextId = id.advanced(by: 1)
     if nextId < CommandLine.arguments.count {
       return CommandLine.arguments[nextId]
     }
   }
+  if let env = env {
+    return ProcessEnv.vars[env]
+  }
   return nil
 }
 
-func getArgumentAsPath(_ flag: String) throws -> AbsolutePath? {
-  if let raw = getArgument(flag) {
+func getArgumentAsPath(_ flag: String, _ env: String? = nil) throws -> AbsolutePath? {
+  if let raw = getArgument(flag, env) {
     return try VirtualPath(path: raw).absolutePath
   }
   return nil
@@ -55,7 +53,11 @@ let verbose = CommandLine.arguments.contains("-v")
 let skipExecution = CommandLine.arguments.contains("-n")
 
 do {
-  let sdkPath = try VirtualPath(path: sdkPathRaw).absolutePath!
+  let sdkPath = try getArgumentAsPath("-sdk", "SDKROOT")
+  guard let sdkPath = sdkPath else {
+    diagnosticsEngine.emit(.error("need to set SDKROOT"))
+    exit(1)
+  }
   if !localFileSystem.exists(sdkPath) {
     diagnosticsEngine.emit(error: "cannot find sdk: \(sdkPath.pathString)")
     exit(1)
@@ -115,7 +117,7 @@ do {
     var args = ["swiftc",
                 "-target", collector.targetTriple,
                 tempPath.description,
-                "-sdk", sdkPathRaw]
+                "-sdk", sdkPath.pathString]
     let mcpFlag = "-module-cache-path"
     // Append module cache path if given by the client
     if let mcp = getArgument(mcpFlag) {
