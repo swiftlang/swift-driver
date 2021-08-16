@@ -129,6 +129,8 @@ public struct Job: Codable, Equatable, Hashable {
     self.requiresInPlaceExecution = requiresInPlaceExecution
     self.supportsResponseFiles = supportsResponseFiles
   }
+
+  public var primarySwiftSourceFiles: [SwiftSourceFile] { primaryInputs.swiftSourceFiles }
 }
 
 extension Job {

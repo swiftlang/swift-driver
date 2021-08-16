@@ -85,5 +85,7 @@ public typealias TransitivelyInvalidatedNodeArray = InvalidatedArray<Transitivel
 public typealias TransitivelyInvalidatedSourceSet = InvalidatedSet<Transitively, DependencySource>
 public typealias TransitivelyInvalidatedInputArray = InvalidatedArray<Transitively, TypedVirtualPath>
 public typealias TransitivelyInvalidatedInputSet = InvalidatedSet<Transitively, TypedVirtualPath>
+public typealias TransitivelyInvalidatedSwiftSourceFileArray = InvalidatedArray<Transitively, SwiftSourceFile>
+public typealias TransitivelyInvalidatedSwiftSourceFileSet = InvalidatedSet<Transitively, SwiftSourceFile>
 public typealias DirectlyInvalidatedNodeArray = InvalidatedArray<Directly, ModuleDependencyGraph.Node>
 public typealias DirectlyInvalidatedNodeSet = InvalidatedSet<Directly, ModuleDependencyGraph.Node>

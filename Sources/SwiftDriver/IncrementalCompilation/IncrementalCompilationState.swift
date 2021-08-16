@@ -126,7 +126,7 @@ extension IncrementalCompilationState {
     /// Record about existence and time of the last compile.
     let maybeBuildRecord: BuildRecord?
     /// A set of inputs invalidated by external chagnes.
-    let inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet
+    let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
     let incrementalOptions: IncrementalCompilationState.Options
     /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
@@ -146,6 +146,7 @@ extension IncrementalCompilationState {
     let skippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
     /// All of the pre-compile or compilation job (groups) known to be required
     /// for the first wave to execute.
+    /// The primaries could be other than .swift files, i.e. .sib
     let mandatoryJobsInOrder: [Job]
   }
 }
@@ -218,7 +219,7 @@ extension IncrementalCompilationState {
     return try self.confinementQueue.sync {
       // Find and deal with inputs that now need to be compiled
       let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
-      assert(Set(invalidatedInputs).isDisjoint(with: finishedJob.primaryInputs),
+      assert(invalidatedInputs.isDisjoint(with: finishedJob.primarySwiftSourceFiles),
              "Primaries should not overlap secondaries.")
 
       if let reporter = self.reporter {
@@ -239,37 +240,39 @@ extension IncrementalCompilationState {
   }
 
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
-  private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<TypedVirtualPath> {
+  private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<SwiftSourceFile> {
     dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     guard job.kind == .compile else {
-      return Set<TypedVirtualPath>()
+      return Set<SwiftSourceFile>()
     }
     return job.primaryInputs.reduce(into: Set()) { invalidatedInputs, primaryInput in
-      invalidatedInputs.formUnion(collectInputsInvalidated(byCompiling: primaryInput))
+      if let primary = SwiftSourceFile(ifSource: primaryInput) {
+        invalidatedInputs.formUnion(collectInputsInvalidated(byCompiling: primary))
+      }
     }
-    .subtracting(job.primaryInputs) // have already compiled these
+    .subtracting(job.primarySwiftSourceFiles) // have already compiled these
   }
 
   private func collectInputsInvalidated(
-    byCompiling input: TypedVirtualPath
-  ) -> TransitivelyInvalidatedInputSet {
+    byCompiling input: SwiftSourceFile
+  ) -> TransitivelyInvalidatedSwiftSourceFileSet {
     dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
       return found
     }
     self.reporter?.report(
       "Failed to read some dependencies source; compiling everything", input)
-    return TransitivelyInvalidatedInputSet(skippedCompileGroups.keys)
+    return TransitivelyInvalidatedSwiftSourceFileSet(skippedCompileGroups.keys.swiftSourceFiles)
   }
 
   /// Find the jobs that now must be run that were not originally known to be needed.
   private func getJobs(
-    for invalidatedInputs: Set<TypedVirtualPath>
+    for invalidatedInputs: Set<SwiftSourceFile>
   ) throws -> [Job] {
     dispatchPrecondition(condition: .onQueue(self.confinementQueue))
     let unbatched = invalidatedInputs.flatMap { input -> [Job] in
-      if let group = skippedCompileGroups.removeValue(forKey: input) {
-        let primaryInputs = group.compileJob.primaryInputs
+      if let group = skippedCompileGroups.removeValue(forKey: input.typedFile) {
+        let primaryInputs = group.compileJob.primarySwiftSourceFiles
         assert(primaryInputs.count == 1)
         assert(primaryInputs[0] == input)
         self.reporter?.report("Scheduling invalidated", input)
@@ -397,6 +400,10 @@ extension IncrementalCompilationState {
       let output = outputFileMap.getOutput(inputFile: path.fileHandle, outputType: .object)
       let compiling = " {compile: \(VirtualPath.lookup(output).basename) <= \(input.basename)}"
       diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) \(compiling)"))
+    }
+
+    public func report(_ message: String, _ ifh: SwiftSourceFile) {
+      report(message, ifh.typedFile)
     }
 
     /// Entry point for a simple path, won't print the compile job, path could be anything.
@@ -545,43 +552,41 @@ extension OutputFileMap {
 
 /// Handy information about the source files in the current invocation
 @_spi(Testing) public struct SourceFiles {
-  /// The current files in same order as the invocation
-  let currentInOrder: [TypedVirtualPath]
+  /// The current (.swift) files in same order as the invocation
+  let currentInOrder: [SwiftSourceFile]
 
   /// The set of current files (actually the handles)
-  let currentSet: Set<VirtualPath.Handle>
+  let currentSet: Set<SwiftSourceFile>
 
   /// Handles of the input files in the previous invocation
-  private let previousSet: Set<VirtualPath.Handle>
+  private let previousSet: Set<SwiftSourceFile>
 
   /// The files that were in the previous but not in the current invocation
-  let disappeared: [VirtualPath]
+  let disappeared: [SwiftSourceFile]
 
   init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord?) {
-    self.currentInOrder = inputFiles.filter {$0.type == .swift}
-    self.currentSet = currentInOrder.reduce(into: Set()) {
-      currentSet, currentFile in
-      currentSet.insert(currentFile.fileHandle)
-    }
+    self.currentInOrder = inputFiles.swiftSourceFiles
+    self.currentSet = Set(currentInOrder)
     guard let buildRecord = buildRecord else {
       self.previousSet = Set()
       self.disappeared = []
       return
     }
-    var previous = Set<VirtualPath.Handle>()
-    var disappeared = [VirtualPath]()
+    var previous = Set<SwiftSourceFile>()
+    var disappeared = [SwiftSourceFile]()
     for prevPath in buildRecord.inputInfos.keys {
-      let handle = prevPath.intern()
+      let handle = SwiftSourceFile(prevPath)
       previous.insert(handle)
       if !currentSet.contains(handle) {
-        disappeared.append(prevPath)
+        disappeared.append(handle)
       }
     }
     self.previousSet = previous
-    self.disappeared = disappeared.sorted {$0.name < $1.name}
+    self.disappeared = disappeared.sorted {
+      VirtualPath.lookup($0.fileHandle).name < VirtualPath.lookup($1.fileHandle).name}
   }
 
-  func isANewInput(_ file: VirtualPath) -> Bool {
-    !previousSet.contains(file.intern())
+  func isANewInput(_ file: SwiftSourceFile) -> Bool {
+    !previousSet.contains(file)
   }
 }

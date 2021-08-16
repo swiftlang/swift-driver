@@ -50,8 +50,13 @@ struct CompileJobGroup {
     backendJob.map {[compileJob, $0]} ?? [compileJob]
   }
 
+  /// Any type of file that is `partOfSwiftCompilation`
   var primaryInput: TypedVirtualPath {
     compileJob.primaryInputs[0]
+  }
+
+  var primarySwiftSourceInput: SwiftSourceFile? {
+    SwiftSourceFile(ifSource: primaryInput)
   }
 
   var outputs: [TypedVirtualPath] {

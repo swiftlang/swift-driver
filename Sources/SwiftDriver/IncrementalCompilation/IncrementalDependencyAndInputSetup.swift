@@ -166,8 +166,8 @@ extension IncrementalCompilationState {
         if let reporter = reporter {
           reporter.report(
             "Incremental compilation has been disabled, "
-              + "because the following inputs were used in the previous compilation but not in this one: "
-              + sourceFiles.disappeared.map { $0.basename }.joined(separator: ", "))
+            + "because the following inputs were used in the previous compilation but not in this one: "
+            + sourceFiles.disappeared.map { $0.typedFile.file.basename }.joined(separator: ", "))
         }
         return nil
       }
@@ -197,7 +197,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   /// For inputs with swiftDeps in OFM, but no readable file, puts input in graph map, but no nodes in graph:
   ///   caller must ensure scheduling of those
   private func computeGraphAndInputsInvalidatedByExternals()
-    -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
+    -> (ModuleDependencyGraph, TransitivelyInvalidatedSwiftSourceFileSet)?
   {
     precondition(
       sourceFiles.disappeared.isEmpty,
@@ -211,7 +211,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   }
 
   private func readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals(
-  ) -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
+  ) -> (ModuleDependencyGraph, TransitivelyInvalidatedSwiftSourceFileSet)?
   {
     let dependencyGraphPath = buildRecordInfo.dependencyGraphPath
     let graphIfPresent: ModuleDependencyGraph?
@@ -269,10 +269,10 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   /// For externalDependencies, puts then in graph.fingerprintedExternalDependencies, but otherwise
   /// does nothing special.
   private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
-  -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet)?
+  -> (ModuleDependencyGraph, TransitivelyInvalidatedSwiftSourceFileSet)?
   {
     let graph = ModuleDependencyGraph(self, .buildingFromSwiftDeps)
-    var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedInputSet()
+    var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedSwiftSourceFileSet()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs =
               graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: input)
@@ -286,8 +286,8 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   }
 
   private func bulidEmptyGraphAndCompileEverything()
-  -> (ModuleDependencyGraph, TransitivelyInvalidatedInputSet) {
+  -> (ModuleDependencyGraph, TransitivelyInvalidatedSwiftSourceFileSet) {
     let graph = ModuleDependencyGraph(self, .buildingAfterEachCompilation)
-    return (graph, TransitivelyInvalidatedInputSet())
+    return (graph, TransitivelyInvalidatedSwiftSourceFileSet())
   }
 }

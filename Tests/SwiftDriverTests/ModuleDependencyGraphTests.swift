@@ -1004,16 +1004,16 @@ extension ModuleDependencyGraph {
   /// Can return duplicates
   func findUntracedInputsDependent(
     on fingerprintedExternalDependency: FingerprintedExternalDependency
-  ) -> [TypedVirtualPath] {
-    var foundSources = [TypedVirtualPath]()
+  ) -> [SwiftSourceFile] {
+    var foundSources = [SwiftSourceFile]()
     for dependent in collectUntracedNodes(thatUse: fingerprintedExternalDependency, .testing) {
       let dependencySource = dependent.dependencySource!
-      foundSources.append(dependencySource.typedFile)
+      foundSources.append(SwiftSourceFile(dependencySource.typedFile))
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
       // Don't return job twice.
       let filesToRebuild =
         collectInputsUsing(dependencySource: dependencySource)
-        .filter({ marked in marked != dependencySource.typedFile })
+        .filter({ marked in marked != SwiftSourceFile(dependencySource.typedFile) })
       foundSources.append(contentsOf: filesToRebuild)
     }
     return foundSources

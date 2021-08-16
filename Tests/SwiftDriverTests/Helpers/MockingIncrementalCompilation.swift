@@ -79,9 +79,9 @@ extension DependencySource {
   }
 }
 
-extension TypedVirtualPath {
+extension SwiftSourceFile {
   var mockID: Int {
-    Int(file.basenameWithoutExt)!
+    Int(typedFile.file.basenameWithoutExt)!
   }
 }
 
