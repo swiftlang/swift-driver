@@ -53,8 +53,8 @@ let verbose = CommandLine.arguments.contains("-v")
 let skipExecution = CommandLine.arguments.contains("-n")
 
 do {
-  let sdkPath = try getArgumentAsPath("-sdk", "SDKROOT")
-  guard let sdkPath = sdkPath else {
+  let sdkPathArg = try getArgumentAsPath("-sdk", "SDKROOT")
+  guard let sdkPath = sdkPathArg else {
     diagnosticsEngine.emit(.error("need to set SDKROOT"))
     exit(1)
   }
