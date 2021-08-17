@@ -39,6 +39,10 @@ public struct DependencySource: Hashable, CustomStringConvertible {
     self.init(TypedVirtualPath(file: file, type: type))
   }
 
+  public init(_ swiftSourceFile: SwiftSourceFile) {
+    self.init(swiftSourceFile.typedFile)
+  }
+
   public var file: VirtualPath { typedFile.file }
 
   public var description: String {

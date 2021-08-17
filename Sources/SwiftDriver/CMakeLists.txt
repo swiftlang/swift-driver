@@ -51,6 +51,7 @@ add_library(SwiftDriver
   "IncrementalCompilation/KeyAndFingerprintHolder.swift"
   "IncrementalCompilation/ModuleDependencyGraph.swift"
   "IncrementalCompilation/Multidictionary.swift"
+  "IncrementalCompilation/SwiftSourceFile.swift"
   "IncrementalCompilation/SourceFileDependencyGraph.swift"
   "IncrementalCompilation/TwoDMap.swift"
 

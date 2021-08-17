@@ -17,7 +17,7 @@ extension IncrementalCompilationState {
   struct FirstWaveComputer {
     let moduleDependencyGraph: ModuleDependencyGraph
     let jobsInPhases: JobsInPhases
-    let inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet
+    let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     let inputFiles: [TypedVirtualPath]
     let sourceFiles: SourceFiles
     let buildRecordInfo: BuildRecordInfo
@@ -74,20 +74,26 @@ extension IncrementalCompilationState.FirstWaveComputer {
       Dictionary(uniqueKeysWithValues:
                   jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
     guard let buildRecord = maybeBuildRecord else {
-      let mandatoryCompileGroupsInOrder = sourceFiles.currentInOrder.compactMap {
-        input -> CompileJobGroup? in
-        compileGroups[input]
-      }
+      func everythingIsMandatory()
+        throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+                   mandatoryJobsInOrder: [Job])
+      {
+        let mandatoryCompileGroupsInOrder = sourceFiles.currentInOrder.compactMap {
+          input -> CompileJobGroup? in
+          compileGroups[input.typedFile]
+        }
 
-      let mandatoryJobsInOrder = try
+        let mandatoryJobsInOrder = try
         jobsInPhases.beforeCompiles +
         batchJobFormer.formBatchedJobs(
           mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
           showJobLifecycle: showJobLifecycle)
 
-      moduleDependencyGraph.phase = .buildingAfterEachCompilation
-      return (skippedCompileGroups: [:],
-              mandatoryJobsInOrder: mandatoryJobsInOrder)
+        moduleDependencyGraph.phase = .buildingAfterEachCompilation
+        return (skippedCompileGroups: [:],
+                mandatoryJobsInOrder: mandatoryJobsInOrder)
+      }
+      return try everythingIsMandatory()
     }
     moduleDependencyGraph.phase = .updatingAfterCompilation
 
@@ -117,7 +123,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
 
   // Figure out which compilation inputs are *not* mandatory
   private func computeSkippedCompilationInputs(
-    inputsInvalidatedByExternals: TransitivelyInvalidatedInputSet,
+    inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet,
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ buildRecord: BuildRecord
   ) -> Set<TypedVirtualPath> {
@@ -153,11 +159,11 @@ extension IncrementalCompilationState.FirstWaveComputer {
     }
 
     // Combine to obtain the inputs that definitely must be recompiled.
-    let definitelyRequiredInputs =
-      Set(changedInputs.map({ $0.filePath }) +
-            inputsInvalidatedByExternals +
-            inputsMissingFromGraph +
-            inputsMissingOutputs)
+    var definitelyRequiredInputs = Set(changedInputs.lazy.map {$0.typedFile})
+    definitelyRequiredInputs.formUnion(inputsInvalidatedByExternals.lazy.map {$0.typedFile})
+    definitelyRequiredInputs.formUnion(inputsMissingFromGraph.lazy.map {$0.typedFile})
+    definitelyRequiredInputs.formUnion(inputsMissingOutputs)
+
     if let reporter = reporter {
       for scheduledInput in sortByCommandLineOrder(definitelyRequiredInputs) {
         reporter.report("Queuing (initial):", scheduledInput)
@@ -173,14 +179,15 @@ extension IncrementalCompilationState.FirstWaveComputer {
       externalDependents: inputsInvalidatedByExternals,
       inputsMissingOutputs: Set(inputsMissingOutputs),
       moduleDependencyGraph)
-      .subtracting(definitelyRequiredInputs)
+      .subtracting(definitelyRequiredInputs.swiftSourceFiles)
+
 
     if let reporter = reporter {
       for dependent in sortByCommandLineOrder(speculativeInputs) {
         reporter.report("Queuing because of the initial set:", dependent)
       }
     }
-    let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs)
+    let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs.lazy.map {$0.typedFile})
 
     let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(immediatelyCompiledInputs)
@@ -198,11 +205,17 @@ extension IncrementalCompilationState.FirstWaveComputer {
       inputFiles.lazy.filter(inputs.contains)
   }
 
+  private func sortByCommandLineOrder(
+    _ inputs: Set<SwiftSourceFile>
+  ) -> LazyFilterSequence<[TypedVirtualPath]> {
+    inputFiles.lazy.filter {inputs.contains(SwiftSourceFile($0))}
+  }
+
   /// Encapsulates information about an input the driver has determined has
   /// changed in a way that requires an incremental rebuild.
   struct ChangedInput {
     /// The path to the input file.
-    let filePath: TypedVirtualPath
+    let typedFile: TypedVirtualPath
     /// The status of the input file.
     let status: InputInfo.Status
     /// If `true`, the modification time of this input matches the modification
@@ -244,7 +257,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       case .needsNonCascadingBuild:
         reporter?.report("Scheduling noncascading build", input)
       }
-      return ChangedInput(filePath: input,
+      return ChangedInput(typedFile: input,
                           status: previousCompilationStatus,
                           datesMatch: datesMatch)
     }
@@ -256,22 +269,29 @@ extension IncrementalCompilationState.FirstWaveComputer {
   // before the whole frontend job finished.
   private func collectInputsToBeSpeculativelyRecompiled(
     changedInputs: [ChangedInput],
-    externalDependents: TransitivelyInvalidatedInputSet,
+    externalDependents: TransitivelyInvalidatedSwiftSourceFileSet,
     inputsMissingOutputs: Set<TypedVirtualPath>,
     _ moduleDependencyGraph: ModuleDependencyGraph
-  ) -> Set<TypedVirtualPath> {
+  ) -> Set<SwiftSourceFile> {
     let cascadingChangedInputs = computeCascadingChangedInputs(
       from: changedInputs,
       inputsMissingOutputs: inputsMissingOutputs)
 
-    var inputsToBeCertainlyRecompiled = alwaysRebuildDependents ? externalDependents : TransitivelyInvalidatedInputSet()
-    inputsToBeCertainlyRecompiled.formUnion(cascadingChangedInputs)
+    var inputsToBeCertainlyRecompiled = Set(cascadingChangedInputs)
+    if alwaysRebuildDependents {
+      inputsToBeCertainlyRecompiled.formUnion(externalDependents.lazy.map {$0.typedFile})
+    }
 
     return inputsToBeCertainlyRecompiled.reduce(into: Set()) {
       speculativelyRecompiledInputs, certainlyRecompiledInput in
-      let speculativeDependents = moduleDependencyGraph.collectInputsInvalidatedBy(changedInput: certainlyRecompiledInput)
+      guard let certainlyRecompiledSwiftSourceFile = SwiftSourceFile(ifSource: certainlyRecompiledInput)
+      else {
+        return
+      }
+      let speculativeDependents = moduleDependencyGraph.collectInputsInvalidatedBy(changedInput: certainlyRecompiledSwiftSourceFile)
+
       for speculativeDependent in speculativeDependents
-      where !inputsToBeCertainlyRecompiled.contains(speculativeDependent) {
+      where !inputsToBeCertainlyRecompiled.contains(speculativeDependent.typedFile) {
         if speculativelyRecompiledInputs.insert(speculativeDependent).inserted {
           reporter?.report(
             "Immediately scheduling dependent on \(certainlyRecompiledInput.file.basename)",
@@ -288,8 +308,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> [TypedVirtualPath] {
     changedInputs.compactMap { changedInput in
       let inputIsUpToDate =
-        changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.filePath)
-      let basename = changedInput.filePath.file.basename
+        changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.typedFile)
+      let basename = changedInput.typedFile.file.basename
 
       // If we're asked to always rebuild dependents, all we need to do is
       // return inputs whose modification times have changed.
@@ -301,7 +321,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
         } else {
           reporter?.report(
             "scheduling dependents of \(basename); -driver-always-rebuild-dependents")
-          return changedInput.filePath
+          return changedInput.typedFile
         }
       }
 
@@ -309,7 +329,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       case .needsCascadingBuild:
         reporter?.report(
           "scheduling dependents of \(basename); needed cascading build")
-        return changedInput.filePath
+        return changedInput.typedFile
       case .upToDate:
         reporter?.report(
           "not scheduling dependents of \(basename); unknown changes")

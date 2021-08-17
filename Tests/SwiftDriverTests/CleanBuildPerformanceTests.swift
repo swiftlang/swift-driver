@@ -61,7 +61,7 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// Build the `OutputFileMap` and input vector for ``testCleanBuildSwiftDepsPerformance(_, atMost)``
   private func createOFMAndInputs(_ swiftDepsDirectory: String,
                                   atMost limit: Int
-  ) throws -> (OutputFileMap, [TypedVirtualPath]) {
+  ) throws -> (OutputFileMap, [SwiftSourceFile]) {
     let workingDirectory = localFileSystem.currentWorkingDirectory!
     let swiftDepsDirPath = try VirtualPath.init(path: swiftDepsDirectory).resolvedRelativePath(base: workingDirectory).absolutePath!
     let withoutExtensions: ArraySlice<Substring> = try! localFileSystem.getDirectoryContents(swiftDepsDirPath)
@@ -84,7 +84,7 @@ class CleanBuildPerformanceTests: XCTestCase {
         file: VirtualPath.absolute(swiftDepsDirPath.appending(component: name + "." + type.rawValue)).intern(),
         type: type)
     }
-    let inputs = withoutExtensions.map {mkPath($0, .swift)}
+    let inputs = withoutExtensions.map {mkPath($0, .swift)}.swiftSourceFiles
     let swiftDepsVPs = withoutExtensions.map {mkPath($0, .swiftDeps)}
     let entries = Dictionary(
       uniqueKeysWithValues:
@@ -95,7 +95,7 @@ class CleanBuildPerformanceTests: XCTestCase {
   }
 
   /// Read the `swiftdeps` files for each input into a `ModuleDependencyGraph`
-  private func readSwiftDeps(for inputs: [TypedVirtualPath], into g: ModuleDependencyGraph) {
+  private func readSwiftDeps(for inputs: [SwiftSourceFile], into g: ModuleDependencyGraph) {
     let result = inputs.reduce(into: Set()) { invalidatedInputs, primaryInput in
       // too verbose: print("processing", primaryInput)
       invalidatedInputs.formUnion(g.collectInputsRequiringCompilation(byCompiling: primaryInput)!)
