@@ -1531,7 +1531,7 @@ extension Driver {
       case .emitSibgen:
         compilerOutputType = .raw_sib
 
-      case .emitIr:
+      case .emitIrgen, .emitIr:
         compilerOutputType = .llvmIR
 
       case .emitBc:
