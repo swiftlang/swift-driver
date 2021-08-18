@@ -135,9 +135,10 @@ extension SourceFileDependencyGraph {
   /// See ``CleanBuildPerformanceTests/testCleanBuildSwiftDepsPerformance``.
   static func read(
     from typedFile: TypedVirtualPath,
-    on fileSystem: FileSystem
+    on fileSystem: FileSystem,
+    host: ModuleDependencyGraph
   ) throws -> Self? {
-    try self.init(contentsOf: typedFile, on: fileSystem)
+    try self.init(contentsOf: typedFile, on: fileSystem, host: host)
   }
   
   /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
@@ -149,24 +150,31 @@ extension SourceFileDependencyGraph {
 
   /*@_spi(Testing)*/ public init?(
     contentsOf typedFile: TypedVirtualPath,
-    on fileSystem: FileSystem
+    on fileSystem: FileSystem,
+    host: ModuleDependencyGraph
   ) throws {
     assert(typedFile.type == .swiftDeps || typedFile.type == .swiftModule)
     let data = try fileSystem.readFileContents(typedFile.file)
-    try self.init(data: data,
+    try self.init(host: host,
+                  data: data,
                   fromSwiftModule: typedFile.type == .swiftModule)
   }
 
   /// Returns nil for a swiftmodule with no depenencies
   /*@_spi(Testing)*/ public init?(
+    host: ModuleDependencyGraph,
     data: ByteString,
     fromSwiftModule extractFromSwiftModule: Bool = false
   ) throws {
     struct Visitor: BitstreamVisitor {
       let extractFromSwiftModule: Bool
+      let host: ModuleDependencyGraph
 
-      init(extractFromSwiftModule: Bool) {
+      init(extractFromSwiftModule: Bool,
+           host: ModuleDependencyGraph) {
         self.extractFromSwiftModule = extractFromSwiftModule
+        self.host = host
+        self.identifiers = ["".intern(host)]
       }
 
       var nodes: [Node] = []
@@ -182,8 +190,8 @@ extension SourceFileDependencyGraph {
       private var isProvides = false
 
       private var nextSequenceNumber = 0
-      private var identifiers: [String] = [""] // The empty string is hardcoded as identifiers[0]
-
+      private var identifiers: [InternedString] // The empty string is hardcoded as identifiers[0]
+      
       func validate(signature: Bitcode.Signature) throws {
         if extractFromSwiftModule {
           guard signature == .init(value: 0x0EA89CE2) else { throw ReadError.swiftModuleHasNoDependencies }
@@ -273,13 +281,14 @@ extension SourceFileDependencyGraph {
           else {
             throw ReadError.malformedIdentifierRecord
           }
-          identifiers.append(String(decoding: identifierBlob, as: UTF8.self))
+          identifiers.append(String(decoding: identifierBlob, as: UTF8.self).intern(host))
         }
       }
     }
 
     var visitor = Visitor(
-      extractFromSwiftModule: extractFromSwiftModule)
+      extractFromSwiftModule: extractFromSwiftModule,
+      host: host)
     do {
       try Bitcode.read(bytes: data, using: &visitor)
     } catch ReadError.swiftModuleHasNoDependencies {
@@ -310,9 +319,19 @@ fileprivate extension DependencyKey.DeclAspect {
 fileprivate extension DependencyKey.Designator {
   init(kindCode: UInt64,
        context: String,
-       name: String) throws {
-    func mustBeEmpty(_ s: String) throws {
-      guard s.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
+       name: String,
+       host: ModuleDependencyGraph
+  ) throws {
+    try self.init(kindCode: kindCode,
+                  context: context.intern(host),
+                  name: name.intern(host))
+  }
+    
+  init(kindCode: UInt64,
+       context: InternedString,
+       name: InternedString) throws {
+    func mustBeEmpty(_ s: InternedString) throws {
+      guard s.string.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
     }
     switch kindCode {
     case 0:
