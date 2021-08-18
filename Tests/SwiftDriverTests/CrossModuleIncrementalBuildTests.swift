@@ -147,14 +147,17 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
-      let graph = try XCTUnwrap(SourceFileDependencyGraph(data: data,
-                                                          fromSwiftModule: false))
+      let host = try! driver.moduleDependencyGraph()
+      let graph = try XCTUnwrap(SourceFileDependencyGraph(
+        host: host,
+        data: data,
+        fromSwiftModule: false))
       XCTAssertEqual(graph.majorVersion, 1)
       XCTAssertEqual(graph.minorVersion, 0)
       graph.verify()
 
       var foundNode = false
-      let swiftmodulePath = ExternalDependency(fileName: path.appending(component: "MagicKit.swiftmodule").pathString)
+      let swiftmodulePath = ExternalDependency(fileName: path.appending(component: "MagicKit.swiftmodule").pathString.intern(host))
       graph.forEachNode { node in
         if case .externalDepend(swiftmodulePath) = node.key.designator {
           XCTAssertFalse(foundNode)

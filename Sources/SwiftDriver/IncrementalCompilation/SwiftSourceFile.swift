@@ -18,7 +18,7 @@ public struct SwiftSourceFile: Hashable {
   // must be .swift
   public let fileHandle: VirtualPath.Handle
 
-  init(_ fileHandle: VirtualPath.Handle) {
+  public init(_ fileHandle: VirtualPath.Handle) {
     self.fileHandle = fileHandle
   }
   public init(_ path: TypedVirtualPath) {

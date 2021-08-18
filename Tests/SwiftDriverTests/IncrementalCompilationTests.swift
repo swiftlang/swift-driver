@@ -657,7 +657,7 @@ extension IncrementalCompilationTests {
       fingerprintChanged(.implementation, "main")
       trace {
         TraceStep(.interface, source: "main")
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
+        TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
         TraceStep(.implementation, source: "other")
       }
       queuingLaterSchedInvalBatchLink("other")
@@ -690,7 +690,7 @@ extension IncrementalCompilationTests {
       queuingInitial("main")
       schedulingAlwaysRebuild("main")
       trace {
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
+        TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
         TraceStep(.implementation, source: "other")
       }
       foundDependent(of: "main", compiling: "other")
@@ -904,10 +904,12 @@ extension IncrementalCompilationTests {
           for input in affectedInputs {
             trace {
               TraceStep(.interface, source: "main")
-              TraceStep(.interface, .topLevel(name: "foo"), "main")
-              TraceStep(.implementation, .sourceFileProvide(name: "\(input).swiftdeps"),
+              TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
+              TraceStep(.implementation,
                         input == removedInput && afterRestoringBadPriors
-                        ? nil : input)
+                        ? nil : input,
+                        { .sourceFileProvide(name: "\(input).swiftdeps".intern($0))}
+                        )
             }
           }
           let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
@@ -1141,7 +1143,7 @@ fileprivate extension ModuleDependencyGraph.Node {
   func contains(sourceBasenameWithoutExt target: String) -> Bool {
     switch key.designator {
     case .sourceFileProvide(name: let name):
-      return (try? VirtualPath(path: name))
+      return (try? VirtualPath(path: name.string))
         .map {$0.basenameWithoutExt == target}
       ?? false
     case .externalDepend(let externalDependency):
@@ -1158,14 +1160,14 @@ fileprivate extension ModuleDependencyGraph.Node {
     switch key.designator {
     case .topLevel(name: let name),
       .dynamicLookup(name: let name):
-      return name == target
+      return name.string == target
     case .externalDepend, .sourceFileProvide:
       return false
     case .nominal(context: let context),
          .potentialMember(context: let context):
-      return context.range(of: target) != nil
+      return context.string.range(of: target) != nil
     case .member(context: let context, name: let name):
-      return context.range(of: target) != nil || name == target
+      return context.string.range(of: target) != nil || name.string == target
     }
   }
 }
@@ -1190,15 +1192,15 @@ extension IncrementalCompilationTests {
 
     return try checkDiagnostics
     ? doABuild(whenAutolinking: autolinkExpectedDiags,
-               expecting: expectedDiags(),
-               arguments: allArgs)
+               arguments: allArgs,
+               expecting: expectedDiags())
     : doABuildWithoutExpectations(arguments: allArgs)
   }
 
   private func doABuild(
     whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
-    expecting expectedDiags: [Diagnostic.Message],
-    arguments: [String]
+    arguments: [String],
+    expecting expectedDiags: [Diagnostic.Message]
   ) throws -> Driver {
     try assertDriverDiagnostics(args: arguments) {
       driver, verifier in
@@ -1592,13 +1594,20 @@ extension DiagVerifiable {
 fileprivate struct TraceStep {
   let key: DependencyKey
   let input: String?
+  
+  static let phoneyBaloneyGraph = MockModuleDependencyGraphCreator(maxIndex: 0).mockUpAGraph()
 
-  init(_ aspect: DependencyKey.DeclAspect, _ designator: DependencyKey.Designator, _ input: String?) {
-    self.key = DependencyKey(aspect: aspect, designator: designator)
+  init(_ aspect: DependencyKey.DeclAspect,
+       _ input: String?,
+       _ designator: (ModuleDependencyGraph) -> DependencyKey.Designator
+) {
+    let host = Self.phoneyBaloneyGraph
+    self.key = DependencyKey(aspect: aspect, designator: designator(host))
     self.input = input
   }
   init(_ aspect: DependencyKey.DeclAspect, source: String) {
-    self.init(aspect, .sourceFileProvide(name: "\(source).swiftdeps"), source)
+    self.init(aspect, source,
+              {$0.sourceFileProvide(name: "\(source).swiftdeps")})
   }
   var messagePart: String {
     "\(key)\(input.map {" in \($0).swift"} ?? "")"

@@ -17,16 +17,24 @@ import TSCBasic
 public struct DependencySource: Hashable, CustomStringConvertible {
 
   public let typedFile: TypedVirtualPath
-
-  init(_ typedFile: TypedVirtualPath) {
+  /// Keep this for effiencient lookups into the ``ModuleDependencyGraph``
+  public let internedFileName: InternedString
+  
+  init(typedFile: TypedVirtualPath, internedFileName: InternedString) {
+    assert(typedFile.file.name == internedFileName.string)
     assert( typedFile.type == .swift ||
             typedFile.type == .swiftModule)
-      self.typedFile = typedFile
+    self.typedFile = typedFile
+    self.internedFileName = internedFileName
   }
-
-  /*@_spi(Testing)*/
-  /// Returns nil if cannot be a source
-  public init?(_ file: VirtualPath.Handle) {
+  
+  public init(_ swiftSourceFile: SwiftSourceFile, host: ModuleDependencyGraph) {
+    let typedFile = swiftSourceFile.typedFile
+    self.init(typedFile: typedFile,
+              internedFileName: typedFile.file.name.intern(host))
+  }
+  
+  init?(ifAppropriateFor file: VirtualPath.Handle, internedString: InternedString) {
     let ext = VirtualPath.lookup(file).extension
     guard let type =
       ext == FileType.swift      .rawValue ? FileType.swift :
@@ -35,17 +43,21 @@ public struct DependencySource: Hashable, CustomStringConvertible {
     else {
       return nil
     }
-    self.init(TypedVirtualPath(file: file, type: type))
-  }
-
-  public init(_ swiftSourceFile: SwiftSourceFile) {
-    self.init(swiftSourceFile.typedFile)
+    self.init(typedFile: TypedVirtualPath(file: file, type: type),
+              internedFileName: internedString)
   }
 
   public var file: VirtualPath { typedFile.file }
 
   public var description: String {
-    ExternalDependency(fileName: self.file.name).description
+    ExternalDependency(fileName: self.internedFileName).description
+  }
+  
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(internedFileName)
+  }
+  static public func ==(lhs: Self, rhs: Self) -> Bool {
+    lhs.internedFileName == rhs.internedFileName
   }
 }
 
@@ -54,12 +66,15 @@ extension DependencySource {
   /// Throws if a read error
   /// Returns nil if no dependency info there.
   public func read(
-    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    host: ModuleDependencyGraph
   ) -> SourceFileDependencyGraph? {
     guard let fileToRead = fileToRead(info: info) else {return nil}
     do {
       info.reporter?.report("Reading dependencies from \(description)")
-      return try SourceFileDependencyGraph.read(from: fileToRead, on: info.fileSystem)
+      return try SourceFileDependencyGraph.read(from: fileToRead,
+                                                on: info.fileSystem,
+                                                host: host)
     }
     catch {
       let msg = "Could not read \(fileToRead) \(error.localizedDescription)"
