@@ -23,6 +23,7 @@ public struct Driver {
     case invalidArgumentValue(String, String)
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
+    case externalTargetDetailsAPIError
     case integratedReplRemoved
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
@@ -38,6 +39,7 @@ public struct Driver {
     case malformedModuleDependency(String, String)
     case missingPCMArguments(String)
     case missingModuleDependency(String)
+    case missingContextHashOnSwiftDependency(String)
     case dependencyScanningFailure(Int, String)
     case missingExternalDependency(String)
 
@@ -56,6 +58,8 @@ public struct Driver {
         return "relative frontend path: \(path)"
       case .subcommandPassedToDriver:
         return "subcommand passed to driver"
+      case .externalTargetDetailsAPIError:
+        return "Cannot specify both: externalTargetModulePathMap and externalTargetModuleDetailsMap"
       case .integratedReplRemoved:
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .cannotSpecify_OForMultipleOutputs:
@@ -91,6 +95,8 @@ public struct Driver {
         return "Missing extraPcmArgs to build Clang module: \(moduleName)"
       case .missingModuleDependency(let moduleName):
         return "Missing Module Dependency Info: \(moduleName)"
+      case .missingContextHashOnSwiftDependency(let moduleName):
+        return "Missing Context Hash for Swift dependency: \(moduleName)"
       case .dependencyScanningFailure(let code, let error):
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
       case .unableToLoadOutputFileMap(let path):
@@ -302,12 +308,9 @@ public struct Driver {
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
   @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
 
-  // TODO: Once the clients have transitioned to using the InterModuleDependencyOracle API,
-  // this must convey information about the externally-prebuilt targets only
-  /// All external artifacts a build system (e.g. SwiftPM) may pass in as input to the explicit
-  /// build of the current module. Consists of a map of externally-built targets, and a map of all previously
-  /// discovered/scanned modules and their infos.
-  @_spi(Testing) public var externalBuildArtifacts: ExternalBuildArtifacts? = nil
+  /// A dictionary of external targets that are a part of the same build, mapping to filesystem paths
+  /// of their module files
+  @_spi(Testing) public var externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
@@ -384,9 +387,17 @@ public struct Driver {
   ///   expand response files, etc. By default this is the local filesystem.
   /// - Parameter executor: Used by the driver to execute jobs. The default argument
   ///   is present to streamline testing, it shouldn't be used in production.
-  /// - Parameter externalBuildArtifacts: All external artifacts a build system may pass in as input to the explicit
-  ///   build of the current module. Consists of a map of externally-built targets, and a map of all previously
-  ///   discovered/scanned modules.
+  /// - Parameter integratedDriver: Used to distinguish whether the driver is being used as
+  ///   an executable or as a library.
+  /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
+  ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
+  /// - Parameter externalTargetModulePathMap: DEPRECATED: A dictionary of external targets
+  ///   that are a part of the same build, mapping to filesystem paths of their module files.
+  /// - Parameter externalTargetModuleDetailsMap: A dictionary of external targets that are a part of
+  ///   the same build, mapping to a details value which includes a filesystem path of their
+  ///   `.swiftmodule` and a flag indicating whether the external target is a framework.
+  /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
+  ///   shared across different module builds by a build system.
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
@@ -395,10 +406,9 @@ public struct Driver {
     executor: DriverExecutor,
     integratedDriver: Bool = true,
     compilerExecutableDir: AbsolutePath? = nil,
-    // FIXME: Duplication with externalBuildArtifacts and externalTargetModulePathMap
-    // is a temporary backwards-compatibility shim to help transition SwiftPM to the new API
-    externalBuildArtifacts: ExternalBuildArtifacts? = nil,
+    // Deprecated in favour of the below `externalTargetModuleDetailsMap`
     externalTargetModulePathMap: ExternalTargetModulePathMap? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     self.env = env
@@ -408,10 +418,15 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
     self.executor = executor
 
-    if let externalArtifacts = externalBuildArtifacts {
-      self.externalBuildArtifacts = externalArtifacts
-    } else if let externalTargetPaths = externalTargetModulePathMap {
-      self.externalBuildArtifacts = (externalTargetPaths, [:])
+    if externalTargetModulePathMap != nil && externalTargetModuleDetailsMap != nil {
+      throw Error.externalTargetDetailsAPIError
+    }
+    if let externalTargetPaths = externalTargetModulePathMap {
+      self.externalTargetModuleDetailsMap = externalTargetPaths.mapValues {
+        ExternalTargetModuleDetails(path: $0, isFramework: false)
+      }
+    } else if let externalTargetDetails = externalTargetModuleDetailsMap {
+      self.externalTargetModuleDetailsMap = externalTargetDetails
     }
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
@@ -504,14 +519,6 @@ public struct Driver {
       self.interModuleDependencyOracle = dependencyOracle
     } else {
       self.interModuleDependencyOracle = InterModuleDependencyOracle()
-
-      // This is a shim for backwards-compatibility with ModuleInfoMap-based API
-      // used by SwiftPM
-      if let externalArtifacts = externalBuildArtifacts {
-        if !externalArtifacts.1.isEmpty {
-          try self.interModuleDependencyOracle.mergeModules(from: externalArtifacts.1)
-        }
-      }
     }
 
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)

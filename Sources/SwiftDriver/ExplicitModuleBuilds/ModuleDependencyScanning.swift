@@ -14,8 +14,8 @@ import TSCBasic
 import SwiftOptions
 
 extension Diagnostic.Message {
-  static func warn_scanner_frontend_fallback() -> Diagnostic.Message {
-    .warning("Fallback to `swift-frontend` dependency scanner invocation")
+  static func warn_scanner_frontend_fallback(path: String) -> Diagnostic.Message {
+    .warning("Fallback to `swift-frontend` dependency scanner invocation, could not open/locate: \(path)")
   }
 }
 
@@ -53,9 +53,10 @@ public extension Driver {
     // FIXME: MSVC runtime flags
 
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalBuildArtifacts = externalBuildArtifacts {
+    if let externalTargetDetails = externalTargetModuleDetailsMap {
+      let externalTargetPaths = externalTargetDetails.mapValues { $0.path }
       let dependencyPlaceholderMapFile =
-        try serializeExternalDependencyArtifacts(externalBuildArtifacts: externalBuildArtifacts)
+      try serializeExternalDependencyArtifacts(externalTargetPaths: externalTargetPaths)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
@@ -66,33 +67,22 @@ public extension Driver {
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-  private func serializeExternalDependencyArtifacts(externalBuildArtifacts: ExternalBuildArtifacts)
-  throws -> VirtualPath {
-    let (externalTargetModulePathMap, externalModuleInfoMap)  = externalBuildArtifacts
-    var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
-
-    // Explicit external targets
-    for (moduleId, binaryModulePath) in externalTargetModulePathMap {
-      let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
-      placeholderArtifacts.append(
-          SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: modPath))
-    }
-
-    // All other already-scanned Swift modules
-    for (moduleId, moduleInfo) in externalModuleInfoMap
-    where !externalTargetModulePathMap.keys.contains(moduleId) {
-      guard case .swift(_) = moduleId else { continue }
-      placeholderArtifacts.append(
-          SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                  modulePath: moduleInfo.modulePath))
-    }
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted]
-    let contents = try encoder.encode(placeholderArtifacts)
-    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-placeholder-modules.json"),
-                                                                  contents)
-  }
+   private func serializeExternalDependencyArtifacts(externalTargetPaths: ExternalTargetModulePathMap)
+   throws -> VirtualPath {
+     var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
+     // Explicit external targets
+     for (moduleId, binaryModulePath) in externalTargetPaths {
+       let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
+       placeholderArtifacts.append(
+           SwiftModuleArtifactInfo(name: moduleId.moduleName,
+                                   modulePath: modPath))
+     }
+     let encoder = JSONEncoder()
+     encoder.outputFormatting = [.prettyPrinted]
+     let contents = try encoder.encode(placeholderArtifacts)
+     return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-external-modules.json"),
+                                                                   contents)
+   }
 
   /// Returns false if the lib is available and ready to use
   private func initSwiftScanLib() throws -> Bool {
@@ -105,7 +95,7 @@ public extension Driver {
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
                                        swiftScanLibPath: scanLibPath) == false {
       fallbackToFrontend = true
-      diagnosticEngine.emit(.warn_scanner_frontend_fallback())
+      diagnosticEngine.emit(.warn_scanner_frontend_fallback(path: scanLibPath.pathString))
     }
     return fallbackToFrontend
   }

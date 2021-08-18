@@ -97,6 +97,11 @@ public struct SwiftModuleDetails: Codable {
   /// Options to the compile command
   public var commandLine: [String]? = []
 
+  /// The context hash for this module that encodes the producing interface's path,
+  /// target triple, etc. This field is optional because it is absent for the ModuleInfo
+  /// corresponding to the main module being built.
+  public var contextHash: String?
+
   /// To build a PCM to be used by this Swift module, we need to append these
   /// arguments to the generic PCM build arguments reported from the dependency
   /// graph.
@@ -127,12 +132,17 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
   /// The path to the .swiftSourceInfo file.
   public var moduleSourceInfoPath: TextualVirtualPath?
 
+  /// A flag to indicate whether or not this module is a framework.
+  public var isFramework: Bool
+
   public init(compiledModulePath: TextualVirtualPath,
               moduleDocPath: TextualVirtualPath? = nil,
-              moduleSourceInfoPath: TextualVirtualPath? = nil) throws {
+              moduleSourceInfoPath: TextualVirtualPath? = nil,
+              isFramework: Bool = false) throws {
     self.compiledModulePath = compiledModulePath
     self.moduleDocPath = moduleDocPath
     self.moduleSourceInfoPath = moduleSourceInfoPath
+    self.isFramework = isFramework
   }
 }
 
