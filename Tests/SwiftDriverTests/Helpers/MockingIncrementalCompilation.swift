@@ -200,3 +200,41 @@ extension Driver {
     }
   }
 }
+
+// MARK: - Graph comparison
+/// Test for  equality across graphs and fail descriptively if needed.
+/// String interning is relative to the containing graph, so much pass in compare transformation.
+func failIfUnequalAcrossGraphs<LHS: Sequence, RHS: Sequence>(
+  _ lhs: (name: String, LHS),
+  _ rhs: (name: String, RHS),
+  whatFailed: String,
+  compareBy: (LHS.Element) -> String
+)
+where LHS.Element == RHS.Element
+{
+  func reportDescs(presentIn present: (name: String, descs: Set<String>),
+                 butAbsentIn  absent: (name: String, descs: Set<String>)
+  ) {
+    let delta = present.descs.subtracting(absent.descs)
+    guard delta.isEmpty else {
+      XCTFail("\(whatFailed) failed! Present in \(present.name) but absent in \(absent.name): \(delta.sorted())")
+      return
+    }
+  }
+
+  let lDescs = (name: lhs.name, descs: Set(lhs.1.map(compareBy)))
+  let rDescs = (name: rhs.name, descs: Set(rhs.1.map(compareBy)))
+
+  reportDescs(presentIn: lDescs, butAbsentIn: rDescs)
+  reportDescs(presentIn: rDescs, butAbsentIn: lDescs)
+}
+
+/// Shorthand for ``failIfUnequalAcrossGraphs(_:_:whatFailed:compareBy:)`` when elements are ``CustomStringConvertible``
+func failIfUnequalAcrossGraphs<LHS: Sequence, RHS: Sequence>(
+  _ lhs: (name: String, LHS),
+  _ rhs: (name: String, RHS),
+  whatFailed: String)
+where LHS.Element: CustomStringConvertible, LHS.Element == RHS.Element
+{
+  failIfUnequalAcrossGraphs(lhs, rhs, whatFailed: whatFailed) {$0.description}
+}

@@ -66,12 +66,18 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       deserializedNodes.insert($0)
     }
 
-    XCTAssertTrue(originalNodes == deserializedNodes,
-                  "Round trip failed! Symmetric difference - \(originalNodes.symmetricDifference(deserializedNodes))")
+    failIfUnequalAcrossGraphs( (name:     "originalNodes", originalNodes),
+                               (name: "deserializedNodes", deserializedNodes),
+                               whatFailed: "Round trip")
 
-    XCTAssertEqual(graph.nodeFinder.usesByDef, deserializedGraph.nodeFinder.usesByDef)
-    XCTAssertEqual(graph.fingerprintedExternalDependencies,
-                   deserializedGraph.fingerprintedExternalDependencies)
+    failIfUnequalAcrossGraphs( (name:     "original usesByDef",             graph.nodeFinder.usesByDef),
+                               (name: "deserialized usesByDef", deserializedGraph.nodeFinder.usesByDef),
+                               whatFailed: "Round trip",
+                               compareBy: {"\($0.0.description): \($0.1.map{$0.description}.sorted())"})
+
+    failIfUnequalAcrossGraphs( (name:     "original fingerprintedExternalDependencies",             graph.fingerprintedExternalDependencies),
+                               (name: "deserialized fingerprintedExternalDependencies", deserializedGraph.fingerprintedExternalDependencies),
+                               whatFailed: "Round trip")
   }
 
   func testRoundTripFixtures() throws {
