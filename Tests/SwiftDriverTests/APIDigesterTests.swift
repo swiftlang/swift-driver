@@ -209,7 +209,7 @@ class APIDigesterTests: XCTestCase {
       let baseline = try localFileSystem.readFileContents(path.appending(component: "foo.api.json"))
       try baseline.withData {
         let json = try JSONSerialization.jsonObject(with: $0, options: []) as? [String: Any]
-        XCTAssertEqual((json?["children"] as? [Any])?.count, 1)
+        XCTAssertTrue((json?["children"] as? [Any])!.count >= 1)
       }
     }
   }
