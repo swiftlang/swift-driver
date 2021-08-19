@@ -6,8 +6,8 @@ import XCTest
 import TSCBasic
 import TSCUtility
 
-class CleanBuildPerformanceTests: XCTestCase {
-  enum WhatToMeasure { case reading, writing }
+class IncrementalBuildPerformanceTests: XCTestCase {
+  enum WhatToMeasure { case readingSwiftDeps, writing, readingPriors }
 
   /// Test the cost of reading `swiftdeps` files without doing a full build. Use the files in "TestInputs/SampleSwiftDeps"
   ///
@@ -22,14 +22,17 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// `cd` to the package directory, then:
   /// `rm TestInputs/SampleSwiftDeps/*; rm -rf .build; swift build; find .build -name \*.swiftdeps -a -exec cp \{\} TestInputs/SampleSwiftDeps \;`
   func testCleanBuildSwiftDepsPerformance() throws {
-    try testCleanBuildPerformance(.reading)
+    try testPerformance(.readingSwiftDeps)
   }
-  func testCleanBuildSavingPriorsPerformance() throws {
-    try testCleanBuildPerformance(.writing)
+  func testSavingPriorsPerformance() throws {
+    try testPerformance(.writing)
+  }
+  func testReadingPriorsPerformance() throws {
+    try testPerformance(.readingPriors)
   }
 
 
-  func testCleanBuildPerformance(_ whatToMeasure: WhatToMeasure) throws {
+  func testPerformance(_ whatToMeasure: WhatToMeasure) throws {
 
     #if !os(macOS)
       // rdar://81411914
@@ -67,15 +70,24 @@ class CleanBuildPerformanceTests: XCTestCase {
       .mock(options: [], outputFileMap: outputFileMap)
     let g = ModuleDependencyGraph(info, .updatingAfterCompilation)
     switch whatToMeasure {
-    case .reading:
+    case .readingSwiftDeps:
       measure {readSwiftDeps(for: inputs, into: g)}
     case .writing:
       readSwiftDeps(for: inputs, into: g)
       measure {
-        ModuleDependencyGraph.Serializer.serialize(
+        _ = ModuleDependencyGraph.Serializer.serialize(
           g,
           "mock compiler version",
           ModuleDependencyGraph.serializedGraphVersion)
+      }
+    case .readingPriors:
+      readSwiftDeps(for: inputs, into: g)
+      let data = ModuleDependencyGraph.Serializer.serialize(
+        g,
+        "mock compiler version",
+        ModuleDependencyGraph.serializedGraphVersion)
+      measure {
+        try? XCTAssertNoThrow(ModuleDependencyGraph.deserialize(data, info: info))
       }
     }
   }

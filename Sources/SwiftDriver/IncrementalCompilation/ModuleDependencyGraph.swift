@@ -639,6 +639,14 @@ extension ModuleDependencyGraph {
                                               info: info) else {
       return nil
     }
+    let graph = try deserialize(data, info: info)
+    info.reporter?.report("Read dependency graph", path)
+    return graph
+  }
+
+  @_spi(Testing) public static func deserialize(_ data: ByteString,
+                   info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) throws -> ModuleDependencyGraph {
 
     struct Visitor: BitstreamVisitor {
       private let fileSystem: FileSystem
@@ -804,9 +812,7 @@ extension ModuleDependencyGraph {
       throw ReadError.mismatchedSerializedGraphVersion(
         expected: Self.serializedGraphVersion, read: readVersion)
     }
-    let graph = visitor.finalizeGraph()
-    info.reporter?.report("Read dependency graph", path)
-    return graph
+    return visitor.finalizeGraph()
   }
 
   /// Ensure the saved path points to saved graph from the prior build, and read it.
