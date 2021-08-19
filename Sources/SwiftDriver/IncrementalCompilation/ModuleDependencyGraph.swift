@@ -862,7 +862,7 @@ extension ModuleDependencyGraph {
     }
   }
 
-  fileprivate final class Serializer {
+  @_spi(Testing) public final class Serializer {
     let compilerVersion: String
     let serializedGraphVersion: Version
     let stream = BitstreamWriter()
