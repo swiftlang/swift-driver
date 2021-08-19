@@ -104,6 +104,12 @@ public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDepe
   }
 }
 
+extension FingerprintedExternalDependency: CustomStringConvertible {
+  public var description: String {
+    "\(externalDependency) \(fingerprint.map {"fingerprint: \($0)"} ?? "no fingerprint")"
+  }
+}
+
 /// A `DependencyKey` carries all of the information necessary to uniquely
 /// identify a dependency node in the graph, and serves as a point of identity
 /// for the dependency graph's map from definitions to uses.
