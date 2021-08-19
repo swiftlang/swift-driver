@@ -7,6 +7,8 @@ import TSCBasic
 import TSCUtility
 
 class CleanBuildPerformanceTests: XCTestCase {
+  enum WhatToMeasure { case reading, writing }
+
   /// Test the cost of reading `swiftdeps` files without doing a full build. Use the files in "TestInputs/SampleSwiftDeps"
   ///
   /// When doing an incremental but clean build, after every file is compiled, its `swiftdeps` file must be
@@ -20,6 +22,15 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// `cd` to the package directory, then:
   /// `rm TestInputs/SampleSwiftDeps/*; rm -rf .build; swift build; find .build -name \*.swiftdeps -a -exec cp \{\} TestInputs/SampleSwiftDeps \;`
   func testCleanBuildSwiftDepsPerformance() throws {
+    try testCleanBuildPerformance(.reading)
+  }
+  func testCleanBuildSavingPriorsPerformance() throws {
+    try testCleanBuildPerformance(.writing)
+  }
+
+
+  func testCleanBuildPerformance(_ whatToMeasure: WhatToMeasure) throws {
+
     #if !os(macOS)
       // rdar://81411914
       throw XCTSkip()
@@ -37,7 +48,7 @@ class CleanBuildPerformanceTests: XCTestCase {
     let limit = 100 // This is the real test, optimized code.
     #endif
 
-    try test(swiftDepsDirectory: swiftDepsDirectoryPath.pathString, atMost: limit)
+    try test(swiftDepsDirectory: swiftDepsDirectoryPath.pathString, atMost: limit, whatToMeasure)
   }
 
   /// Test the cost of reading `swiftdeps` files without doing a full build.
@@ -49,13 +60,24 @@ class CleanBuildPerformanceTests: XCTestCase {
   /// - Parameters:
   ///    - swiftDepsDirectory: where the swiftdeps files are, either absolute, or relative to the current directory
   ///    - limit: the maximum number of swiftdeps files to process.
-  func test(swiftDepsDirectory: String, atMost limit: Int = .max) throws {
+  func test(swiftDepsDirectory: String, atMost limit: Int = .max, _ whatToMeasure: WhatToMeasure) throws {
     let (outputFileMap, inputs) = try createOFMAndInputs(swiftDepsDirectory, atMost: limit)
 
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(options: [], outputFileMap: outputFileMap)
     let g = ModuleDependencyGraph(info, .updatingAfterCompilation)
-    measure {readSwiftDeps(for: inputs, into: g)}
+    switch whatToMeasure {
+    case .reading:
+      measure {readSwiftDeps(for: inputs, into: g)}
+    case .writing:
+      readSwiftDeps(for: inputs, into: g)
+      measure {
+        ModuleDependencyGraph.Serializer.serialize(
+          g,
+          "mock compiler version",
+          ModuleDependencyGraph.serializedGraphVersion)
+      }
+    }
   }
 
   /// Build the `OutputFileMap` and input vector for ``testCleanBuildSwiftDepsPerformance(_, atMost)``
