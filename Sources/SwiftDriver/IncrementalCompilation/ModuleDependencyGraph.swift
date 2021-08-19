@@ -868,7 +868,7 @@ extension ModuleDependencyGraph {
     }
   }
 
-  fileprivate final class Serializer {
+  @_spi(Testing) public final class Serializer {
     let internedStringTable: InternedStringTable
     let compilerVersion: String
     let serializedGraphVersion: Version
