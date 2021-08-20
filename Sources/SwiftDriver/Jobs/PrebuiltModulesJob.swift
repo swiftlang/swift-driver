@@ -24,10 +24,12 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
   let diagnosticsEngine: DiagnosticsEngine
   let verbose: Bool
   var failingCriticalOutputs: Set<VirtualPath>
-  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool) {
+  let logPath: AbsolutePath?
+  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool, logPath: AbsolutePath?) {
     self.diagnosticsEngine = diagnosticsEngine
     self.verbose = verbose
     self.failingCriticalOutputs = Set<VirtualPath>(jobs.compactMap(PrebuitModuleGenerationDelegate.getCriticalOutput))
+    self.logPath = logPath
   }
 
   /// Dangling jobs are macabi-only modules. We should run those jobs if foundation
@@ -35,21 +37,26 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
   public var shouldRunDanglingJobs: Bool {
     return !failingCriticalOutputs.contains(where: isIosMac)
   }
+
+  func getInputInterfacePath(_ job: Job) -> AbsolutePath {
+    for arg in job.commandLine {
+      if case .path(let p) = arg {
+        if p.extension == "swiftinterface" {
+          return p.absolutePath!
+        }
+      }
+    }
+    fatalError()
+  }
+
   func printJobInfo(_ job: Job, _ start: Bool) {
     guard verbose else {
       return
     }
-    for arg in job.commandLine {
-      if case .path(let p) = arg {
-        if p.extension == "swiftinterface" {
-          Driver.stdErrQueue.sync {
-            stderrStream <<< (start ? "started: " : "finished: ")
-            stderrStream <<< p.absolutePath!.pathString <<< "\n"
-            stderrStream.flush()
-          }
-          return
-        }
-      }
+    Driver.stdErrQueue.sync {
+      stderrStream <<< (start ? "started: " : "finished: ")
+      stderrStream <<< getInputInterfacePath(job).pathString <<< "\n"
+      stderrStream.flush()
     }
   }
 
@@ -64,6 +71,24 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
 
   public var hasCriticalFailure: Bool {
     return !failingCriticalOutputs.isEmpty
+  }
+
+  fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ stdout: Bool) throws {
+    guard let logPath = logPath else {
+      return
+    }
+    let content = stdout ? try result.utf8Output() : try result.utf8stderrOutput()
+    guard !content.isEmpty else {
+      return
+    }
+    if !localFileSystem.exists(logPath) {
+      try localFileSystem.createDirectory(logPath, recursive: true)
+    }
+    let interfaceBase = getInputInterfacePath(job).basenameWithoutExt
+    let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : "err").txt"
+    try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
+      $0 <<< content
+    }
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
@@ -85,6 +110,15 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     case .signalled:
       diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
 #endif
+    }
+    do {
+      try logOutput(job, result, true)
+      try logOutput(job, result, false)
+    } catch {
+      Driver.stdErrQueue.sync {
+        stderrStream <<< "Failed to generate log file"
+        stderrStream.flush()
+      }
     }
   }
 
@@ -236,6 +270,57 @@ public struct SDKPrebuiltModuleInputsCollector {
   }
 }
 
+extension InterModuleDependencyGraph {
+  func dumpDotGraph(_ path: AbsolutePath, _ includingPCM: Bool) throws {
+    func isPCM(_ dep: ModuleDependencyId) -> Bool {
+      switch dep {
+      case .clang:
+        return true
+      default:
+        return false
+      }
+    }
+    func dumpModuleName(_ stream: WritableByteStream, _ dep: ModuleDependencyId) {
+      switch dep {
+      case .swift(let name):
+        stream <<< "\"\(name).swiftmodule\""
+      case .clang(let name):
+        stream <<< "\"\(name).pcm\""
+      default:
+        break
+      }
+    }
+    try localFileSystem.writeFileContents(path) {Stream in
+      Stream <<< "digraph {\n"
+      for key in modules.keys {
+        switch key {
+        case .swift(let name):
+          if name == mainModuleName {
+              break
+          }
+          fallthrough
+        case .clang:
+          if !includingPCM && isPCM(key) {
+            break
+          }
+          modules[key]!.directDependencies?.forEach { dep in
+            if !includingPCM && isPCM(dep) {
+              return
+            }
+            dumpModuleName(Stream, key)
+            Stream <<< " -> "
+            dumpModuleName(Stream, dep)
+            Stream <<< ";\n"
+          }
+        default:
+          break
+        }
+      }
+      Stream <<< "}\n"
+    }
+  }
+}
+
 extension Driver {
 
   private mutating func generateSingleModuleBuildingJob(_ moduleName: String,  _ prebuiltModuleDir: AbsolutePath,
@@ -261,7 +346,14 @@ extension Driver {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
     }
+    // Use the specified module cache dir
+    if let mcp = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
+      commandLine.appendFlag(.moduleCachePath)
+      commandLine.append(.path(try VirtualPath(path: mcp)))
+    }
     commandLine.appendFlag(.serializeParseableModuleInterfaceDependencyHashes)
+    commandLine.appendFlag(.badFileDescriptorRetryCount)
+    commandLine.appendFlag("30")
     return Job(
       moduleName: moduleName,
       kind: .compile,
@@ -275,12 +367,16 @@ extension Driver {
 
   public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
                                                            into prebuiltModuleDir: AbsolutePath,
-                                                           exhaustive: Bool) throws -> ([Job], [Job]) {
+                                                           exhaustive: Bool,
+                                                           dotGraphPath: AbsolutePath? = nil) throws -> ([Job], [Job]) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
     // We only need Swift dependencies here, so we don't need to invoke gatherModuleDependencies,
     // which also resolves versioned clang modules.
     let dependencyGraph = try performDependencyScan()
+    if let dotGraphPath = dotGraphPath {
+      try dependencyGraph.dumpDotGraph(dotGraphPath, false)
+    }
     var jobs: [Job] = []
     var danglingJobs: [Job] = []
     var inputCount = 0

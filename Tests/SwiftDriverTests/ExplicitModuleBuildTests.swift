@@ -939,8 +939,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import H\n"
         $0 <<< "import Swift\n"
       }
+      let moduleCachePath = "/tmp/module-cache"
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
+                                     "-module-cache-path", moduleCachePath
                                     ])
 
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
@@ -955,6 +957,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
+      XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-module-cache-path"))})
+      XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-bad-file-descriptor-retry-count"))})
+      XCTAssertTrue(try jobs.allSatisfy {$0.commandLine.contains(.path(try VirtualPath(path: moduleCachePath)))})
       let HJobs = jobs.filter { $0.moduleName == "H"}
       XCTAssertTrue(HJobs.count == 2)
       XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "E", "F", "G", "Swift"])

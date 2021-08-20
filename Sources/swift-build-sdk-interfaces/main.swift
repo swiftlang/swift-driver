@@ -17,19 +17,27 @@ import TSCUtility
 
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 
-guard let sdkPathRaw = ProcessEnv.vars["SDKROOT"] else {
-  diagnosticsEngine.emit(.error("need to set SDKROOT"))
-  exit(1)
+func getArgument(_ flag: String, _ env: String? = nil) -> String? {
+  if let id = CommandLine.arguments.firstIndex(of: flag) {
+    let nextId = id.advanced(by: 1)
+    if nextId < CommandLine.arguments.count {
+      return CommandLine.arguments[nextId]
+    }
+  }
+  if let env = env {
+    return ProcessEnv.vars[env]
+  }
+  return nil
 }
 
-var rawOutputDir = ""
-if let oid = CommandLine.arguments.firstIndex(of: "-o") {
-  let dirId = oid.advanced(by: 1)
-  if dirId < CommandLine.arguments.count {
-    rawOutputDir = CommandLine.arguments[dirId]
+func getArgumentAsPath(_ flag: String, _ env: String? = nil) throws -> AbsolutePath? {
+  if let raw = getArgument(flag, env) {
+    return try VirtualPath(path: raw).absolutePath
   }
+  return nil
 }
-if rawOutputDir.isEmpty {
+
+guard let rawOutputDir = getArgument("-o") else {
   diagnosticsEngine.emit(.error("need to specify -o"))
   exit(1)
 }
@@ -41,8 +49,15 @@ let coreMode = CommandLine.arguments.contains("-core")
 /// Verbose to print more info
 let verbose = CommandLine.arguments.contains("-v")
 
+/// Skip executing the jobs
+let skipExecution = CommandLine.arguments.contains("-n")
+
 do {
-  let sdkPath = try VirtualPath(path: sdkPathRaw).absolutePath!
+  let sdkPathArg = try getArgumentAsPath("-sdk", "SDKROOT")
+  guard let sdkPath = sdkPathArg else {
+    diagnosticsEngine.emit(.error("need to set SDKROOT"))
+    exit(1)
+  }
   if !localFileSystem.exists(sdkPath) {
     diagnosticsEngine.emit(error: "cannot find sdk: \(sdkPath.pathString)")
     exit(1)
@@ -56,7 +71,7 @@ do {
     outputDir = outputDir.appending(RelativePath(collector.versionString))
   }
   if !localFileSystem.exists(outputDir) {
-    try localFileSystem.createDirectory(outputDir)
+    try localFileSystem.createDirectory(outputDir, recursive: true)
   }
   let swiftcPathRaw = ProcessEnv.vars["SWIFT_EXEC"]
   var swiftcPath: AbsolutePath
@@ -99,15 +114,32 @@ do {
                                            processSet: processSet,
                                            fileSystem: localFileSystem,
                                            env: ProcessEnv.vars)
-    var driver = try Driver(args: ["swiftc",
-                                   "-target", collector.targetTriple,
-                                   tempPath.description,
-                                   "-sdk", sdkPathRaw],
+    var args = ["swiftc",
+                "-target", collector.targetTriple,
+                tempPath.description,
+                "-sdk", sdkPath.pathString]
+    let mcpFlag = "-module-cache-path"
+    // Append module cache path if given by the client
+    if let mcp = getArgument(mcpFlag) {
+      args.append(mcpFlag)
+      args.append(mcp)
+    }
+    var driver = try Driver(args: args,
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
-    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap, into: outputDir, exhaustive: !coreMode)
-    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose)
+    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap,
+      into: outputDir, exhaustive: !coreMode, dotGraphPath: getArgumentAsPath("-dot-graph-path"))
+    if verbose {
+      Driver.stdErrQueue.sync {
+        stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
+        stderrStream.flush()
+      }
+    }
+    if skipExecution {
+      exit(0)
+    }
+    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logPath: try getArgumentAsPath("-log-path"))
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
