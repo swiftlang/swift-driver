@@ -1016,21 +1016,6 @@ final class SwiftDriverTests: XCTestCase {
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
 
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
-    do{
-      // Linker flags with and without space
-      var driver = try Driver(args: commonArgs + ["-lsomelib","-l","otherlib"], env:env)
-      let plannedJobs = try driver.planBuild()
-
-      XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
-
-      let linkJob = plannedJobs[2]
-      XCTAssertEqual(linkJob.kind, .link)
-
-      let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(.flag("-lsomelib")))
-      XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
-    }
 
     do {
       // macOS target
@@ -1472,6 +1457,19 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertFalse(cmd.contains(.flag("-shared")))
       }
     }
+
+    do {
+      // Linker flags with and without space
+      var driver = try Driver(args: commonArgs + ["-lsomelib","-l","otherlib"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(3, plannedJobs.count)
+
+      let cmd = plannedJobs[2].commandLine
+      XCTAssertTrue(cmd.contains(.flag("-lsomelib")))
+      XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
+    }
+
   }
 
   func testWebAssemblyUnsupportedFeatures() throws {
@@ -2318,13 +2316,6 @@ final class SwiftDriverTests: XCTestCase {
       return false
     }
 
-    func isSquashedArgContains(arg: Job.ArgTemplate, checkOpt: Job.ArgTemplate) -> Bool {
-      if case let .squashedArgumentList(option: _, args: args) = arg {
-        return args.contains(checkOpt)
-      }
-      return false
-    }
-
     do {
       var driver = try Driver(args: ["swift"])
       let plannedJobs = try driver.planBuild()
@@ -2370,18 +2361,18 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    do{
+    do {
       // Linked library arguments with space
       var driver = try Driver(args: ["swift", "-repl", "-l", "somelib", "-lotherlib"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
-      let replJob = plannedJobs.first!
-      XCTAssertTrue(replJob.tool.name.contains("lldb"))
-      XCTAssertTrue(replJob.requiresInPlaceExecution)
-      let cmd = replJob.commandLine
-      XCTAssert(cmd.contains(where: { isExpectedLLDBREPLFlag($0) }))
-      XCTAssertTrue(isSquashedArgContains(arg:cmd[0],checkOpt: .flag("-lsomelib")))
-      XCTAssertTrue(isSquashedArgContains(arg:cmd[0],checkOpt: .flag("-lotherlib")))
+      let cmd = plannedJobs.first!.commandLine
+      guard case let .squashedArgumentList(option: _, args: args) = cmd[0] else {
+        XCTFail()
+        return
+      }
+      XCTAssertTrue(args.contains(.flag("-lsomelib")))
+      XCTAssertTrue(args.contains(.flag("-lotherlib")))
     }
   }
 

@@ -153,14 +153,7 @@ extension Array where Element == Job.ArgTemplate {
   mutating func appendAllExcept(includeList: [Option.Group], excludeList: [Option], from parsedOptions: inout ParsedOptions) throws {
     for group in includeList{
       for optGroup in parsedOptions.arguments(in: group){
-        var isExcluded = false
-        for exclude in excludeList {
-          if optGroup.option == exclude {
-            isExcluded = true
-            break
-          }
-        }
-        if !isExcluded {
+        if !excludeList.contains(where: {$0 == optGroup.option}) {
           try append(optGroup)
         }
       }

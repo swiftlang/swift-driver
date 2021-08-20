@@ -140,14 +140,11 @@ extension WebAssemblyToolchain {
       // These custom arguments should be right before the object file at the
       // end.
       try commandLine.appendAllExcept(
-        includeList:[.linkerOption],
-        excludeList:[.l],
+        includeList: [.linkerOption],
+        excludeList: [.l],
         from: &parsedOptions
       )
-      addLinkedLibArgs(
-        to: &commandLine,
-        parsedOptions: &parsedOptions
-      )
+      addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
       try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
       try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
 

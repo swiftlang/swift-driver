@@ -92,7 +92,7 @@ extension Toolchain {
     parsedOptions: inout ParsedOptions
   ) {
     for match in parsedOptions.arguments(for: .l) {
-      commandLine.appendFlag(match.option.spelling+match.argument.asSingle)
+      commandLine.appendFlag(match.option.spelling + match.argument.asSingle)
     }
   }
 }
