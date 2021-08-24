@@ -2155,7 +2155,7 @@ extension Driver {
       diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.pathString))
       return false
     }
-    guard let sdkVersion = try? Version(versionString: sdkInfo.versionString, usesLenientParsing: true) else {
+    guard let sdkVersion = Version(potentiallyIncompleteVersionString: sdkInfo.versionString) else {
       diagnosticsEngine.emit(.warning_fail_parse_sdk_ver(sdkInfo.versionString, sdkPath.pathString))
       return false
     }
