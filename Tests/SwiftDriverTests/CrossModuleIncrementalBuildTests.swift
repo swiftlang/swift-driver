@@ -41,6 +41,8 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
 
   func testChangingOutputFileMap() throws {
+    // rdar://82304093
+    throw XCTSkip()
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let magic = path.appending(component: "magic.swift")
@@ -94,6 +96,8 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
 
   func testEmbeddedModuleDependencies() throws {
+    // rdar://82304093
+    throw XCTSkip()
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       do {
