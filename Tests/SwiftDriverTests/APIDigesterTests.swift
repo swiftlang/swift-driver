@@ -176,6 +176,8 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testBaselineGenerationEndToEnd() throws {
+    // rdar://82302797
+    throw XCTSkip()
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
