@@ -620,6 +620,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning (import-prescan).
   func testDependencyImportPrescan() throws {
+    // Disabled temporarily to be re-enabled with: https://github.com/apple/swift-driver/pull/781
+    throw XCTSkip()
+
     let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
@@ -668,6 +671,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
+    // Disabled temporarily to be re-enabled with: https://github.com/apple/swift-driver/pull/781
+    throw XCTSkip()
+
     let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
