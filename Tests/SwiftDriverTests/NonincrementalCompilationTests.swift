@@ -293,6 +293,8 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testShowJobLifecycleAndIncremental() throws {
+    // rdar://82304093
+    throw XCTSkip()
     // Legacy MacOS driver output:
     //    Adding standard job to task queue: {compile: main.o <= main.swift}
     //    Added to TaskQueue: {compile: main.o <= main.swift}
@@ -319,6 +321,8 @@ final class NonincrementalCompilationTests: XCTestCase {
 
   }
   func testNoIncremental() throws {
+    // rdar://82304093
+    throw XCTSkip()
     try runDriver( with: [
       "-c",
       "-incremental",
