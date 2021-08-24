@@ -385,10 +385,9 @@ class APIDigesterTests: XCTestCase {
       XCTAssertFalse(driver2.diagnosticEngine.hasErrors)
       let contents = try localFileSystem.readFileContents(path.appending(component: "changes.dia"))
       let diags = try SerializedDiagnostics(bytes: contents)
-      XCTAssertEqual(diags.diagnostics.map(\.text), [
-        "ABI breakage: var MyStruct.a in a non-resilient type changes position from 0 to 1",
-        "ABI breakage: var MyStruct.b in a non-resilient type changes position from 1 to 0"
-      ])
+      let messages = diags.diagnostics.map(\.text)
+      XCTAssertTrue(messages.contains("ABI breakage: var MyStruct.a in a non-resilient type changes position from 0 to 1"))
+      XCTAssertTrue(messages.contains("ABI breakage: var MyStruct.b in a non-resilient type changes position from 1 to 0"))
     }
   }
 }
