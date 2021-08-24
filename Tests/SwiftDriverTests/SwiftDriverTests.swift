@@ -1462,10 +1462,7 @@ final class SwiftDriverTests: XCTestCase {
       // Linker flags with and without space
       var driver = try Driver(args: commonArgs + ["-lsomelib","-l","otherlib"], env: env)
       let plannedJobs = try driver.planBuild()
-
-      XCTAssertEqual(3, plannedJobs.count)
-
-      let cmd = plannedJobs[2].commandLine
+      let cmd = plannedJobs.last!.commandLine
       XCTAssertTrue(cmd.contains(.flag("-lsomelib")))
       XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
     }
