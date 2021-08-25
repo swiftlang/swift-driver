@@ -627,17 +627,12 @@ extension Driver {
         continue
       }
       let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
-      // Only update paths on modules which do not already specify a path beyond their module name
-      // and a file extension.
-      if modulePath.description == moduleId.moduleName + ".swiftmodule" ||
-          modulePath.description == moduleId.moduleName + ".pcm" {
-        // Use VirtualPath to get the OS-specific path separators right.
-        let modulePathInCache =
-          try VirtualPath(path: moduleCachePath)
-            .appending(component: modulePath.description)
-        dependencyGraph.modules[moduleId]!.modulePath =
-          TextualVirtualPath(path: modulePathInCache.intern())
-      }
+      // Use VirtualPath to get the OS-specific path separators right.
+      let modulePathInCache =
+      try VirtualPath(path: moduleCachePath)
+        .appending(component: modulePath.basename)
+      dependencyGraph.modules[moduleId]!.modulePath =
+      TextualVirtualPath(path: modulePathInCache.intern())
     }
   }
 
