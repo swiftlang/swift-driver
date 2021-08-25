@@ -267,6 +267,9 @@ final class NonincrementalCompilationTests: XCTestCase {
     expecting expectations: [Diagnostic.Message],
     alsoExpectingWhenAutolinking autolinkExpectations: [Diagnostic.Message] = []
   ) throws {
+    guard let sdkArguments = try Driver.sdkArgumentsForTesting() else {
+      throw XCTSkip("cannot get sdk arguments on this platform")
+    }
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
@@ -279,7 +282,7 @@ final class NonincrementalCompilationTests: XCTestCase {
       try assertDriverDiagnostics(args: [
         "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
         main.pathString, other.pathString
-      ] + otherArgs) {driver, verifier in
+      ] + otherArgs + sdkArguments) {driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
 
         expectations.forEach {verifier.expect($0)}
