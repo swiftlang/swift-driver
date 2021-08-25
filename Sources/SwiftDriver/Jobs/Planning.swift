@@ -623,7 +623,8 @@ extension Driver {
   throws {
     for (moduleId, moduleInfo) in dependencyGraph.modules {
       // Output path on the main module is determined by the invocation arguments.
-      guard moduleId.moduleName != dependencyGraph.mainModuleName else {
+      if case .swift(let name) = moduleId,
+         name == dependencyGraph.mainModuleName {
         continue
       }
       let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
