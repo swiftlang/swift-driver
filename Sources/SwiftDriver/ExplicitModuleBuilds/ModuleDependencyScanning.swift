@@ -23,7 +23,7 @@ public extension Driver {
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// dependency graph including all Swift and C module files and
   /// source files.
-  mutating private func dependencyScanningJob() throws -> Job {
+  mutating func dependencyScanningJob() throws -> Job {
     let (inputs, commandLine) = try dependencyScannerInvocationCommand()
 
     // Construct the scanning job.
@@ -35,7 +35,7 @@ public extension Driver {
                inputs: inputs,
                primaryInputs: [],
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
-               supportsResponseFiles: true)
+               supportsResponseFiles: false)
   }
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
@@ -239,7 +239,7 @@ public extension Driver {
                inputs: inputs,
                primaryInputs: [],
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
-               supportsResponseFiles: true)
+               supportsResponseFiles: false)
   }
 
   /// Precompute the dependencies for a given collection of modules using swift frontend's batch scanning mode
@@ -288,7 +288,7 @@ public extension Driver {
                inputs: inputs,
                primaryInputs: [],
                outputs: outputs,
-               supportsResponseFiles: true)
+               supportsResponseFiles: false)
   }
 
   /// Serialize a collection of modules into an input format expected by the batch module dependency scanner.
