@@ -41,6 +41,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
 
   func testChangingOutputFileMap() throws {
+    guard let sdkArguments = try Driver.sdkArgumentsForTesting() else {
+      throw XCTSkip()
+    }
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let magic = path.appending(component: "magic.swift")
@@ -54,18 +57,19 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           $0 + "-some_suffix"
         }
       }
-
+      
+      let driverArgs = [
+        "swiftc",
+        "-incremental",
+        "-emit-module",
+        "-output-file-map", ofm.pathString,
+        "-module-name", "MagicKit",
+        "-working-directory", path.pathString,
+        "-c",
+        magic.pathString,
+      ] + sdkArguments
       do {
-        var driver = try Driver(args: [
-          "swiftc",
-          "-incremental",
-          "-emit-module",
-          "-output-file-map", ofm.pathString,
-          "-module-name", "MagicKit",
-          "-working-directory", path.pathString,
-          "-c",
-          magic.pathString,
-        ])
+        var driver = try Driver(args: driverArgs)
         let jobs = try driver.planBuild()
         try driver.run(jobs: jobs)
       }
@@ -77,16 +81,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       }
 
       do {
-        var driver = try Driver(args: [
-          "swiftc",
-          "-incremental",
-          "-emit-module",
-          "-output-file-map", ofm.pathString,
-          "-module-name", "MagicKit",
-          "-working-directory", path.pathString,
-          "-c",
-          magic.pathString,
-        ])
+        var driver = try Driver(args: driverArgs)
         let jobs = try driver.planBuild()
         try driver.run(jobs: jobs)
       }
@@ -94,6 +89,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
   }
 
   func testEmbeddedModuleDependencies() throws {
+    guard let sdkArguments = try Driver.sdkArgumentsForTesting() else {
+      throw XCTSkip()
+    }
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       do {
@@ -116,7 +114,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           "-working-directory", path.pathString,
           "-c",
           magic.pathString,
-        ])
+        ] + sdkArguments)
         let jobs = try driver.planBuild()
         try driver.run(jobs: jobs)
       }
@@ -142,7 +140,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         "-working-directory", path.pathString,
         "-c",
         main.pathString,
-      ])
+      ] + sdkArguments)
 
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
