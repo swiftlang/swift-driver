@@ -700,6 +700,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+
+  /// Test that the scanner invocation does not rely in response files
+  func testDependencyScanningNoResponse() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      // With a number of inputs this large, a response file should be generated
+      // unless explicitly not supported, as should be the case for scan-deps.
+      let lotsOfInputs = (0...700).map{"test\($0).swift"}
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-experimental-explicit-module-build",
+                                     "-working-directory", path.pathString,
+                                     main.pathString] + lotsOfInputs + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let scannerJob = try driver.dependencyScanningJob()
+
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let (args, _) = try resolver.resolveArgumentList(for: scannerJob,
+                                                       forceResponseFiles: false,
+                                                       quotePaths: true)
+      XCTAssertTrue(args.count > 1)
+      XCTAssertFalse(args[0].hasSuffix(".resp"))
+    }
+  }
+
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
     #if os(macOS) && arch(arm64)
