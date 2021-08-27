@@ -1016,6 +1016,7 @@ final class SwiftDriverTests: XCTestCase {
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
 
     let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test"]
+
     do {
       // macOS target
       var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
@@ -1456,6 +1457,16 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertFalse(cmd.contains(.flag("-shared")))
       }
     }
+
+    do {
+      // Linker flags with and without space
+      var driver = try Driver(args: commonArgs + ["-lsomelib","-l","otherlib"], env: env)
+      let plannedJobs = try driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-lsomelib")))
+      XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
+    }
+
   }
 
   func testWebAssemblyUnsupportedFeatures() throws {
@@ -2346,6 +2357,20 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(error as? PlanningError, .replReceivedInput)
       }
     }
+
+    do {
+      // Linked library arguments with space
+      var driver = try Driver(args: ["swift", "-repl", "-l", "somelib", "-lotherlib"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let cmd = plannedJobs.first!.commandLine
+      guard case let .squashedArgumentList(option: _, args: args) = cmd[0] else {
+        XCTFail()
+        return
+      }
+      XCTAssertTrue(args.contains(.flag("-lsomelib")))
+      XCTAssertTrue(args.contains(.flag("-lotherlib")))
+    }
   }
 
   func testInstallAPI() throws {
@@ -2411,7 +2436,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift", "-L/path/to/lib", "-F/path/to/framework", "foo.swift"])
+      var driver = try Driver(args: ["swift", "-L/path/to/lib", "-F/path/to/framework", "-lsomelib", "-l", "otherlib", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
@@ -2425,6 +2450,9 @@ final class SwiftDriverTests: XCTestCase {
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(job.extraEnvironment.contains { $0 == "DYLD_FRAMEWORK_PATH" && $1.contains("/path/to/framework") })
       }
+
+      XCTAssertTrue(job.commandLine.contains(.flag("-lsomelib")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-lotherlib")))
     }
   }
 

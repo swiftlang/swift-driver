@@ -31,7 +31,8 @@ extension Driver {
     // FIXME: MSVC runtime flags
 
     try commandLine.appendLast(.parseSil, from: &parsedOptions)
-    try commandLine.appendAll(.l, .framework, from: &parsedOptions)
+    toolchain.addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
+    try commandLine.appendAll(.framework, from: &parsedOptions)
 
     // The immediate arguments must be last.
     try commandLine.appendLast(.DASHDASH, from: &parsedOptions)

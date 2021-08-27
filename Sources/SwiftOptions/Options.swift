@@ -389,7 +389,7 @@ extension Option {
   public static let ltoLibrary: Option = Option("-lto-library", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<lto-library>", helpText: "Perform LTO with <lto-library>")
   public static let lto: Option = Option("-lto=", .joined, attributes: [.frontend, .noInteractive], helpText: "Specify the LTO type to either 'llvm-thin' or 'llvm-full'")
   public static let L: Option = Option("-L", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Add directory to library link search path", group: .linkerOption)
-  public static let l: Option = Option("-l", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linkerOption)
+  public static let l: Option = Option("-l", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linkerOption)
   public static let mergeModules: Option = Option("-merge-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Merge the input modules without otherwise processing them", group: .modes)
   public static let migrateKeepObjcVisibility: Option = Option("-migrate-keep-objc-visibility", .flag, attributes: [.frontend, .noInteractive], helpText: "When migrating, add '@objc' to declarations that would've been implicitly visible in Swift 3")
   public static let migratorUpdateSdk: Option = Option("-migrator-update-sdk", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.")
