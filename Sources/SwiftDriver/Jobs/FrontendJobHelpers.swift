@@ -193,6 +193,7 @@ extension Driver {
     try commandLine.appendLast(.localizationPath, from: &parsedOptions)
     try commandLine.appendLast(.requireExplicitAvailability, from: &parsedOptions)
     try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
+    try commandLine.appendLast(.libraryLevel, from: &parsedOptions)
     try commandLine.appendLast(.lto, from: &parsedOptions)
     try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
     try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)

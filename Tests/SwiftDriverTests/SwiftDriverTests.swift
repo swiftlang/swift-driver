@@ -4881,6 +4881,15 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testLibraryLevel() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-library-level", "spi", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(subsequence: [.flag("-library-level"), .flag("spi")]))
+    }
+  }
+
   func testRelativeResourceDir() throws {
     do {
       var driver = try Driver(args: ["swiftc",
