@@ -40,7 +40,7 @@ public extension Driver {
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
-  mutating private func dependencyScannerInvocationCommand()
+  @_spi(Testing) public mutating func dependencyScannerInvocationCommand()
   throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []

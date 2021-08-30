@@ -723,7 +723,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
-    let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    let (_, _, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
@@ -752,12 +752,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      let scannerCommand = ["-scan-dependencies",
-                            "-I", cHeadersPath,
-                            "-I", swiftModuleInterfacesPath,
-                            "-I", stdLibPath.description,
-                            "-I", shimsPath.description,
-                            main.pathString] + sdkArgumentsForTesting
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath,
+                                     "-I", swiftModuleInterfacesPath,
+                                     "-experimental-explicit-module-build",
+                                     "-working-directory", path.pathString,
+                                     "-disable-clang-target",
+                                     main.pathString] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      // We generate full swiftc -frontend -scan-dependencies invocations in order to also be
+      // able to launch them as standalone jobs. Frontend's argument parser won't recognize
+      // -frontend when passed directly via libSwiftScan.
+      if scannerCommand.first == "-frontend" {
+        scannerCommand.removeFirst()
+      }
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
@@ -807,7 +817,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanReuseCache() throws {
-    let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    let (_, _, toolchain, hostTriple) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let cacheSavePath = path.appending(component: "saved.moddepcache")
       let main = path.appending(component: "testDependencyScanning.swift")
@@ -822,13 +832,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
       let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      let scannerCommand = ["-scan-dependencies",
-                            "-disable-implicit-concurrency-module-import",
-                            "-I", cHeadersPath,
-                            "-I", swiftModuleInterfacesPath,
-                            "-I", stdLibPath.description,
-                            "-I", shimsPath.description,
-                            main.pathString] + sdkArgumentsForTesting
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath,
+                                     "-I", swiftModuleInterfacesPath,
+                                     "-experimental-explicit-module-build",
+                                     "-working-directory", path.pathString,
+                                     "-disable-clang-target",
+                                     main.pathString] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      // We generate full swiftc -frontend -scan-dependencies invocations in order to also be
+      // able to launch them as standalone jobs. Frontend's argument parser won't recognize
+      // -frontend when passed directly via libSwiftScan.
+      if scannerCommand.first == "-frontend" {
+        scannerCommand.removeFirst()
+      }
 
       let scanLibPath = try Driver.getScanLibPath(of: toolchain,
                                                   hostTriple: hostTriple,
