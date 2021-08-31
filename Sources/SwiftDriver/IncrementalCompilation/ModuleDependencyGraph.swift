@@ -30,7 +30,7 @@ import SwiftOptions
   @_spi(Testing) public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
   /// For debugging, something to write out files for visualizing graphs
-  let dotFileWriter: DependencyGraphDotFileWriter?
+  var dotFileWriter: DependencyGraphDotFileWriter?
 
   @_spi(Testing) public var phase: Phase
 

@@ -12,7 +12,7 @@
 import TSCBasic
 
 // MARK: - Asking to write dot files / interface
-public class DependencyGraphDotFileWriter {
+public struct DependencyGraphDotFileWriter {
   /// Holds file-system and options
   private let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
@@ -22,21 +22,21 @@ public class DependencyGraphDotFileWriter {
     self.info = info
   }
 
-  func write(_ sfdg: SourceFileDependencyGraph, for file: TypedVirtualPath) {
+  mutating func write(_ sfdg: SourceFileDependencyGraph, for file: TypedVirtualPath) {
     let basename = file.file.basename
     write(sfdg, basename: basename)
   }
   
-  func write(_ mdg: ModuleDependencyGraph) {
+  mutating func write(_ mdg: ModuleDependencyGraph) {
     write(mdg, basename: Self.moduleDependencyGraphBasename)
   }
 
-  public static let moduleDependencyGraphBasename = "moduleDependencyGraph"
+  @_spi(Testing) public static let moduleDependencyGraphBasename = "moduleDependencyGraph"
 }
 
 // MARK: Asking to write dot files / implementation
 fileprivate extension DependencyGraphDotFileWriter {
-  func write<Graph: ExportableGraph>(_ graph: Graph, basename: String) {
+  mutating func write<Graph: ExportableGraph>(_ graph: Graph, basename: String) {
     let path = dotFilePath(for: basename)
     try! info.fileSystem.writeFileContents(path) { stream in
       var s = DOTDependencyGraphSerializer<Graph>(
@@ -49,7 +49,7 @@ fileprivate extension DependencyGraphDotFileWriter {
     }
   }
 
-  func dotFilePath(for basename: String) -> VirtualPath {
+  mutating func dotFilePath(for basename: String) -> VirtualPath {
     let nextVersionNumber = versionNumber
     versionNumber += 1
     return info.buildRecordInfo.dotFileDirectory
