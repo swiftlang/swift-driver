@@ -221,7 +221,7 @@ public final class MultiJobExecutor {
     }
 
     fileprivate func reportSkippedJobs() {
-      for job in incrementalCompilationState?.skippedJobs ?? [] {
+      for job in incrementalCompilationState?.blockingConcurrentMutation({ $0.skippedJobs }) ?? [] {
         executorDelegate.jobSkipped(job: job)
       }
     }

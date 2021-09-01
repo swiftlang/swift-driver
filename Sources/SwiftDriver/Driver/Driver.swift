@@ -1158,7 +1158,7 @@ extension Driver {
     // If the write fails, import incrementality is lost, but it is not a fatal error.
     if let incrementalCompilationState = self.incrementalCompilationState {
       do {
-        try incrementalCompilationState.writeDependencyGraph()
+        try incrementalCompilationState.writeDependencyGraph(buildRecordInfo)
       }
       catch {
         diagnosticEngine.emit(
@@ -1170,7 +1170,7 @@ extension Driver {
     }
     buildRecordInfo?.writeBuildRecord(
       jobs,
-      incrementalCompilationState?.skippedCompilationInputs)
+      incrementalCompilationState?.blockingConcurrentMutation{$0.skippedCompilationInputs})
   }
 
   private func printBindings(_ job: Job) {

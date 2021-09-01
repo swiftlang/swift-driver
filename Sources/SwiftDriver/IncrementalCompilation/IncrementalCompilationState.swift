@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import TSCUtility
 import Foundation
 import SwiftOptions
 
@@ -19,7 +20,7 @@ import SwiftOptions
 /// The primary form of interaction with the incremental compilation state is
 /// using it as an oracle to discover the jobs to execute as the incremental
 /// build progresses. After a job completes, call
-/// `IncrementalCompilationState.collectJobsDiscoveredToBeNeededAfterFinishing(job:)`
+/// `protectedState.collectJobsDiscoveredToBeNeededAfterFinishing(job:)`
 /// to both update the incremental state and recieve an array of jobs that
 /// need to be executed in response.
 ///
@@ -32,10 +33,14 @@ import SwiftOptions
 /// The public API surface of this class is thread safe, but not re-entrant.
 /// FIXME: This should be an actor.
 public final class IncrementalCompilationState {
-
-  /// The oracle for deciding what depends on what. Applies to this whole module.
-  @_spi(Testing) public let moduleDependencyGraph: ModuleDependencyGraph
   
+  /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
+  private let confinementQueue: DispatchQueue = DispatchQueue(
+    label: "com.apple.swift-driver.incremental-compilation-state",
+    qos: .userInteractive,
+    attributes: .concurrent)
+    
+  private var protectedState: ProtectedState
 
   /// All of the pre-compile or compilation job (groups) known to be required (i.e. in 1st wave).
   /// Already batched, and in order of input files.
@@ -46,20 +51,6 @@ public final class IncrementalCompilationState {
   
   public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
-  /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
-  private let confinementQueue: DispatchQueue = DispatchQueue(label: "com.apple.swift-driver.incremental-compilation-state", qos: .userInteractive)
-
-  /// Sadly, has to be `var` for formBatchedJobs
-  ///
-  /// After initialization, mutating accesses to the driver must be protected by
-  /// the confinement queue.
-  private var driver: Driver
-
-  /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
-  ///
-  /// This state is modified during the incremental build. All accesses must
-  /// be protected by the confinement queue.
-  private var skippedCompileGroups = [TypedVirtualPath: CompileJobGroup]()
 
   // MARK: - Creating IncrementalCompilationState
   /// Return nil if not compiling incrementally
@@ -80,12 +71,29 @@ public final class IncrementalCompilationState {
       try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
                             driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
 
-    self.skippedCompileGroups = firstWave.initiallySkippedCompileGroups
+    self.protectedState = ProtectedState(
+      skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
+      initialState.graph,
+      &driver)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
-    self.moduleDependencyGraph = initialState.graph
-    self.driver = driver
-    self.info =  initialState.graph.info
+    self.info = initialState.graph.info
+  }
+  
+  /// Block any threads from mutating `ProtectedState`
+  public func blockingConcurrentMutation<R>(
+    _ fn: (ProtectedState) throws -> R
+  ) rethrows -> R {
+    try confinementQueue.sync {try fn(protectedState)}
+  }
+  
+  /// Block any other threads from doing anything to `ProtectedState`
+  public func blockingConcurrentAccessOrMutation<R>(
+    _ fn: (inout ProtectedState) throws -> R
+  ) rethrows -> R {
+    try confinementQueue.sync(flags: .barrier) {
+      try fn(&protectedState)
+    }
   }
 }
 
@@ -208,82 +216,17 @@ extension Diagnostic.Message {
 
 // MARK: - Scheduling the 2nd wave
 extension IncrementalCompilationState {
-  /// Remember a job (group) that is before a compile or a compile itself.
-  /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
-  /// If no more compiles are needed, return nil.
-  /// Careful: job may not be primary.
-  public func collectJobsDiscoveredToBeNeededAfterFinishing(
-    job finishedJob: Job) throws -> [Job]? {
-    return try self.confinementQueue.sync {
-      // Find and deal with inputs that now need to be compiled
-      let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
-      assert(invalidatedInputs.isDisjoint(with: finishedJob.primarySwiftSourceFiles),
-             "Primaries should not overlap secondaries.")
 
-      if let reporter = self.reporter {
-        for input in invalidatedInputs {
-          reporter.report(
-            "Queuing because of dependencies discovered later:", input)
-        }
-      }
-      return try getJobs(for: invalidatedInputs)
-    }
-  }
-
-  /// Needed for API compatibility, `result` will be ignored
+  /// Needed for API compatibility, `result` may be ignored
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
-    job finishedJob: Job, result: ProcessResult
+    job finishedJob: Job
   ) throws -> [Job]? {
-    try collectJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
-  }
-
-  /// After `job` finished find out which inputs must compiled that were not known to need compilation before
-  private func collectInputsInvalidatedByRunning(_ job: Job)-> Set<SwiftSourceFile> {
-    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
-    guard job.kind == .compile else {
-      return Set<SwiftSourceFile>()
+    try blockingConcurrentAccessOrMutation {
+      try $0.collectBatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
     }
-    return job.primaryInputs.reduce(into: Set()) { invalidatedInputs, primaryInput in
-      if let primary = SwiftSourceFile(ifSource: primaryInput) {
-        invalidatedInputs.formUnion(collectInputsInvalidated(byCompiling: primary))
-      }
-    }
-    .subtracting(job.primarySwiftSourceFiles) // have already compiled these
-  }
-
-  private func collectInputsInvalidated(
-    byCompiling input: SwiftSourceFile
-  ) -> TransitivelyInvalidatedSwiftSourceFileSet {
-    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
-    if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
-      return found
-    }
-    self.reporter?.report(
-      "Failed to read some dependencies source; compiling everything", input)
-    return TransitivelyInvalidatedSwiftSourceFileSet(skippedCompileGroups.keys.swiftSourceFiles)
-  }
-
-  /// Find the jobs that now must be run that were not originally known to be needed.
-  private func getJobs(
-    for invalidatedInputs: Set<SwiftSourceFile>
-  ) throws -> [Job] {
-    dispatchPrecondition(condition: .onQueue(self.confinementQueue))
-    let unbatched = invalidatedInputs.flatMap { input -> [Job] in
-      if let group = skippedCompileGroups.removeValue(forKey: input.typedFile) {
-        let primaryInputs = group.compileJob.primarySwiftSourceFiles
-        assert(primaryInputs.count == 1)
-        assert(primaryInputs[0] == input)
-        self.reporter?.report("Scheduling invalidated", input)
-        return group.allJobs()
-      }
-      else {
-        self.reporter?.report("Tried to schedule invalidated input again", input)
-        return []
-      }
-    }
-    return try driver.formBatchedJobs(unbatched, showJobLifecycle: driver.showJobLifecycle)
   }
 }
+
 // MARK: - Scheduling post-compile jobs
 extension IncrementalCompilationState {
   /// Only used when no compilations have run; otherwise the caller assumes every post-compile
@@ -342,22 +285,6 @@ extension IncrementalCompilationState {
   }
   private func modTime(_ path: TypedVirtualPath) -> Date? {
     try? fileSystem.lastModificationTime(for: path.file)
-  }
-}
-
-// MARK: - After the build
-extension IncrementalCompilationState {
-  var skippedCompilationInputs: Set<TypedVirtualPath> {
-    return self.confinementQueue.sync {
-      Set(skippedCompileGroups.keys)
-    }
-  }
-  public var skippedJobs: [Job] {
-    return self.confinementQueue.sync {
-      skippedCompileGroups.values
-        .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
-        .flatMap {$0.allJobs()}
-    }
   }
 }
 
@@ -506,22 +433,25 @@ extension IncrementalCompilationState {
     }
   }
 
-  @_spi(Testing) public func writeDependencyGraph() throws {
+  func writeDependencyGraph(_ buildRecordInfo: BuildRecordInfo?) throws {
     // If the cross-module build is not enabled, the status quo dictates we
     // not emit this file.
-    guard moduleDependencyGraph.info.isCrossModuleIncrementalBuildEnabled else {
+    guard info.isCrossModuleIncrementalBuildEnabled else {
       return
     }
     guard
-      let recordInfo = self.driver.buildRecordInfo
+      let recordInfo = buildRecordInfo
     else {
       throw WriteDependencyGraphError.noBuildRecordInfo
     }
-    try self.moduleDependencyGraph.write(to: recordInfo.dependencyGraphPath,
-                                         on: self.driver.fileSystem,
-                                         compilerVersion: recordInfo.actualSwiftVersion)
+    try blockingConcurrentMutation {
+      try $0.writeGraph(
+        to: recordInfo.dependencyGraphPath,
+        on: info.fileSystem,
+        compilerVersion: recordInfo.actualSwiftVersion)
+    }
   }
-
+  
   @_spi(Testing) public static func removeDependencyGraphFile(_ driver: Driver) {
     if let path = driver.buildRecordInfo?.dependencyGraphPath {
       try? driver.fileSystem.removeFileTree(path)
@@ -586,5 +516,154 @@ extension OutputFileMap {
 
   func isANewInput(_ file: SwiftSourceFile) -> Bool {
     !previousSet.contains(file)
+  }
+}
+
+// MARK: - ProtectedState
+
+/// An instance of `IncrementalCompilationState.ProtectedState` encapsulates the data necessary
+/// to make incremental build scheduling decisions and protects it from concurrent access.
+
+extension IncrementalCompilationState {
+  // MARK: - IncrementalCompilationStateActor
+  public struct ProtectedState {
+    /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
+    ///
+    /// This state is modified during the incremental build. All accesses must
+    /// be protected by the confinement queue.
+    fileprivate var skippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
+    
+    /// Sadly, has to be `var` for formBatchedJobs
+    ///
+    /// After initialization, mutating accesses to the driver must be protected by
+    /// the confinement queue.
+    private var driver: Driver
+
+    /// The oracle for deciding what depends on what. Applies to this whole module.
+    /// fileprivate in order to control concurrency.
+    fileprivate let moduleDependencyGraph: ModuleDependencyGraph
+    
+    fileprivate let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+    
+    init(skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+         _ moduleDependencyGraph: ModuleDependencyGraph,
+         _ driver: inout Driver) {
+      self.skippedCompileGroups = skippedCompileGroups
+      self.moduleDependencyGraph = moduleDependencyGraph
+      self.info = moduleDependencyGraph.info
+      self.driver = driver
+    }
+  }
+}
+
+// MARK: - shorthands
+extension IncrementalCompilationState.ProtectedState {
+  
+  fileprivate var reporter: IncrementalCompilationState.Reporter? {
+    info.reporter
+  }
+}
+
+// MARK: - 2nd wave
+extension IncrementalCompilationState.ProtectedState {
+  mutating func collectBatchedJobsDiscoveredToBeNeededAfterFinishing(
+    job finishedJob: Job
+  ) throws -> [Job]? {
+    // batch in here to protect the Driver from concurrent access
+    try collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
+      .map {try driver.formBatchedJobs($0, showJobLifecycle: driver.showJobLifecycle)}
+  }
+  
+  /// Remember a job (group) that is before a compile or a compile itself.
+  /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
+  /// If no more compiles are needed, return nil.
+  /// Careful: job may not be primary.
+  fileprivate mutating func collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(
+    job finishedJob: Job) throws -> [Job]? {
+      // Find and deal with inputs that now need to be compiled
+      let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
+      assert(invalidatedInputs.isDisjoint(with: finishedJob.primarySwiftSourceFiles),
+             "Primaries should not overlap secondaries.")
+      
+      if let reporter = self.reporter {
+        for input in invalidatedInputs {
+          reporter.report(
+            "Queuing because of dependencies discovered later:", input)
+        }
+      }
+      return try getUnbatchedJobs(for: invalidatedInputs)
+    }
+  
+  /// After `job` finished find out which inputs must compiled that were not known to need compilation before
+  fileprivate mutating func collectInputsInvalidatedByRunning(_ job: Job)-> Set<SwiftSourceFile> {
+    guard job.kind == .compile else {
+      return Set<SwiftSourceFile>()
+    }
+    return job.primaryInputs.reduce(into: Set()) { invalidatedInputs, primaryInput in
+      if let primary = SwiftSourceFile(ifSource: primaryInput) {
+        invalidatedInputs.formUnion(collectInputsInvalidated(byCompiling: primary))
+      }
+    }
+    .subtracting(job.primarySwiftSourceFiles) // have already compiled these
+  }
+  
+  // "Mutating" because it mutates the graph, which may be a struct someday
+  fileprivate mutating func collectInputsInvalidated(
+    byCompiling input: SwiftSourceFile
+  ) -> TransitivelyInvalidatedSwiftSourceFileSet {
+    if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
+      return found
+    }
+    self.reporter?.report(
+      "Failed to read some dependencies source; compiling everything", input)
+    return TransitivelyInvalidatedSwiftSourceFileSet(skippedCompileGroups.keys.swiftSourceFiles)
+  }
+  
+  /// Find the jobs that now must be run that were not originally known to be needed.
+  fileprivate mutating func getUnbatchedJobs(
+    for invalidatedInputs: Set<SwiftSourceFile>
+  ) throws -> [Job] {
+    return invalidatedInputs.flatMap { input -> [Job] in
+      if let group = skippedCompileGroups.removeValue(forKey: input.typedFile) {
+        let primaryInputs = group.compileJob.primarySwiftSourceFiles
+        assert(primaryInputs.count == 1)
+        assert(primaryInputs[0] == input)
+        self.reporter?.report("Scheduling invalidated", input)
+        return group.allJobs()
+      }
+      else {
+        self.reporter?.report("Tried to schedule invalidated input again", input)
+        return []
+      }
+    }
+  }
+}
+  
+
+// MARK: - After the build
+extension IncrementalCompilationState.ProtectedState {
+  var skippedCompilationInputs: Set<TypedVirtualPath> {
+    Set(skippedCompileGroups.keys)
+  }
+  public var skippedJobs: [Job] {
+    skippedCompileGroups.values
+      .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
+      .flatMap {$0.allJobs()}
+  }
+
+  @_spi(Testing) public func writeGraph(to path: VirtualPath,
+                  on fs: FileSystem,
+                  compilerVersion: String,
+                  mockSerializedGraphVersion: Version? = nil
+  ) throws {
+    try moduleDependencyGraph.write(to: path, on: fs,
+                                    compilerVersion: compilerVersion,
+                                    mockSerializedGraphVersion: mockSerializedGraphVersion)
+  }
+}
+// MARK: - Testing - (must be here to access graph safely)
+extension IncrementalCompilationState.ProtectedState {
+  @_spi(Testing) public mutating func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) {
+    fn(moduleDependencyGraph)
   }
 }
