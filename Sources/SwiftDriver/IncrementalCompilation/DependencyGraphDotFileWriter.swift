@@ -51,6 +51,9 @@ fileprivate extension DependencyGraphDotFileWriter {
 
   mutating func dotFilePath(for basename: String) -> VirtualPath {
     let nextVersionNumber = versionNumber
+    // Update the version number so that successive saved dot files for the graph
+    // (for instance the ModuleDependencyGraph) can be examined in order to see
+    // how an import changed the graph.
     versionNumber += 1
     return info.buildRecordInfo.dotFileDirectory
       .appending(component: "\(basename).\(nextVersionNumber).dot")
