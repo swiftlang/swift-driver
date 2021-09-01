@@ -94,7 +94,7 @@ public final class IncrementalCompilationState {
       try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
                             driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
 
-    self.skippedCompileGroups = firstWave.skippedCompileGroups
+    self.skippedCompileGroups = firstWave.initiallySkippedCompileGroups
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initialState.graph
@@ -143,7 +143,7 @@ extension IncrementalCompilationState {
     /// The set of compile jobs we can definitely skip given the state of the
     /// incremental dependency graph and the status of the input files for this
     /// incremental build.
-    let skippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
+    let initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
     /// All of the pre-compile or compilation job (groups) known to be required
     /// for the first wave to execute.
     /// The primaries could be other than .swift files, i.e. .sib
