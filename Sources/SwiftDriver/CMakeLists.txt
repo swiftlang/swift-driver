@@ -45,6 +45,8 @@ add_library(SwiftDriver
   "IncrementalCompilation/DirectAndTransitiveCollections.swift"
   "IncrementalCompilation/ExternalDependencyAndFingerprintEnforcer.swift"
   "IncrementalCompilation/IncrementalCompilationState.swift"
+  "IncrementalCompilation/IncrementalCompilationState+Extensions.swift"
+  "IncrementalCompilation/IncrementalCompilationProtectedState.swift"
   "IncrementalCompilation/IncrementalDependencyAndInputSetup.swift"
   "IncrementalCompilation/FirstWaveComputer.swift"
   "IncrementalCompilation/InputInfo.swift"
