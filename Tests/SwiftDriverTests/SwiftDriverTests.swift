@@ -2083,7 +2083,6 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
-    print(plannedJobs[0].commandLine.joinedUnresolvedArguments)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
   }
 
@@ -3921,7 +3920,6 @@ final class SwiftDriverTests: XCTestCase {
     var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-bc", "-target", "x86_64-apple-macosx10.9"])
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 1)
-    print(plannedJobs[0].commandLine.description)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-bc")))
     XCTAssertEqual(plannedJobs[0].outputs.first!.file, VirtualPath.relative(RelativePath("foo.bc")))
   }
