@@ -32,6 +32,8 @@ import SwiftOptions
 /// The public API surface of this class is thread safe, but not re-entrant.
 /// FIXME: This should be an actor.
 public final class IncrementalCompilationState {
+  
+  public let getCIToTest = 17
 
   /// The oracle for deciding what depends on what. Applies to this whole module.
   @_spi(Testing) public let moduleDependencyGraph: ModuleDependencyGraph
