@@ -35,9 +35,7 @@ public final class IncrementalCompilationState {
 
   /// The oracle for deciding what depends on what. Applies to this whole module.
   @_spi(Testing) public let moduleDependencyGraph: ModuleDependencyGraph
-
-  /// If non-null outputs information for `-driver-show-incremental` for input path
-  public let reporter: Reporter?
+  
 
   /// All of the pre-compile or compilation job (groups) known to be required (i.e. in 1st wave).
   /// Already batched, and in order of input files.
@@ -45,8 +43,8 @@ public final class IncrementalCompilationState {
 
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
-
-  private let fileSystem: FileSystem
+  
+  public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
   /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
   private let confinementQueue: DispatchQueue = DispatchQueue(label: "com.apple.swift-driver.incremental-compilation-state", qos: .userInteractive)
@@ -70,19 +68,13 @@ public final class IncrementalCompilationState {
     jobsInPhases: JobsInPhases,
     initialState: InitialStateForPlanning
   ) throws {
-    if initialState.incrementalOptions.contains(.showIncremental) {
-      self.reporter = Reporter(diagnosticEngine: driver.diagnosticEngine,
-                               outputFileMap: driver.outputFileMap)
-    } else {
-      self.reporter = nil
-    }
-
-    let enablingOrDisabling =
-      initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild)
-      ? "Enabling"
-      : "Disabling"
-    reporter?.report(
-      "\(enablingOrDisabling) incremental cross-module building")
+    let reporter = initialState.incrementalOptions.contains(.showIncremental)
+      ? Reporter(diagnosticEngine: driver.diagnosticEngine,
+                 outputFileMap: driver.outputFileMap)
+      : nil
+    
+    reporter?.reportOnIncrementalImports(
+      initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild))
 
     let firstWave =
       try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
@@ -92,9 +84,23 @@ public final class IncrementalCompilationState {
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initialState.graph
-    self.fileSystem = driver.fileSystem
     self.driver = driver
+    self.info =  initialState.graph.info
   }
+}
+
+fileprivate extension IncrementalCompilationState.Reporter {
+  func reportOnIncrementalImports(_ enabled: Bool) {
+    report(
+      "\(enabled ? "Enabling" : "Disabling") incremental cross-module building")
+  }
+}
+
+// MARK: - shorthand
+extension IncrementalCompilationState {
+  var fileSystem: FileSystem {info.fileSystem}
+  /// If non-null outputs information for `-driver-show-incremental` for input path
+  public var reporter: Reporter? { info.reporter }
 }
 
 // MARK: - Initial State
