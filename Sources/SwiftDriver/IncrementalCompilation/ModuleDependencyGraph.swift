@@ -21,6 +21,7 @@ import SwiftOptions
 /// are dependended-upon.
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph {
 
+  /// Supports finding nodes in two ways.
   @_spi(Testing) public var nodeFinder = NodeFinder()
 
   // The set of paths to external dependencies known to be in the graph
@@ -171,7 +172,7 @@ extension ModuleDependencyGraph {
     containsNodes(forDependencySource: DependencySource(file))
   }
 
-  func containsNodes(forDependencySource source: DependencySource) -> Bool {
+  private func containsNodes(forDependencySource source: DependencySource) -> Bool {
     return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
       ?? false
   }
@@ -201,7 +202,7 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameter nodes: A set of graph nodes for changed declarations.
   /// - Returns: All source files containing declarations that transitively depend upon the changed declarations.
-  public func collectInputsUsingInvalidated(
+  @_spi(Testing) public func collectInputsUsingInvalidated(
     nodes: DirectlyInvalidatedNodeSet
   ) -> TransitivelyInvalidatedSwiftSourceFileSet
   {
