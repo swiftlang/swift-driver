@@ -290,6 +290,7 @@ class APIDigesterTests: XCTestCase {
       }
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
+      XCTFail("ran first one")
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       try localFileSystem.writeFileContents(source) {
@@ -311,6 +312,8 @@ class APIDigesterTests: XCTestCase {
                               env: ProcessEnv.vars)
       let jobs2 = try driver2.planBuild()
       try driver2.run(jobs: jobs2)
+      XCTFail("ran second one")
+
       XCTAssertFalse(driver2.diagnosticEngine.hasErrors)
       let contents = try localFileSystem.readFileContents(path.appending(component: "changes.dia"))
       let diags = try SerializedDiagnostics(bytes: contents)
