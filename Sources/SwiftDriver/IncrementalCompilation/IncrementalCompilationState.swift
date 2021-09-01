@@ -46,12 +46,6 @@ public final class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
-  /// Can compare input mod times against this.
-  private let buildStartTime: Date
-
-  /// In order to decide while postCompile jobs to run, need to compare their outputs against the build time
-  private let buildEndTime: Date
-
   private let fileSystem: FileSystem
 
   /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
@@ -98,8 +92,6 @@ public final class IncrementalCompilationState {
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.moduleDependencyGraph = initialState.graph
-    self.buildStartTime = initialState.buildStartTime
-    self.buildEndTime = initialState.buildEndTime
     self.fileSystem = driver.fileSystem
     self.driver = driver
   }
