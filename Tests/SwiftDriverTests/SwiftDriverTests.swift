@@ -2087,6 +2087,31 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
   }
 
+  func testOptimizationRecordFileInSupplementaryOutputFileMap() throws {
+    func checkSupplementaryOutputFileMap(format: String, _ fileType: FileType) throws {
+      var driver1 = try Driver(args: [
+        "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
+        "-save-optimization-record=\(format)", "-driver-filelist-threshold=0"
+      ])
+      let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      print(plannedJobs[0].commandLine.joinedUnresolvedArguments)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
+      let argIdx = try XCTUnwrap(plannedJobs[0].commandLine.firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }))
+      let supplOutputs = plannedJobs[0].commandLine[argIdx+1]
+      guard case let .path(path) = supplOutputs,
+            case let .fileList(_, fileList) = path,
+            case let .outputFileMap(outFileMap) = fileList else {
+        throw StringError("Unexpected argument for output file map")
+      }
+      XCTAssertEqual(outFileMap.entries.values.first?.keys.first, fileType)
+    }
+
+    try checkSupplementaryOutputFileMap(format: "yaml", .yamlOptimizationRecord)
+    try checkSupplementaryOutputFileMap(format: "bitstream", .bitstreamOptimizationRecord)
+  }
+
   func testUpdateCode() throws {
     do {
       var driver = try Driver(args: [
