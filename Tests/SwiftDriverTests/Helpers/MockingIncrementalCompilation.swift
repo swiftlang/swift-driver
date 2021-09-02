@@ -191,17 +191,6 @@ extension OutputFileMap {
   }
 }
 
-// MARK: - Graph inspection
-extension Driver {
-  func moduleDependencyGraph() throws -> ModuleDependencyGraph {
-    do {return try XCTUnwrap(incrementalCompilationState?.moduleDependencyGraph) }
-    catch {
-      XCTFail("no graph")
-      throw error
-    }
-  }
-}
-
 // MARK: - Graph comparison
 /// Test for  equality across graphs and fail descriptively if needed.
 /// String interning is relative to the containing graph, so much pass in compare transformation.
