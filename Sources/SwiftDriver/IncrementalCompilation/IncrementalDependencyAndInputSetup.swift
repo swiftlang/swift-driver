@@ -57,7 +57,7 @@ extension IncrementalCompilationState {
           reporter, driver.inputFiles,
           driver.fileSystem,
           driver.diagnosticEngine
-        ).compute()
+        ).computeInitialStateForPlanning()
     else {
       Self.removeDependencyGraphFile(driver)
       return nil
@@ -97,6 +97,8 @@ extension IncrementalCompilationState {
 /// Also bundles up an bunch of configuration info
 extension IncrementalCompilationState {
 
+  /// A collection of immutable state that is handy to access.
+  /// Make it a class so that anything that needs it can just keep a pointer around.
   public struct IncrementalDependencyAndInputSetup {
     @_spi(Testing) public let outputFileMap: OutputFileMap
     @_spi(Testing) public let buildRecordInfo: BuildRecordInfo
@@ -159,7 +161,7 @@ extension IncrementalCompilationState {
       self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
     }
 
-    func compute() throws -> InitialStateForPlanning? {
+    func computeInitialStateForPlanning() throws -> InitialStateForPlanning? {
       guard sourceFiles.disappeared.isEmpty else {
         // Would have to cleanse nodes of disappeared inputs from graph
         // and would have to schedule files dependening on defs from disappeared nodes

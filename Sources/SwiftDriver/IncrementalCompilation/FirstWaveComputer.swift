@@ -51,10 +51,10 @@ extension IncrementalCompilationState {
     }
 
     public func compute(batchJobFormer: inout Driver) throws -> FirstWave {
-      let (skippedCompileGroups, mandatoryJobsInOrder) =
+      let (initiallySkippedCompileGroups, mandatoryJobsInOrder) =
         try computeInputsAndGroups(batchJobFormer: &batchJobFormer)
       return FirstWave(
-        skippedCompileGroups: skippedCompileGroups,
+        initiallySkippedCompileGroups: initiallySkippedCompileGroups,
         mandatoryJobsInOrder: mandatoryJobsInOrder)
     }
   }
@@ -65,7 +65,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
   /// At this stage the graph will have all external dependencies found in the swiftDeps or in the priors
   /// listed in fingerprintExternalDependencies.
   private func computeInputsAndGroups(batchJobFormer: inout Driver)
-  throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+  throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
              mandatoryJobsInOrder: [Job])
   {
     precondition(sourceFiles.disappeared.isEmpty, "unimplemented")
@@ -75,7 +75,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
                   jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
     guard let buildRecord = maybeBuildRecord else {
       func everythingIsMandatory()
-        throws -> (skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+        throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
                    mandatoryJobsInOrder: [Job])
       {
         let mandatoryCompileGroupsInOrder = sourceFiles.currentInOrder.compactMap {
@@ -90,23 +90,23 @@ extension IncrementalCompilationState.FirstWaveComputer {
           showJobLifecycle: showJobLifecycle)
 
         moduleDependencyGraph.phase = .buildingAfterEachCompilation
-        return (skippedCompileGroups: [:],
+        return (initiallySkippedCompileGroups: [:],
                 mandatoryJobsInOrder: mandatoryJobsInOrder)
       }
       return try everythingIsMandatory()
     }
     moduleDependencyGraph.phase = .updatingAfterCompilation
 
-    let skippedInputs = computeSkippedCompilationInputs(
+    let initiallySkippedInputs = computeInitiallySkippedCompilationInputs(
       inputsInvalidatedByExternals: inputsInvalidatedByExternals,
       moduleDependencyGraph,
       buildRecord)
 
-    let skippedCompileGroups = compileGroups.filter { skippedInputs.contains($0.key) }
+    let initiallySkippedCompileGroups = compileGroups.filter { initiallySkippedInputs.contains($0.key) }
 
     let mandatoryCompileGroupsInOrder = inputFiles.compactMap {
       input -> CompileJobGroup? in
-      skippedInputs.contains(input)
+      initiallySkippedInputs.contains(input)
         ? nil
         : compileGroups[input]
     }
@@ -117,12 +117,12 @@ extension IncrementalCompilationState.FirstWaveComputer {
         mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
         showJobLifecycle: showJobLifecycle)
 
-    return (skippedCompileGroups: skippedCompileGroups,
+    return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
   }
 
-  // Figure out which compilation inputs are *not* mandatory
-  private func computeSkippedCompilationInputs(
+  /// Figure out which compilation inputs are *not* mandatory at the start
+  private func computeInitiallySkippedCompilationInputs(
     inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet,
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ buildRecord: BuildRecord
@@ -189,14 +189,14 @@ extension IncrementalCompilationState.FirstWaveComputer {
     }
     let immediatelyCompiledInputs = definitelyRequiredInputs.union(speculativeInputs.lazy.map {$0.typedFile})
 
-    let skippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
+    let initiallySkippedInputs = Set(buildRecordInfo.compilationInputModificationDates.keys)
       .subtracting(immediatelyCompiledInputs)
     if let reporter = reporter {
-      for skippedInput in sortByCommandLineOrder(skippedInputs) {
+      for skippedInput in sortByCommandLineOrder(initiallySkippedInputs) {
         reporter.report("Skipping input:", skippedInput)
       }
     }
-    return skippedInputs
+    return initiallySkippedInputs
   }
 
   private func sortByCommandLineOrder(

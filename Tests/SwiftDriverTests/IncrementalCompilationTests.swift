@@ -127,7 +127,7 @@ extension IncrementalCompilationTests {
       _ = try driver.planBuild()
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
       let state = try XCTUnwrap(driver.incrementalCompilationState)
-      XCTAssertTrue(stateOptionFn(state.moduleDependencyGraph.info))
+      XCTAssertTrue(stateOptionFn(state.info))
     }
   }
 
@@ -336,7 +336,7 @@ extension IncrementalCompilationTests {
     let driver = try checkNullBuild(checkDiagnostics: true)
 
     // Read the priors, change the minor version, and write it back out
-    let outputFileMap = try driver.moduleDependencyGraph().info.outputFileMap
+    let outputFileMap = try XCTUnwrap(driver.incrementalCompilationState).info.outputFileMap
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(outputFileMap: outputFileMap)
     let priorsWithOldVersion = try ModuleDependencyGraph.read(
@@ -373,9 +373,10 @@ extension IncrementalCompilationTests {
   ///   - topLevelName: a new top level name defined in the new input
   private func testAddingInput(newInput: String, defining topLevelName: String
   ) throws {
-    let initial = try buildInitialState(checkDiagnostics: true).moduleDependencyGraph()
-    initial.ensureOmits(sourceBasenameWithoutExt: newInput)
-    initial.ensureOmits(name: topLevelName)
+    try buildInitialState(checkDiagnostics: true).withModuleDependencyGraph { initial in
+      initial.ensureOmits(sourceBasenameWithoutExt: newInput)
+      initial.ensureOmits(name: topLevelName)
+    }
 
     write("let \(topLevelName) = foo", to: newInput)
     let newInputsPath = inputPath(basename: newInput)
@@ -699,9 +700,10 @@ extension IncrementalCompilationTests {
       skipped("main", "other")
     }
 
-    let graph = try driver.moduleDependencyGraph()
-    XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
-    XCTAssert(graph.contains(name: topLevelName))
+    try driver.withModuleDependencyGraph { graph in
+      XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
+      XCTAssert(graph.contains(name: topLevelName))
+    }
   }
 
   /// Ensure that incremental builds happen after an addition.
@@ -728,9 +730,10 @@ extension IncrementalCompilationTests {
       skipped(newInput, "main", "other")
     }
 
-    let graph = try driver.moduleDependencyGraph()
-    XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
-    XCTAssert(graph.contains(name: topLevelName))
+    try driver.withModuleDependencyGraph { graph in
+      XCTAssert(graph.contains(sourceBasenameWithoutExt: newInput))
+      XCTAssert(graph.contains(name: topLevelName))
+    }
   }
 
   /// Check fallback to nonincremental build after a removal.
@@ -789,10 +792,11 @@ extension IncrementalCompilationTests {
       verifyNoPriors()
     }
     else {
-      let graph = try driver.moduleDependencyGraph()
-      graph.verifyGraph()
-      XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
-      XCTAssert(graph.contains(name: topLevelName))
+      try driver.withModuleDependencyGraph { graph in
+        graph.verifyGraph()
+        XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
+        XCTAssert(graph.contains(name: topLevelName))
+      }
     }
     return driver
   }
@@ -802,7 +806,6 @@ extension IncrementalCompilationTests {
   /// - Parameters:
   ///   - newInput: The basename without extension of the new file
   ///   - topLevelName: The top-level decl name added by the new file
-  @discardableResult
   private func checkRestorationOfIncrementalityAfterRemoval(
     removedInput: String,
     defining topLevelName: String,
@@ -810,7 +813,7 @@ extension IncrementalCompilationTests {
     removeSwiftDepsFile: Bool,
     afterRestoringBadPriors: Bool,
     removedFileDependsOnChangedFile: Bool
-  ) throws -> ModuleDependencyGraph {
+  ) throws {
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
     let extraArguments = removeInputFromInvocation
       ? [] : [inputPath(basename: removedInput).pathString]
@@ -878,18 +881,17 @@ extension IncrementalCompilationTests {
       }
     }
 
-    let graph = try driver.moduleDependencyGraph()
-    graph.verifyGraph()
-    if removeInputFromInvocation {
-      graph.ensureOmits(sourceBasenameWithoutExt: removedInput)
-      graph.ensureOmits(name: topLevelName)
+    try driver.withModuleDependencyGraph { graph in
+      graph.verifyGraph()
+      if removeInputFromInvocation {
+        graph.ensureOmits(sourceBasenameWithoutExt: removedInput)
+        graph.ensureOmits(name: topLevelName)
+      }
+      else {
+        XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
+        XCTAssert(graph.contains(name: topLevelName))
+      }
     }
-    else {
-      XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
-      XCTAssert(graph.contains(name: topLevelName))
-    }
-
-    return graph
   }
 
   private func checkReactionToObsoletePriors() throws {
@@ -1050,12 +1052,16 @@ extension IncrementalCompilationTests {
 
 // MARK: - Graph inspection
 fileprivate extension Driver {
-  func moduleDependencyGraph() throws -> ModuleDependencyGraph {
-    do {return try XCTUnwrap(incrementalCompilationState?.moduleDependencyGraph) }
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) throws {
+    let incrementalCompilationState: IncrementalCompilationState
+    do {
+      incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState)
+    }
     catch {
       XCTFail("no graph")
       throw error
     }
+    incrementalCompilationState.blockingConcurrentAccessOrMutation {$0.withModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)
