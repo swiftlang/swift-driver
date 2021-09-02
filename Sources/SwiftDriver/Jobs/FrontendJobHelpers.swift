@@ -366,7 +366,7 @@ extension Driver {
         flag: "-emit-reference-dependencies-path")
 
       addOutputOfType(
-        outputType: .yamlOptimizationRecord,
+        outputType: self.optimizationRecordFileType ?? .yamlOptimizationRecord,
         finalOutputPath: optimizationRecordPath,
         input: input,
         flag: "-save-optimization-record-path")

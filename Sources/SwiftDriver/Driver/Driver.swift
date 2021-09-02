@@ -291,6 +291,9 @@ public struct Driver {
   /// Path to the Swift private interface file.
   let swiftPrivateInterfacePath: VirtualPath.Handle?
 
+  /// File type for the optimization record.
+  let optimizationRecordFileType: FileType?
+
   /// Path to the optimization record.
   let optimizationRecordPath: VirtualPath.Handle?
 
@@ -726,6 +729,7 @@ public struct Driver {
         break
       }
     }
+    self.optimizationRecordFileType = optimizationRecordFileType
     self.optimizationRecordPath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: optimizationRecordFileType,
         isOutputOptions: [.saveOptimizationRecord, .saveOptimizationRecordEQ],
