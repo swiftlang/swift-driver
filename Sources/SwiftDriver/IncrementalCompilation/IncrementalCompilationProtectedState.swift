@@ -38,13 +38,18 @@ extension IncrementalCompilationState {
     
     fileprivate let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
     
+    /// Used to double-check thread-safety
+    fileprivate let confinmentQueue: DispatchQueue
+    
     init(skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
          _ moduleDependencyGraph: ModuleDependencyGraph,
-         _ driver: inout Driver) {
+         _ driver: inout Driver,
+         _ confinmentQueue: DispatchQueue) {
       self.skippedCompileGroups = skippedCompileGroups
       self.moduleDependencyGraph = moduleDependencyGraph
       self.info = moduleDependencyGraph.info
       self.driver = driver
+      self.confinmentQueue = confinmentQueue
     }
   }
 }
@@ -55,6 +60,16 @@ extension IncrementalCompilationState.ProtectedState {
   fileprivate var reporter: IncrementalCompilationState.Reporter? {
     info.reporter
   }
+  
+  fileprivate func checkMutation() {
+    dispatchPrecondition(condition: .onQueueAsBarrier(confinmentQueue))
+  }
+  fileprivate func checkAccess() {
+    dispatchPrecondition(condition: .onQueue(confinmentQueue))
+  }
+  fileprivate func checkJustTesting() {
+    dispatchPrecondition(condition: .notOnQueue(confinmentQueue))
+  }
 }
 
 // MARK: - 2nd wave
@@ -62,8 +77,9 @@ extension IncrementalCompilationState.ProtectedState {
   mutating func collectBatchedJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job
   ) throws -> [Job]? {
+    checkMutation()
     // batch in here to protect the Driver from concurrent access
-    try collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
+    return try collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
       .map {try driver.formBatchedJobs($0, showJobLifecycle: driver.showJobLifecycle)}
   }
   
@@ -73,6 +89,7 @@ extension IncrementalCompilationState.ProtectedState {
   /// Careful: job may not be primary.
   fileprivate mutating func collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job) throws -> [Job]? {
+      checkMutation()
       // Find and deal with inputs that now need to be compiled
       let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
       assert(invalidatedInputs.isDisjoint(with: finishedJob.primarySwiftSourceFiles),
@@ -89,6 +106,7 @@ extension IncrementalCompilationState.ProtectedState {
   
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
   fileprivate mutating func collectInputsInvalidatedByRunning(_ job: Job)-> Set<SwiftSourceFile> {
+    checkMutation()
     guard job.kind == .compile else {
       return Set<SwiftSourceFile>()
     }
@@ -104,6 +122,7 @@ extension IncrementalCompilationState.ProtectedState {
   fileprivate mutating func collectInputsInvalidated(
     byCompiling input: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileSet {
+    checkMutation()
     if let found = moduleDependencyGraph.collectInputsRequiringCompilation(byCompiling: input) {
       return found
     }
@@ -116,6 +135,7 @@ extension IncrementalCompilationState.ProtectedState {
   fileprivate mutating func getUnbatchedJobs(
     for invalidatedInputs: Set<SwiftSourceFile>
   ) throws -> [Job] {
+    checkMutation()
     return invalidatedInputs.flatMap { input -> [Job] in
       if let group = skippedCompileGroups.removeValue(forKey: input.typedFile) {
         let primaryInputs = group.compileJob.primarySwiftSourceFiles
@@ -136,10 +156,12 @@ extension IncrementalCompilationState.ProtectedState {
 // MARK: - After the build
 extension IncrementalCompilationState.ProtectedState {
   var skippedCompilationInputs: Set<TypedVirtualPath> {
-    Set(skippedCompileGroups.keys)
+    checkAccess()
+    return Set(skippedCompileGroups.keys)
   }
   public var skippedJobs: [Job] {
-    skippedCompileGroups.values
+    checkAccess()
+    return skippedCompileGroups.values
       .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
       .flatMap {$0.allJobs()}
   }
@@ -149,6 +171,7 @@ extension IncrementalCompilationState.ProtectedState {
                   compilerVersion: String,
                   mockSerializedGraphVersion: Version? = nil
   ) throws {
+    checkAccess()
     try moduleDependencyGraph.write(to: path, on: fs,
                                     compilerVersion: compilerVersion,
                                     mockSerializedGraphVersion: mockSerializedGraphVersion)
@@ -157,6 +180,7 @@ extension IncrementalCompilationState.ProtectedState {
 // MARK: - Testing - (must be here to access graph safely)
 extension IncrementalCompilationState.ProtectedState {
   @_spi(Testing) public mutating func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) {
+    checkJustTesting()
     fn(moduleDependencyGraph)
   }
 }

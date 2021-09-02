@@ -35,10 +35,7 @@ import SwiftOptions
 public final class IncrementalCompilationState {
   
   /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
-  private let confinementQueue: DispatchQueue = DispatchQueue(
-    label: "com.apple.swift-driver.incremental-compilation-state",
-    qos: .userInteractive,
-    attributes: .concurrent)
+  private let confinementQueue: DispatchQueue
     
   private var protectedState: ProtectedState
 
@@ -71,10 +68,16 @@ public final class IncrementalCompilationState {
       try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
                             driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
 
+    let confinementQueue: DispatchQueue = DispatchQueue(
+      label: "com.apple.swift-driver.incremental-compilation-state",
+      qos: .userInteractive,
+      attributes: .concurrent)
+    self.confinementQueue = confinementQueue
     self.protectedState = ProtectedState(
       skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
       initialState.graph,
-      &driver)
+      &driver,
+      confinementQueue)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
     self.info = initialState.graph.info
