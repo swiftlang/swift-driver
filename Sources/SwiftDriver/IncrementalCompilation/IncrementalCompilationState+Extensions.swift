@@ -15,8 +15,8 @@ import Foundation
 import SwiftOptions
 
 /// In a separate file to ensure that ``IncrementalCompilationState/protectedState``
-/// can only be accessed via ``IncrementalCompilationState/safelyDo(_:)`` and
-/// ``IncrementalCompilationState/mutatingSafelyDo(_:)``.
+/// can only be accessed via ``IncrementalCompilationState/blockingConcurrentMutation(_:)`` and
+/// ``IncrementalCompilationState/blockingConcurrentAccessOrMutation(_:)``.
 
 // MARK: - shorthand
 extension IncrementalCompilationState {

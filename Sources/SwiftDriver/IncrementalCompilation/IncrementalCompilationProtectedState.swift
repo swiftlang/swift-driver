@@ -14,11 +14,9 @@ import TSCUtility
 import Foundation
 import SwiftOptions
 
-/// An instance of `IncrementalCompilationState.Actor` encapsulates the data necessary
-/// to make incremental build scheduling decisions and protects it from concurrent access.
 
 extension IncrementalCompilationState {
-  // MARK: - IncrementalCompilationStateActor
+  /// Encapsulates the data necessary to make incremental build scheduling decisions and protects it from concurrent access.
   public struct ProtectedState {
     /// Keyed by primary input. As required compilations are discovered after the first wave, these shrink.
     ///
