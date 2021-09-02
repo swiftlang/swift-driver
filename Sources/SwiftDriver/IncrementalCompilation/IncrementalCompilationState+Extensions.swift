@@ -139,6 +139,18 @@ extension IncrementalCompilationState {
       try $0.collectBatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
     }
   }
+
+  public func collectJobsDiscoveredToBeNeededAfterFinishing(
+    job finishedJob: Job, result: ProcessResult
+  ) throws -> [Job]? {
+    try collectJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
+  }
+
+  public var skippedJobs: [Job] {
+    blockingConcurrentMutation {
+      $0.skippedJobs
+    }
+  }
 }
 
 // MARK: - Scheduling post-compile jobs
