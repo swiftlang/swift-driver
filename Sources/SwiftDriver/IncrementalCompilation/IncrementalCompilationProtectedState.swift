@@ -65,9 +65,6 @@ extension IncrementalCompilationState.ProtectedState {
   fileprivate func checkAccess() {
     dispatchPrecondition(condition: .onQueue(confinmentQueue))
   }
-  fileprivate func checkJustTesting() {
-    dispatchPrecondition(condition: .notOnQueue(confinmentQueue))
-  }
 }
 
 // MARK: - 2nd wave
@@ -178,7 +175,7 @@ extension IncrementalCompilationState.ProtectedState {
 // MARK: - Testing - (must be here to access graph safely)
 extension IncrementalCompilationState.ProtectedState {
   @_spi(Testing) public mutating func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) {
-    checkJustTesting()
+    checkMutation()
     fn(moduleDependencyGraph)
   }
 }
