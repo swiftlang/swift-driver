@@ -1053,8 +1053,8 @@ extension IncrementalCompilationTests {
 }
 
 // MARK: - Graph inspection
-fileprivate extension Driver {
-  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) throws {
+extension Driver {
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void ) throws {
     let incrementalCompilationState: IncrementalCompilationState
     do {
       incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState)
@@ -1063,7 +1063,7 @@ fileprivate extension Driver {
       XCTFail("no graph")
       throw error
     }
-    incrementalCompilationState.blockingConcurrentAccessOrMutation {$0.withModuleDependencyGraph(fn)}
+    try incrementalCompilationState.blockingConcurrentAccessOrMutation {try $0.withModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)

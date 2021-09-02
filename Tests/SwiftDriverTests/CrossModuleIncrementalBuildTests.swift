@@ -147,27 +147,28 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
-      let host = try! driver.moduleDependencyGraph()
-      let graph = try XCTUnwrap(SourceFileDependencyGraph(
-        host: host,
-        data: data,
-        fromSwiftModule: false))
-      XCTAssertEqual(graph.majorVersion, 1)
-      XCTAssertEqual(graph.minorVersion, 0)
-      graph.verify()
+      try driver.withModuleDependencyGraph { host in
+        let graph = try XCTUnwrap(SourceFileDependencyGraph(
+          host: host,
+          data: data,
+          fromSwiftModule: false))
+        XCTAssertEqual(graph.majorVersion, 1)
+        XCTAssertEqual(graph.minorVersion, 0)
+        graph.verify()
 
-      var foundNode = false
-      let swiftmodulePath = ExternalDependency(fileName: path.appending(component: "MagicKit.swiftmodule").pathString.intern(host))
-      graph.forEachNode { node in
-        if case .externalDepend(swiftmodulePath) = node.key.designator {
-          XCTAssertFalse(foundNode)
-          foundNode = true
-          XCTAssertEqual(node.key.aspect, .interface)
-          XCTAssertTrue(node.defsIDependUpon.isEmpty)
-          XCTAssertFalse(node.isProvides)
+        var foundNode = false
+        let swiftmodulePath = ExternalDependency(fileName: path.appending(component: "MagicKit.swiftmodule").pathString.intern(host))
+        graph.forEachNode { node in
+          if case .externalDepend(swiftmodulePath) = node.key.designator {
+            XCTAssertFalse(foundNode)
+            foundNode = true
+            XCTAssertEqual(node.key.aspect, .interface)
+            XCTAssertTrue(node.defsIDependUpon.isEmpty)
+            XCTAssertFalse(node.isProvides)
+          }
         }
+        XCTAssertTrue(foundNode)
       }
-      XCTAssertTrue(foundNode)
     }
   }
 }
