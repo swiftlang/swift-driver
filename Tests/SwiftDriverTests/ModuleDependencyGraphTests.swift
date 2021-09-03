@@ -633,7 +633,7 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(in: graph)))
     XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(in: graph)))
-    in:
+
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
       XCTAssertEqual(swiftDeps.count, 2)
@@ -975,7 +975,7 @@ extension ModuleDependencyGraph {
     hadCompilationError: Bool = false
   ) -> DirectlyInvalidatedNodeSet {
     let input = SwiftSourceFile(mock: swiftDepsIndex)
-    let dependencySource = DependencySource(input, host: self)
+    let dependencySource = DependencySource(input, internedStringTable)
     let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
 
@@ -985,16 +985,16 @@ extension ModuleDependencyGraph {
       dependencySource: dependencySource,
       interfaceHash: interfaceHash,
       dependencyDescriptions,
-      for: self)
+      in: internedStringTable)
 
     return Integrator.integrate(from: sfdg,
-                                dependencySource: DependencySource(input, host: self),
+                                dependencySource: DependencySource(input, internedStringTable),
                                 into: self)
   }
 
   func findUntracedInputsDependent(onExternal s: String) -> [Int] {
     findUntracedInputsDependent(
-      on: FingerprintedExternalDependency(.mocking(s, for: self), nil))
+      on: FingerprintedExternalDependency(.mocking(s, in: internedStringTable), nil))
       .map { $0.mockID }
   }
 
@@ -1017,7 +1017,7 @@ extension ModuleDependencyGraph {
   }
 
   fileprivate func collectMockInputsUsing(_ i: Int) -> TransitivelyInvalidatedMockInputArray {
-    collectInputsUsing(dependencySource: DependencySource(mock: i, host: self))
+    collectInputsUsing(dependencySource: DependencySource(SwiftSourceFile(mock: i), internedStringTable))
       .map { $0.mockID }
   }
 
@@ -1026,8 +1026,8 @@ extension ModuleDependencyGraph {
   func containsExternalDependency(_ path: InternedString, fingerprint: String? = nil)
   -> Bool {
     fingerprintedExternalDependencies.contains(
-      FingerprintedExternalDependency(ExternalDependency(fileName: path),
-                                      fingerprint))
+      FingerprintedExternalDependency(ExternalDependency(fileName: path, internedStringTable),
+                                      fingerprint.map {$0.intern(in: internedStringTable)}))
   }
 }
 
@@ -1065,7 +1065,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
   private let dependencySource: DependencySource
   private let interfaceHash: String
   private let dependencyDescriptions: [(MockDependencyKind, String)]
-  private let host: ModuleDependencyGraph
+  private let internedStringTable: InternedStringTable
 
   private var allNodes: [Node] = []
   private var dependencyAccumulator = [DependencyHolder?]()
@@ -1078,7 +1078,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
     dependencySource: DependencySource,
     interfaceHash: String,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
-    for host: ModuleDependencyGraph
+    in internedStringTable: InternedStringTable
   ) -> SourceFileDependencyGraph
   {
     var m = Self.init(
@@ -1088,14 +1088,15 @@ fileprivate struct SourceFileDependencyGraphMocker {
       interfaceHash: interfaceHash,
       dependencyDescriptions:
         dependencyDescriptions.flatMap { (kind, descs) in descs.map {(kind, $0)}},
-      host: host
+      internedStringTable: internedStringTable
     )
     return m.mock()
   }
 
   private mutating func mock() -> SourceFileDependencyGraph {
     buildNodes()
-    return SourceFileDependencyGraph(nodesForTesting: allNodes)
+    return SourceFileDependencyGraph(nodesForTesting: allNodes,
+                                     internedStringTable: internedStringTable)
   }
 
   private mutating func buildNodes() {
@@ -1108,14 +1109,16 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func addSourceFileNodesToGraph() {
+    let key = DependencyKey.createKeyForWholeSourceFile(
+      .interface, dependencySource, in: internedStringTable)
     sourceFileNodePair = findExistingNodePairOrCreateAndAddIfNew(
-      DependencyKey.createKeyForWholeSourceFile(.interface, dependencySource, for: host),
-      interfaceHash);
+      key,
+      interfaceHash.intern(in: internedStringTable));
   }
 
   private mutating func findExistingNodePairOrCreateAndAddIfNew(
     _ interfaceKey: DependencyKey,
-    _ fingerprint: String?)
+    _ fingerprint: InternedString?)
   -> NodePair {
     // Optimization for whole-file users:
     if case .sourceFileProvide = interfaceKey.designator, !allNodes.isEmpty {
@@ -1158,10 +1161,12 @@ fileprivate struct SourceFileDependencyGraphMocker {
     return allNodes[i]
   }
 
-  private mutating func findExistingNodeOrCreateIfNew(_ key: DependencyKey, _ fingerprint: String?,
+  private mutating func findExistingNodeOrCreateIfNew(_ key: DependencyKey,
+                                                      _ fingerprint: InternedString?,
                                                       isProvides: Bool) -> Node {
     func createNew() -> Node {
-      let n = try! Node(key: key, fingerprint: fingerprint,
+      let n = try! Node(key: key,
+                        fingerprint: fingerprint,
                         sequenceNumber: allNodes.count,
                         defsIDependUpon: [],
                         isProvides: isProvides)
@@ -1214,11 +1219,12 @@ fileprivate struct SourceFileDependencyGraphMocker {
   }
 
   private mutating func addADefinedDecl(_ kind: MockDependencyKind, _ s: String) {
-    guard let interfaceKey = DependencyKey.parseADefinedDecl(s, kind, .interface, includePrivateDeps: includePrivateDeps, for: host)
+    guard let interfaceKey = DependencyKey.parseADefinedDecl(s, kind, .interface, includePrivateDeps: includePrivateDeps, in: internedStringTable)
     else {
       return
     }
-    let fingerprint = s.range(of: String.fingerprintSeparator).map { String(s.suffix(from: $0.upperBound)) }
+    let fingerprint = s.range(of: String.fingerprintSeparator)
+      .map { String(s.suffix(from: $0.upperBound)).intern(in: internedStringTable) }
 
     let nodePair =
       findExistingNodePairOrCreateAndAddIfNew(interfaceKey, fingerprint);
@@ -1232,7 +1238,7 @@ fileprivate struct SourceFileDependencyGraphMocker {
     guard let defAndUseKeys = DependencyKey.parseAUsedDecl(
             s,
             kind,
-            for: host,
+            in: internedStringTable,
             includePrivateDeps: includePrivateDeps,
             dependencySource: dependencySource)
     else { return }
@@ -1299,20 +1305,22 @@ fileprivate struct SourceFileDependencyGraphMocker {
 
 
 fileprivate extension DependencyKey {
-  static func parseADefinedDecl(_ s: String, _ kind: MockDependencyKind, _ aspect: DeclAspect, includePrivateDeps: Bool, for host: ModuleDependencyGraph) -> Self? {
+  static func parseADefinedDecl(_ s: String, _ kind: MockDependencyKind, _ aspect: DeclAspect, includePrivateDeps: Bool, in t: InternedStringTable) -> Self? {
     let privatePrefix = "#"
     let isPrivate = s.hasPrefix(privatePrefix)
     guard !isPrivate || includePrivateDeps else {return nil}
     let ss = s.drop {String($0) == privatePrefix}
     let sss = ss.range(of: String.fingerprintSeparator).map { ss.prefix(upTo: $0.lowerBound) } ?? ss
     return try! Self(aspect: aspect,
-                     designator: Designator(kind: kind, String(sss).parseContextAndName(kind, for: host)))
+                     designator: Designator(kind: kind,
+                                            String(sss).parseContextAndName(kind),
+                                            in: t))
   }
 
   static func parseAUsedDecl(
     _ s: String,
     _ kind: MockDependencyKind,
-    for host: ModuleDependencyGraph,
+    in t: InternedStringTable,
     includePrivateDeps: Bool,
     dependencySource: DependencySource
   ) -> (def: Self, use: Self)? {
@@ -1330,11 +1338,14 @@ fileprivate extension DependencyKey {
     }
     let withoutPrivatePrefix = withoutNCPrefix.drop {String($0) == privateHolderPrefix}
     let defUseStrings = withoutPrivatePrefix.splitDefUse
-    let defKey = try! Self(aspect: aspectOfDefUsed,
-                           designator: Designator(kind: kind, defUseStrings.def.parseContextAndName(kind, for: host)))
+    let defKey = try! Self(
+      aspect: aspectOfDefUsed,
+      designator: Designator(kind: kind,
+                             defUseStrings.def.parseContextAndName(kind),
+                             in: t))
     return (def: defKey,
             use: computeUseKey(defUseStrings.use,
-                               for: host,
+                               in: t,
                                isCascadingUse: isCascadingUse,
                                includePrivateDeps: includePrivateDeps,
                                dependencySource: dependencySource))
@@ -1342,7 +1353,7 @@ fileprivate extension DependencyKey {
 
   static func computeUseKey(
     _ s: String,
-    for host: ModuleDependencyGraph,
+    in t: InternedStringTable,
     isCascadingUse: Bool,
     includePrivateDeps: Bool,
     dependencySource: DependencySource
@@ -1351,13 +1362,18 @@ fileprivate extension DependencyKey {
     let aspectOfUse: DeclAspect = isCascadingUse ? .interface : .implementation
     if !s.isEmpty {
       let kindOfUse = MockDependencyKind.nominal
-      return parseADefinedDecl(s, kindOfUse, aspectOfUse, includePrivateDeps: includePrivateDeps, for: host)!
+      return parseADefinedDecl(s,
+                               kindOfUse,
+                               aspectOfUse,
+                               includePrivateDeps: includePrivateDeps,
+                               in: t)!
     }
     return Self(
       aspect: aspectOfUse,
-      designator: try! Designator(kind: .sourceFileProvide,
-                                  (context: "".intern(in: host),
-                                   name: dependencySource.sourceFileProvideNameForMockDependencySource.intern(in: host))))
+      designator: try! Designator(
+        kind: .sourceFileProvide,
+        (context: "", name: dependencySource.sourceFileProvideNameForMockDependencySource),
+        in: t))
   }
 }
 
@@ -1371,23 +1387,23 @@ fileprivate extension String {
 
   static var nameContextSeparator: String { "," }
 
-  func parseContextAndName( _ kind: MockDependencyKind, for g: ModuleDependencyGraph) -> (context: InternedString?, name: InternedString?) {
+  func parseContextAndName( _ kind: MockDependencyKind) -> (context: String?, name: String?) {
     switch kind.singleNameIsContext {
-    case true?:  return (context: self.intern(in: g), name: nil)
-    case false?: return (context: nil,            name: intern(in: g))
+    case true?:  return (context: self, name: nil)
+    case false?: return (context: nil,  name: self)
     case nil:
       let r = range(of: Self.nameContextSeparator) ?? (endIndex ..< endIndex)
       return (
-        context: prefix(upTo: r.lowerBound).intern(in: g),
-        name:    suffix(from: r.upperBound).intern(in: g)
+        context: String(prefix(upTo: r.lowerBound)),
+        name:    String(suffix(from: r.upperBound))
       )
     }
   }
 }
 
 fileprivate extension ExternalDependency {
-  static func mocking(_ name: String, for g: ModuleDependencyGraph) -> Self {
-    return Self(fileName: name.intern(in: g))
+  static func mocking(_ name: String, in t: InternedStringTable) -> Self {
+    return Self(fileName: name.intern(in: t), t)
   }
 }
 
@@ -1403,12 +1419,14 @@ fileprivate extension DependencyKey {
   static func createKeyForWholeSourceFile(
     _ aspect: DeclAspect,
     _ dependencySource: DependencySource,
-    for g: ModuleDependencyGraph
+    in internedStringTable: InternedStringTable
   ) -> Self {
-    return Self(aspect: aspect,
-                designator: try! Designator(kind: .sourceFileProvide,
-                                       dependencySource.sourceFileProvideNameForMockDependencySource
-                                              .parseContextAndName(.sourceFileProvide, for: g)))
+    let designator = try! Designator(
+      kind: .sourceFileProvide,
+      dependencySource.sourceFileProvideNameForMockDependencySource
+                                            .parseContextAndName(.sourceFileProvide),
+      in: internedStringTable)
+    return Self(aspect: aspect, designator: designator)
   }
 }
 
@@ -1428,15 +1446,19 @@ extension Job {
 }
 
 fileprivate extension DependencyKey.Designator {
-  init(kind: MockDependencyKind, _ contextAndName: (context: InternedString?, name: InternedString?))
+  init(kind: MockDependencyKind,
+       _ contextAndName: (context: String?, name: String?),
+       in t: InternedStringTable)
   throws
   {
     func mustBeAbsent(_ s: InternedString?) {
-      if let s = s?.string, !s.isEmpty {
+      if let s = s, !s.isEmpty {
         XCTFail()
       }
     }
-    let (context: context, name: name) = contextAndName
+    let context = contextAndName.context?.intern(in: t)
+    let    name = contextAndName.name?   .intern(in: t)
+    
     switch kind {
     case .topLevel:
       mustBeAbsent(context)
@@ -1454,7 +1476,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name!)
     case .externalDepend:
       mustBeAbsent(context)
-      self = .externalDepend(ExternalDependency(fileName: name!))
+      self = .externalDepend(ExternalDependency(fileName: name!, t))
     case .sourceFileProvide:
       mustBeAbsent(context)
       self = .sourceFileProvide(name: name!)

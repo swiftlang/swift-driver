@@ -19,7 +19,9 @@ import XCTest
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
-    let dependencySource = DependencySource(mock: i, host: self)
+    let dependencySource = DependencySource(
+      SwiftSourceFile(mock: i),
+      internedStringTable)
     // optimization
     if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
        fileNode.isTraced {
@@ -60,16 +62,17 @@ extension Version {
 // MARK: - mocking
 
 extension DependencySource {
-  init(mock i: Int, host: ModuleDependencyGraph) {
-    self.init(SwiftSourceFile(mock: i), host: host)
-  }
-
   var sourceFileProvideNameForMockDependencySource: String {
     typedFile.file.name
   }
 
   var interfaceHashForMockDependencySource: String {
     file.name
+  }
+  
+  fileprivate  var sourceFileProvidesNameForMocking: InternedString {
+    // Only when mocking are these two guaranteed to be the same
+    internedFileName
   }
 }
 
@@ -100,13 +103,6 @@ fileprivate extension DependencyKey {
               designator:
                 .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
     )
-  }
-}
-
-fileprivate extension DependencySource {
-  var sourceFileProvidesNameForMocking: InternedString {
-    // Only when mocking are these two guaranteed to be the same
-    internedFileName
   }
 }
 

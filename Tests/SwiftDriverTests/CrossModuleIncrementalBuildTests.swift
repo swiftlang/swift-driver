@@ -149,7 +149,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       let data = try localFileSystem.readFileContents(sourcePath)
       try driver.withModuleDependencyGraph { host in
         let testGraph = try XCTUnwrap(SourceFileDependencyGraph(
-          host: host,
+          internedStringTable: host.internedStringTable,
           data: data,
           fromSwiftModule: false))
         XCTAssertEqual(testGraph.majorVersion, 1)
@@ -157,7 +157,10 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         testGraph.verify()
 
         var foundNode = false
-        let swiftmodulePath = ExternalDependency(fileName: path.appending(component: "MagicKit.swiftmodule").pathString.intern(host))
+        let swiftmodulePath = ExternalDependency(
+          fileName: path.appending(component: "MagicKit.swiftmodule")
+            .pathString.intern(in: host.internedStringTable),
+          host.internedStringTable)
         testGraph.forEachNode { node in
           if case .externalDepend(swiftmodulePath) = node.key.designator {
             XCTAssertFalse(foundNode)
