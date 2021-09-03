@@ -769,7 +769,7 @@ extension ModuleDependencyGraph {
           let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint
           ? String(decoding: fingerprintBlob, as: UTF8.self)
-            .intern(in: self)
+            .intern(in: internedStringTable)
           : nil
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
@@ -804,7 +804,7 @@ extension ModuleDependencyGraph {
           let path = InternedString(index: Int(record.fields[0]))
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint
-          ? String(decoding: fingerprintBlob, as: UTF8.self).intern(in: self)
+          ? String(decoding: fingerprintBlob, as: UTF8.self).intern(in: internedStringTable)
           : nil
           fingerprintedExternalDependencies.insert(
             FingerprintedExternalDependency(
@@ -817,7 +817,7 @@ extension ModuleDependencyGraph {
             throw ReadError.malformedIdentifierRecord
           }
           #warning("dmu: could save string table as-is, better yet, use index, or check it")
-          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: self)
+          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: internedStringTable)
         }
       }
     }

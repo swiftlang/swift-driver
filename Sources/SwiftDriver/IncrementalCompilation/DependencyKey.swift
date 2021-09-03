@@ -121,7 +121,7 @@ extension FingerprintedExternalDependency: CustomStringConvertible {
 /// A `DependencyKey` carries all of the information necessary to uniquely
 /// identify a dependency node in the graph, and serves as a point of identity
 /// for the dependency graph's map from definitions to uses.
-public struct DependencyKey: CustomStringConvertible {
+public struct DependencyKey {
   /// Captures which facet of the dependency structure a dependency key represents.
   ///
   /// A `DeclAspect` is used to separate dependencies with a scope limited to
@@ -337,8 +337,8 @@ public struct DependencyKey: CustomStringConvertible {
     return Self(aspect: .implementation, designator: designator)
   }
 
-  public var description: String {
-    "\(aspect) of \(designator)"
+  public func description(in t: InternedStringTable) -> String {
+    "\(aspect) of \(designator.description(in: t))"
   }
 
   @discardableResult

@@ -616,9 +616,9 @@ extension IncrementalCompilationTests {
       fingerprintChanged(.interface, "main")
       fingerprintChanged(.implementation, "main")
       trace {
-        TraceStep(.interface, source: "main")
-        TraceStep(.interface, "main", {.topLevel(name: "foo".intern(in: $0))})
-        TraceStep(.implementation, source: "other")
+        TraceStep(.interface, sourceFileProvide: "main")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: "other")
       }
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
@@ -650,8 +650,8 @@ extension IncrementalCompilationTests {
       queuingInitial("main")
       schedulingAlwaysRebuild("main")
       trace {
-        TraceStep(.interface, "main", {.topLevel(name: "foo".intern(in: $0))})
-        TraceStep(.implementation, source: "other")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: "other")
       }
       foundDependent(of: "main", compiling: "other")
       schedulingChanged("main")
@@ -863,13 +863,11 @@ extension IncrementalCompilationTests {
             : [removedInput, "other"]
           for input in affectedInputs {
             trace {
-              TraceStep(.interface, source: "main")
-              TraceStep(.interface, "main", {.topLevel(name: "foo".intern(in: $0))})
+              TraceStep(.interface, sourceFileProvide: "main")
+              TraceStep(.interface, topLevel: "foo", input: "main")
               TraceStep(.implementation,
-                        input == removedInput && afterRestoringBadPriors
-                        ? nil : input,
-                        { .sourceFileProvide(name: "\(input).swiftdeps".intern(in: $0))}
-                        )
+                        sourceFileProvide: "input",
+                        input: input == removedInput && afterRestoringBadPriors ? nil : input)
             }
           }
           let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
@@ -1544,24 +1542,28 @@ extension DiagVerifiable {
 }
 
 fileprivate struct TraceStep {
-  let key: DependencyKey
-  let input: String?
-  
-  static let phoneyBaloneyGraph = MockModuleDependencyGraphCreator(maxIndex: 0).mockUpAGraph()
+  let messagePart: String
 
-  init(_ aspect: DependencyKey.DeclAspect,
-       _ input: String?,
-       _ designator: (ModuleDependencyGraph) -> DependencyKey.Designator
+  init(_ aspect: DependencyKey.DeclAspect, sourceFileProvide source: String) {
+    self.init(aspect, sourceFileProvide: source, input: source)
+  }
+  init(_ aspect: DependencyKey.DeclAspect, sourceFileProvide source: String, input: String?) {
+    self.init(aspect, input: input) { t in
+        .sourceFileProvide(name: "\(source).swiftdeps".intern(in: t))
+    }
+  }
+  init(_ aspect: DependencyKey.DeclAspect, topLevel name: String, input: String) {
+    self.init(aspect, input: input) { t in
+        .topLevel(name: name.intern(in: t))
+    }
+  }
+  private init(_ aspect: DependencyKey.DeclAspect,
+       input: String?,
+       _ createDesignator: (InternedStringTable) -> DependencyKey.Designator
 ) {
-    let host = Self.phoneyBaloneyGraph
-    self.key = DependencyKey(aspect: aspect, designator: designator(host))
-    self.input = input
-  }
-  init(_ aspect: DependencyKey.DeclAspect, source: String) {
-    self.init(aspect, source,
-              {$0.sourceFileProvide(name: "\(source).swiftdeps")})
-  }
-  var messagePart: String {
-    "\(key)\(input.map {" in \($0).swift"} ?? "")"
+    let t = InternedStringTable()
+    let key = DependencyKey(aspect: aspect, designator: createDesignator(t))
+    let inputPart = input.map {" in \($0).swift"} ?? ""
+    self.messagePart = "\(key.description(in: t))\(inputPart)"
   }
 }

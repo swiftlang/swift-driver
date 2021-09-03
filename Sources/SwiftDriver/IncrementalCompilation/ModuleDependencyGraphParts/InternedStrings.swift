@@ -32,6 +32,10 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   }
   
   public var description: String { "<<\(index)>>" }
+  
+  public func description(in t: InternedStringTable) -> String {
+    "\(lookup(in: t))\(description)"
+  }
 }
 
 extension InternedString: Comparable {

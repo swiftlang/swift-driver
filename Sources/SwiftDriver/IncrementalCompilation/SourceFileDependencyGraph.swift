@@ -56,7 +56,7 @@ import TSCUtility
 }
 
 extension SourceFileDependencyGraph {
-  public struct Node: Equatable, Hashable, CustomStringConvertible {
+  public struct Node: Equatable, Hashable {
     public let keyAndFingerprint: KeyAndFingerprintHolder
     public var key: DependencyKey { keyAndFingerprint.key }
     public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
@@ -91,10 +91,10 @@ extension SourceFileDependencyGraph {
       }
     }
 
-    public var description: String {
+    public func description(in t: InternedStringTable) -> String {
       [
-        key.description,
-        fingerprint.map {"fingerprint: \($0.description)"},
+        key.description(in: t),
+        fingerprint.map {"fingerprint: \($0.description(in: t))"},
         isProvides ? "provides" : "depends",
         defsIDependUpon.isEmpty ? nil : "depends on \(defsIDependUpon.count)"
       ]
