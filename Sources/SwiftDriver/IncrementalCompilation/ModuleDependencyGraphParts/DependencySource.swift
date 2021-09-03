@@ -51,7 +51,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public var file: VirtualPath { typedFile.file }
 
   public var description: String {
-    ExternalDependency(fileName: self.internedFileName).description
+    typedFile.file.externalDependencyPathDescription
   }
   
   public func hash(into hasher: inout Hasher) {

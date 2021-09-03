@@ -23,13 +23,13 @@ public struct DependencyGraphDotFileWriter {
   }
 
   mutating func write(_ sfdg: SourceFileDependencyGraph, for file: TypedVirtualPath,
-             host: ModuleDependencyGraph) {
+                      internedStringTable: InternedStringTable) {
     let basename = file.file.basename
-    write(sfdg, basename: basename, host: host)
+    write(sfdg, basename: basename, internedStringTable: internedStringTable)
   }
   
   mutating func write(_ mdg: ModuleDependencyGraph) {
-    write(mdg, basename: Self.moduleDependencyGraphBasename, host: mdg)
+    write(mdg, basename: Self.moduleDependencyGraphBasename, internedStringTable: mdg.internedStringTable)
   }
 
   @_spi(Testing) public static let moduleDependencyGraphBasename = "moduleDependencyGraph"
@@ -38,7 +38,7 @@ public struct DependencyGraphDotFileWriter {
 // MARK: Asking to write dot files / implementation
 fileprivate extension DependencyGraphDotFileWriter {
   mutating func write<Graph: ExportableGraph>(_ graph: Graph, basename: String,
-                                     host: ModuleDependencyGraph
+                                              internedStringTable: InternedStringTable
   ) {
     let path = dotFilePath(for: basename)
     try! info.fileSystem.writeFileContents(path) { stream in
@@ -48,7 +48,7 @@ fileprivate extension DependencyGraphDotFileWriter {
         stream,
         includeExternals: info.dependencyDotFilesIncludeExternals,
         includeAPINotes: info.dependencyDotFilesIncludeAPINotes,
-        host: host)
+        internedStringTable: internedStringTable)
       s.emit()
     }
   }
@@ -132,7 +132,7 @@ extension ExportableNode {
     key.designator.externalDependency != nil
   }
   fileprivate var isAPINotes: Bool {
-    key.designator.externalDependency?.fileName.string.hasSuffix(".apinotes")
+    key.designator.externalDependency?.fileNameString.hasSuffix(".apinotes")
       ?? false
   }
 
@@ -168,15 +168,17 @@ fileprivate extension DependencyKey.Designator {
     }
   }
 
-  static func oneOfEachKind(host: ModuleDependencyGraph) -> [DependencyKey.Designator] {
-    [
-      host.topLevel(name: ""),
-      host.dynamicLookup(name: ""),
-      host.externalDepend(ed: ExternalDependency(fileName: ".".intern(host))),
-      host.sourceFileProvide(name: ""),
-      host.nominal(context: ""),
-      host.potentialMember(context: ""),
-      host.member(context: "", name: "")
+  static func oneOfEachKind(_ t: InternedStringTable) -> [DependencyKey.Designator] {
+    let empty = "".intern(in: t)
+    let dot = ".".intern(in: t)
+    return [
+      .topLevel(name: empty),
+      .dynamicLookup(name: empty),
+      .externalDepend(ExternalDependency(fileName: dot, t)),
+      .sourceFileProvide(name: empty),
+      .nominal(context: empty),
+      .potentialMember(context: empty),
+      .member(context: empty, name: empty)
   ]}
 }
 
@@ -187,7 +189,7 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
   private let includeAPINotes: Bool
   private let graphID: String
   private let graph: Graph
-  private let host: ModuleDependencyGraph
+  private let internedStringTable: InternedStringTable
   private var nodeIDs = [Graph.Node: Int]()
   private var out: WritableByteStream
 
@@ -197,14 +199,15 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
     _ stream: WritableByteStream,
     includeExternals: Bool,
     includeAPINotes: Bool,
-    host: ModuleDependencyGraph
+    internedStringTable: InternedStringTable
   ) {
+    #warning("dmu: if move oneOfEachKind elsewere, don't need string table here?")
     self.graph = graph
     self.graphID = graphID
     self.out = stream
     self.includeExternals = includeExternals
     self.includeAPINotes = includeAPINotes
-    self.host = host
+    self.internedStringTable = internedStringTable
   }
 
   fileprivate mutating func emit() {
@@ -219,7 +222,7 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
     out <<< "digraph " <<< graphID.quoted <<< " {\n"
   }
   private mutating func emitLegend() {
-    for dummy in DependencyKey.Designator.oneOfEachKind(host: host) {
+    for dummy in DependencyKey.Designator.oneOfEachKind(internedStringTable) {
       out <<< DotFileNode(forLegend: dummy).description <<< "\n"
     }
   }

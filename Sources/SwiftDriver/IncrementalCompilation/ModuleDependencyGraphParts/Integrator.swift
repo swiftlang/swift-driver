@@ -91,7 +91,8 @@ extension ModuleDependencyGraph.Integrator {
     if destination.info.verifyDependencyGraphAfterEveryImport {
       integrator.verifyAfterImporting()
     }
-    destination.dotFileWriter?.write(g, for: dependencySource.typedFile, host: destination)
+    destination.dotFileWriter?.write(g, for: dependencySource.typedFile,
+                                     internedStringTable: destination.internedStringTable)
     destination.dotFileWriter?.write(destination)
     return integrator.invalidatedNodes
   }

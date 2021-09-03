@@ -259,7 +259,8 @@ extension SourceFileDependencyGraph {
           let identifier = identifiers[Int(record.fields[3])]
           self.isProvides = record.fields[4] != 0
           let designator = try DependencyKey.Designator(
-            kindCode: kindCode, context: context, name: identifier)
+            kindCode: kindCode, context: context, name: identifier,
+            internedStringTable: internedStringTable)
           self.key = DependencyKey(aspect: declAspect, designator: designator)
           self.fingerprint = nil
           self.nodeSequenceNumber = nextSequenceNumber
@@ -328,12 +329,14 @@ fileprivate extension DependencyKey.Designator {
   ) throws {
     try self.init(kindCode: kindCode,
                   context: context.intern(in: internedStringTable),
-                  name: name.intern(in: internedStringTable))
+                  name: name.intern(in: internedStringTable),
+                  internedStringTable: internedStringTable)
   }
     
   init(kindCode: UInt64,
        context: InternedString,
-       name: InternedString) throws {
+       name: InternedString,
+       internedStringTable: InternedStringTable) throws {
     func mustBeEmpty(_ s: InternedString) throws {
       guard s.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
     }
@@ -354,7 +357,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(ExternalDependency(fileName: name))
+      self = .externalDepend(ExternalDependency(fileName: name, internedStringTable))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

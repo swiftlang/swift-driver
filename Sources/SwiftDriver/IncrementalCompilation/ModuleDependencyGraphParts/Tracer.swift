@@ -60,6 +60,7 @@ extension ModuleDependencyGraph.Tracer {
                diagnosticEngine: DiagnosticsEngine) {
     self.graph = graph
     // Sort so "Tracing" diagnostics are deterministically ordered
+    #warning("dmu: needed?")
     self.startingPoints = defs.sorted()
     self.currentPathIfTracing = graph.info.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine

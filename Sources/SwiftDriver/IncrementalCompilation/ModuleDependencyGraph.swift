@@ -151,7 +151,7 @@ extension ModuleDependencyGraph {
   /// - Returns: The input files that must be recompiled, excluding `changedInput`
   func collectInputsInvalidatedBy(changedInput: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileArray {
-    let changedSource = DependencySource(changedInput, host: self)
+    let changedSource = DependencySource(changedInput, internedStringTable)
     let allUses = collectInputsUsing(dependencySource: changedSource)
 
     return allUses.filter {
@@ -175,7 +175,7 @@ extension ModuleDependencyGraph {
 
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: SwiftSourceFile) -> Bool {
-    containsNodes(forDependencySource: DependencySource(file, host: self))
+    containsNodes(forDependencySource: DependencySource(file, internedStringTable))
   }
 
   private func containsNodes(forDependencySource source: DependencySource) -> Bool {
@@ -267,8 +267,9 @@ extension ModuleDependencyGraph {
   private func collectInputsRequiringCompilationAfterProcessing(
     input: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
-    let dependencySource = DependencySource(input, host: self)
-    guard let sourceGraph = dependencySource.read(info: info, host: self)
+    let dependencySource = DependencySource(input, internedStringTable)
+    guard let sourceGraph = dependencySource.read(info: info,
+                                                  internedStringTable: internedStringTable)
     else {
       // to preserve legacy behavior cancel whole thing
       info.diagnosticEngine.emit(
@@ -448,7 +449,8 @@ extension ModuleDependencyGraph {
   ) -> DirectlyInvalidatedNodeSet? {
     guard
       let source = fed.incrementalDependencySource,
-      let unserializedDepGraph = source.read(info: info, host: self)
+      let unserializedDepGraph = source.read(info: info,
+                                             internedStringTable: internedStringTable)
     else {
       return nil
     }
@@ -734,7 +736,8 @@ extension ModuleDependencyGraph {
           let context = InternedString(index: Int(record.fields[2]))
           let identifier = InternedString(index: Int(record.fields[3]))
           let designator = try DependencyKey.Designator(
-            kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
+            kindCode: kindCode, context: context, name: identifier,
+            internedStringTable: internedStringTable, fileSystem: fileSystem)
           let key = DependencyKey(aspect: declAspect, designator: designator)
           let hasDepSource = Int(record.fields[4]) != 0
           let depSourceIndex = hasDepSource ? Int(record.fields[5]) : nil
@@ -770,7 +773,8 @@ extension ModuleDependencyGraph {
           let context = InternedString(index: Int(record.fields[2]))
           let identifier = InternedString(index: Int(record.fields[3]))
           let designator = try DependencyKey.Designator(
-            kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
+            kindCode: kindCode, context: context, name: identifier,
+            internedStringTable: internedStringTable, fileSystem: fileSystem)
           self.currentDefKey = DependencyKey(aspect: declAspect, designator: designator)
         case .useIDNode:
           guard let key = self.currentDefKey, record.fields.count == 1 else {
@@ -790,7 +794,9 @@ extension ModuleDependencyGraph {
           ? String(decoding: fingerprintBlob, as: UTF8.self).intern(in: internedStringTable)
           : nil
           fingerprintedExternalDependencies.insert(
-            FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
+            FingerprintedExternalDependency(
+              ExternalDependency(fileName: path, internedStringTable),
+              fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload
@@ -1093,7 +1099,7 @@ extension ModuleDependencyGraph {
             $0.append(serializer.lookupIdentifierCode(
                         for: node.dependencySource?.internedFileName))
             $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
-          }, blob: node.fingerprint ?? "")
+          }, blob: node.fingerprint?.string(in: graph.internedStringTable) ?? "")
         }
 
         for key in graph.nodeFinder.usesByDef.keys {
@@ -1121,10 +1127,11 @@ extension ModuleDependencyGraph {
           serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(
-                        for: fingerprintedExternalDependency.externalDependency.fileName))
+              for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
-          }, 
-          blob: (fingerprintedExternalDependency.fingerprint ?? ""))
+          },
+          blob: (fingerprintedExternalDependency.fingerprint?.string(in: graph.internedStringTable)
+                 ?? ""))
         }
       }
       return ByteString(serializer.stream.data)
@@ -1155,7 +1162,9 @@ fileprivate extension DependencyKey.DeclAspect {
 }
 
 fileprivate extension DependencyKey.Designator {
-  init(kindCode: UInt64, context: InternedString, name: InternedString, fileSystem: FileSystem) throws {
+  init(kindCode: UInt64, context: InternedString, name: InternedString,
+       internedStringTable: InternedStringTable,
+       fileSystem: FileSystem) throws {
     func mustBeEmpty(_ s: InternedString) throws {
       guard s.isEmpty else {
         throw ModuleDependencyGraph.ReadError.bogusNameOrContext
@@ -1179,7 +1188,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(ExternalDependency(fileName: name))
+      self = .externalDepend(ExternalDependency(fileName: name, internedStringTable))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

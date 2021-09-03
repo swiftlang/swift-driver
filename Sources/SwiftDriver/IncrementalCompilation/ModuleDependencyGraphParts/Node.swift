@@ -69,7 +69,7 @@ extension ModuleDependencyGraph {
 
 // MARK: - Setting fingerprint
 extension ModuleDependencyGraph.Node {
-  func setFingerprint(_ newFP: String?) {
+  func setFingerprint(_ newFP: InternedString?) {
     keyAndFingerprint = try! KeyAndFingerprintHolder(key, newFP)
   }
 }

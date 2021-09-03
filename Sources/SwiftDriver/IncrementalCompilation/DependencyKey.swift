@@ -64,13 +64,7 @@ import TSCBasic
     guard let path = path else {
       return "non-path: '\(fileName)'"
     }
-    switch path.extension {
-    case FileType.swiftModule.rawValue:
-      // Swift modules have an extra component at the end that is not descriptive
-      return path.parentDirectory.basename
-    default:
-      return path.basename
-    }
+    return path.externalDependencyPathDescription
   }
 
   public var shortDescription: String {
@@ -79,6 +73,18 @@ import TSCBasic
         ?? VirtualPath.lookup(pathHandle).basename
     }
     ?? description
+  }
+}
+
+extension VirtualPath {
+  var externalDependencyPathDescription: String {
+    switch self.extension {
+    case FileType.swiftModule.rawValue:
+      // Swift modules have an extra component at the end that is not descriptive
+      return parentDirectory.basename
+    default:
+      return basename
+    }
   }
 }
 
@@ -157,7 +163,7 @@ public struct DependencyKey: CustomStringConvertible {
   }
 
   /// Enumerates the current sorts of dependency nodes in the dependency graph.
-  /*@_spi(Testing)*/ public enum Designator: Hashable {
+  /*@_spi(Testing)*/ public enum Designator: Hashable, Comparable {
     /// A top-level name.
     ///
     /// Corresponds to the top-level names that occur in a given file. When
@@ -342,7 +348,9 @@ public struct DependencyKey: CustomStringConvertible {
   }
 }
 
-extension DependencyKey: Equatable, Hashable, Comparable {
+extension DependencyKey: Equatable, Hashable {}
+
+extension DependencyKey: Comparable {
   public static func < (lhs: Self, rhs: Self) -> Bool {
     guard lhs.aspect == rhs.aspect else {
       return lhs.aspect < rhs.aspect
@@ -351,7 +359,7 @@ extension DependencyKey: Equatable, Hashable, Comparable {
   }
 }
 
-extension DependencyKey.Designator: Comparable {}
+//extension DependencyKey.Designator: Comparable {}
 
 // MARK: - InvalidationReason
 extension ExternalDependency {
@@ -372,26 +380,26 @@ extension ExternalDependency {
 }
 
 // MARK: - creating Designators from Strings
-public extension ModuleDependencyGraph {
-  func topLevel(name: String) -> DependencyKey.Designator {
-    .topLevel(name: name.intern(self))
-  }
-  func dynamicLookup(name: String)  -> DependencyKey.Designator {
-    .dynamicLookup(name: name.intern(self))
-  }
-  func externalDepend(ed: ExternalDependency) -> DependencyKey.Designator {
-    .externalDepend(ed)
-  }
-  func sourceFileProvide(name: String) -> DependencyKey.Designator {
-    .sourceFileProvide(name: name.intern(self))
-  }
-  func nominal(context: String) -> DependencyKey.Designator {
-    .nominal(context: context.intern(self))
-  }
-  func potentialMember(context: String) -> DependencyKey.Designator {
-    .potentialMember(context: context.intern(self))
-  }
-  func member(context: String, name: String) -> DependencyKey.Designator {
-    .member(context: context.intern(self), name: name.intern(self))
-  }
-}
+//public extension ModuleDependencyGraph {
+//  func topLevel(name: String) -> DependencyKey.Designator {
+//    .topLevel(name: name.intern(self))
+//  }
+//  func dynamicLookup(name: String)  -> DependencyKey.Designator {
+//    .dynamicLookup(name: name.intern(self))
+//  }
+//  func externalDepend(ed: ExternalDependency) -> DependencyKey.Designator {
+//    .externalDepend(ed)
+//  }
+//  func sourceFileProvide(name: String) -> DependencyKey.Designator {
+//    .sourceFileProvide(name: name.intern(self))
+//  }
+//  func nominal(context: String) -> DependencyKey.Designator {
+//    .nominal(context: context.intern(self))
+//  }
+//  func potentialMember(context: String) -> DependencyKey.Designator {
+//    .potentialMember(context: context.intern(self))
+//  }
+//  func member(context: String, name: String) -> DependencyKey.Designator {
+//    .member(context: context.intern(self), name: name.intern(self))
+//  }
+//}

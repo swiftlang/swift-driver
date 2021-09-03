@@ -25,13 +25,19 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   // PRIVATE?
   init(index: Int) {
     self.index = index
-}
+  }
   
   public func string(`in` table: InternedStringTable) -> String {
     table.string(index)
   }
-    
+  
   public var description: String { "<<\(index)>>" }
+}
+
+extension InternedString: Comparable {
+  public static func < (lhs: InternedString, rhs: InternedString) -> Bool {
+    lhs.index < rhs.index
+  }
 }
 
 /// Hardcode empty as 0
