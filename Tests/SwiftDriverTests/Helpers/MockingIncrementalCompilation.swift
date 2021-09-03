@@ -65,7 +65,7 @@ extension DependencySource {
   }
 
   var sourceFileProvideNameForMockDependencySource: String {
-    internedFileName.string
+    typedFile.file.name
   }
 
   var interfaceHashForMockDependencySource: String {

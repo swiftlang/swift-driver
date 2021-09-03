@@ -27,8 +27,8 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
     self.index = index
   }
   
-  public func string(`in` table: InternedStringTable) -> String {
-    table.string(index)
+  public func lookup(`in` table: InternedStringTable) -> String {
+    table.strings[index]
   }
   
   public var description: String { "<<\(index)>>" }
@@ -43,7 +43,7 @@ extension InternedString: Comparable {
 /// Hardcode empty as 0
 public class InternedStringTable {
   var strings = [""]
-  private var indices = ["": 0]
+  fileprivate var indices = ["": 0]
   
   public init() {}
   
@@ -53,10 +53,6 @@ public class InternedStringTable {
     strings.append(s)
     indices[s] = i
     return i
-  }
-  
-  fileprivate func string(_ i: Int) -> String {
-    strings[i]
   }
   
   var endIndex: Int { strings.count }

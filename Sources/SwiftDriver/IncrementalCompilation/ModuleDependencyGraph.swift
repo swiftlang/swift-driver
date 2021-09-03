@@ -509,11 +509,24 @@ extension ModuleDependencyGraph {
 
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
-
  func ensureGraphWillRetrace(_ nodes: DirectlyInvalidatedNodeSet) {
    for node in nodes {
       node.setUntraced()
     }
+  }
+}
+
+// MARK: - InternedStrings
+#warning("dmu: protocol for same code using stringtable?")
+extension InternedString {
+  public func lookup(in g: ModuleDependencyGraph) -> String {
+    lookup(in: g.internedStringTable)
+  }
+}
+
+extension String {
+  public func intern(in g: ModuleDependencyGraph) -> InternedString {
+    intern(in: g.internedStringTable)
   }
 }
 
@@ -743,7 +756,7 @@ extension ModuleDependencyGraph {
           let depSourceIndex = hasDepSource ? Int(record.fields[5]) : nil
           let dependencySource = try depSourceIndex.map { index -> DependencySource in
             let fileName = InternedString(index: index)
-            let fileNameString = fileName.string(in: internedStringTable)
+            let fileNameString = fileName.lookup(in: internedStringTable)
             guard let source = DependencySource(
               ifAppropriateFor:
                 try VirtualPath.intern(path: fileNameString),
@@ -756,7 +769,7 @@ extension ModuleDependencyGraph {
           let hasFingerprint = Int(record.fields[6]) != 0
           let fingerprint = hasFingerprint
           ? String(decoding: fingerprintBlob, as: UTF8.self)
-            .intern(in: internedStringTable)
+            .intern(in: self)
           : nil
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
@@ -791,7 +804,7 @@ extension ModuleDependencyGraph {
           let path = InternedString(index: Int(record.fields[0]))
           let hasFingerprint = Int(record.fields[1]) != 0
           let fingerprint = hasFingerprint
-          ? String(decoding: fingerprintBlob, as: UTF8.self).intern(in: internedStringTable)
+          ? String(decoding: fingerprintBlob, as: UTF8.self).intern(in: self)
           : nil
           fingerprintedExternalDependencies.insert(
             FingerprintedExternalDependency(
@@ -804,7 +817,7 @@ extension ModuleDependencyGraph {
             throw ReadError.malformedIdentifierRecord
           }
           #warning("dmu: could save string table as-is, better yet, use index, or check it")
-          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: internedStringTable)
+          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: self)
         }
       }
     }
@@ -1099,7 +1112,7 @@ extension ModuleDependencyGraph {
             $0.append(serializer.lookupIdentifierCode(
                         for: node.dependencySource?.internedFileName))
             $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
-          }, blob: node.fingerprint?.string(in: graph.internedStringTable) ?? "")
+          }, blob: node.fingerprint?.lookup(in: graph) ?? "")
         }
 
         for key in graph.nodeFinder.usesByDef.keys {
@@ -1130,7 +1143,7 @@ extension ModuleDependencyGraph {
               for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
           },
-          blob: (fingerprintedExternalDependency.fingerprint?.string(in: graph.internedStringTable)
+          blob: (fingerprintedExternalDependency.fingerprint?.lookup(in: graph)
                  ?? ""))
         }
       }

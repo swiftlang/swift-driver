@@ -593,8 +593,8 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(graph)))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(graph)))
+    XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(in: graph)))
+    XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(in: graph)))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
@@ -631,9 +631,9 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
       1,
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(graph)))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(graph)))
-
+    XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(in: graph)))
+    XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(in: graph)))
+    in:
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
       XCTAssertEqual(swiftDeps.count, 2)
@@ -1356,8 +1356,8 @@ fileprivate extension DependencyKey {
     return Self(
       aspect: aspectOfUse,
       designator: try! Designator(kind: .sourceFileProvide,
-                                  (context: "".intern(host),
-                                   name: dependencySource.sourceFileProvideNameForMockDependencySource.intern(host))))
+                                  (context: "".intern(in: host),
+                                   name: dependencySource.sourceFileProvideNameForMockDependencySource.intern(in: host))))
   }
 }
 
@@ -1373,13 +1373,13 @@ fileprivate extension String {
 
   func parseContextAndName( _ kind: MockDependencyKind, for g: ModuleDependencyGraph) -> (context: InternedString?, name: InternedString?) {
     switch kind.singleNameIsContext {
-    case true?:  return (context: self.intern(g), name: nil)
-    case false?: return (context: nil,            name: intern(g))
+    case true?:  return (context: self.intern(in: g), name: nil)
+    case false?: return (context: nil,            name: intern(in: g))
     case nil:
       let r = range(of: Self.nameContextSeparator) ?? (endIndex ..< endIndex)
       return (
-        context: prefix(upTo: r.lowerBound).intern(g),
-        name:    suffix(from: r.upperBound).intern(g)
+        context: prefix(upTo: r.lowerBound).intern(in: g),
+        name:    suffix(from: r.upperBound).intern(in: g)
       )
     }
   }
@@ -1387,7 +1387,7 @@ fileprivate extension String {
 
 fileprivate extension ExternalDependency {
   static func mocking(_ name: String, for g: ModuleDependencyGraph) -> Self {
-    return Self(fileName: name.intern(g))
+    return Self(fileName: name.intern(in: g))
   }
 }
 

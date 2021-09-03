@@ -25,7 +25,7 @@ import TSCBasic
   /*@_spi(Testing)*/ public init(
     fileName: InternedString, _ t: InternedStringTable) {
       self.fileName = fileName
-      self.fileNameString = fileName.string(in: t)
+      self.fileNameString = fileName.lookup(in: t)
   }
   
   public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
@@ -302,19 +302,19 @@ public struct DependencyKey: CustomStringConvertible {
     public func description(in t: InternedStringTable) -> String {
       switch self {
       case let .topLevel(name: name):
-        return "top-level name '\(name.string(in: t))'"
+        return "top-level name '\(name.lookup(in: t))'"
       case let .nominal(context: context):
-        return "type '\(context.string(in: t))'"
+        return "type '\(context.lookup(in: t))'"
       case let .potentialMember(context: context):
-        return "potential members of '\(context.string(in: t))'"
+        return "potential members of '\(context.lookup(in: t))'"
       case let .member(context: context, name: name):
-        return "member '\(name.string(in: t))' of '\(context.string(in: t))'"
+        return "member '\(name.lookup(in: t))' of '\(context.lookup(in: t))'"
       case let .dynamicLookup(name: name):
-        return "AnyObject member '\(name.string(in: t))'"
+        return "AnyObject member '\(name.lookup(in: t))'"
       case let .externalDepend(externalDependency):
         return "import '\(externalDependency.shortDescription)'"
       case let .sourceFileProvide(name: name):
-        return "source file from \((try? VirtualPath(path: name.string(in: t)).basename) ?? name.string(in: t))"
+        return "source file from \((try? VirtualPath(path: name.lookup(in: t)).basename) ?? name.lookup(in: t))"
       }
     }
   }

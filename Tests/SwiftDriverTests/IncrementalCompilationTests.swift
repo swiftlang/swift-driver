@@ -617,7 +617,7 @@ extension IncrementalCompilationTests {
       fingerprintChanged(.implementation, "main")
       trace {
         TraceStep(.interface, source: "main")
-        TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
+        TraceStep(.interface, "main", {.topLevel(name: "foo".intern(in: $0))})
         TraceStep(.implementation, source: "other")
       }
       queuingLaterSchedInvalBatchLink("other")
@@ -650,7 +650,7 @@ extension IncrementalCompilationTests {
       queuingInitial("main")
       schedulingAlwaysRebuild("main")
       trace {
-        TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
+        TraceStep(.interface, "main", {.topLevel(name: "foo".intern(in: $0))})
         TraceStep(.implementation, source: "other")
       }
       foundDependent(of: "main", compiling: "other")
@@ -864,11 +864,11 @@ extension IncrementalCompilationTests {
           for input in affectedInputs {
             trace {
               TraceStep(.interface, source: "main")
-              TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
+              TraceStep(.interface, "main", {.topLevel(name: "foo".intern(in: $0))})
               TraceStep(.implementation,
                         input == removedInput && afterRestoringBadPriors
                         ? nil : input,
-                        { .sourceFileProvide(name: "\(input).swiftdeps".intern($0))}
+                        { .sourceFileProvide(name: "\(input).swiftdeps".intern(in: $0))}
                         )
             }
           }
@@ -1078,32 +1078,32 @@ fileprivate extension ModuleDependencyGraph {
     return nodes
   }
   func contains(sourceBasenameWithoutExt target: String) -> Bool {
-    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target)}
+    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target, in: self)}
   }
   func contains(name target: String) -> Bool {
-    allNodes.contains {$0.contains(name: target)}
+    allNodes.contains {$0.contains(name: target, in: self)}
   }
   func ensureOmits(sourceBasenameWithoutExt target: String) {
     // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
-      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target),
+      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target, in: self),
                      "graph should omit source: \(target)")
     }
   }
   func ensureOmits(name: String) {
     // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
-      XCTAssertFalse(node.contains(name: name),
+      XCTAssertFalse(node.contains(name: name, in: self),
                      "graph should omit decl named: \(name)")
     }
   }
 }
 
 fileprivate extension ModuleDependencyGraph.Node {
-  func contains(sourceBasenameWithoutExt target: String) -> Bool {
+  func contains(sourceBasenameWithoutExt target: String, in g: ModuleDependencyGraph) -> Bool {
     switch key.designator {
     case .sourceFileProvide(name: let name):
-      return (try? VirtualPath(path: name.string))
+      return (try? VirtualPath(path: name.lookup(in: g)))
         .map {$0.basenameWithoutExt == target}
       ?? false
     case .externalDepend(let externalDependency):
@@ -1116,18 +1116,19 @@ fileprivate extension ModuleDependencyGraph.Node {
     }
   }
 
-  func contains(name target: String) -> Bool {
+  func contains(name target: String, in g: ModuleDependencyGraph) -> Bool {
     switch key.designator {
     case .topLevel(name: let name),
       .dynamicLookup(name: let name):
-      return name.string == target
+      return name.lookup(in: g) == target
     case .externalDepend, .sourceFileProvide:
       return false
     case .nominal(context: let context),
          .potentialMember(context: let context):
-      return context.string.range(of: target) != nil
+      return context.lookup(in: g).range(of: target) != nil
     case .member(context: let context, name: let name):
-      return context.string.range(of: target) != nil || name.string == target
+      return context.lookup(in: g).range(of: target) != nil ||
+                name.lookup(in: g) == target
     }
   }
 }
