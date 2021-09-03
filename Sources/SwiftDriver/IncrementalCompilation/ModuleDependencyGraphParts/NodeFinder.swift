@@ -16,7 +16,7 @@ extension ModuleDependencyGraph {
 
   /// The core information for the ModuleDependencyGraph
   /// Isolate in a sub-structure in order to faciliate invariant maintainance
-  @_spi(Testing) public struct NodeFinder {
+  public struct NodeFinder {
     @_spi(Testing) public typealias Graph = ModuleDependencyGraph
     
     /// Maps dependencySource files and DependencyKeys to Nodes
@@ -168,7 +168,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: Graph.Node,
                         newDependencySource: DependencySource,
-                        newFingerprint: String?
+                        newFingerprint: InternedString?
   ) -> Graph.Node {
     let replacement = Graph.Node(key: original.key,
                                  fingerprint: newFingerprint,

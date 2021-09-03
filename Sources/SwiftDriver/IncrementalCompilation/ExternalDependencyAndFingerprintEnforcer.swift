@@ -15,14 +15,14 @@
 
 protocol ExternalDependencyAndFingerprintEnforcer {
   var externalDependencyToCheck: ExternalDependency? {get}
-  var fingerprint: String? {get}
+  var fingerprint: InternedString? {get}
 }
 extension ExternalDependencyAndFingerprintEnforcer {
   func verifyExternalDependencyAndFingerprint() -> Bool {
     if let fingerprint = self.fingerprint,
        let externalDependency = externalDependencyToCheck,
        !externalDependency.isSwiftModule {
-      fatalError("An external dependency with a fingerprint (\(fingerprint)) must point to a swiftmodule file: \(externalDependency)")
+      fatalError("An external dependency with a fingerprint must point to a swiftmodule file: \(externalDependency)")
     }
     return true
   }

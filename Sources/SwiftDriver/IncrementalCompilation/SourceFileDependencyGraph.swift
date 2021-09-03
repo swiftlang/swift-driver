@@ -21,6 +21,7 @@ import TSCUtility
   public var minorVersion: UInt64
   public var compilerVersionString: String
   private var allNodes: [Node]
+  let internedStringTable: InternedStringTable
 
   public var sourceFileNodePair: (interface: Node, implementation: Node) {
     (interface: allNodes[SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber],
@@ -58,7 +59,7 @@ extension SourceFileDependencyGraph {
   public struct Node: Equatable, Hashable, CustomStringConvertible {
     public let keyAndFingerprint: KeyAndFingerprintHolder
     public var key: DependencyKey { keyAndFingerprint.key }
-    public var fingerprint: String? { keyAndFingerprint.fingerprint }
+    public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
 
     public let sequenceNumber: Int
     public let defsIDependUpon: [Int]
@@ -66,7 +67,7 @@ extension SourceFileDependencyGraph {
     
     /*@_spi(Testing)*/ public init(
       key: DependencyKey,
-      fingerprint: String?,
+      fingerprint: InternedString?,
       sequenceNumber: Int,
       defsIDependUpon: [Int],
       isProvides: Bool
@@ -136,45 +137,47 @@ extension SourceFileDependencyGraph {
   static func read(
     from typedFile: TypedVirtualPath,
     on fileSystem: FileSystem,
-    host: ModuleDependencyGraph
+    internedStringTable: InternedStringTable
   ) throws -> Self? {
-    try self.init(contentsOf: typedFile, on: fileSystem, host: host)
+    try self.init(contentsOf: typedFile, on: fileSystem, internedStringTable: internedStringTable)
   }
   
-  /*@_spi(Testing)*/ public init(nodesForTesting: [Node]) {
+  /*@_spi(Testing)*/ public init(nodesForTesting: [Node],
+                                 internedStringTable: InternedStringTable) {
     majorVersion = 0
     minorVersion = 0
     compilerVersionString = ""
     allNodes = nodesForTesting
+    self.internedStringTable = internedStringTable
   }
 
   /*@_spi(Testing)*/ public init?(
     contentsOf typedFile: TypedVirtualPath,
     on fileSystem: FileSystem,
-    host: ModuleDependencyGraph
+    internedStringTable: InternedStringTable
   ) throws {
     assert(typedFile.type == .swiftDeps || typedFile.type == .swiftModule)
     let data = try fileSystem.readFileContents(typedFile.file)
-    try self.init(host: host,
+    try self.init(internedStringTable: internedStringTable,
                   data: data,
                   fromSwiftModule: typedFile.type == .swiftModule)
   }
 
   /// Returns nil for a swiftmodule with no depenencies
   /*@_spi(Testing)*/ public init?(
-    host: ModuleDependencyGraph,
+    internedStringTable: InternedStringTable,
     data: ByteString,
     fromSwiftModule extractFromSwiftModule: Bool = false
   ) throws {
     struct Visitor: BitstreamVisitor {
       let extractFromSwiftModule: Bool
-      let host: ModuleDependencyGraph
+      let internedStringTable: InternedStringTable
 
       init(extractFromSwiftModule: Bool,
-           host: ModuleDependencyGraph) {
+           internedStringTable: InternedStringTable) {
         self.extractFromSwiftModule = extractFromSwiftModule
-        self.host = host
-        self.identifiers = ["".intern(host)]
+        self.internedStringTable = internedStringTable
+        self.identifiers = ["".intern(in: internedStringTable)]
       }
 
       var nodes: [Node] = []
@@ -220,7 +223,7 @@ extension SourceFileDependencyGraph {
         guard let key = key else {return}
 
         let node = try Node(key: key,
-                            fingerprint: fingerprint,
+                            fingerprint: fingerprint?.intern(in: internedStringTable),
                             sequenceNumber: nodeSequenceNumber,
                             defsIDependUpon: defsNodeDependUpon,
                             isProvides: isProvides)
@@ -281,14 +284,14 @@ extension SourceFileDependencyGraph {
           else {
             throw ReadError.malformedIdentifierRecord
           }
-          identifiers.append(String(decoding: identifierBlob, as: UTF8.self).intern(host))
+          identifiers.append(String(decoding: identifierBlob, as: UTF8.self).intern(in: internedStringTable))
         }
       }
     }
 
     var visitor = Visitor(
       extractFromSwiftModule: extractFromSwiftModule,
-      host: host)
+      internedStringTable: internedStringTable)
     do {
       try Bitcode.read(bytes: data, using: &visitor)
     } catch ReadError.swiftModuleHasNoDependencies {
@@ -303,6 +306,7 @@ extension SourceFileDependencyGraph {
     self.minorVersion = minor
     self.compilerVersionString = versionString
     self.allNodes = visitor.nodes
+    self.internedStringTable = internedStringTable
   }
 }
 
@@ -320,18 +324,18 @@ fileprivate extension DependencyKey.Designator {
   init(kindCode: UInt64,
        context: String,
        name: String,
-       host: ModuleDependencyGraph
+       internedStringTable: InternedStringTable
   ) throws {
     try self.init(kindCode: kindCode,
-                  context: context.intern(host),
-                  name: name.intern(host))
+                  context: context.intern(in: internedStringTable),
+                  name: name.intern(in: internedStringTable))
   }
     
   init(kindCode: UInt64,
        context: InternedString,
        name: InternedString) throws {
     func mustBeEmpty(_ s: InternedString) throws {
-      guard s.string.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
+      guard s.isEmpty else { throw SourceFileDependencyGraph.ReadError.bogusNameOrContext }
     }
     switch kindCode {
     case 0:

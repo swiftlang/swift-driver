@@ -82,6 +82,7 @@ extension ModuleDependencyGraph.Integrator {
     dependencySource: DependencySource,
     into destination: Graph
   ) -> DirectlyInvalidatedNodeSet {
+    precondition(g.internedStringTable === destination.internedStringTable)
     var integrator = Self(sourceGraph: g,
                           dependencySource: dependencySource,
                           destination: destination)

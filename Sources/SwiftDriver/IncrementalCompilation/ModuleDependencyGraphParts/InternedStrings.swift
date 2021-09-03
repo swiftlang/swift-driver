@@ -12,39 +12,26 @@
 
 import Foundation
 
-public struct InternedString: Hashable, Comparable, CustomStringConvertible {
-  let index: Int
-  let table: InternedStringTable
+public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   
-  fileprivate init(_ s: String, host: ModuleDependencyGraph) {
-    let t = host.internedStringTable
-    self.init(index: s.isEmpty ? 0 : t.index(s),
-              table: t)
+  let index: Int
+  
+  fileprivate init(_ s: String, _ table: InternedStringTable) {
+    self.init(index: s.isEmpty ? 0 : table.index(s))
   }
   
   public var isEmpty: Bool { index == 0 }
   
   // PRIVATE?
-  init(index: Int, table: InternedStringTable) {
+  init(index: Int) {
     self.index = index
-    self.table = table
-  }
+}
   
-  public var string: String { table.string(index) }
-    
-  public static func ==(lhs: Self, rhs: Self) -> Bool {
-    assert(lhs.table === rhs.table)
-    return lhs.index == rhs.index
-  }
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(index)
-  }
-  public static func <(lhs: Self, rhs: Self) -> Bool {
-    assert(lhs.table === rhs.table)
-    return lhs.string < rhs.string
+  public func string(`in` table: InternedStringTable) -> String {
+    table.string(index)
   }
     
-  public var description: String { string }
+  public var description: String { "<<\(index)>>" }
 }
 
 /// Hardcode empty as 0
@@ -70,7 +57,7 @@ public class InternedStringTable {
 }
 
 public extension StringProtocol {
-  func intern(_ g: ModuleDependencyGraph) -> InternedString {
-    InternedString(String(self), host: g)
+  func intern(in t: InternedStringTable) -> InternedString {
+    InternedString(String(self), t)
   }
 }

@@ -188,8 +188,17 @@ extension IncrementalCompilationState {
         incrementalOptions: options, buildStartTime: buildStartTime,
         buildEndTime: buildEndTime)
     }
+    
+    /// Is this source file part of this build?
+    ///
+    /// - Parameter sourceFile: the Swift source-code file in question
+    /// - Returns: true iff this file was in the command-line invocation of the driver
+    func isPartOfBuild(_ sourceFile: SwiftSourceFile) -> Bool {
+      sourceFiles.currentSet.contains(sourceFile)
+    }
   }
 }
+  
 
 // MARK: - building/reading the ModuleDependencyGraph & scheduling externals for 1st wave
 extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {

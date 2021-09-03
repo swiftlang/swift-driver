@@ -22,10 +22,10 @@ import SwiftOptions
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph {
 
   /// Supports finding nodes in two ways.
-  @_spi(Testing) public var nodeFinder = NodeFinder()
+  @_spi(Testing) public var nodeFinder: NodeFinder
 
   // The set of paths to external dependencies known to be in the graph
-  public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
+  public internal(set) var fingerprintedExternalDependencies:  Set<FingerprintedExternalDependency>
 
   /// A lot of initial state that it's handy to have around.
   @_spi(Testing) public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
@@ -43,10 +43,13 @@ import SwiftOptions
   /// To speed all the node insertions and lookups, intern all the strings.
   /// Put them here because it matches the concurrency constraints; just as modifications to this graph
   /// are serialized, so must all the mods to this table be.
-  @_spi(Testing) public let internedStringTable = InternedStringTable()
+  @_spi(Testing) public let internedStringTable: InternedStringTable
 
   public init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-               _ phase: Phase
+               _ phase: Phase,
+              _ internedStringTable: InternedStringTable,
+              _ nodeFinder: NodeFinder,
+              _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
   ) {
     self.currencyCache = ExternalDependencyCurrencyCache(
       info.fileSystem, buildStartTime: info.buildStartTime)
@@ -56,6 +59,19 @@ import SwiftOptions
       : nil
     self.phase = phase
     self.creationPhase = phase
+    self.internedStringTable = internedStringTable
+    self.nodeFinder = nodeFinder
+    self.fingerprintedExternalDependencies = fingerprintedExternalDependencies
+  }
+
+  public convenience init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+              _ phase: Phase
+  ) {
+#warning("dmu clean up")
+    assert(phase != .updatingFromAPrior)
+    self.init(info, phase, InternedStringTable(),
+              NodeFinder(),
+              Set())
   }
 }
 
@@ -124,22 +140,7 @@ extension ModuleDependencyGraph {
     }
   }
 
-  /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
-  ///
-  /// If the priors were read from an invocation containing a subsuequently removed input,
-  /// the nodes defining decls from that input must be culled.
-  ///
-  /// - Parameter node: The (deserialized) node to test.
-  /// - Returns: true iff the node corresponds to a definition on a removed source file.
-  fileprivate func isForRemovedInput(_ node: Node) -> Bool {
-    guard let fileWithDeps = node.dependencySource?.typedFile,
-          fileWithDeps.type == .swift // e.g., could be a .swiftdeps file
-    else {
-      return false
-    }
-    return !isPartOfBuild(SwiftSourceFile(fileWithDeps))
-  }
-}
+ }
 
 // MARK: - Scheduling the first wave
 extension ModuleDependencyGraph {
@@ -229,14 +230,6 @@ extension ModuleDependencyGraph {
     }
   }
 
-  /// Is this source file part of this build?
-  ///
-  /// - Parameter sourceFile: the Swift source-code file in question
-  /// - Returns: true iff this file was in the command-line invocation of the driver
-  fileprivate func isPartOfBuild(_ sourceFile: SwiftSourceFile) -> Bool {
-    info.sourceFiles.currentSet.contains(sourceFile)
-  }
-
   /// Given an external dependency & its fingerprint, find any nodes directly using that dependency.
   ///
   /// - Parameters:
@@ -306,7 +299,7 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
     var invalidatedInputs = TransitivelyInvalidatedSwiftSourceFileSet()
     for invalidatedInput in collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard isPartOfBuild(invalidatedInput)
+      guard info.isPartOfBuild(invalidatedInput)
       else {
         info.diagnosticEngine.emit(
           warning: "Failed to find source file '\(invalidatedInput.typedFile.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental.")
@@ -618,19 +611,21 @@ extension ModuleDependencyGraph {
     return graph
   }
 
-  @_spi(Testing) public static func deserialize(_ data: ByteString,
-                   info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  @_spi(Testing) public static func deserialize(
+    _ data: ByteString,
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) throws -> ModuleDependencyGraph {
 
     struct Visitor: BitstreamVisitor {
-      private let fileSystem: FileSystem
-      private let graph: ModuleDependencyGraph
+      private let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+      private let internedStringTable: InternedStringTable
       var majorVersion: UInt64?
       var minorVersion: UInt64?
       var compilerVersionString: String?
 
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
+      private var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
 
       /// Deserialized nodes, in order appearing in the priors file. If `nil`, the node is for a removed source file.
       ///
@@ -638,24 +633,30 @@ extension ModuleDependencyGraph {
       /// `Array` supports the deserialization of the def-use links by mapping index to node.
       /// The optionality of the contents lets the ``ModuleDependencyGraph/isForRemovedInput`` check to be cached.
       public private(set) var potentiallyUsedNodes: [Node?] = []
+      
+      private var nodeFinder = NodeFinder()
 
       init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
-        self.fileSystem = info.fileSystem
-        let graph = ModuleDependencyGraph(info, .updatingFromAPrior)
-        self.graph = graph
+        self.info = info
+        self.internedStringTable = InternedStringTable()
+      }
+      
+      private var fileSystem: FileSystem {
+        info.fileSystem
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
+        let graph = ModuleDependencyGraph(info, .updatingFromAPrior, internedStringTable, nodeFinder, fingerprintedExternalDependencies)
         for (dependencyKey, useID) in self.nodeUses {
           guard let use = self.potentiallyUsedNodes[useID] else {
             // Don't record uses of defs of removed files.
             continue
           }
-          let isNewUse = self.graph.nodeFinder
+          let isNewUse = graph.nodeFinder
             .record(def: dependencyKey, use: use)
           assert(isNewUse, "Duplicate use def-use arc in graph?")
         }
-        return self.graph
+        return graph
       }
 
       func validate(signature: Bitcode.Signature) throws {
@@ -671,15 +672,35 @@ extension ModuleDependencyGraph {
       mutating func didExitBlock() throws {}
 
       private mutating func finalize(node newNode: Node) {
-        if graph.isForRemovedInput(newNode) {
+        if isForRemovedInput(newNode) {
           // Preserve the mapping of Int to Node for reconstructing def-use links with a placeholder.
           self.potentiallyUsedNodes.append(nil)
           return
         }
         self.potentiallyUsedNodes.append(newNode)
-        let oldNode = self.graph.nodeFinder.insert(newNode)
+        let oldNode = self.nodeFinder.insert(newNode)
         assert(oldNode == nil,
                "Integrated the same node twice: \(oldNode!), \(newNode)")
+      }
+      
+      /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
+      ///
+      /// If the priors were read from an invocation containing a subsuequently removed input,
+      /// the nodes defining decls from that input must be culled.
+      ///
+      /// - Parameter node: The (deserialized) node to test.
+      /// - Returns: true iff the node corresponds to a definition on a removed source file.
+      fileprivate func isForRemovedInput(_ node: Node) -> Bool {
+        guard let fileWithDeps = node.dependencySource?.typedFile,
+              fileWithDeps.type == .swift // e.g., could be a .swiftdeps file
+        else {
+          return false
+        }
+        return !info.isPartOfBuild(SwiftSourceFile(fileWithDeps))
+      }
+      
+      func isStringIndexInRange(_ i: UInt64) -> Bool {
+        i < UInt64(internedStringTable.endIndex)
       }
 
       mutating func visit(record: BitcodeElement.Record) throws {
@@ -704,29 +725,36 @@ extension ModuleDependencyGraph {
           let kindCode = record.fields[0]
           guard record.fields.count == 7,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-                record.fields[2] < graph.internedStringTable.endIndex,
-                record.fields[3] < graph.internedStringTable.endIndex,
+                isStringIndexInRange(record.fields[2]),
+                isStringIndexInRange(record.fields[3]),
                 case .blob(let fingerprintBlob) = record.payload
           else {
             throw ReadError.malformedModuleDepGraphNodeRecord
           }
-          let context = InternedString(index: Int(record.fields[2]), table: graph.internedStringTable)
-          let identifier = InternedString(index: Int(record.fields[3]), table: graph.internedStringTable)
+          let context = InternedString(index: Int(record.fields[2]))
+          let identifier = InternedString(index: Int(record.fields[3]))
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
           let key = DependencyKey(aspect: declAspect, designator: designator)
           let hasDepSource = Int(record.fields[4]) != 0
           let depSourceIndex = hasDepSource ? Int(record.fields[5]) : nil
           let dependencySource = try depSourceIndex.map { index -> DependencySource in
-            let fileName = InternedString(index: index, table: graph.internedStringTable)
-            guard let source = DependencySource(ifAppropriateFor: try VirtualPath.intern(path: fileName.string), internedString: fileName)
+            let fileName = InternedString(index: index)
+            let fileNameString = fileName.string(in: internedStringTable)
+            guard let source = DependencySource(
+              ifAppropriateFor:
+                try VirtualPath.intern(path: fileNameString),
+                internedString: fileName)
             else {
               throw ReadError.unknownDependencySourceExtension
             }
             return source
           }
           let hasFingerprint = Int(record.fields[6]) != 0
-          let fingerprint = hasFingerprint ? String(decoding: fingerprintBlob, as: UTF8.self) : nil
+          let fingerprint = hasFingerprint
+          ? String(decoding: fingerprintBlob, as: UTF8.self)
+            .intern(in: internedStringTable)
+          : nil
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
                                    dependencySource: dependencySource))
@@ -734,13 +762,13 @@ extension ModuleDependencyGraph {
           let kindCode = record.fields[0]
           guard record.fields.count == 4,
                 let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-                record.fields[2] < graph.internedStringTable.endIndex,
-                record.fields[3] < graph.internedStringTable.endIndex
+                isStringIndexInRange(record.fields[2]),
+                isStringIndexInRange(record.fields[3])
           else {
             throw ReadError.malformedDependsOnRecord
           }
-          let context = InternedString(index: Int(record.fields[2]), table: graph.internedStringTable)
-          let identifier = InternedString(index: Int(record.fields[3]), table: graph.internedStringTable)
+          let context = InternedString(index: Int(record.fields[2]))
+          let identifier = InternedString(index: Int(record.fields[3]))
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
           self.currentDefKey = DependencyKey(aspect: declAspect, designator: designator)
@@ -751,15 +779,17 @@ extension ModuleDependencyGraph {
           self.nodeUses.append( (key, Int(record.fields[0])) )
         case .externalDepNode:
           guard record.fields.count == 2,
-                record.fields[0] < graph.internedStringTable.endIndex,
+                isStringIndexInRange(record.fields[0]),
                 case .blob(let fingerprintBlob) = record.payload
           else {
             throw ReadError.malformedExternalDepNodeRecord
           }
-          let path = InternedString(index: Int(record.fields[0]), table: graph.internedStringTable)
+          let path = InternedString(index: Int(record.fields[0]))
           let hasFingerprint = Int(record.fields[1]) != 0
-          let fingerprint = hasFingerprint ? String(decoding: fingerprintBlob, as: UTF8.self) : nil
-          self.graph.fingerprintedExternalDependencies.insert(
+          let fingerprint = hasFingerprint
+          ? String(decoding: fingerprintBlob, as: UTF8.self).intern(in: internedStringTable)
+          : nil
+          fingerprintedExternalDependencies.insert(
             FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
@@ -767,7 +797,8 @@ extension ModuleDependencyGraph {
           else {
             throw ReadError.malformedIdentifierRecord
           }
-          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(graph)
+          #warning("dmu: could save string table as-is, better yet, use index, or check it")
+          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: internedStringTable)
         }
       }
     }

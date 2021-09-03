@@ -37,7 +37,7 @@ extension ModuleDependencyGraph {
     private(set) var keyAndFingerprint: KeyAndFingerprintHolder
 
     /*@_spi(Testing)*/ public var key: DependencyKey { keyAndFingerprint.key }
-    /*@_spi(Testing)*/ public var fingerprint: String? { keyAndFingerprint.fingerprint }
+    /*@_spi(Testing)*/ public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
 
     /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
     /// If more than one source file has the same DependencyKey, then there
@@ -58,7 +58,7 @@ extension ModuleDependencyGraph {
 
     /// This dependencySource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
-    init(key: DependencyKey, fingerprint: String?,
+    init(key: DependencyKey, fingerprint: InternedString?,
          dependencySource: DependencySource?) {
       self.keyAndFingerprint = try! KeyAndFingerprintHolder(key, fingerprint)
       self.dependencySource = dependencySource

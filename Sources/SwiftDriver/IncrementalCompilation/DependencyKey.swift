@@ -18,20 +18,34 @@ import TSCBasic
 
   /// Delay computing the path as an optimization.
   let fileName: InternedString
+  let fileNameString: String // redundant, but allows caching pathHandle
+
   lazy var pathHandle = getPathHandle()
 
-  /*@_spi(Testing)*/ public init(fileName: InternedString) {
-    self.fileName = fileName
+  /*@_spi(Testing)*/ public init(
+    fileName: InternedString, _ t: InternedStringTable) {
+      self.fileName = fileName
+      self.fileNameString = fileName.string(in: t)
+  }
+  
+  public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileName == rhs.fileName
+  }
+  public static func <(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileNameString < rhs.fileNameString
+  }
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(fileName)
   }
 
   /// Should only be called by debugging functions or functions that are cached
   private func getPathHandle() -> VirtualPath.Handle? {
-    try? VirtualPath.intern(path: fileName.string)
+    try? VirtualPath.intern(path: fileNameString)
   }
 
   /// Cache this here
   var isSwiftModule: Bool {
-    fileName.string.hasSuffix(".\(FileType.swiftModule.rawValue)")
+    fileNameString.hasSuffix(".\(FileType.swiftModule.rawValue)")
   }
 
   var swiftModuleFile: TypedVirtualPath? {
@@ -66,28 +80,15 @@ import TSCBasic
     }
     ?? description
   }
-
-  public static func < (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
-    lhs.fileName < rhs.fileName
-  }
-
-  public static func == (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
-    lhs.fileName == rhs.fileName
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(fileName)
-  }
-
 }
 
 /// Since the integration surfaces all externalDependencies to be processed later,
 /// a combination of the dependency and fingerprint are needed.
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
   let externalDependency: ExternalDependency
-  let fingerprint: String?
+  let fingerprint: InternedString?
 
-  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
+  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: InternedString?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
     assert(verifyExternalDependencyAndFingerprint())
@@ -156,7 +157,7 @@ public struct DependencyKey: CustomStringConvertible {
   }
 
   /// Enumerates the current sorts of dependency nodes in the dependency graph.
-  /*@_spi(Testing)*/ public enum Designator: Hashable, CustomStringConvertible {
+  /*@_spi(Testing)*/ public enum Designator: Hashable {
     /// A top-level name.
     ///
     /// Corresponds to the top-level names that occur in a given file. When
@@ -292,22 +293,22 @@ public struct DependencyKey: CustomStringConvertible {
       }
     }
 
-    public var description: String {
+    public func description(in t: InternedStringTable) -> String {
       switch self {
       case let .topLevel(name: name):
-        return "top-level name '\(name)'"
+        return "top-level name '\(name.string(in: t))'"
       case let .nominal(context: context):
-        return "type '\(context)'"
+        return "type '\(context.string(in: t))'"
       case let .potentialMember(context: context):
-        return "potential members of '\(context)'"
+        return "potential members of '\(context.string(in: t))'"
       case let .member(context: context, name: name):
-        return "member '\(name)' of '\(context)'"
+        return "member '\(name.string(in: t))' of '\(context.string(in: t))'"
       case let .dynamicLookup(name: name):
-        return "AnyObject member '\(name)'"
+        return "AnyObject member '\(name.string(in: t))'"
       case let .externalDepend(externalDependency):
         return "import '\(externalDependency.shortDescription)'"
       case let .sourceFileProvide(name: name):
-        return "source file from \((try? VirtualPath(path: name.string).basename) ?? name.string)"
+        return "source file from \((try? VirtualPath(path: name.string(in: t)).basename) ?? name.string(in: t))"
       }
     }
   }

@@ -22,20 +22,20 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public let internedFileName: InternedString
   
   init(typedFile: TypedVirtualPath, internedFileName: InternedString) {
-    assert(typedFile.file.name == internedFileName.string)
     assert( typedFile.type == .swift ||
             typedFile.type == .swiftModule)
     self.typedFile = typedFile
     self.internedFileName = internedFileName
   }
   
-  public init(_ swiftSourceFile: SwiftSourceFile, host: ModuleDependencyGraph) {
+  public init(_ swiftSourceFile: SwiftSourceFile, _ t: InternedStringTable) {
     let typedFile = swiftSourceFile.typedFile
     self.init(typedFile: typedFile,
-              internedFileName: typedFile.file.name.intern(host))
+              internedFileName: typedFile.file.name.intern(in: t))
   }
   
-  init?(ifAppropriateFor file: VirtualPath.Handle, internedString: InternedString) {
+  init?(ifAppropriateFor file: VirtualPath.Handle,
+        internedString: InternedString) {
     let ext = VirtualPath.lookup(file).extension
     guard let type =
       ext == FileType.swift      .rawValue ? FileType.swift :
@@ -68,14 +68,14 @@ extension DependencySource {
   /// Returns nil if no dependency info there.
   public func read(
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-    host: ModuleDependencyGraph
+    internedStringTable: InternedStringTable
   ) -> SourceFileDependencyGraph? {
     guard let fileToRead = fileToRead(info: info) else {return nil}
     do {
       info.reporter?.report("Reading dependencies from \(description)")
       return try SourceFileDependencyGraph.read(from: fileToRead,
                                                 on: info.fileSystem,
-                                                host: host)
+                                                internedStringTable: internedStringTable)
     }
     catch {
       let msg = "Could not read \(fileToRead) \(error.localizedDescription)"
