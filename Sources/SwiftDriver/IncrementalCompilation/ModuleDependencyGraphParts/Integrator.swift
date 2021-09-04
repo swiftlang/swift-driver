@@ -154,7 +154,7 @@ extension ModuleDependencyGraph.Integrator {
     if matchHere.fingerprint != integrand.fingerprint {
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
-      reporter?.report("Fingerprint changed for \(matchHere)")
+      reporter?.report("Fingerprint changed for \(matchHere.description(in: destination.internedStringTable))")
     }
     return matchHere
   }

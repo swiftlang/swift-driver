@@ -95,8 +95,8 @@ extension ModuleDependencyGraph.NodeFinder {
   /// - Parameter def: The node to look up.
   /// - Returns: An array of nodes corresponding to the uses of the given
   ///            definition node.
-  func orderedUses(of def: Graph.Node) -> Array<Graph.Node> {
-    return self.uses(of: def).sorted()
+  func orderedUses(of def: Graph.Node, in t: InternedStringTable) -> Array<Graph.Node> {
+    return self.uses(of: def).sorted {isInIncreasingOrder($0, $1, in: t)}
   }
 
   func mappings(of n: Graph.Node) -> [(DependencySource?, DependencyKey)] {

@@ -38,7 +38,14 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   }
 }
 
-extension InternedString: Comparable {
+public func isInIncreasingOrder(
+  _ lhs: InternedString, _ rhs: InternedString,
+  in t: InternedStringTable
+) -> Bool {
+  lhs.lookup(in: t) < rhs.lookup(in: t)
+}
+
+extension InternedString {
   public static func < (lhs: InternedString, rhs: InternedString) -> Bool {
     lhs.index < rhs.index
   }

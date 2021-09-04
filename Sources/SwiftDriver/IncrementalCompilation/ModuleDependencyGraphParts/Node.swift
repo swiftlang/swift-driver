@@ -99,23 +99,20 @@ extension ModuleDependencyGraph.Node: Equatable, Hashable {
   }
 }
 
-extension ModuleDependencyGraph.Node: Comparable {
-  public static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
-    func lt<T: Comparable> (_ a: T?, _ b: T?) -> Bool {
-      switch (a, b) {
-      case let (x?, y?): return x < y
-      case (nil, nil): return false
-      case (nil, _?): return true
-      case (_?, nil): return false
-      }
-    }
-    return lhs.key != rhs.key ? lhs.key < rhs.key :
-      lhs.dependencySource != rhs.dependencySource
-        ? lt(lhs.dependencySource, rhs.dependencySource)
-        : lt(lhs.fingerprint, rhs.fingerprint)
+public func isInIncreasingOrder(
+  _ lhs: ModuleDependencyGraph.Node, _ rhs: ModuleDependencyGraph.Node,
+  in t: InternedStringTable
+)-> Bool {
+  if lhs.key != rhs.key {
+    return isInIncreasingOrder(lhs.key, rhs.key, in: t)
   }
+  guard let rds = rhs.dependencySource else {return false}
+  guard let lds = lhs.dependencySource else {return true}
+  guard lds == rds else {return lds < rds}
+  guard let rf = rhs.fingerprint else {return false}
+  guard let lf = lhs.fingerprint else {return true}
+  return isInIncreasingOrder(lf, rf, in: t)
 }
-
 
 extension ModuleDependencyGraph.Node {
   public func description(in t: InternedStringTable) -> String {

@@ -60,8 +60,8 @@ extension ModuleDependencyGraph.Tracer {
                diagnosticEngine: DiagnosticsEngine) {
     self.graph = graph
     // Sort so "Tracing" diagnostics are deterministically ordered
-    #warning("dmu: needed?")
-    self.startingPoints = defs.sorted()
+    #warning("dmu: needed only for testing?! remove when store string table--no, simplify back to Comparable using index")
+    self.startingPoints = defs.sorted() { isInIncreasingOrder($0, $1, in: graph.internedStringTable) }
     self.currentPathIfTracing = graph.info.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
@@ -87,7 +87,7 @@ extension ModuleDependencyGraph.Tracer {
     let pathLengthAfterArrival = traceArrival(at: definition);
     
     // If this use also provides something, follow it
-    for use in graph.nodeFinder.orderedUses(of: definition) {
+    for use in graph.nodeFinder.orderedUses(of: definition, in: graph.internedStringTable) {
       collectNextPreviouslyUntracedDependent(of: use)
     }
     traceDeparture(pathLengthAfterArrival);

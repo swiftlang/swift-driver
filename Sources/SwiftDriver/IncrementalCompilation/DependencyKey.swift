@@ -163,7 +163,7 @@ public struct DependencyKey {
   }
 
   /// Enumerates the current sorts of dependency nodes in the dependency graph.
-  /*@_spi(Testing)*/ public enum Designator: Hashable, Comparable {
+  /*@_spi(Testing)*/ public enum Designator: Hashable {
     /// A top-level name.
     ///
     /// Corresponds to the top-level names that occur in a given file. When
@@ -350,13 +350,52 @@ public struct DependencyKey {
 
 extension DependencyKey: Equatable, Hashable {}
 
-extension DependencyKey: Comparable {
-  public static func < (lhs: Self, rhs: Self) -> Bool {
-    guard lhs.aspect == rhs.aspect else {
-      return lhs.aspect < rhs.aspect
-    }
-    return lhs.designator < rhs.designator
+public func isInIncreasingOrder(_ lhs: DependencyKey,
+                                _ rhs: DependencyKey,
+                                in t: InternedStringTable) -> Bool {
+  guard lhs.aspect == rhs.aspect else {
+    return lhs.aspect < rhs.aspect
   }
+  return isInIncreasingOrder(lhs.designator, rhs.designator, in: t)
+}
+
+public func isInIncreasingOrder(_ lhs: DependencyKey.Designator,
+                                _ rhs: DependencyKey.Designator,
+                                in t: InternedStringTable) -> Bool {
+  func f(_ s: InternedString) -> String {
+    s.lookup(in: t)
+  }
+  switch (lhs, rhs) {
+  case
+    let (.topLevel(ln), .topLevel(rn)),
+    let (.dynamicLookup(ln), .dynamicLookup(rn)),
+    let (.sourceFileProvide(ln), .sourceFileProvide(rn)),
+    let (.nominal(ln), .nominal(rn)),
+    let (.potentialMember(ln), .potentialMember(rn)):
+    return f(ln) < f(rn)
+    
+  case let (.externalDepend(ld), .externalDepend(rd)):
+    return ld < rd
+    
+  case let (.member(lc, ln), .member(rc, rn)):
+    return lc == rc ? f(ln) < f(rn) : f(lc) < f(rc)
+    
+  default: break
+  }
+  
+  func g(_ gg: DependencyKey.Designator) -> Int {
+    switch gg {
+    case .topLevel: return 1
+    case .dynamicLookup: return 2
+    case .externalDepend: return 3
+    case .sourceFileProvide: return 4
+    case .nominal: return 5
+    case .potentialMember: return 6
+    case .member: return 7
+    }
+  }
+  assert(g(lhs) != g(rhs))
+  return g(lhs) < g(rhs)
 }
 
 //extension DependencyKey.Designator: Comparable {}
