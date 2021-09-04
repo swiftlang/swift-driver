@@ -117,9 +117,9 @@ extension ModuleDependencyGraph.Node: Comparable {
 }
 
 
-extension ModuleDependencyGraph.Node: CustomStringConvertible {
-  public var description: String {
-    "\(key) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
+extension ModuleDependencyGraph.Node {
+  public func description(in t: InternedStringTable) -> String {
+    "\(key.description(in:t)) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
   }
 }
 

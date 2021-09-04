@@ -258,13 +258,13 @@ extension ModuleDependencyGraph.Integrator {
   }
   mutating func addPatriated(_ node: Graph.Node) {
     if isUpdating {
-      reporter?.report("Discovered a definition for \(node)")
+      reporter?.report("Discovered a definition for \(node.description(in: destination.internedStringTable))")
       invalidatedNodes.insert(node)
     }
   }
   mutating func addNew(_ node: Graph.Node) {
     if isUpdating {
-      reporter?.report("New definition: \(node)")
+      reporter?.report("New definition: \(node.description(in: destination.internedStringTable))")
       invalidatedNodes.insert(node)
     }
   }

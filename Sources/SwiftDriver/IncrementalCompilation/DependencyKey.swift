@@ -112,9 +112,9 @@ public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDepe
   }
 }
 
-extension FingerprintedExternalDependency: CustomStringConvertible {
-  public var description: String {
-    "\(externalDependency) \(fingerprint.map {"fingerprint: \($0)"} ?? "no fingerprint")"
+extension FingerprintedExternalDependency {
+  public func description(in t: InternedStringTable) -> String {
+    "\(externalDependency) \(fingerprint.map {"fingerprint: \($0.description(in: t))"} ?? "no fingerprint")"
   }
 }
 

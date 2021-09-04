@@ -129,8 +129,8 @@ extension ModuleDependencyGraph.Tracer {
           node.dependencySource.map {
             source in
             source.typedFile.type == .swift
-            ? "\(node.key) in \(source.file.basename)"
-            : "\(node.key)"
+            ? "\(node.key.description(in: graph.internedStringTable)) in \(source.file.basename)"
+            : "\(node.key.description(in: graph.internedStringTable))"
           }
         }
         .joined(separator: " -> ")
