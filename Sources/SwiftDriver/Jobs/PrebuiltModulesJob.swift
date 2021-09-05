@@ -326,9 +326,40 @@ extension InterModuleDependencyGraph {
 
 extension Driver {
 
+  fileprivate mutating func generateABICheckJob(_ moduleName: String,
+                                                _ baselineABIDir: AbsolutePath,
+                                                _ currentABI: TypedVirtualPath) throws -> Job? {
+    let baselineABI = TypedVirtualPath(file: VirtualPath.absolute(baselineABIDir
+      .appending(component: "\(moduleName).swiftmodule")
+      .appending(component: currentABI.file.basename)).intern(), type: .jsonABIBaseline)
+    guard try localFileSystem.exists(baselineABI.file) else {
+      return nil
+    }
+    var commandLine: [Job.ArgTemplate] = []
+    commandLine.appendFlag(.diagnoseSdk)
+    commandLine.appendFlag(.inputPaths)
+    commandLine.appendPath(baselineABI.file)
+    commandLine.appendFlag(.inputPaths)
+    commandLine.appendPath(currentABI.file)
+    commandLine.appendFlag(.compilerStyleDiags)
+    commandLine.appendFlag(.abi)
+    commandLine.appendFlag(.swiftOnly)
+    commandLine.appendFlag(.printModule)
+    return Job(
+      moduleName: moduleName,
+      kind: .compareABIBaseline,
+      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
+      commandLine: commandLine,
+      inputs: [currentABI, baselineABI],
+      primaryInputs: [],
+      outputs: []
+    )
+  }
+
   private mutating func generateSingleModuleBuildingJob(_ moduleName: String,  _ prebuiltModuleDir: AbsolutePath,
                                                         _ inputPath: PrebuiltModuleInput, _ outputPath: PrebuiltModuleOutput,
-                                                        _ dependencies: [TypedVirtualPath], _ abiDumpDir: AbsolutePath?) throws -> Job {
+                                                        _ dependencies: [TypedVirtualPath], _ abiDumpDir: AbsolutePath?,
+                                                        _ abiBaselineDir: AbsolutePath?) throws -> [Job] {
     assert(inputPath.path.file.basenameWithoutExt == outputPath.path.file.basenameWithoutExt)
     var commandLine: [Job.ArgTemplate] = []
     commandLine.appendFlag(.compileModuleFromInterface)
@@ -358,6 +389,7 @@ extension Driver {
     commandLine.appendFlag(.badFileDescriptorRetryCount)
     commandLine.appendFlag("30")
     var allOutputs: [TypedVirtualPath] = [outputPath.path]
+    var allJobs: [Job] = []
     // Emit ABI descriptor if the output dir is given
     if let abiDumpDir = abiDumpDir, isFrontendArgSupported(.emitAbiDescriptorPath) {
       commandLine.appendFlag(.emitAbiDescriptorPath)
@@ -371,8 +403,12 @@ extension Driver {
       let abiPath = TypedVirtualPath(file: abiFilePath, type: .jsonABIBaseline)
       commandLine.appendPath(abiPath.file)
       allOutputs.append(abiPath)
+      if let abiBaselineDir = abiBaselineDir,
+         let abiJob = try generateABICheckJob(moduleName, abiBaselineDir, abiPath) {
+        allJobs.append(abiJob)
+      }
     }
-    return Job(
+    allJobs.append(Job(
       moduleName: moduleName,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
@@ -380,14 +416,16 @@ extension Driver {
       inputs: dependencies,
       primaryInputs: [],
       outputs: allOutputs
-    )
+    ))
+    return allJobs
   }
 
   public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
                                                            into prebuiltModuleDir: AbsolutePath,
                                                            exhaustive: Bool,
                                                            dotGraphPath: AbsolutePath? = nil,
-                                                           abiDumpDir: AbsolutePath? = nil) throws -> ([Job], [Job]) {
+                                                           abiDumpDir: AbsolutePath? = nil,
+                                                           abiBaselineDir: AbsolutePath? = nil) throws -> ([Job], [Job]) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
     // We only need Swift dependencies here, so we don't need to invoke gatherModuleDependencies,
@@ -482,9 +520,9 @@ extension Driver {
         let module = openModules[idx]
         let dependencies = getSwiftDependencies(for: module)
         try forEachInputOutputPair(module) { input, output in
-          jobs.append(try generateSingleModuleBuildingJob(module,
+          jobs.append(contentsOf: try generateSingleModuleBuildingJob(module,
             prebuiltModuleDir, input, output,
-            try getOutputPaths(withName: dependencies, loadableFor: input.arch), abiDumpDir))
+            try getOutputPaths(withName: dependencies, loadableFor: input.arch), abiDumpDir, abiBaselineDir))
         }
         // For each dependency, add to the list to handle if the list doesn't
         // contain this dependency.
@@ -512,8 +550,8 @@ extension Driver {
     try unhandledModules.forEach { moduleName in
       diagnosticEngine.emit(warning: "handle \(moduleName) as dangling jobs")
       try forEachInputOutputPair(moduleName) { input, output in
-        danglingJobs.append(try generateSingleModuleBuildingJob(moduleName,
-          prebuiltModuleDir, input, output, [], abiDumpDir))
+        danglingJobs.append(contentsOf: try generateSingleModuleBuildingJob(moduleName,
+          prebuiltModuleDir, input, output, [], abiDumpDir, abiBaselineDir))
       }
     }
 
