@@ -124,12 +124,17 @@ do {
       args.append(mcpFlag)
       args.append(mcp)
     }
+    let logDir = try getArgumentAsPath("-log-path")
+    var abiDumpDir: AbsolutePath?
+    if let logDir = logDir {
+      abiDumpDir = logDir.appending(component: "ABI")
+    }
     var driver = try Driver(args: args,
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
     let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap,
-      into: outputDir, exhaustive: !coreMode, dotGraphPath: getArgumentAsPath("-dot-graph-path"))
+      into: outputDir, exhaustive: !coreMode, dotGraphPath: getArgumentAsPath("-dot-graph-path"), abiDumpDir: abiDumpDir)
     if verbose {
       Driver.stdErrQueue.sync {
         stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
@@ -139,7 +144,7 @@ do {
     if skipExecution {
       exit(0)
     }
-    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logPath: try getArgumentAsPath("-log-path"))
+    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logPath: logDir)
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
