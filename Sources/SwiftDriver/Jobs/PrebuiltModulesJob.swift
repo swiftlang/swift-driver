@@ -355,8 +355,8 @@ extension Driver {
 
   private mutating func generateSingleModuleBuildingJob(_ moduleName: String,  _ prebuiltModuleDir: AbsolutePath,
                                                         _ inputPath: PrebuiltModuleInput, _ outputPath: PrebuiltModuleOutput,
-                                                        _ dependencies: [TypedVirtualPath], _ abiDumpDir: AbsolutePath?,
-                                                        _ abiBaselineDir: AbsolutePath?) throws -> [Job] {
+                                                        _ dependencies: [TypedVirtualPath], _ currentABIDir: AbsolutePath?,
+                                                        _ baselineABIDir: AbsolutePath?) throws -> [Job] {
     assert(inputPath.path.file.basenameWithoutExt == outputPath.path.file.basenameWithoutExt)
     var commandLine: [Job.ArgTemplate] = []
     commandLine.appendFlag(.compileModuleFromInterface)
@@ -388,10 +388,10 @@ extension Driver {
     var allOutputs: [TypedVirtualPath] = [outputPath.path]
     var allJobs: [Job] = []
     // Emit ABI descriptor if the output dir is given
-    if let abiDumpDir = abiDumpDir, isFrontendArgSupported(.emitAbiDescriptorPath) {
+    if let currentABIDir = currentABIDir, isFrontendArgSupported(.emitAbiDescriptorPath) {
       commandLine.appendFlag(.emitAbiDescriptorPath)
       // Derive ABI descritor path from the prebuilt module path.
-      let moduleABIDir = abiDumpDir.appending(component: "\(moduleName).swiftmodule")
+      let moduleABIDir = currentABIDir.appending(component: "\(moduleName).swiftmodule")
       if !localFileSystem.exists(moduleABIDir) {
         try localFileSystem.createDirectory(moduleABIDir, recursive: true)
       }
@@ -400,8 +400,8 @@ extension Driver {
       let abiPath = TypedVirtualPath(file: abiFilePath, type: .jsonABIBaseline)
       commandLine.appendPath(abiPath.file)
       allOutputs.append(abiPath)
-      if let abiBaselineDir = abiBaselineDir,
-         let abiJob = try generateABICheckJob(moduleName, abiBaselineDir, abiPath) {
+      if let baselineABIDir = baselineABIDir,
+         let abiJob = try generateABICheckJob(moduleName, baselineABIDir, abiPath) {
         allJobs.append(abiJob)
       }
     }
@@ -421,8 +421,8 @@ extension Driver {
                                                            into prebuiltModuleDir: AbsolutePath,
                                                            exhaustive: Bool,
                                                            dotGraphPath: AbsolutePath? = nil,
-                                                           abiDumpDir: AbsolutePath? = nil,
-                                                           abiBaselineDir: AbsolutePath? = nil) throws -> ([Job], [Job]) {
+                                                           currentABIDir: AbsolutePath? = nil,
+                                                           baselineABIDir: AbsolutePath? = nil) throws -> ([Job], [Job]) {
     assert(sdkPath != nil)
     // Run the dependency scanner and update the dependency oracle with the results
     // We only need Swift dependencies here, so we don't need to invoke gatherModuleDependencies,
@@ -519,7 +519,8 @@ extension Driver {
         try forEachInputOutputPair(module) { input, output in
           jobs.append(contentsOf: try generateSingleModuleBuildingJob(module,
             prebuiltModuleDir, input, output,
-            try getOutputPaths(withName: dependencies, loadableFor: input.arch), abiDumpDir, abiBaselineDir))
+            try getOutputPaths(withName: dependencies, loadableFor: input.arch),
+            currentABIDir, baselineABIDir))
         }
         // For each dependency, add to the list to handle if the list doesn't
         // contain this dependency.
@@ -548,12 +549,12 @@ extension Driver {
       diagnosticEngine.emit(warning: "handle \(moduleName) as dangling jobs")
       try forEachInputOutputPair(moduleName) { input, output in
         danglingJobs.append(contentsOf: try generateSingleModuleBuildingJob(moduleName,
-          prebuiltModuleDir, input, output, [], abiDumpDir, abiBaselineDir))
+          prebuiltModuleDir, input, output, [], currentABIDir, baselineABIDir))
       }
     }
-
     // check we've generated jobs for all inputs
-    assert(inputCount == jobs.count + danglingJobs.count)
+    assert(inputCount == jobs.filter { $0.kind == .compile }.count +
+           danglingJobs.filter { $0.kind == .compile }.count)
     return (jobs, danglingJobs)
   }
 }
