@@ -509,8 +509,10 @@ extension Driver {
     // Create directories for each Swift module
     try inputMap.forEach {
       assert(!$0.value.isEmpty)
-      try localFileSystem.createDirectory(prebuiltModuleDir
-        .appending(RelativePath($0.key + ".swiftmodule")))
+      let moduleDir = prebuiltModuleDir.appending(RelativePath($0.key + ".swiftmodule"))
+      if !localFileSystem.exists(moduleDir) {
+        try localFileSystem.createDirectory(moduleDir)
+      }
     }
 
     // Generate an outputMap from the inputMap for easy reference.
