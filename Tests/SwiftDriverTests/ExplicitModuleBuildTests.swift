@@ -926,7 +926,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     #endif
 
     func getInputModules(_ job: Job) -> [String] {
-      return job.inputs.map { input in
+      return job.inputs.filter {$0.type == .swiftModule}.map { input in
         return input.file.absolutePath!.parentDirectory.basenameWithoutExt
       }.sorted()
     }
@@ -940,7 +940,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let name = job.outputs[0].file.basenameWithoutExt
       XCTAssertTrue(job.outputs[0].file.extension == "swiftmodule")
       job.inputs.forEach { input in
-        XCTAssertTrue(input.file.extension == "swiftmodule")
+        // Inputs include all the dependencies and the interface from where
+        // the current module can be built.
+        XCTAssertTrue(input.file.extension == "swiftmodule" ||
+                      input.file.extension == "swiftinterface")
         let inputName = input.file.basenameWithoutExt
         // arm64 interface can depend on ar64e interface
         if inputName.starts(with: "arm64e-") && name.starts(with: "arm64-") {
@@ -1112,6 +1115,47 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(!H.inputs.contains { input in
         input.file.basenameWithoutExt == "arm64-apple-macos"
       })
+    }
+  }
+
+  func testABICheckWhileBuildingPrebuiltModule() throws {
+    func checkABICheckingJob(_ job: Job) throws {
+      XCTAssertTrue(job.kind == .compareABIBaseline)
+      XCTAssertTrue(job.inputs.count == 2)
+      let (baseline, current) = (job.inputs[0], job.inputs[1])
+      XCTAssertTrue(baseline.type == .jsonABIBaseline)
+      XCTAssertTrue(current.type == .jsonABIBaseline)
+      XCTAssertTrue(current.file != baseline.file)
+      XCTAssertTrue(current.file.basename == baseline.file.basename)
+    }
+    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+    let testInputsPath = packageRootPath + "/TestInputs"
+    let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
+    let baselineABIPath : String = testInputsPath + "/ABIBaselines"
+    let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, DiagnosticsEngine())
+    let interfaceMap = try collector.collectSwiftInterfaceMap()
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import A\n"
+      }
+      let moduleCachePath = "/tmp/module-cache"
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPath,
+                                     "-module-cache-path", moduleCachePath
+                                    ])
+      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                     into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                     exhaustive: true,
+                                                                     currentABIDir: path.appending(component: "ABI"),
+                                                                     baselineABIDir: VirtualPath(path: baselineABIPath).absolutePath)
+      let compileJobs = jobs.filter {$0.kind == .compile}
+      XCTAssertTrue(!compileJobs.isEmpty)
+      XCTAssertTrue(compileJobs.allSatisfy { $0.commandLine.contains(.flag("-compile-module-from-interface")) })
+      XCTAssertTrue(compileJobs.allSatisfy { $0.commandLine.contains(.flag("-emit-abi-descriptor-path")) })
+      let abiCheckJobs = jobs.filter {$0.kind == .compareABIBaseline}
+      try abiCheckJobs.forEach { try checkABICheckingJob($0) }
     }
   }
 #endif
