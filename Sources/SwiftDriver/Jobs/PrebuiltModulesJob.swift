@@ -18,17 +18,50 @@ func isIosMac(_ path: VirtualPath) -> Bool {
   return path.basenameWithoutExt.contains("macabi")
 }
 
-public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
+fileprivate func getLastInputPath(_ job: Job) -> AbsolutePath {
+  return job.inputs.last!.file.absolutePath!
+}
+
+fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ logPath: AbsolutePath?, _ stdout: Bool) throws {
+  guard let logPath = logPath else {
+    return
+  }
+  let content = stdout ? try result.utf8Output() : try result.utf8stderrOutput()
+  guard !content.isEmpty else {
+    return
+  }
+  if !localFileSystem.exists(logPath) {
+    try localFileSystem.createDirectory(logPath, recursive: true)
+  }
+  let interfaceBase = getLastInputPath(job).basename
+  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : "err").txt"
+  try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
+    $0 <<< content
+  }
+}
+
+func printJobInfo(_ job: Job, _ start: Bool, _ verbose: Bool) {
+  guard verbose else {
+    return
+  }
+  Driver.stdErrQueue.sync {
+    stderrStream <<< (start ? "started: " : "finished: ")
+    stderrStream <<< getLastInputPath(job).pathString <<< "\n"
+    stderrStream.flush()
+  }
+}
+
+fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
   var failingModules = Set<String>()
   var commandMap: [Int: String] = [:]
   let diagnosticsEngine: DiagnosticsEngine
   let verbose: Bool
   var failingCriticalOutputs: Set<VirtualPath>
   let logPath: AbsolutePath?
-  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool, logPath: AbsolutePath?) {
+  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool, _ logPath: AbsolutePath?) {
     self.diagnosticsEngine = diagnosticsEngine
     self.verbose = verbose
-    self.failingCriticalOutputs = Set<VirtualPath>(jobs.compactMap(PrebuitModuleGenerationDelegate.getCriticalOutput))
+    self.failingCriticalOutputs = Set<VirtualPath>(jobs.compactMap(ModuleCompileDelegate.getCriticalOutput))
     self.logPath = logPath
   }
 
@@ -38,64 +71,24 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     return !failingCriticalOutputs.contains(where: isIosMac)
   }
 
-  func getInputInterfacePath(_ job: Job) -> AbsolutePath {
-    for arg in job.commandLine {
-      if case .path(let p) = arg {
-        if p.extension == "swiftinterface" {
-          return p.absolutePath!
-        }
-      }
-    }
-    fatalError()
-  }
-
-  func printJobInfo(_ job: Job, _ start: Bool) {
-    guard verbose else {
-      return
-    }
-    Driver.stdErrQueue.sync {
-      stderrStream <<< (start ? "started: " : "finished: ")
-      stderrStream <<< getInputInterfacePath(job).pathString <<< "\n"
-      stderrStream.flush()
-    }
-  }
-
   static func getCriticalOutput(_ job: Job) -> VirtualPath? {
     return job.moduleName == "Foundation" ? job.outputs[0].file : nil
   }
 
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
     commandMap[pid] = arguments.reduce("") { return $0 + " " + $1 }
-    printJobInfo(job, true)
+    printJobInfo(job, true, verbose)
   }
 
   public var hasCriticalFailure: Bool {
     return !failingCriticalOutputs.isEmpty
   }
 
-  fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ stdout: Bool) throws {
-    guard let logPath = logPath else {
-      return
-    }
-    let content = stdout ? try result.utf8Output() : try result.utf8stderrOutput()
-    guard !content.isEmpty else {
-      return
-    }
-    if !localFileSystem.exists(logPath) {
-      try localFileSystem.createDirectory(logPath, recursive: true)
-    }
-    let interfaceBase = getInputInterfacePath(job).basenameWithoutExt
-    let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : "err").txt"
-    try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
-      $0 <<< content
-    }
-  }
-
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     switch result.exitStatus {
     case .terminated(code: let code):
       if code == 0 {
-        printJobInfo(job, false)
+        printJobInfo(job, false, verbose)
         failingCriticalOutputs.remove(job.outputs[0].file)
       } else {
         failingModules.insert(job.moduleName)
@@ -112,8 +105,8 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
 #endif
     }
     do {
-      try logOutput(job, result, true)
-      try logOutput(job, result, false)
+      try logOutput(job, result, logPath, true)
+      try logOutput(job, result, logPath, false)
     } catch {
       Driver.stdErrQueue.sync {
         stderrStream <<< "Failed to generate log file"
@@ -124,6 +117,80 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
 
   public func jobSkipped(job: Job) {
     diagnosticsEngine.emit(.error("\(job.moduleName) skipped"))
+  }
+  static func canHandle(job: Job) -> Bool {
+    return job.kind == .compile
+  }
+}
+
+fileprivate class ABICheckingDelegate: JobExecutionDelegate {
+  let verbose: Bool
+  let logPath: AbsolutePath?
+
+  func jobSkipped(job: Job) {}
+
+  public init(_ verbose: Bool, _ logPath: AbsolutePath?) {
+    self.verbose = verbose
+    self.logPath = logPath
+  }
+  static func canHandle(job: Job) -> Bool {
+    return job.kind == .compareABIBaseline
+  }
+
+  func jobStarted(job: Job, arguments: [String], pid: Int) {
+    printJobInfo(job, true, verbose)
+  }
+
+  func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    printJobInfo(job, false, verbose)
+    do {
+      try logOutput(job, result, logPath, false)
+    } catch {
+      Driver.stdErrQueue.sync {
+        stderrStream <<< "Failed to generate log file"
+        stderrStream.flush()
+      }
+    }
+  }
+}
+
+public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
+
+  fileprivate let compileDelegate: ModuleCompileDelegate
+  fileprivate let abiCheckDelegate: ABICheckingDelegate
+
+  private func selectDelegate(job: Job) -> JobExecutionDelegate {
+    if ModuleCompileDelegate.canHandle(job: job) {
+      return compileDelegate
+    } else if ABICheckingDelegate.canHandle(job: job) {
+      return abiCheckDelegate
+    } else {
+      fatalError("cannot handle job in PrebuitModuleGenerationDelegate")
+    }
+  }
+
+  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine,
+              _ verbose: Bool, _ logPath: AbsolutePath?) {
+    self.compileDelegate = ModuleCompileDelegate(jobs.filter(ModuleCompileDelegate.canHandle), diagnosticsEngine, verbose, logPath)
+    self.abiCheckDelegate = ABICheckingDelegate(verbose, logPath)
+  }
+
+  public func jobStarted(job: Job, arguments: [String], pid: Int) {
+    selectDelegate(job: job).jobStarted(job: job, arguments: arguments, pid: pid)
+  }
+
+  public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    selectDelegate(job: job).jobFinished(job: job, result: result, pid: pid)
+  }
+
+  public func jobSkipped(job: Job) {
+    selectDelegate(job: job).jobSkipped(job: job)
+  }
+  public var shouldRunDanglingJobs: Bool {
+    return compileDelegate.shouldRunDanglingJobs
+  }
+  public var hasCriticalFailure: Bool {
+    return compileDelegate.hasCriticalFailure
   }
 }
 
@@ -405,12 +472,14 @@ extension Driver {
         allJobs.append(abiJob)
       }
     }
+    var allInputs = dependencies
+    allInputs.append(inputPath.path)
     allJobs.append(Job(
       moduleName: moduleName,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
-      inputs: dependencies,
+      inputs: allInputs,
       primaryInputs: [],
       outputs: allOutputs
     ))
