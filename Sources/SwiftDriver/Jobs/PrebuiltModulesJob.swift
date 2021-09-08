@@ -460,7 +460,7 @@ extension Driver {
     // Emit ABI descriptor if the output dir is given
     if let currentABIDir = currentABIDir, isFrontendArgSupported(.emitAbiDescriptorPath) {
       commandLine.appendFlag(.emitAbiDescriptorPath)
-      // Derive ABI descritor path from the prebuilt module path.
+      // Derive ABI descriptor path from the prebuilt module path.
       let moduleABIDir = currentABIDir.appending(component: "\(moduleName).swiftmodule")
       if !localFileSystem.exists(moduleABIDir) {
         try localFileSystem.createDirectory(moduleABIDir, recursive: true)
