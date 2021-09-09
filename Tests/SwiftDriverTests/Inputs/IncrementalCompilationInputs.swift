@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 
 enum Inputs {
   static var buildRecord: String {

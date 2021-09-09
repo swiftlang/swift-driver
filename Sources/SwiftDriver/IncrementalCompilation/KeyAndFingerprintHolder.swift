@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 
 
 /// Encapsulates the invariant required for anything with a DependencyKey and an fingerprint

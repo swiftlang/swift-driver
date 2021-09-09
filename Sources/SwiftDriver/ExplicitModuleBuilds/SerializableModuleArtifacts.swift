@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import Foundation
 
 /// Describes a given Swift module's pre-built module artifacts:
 /// - Swift Module (name)

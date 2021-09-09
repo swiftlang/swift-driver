@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 
 /// Because the incremental compilation system treats files containing Swift source code specially,

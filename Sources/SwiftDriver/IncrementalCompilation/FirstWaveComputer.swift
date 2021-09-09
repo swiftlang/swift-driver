@@ -1,4 +1,3 @@
-import Foundation
 //===--------------- FirstWaveComputer.swift - Incremental --------------===//
 //
 // This source file is part of the Swift.org open source project
@@ -10,6 +9,8 @@ import Foundation
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
+import Foundation
 import TSCBasic
 
 extension IncrementalCompilationState {

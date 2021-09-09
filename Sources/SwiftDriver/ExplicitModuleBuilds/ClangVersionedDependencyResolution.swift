@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 
 /// A map from a module identifier to a set of module dependency graphs

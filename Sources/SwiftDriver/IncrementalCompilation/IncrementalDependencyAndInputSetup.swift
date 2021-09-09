@@ -1,5 +1,3 @@
-import Foundation
-import SwiftOptions
 //===----- IncrementalDependencyAndInputSetup.swift - Incremental --------===//
 //
 // This source file is part of the Swift.org open source project
@@ -11,7 +9,10 @@ import SwiftOptions
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
 import TSCBasic
+import Foundation
+import SwiftOptions
 
 // Initial incremental state computation
 extension IncrementalCompilationState {

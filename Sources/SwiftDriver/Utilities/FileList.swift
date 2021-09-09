@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 
 public enum FileList: Hashable {
   /// File of file paths
