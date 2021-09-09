@@ -16,7 +16,7 @@ extension ModuleDependencyGraph {
 
   /// The core information for the ModuleDependencyGraph
   /// Isolate in a sub-structure in order to faciliate invariant maintainance
-  @_spi(Testing) public struct NodeFinder {
+  public struct NodeFinder {
     @_spi(Testing) public typealias Graph = ModuleDependencyGraph
     
     /// Maps dependencySource files and DependencyKeys to Nodes
@@ -85,18 +85,6 @@ extension ModuleDependencyGraph.NodeFinder {
     }
     #endif
     return uses
-  }
-
-  /// Retrieves the set of uses corresponding to a given definition node in a
-  /// stable order dictated by the graph node's underlying data.
-  ///
-  /// - Seealso: The `Comparable` conformance for `Graph.Node`.
-  ///
-  /// - Parameter def: The node to look up.
-  /// - Returns: An array of nodes corresponding to the uses of the given
-  ///            definition node.
-  func orderedUses(of def: Graph.Node) -> Array<Graph.Node> {
-    return self.uses(of: def).sorted()
   }
 
   func mappings(of n: Graph.Node) -> [(DependencySource?, DependencyKey)] {
@@ -168,7 +156,7 @@ extension ModuleDependencyGraph.NodeFinder {
   /// Now that nodes are immutable, this function needs to replace the node
   mutating func replace(_ original: Graph.Node,
                         newDependencySource: DependencySource,
-                        newFingerprint: String?
+                        newFingerprint: InternedString?
   ) -> Graph.Node {
     let replacement = Graph.Node(key: original.key,
                                  fingerprint: newFingerprint,

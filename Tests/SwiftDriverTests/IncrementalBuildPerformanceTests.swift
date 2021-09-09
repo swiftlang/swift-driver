@@ -68,7 +68,9 @@ class IncrementalBuildPerformanceTests: XCTestCase {
 
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(options: [], outputFileMap: outputFileMap)
-    let g = ModuleDependencyGraph(info, .updatingAfterCompilation)
+
+    let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info)
+
     switch whatToMeasure {
     case .readingSwiftDeps:
       measure {readSwiftDeps(for: inputs, into: g)}

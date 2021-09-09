@@ -661,9 +661,9 @@ extension IncrementalCompilationTests {
       fingerprintsChanged("main")
       fingerprintsMissing(.topLevel(name: "foo"), "main")
       trace {
-        TraceStep(.interface, source: "main")
-        TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
-        TraceStep(.implementation, source: "other")
+        TraceStep(.interface, sourceFileProvide: "main")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: "other")
       }
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
@@ -696,8 +696,8 @@ extension IncrementalCompilationTests {
       queuingInitial("main")
       schedulingAlwaysRebuild("main")
       trace {
-        TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
-        TraceStep(.implementation, source: "other")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: "other")
       }
       foundDependent(of: "main", compiling: "other")
       schedulingChanged("main")
@@ -911,13 +911,11 @@ extension IncrementalCompilationTests {
             : [removedInput, "other"]
           for input in affectedInputs {
             trace {
-              TraceStep(.interface, source: "main")
-              TraceStep(.interface, "main", {.topLevel(name: "foo".intern($0))})
+              TraceStep(.interface, sourceFileProvide: "main")
+              TraceStep(.interface, topLevel: "foo", input: "main")
               TraceStep(.implementation,
-                        input == removedInput && afterRestoringBadPriors
-                        ? nil : input,
-                        { .sourceFileProvide(name: "\(input).swiftdeps".intern($0))}
-                        )
+                        sourceFileProvide: input,
+                        input: input == removedInput && afterRestoringBadPriors ? nil : input)
             }
           }
           let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
@@ -1159,8 +1157,8 @@ extension IncrementalCompilationTests {
 }
 
 // MARK: - Graph inspection
-fileprivate extension Driver {
-  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) throws {
+extension Driver {
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void ) throws {
     let incrementalCompilationState: IncrementalCompilationState
     do {
       incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState)
@@ -1169,7 +1167,7 @@ fileprivate extension Driver {
       XCTFail("no graph")
       throw error
     }
-    incrementalCompilationState.blockingConcurrentAccessOrMutation {$0.withModuleDependencyGraph(fn)}
+    try incrementalCompilationState.blockingConcurrentAccessOrMutation {try $0.withModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)
@@ -1184,32 +1182,32 @@ fileprivate extension ModuleDependencyGraph {
     return nodes
   }
   func contains(sourceBasenameWithoutExt target: String) -> Bool {
-    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target)}
+    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target, in: self)}
   }
   func contains(name target: String) -> Bool {
-    allNodes.contains {$0.contains(name: target)}
+    allNodes.contains {$0.contains(name: target, in: self)}
   }
   func ensureOmits(sourceBasenameWithoutExt target: String) {
     // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
-      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target),
+      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target, in: self),
                      "graph should omit source: \(target)")
     }
   }
   func ensureOmits(name: String) {
     // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
-      XCTAssertFalse(node.contains(name: name),
+      XCTAssertFalse(node.contains(name: name, in: self),
                      "graph should omit decl named: \(name)")
     }
   }
 }
 
 fileprivate extension ModuleDependencyGraph.Node {
-  func contains(sourceBasenameWithoutExt target: String) -> Bool {
+  func contains(sourceBasenameWithoutExt target: String, in g: ModuleDependencyGraph) -> Bool {
     switch key.designator {
     case .sourceFileProvide(name: let name):
-      return (try? VirtualPath(path: name.string))
+      return (try? VirtualPath(path: name.lookup(in: g)))
         .map {$0.basenameWithoutExt == target}
       ?? false
     case .externalDepend(let externalDependency):
@@ -1222,18 +1220,19 @@ fileprivate extension ModuleDependencyGraph.Node {
     }
   }
 
-  func contains(name target: String) -> Bool {
+  func contains(name target: String, in g: ModuleDependencyGraph) -> Bool {
     switch key.designator {
     case .topLevel(name: let name),
       .dynamicLookup(name: let name):
-      return name.string == target
+      return name.lookup(in: g) == target
     case .externalDepend, .sourceFileProvide:
       return false
     case .nominal(context: let context),
          .potentialMember(context: let context):
-      return context.string.range(of: target) != nil
+      return context.lookup(in: g).range(of: target) != nil
     case .member(context: let context, name: let name):
-      return context.string.range(of: target) != nil || name.string == target
+      return context.lookup(in: g).range(of: target) != nil ||
+                name.lookup(in: g) == target
     }
   }
 }
@@ -1672,24 +1671,28 @@ extension DiagVerifiable {
 }
 
 fileprivate struct TraceStep {
-  let key: DependencyKey
-  let input: String?
-  
-  static let phoneyBaloneyGraph = MockModuleDependencyGraphCreator(maxIndex: 0).mockUpAGraph()
+  let messagePart: String
 
-  init(_ aspect: DependencyKey.DeclAspect,
-       _ input: String?,
-       _ designator: (ModuleDependencyGraph) -> DependencyKey.Designator
+  init(_ aspect: DependencyKey.DeclAspect, sourceFileProvide source: String) {
+    self.init(aspect, sourceFileProvide: source, input: source)
+  }
+  init(_ aspect: DependencyKey.DeclAspect, sourceFileProvide source: String, input: String?) {
+    self.init(aspect, input: input) { t in
+        .sourceFileProvide(name: "\(source).swiftdeps".intern(in: t))
+    }
+  }
+  init(_ aspect: DependencyKey.DeclAspect, topLevel name: String, input: String) {
+    self.init(aspect, input: input) { t in
+        .topLevel(name: name.intern(in: t))
+    }
+  }
+  private init(_ aspect: DependencyKey.DeclAspect,
+       input: String?,
+       _ createDesignator: (InternedStringTable) -> DependencyKey.Designator
 ) {
-    let host = Self.phoneyBaloneyGraph
-    self.key = DependencyKey(aspect: aspect, designator: designator(host))
-    self.input = input
-  }
-  init(_ aspect: DependencyKey.DeclAspect, source: String) {
-    self.init(aspect, source,
-              {$0.sourceFileProvide(name: "\(source).swiftdeps")})
-  }
-  var messagePart: String {
-    "\(key)\(input.map {" in \($0).swift"} ?? "")"
+    let t = InternedStringTable()
+    let key = DependencyKey(aspect: aspect, designator: createDesignator(t))
+    let inputPart = input.map {" in \($0).swift"} ?? ""
+    self.messagePart = "\(key.description(in: t))\(inputPart)"
   }
 }
