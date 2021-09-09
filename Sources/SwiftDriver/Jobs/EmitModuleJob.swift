@@ -102,7 +102,7 @@ extension Driver {
   var shouldCreateEmitModuleJob: Bool {
     mutating get {
       return moduleOutputInfo.output != nil
-        && inputFiles.allSatisfy() { input in input.type == .swift } // Ignore calls for linking.
+        && inputFiles.allSatisfy() { $0.type.isPartOfSwiftCompilation } // Ignore calls for linking.
         && (forceEmitModuleBeforeCompile
             || shouldEmitModuleSeparately())
     }
