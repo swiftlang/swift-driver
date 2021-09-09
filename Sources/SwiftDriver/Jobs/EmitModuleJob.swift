@@ -80,6 +80,9 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
+    try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
+    try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
     }
@@ -102,6 +105,7 @@ extension Driver {
   var shouldCreateEmitModuleJob: Bool {
     mutating get {
       return moduleOutputInfo.output != nil
+        && inputFiles.allSatisfy() { $0.type.isPartOfSwiftCompilation } // Ignore calls for linking.
         && (forceEmitModuleBeforeCompile
             || shouldEmitModuleSeparately())
     }
@@ -111,7 +115,7 @@ extension Driver {
   mutating func shouldEmitModuleSeparately() -> Bool {
     return parsedOptions.hasFlag(positive: .emitModuleSeparately,
                                  negative: .noEmitModuleSeparately,
-                                 default: false)
+                                 default: true)
            && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
                                      negative: .noWholeModuleOptimization,
                                      default: false)
