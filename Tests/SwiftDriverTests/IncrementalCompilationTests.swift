@@ -299,10 +299,11 @@ extension IncrementalCompilationTests {
       "-module-name", module,
       "-o", derivedDataPath.appending(component: module + ".o").pathString,
       "-output-file-map", OFM.pathString,
+      "-incremental",
       "-whole-module-optimization",
       "-no-color-diagnostics",
     ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + sdkArgumentsForTesting
-    _ = try doABuild(whenAutolinking: [], expecting: [], arguments: args)
+    _ = try doABuild(whenAutolinking: [], expecting: disabledForWMO, arguments: args)
   }
 
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
@@ -1290,6 +1291,9 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func disabledForRemoval(_ removedInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"
+  }
+  @DiagsBuilder var disabledForWMO: [Diagnostic.Message] {
+    "Incremental compilation has been disabled: it is not compatible with whole module optimization"
   }
   @DiagsBuilder var savedGraphNotFromPriorBuild: [Diagnostic.Message] {
       .warning(
