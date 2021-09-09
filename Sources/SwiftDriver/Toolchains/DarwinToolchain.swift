@@ -78,6 +78,8 @@ import SwiftOptions
       return try lookup(executable: "dwarfdump")
     case .swiftHelp:
       return try lookup(executable: "swift-help")
+    case .swiftAPIDigester:
+      return try lookup(executable: "swift-api-digester")
     }
   }
 
