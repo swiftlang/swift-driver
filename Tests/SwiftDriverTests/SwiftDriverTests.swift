@@ -2252,6 +2252,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule]))
     }
+
+    do {
+      // Calls using the driver to link a library shouldn't trigger an emit-module job, like in LLDB tests.
+      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.link]))
+    }
   }
 
   func testModuleWrapJob() throws {
