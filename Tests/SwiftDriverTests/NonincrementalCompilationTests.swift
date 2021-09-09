@@ -76,12 +76,12 @@ final class NonincrementalCompilationTests: XCTestCase {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
     let typedFile = TypedVirtualPath( file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps)
-    let host = MockModuleDependencyGraphCreator(maxIndex: 0).mockUpAGraph()
+    let internedStringTable = InternedStringTable()
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
         contentsOf: typedFile,
         on: localFileSystem,
-        host: host))
+        internedStringTable: internedStringTable))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -94,21 +94,21 @@ final class NonincrementalCompilationTests: XCTestCase {
       case let (0, .sourceFileProvide(name: name)):
         saw0 = true
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(name.string, "main.swiftdeps")
-        XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
+        XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
+        XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
         XCTAssertEqual(node.defsIDependUpon, [2])
         XCTAssertTrue(node.isProvides)
       case let (1, .sourceFileProvide(name: name)):
         saw1 = true
         XCTAssertEqual(node.key.aspect, .implementation)
-        XCTAssertEqual(name.string, "main.swiftdeps")
-        XCTAssertEqual(node.fingerprint, "ec443bb982c3a06a433bdd47b85eeba2")
+        XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
+        XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
         XCTAssertEqual(node.defsIDependUpon, [])
         XCTAssertTrue(node.isProvides)
       case let (2, .topLevel(name: name)):
         saw2 = true
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(name.string, "a")
+        XCTAssertEqual(name.lookup(in: internedStringTable), "a")
         XCTAssertNil(node.fingerprint)
         XCTAssertEqual(node.defsIDependUpon, [])
         XCTAssertFalse(node.isProvides)
@@ -124,12 +124,12 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadComplexSourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftdeps"))
-    let host = MockModuleDependencyGraphCreator(maxIndex: 0).mockUpAGraph()
+    let internedStringTable = InternedStringTable()
     let graph = try XCTUnwrap(
       try SourceFileDependencyGraph(
         contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps),
         on: localFileSystem,
-        host: host))
+        internedStringTable: internedStringTable))
     XCTAssertEqual(graph.majorVersion, 1)
     XCTAssertEqual(graph.minorVersion, 0)
     XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
@@ -144,8 +144,8 @@ final class NonincrementalCompilationTests: XCTestCase {
         XCTAssertFalse(foundNode)
         foundNode = true
         XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(context.string, "5hello1BV")
-        XCTAssertEqual(name.string, "init")
+        XCTAssertEqual(context.lookup(in: internedStringTable), "5hello1BV")
+        XCTAssertEqual(name.lookup(in: internedStringTable), "init")
         XCTAssertEqual(node.defsIDependUpon, [])
         XCTAssertFalse(node.isProvides)
       }
@@ -162,11 +162,11 @@ final class NonincrementalCompilationTests: XCTestCase {
           XCTAssertFalse(foundEdge)
           foundEdge = true
 
-          XCTAssertEqual(defName.string, "/Users/owenvoorhees/Desktop/hello.swiftdeps")
-          XCTAssertEqual(defNode.fingerprint, "38b457b424090ac2e595be0e5f7e3b5b")
+          XCTAssertEqual(defName.lookup(in: internedStringTable), "/Users/owenvoorhees/Desktop/hello.swiftdeps")
+          XCTAssertEqual(defNode.fingerprint?.lookup(in: internedStringTable), "38b457b424090ac2e595be0e5f7e3b5b")
 
-          XCTAssertEqual(useContext.string, "5hello1AC")
-          XCTAssertEqual(useNode.fingerprint, "b83bbc0b4b0432dbfabff6556a3a901f")
+          XCTAssertEqual(useContext.lookup(in: internedStringTable), "5hello1AC")
+          XCTAssertEqual(useNode.fingerprint?.lookup(in: internedStringTable), "b83bbc0b4b0432dbfabff6556a3a901f")
 
         default:
           XCTFail()
@@ -180,9 +180,9 @@ final class NonincrementalCompilationTests: XCTestCase {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftmodule"))
     let data = try localFileSystem.readFileContents(absolutePath)
-    let host = MockModuleDependencyGraphCreator(maxIndex: 0).mockUpAGraph()
+    let internedStringTable = InternedStringTable()
     let graph = try XCTUnwrap(
-      try SourceFileDependencyGraph(host: host,
+      try SourceFileDependencyGraph(internedStringTable: internedStringTable,
                                     data: data,
                                     fromSwiftModule: true))
     XCTAssertEqual(graph.majorVersion, 1)
@@ -193,7 +193,7 @@ final class NonincrementalCompilationTests: XCTestCase {
     // Check that a node chosen at random appears as expected.
     var foundNode = false
     graph.forEachNode { node in
-      if case .nominal(context: "5hello3FooV".intern(host)) = node.key.designator,
+      if case .nominal(context: "5hello3FooV".intern(in: internedStringTable)) = node.key.designator,
          node.sequenceNumber == 4
       {
         XCTAssertFalse(foundNode)

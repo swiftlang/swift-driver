@@ -48,36 +48,33 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
     }
   }
 
-  func roundTrip(_ graph: ModuleDependencyGraph) throws {
+  func roundTrip(_ originalGraph: ModuleDependencyGraph) throws {
     let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
     let fs = InMemoryFileSystem()
-    try graph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
+    try originalGraph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
 
     let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
     let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
                                                            info: .mock(outputFileMap: outputFileMap, fileSystem: fs))!
-    var originalNodes = Set<ModuleDependencyGraph.Node>()
-    graph.nodeFinder.forEachNode {
-      originalNodes.insert($0)
+ 
+    let descsToCompare = [originalGraph, deserializedGraph].map {
+      graph -> (nodes: Set<String>, uses: [String: Set<String>], feds: Set<String>) in
+      var nodes = Set<String>()
+      graph.nodeFinder.forEachNode {
+        nodes.insert($0.description(in: graph))
+      }
+      let uses: [String: Set<String>] = graph.nodeFinder.usesByDef.reduce(into: Dictionary()) { usesByDef, keyAndNodes in
+        usesByDef[keyAndNodes.0.description(in: graph)] =
+        keyAndNodes.1.reduce(into: Set()) { $0.insert($1.description(in: graph))}
+      }
+      let feds: Set<String> = graph.fingerprintedExternalDependencies.reduce(into: Set()) {
+        $0.insert($1.description(in: graph))
+      }
+      return (nodes, uses, feds)
     }
-
-    var deserializedNodes = Set<ModuleDependencyGraph.Node>()
-    deserializedGraph.nodeFinder.forEachNode {
-      deserializedNodes.insert($0)
-    }
-
-    failIfUnequalAcrossGraphs( (name:     "originalNodes", originalNodes),
-                               (name: "deserializedNodes", deserializedNodes),
-                               whatFailed: "Round trip")
-
-    failIfUnequalAcrossGraphs( (name:     "original usesByDef",             graph.nodeFinder.usesByDef),
-                               (name: "deserialized usesByDef", deserializedGraph.nodeFinder.usesByDef),
-                               whatFailed: "Round trip",
-                               compareBy: {"\($0.0.description): \($0.1.map{$0.description}.sorted())"})
-
-    failIfUnequalAcrossGraphs( (name:     "original fingerprintedExternalDependencies",             graph.fingerprintedExternalDependencies),
-                               (name: "deserialized fingerprintedExternalDependencies", deserializedGraph.fingerprintedExternalDependencies),
-                               whatFailed: "Round trip")
+    XCTAssertEqual(descsToCompare[0].nodes, descsToCompare[1].nodes, "Round trip node difference!")
+    XCTAssertEqual(descsToCompare[0].uses,  descsToCompare[1].uses, "Round trip def-uses difference!")
+    XCTAssertEqual(descsToCompare[0].feds,  descsToCompare[1].feds, "Round trip fingerprinted external dependency difference!")
   }
 
   func testRoundTripFixtures() throws {
