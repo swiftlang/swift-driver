@@ -174,8 +174,10 @@ extension IncrementalCompilationState.ProtectedState {
 }
 // MARK: - Testing - (must be here to access graph safely)
 extension IncrementalCompilationState.ProtectedState {
-  @_spi(Testing) public mutating func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) {
+  @_spi(Testing) public mutating func withModuleDependencyGraph(
+    _ fn: (ModuleDependencyGraph) throws -> Void
+  ) rethrows {
     checkMutation()
-    fn(moduleDependencyGraph)
+    try fn(moduleDependencyGraph)
   }
 }

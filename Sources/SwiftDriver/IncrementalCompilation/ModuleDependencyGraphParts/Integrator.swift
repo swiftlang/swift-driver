@@ -82,6 +82,7 @@ extension ModuleDependencyGraph.Integrator {
     dependencySource: DependencySource,
     into destination: Graph
   ) -> DirectlyInvalidatedNodeSet {
+    precondition(g.internedStringTable === destination.internedStringTable)
     var integrator = Self(sourceGraph: g,
                           dependencySource: dependencySource,
                           destination: destination)
@@ -90,7 +91,8 @@ extension ModuleDependencyGraph.Integrator {
     if destination.info.verifyDependencyGraphAfterEveryImport {
       integrator.verifyAfterImporting()
     }
-    destination.dotFileWriter?.write(g, for: dependencySource.typedFile, host: destination)
+    destination.dotFileWriter?.write(g, for: dependencySource.typedFile,
+                                     internedStringTable: destination.internedStringTable)
     destination.dotFileWriter?.write(destination)
     return integrator.invalidatedNodes
   }
@@ -152,7 +154,7 @@ extension ModuleDependencyGraph.Integrator {
     if matchHere.fingerprint != integrand.fingerprint {
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
-      reporter?.report("Fingerprint changed for \(matchHere)")
+      reporter?.report("Fingerprint changed for \(matchHere.description(in: destination))")
     }
     return matchHere
   }
@@ -256,13 +258,13 @@ extension ModuleDependencyGraph.Integrator {
   }
   mutating func addPatriated(_ node: Graph.Node) {
     if isUpdating {
-      reporter?.report("Discovered a definition for \(node)")
+      reporter?.report("Discovered a definition for \(node.description(in: destination))")
       invalidatedNodes.insert(node)
     }
   }
   mutating func addNew(_ node: Graph.Node) {
     if isUpdating {
-      reporter?.report("New definition: \(node)")
+      reporter?.report("New definition: \(node.description(in: destination))")
       invalidatedNodes.insert(node)
     }
   }

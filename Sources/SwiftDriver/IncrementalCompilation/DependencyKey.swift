@@ -18,20 +18,39 @@ import TSCBasic
 
   /// Delay computing the path as an optimization.
   let fileName: InternedString
+  let fileNameString: String // redundant, but allows caching pathHandle
+
   lazy var pathHandle = getPathHandle()
 
-  /*@_spi(Testing)*/ public init(fileName: InternedString) {
-    self.fileName = fileName
+  /*@_spi(Testing)*/ public init(
+    fileName: InternedString, _ t: InternedStringTable) {
+      self.fileName = fileName
+      self.fileNameString = fileName.lookup(in: t)
+  }
+  
+  static var dummy: Self {
+    let t = InternedStringTable()
+    return Self(fileName: ".".intern(in: t), t)
+  }
+  
+  public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileName == rhs.fileName
+  }
+  public static func <(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileNameString < rhs.fileNameString
+  }
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(fileName)
   }
 
   /// Should only be called by debugging functions or functions that are cached
   private func getPathHandle() -> VirtualPath.Handle? {
-    try? VirtualPath.intern(path: fileName.string)
+    try? VirtualPath.intern(path: fileNameString)
   }
 
   /// Cache this here
   var isSwiftModule: Bool {
-    fileName.string.hasSuffix(".\(FileType.swiftModule.rawValue)")
+    fileNameString.hasSuffix(".\(FileType.swiftModule.rawValue)")
   }
 
   var swiftModuleFile: TypedVirtualPath? {
@@ -50,13 +69,7 @@ import TSCBasic
     guard let path = path else {
       return "non-path: '\(fileName)'"
     }
-    switch path.extension {
-    case FileType.swiftModule.rawValue:
-      // Swift modules have an extra component at the end that is not descriptive
-      return path.parentDirectory.basename
-    default:
-      return path.basename
-    }
+    return path.externalDependencyPathDescription
   }
 
   public var shortDescription: String {
@@ -66,28 +79,27 @@ import TSCBasic
     }
     ?? description
   }
+}
 
-  public static func < (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
-    lhs.fileName < rhs.fileName
+extension VirtualPath {
+  var externalDependencyPathDescription: String {
+    switch self.extension {
+    case FileType.swiftModule.rawValue:
+      // Swift modules have an extra component at the end that is not descriptive
+      return parentDirectory.basename
+    default:
+      return basename
+    }
   }
-
-  public static func == (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
-    lhs.fileName == rhs.fileName
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(fileName)
-  }
-
 }
 
 /// Since the integration surfaces all externalDependencies to be processed later,
 /// a combination of the dependency and fingerprint are needed.
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
   let externalDependency: ExternalDependency
-  let fingerprint: String?
+  let fingerprint: InternedString?
 
-  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
+  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: InternedString?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
     assert(verifyExternalDependencyAndFingerprint())
@@ -105,16 +117,16 @@ public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDepe
   }
 }
 
-extension FingerprintedExternalDependency: CustomStringConvertible {
-  public var description: String {
-    "\(externalDependency) \(fingerprint.map {"fingerprint: \($0)"} ?? "no fingerprint")"
+extension FingerprintedExternalDependency {
+  public func description(in holder: InternedStringTableHolder) -> String {
+    "\(externalDependency) \(fingerprint.map {"fingerprint: \($0.description(in: holder))"} ?? "no fingerprint")"
   }
 }
 
 /// A `DependencyKey` carries all of the information necessary to uniquely
 /// identify a dependency node in the graph, and serves as a point of identity
 /// for the dependency graph's map from definitions to uses.
-public struct DependencyKey: CustomStringConvertible {
+public struct DependencyKey {
   /// Captures which facet of the dependency structure a dependency key represents.
   ///
   /// A `DeclAspect` is used to separate dependencies with a scope limited to
@@ -156,7 +168,7 @@ public struct DependencyKey: CustomStringConvertible {
   }
 
   /// Enumerates the current sorts of dependency nodes in the dependency graph.
-  /*@_spi(Testing)*/ public enum Designator: Hashable, CustomStringConvertible {
+  /*@_spi(Testing)*/ public enum Designator: Hashable {
     /// A top-level name.
     ///
     /// Corresponds to the top-level names that occur in a given file. When
@@ -292,22 +304,22 @@ public struct DependencyKey: CustomStringConvertible {
       }
     }
 
-    public var description: String {
+    public func description(in holder: InternedStringTableHolder) -> String {
       switch self {
       case let .topLevel(name: name):
-        return "top-level name '\(name)'"
+        return "top-level name '\(name.lookup(in: holder))'"
       case let .nominal(context: context):
-        return "type '\(context)'"
+        return "type '\(context.lookup(in: holder))'"
       case let .potentialMember(context: context):
-        return "potential members of '\(context)'"
+        return "potential members of '\(context.lookup(in: holder))'"
       case let .member(context: context, name: name):
-        return "member '\(name)' of '\(context)'"
+        return "member '\(name.lookup(in: holder))' of '\(context.lookup(in: holder))'"
       case let .dynamicLookup(name: name):
-        return "AnyObject member '\(name)'"
+        return "AnyObject member '\(name.lookup(in: holder))'"
       case let .externalDepend(externalDependency):
         return "import '\(externalDependency.shortDescription)'"
       case let .sourceFileProvide(name: name):
-        return "source file from \((try? VirtualPath(path: name.string).basename) ?? name.string)"
+        return "source file from \((try? VirtualPath(path: name.lookup(in: holder)).basename) ?? name.lookup(in: holder))"
       }
     }
   }
@@ -330,8 +342,8 @@ public struct DependencyKey: CustomStringConvertible {
     return Self(aspect: .implementation, designator: designator)
   }
 
-  public var description: String {
-    "\(aspect) of \(designator)"
+  public func description(in holder: InternedStringTableHolder) -> String {
+    "\(aspect) of \(designator.description(in: holder))"
   }
 
   @discardableResult
@@ -341,16 +353,60 @@ public struct DependencyKey: CustomStringConvertible {
   }
 }
 
-extension DependencyKey: Equatable, Hashable, Comparable {
-  public static func < (lhs: Self, rhs: Self) -> Bool {
-    guard lhs.aspect == rhs.aspect else {
-      return lhs.aspect < rhs.aspect
-    }
-    return lhs.designator < rhs.designator
+extension DependencyKey: Equatable, Hashable {}
+
+/// See ``ModuleDependencyGraph/Node/isInIncreasingOrder(::in:)``
+public func isInIncreasingOrder(_ lhs: DependencyKey,
+                                _ rhs: DependencyKey,
+                                in holder: InternedStringTableHolder) -> Bool {
+  guard lhs.aspect == rhs.aspect else {
+    return lhs.aspect < rhs.aspect
   }
+  return isInIncreasingOrder(lhs.designator, rhs.designator, in: holder)
 }
 
-extension DependencyKey.Designator: Comparable {}
+/// Takes the place of `<` by expanding the interned strings.
+public func isInIncreasingOrder(_ lhs: DependencyKey.Designator,
+                                _ rhs: DependencyKey.Designator,
+                                in holder: InternedStringTableHolder) -> Bool {
+  func f(_ s: InternedString) -> String {
+    s.lookup(in: holder)
+  }
+  switch (lhs, rhs) {
+  case
+    let (.topLevel(ln), .topLevel(rn)),
+    let (.dynamicLookup(ln), .dynamicLookup(rn)),
+    let (.sourceFileProvide(ln), .sourceFileProvide(rn)),
+    let (.nominal(ln), .nominal(rn)),
+    let (.potentialMember(ln), .potentialMember(rn)):
+    return f(ln) < f(rn)
+    
+  case let (.externalDepend(ld), .externalDepend(rd)):
+    return ld < rd
+    
+  case let (.member(lc, ln), .member(rc, rn)):
+    return lc == rc ? f(ln) < f(rn) : f(lc) < f(rc)
+    
+  default: break
+  }
+  
+  /// Preserves the ordering that obtained before interned strings were introduced.
+  func kindOrdering(_ d: DependencyKey.Designator) -> Int {
+    switch d {
+    case .topLevel: return 1
+    case .dynamicLookup: return 2
+    case .externalDepend: return 3
+    case .sourceFileProvide: return 4
+    case .nominal: return 5
+    case .potentialMember: return 6
+    case .member: return 7
+    }
+  }
+  assert(kindOrdering(lhs) != kindOrdering(rhs))
+  return kindOrdering(lhs) < kindOrdering(rhs)
+}
+
+//extension DependencyKey.Designator: Comparable {}
 
 // MARK: - InvalidationReason
 extension ExternalDependency {
@@ -367,30 +423,5 @@ extension ExternalDependency {
     case testing
 
     public var description: String { rawValue }
-  }
-}
-
-// MARK: - creating Designators from Strings
-public extension ModuleDependencyGraph {
-  func topLevel(name: String) -> DependencyKey.Designator {
-    .topLevel(name: name.intern(self))
-  }
-  func dynamicLookup(name: String)  -> DependencyKey.Designator {
-    .dynamicLookup(name: name.intern(self))
-  }
-  func externalDepend(ed: ExternalDependency) -> DependencyKey.Designator {
-    .externalDepend(ed)
-  }
-  func sourceFileProvide(name: String) -> DependencyKey.Designator {
-    .sourceFileProvide(name: name.intern(self))
-  }
-  func nominal(context: String) -> DependencyKey.Designator {
-    .nominal(context: context.intern(self))
-  }
-  func potentialMember(context: String) -> DependencyKey.Designator {
-    .potentialMember(context: context.intern(self))
-  }
-  func member(context: String, name: String) -> DependencyKey.Designator {
-    .member(context: context.intern(self), name: name.intern(self))
   }
 }

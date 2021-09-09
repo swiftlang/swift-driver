@@ -12,45 +12,60 @@
 
 import Foundation
 
-public struct InternedString: Hashable, Comparable, CustomStringConvertible {
-  let index: Int
-  let table: InternedStringTable
+public protocol InternedStringTableHolder {
+  var internedStringTable: InternedStringTable {get}
+}
+
+public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   
-  fileprivate init(_ s: String, host: ModuleDependencyGraph) {
-    let t = host.internedStringTable
-    self.init(index: s.isEmpty ? 0 : t.index(s),
-              table: t)
+  let index: Int
+  
+  fileprivate init(_ s: String, _ table: InternedStringTable) {
+    self.init(index: s.isEmpty ? 0 : table.index(s))
   }
   
   public var isEmpty: Bool { index == 0 }
   
   // PRIVATE?
-  init(index: Int, table: InternedStringTable) {
+  init(index: Int) {
     self.index = index
-    self.table = table
   }
   
-  public var string: String { table.string(index) }
-    
-  public static func ==(lhs: Self, rhs: Self) -> Bool {
-    assert(lhs.table === rhs.table)
-    return lhs.index == rhs.index
+  public static var empty: Self {
+    let r = Self(index: 0)
+    assert(r.isEmpty)
+    return r
   }
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(index)
+
+  public func lookup(`in` holder: InternedStringTableHolder) -> String {
+    holder.internedStringTable.strings[index]
   }
-  public static func <(lhs: Self, rhs: Self) -> Bool {
-    assert(lhs.table === rhs.table)
-    return lhs.string < rhs.string
+  
+  public var description: String { "<<\(index)>>" }
+  
+  public func description(in holder: InternedStringTableHolder) -> String {
+    "\(lookup(in: holder))\(description)"
   }
-    
-  public var description: String { string }
+}
+
+/// Like `<`, but refers to the looked-up strings.
+public func isInIncreasingOrder(
+  _ lhs: InternedString, _ rhs: InternedString,
+  in holder: InternedStringTableHolder
+) -> Bool {
+  lhs.lookup(in: holder) < rhs.lookup(in: holder)
+}
+
+extension InternedString {
+  public static func < (lhs: InternedString, rhs: InternedString) -> Bool {
+    lhs.index < rhs.index
+  }
 }
 
 /// Hardcode empty as 0
 public class InternedStringTable {
   var strings = [""]
-  private var indices = ["": 0]
+  fileprivate var indices = ["": 0]
   
   public init() {}
   
@@ -62,15 +77,16 @@ public class InternedStringTable {
     return i
   }
   
-  fileprivate func string(_ i: Int) -> String {
-    strings[i]
-  }
-  
   var endIndex: Int { strings.count }
 }
 
+extension InternedStringTable: InternedStringTableHolder {
+  public var internedStringTable: InternedStringTable {self}
+
+}
+
 public extension StringProtocol {
-  func intern(_ g: ModuleDependencyGraph) -> InternedString {
-    InternedString(String(self), host: g)
+  func intern(in holder: InternedStringTableHolder) -> InternedString {
+    InternedString(String(self), holder.internedStringTable)
   }
 }
