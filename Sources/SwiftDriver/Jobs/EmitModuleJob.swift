@@ -80,6 +80,9 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
+    try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
+    try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
     }
