@@ -319,10 +319,20 @@ public extension Driver {
     } else {
       sharedLibExt = ".so"
     }
-    return try getRootPath(of: toolchain, env: env).appending(component: "lib")
+    let libScanner = "lib_InternalSwiftScan\(sharedLibExt)"
+    // We first look into position in toolchain
+    var libPath
+     = try getRootPath(of: toolchain, env: env).appending(component: "lib")
       .appending(component: "swift")
       .appending(component: hostTriple.osNameUnversioned)
-      .appending(component: "lib_InternalSwiftScan" + sharedLibExt)
+      .appending(component: libScanner)
+    if localFileSystem.exists(libPath) {
+        return libPath
+    }
+    // In case we are using a compiler from the build dir, we should also try
+    // this path.
+    return try getRootPath(of: toolchain, env: env).appending(component: "lib")
+      .appending(component: libScanner)
   }
 
   fileprivate static func getRootPath(of toolchain: Toolchain, env: [String: String])
