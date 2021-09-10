@@ -763,7 +763,7 @@ extension ModuleDependencyGraph {
         
         func stringIndex(field i: Int) throws -> Int {
           let u = record.fields[i]
-          guard u < UInt64(internedStringTable.endIndex) else {
+          guard u < UInt64(internedStringTable.count) else {
             throw malformedError
           }
           return Int(u)
@@ -775,18 +775,18 @@ extension ModuleDependencyGraph {
           let s = try internedString(field: i)
           return s.isEmpty ? nil : s
         }
-        func dependencyKey(fields: (kindCode: Int,
-                                    declAspect: Int,
-                                    context: Int,
-                                    identifier: Int)
+        func dependencyKey(kindCodeField: Int,
+                           declAspectField: Int,
+                           contextField: Int,
+                           identifierField: Int
         ) throws -> DependencyKey {
-          let kindCode = record.fields[fields.kindCode]
-          guard let declAspect = DependencyKey.DeclAspect(record.fields[fields.declAspect])
+          let kindCode = record.fields[kindCodeField]
+          guard let declAspect = DependencyKey.DeclAspect(record.fields[declAspectField])
           else {
             throw malformedError
           }
-          let context = try internedString(field: fields.context)
-          let identifier = try internedString(field: fields.identifier)
+          let context = try internedString(field: contextField)
+          let identifier = try internedString(field: identifierField)
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier,
             internedStringTable: internedStringTable, fileSystem: fileSystem)
@@ -805,13 +805,18 @@ extension ModuleDependencyGraph {
 
           self.majorVersion = record.fields[0]
           self.minorVersion = record.fields[1]
+          let stringCount = record.fields[2]
+          internedStringTable.reserveCapacity(Int(stringCount))
           self.compilerVersionString = String(decoding: compilerVersionBlob, as: UTF8.self)
         case .moduleDepGraphNode:
            guard record.fields.count == 6
           else {
             throw malformedError
           }
-          let key = try dependencyKey(fields: (0, 1, 2, 3))
+          let key = try dependencyKey(kindCodeField: 0,
+                                      declAspectField: 1,
+                                      contextField: 2,
+                                      identifierField: 3)
           let depSourceFileOrNone = try nonemptyInternedString(field: 4)
           let depSource = try depSourceFileOrNone.map {
             internedFile -> DependencySource in
@@ -833,7 +838,11 @@ extension ModuleDependencyGraph {
           else {
             throw malformedError
           }
-          self.currentDefKey = try dependencyKey(fields: (0, 1, 2, 3))
+          self.currentDefKey = try dependencyKey(
+            kindCodeField: 0,
+            declAspectField: 1,
+            contextField: 2,
+            identifierField: 3)
         case .useIDNode:
           guard let key = self.currentDefKey,
                   record.fields.count == 1 else {
@@ -1025,6 +1034,7 @@ extension ModuleDependencyGraph {
         $0.append(RecordID.metadata)
         $0.append(serializedGraphVersion.majorForWriting)
         $0.append(serializedGraphVersion.minorForWriting)
+        $0.append(min(UInt(internedStringTable.count), UInt(UInt32.max)))
       },
       blob: self.compilerVersion)
     }
@@ -1068,6 +1078,8 @@ extension ModuleDependencyGraph {
         .fixed(bitWidth: 16),
         // Minor version
         .fixed(bitWidth: 16),
+        // Number of strings to be interned
+        .fixed(bitWidth: 32),
         // Frontend version
         .blob,
       ])

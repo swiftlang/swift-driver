@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-
 public protocol InternedStringTableHolder {
   var internedStringTable: InternedStringTable {get}
 }
@@ -21,7 +19,7 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   let index: Int
   
   fileprivate init(_ s: String, _ table: InternedStringTable) {
-    self.init(index: s.isEmpty ? 0 : table.index(s))
+    self.init(index: s.isEmpty ? 0 : table.intern(s))
   }
   
   public var isEmpty: Bool { index == 0 }
@@ -37,7 +35,7 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
     return r
   }
 
-  public func lookup(`in` holder: InternedStringTableHolder) -> String {
+  public func lookup(in holder: InternedStringTableHolder) -> String {
     holder.internedStringTable.strings[index]
   }
   
@@ -56,12 +54,6 @@ public func isInIncreasingOrder(
   lhs.lookup(in: holder) < rhs.lookup(in: holder)
 }
 
-extension InternedString {
-  public static func < (lhs: InternedString, rhs: InternedString) -> Bool {
-    lhs.index < rhs.index
-  }
-}
-
 /// Hardcode empty as 0
 public class InternedStringTable {
   var strings = [""]
@@ -69,7 +61,7 @@ public class InternedStringTable {
   
   public init() {}
   
-  fileprivate func index(_ s: String) -> Int {
+  fileprivate func intern(_ s: String) -> Int {
     if let i = indices[s] { return i }
     let i = strings.count
     strings.append(s)
@@ -77,7 +69,13 @@ public class InternedStringTable {
     return i
   }
   
-  var endIndex: Int { strings.count }
+  var count: Int { strings.count }
+  
+  func reserveCapacity(_ minimumCapacity: Int) {
+    strings.reserveCapacity(minimumCapacity)
+    indices.reserveCapacity(minimumCapacity)
+  }
+
 }
 
 extension InternedStringTable: InternedStringTableHolder {
