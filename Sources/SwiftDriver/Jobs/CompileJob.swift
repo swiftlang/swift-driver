@@ -347,6 +347,7 @@ extension Driver {
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityConcurrency, from: &parsedOptions)
 
     if compilerMode.isSingleCompilation {
       try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
