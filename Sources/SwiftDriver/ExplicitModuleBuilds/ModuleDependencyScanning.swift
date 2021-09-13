@@ -41,8 +41,7 @@ public extension Driver {
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
-  @_spi(Testing) public mutating func dependencyScannerInvocationCommand()
-  throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
+  mutating func dependencyScannerInvocationCommand() throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -322,7 +321,7 @@ public extension Driver {
     }
     let libScanner = "lib_InternalSwiftScan\(sharedLibExt)"
     // We first look into position in toolchain
-    var libPath
+    let libPath
      = try getRootPath(of: toolchain, env: env).appending(component: "lib")
       .appending(component: "swift")
       .appending(component: hostTriple.osNameUnversioned)
