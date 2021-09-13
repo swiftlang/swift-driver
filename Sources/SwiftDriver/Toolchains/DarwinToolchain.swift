@@ -336,6 +336,18 @@ public final class DarwinToolchain: Toolchain {
       commandLine.append(.flag("-target-variant-sdk-version"))
       commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).description))
     }
+    // We should be able to pass down prebuilt module dir for all other SDKs.
+    // For macCatalyst, doing so is specifically necessary because -target-sdk-version
+    // doesn't always match the macosx sdk version so the compiler may fail to find
+    // the prebuilt module in the versioned sub-dir.
+    if frontendTargetInfo.target.triple.isMacCatalyst {
+      commandLine.appendFlag(.prebuiltModuleCachePath)
+      commandLine.appendPath(try getToolPath(.swiftCompiler).parentDirectory/*bin*/
+        .parentDirectory/*usr*/
+        .appending(component: "lib").appending(component: "swift")
+        .appending(component: "macosx").appending(component: "prebuilt-modules")
+        .appending(component: sdkInfo.versionString))
+    }
   }
 }
 
