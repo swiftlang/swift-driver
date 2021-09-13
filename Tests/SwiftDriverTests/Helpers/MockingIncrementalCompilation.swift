@@ -13,7 +13,6 @@
 @_spi(Testing) import SwiftDriver
 import TSCBasic
 import TSCUtility
-import Foundation
 import XCTest
 
 // MARK: - utilities for unit testing

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 
 enum ModuleDependenciesInputs {
   static var fastDependencyScannerOutput: String {

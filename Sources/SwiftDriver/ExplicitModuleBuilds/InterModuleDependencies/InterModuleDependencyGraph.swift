@@ -9,7 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import Foundation
+
 /// A map from a module identifier to its info
 public typealias ModuleInfoMap = [ModuleDependencyId: ModuleInfo]
 

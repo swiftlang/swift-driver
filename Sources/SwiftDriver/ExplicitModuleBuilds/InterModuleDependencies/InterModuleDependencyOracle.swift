@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+import Dispatch
 
 // An inter-module dependency oracle, responsible for responding to queries about
 // dependencies of a given module, caching already-discovered dependencies along the way.

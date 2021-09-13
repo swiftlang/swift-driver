@@ -9,9 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
+import Dispatch
 import TSCBasic
 import TSCUtility
-import Foundation
 import SwiftOptions
 
 /// An instance of `IncrementalCompilationState` encapsulates the data necessary

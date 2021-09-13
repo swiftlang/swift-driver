@@ -14,7 +14,6 @@ import TSCBasic
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TestUtilities
-import Foundation
 import XCTest
 
 /// Represents a module to be compiled.

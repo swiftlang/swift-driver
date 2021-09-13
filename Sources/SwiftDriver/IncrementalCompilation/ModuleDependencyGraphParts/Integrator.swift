@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
 
 extension ModuleDependencyGraph {
 
