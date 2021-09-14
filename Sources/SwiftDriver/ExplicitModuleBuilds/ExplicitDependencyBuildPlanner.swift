@@ -324,7 +324,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
           let dependencyClangModuleDetails =
             try dependencyGraph.clangModuleDetails(of: dependencyId)
-          let moduleMapPath = dependencyClangModuleDetails.moduleMapPath.path
           let clangModulePath =
             try targetEncodedClangModuleFilePath(for: dependencyInfo,
                                                  hashParts: getPCMHashParts(pcmArgs: pcmArgs,
