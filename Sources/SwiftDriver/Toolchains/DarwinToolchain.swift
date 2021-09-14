@@ -339,7 +339,8 @@ public final class DarwinToolchain: Toolchain {
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
-    frontendTargetInfo: FrontendTargetInfo
+    frontendTargetInfo: FrontendTargetInfo,
+    driver: Driver
   ) throws {
     guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
@@ -352,8 +353,10 @@ public final class DarwinToolchain: Toolchain {
       commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).description))
     }
 
-    commandLine.append(.flag("-target-sdk-name"))
-    commandLine.append(.flag(sdkInfo.canonicalName))
+    if driver.isFrontendArgSupported(.targetSdkName) {
+      commandLine.append(.flag(Option.targetSdkName.spelling))
+      commandLine.append(.flag(sdkInfo.canonicalName))
+    }
 
     // We should be able to pass down prebuilt module dir for all other SDKs.
     // For macCatalyst, doing so is specifically necessary because -target-sdk-version

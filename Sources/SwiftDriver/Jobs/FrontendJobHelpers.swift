@@ -291,7 +291,8 @@ extension Driver {
 
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
-                                                           frontendTargetInfo: frontendTargetInfo)
+                                                           frontendTargetInfo: frontendTargetInfo,
+                                                           driver: self)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],

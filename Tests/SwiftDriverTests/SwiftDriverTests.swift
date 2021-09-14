@@ -3091,10 +3091,12 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-sdk-version"),
           .flag("10.15.0")
         ]))
-        XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
-          .flag("-target-sdk-name"),
-          .flag("macosx10.15"),
-        ]))
+        if driver.isFrontendArgSupported(.targetSdkName) {
+          XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+            .flag("-target-sdk-name"),
+            .flag("macosx10.15"),
+          ]))
+        }
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
           .flag("-platform_version"),
@@ -3117,8 +3119,6 @@ final class SwiftDriverTests: XCTestCase {
           .flag("10.15.0"),
           .flag("-target-variant-sdk-version"),
           .flag("13.1.0"),
-          .flag("-target-sdk-name"),
-          .flag("macosx10.15"),
         ]))
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
@@ -3145,10 +3145,14 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-sdk-version"),
           .flag("10.15.4"),
           .flag("-target-variant-sdk-version"),
-          .flag("13.4.0"),
-          .flag("-target-sdk-name"),
-          .flag("macosx10.15.4"),
+          .flag("13.4.0")
         ]))
+        if driver.isFrontendArgSupported(.targetSdkName) {
+          XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+            .flag("-target-sdk-name"),
+            .flag("macosx10.15.4"),
+          ]))
+        }
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
           .flag("-platform_version"),
@@ -3174,9 +3178,7 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-sdk-version"),
           .flag("13.4.0"),
           .flag("-target-variant-sdk-version"),
-          .flag("10.15.4"),
-          .flag("-target-sdk-name"),
-          .flag("macosx10.15.4"),
+          .flag("10.15.4")
         ]))
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
