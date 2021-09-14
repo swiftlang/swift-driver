@@ -4924,6 +4924,28 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testPrebuiltModuleCacheFlags() throws {
+    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
+    let testInputsPath = packageRootPath + "/TestInputs"
+    let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.0-macabi", "foo.swift", "-sdk", mockSDKPath])
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-prebuilt-module-cache-path")))
+      XCTAssertTrue(job.commandLine.contains { arg in
+        if case .path(let curPath) = arg {
+          if curPath.basename == "10.15" && curPath.parentDirectory.basename == "prebuilt-modules" {
+              return true
+          }
+        }
+        return false
+      })
+    }
+  }
+
   func testRelativeResourceDir() throws {
     do {
       var driver = try Driver(args: ["swiftc",
