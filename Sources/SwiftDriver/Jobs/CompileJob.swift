@@ -93,7 +93,8 @@ extension Driver {
       }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .swift, .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
          .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
@@ -463,8 +464,8 @@ extension Driver {
     // the first input file. Only the input files that produce the output will have a cache key. This behavior
     // needs to match the cache key creation logic in swift-frontend.
     let cacheContributingInputs = inputs.enumerated().reduce(into: [(TypedVirtualPath, Int)]()) { result, input in
-      guard input.element.type == .swift else { return }
-      let singleInputKey = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: .swift)
+      guard input.element.type.isSwiftSourceFile else { return }
+      let singleInputKey = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: input.element.type)
       if inputOutputMap[singleInputKey] != nil {
         // If singleInputKey exists, that means only the first swift file produces outputs.
         if result.isEmpty {
@@ -547,7 +548,8 @@ extension FileType {
     case .jsonSupportedFeatures:
       return .printSupportedFeatures
 
-    case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .dSYM, .autolink, .dependencies, .emitModuleDependencies,
          .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
          .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,

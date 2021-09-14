@@ -2444,7 +2444,7 @@ extension Driver {
       // driver, but seems odd.
       let fileType = FileType(rawValue: fileExtension) ?? FileType.object
 
-      if fileType == .swift {
+      if fileType.isSwiftSourceFile {
         let basename = inputFile.basename
         if let originalPath = swiftFiles[basename] {
           diagnosticsEngine.emit(.error_two_files_same_name(basename: basename, firstPath: originalPath, secondPath: input))

@@ -131,7 +131,7 @@ extension Driver {
     }
     let cacheContributingInputs = inputs.enumerated().reduce(into: [(TypedVirtualPath, Int)]()) { result, input in
       // only the first swift input contributes cache key to an emit module job.
-      guard result.isEmpty, input.element.type == .swift else { return }
+      guard result.isEmpty, input.element.type.isSwiftSourceFile else { return }
       result.append((input.element, input.offset))
     }
     let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)

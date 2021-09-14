@@ -246,7 +246,7 @@ extension IncrementalCompilationState {
     public func report(_ message: String, _ pathIfGiven: TypedVirtualPath?) {
        guard let path = pathIfGiven,
             let outputFileMap = outputFileMap,
-            let input = path.type == .swift ? path.file : outputFileMap.getInput(outputFile: path.file)
+            let input = path.type.isSwiftSourceFile ? path.file : outputFileMap.getInput(outputFile: path.file)
       else {
         report(message, pathIfGiven?.file)
         return
@@ -421,7 +421,7 @@ extension IncrementalCompilationState {
 extension OutputFileMap {
   func onlySourceFilesHaveSwiftDeps() -> Bool {
     let nonSourceFilesWithSwiftDeps = entries.compactMap { input, outputs in
-      VirtualPath.lookup(input).extension != FileType.swift.rawValue &&
+      !(VirtualPath.lookup(input).extension.flatMap(FileType.init(rawValue:))?.isSwiftSourceFile ?? false) &&
         input.description != "." &&
         outputs.keys.contains(.swiftDeps)
         ? input
