@@ -316,7 +316,7 @@ extension Driver {
   ) throws
   {
     switch input.type {
-    case .swift, .sil, .sib:
+    case .swift, .markdown, .reStructuredText, .latex, .sil, .sib:
       // Generate a compile job for primary inputs here.
       guard compilerMode.usesPrimaryFileInputs else { break }
 

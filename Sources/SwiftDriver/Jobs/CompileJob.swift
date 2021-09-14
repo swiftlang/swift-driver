@@ -89,7 +89,8 @@ extension Driver {
       }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
          .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
          .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
@@ -440,7 +441,8 @@ extension FileType {
     case .jsonCompilerFeatures:
       return .emitSupportedFeatures
 
-    case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
          .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
          .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,

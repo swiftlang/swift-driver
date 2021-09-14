@@ -18,6 +18,15 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift source file.
   case swift
 
+  /// Markdown file.
+  case markdown = "md"
+
+  /// reStructuredText file.
+  case reStructuredText = "rst"
+
+  /// LaTeX file.
+  case latex = "tex"
+
   /// (Canonical) SIL source file
   case sil
 
@@ -151,6 +160,15 @@ extension FileType: CustomStringConvertible {
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
          .remap, .tbd, .pcm, .pch, .clangModuleMap:
       return rawValue
+    case .markdown:
+      return "markdown"
+
+    case .reStructuredText:
+      return "restructured-text"
+
+    case .latex:
+      return "latex"
+
     case .object:
       return "object"
 
@@ -228,7 +246,8 @@ extension FileType {
   /// a Swift or SIL source file.
   public var isPartOfSwiftCompilation: Bool {
     switch self {
-    case .swift, .raw_sil, .sil, .raw_sib, .sib:
+    case .swift, .markdown, .reStructuredText, .latex, .raw_sil, .sil,
+         .raw_sib, .sib:
       return true
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
@@ -257,6 +276,12 @@ extension FileType {
     switch self {
     case .swift:
       return "swift"
+    case .markdown:
+      return "markdown"
+    case .reStructuredText:
+      return "restructured-text"
+    case .latex:
+      return "latex"
     case .sil:
       return "sil"
     case .sib:
@@ -342,7 +367,8 @@ extension FileType {
 extension FileType {
   var isTextual: Bool {
     switch self {
-    case .swift, .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .sil, .dependencies, .assembly, .ast, .raw_sil, .llvmIR,
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures,
@@ -362,7 +388,8 @@ extension FileType {
     switch self {
     case .assembly, .llvmIR, .llvmBitcode, .object:
       return true
-    case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .modDepCache,
