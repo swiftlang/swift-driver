@@ -248,6 +248,7 @@ public final class DarwinToolchain: Toolchain {
       case watchsimulator
       case appletvos
       case appletvsimulator
+      case unknown
     }
 
     struct VersionMap: Decodable {
@@ -289,7 +290,7 @@ public final class DarwinToolchain: Toolchain {
       self.versionString = try keyedContainer.decode(String.self, forKey: .version)
       self.canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
       let verRange = canonicalName.range(of: versionString)!
-      self.platformKind = SDKPlatformKind(rawValue: String(canonicalName[..<verRange.lowerBound]))!
+      self.platformKind = SDKPlatformKind(rawValue: String(canonicalName[..<verRange.lowerBound])) ?? SDKPlatformKind.unknown
       guard let version = try? Version(versionString: versionString, usesLenientParsing: true) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
