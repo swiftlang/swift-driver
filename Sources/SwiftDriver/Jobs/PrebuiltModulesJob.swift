@@ -233,35 +233,22 @@ public struct SDKPrebuiltModuleInputsCollector {
 
   // Returns a target triple that's proper to use with the given SDK path.
   public var targetTriple: String {
-    let canonicalName = sdkInfo.canonicalName
-    func extractVersion(_ platform: String) -> Substring? {
-      if canonicalName.starts(with: platform) {
-        let versionStartIndex = canonicalName.index(canonicalName.startIndex,
-                                                    offsetBy: platform.count)
-        let delimiterRange = canonicalName.range(of: "internal", options: .backwards)
-        let versionEndIndex = delimiterRange == nil ? canonicalName.endIndex : delimiterRange!.lowerBound
-        return canonicalName[versionStartIndex..<versionEndIndex]
-      }
-      return nil
-    }
-
-    if let version = extractVersion("macosx") {
+    let version = sdkInfo.versionString
+    switch sdkInfo.platformKind {
+    case .macosx:
       return "arm64-apple-macosx\(version)"
-    } else if let version = extractVersion("iphoneos") {
+    case .iphoneos:
       return "arm64-apple-ios\(version)"
-    } else if let version = extractVersion("iphonesimulator") {
+    case .iphonesimulator:
       return "arm64-apple-ios\(version)-simulator"
-    } else if let version = extractVersion("watchos") {
+    case .watchos:
       return "armv7k-apple-watchos\(version)"
-    } else if let version = extractVersion("watchsimulator") {
+    case .watchsimulator:
       return "arm64-apple-watchos\(version)-simulator"
-    } else if let version = extractVersion("appletvos") {
+    case .appletvos:
       return "arm64-apple-tvos\(version)"
-    } else if let version = extractVersion("appletvsimulator") {
+    case .appletvsimulator:
       return "arm64-apple-tvos\(version)-simulator"
-    } else {
-      diagEngine.emit(error: "unhandled platform name: \(canonicalName)")
-      return ""
     }
   }
 

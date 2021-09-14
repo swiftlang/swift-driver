@@ -240,6 +240,16 @@ public final class DarwinToolchain: Toolchain {
       case canonicalName = "CanonicalName"
     }
 
+    public enum SDKPlatformKind: String {
+      case macosx
+      case iphoneos
+      case iphonesimulator
+      case watchos
+      case watchsimulator
+      case appletvos
+      case appletvsimulator
+    }
+
     struct VersionMap: Decodable {
       private enum CodingKeys: String, CodingKey {
         case macOSToCatalystMapping = "macOS_iOSMac"
@@ -269,6 +279,7 @@ public final class DarwinToolchain: Toolchain {
       }
     }
     public let versionString: String
+    public let platformKind: SDKPlatformKind
     private var version: Version
     private var versionMap: VersionMap
     let canonicalName: String
@@ -277,6 +288,8 @@ public final class DarwinToolchain: Toolchain {
 
       self.versionString = try keyedContainer.decode(String.self, forKey: .version)
       self.canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
+      let verRange = canonicalName.range(of: versionString)!
+      self.platformKind = SDKPlatformKind(rawValue: String(canonicalName[..<verRange.lowerBound]))!
       guard let version = try? Version(versionString: versionString, usesLenientParsing: true) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
@@ -289,6 +302,7 @@ public final class DarwinToolchain: Toolchain {
         self.versionMap = VersionMap()
       }
     }
+
 
     func sdkVersion(for triple: Triple) -> Version {
       if triple.isMacCatalyst {
