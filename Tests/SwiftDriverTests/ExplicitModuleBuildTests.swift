@@ -270,8 +270,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleDetails = try? dependencyGraph.clangModuleDetails(of: .clang(moduleName))
       let lookupHashParts: [String]
       if let details = moduleDetails {
-        let moduleMapPath = details.moduleMapPath.path.description
-        lookupHashParts = [moduleMapPath] + hashParts
+        let contextHash = details.contextHash
+        lookupHashParts = [contextHash] + hashParts
       } else {
         // No such module found, no modulemap
         lookupHashParts = hashParts

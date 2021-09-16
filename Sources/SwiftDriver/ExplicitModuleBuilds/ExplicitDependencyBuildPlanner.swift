@@ -224,7 +224,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         let targetEncodedModulePath =
           try targetEncodedClangModuleFilePath(for: moduleInfo,
                                                hashParts: getPCMHashParts(pcmArgs: pcmArgs,
-                                                                          moduleMapPath: moduleMapPath.description))
+                                                                          contextHash: moduleDetails.contextHash))
         outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                                 "-o", targetEncodedModulePath.description)
@@ -328,7 +328,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           let clangModulePath =
             try targetEncodedClangModuleFilePath(for: dependencyInfo,
                                                  hashParts: getPCMHashParts(pcmArgs: pcmArgs,
-                                                                            moduleMapPath: moduleMapPath.description))
+                                                                            contextHash: dependencyClangModuleDetails.contextHash))
           // Accumulate the requried information about this dependency
           clangDependencyArtifacts.append(
             ClangModuleArtifactInfo(name: dependencyId.moduleName,
@@ -393,9 +393,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
   }
 
-  private func getPCMHashParts(pcmArgs: [String], moduleMapPath: String) -> [String] {
+  private func getPCMHashParts(pcmArgs: [String], contextHash: String) -> [String] {
     var results: [String] = []
-    results.append(moduleMapPath)
+    results.append(contextHash)
     results.append(contentsOf: pcmArgs)
     if integratedDriver {
       return results
