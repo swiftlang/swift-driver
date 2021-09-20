@@ -758,6 +758,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
+                                     "-import-objc-header",
                                      "-experimental-explicit-module-build",
                                      "-working-directory", path.pathString,
                                      "-disable-clang-target",
@@ -771,6 +772,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if scannerCommand.first == "-frontend" {
         scannerCommand.removeFirst()
       }
+
+      // Ensure we do not propagate the ususal PCH-handling arguments to the scanner invocation
+      XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
