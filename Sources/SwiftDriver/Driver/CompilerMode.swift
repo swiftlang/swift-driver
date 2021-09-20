@@ -32,6 +32,9 @@
 
   /// Dump information about a precompiled Clang module
   case dumpPCM
+
+  /// Introduce the user to Swift concepts depending on context.
+  case intro
 }
 
 /// Information about batch mode, which is used to determine how to form
@@ -46,7 +49,7 @@ extension CompilerMode {
   /// Whether this compilation mode uses -primary-file to specify its inputs.
   public var usesPrimaryFileInputs: Bool {
     switch self {
-    case .immediate, .repl, .singleCompile, .compilePCM, .dumpPCM:
+    case .immediate, .repl, .singleCompile, .compilePCM, .dumpPCM, .intro:
       return false
 
     case .standardCompile, .batchCompile:
@@ -57,7 +60,7 @@ extension CompilerMode {
   /// Whether this compilation mode compiles the whole target in one job.
   public var isSingleCompilation: Bool {
     switch self {
-    case .immediate, .repl, .standardCompile, .batchCompile:
+    case .immediate, .repl, .standardCompile, .batchCompile, .intro:
       return false
 
     case .singleCompile, .compilePCM, .dumpPCM:
@@ -67,7 +70,7 @@ extension CompilerMode {
 
   public var isStandardCompilationForPlanning: Bool {
     switch self {
-      case .immediate, .repl, .compilePCM, .dumpPCM:
+    case .immediate, .repl, .compilePCM, .dumpPCM, .intro:
         return false
       case .batchCompile, .standardCompile, .singleCompile:
         return true
@@ -93,7 +96,7 @@ extension CompilerMode {
     switch self {
     case .batchCompile, .singleCompile, .standardCompile, .compilePCM, .dumpPCM:
       return true
-    case .immediate, .repl:
+    case .immediate, .repl, .intro:
       return false
     }
   }
@@ -116,6 +119,8 @@ extension CompilerMode: CustomStringConvertible {
         return "compile Clang module (.pcm)"
       case .dumpPCM:
         return "dump Clang module (.pcm)"
+      case .intro:
+        return "introduction to Swift and packages"
       }
   }
 }

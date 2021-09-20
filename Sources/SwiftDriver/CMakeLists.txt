@@ -78,6 +78,7 @@ add_library(SwiftDriver
   Jobs/Planning.swift
   Jobs/PrintTargetInfoJob.swift
   Jobs/ReplJob.swift
+  Jobs/SwiftHelpIntroJob.swift
   Jobs/Toolchain+InterpreterSupport.swift
   Jobs/Toolchain+LinkerSupport.swift
   Jobs/VerifyDebugInfoJob.swift

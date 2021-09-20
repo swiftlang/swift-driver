@@ -699,7 +699,7 @@ extension Driver {
     }
 
     // The REPL doesn't require input files, but all other modes do.
-    guard !inputFiles.isEmpty || compilerMode == .repl else {
+    guard !inputFiles.isEmpty || compilerMode == .repl || compilerMode == .intro else {
       if parsedOptions.hasArgument(.v) {
         // `swiftc -v` is allowed and prints version information.
         return ([], nil)
@@ -735,6 +735,20 @@ extension Driver {
         throw PlanningError.dumpPCMWrongInputFiles
       }
       return ([try generateDumpPCMJob(input: inputFiles.first!)], nil)
+    case .intro:
+      // TODO: Remove this check once the REPL no longer launches
+      // by default.
+      if !inputFiles.isEmpty {
+        throw PlanningError.replReceivedInput
+      }
+      // end TODO.
+
+      var introJobs = try helpIntroJobs()
+
+      // TODO: Remove this to stop launching the REPL by default.
+      introJobs.append(try replJob())
+
+      return (introJobs, nil)
     }
   }
 }
