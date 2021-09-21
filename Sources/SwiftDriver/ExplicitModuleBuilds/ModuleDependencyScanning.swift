@@ -48,7 +48,7 @@ public extension Driver {
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
-                                 bridgingHeaderHandling: .precompiled,
+                                 bridgingHeaderHandling: .ignored,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
@@ -246,7 +246,7 @@ public extension Driver {
     commandLine.appendFlag("-scan-dependencies")
     commandLine.appendFlag("-import-prescan")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
-                                 bridgingHeaderHandling: .precompiled,
+                                 bridgingHeaderHandling: .ignored,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
@@ -277,7 +277,7 @@ public extension Driver {
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
-                                 bridgingHeaderHandling: .precompiled,
+                                 bridgingHeaderHandling: .ignored,
                                  moduleDependencyGraphUse: .dependencyScan)
 
     let batchScanInputFilePath = try serializeBatchScanningModuleArtifacts(moduleInfos: moduleInfos)
