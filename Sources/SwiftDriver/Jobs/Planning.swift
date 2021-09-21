@@ -430,11 +430,15 @@ extension Driver {
 
   private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
   throws {
+    // Turn this flag on by default with the env var or for public frameworks.
+    let onByDefault = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
+        parsedOptions.getLastArgument(.libraryLevel)?.asSingle == "api"
+
     guard
        parsedOptions.hasArgument(.enableLibraryEvolution),
        parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                              negative: .noVerifyEmittedModuleInterface,
-                             default: true),
+                             default: onByDefault),
 
       // Don't verify by default modules emitted from a merge-module job
       // as it's more likely to be invalid
@@ -444,12 +448,6 @@ extension Driver {
                               default: false)
     else { return }
 
-    // FIXME: remove this when we are confident to enable interface verification
-    // by default.
-    if env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] == nil &&
-        !parsedOptions.hasArgument(.verifyEmittedModuleInterface) {
-      return
-    }
     func addVerifyJob(forPrivate: Bool) throws {
       let isNeeded =
         forPrivate

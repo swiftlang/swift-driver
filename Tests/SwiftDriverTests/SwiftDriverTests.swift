@@ -4121,6 +4121,30 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
       XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
     }
+
+    // Enabled by default when the library-level is api.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-whole-module-optimization",
+                                     "-library-level", "api"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertTrue(plannedJobs.contains() {$0.kind == .verifyModuleInterface})
+    }
+
+    // Not enabled by default when the library-level is spi.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-whole-module-optimization",
+                                     "-library-level", "spi"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+    }
   }
 
   func testPCHGeneration() throws {
