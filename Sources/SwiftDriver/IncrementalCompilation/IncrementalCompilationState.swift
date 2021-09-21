@@ -34,9 +34,6 @@ import SwiftOptions
 /// The public API surface of this class is thread safe, but not re-entrant.
 /// FIXME: This should be an actor.
 public final class IncrementalCompilationState {
-  
-  /// A  high-priority confinement queue that must be used to protect the incremental compilation state.
-  private let confinementQueue: DispatchQueue
     
   private var protectedState: ProtectedState
 
@@ -69,19 +66,18 @@ public final class IncrementalCompilationState {
       try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
                             driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
 
-    let confinementQueue: DispatchQueue = DispatchQueue(
-      label: "com.apple.swift-driver.incremental-compilation-state",
-      qos: .userInteractive,
-      attributes: .concurrent)
-    self.confinementQueue = confinementQueue
+    self.info = initialState.graph.info
     self.protectedState = ProtectedState(
       skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
       initialState.graph,
       &driver,
-      confinementQueue)
+      info.confinementQueue)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
-    self.info = initialState.graph.info
+  }
+  
+  var confinementQueue: DispatchQueue {
+    info.confinementQueue
   }
   
   /// Block any threads from mutating `ProtectedState`
