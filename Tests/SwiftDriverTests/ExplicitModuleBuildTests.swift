@@ -129,7 +129,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
         XCTAssertTrue(job.inputs.contains(clangDependencyModuleMapPath))
         XCTAssertTrue(job.commandLine.contains(
-                        .flag(String("-fmodule-file=\(clangDependencyModulePathString)"))))
+          .flag(String("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))))
         XCTAssertTrue(job.commandLine.contains(
                         .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath.path.description)"))))
       case .swiftPlaceholder(_):
