@@ -288,7 +288,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
                          type: .clangModuleMap)
       commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
-                              "-fmodule-file=\(clangModulePath.file.description)")
+                              "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
       commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
                               "-fmodule-map-file=\(clangModuleMapPath.file.description)")
       inputs.append(clangModulePath)
