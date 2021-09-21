@@ -109,6 +109,7 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let inputFiles: [TypedVirtualPath]
     @_spi(Testing) public let fileSystem: FileSystem
     @_spi(Testing) public let sourceFiles: SourceFiles
+    @_spi(Testing) public let confinementQueue: DispatchQueue
     @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
 
     /// Options, someday
@@ -160,6 +161,11 @@ extension IncrementalCompilationState {
       self.diagnosticEngine = diagnosticEngine
       self.buildStartTime = maybeBuildRecord?.buildStartTime ?? .distantPast
       self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
+      
+      self.confinementQueue = DispatchQueue(
+        label: "com.apple.swift-driver.incremental-compilation-state",
+        qos: .userInteractive,
+        attributes: .concurrent)
     }
 
     func computeInitialStateForPlanning() throws -> InitialStateForPlanning? {
