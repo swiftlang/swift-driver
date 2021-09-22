@@ -336,6 +336,9 @@ public struct Driver {
   /// A global queue for emitting non-interrupted messages into stderr
   public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
 
+  enum KnownCompilerFeature: String {
+    case emit_abi_descriptor = "emit-abi-descriptor"
+  }
 
   lazy var sdkPath: VirtualPath? = {
     guard let rawSdkPath = frontendTargetInfo.sdkPath?.path else {
@@ -365,6 +368,10 @@ public struct Driver {
         return false
       }
     }
+  }
+
+  func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
+    return supportedFrontendFeatures.contains(feature.rawValue)
   }
 
   /// Handler for emitting diagnostics to stderr.
