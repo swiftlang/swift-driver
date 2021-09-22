@@ -34,7 +34,9 @@ import SwiftOptions
   /// For debugging, something to write out files for visualizing graphs
   var dotFileWriter: DependencyGraphDotFileWriter?
 
-  @_spi(Testing) public var phase: Phase
+  @_spi(Testing) public var phase: Phase {
+    willSet { mutationSafetyPrecondition() }
+  }
 
   /// The phase when the graph was created. Used to help diagnose later failures
   let creationPhase: Phase
@@ -70,7 +72,7 @@ import SwiftOptions
   ) {
     assert(phase != .updatingFromAPrior,
            "If updating from prior, should be supplying more ingredients")
-    self.init(info, phase, InternedStringTable(),
+    self.init(info, phase, InternedStringTable(info.incrementalCompilationQueue),
               NodeFinder(),
               Set())
   }
@@ -103,7 +105,12 @@ import SwiftOptions
   ) -> Self {
     self.init(info, .updatingAfterCompilation)
   }
+}
 
+extension ModuleDependencyGraph: IncrementalCompilationSynchronizer  {
+  @_spi(Testing) public var incrementalCompilationQueue: DispatchQueue {
+    info.incrementalCompilationQueue
+  }
 }
 
 extension ModuleDependencyGraph {
@@ -170,8 +177,7 @@ extension ModuleDependencyGraph {
         by: ExternalIntegrand(fed, shouldBeIn: self)))
     }
   }
-
- }
+}
 
 // MARK: - Scheduling the first wave
 extension ModuleDependencyGraph {
@@ -182,6 +188,7 @@ extension ModuleDependencyGraph {
   /// - Returns: The input files that must be recompiled, excluding `changedInput`
   func collectInputsInvalidatedBy(changedInput: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileArray {
+    accessSafetyPrecondition()
     let changedSource = DependencySource(changedInput, internedStringTable)
     let allUses = collectInputsUsing(dependencySource: changedSource)
 
@@ -199,6 +206,7 @@ extension ModuleDependencyGraph {
   /*@_spi(Testing)*/ public func collectInputsUsing(
     dependencySource: DependencySource
   ) -> TransitivelyInvalidatedSwiftSourceFileSet {
+    accessSafetyPrecondition()
     let nodes = nodeFinder.findNodes(for: dependencySource) ?? [:]
     /// Tests expect this to be reflexive
     return collectInputsUsingInvalidated(nodes: DirectlyInvalidatedNodeSet(nodes.values))
@@ -206,10 +214,12 @@ extension ModuleDependencyGraph {
 
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: SwiftSourceFile) -> Bool {
-    containsNodes(forDependencySource: DependencySource(file, internedStringTable))
+    accessSafetyPrecondition()
+    return containsNodes(forDependencySource: DependencySource(file, internedStringTable))
   }
 
   private func containsNodes(forDependencySource source: DependencySource) -> Bool {
+    accessSafetyPrecondition()
     return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
       ?? false
   }
@@ -283,6 +293,7 @@ extension ModuleDependencyGraph {
     let node = Node(key: key,
                     fingerprint: externalDefs.fingerprint,
                     dependencySource: nil)
+    accessSafetyPrecondition()
     let untracedUses = DirectlyInvalidatedNodeSet(
       nodeFinder
         .uses(of: node)
@@ -298,6 +309,8 @@ extension ModuleDependencyGraph {
   private func collectInputsRequiringCompilationAfterProcessing(
     input: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
+    accessSafetyPrecondition()
+    mutationSafetyPrecondition() // string table
     let dependencySource = DependencySource(input, internedStringTable)
     guard let sourceGraph = dependencySource.read(info: info,
                                                   internedStringTable: internedStringTable)
@@ -355,6 +368,7 @@ extension ModuleDependencyGraph {
 
     init(_ fed: FingerprintedExternalDependency,
          in graph: ModuleDependencyGraph ) {
+      graph.mutationSafetyPrecondition()
       self = graph.fingerprintedExternalDependencies.insert(fed).inserted
       ? .new(fed)
       : .old(fed)
@@ -362,6 +376,7 @@ extension ModuleDependencyGraph {
 
     init(_ fed: FingerprintedExternalDependency,
          shouldBeIn graph: ModuleDependencyGraph ) {
+      graph.accessSafetyPrecondition()
       assert(graph.fingerprintedExternalDependencies.contains(fed))
       self = .old(fed)
     }
@@ -399,12 +414,14 @@ extension ModuleDependencyGraph {
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
     assert(self.info.isCrossModuleIncrementalBuildEnabled)
+    accessSafetyPrecondition()
     // Better not be reading swiftdeps one-by-one for a selective compilation
     precondition(self.phase != .buildingFromSwiftDeps)
 
     guard let whyIntegrate = whyIncrementallyFindNodesInvalidated(by: integrand) else {
       return DirectlyInvalidatedNodeSet()
     }
+    mutationSafetyPrecondition()
     return integrateIncrementalImport(of: integrand.externalDependency, whyIntegrate)
            ?? indiscriminatelyFindNodesInvalidated(by: integrand)
   }
@@ -440,6 +457,7 @@ extension ModuleDependencyGraph {
   /// - Returns: nil if no integration is needed, or else why the integration is happening
   private func whyIncrementallyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
+    accessSafetyPrecondition()
    switch integrand {
    case .new:
       return .added
@@ -457,6 +475,7 @@ extension ModuleDependencyGraph {
   /// - Returns: nil if no invalidation is needed, otherwise the reason.
   private func whyIndiscriminatelyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
+    accessSafetyPrecondition()
     switch self.phase {
     case .buildingFromSwiftDeps, .updatingFromAPrior:
       // If the external dependency has changed, better recompile any dependents
@@ -478,6 +497,7 @@ extension ModuleDependencyGraph {
     of fed: FingerprintedExternalDependency,
     _ why: ExternalDependency.InvalidationReason
   ) -> DirectlyInvalidatedNodeSet? {
+    mutationSafetyPrecondition()
     guard
       let source = fed.incrementalDependencySource,
       let unserializedDepGraph = source.read(info: info,
@@ -551,7 +571,8 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   @discardableResult
   @_spi(Testing) public func verifyGraph() -> Bool {
-    nodeFinder.verify()
+    accessSafetyPrecondition()
+    return nodeFinder.verify()
   }
 }
 // MARK: - Serialization
@@ -668,7 +689,7 @@ extension ModuleDependencyGraph {
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) throws -> ModuleDependencyGraph {
 
-    struct Visitor: BitstreamVisitor {
+    struct Visitor: BitstreamVisitor, IncrementalCompilationSynchronizer {
       private let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
       private let internedStringTable: InternedStringTable
       var majorVersion: UInt64?
@@ -687,10 +708,14 @@ extension ModuleDependencyGraph {
       public private(set) var potentiallyUsedNodes: [Node?] = []
       
       private var nodeFinder = NodeFinder()
+      
+      var incrementalCompilationQueue: DispatchQueue {
+        info.incrementalCompilationQueue
+      }
 
       init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
         self.info = info
-        self.internedStringTable = InternedStringTable()
+        self.internedStringTable = InternedStringTable(info.incrementalCompilationQueue)
       }
       
       private var fileSystem: FileSystem {
@@ -698,6 +723,7 @@ extension ModuleDependencyGraph {
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
+        mutationSafetyPrecondition()
         let graph = ModuleDependencyGraph.createFromPrior(info,
                                                           internedStringTable,
                                                           nodeFinder,
@@ -727,6 +753,7 @@ extension ModuleDependencyGraph {
       mutating func didExitBlock() throws {}
 
       private mutating func finalize(node newNode: Node) {
+        mutationSafetyPrecondition()
         if isForRemovedInput(newNode) {
           // Preserve the mapping of Int to Node for reconstructing def-use links with a placeholder.
           self.potentiallyUsedNodes.append(nil)
@@ -799,7 +826,7 @@ extension ModuleDependencyGraph {
           guard self.majorVersion == nil, self.minorVersion == nil, self.compilerVersionString == nil else {
             throw ReadError.unexpectedMetadataRecord
           }
-          guard record.fields.count == 2,
+          guard record.fields.count == 3,
                 case .blob(let compilerVersionBlob) = record.payload
           else { throw malformedError }
 
@@ -870,7 +897,7 @@ extension ModuleDependencyGraph {
         }
       }
     }
-
+    
     var visitor = Visitor(info)
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
@@ -1126,6 +1153,7 @@ extension ModuleDependencyGraph {
       _ compilerVersion: String,
       _ serializedGraphVersion: Version
     ) -> ByteString {
+      graph.accessSafetyPrecondition()
       let serializer = Serializer(
         internedStringTable: graph.internedStringTable,
         compilerVersion: compilerVersion,

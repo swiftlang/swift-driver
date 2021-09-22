@@ -303,7 +303,7 @@ extension IncrementalCompilationTests {
       "-whole-module-optimization",
       "-no-color-diagnostics",
     ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + sdkArgumentsForTesting
-    _ = try doABuild(whenAutolinking: [], expecting: disabledForWMO, arguments: args)
+    _ = try doABuild(whenAutolinking: [], arguments: args, expecting: disabledForWMO)
   }
 
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
@@ -379,18 +379,22 @@ extension IncrementalCompilationTests {
     let outputFileMap = try XCTUnwrap(driver.incrementalCompilationState).info.outputFileMap
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(outputFileMap: outputFileMap)
-    let priorsWithOldVersion = try ModuleDependencyGraph.read(
-      from: .absolute(priorsPath),
-      info: info)
-    let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
-    let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
-    let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
-    try priorsWithOldVersion?.write(to: .absolute(priorsPath),
+    let priorsModTime = try info.blockingConcurrentAccessOrMutation {
+      () -> Date in
+      let priorsWithOldVersion = try ModuleDependencyGraph.read(
+        from: .absolute(priorsPath),
+        info: info)
+      let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
+      let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
+      let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
+      try priorsWithOldVersion?.write(to: .absolute(priorsPath),
                                 on: localFileSystem,
                                 compilerVersion: compilerVersion,
                                 mockSerializedGraphVersion: incrementedVersion)
+      return priorsModTime
+    }
     try setModTime(of: .absolute(priorsPath), to: priorsModTime)
-
+    
     try checkReactionToObsoletePriors()
     try checkNullBuild(checkDiagnostics: true)
 #endif
@@ -1092,6 +1096,7 @@ extension IncrementalCompilationTests {
 
 // MARK: - Graph inspection
 extension Driver {
+  /// Expose the protected ``ModuleDependencyGraph`` to a function and also prevent concurrent access or modification
   func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void ) throws {
     let incrementalCompilationState: IncrementalCompilationState
     do {
@@ -1101,7 +1106,7 @@ extension Driver {
       XCTFail("no graph")
       throw error
     }
-    try incrementalCompilationState.blockingConcurrentAccessOrMutation {try $0.withModuleDependencyGraph(fn)}
+    try incrementalCompilationState.blockingConcurrentAccessOrMutationToProtectedState {try $0.testWithModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)
@@ -1586,7 +1591,10 @@ extension DiagVerifiable {
 // MARK: - trace building
 @resultBuilder fileprivate enum TraceBuilder {
   static func buildBlock(_ components: TraceStep...) -> String {
-    "Incremental compilation: Traced: \(components.map {$0.messagePart}.joined(separator: " -> "))"
+    // Omit "Incremental compilation: Traced: " prefix because depending on
+    // hash table iteration order "interface of source file from *.swiftdeps in *.swift ->"
+    // may occur first. Since the tests do substring matching, this will work.
+    "\(components.map {$0.messagePart}.joined(separator: " -> "))"
   }
 }
 
@@ -1610,9 +1618,10 @@ fileprivate struct TraceStep {
        input: String?,
        _ createDesignator: (InternedStringTable) -> DependencyKey.Designator
 ) {
-    let t = InternedStringTable()
-    let key = DependencyKey(aspect: aspect, designator: createDesignator(t))
-    let inputPart = input.map {" in \($0).swift"} ?? ""
-    self.messagePart = "\(key.description(in: t))\(inputPart)"
+    self.messagePart = MockIncrementalCompilationSynchronizer.withInternedStringTable { t in
+      let key = DependencyKey(aspect: aspect, designator: createDesignator(t))
+      let inputPart = input.map {" in \($0).swift"} ?? ""
+      return "\(key.description(in: t))\(inputPart)"
+    }
   }
 }

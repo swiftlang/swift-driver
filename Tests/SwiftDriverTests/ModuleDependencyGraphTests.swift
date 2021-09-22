@@ -593,8 +593,8 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(in: graph)))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(in: graph)))
+    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
+    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
@@ -631,8 +631,8 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
       1,
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo".intern(in: graph)))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar".intern(in: graph)))
+    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
+    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
@@ -954,19 +954,21 @@ extension ModuleDependencyGraph {
                       hadCompilationError: Bool = false)
   -> [Int]
   {
-    phase = .updatingAfterCompilation
+    blockingConcurrentAccessOrMutation {
+      phase = .updatingAfterCompilation
+    }
     let directlyInvalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
       dependencyDescriptions,
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
-
+    
     return collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes)
       .map { $0.mockID }
   }
 
-
+  
   func getInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
@@ -974,28 +976,32 @@ extension ModuleDependencyGraph {
     includePrivateDeps: Bool = true,
     hadCompilationError: Bool = false
   ) -> DirectlyInvalidatedNodeSet {
-    let input = SwiftSourceFile(mock: swiftDepsIndex)
-    let dependencySource = DependencySource(input, internedStringTable)
-    let interfaceHash =
+    blockingConcurrentAccessOrMutation {
+      let input = SwiftSourceFile(mock: swiftDepsIndex)
+      let dependencySource = DependencySource(input, internedStringTable)
+      let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
-
-    let sfdg = SourceFileDependencyGraphMocker.mock(
-      includePrivateDeps: includePrivateDeps,
-      hadCompilationError: hadCompilationError,
-      dependencySource: dependencySource,
-      interfaceHash: interfaceHash,
-      dependencyDescriptions,
-      in: internedStringTable)
-
-    return Integrator.integrate(from: sfdg,
-                                dependencySource: DependencySource(input, internedStringTable),
-                                into: self)
+      
+      let sfdg = SourceFileDependencyGraphMocker.mock(
+        includePrivateDeps: includePrivateDeps,
+        hadCompilationError: hadCompilationError,
+        dependencySource: dependencySource,
+        interfaceHash: interfaceHash,
+        dependencyDescriptions,
+        in: internedStringTable)
+      
+      return Integrator.integrate(from: sfdg,
+                                  dependencySource: DependencySource(input, internedStringTable),
+                                  into: self)
+    }
   }
 
   func findUntracedInputsDependent(onExternal s: String) -> [Int] {
-    findUntracedInputsDependent(
-      on: FingerprintedExternalDependency(.mocking(s, in: internedStringTable), nil))
-      .map { $0.mockID }
+    blockingConcurrentAccessOrMutation {
+      findUntracedInputsDependent(
+        on: FingerprintedExternalDependency(.mocking(s, in: internedStringTable), nil))
+        .map { $0.mockID }
+    }
   }
 
   /// Can return duplicates
@@ -1017,17 +1023,22 @@ extension ModuleDependencyGraph {
   }
 
   fileprivate func collectMockInputsUsing(_ i: Int) -> TransitivelyInvalidatedMockInputArray {
-    collectInputsUsing(dependencySource: DependencySource(SwiftSourceFile(mock: i), internedStringTable))
-      .map { $0.mockID }
+    blockingConcurrentAccessOrMutation {
+      collectInputsUsing(dependencySource: DependencySource(SwiftSourceFile(mock: i), internedStringTable))
+        .map { $0.mockID }
+    }
   }
 
   fileprivate typealias TransitivelyInvalidatedMockInputArray = InvalidatedArray<Transitively, Int>
 
-  func containsExternalDependency(_ path: InternedString, fingerprint: String? = nil)
+  func containsExternalDependency(_ path: String, fingerprint: String? = nil)
   -> Bool {
-    fingerprintedExternalDependencies.contains(
-      FingerprintedExternalDependency(ExternalDependency(fileName: path, internedStringTable),
-                                      fingerprint.map {$0.intern(in: internedStringTable)}))
+    blockingConcurrentAccessOrMutation {
+      let internedPath = path.intern(in: self)
+      return fingerprintedExternalDependencies.contains(
+        FingerprintedExternalDependency(ExternalDependency(fileName: internedPath, internedStringTable),
+                                        fingerprint.map {$0.intern(in: internedStringTable)}))
+    }
   }
 }
 

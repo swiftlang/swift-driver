@@ -35,6 +35,8 @@ import SwiftOptions
 /// FIXME: This should be an actor.
 public final class IncrementalCompilationState {
     
+  /// State needed for incremental compilation that can change during a run and must be protected from
+  /// concurrent mutation and access. Concurrent accesses are OK.
   private var protectedState: ProtectedState
 
   /// All of the pre-compile or compilation job (groups) known to be required (i.e. in 1st wave).
@@ -70,30 +72,31 @@ public final class IncrementalCompilationState {
     self.protectedState = ProtectedState(
       skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
       initialState.graph,
-      &driver,
-      info.confinementQueue)
+      &driver)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
   }
   
-  var confinementQueue: DispatchQueue {
-    info.confinementQueue
-  }
-  
-  /// Block any threads from mutating `ProtectedState`
-  public func blockingConcurrentMutation<R>(
+  /// Allow concurrent access to while preventing mutation of ``IncrementalCompilationState/protectedState``
+  public func blockingConcurrentMutationToProtectedState<R>(
     _ fn: (ProtectedState) throws -> R
   ) rethrows -> R {
-    try confinementQueue.sync {try fn(protectedState)}
+    try blockingConcurrentMutation {try fn(protectedState)}
   }
   
-  /// Block any other threads from doing anything to `ProtectedState`
-  public func blockingConcurrentAccessOrMutation<R>(
+  /// Block any other threads from doing anything to  or observing ``IncrementalCompilationState/protectedState``
+  public func blockingConcurrentAccessOrMutationToProtectedState<R>(
     _ fn: (inout ProtectedState) throws -> R
   ) rethrows -> R {
-    try confinementQueue.sync(flags: .barrier) {
+    try blockingConcurrentAccessOrMutation {
       try fn(&protectedState)
     }
+  }
+}
+
+extension IncrementalCompilationState: IncrementalCompilationSynchronizer {
+  public var incrementalCompilationQueue: DispatchQueue {
+    info.incrementalCompilationQueue
   }
 }
 

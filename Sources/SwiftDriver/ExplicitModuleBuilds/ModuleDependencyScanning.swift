@@ -41,7 +41,8 @@ public extension Driver {
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
-  mutating func dependencyScannerInvocationCommand() throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
+  @_spi(Testing) mutating func dependencyScannerInvocationCommand()
+  throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }

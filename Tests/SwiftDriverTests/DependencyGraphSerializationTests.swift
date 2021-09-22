@@ -28,16 +28,22 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
     let graph = Self.mockGraphCreator.mockUpAGraph()
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
     let alteredVersion = currentVersion.withAlteredMinor
-    try graph.write(
-      to: mockPath,
-      on: fs,
-      compilerVersion: "Swift 99",
-      mockSerializedGraphVersion: alteredVersion)
+    try graph.blockingConcurrentAccessOrMutation {
+      try graph.write(
+        to: mockPath,
+        on: fs,
+        compilerVersion: "Swift 99",
+        mockSerializedGraphVersion: alteredVersion)
+    }
+ 
     do {
       let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
-      _ = try ModuleDependencyGraph.read(from: mockPath,
-                                         info: .mock(outputFileMap: outputFileMap, fileSystem: fs))
-      XCTFail("Should have thrown an exception")
+      let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
+      try info.blockingConcurrentAccessOrMutation {
+        _ = try ModuleDependencyGraph.read(from: mockPath,
+                                           info: info)
+        XCTFail("Should have thrown an exception")
+      }
     }
     catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
       XCTAssertEqual(expected, currentVersion)
@@ -51,11 +57,16 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   func roundTrip(_ originalGraph: ModuleDependencyGraph) throws {
     let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
     let fs = InMemoryFileSystem()
-    try originalGraph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
+    try originalGraph.blockingConcurrentMutation {
+      try originalGraph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
+    }
 
     let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
-    let deserializedGraph = try ModuleDependencyGraph.read(from: mockPath,
-                                                           info: .mock(outputFileMap: outputFileMap, fileSystem: fs))!
+    let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
+    let deserializedGraph =  try info.blockingConcurrentAccessOrMutation {
+      try ModuleDependencyGraph.read(from: mockPath,
+                                     info: info)!
+    }
  
     let descsToCompare = [originalGraph, deserializedGraph].map {
       graph -> (nodes: Set<String>, uses: [String: Set<String>], feds: Set<String>) in
