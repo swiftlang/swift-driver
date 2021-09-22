@@ -134,6 +134,8 @@ typedef struct {
   (*swiftscan_clang_detail_get_context_hash)(swiftscan_module_details_t);
   swiftscan_string_set_t *
   (*swiftscan_clang_detail_get_command_line)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_clang_detail_get_captured_pcm_args)(swiftscan_module_details_t);
 
   //=== Batch Scan Input Functions ------------------------------------------===//
   swiftscan_batch_scan_input_t *
