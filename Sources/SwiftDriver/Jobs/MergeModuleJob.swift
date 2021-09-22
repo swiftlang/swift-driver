@@ -72,9 +72,14 @@ extension Driver {
       try commandLine.appendLast(.disableIncrementalImports, from: &parsedOptions)
     }
 
+    let outputPath = VirtualPath.lookup(moduleOutputInfo.output!.outputPath)
     commandLine.appendFlag(.o)
-    commandLine.appendPath(VirtualPath.lookup(moduleOutputInfo.output!.outputPath))
+    commandLine.appendPath(outputPath)
 
+    if isFeatureSupported(.emit_abi_descriptor) {
+      commandLine.appendFlag(.emitAbiDescriptorPath)
+      commandLine.appendPath(outputPath.replacingExtension(with: .jsonABIBaseline))
+    }
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .mergeModule,

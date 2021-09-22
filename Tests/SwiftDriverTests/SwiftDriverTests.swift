@@ -5015,6 +5015,12 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testSupportedFeatureJson() throws {
+    let driver = try Driver(args: ["swiftc", "-emit-module", "foo.swift"])
+    XCTAssertFalse(driver.supportedFrontendFeatures.isEmpty)
+    XCTAssertTrue(driver.supportedFrontendFeatures.contains("experimental-skip-all-function-bodies"))
+  }
+
   func testFilelist() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-no-emit-module-separately"])

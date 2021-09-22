@@ -12,6 +12,7 @@
 
 import TSCBasic
 import SwiftOptions
+import Foundation
 
 /// Describes information about the compiler's supported arguments and features
 @_spi(Testing) public struct SupportedCompilerFeatures: Codable {
@@ -52,7 +53,7 @@ extension Toolchain {
 }
 
 extension Driver {
-  static func computeSupportedCompilerFeatures(of toolchain: Toolchain, hostTriple: Triple,
+  static func computeSupportedCompilerArgs(of toolchain: Toolchain, hostTriple: Triple,
                                                parsedOptions: inout ParsedOptions,
                                                diagnosticsEngine: DiagnosticsEngine,
                                                fileSystem: FileSystem,
@@ -84,5 +85,25 @@ extension Driver {
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)
+  }
+
+  static func computeSupportedCompilerFeatures(of toolchain: Toolchain,
+                                               env: [String: String]) throws -> Set<String> {
+    struct FeatureInfo: Codable {
+      var name: String
+    }
+    struct FeatureList: Codable {
+      var features: [FeatureInfo]
+    }
+    let jsonPath = try getRootPath(of: toolchain, env: env)
+      .appending(component: "share")
+      .appending(component: "swift")
+      .appending(component: "features.json")
+    guard localFileSystem.exists(jsonPath) else {
+      return Set<String>()
+    }
+    let content = try localFileSystem.readFileContents(jsonPath)
+    let result = try JSONDecoder().decode(FeatureList.self, from: Data(content.contents))
+    return Set(result.features.map {$0.name})
   }
 }
