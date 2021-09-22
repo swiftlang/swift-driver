@@ -18,19 +18,21 @@ import XCTest
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
-    let dependencySource = DependencySource(
-      SwiftSourceFile(mock: i),
-      internedStringTable)
-    // optimization
-    if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
-       fileNode.isTraced {
-      return true
+    blockingConcurrentAccessOrMutation {
+      let dependencySource = DependencySource(
+        SwiftSourceFile(mock: i),
+        internedStringTable)
+      // optimization
+      if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
+         fileNode.isTraced {
+        return true
+      }
+      if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
+         nodes.contains(where: {$0.isTraced}) {
+        return true
+      }
+      return false
     }
-    if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
-       nodes.contains(where: {$0.isTraced}) {
-      return true
-    }
-    return false
   }
 
   func setUntraced() {

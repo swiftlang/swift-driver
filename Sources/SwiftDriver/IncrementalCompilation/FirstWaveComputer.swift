@@ -52,13 +52,22 @@ extension IncrementalCompilationState {
     }
 
     public func compute(batchJobFormer: inout Driver) throws -> FirstWave {
-      let (initiallySkippedCompileGroups, mandatoryJobsInOrder) =
+      return try blockingConcurrentAccessOrMutation {
+        let (initiallySkippedCompileGroups, mandatoryJobsInOrder) =
         try computeInputsAndGroups(batchJobFormer: &batchJobFormer)
-      return FirstWave(
-        initiallySkippedCompileGroups: initiallySkippedCompileGroups,
-        mandatoryJobsInOrder: mandatoryJobsInOrder)
+        return FirstWave(
+          initiallySkippedCompileGroups: initiallySkippedCompileGroups,
+          mandatoryJobsInOrder: mandatoryJobsInOrder)
+      }
     }
   }
+}
+
+extension IncrementalCompilationState.FirstWaveComputer: IncrementalCompilationSynchronizer {
+  var incrementalCompilationQueue: DispatchQueue {
+    moduleDependencyGraph.incrementalCompilationQueue
+  }
+
 }
 
 // MARK: - Preparing the first wave

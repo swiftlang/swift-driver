@@ -65,31 +65,32 @@ class IncrementalBuildPerformanceTests: XCTestCase {
   ///    - limit: the maximum number of swiftdeps files to process.
   func test(swiftDepsDirectory: String, atMost limit: Int = .max, _ whatToMeasure: WhatToMeasure) throws {
     let (outputFileMap, inputs) = try createOFMAndInputs(swiftDepsDirectory, atMost: limit)
-
+    
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(options: [], outputFileMap: outputFileMap)
-
+    
     let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info)
-
-    switch whatToMeasure {
-    case .readingSwiftDeps:
-      measure {readSwiftDeps(for: inputs, into: g)}
-    case .writing:
-      readSwiftDeps(for: inputs, into: g)
-      measure {
-        _ = ModuleDependencyGraph.Serializer.serialize(
+    g.blockingConcurrentAccessOrMutation {
+      switch whatToMeasure {
+      case .readingSwiftDeps:
+        measure {readSwiftDeps(for: inputs, into: g)}
+      case .writing:
+        readSwiftDeps(for: inputs, into: g)
+        measure {
+          _ = ModuleDependencyGraph.Serializer.serialize(
+            g,
+            "mock compiler version",
+            ModuleDependencyGraph.serializedGraphVersion)
+        }
+      case .readingPriors:
+        readSwiftDeps(for: inputs, into: g)
+        let data = ModuleDependencyGraph.Serializer.serialize(
           g,
           "mock compiler version",
           ModuleDependencyGraph.serializedGraphVersion)
-      }
-    case .readingPriors:
-      readSwiftDeps(for: inputs, into: g)
-      let data = ModuleDependencyGraph.Serializer.serialize(
-        g,
-        "mock compiler version",
-        ModuleDependencyGraph.serializedGraphVersion)
-      measure {
-        try? XCTAssertNoThrow(ModuleDependencyGraph.deserialize(data, info: info))
+        measure {
+          try? XCTAssertNoThrow(ModuleDependencyGraph.deserialize(data, info: info))
+        }
       }
     }
   }
@@ -137,7 +138,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
       invalidatedInputs.formUnion(g.collectInputsRequiringCompilation(byCompiling: primaryInput)!)
     }
     .subtracting(inputs) // have already compiled these
-
+    
     XCTAssertEqual(result.count, 0, "Should be no invalid inputs left")
   }
 }

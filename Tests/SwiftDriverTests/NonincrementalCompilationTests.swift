@@ -76,134 +76,137 @@ final class NonincrementalCompilationTests: XCTestCase {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
     let typedFile = TypedVirtualPath( file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps)
-    let internedStringTable = InternedStringTable()
-    let graph = try XCTUnwrap(
-      try SourceFileDependencyGraph(
-        contentsOf: typedFile,
-        on: localFileSystem,
-        internedStringTable: internedStringTable))
-    XCTAssertEqual(graph.majorVersion, 1)
-    XCTAssertEqual(graph.minorVersion, 0)
-    XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
-    graph.verify()
-    var saw0 = false
-    var saw1 = false
-    var saw2 = false
-    graph.forEachNode { node in
-      switch (node.sequenceNumber, node.key.designator) {
-      case let (0, .sourceFileProvide(name: name)):
-        saw0 = true
-        XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
-        XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
-        XCTAssertEqual(node.defsIDependUpon, [2])
-        XCTAssertTrue(node.isProvides)
-      case let (1, .sourceFileProvide(name: name)):
-        saw1 = true
-        XCTAssertEqual(node.key.aspect, .implementation)
-        XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
-        XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
-        XCTAssertEqual(node.defsIDependUpon, [])
-        XCTAssertTrue(node.isProvides)
-      case let (2, .topLevel(name: name)):
-        saw2 = true
-        XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(name.lookup(in: internedStringTable), "a")
-        XCTAssertNil(node.fingerprint)
-        XCTAssertEqual(node.defsIDependUpon, [])
-        XCTAssertFalse(node.isProvides)
-      default:
-        XCTFail()
+    try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
+      let graph = try XCTUnwrap(
+        try SourceFileDependencyGraph(
+          contentsOf: typedFile,
+          on: localFileSystem,
+          internedStringTable: internedStringTable))
+      XCTAssertEqual(graph.majorVersion, 1)
+      XCTAssertEqual(graph.minorVersion, 0)
+      XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
+      graph.verify()
+      var saw0 = false
+      var saw1 = false
+      var saw2 = false
+      graph.forEachNode { node in
+        switch (node.sequenceNumber, node.key.designator) {
+        case let (0, .sourceFileProvide(name: name)):
+          saw0 = true
+          XCTAssertEqual(node.key.aspect, .interface)
+          XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
+          XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
+          XCTAssertEqual(node.defsIDependUpon, [2])
+          XCTAssertTrue(node.isProvides)
+        case let (1, .sourceFileProvide(name: name)):
+          saw1 = true
+          XCTAssertEqual(node.key.aspect, .implementation)
+          XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
+          XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
+          XCTAssertEqual(node.defsIDependUpon, [])
+          XCTAssertTrue(node.isProvides)
+        case let (2, .topLevel(name: name)):
+          saw2 = true
+          XCTAssertEqual(node.key.aspect, .interface)
+          XCTAssertEqual(name.lookup(in: internedStringTable), "a")
+          XCTAssertNil(node.fingerprint)
+          XCTAssertEqual(node.defsIDependUpon, [])
+          XCTAssertFalse(node.isProvides)
+        default:
+          XCTFail()
+        }
       }
+      XCTAssertTrue(saw0)
+      XCTAssertTrue(saw1)
+      XCTAssertTrue(saw2)
     }
-    XCTAssertTrue(saw0)
-    XCTAssertTrue(saw1)
-    XCTAssertTrue(saw2)
   }
 
   func testReadComplexSourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftdeps"))
-    let internedStringTable = InternedStringTable()
-    let graph = try XCTUnwrap(
-      try SourceFileDependencyGraph(
-        contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps),
-        on: localFileSystem,
-        internedStringTable: internedStringTable))
-    XCTAssertEqual(graph.majorVersion, 1)
-    XCTAssertEqual(graph.minorVersion, 0)
-    XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
-    graph.verify()
-
-    // Check that a node chosen at random appears as expected.
-    var foundNode = false
-    graph.forEachNode { node in
-      if case let .member(context: context, name: name) = node.key.designator,
-         node.sequenceNumber == 25
-      {
-        XCTAssertFalse(foundNode)
-        foundNode = true
-        XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(context.lookup(in: internedStringTable), "5hello1BV")
-        XCTAssertEqual(name.lookup(in: internedStringTable), "init")
-        XCTAssertEqual(node.defsIDependUpon, [])
-        XCTAssertFalse(node.isProvides)
-      }
-    }
-    XCTAssertTrue(foundNode)
-
-    // Check that an edge chosen at random appears as expected.
-    var foundEdge = false
-    graph.forEachArc { defNode, useNode in
-      if defNode.sequenceNumber == 0 && useNode.sequenceNumber == 10 {
-        switch (defNode.key.designator, useNode.key.designator) {
-        case let (.sourceFileProvide(name: defName),
-                  .potentialMember(context: useContext)):
-          XCTAssertFalse(foundEdge)
-          foundEdge = true
-
-          XCTAssertEqual(defName.lookup(in: internedStringTable), "/Users/owenvoorhees/Desktop/hello.swiftdeps")
-          XCTAssertEqual(defNode.fingerprint?.lookup(in: internedStringTable), "38b457b424090ac2e595be0e5f7e3b5b")
-
-          XCTAssertEqual(useContext.lookup(in: internedStringTable), "5hello1AC")
-          XCTAssertEqual(useNode.fingerprint?.lookup(in: internedStringTable), "b83bbc0b4b0432dbfabff6556a3a901f")
-
-        default:
-          XCTFail()
+    try MockIncrementalCompilationSynchronizer.withInternedStringTable{ internedStringTable in
+      let graph = try XCTUnwrap(
+        try SourceFileDependencyGraph(
+          contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps),
+          on: localFileSystem,
+          internedStringTable: internedStringTable))
+      XCTAssertEqual(graph.majorVersion, 1)
+      XCTAssertEqual(graph.minorVersion, 0)
+      XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
+      graph.verify()
+      
+      // Check that a node chosen at random appears as expected.
+      var foundNode = false
+      graph.forEachNode { node in
+        if case let .member(context: context, name: name) = node.key.designator,
+           node.sequenceNumber == 25
+        {
+          XCTAssertFalse(foundNode)
+          foundNode = true
+          XCTAssertEqual(node.key.aspect, .interface)
+          XCTAssertEqual(context.lookup(in: internedStringTable), "5hello1BV")
+          XCTAssertEqual(name.lookup(in: internedStringTable), "init")
+          XCTAssertEqual(node.defsIDependUpon, [])
+          XCTAssertFalse(node.isProvides)
         }
       }
+      XCTAssertTrue(foundNode)
+      
+      // Check that an edge chosen at random appears as expected.
+      var foundEdge = false
+      graph.forEachArc { defNode, useNode in
+        if defNode.sequenceNumber == 0 && useNode.sequenceNumber == 10 {
+          switch (defNode.key.designator, useNode.key.designator) {
+          case let (.sourceFileProvide(name: defName),
+                    .potentialMember(context: useContext)):
+            XCTAssertFalse(foundEdge)
+            foundEdge = true
+            
+            XCTAssertEqual(defName.lookup(in: internedStringTable), "/Users/owenvoorhees/Desktop/hello.swiftdeps")
+            XCTAssertEqual(defNode.fingerprint?.lookup(in: internedStringTable), "38b457b424090ac2e595be0e5f7e3b5b")
+            
+            XCTAssertEqual(useContext.lookup(in: internedStringTable), "5hello1AC")
+            XCTAssertEqual(useNode.fingerprint?.lookup(in: internedStringTable), "b83bbc0b4b0432dbfabff6556a3a901f")
+            
+          default:
+            XCTFail()
+          }
+        }
+      }
+      XCTAssertTrue(foundEdge)
     }
-    XCTAssertTrue(foundEdge)
   }
 
   func testExtractSourceFileDependencyGraphFromSwiftModule() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "hello.swiftmodule"))
     let data = try localFileSystem.readFileContents(absolutePath)
-    let internedStringTable = InternedStringTable()
-    let graph = try XCTUnwrap(
-      try SourceFileDependencyGraph(internedStringTable: internedStringTable,
-                                    data: data,
-                                    fromSwiftModule: true))
-    XCTAssertEqual(graph.majorVersion, 1)
-    XCTAssertEqual(graph.minorVersion, 0)
-    XCTAssertEqual(graph.compilerVersionString, "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
-    graph.verify()
-
-    // Check that a node chosen at random appears as expected.
-    var foundNode = false
-    graph.forEachNode { node in
-      if case .nominal(context: "5hello3FooV".intern(in: internedStringTable)) = node.key.designator,
-         node.sequenceNumber == 4
-      {
-        XCTAssertFalse(foundNode)
-        foundNode = true
-        XCTAssertEqual(node.key.aspect, .interface)
-        XCTAssertEqual(node.defsIDependUpon, [0])
-        XCTAssertTrue(node.isProvides)
+    try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
+      let graph = try XCTUnwrap(
+        try SourceFileDependencyGraph(internedStringTable: internedStringTable,
+                                      data: data,
+                                      fromSwiftModule: true))
+      XCTAssertEqual(graph.majorVersion, 1)
+      XCTAssertEqual(graph.minorVersion, 0)
+      XCTAssertEqual(graph.compilerVersionString, "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
+      graph.verify()
+      
+      // Check that a node chosen at random appears as expected.
+      var foundNode = false
+      graph.forEachNode { node in
+        if case .nominal(context: "5hello3FooV".intern(in: internedStringTable)) = node.key.designator,
+           node.sequenceNumber == 4
+        {
+          XCTAssertFalse(foundNode)
+          foundNode = true
+          XCTAssertEqual(node.key.aspect, .interface)
+          XCTAssertEqual(node.defsIDependUpon, [0])
+          XCTAssertTrue(node.isProvides)
+        }
       }
+      XCTAssertTrue(foundNode)
     }
-    XCTAssertTrue(foundNode)
   }
 
   func testDateConversion() {

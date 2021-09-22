@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 public protocol InternedStringTableHolder {
   var internedStringTable: InternedStringTable {get}
 }
@@ -55,13 +57,19 @@ public func isInIncreasingOrder(
 }
 
 /// Hardcode empty as 0
-public class InternedStringTable {
+public class InternedStringTable: IncrementalCompilationSynchronizer {
+  /// Ensure accesses & mutations are thread-safe
+  public let incrementalCompilationQueue: DispatchQueue
+  
   var strings = [""]
   fileprivate var indices = ["": 0]
   
-  public init() {}
+  public init(_ incrementalCompilationQueue: DispatchQueue) {
+    self.incrementalCompilationQueue = incrementalCompilationQueue
+  }
   
   fileprivate func intern(_ s: String) -> Int {
+    mutationSafetyPrecondition()
     if let i = indices[s] { return i }
     let i = strings.count
     strings.append(s)
@@ -69,13 +77,16 @@ public class InternedStringTable {
     return i
   }
   
-  var count: Int { strings.count }
+  var count: Int {
+    accessSafetyPrecondition()
+    return strings.count
+  }
   
   func reserveCapacity(_ minimumCapacity: Int) {
+    mutationSafetyPrecondition()
     strings.reserveCapacity(minimumCapacity)
     indices.reserveCapacity(minimumCapacity)
   }
-
 }
 
 extension InternedStringTable: InternedStringTableHolder {

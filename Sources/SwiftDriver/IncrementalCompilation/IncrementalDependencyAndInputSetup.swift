@@ -100,7 +100,7 @@ extension IncrementalCompilationState {
 
   /// A collection of immutable state that is handy to access.
   /// Make it a class so that anything that needs it can just keep a pointer around.
-  public struct IncrementalDependencyAndInputSetup {
+  public struct IncrementalDependencyAndInputSetup: IncrementalCompilationSynchronizer {
     @_spi(Testing) public let outputFileMap: OutputFileMap
     @_spi(Testing) public let buildRecordInfo: BuildRecordInfo
     @_spi(Testing) public let maybeBuildRecord: BuildRecord?
@@ -109,7 +109,11 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let inputFiles: [TypedVirtualPath]
     @_spi(Testing) public let fileSystem: FileSystem
     @_spi(Testing) public let sourceFiles: SourceFiles
-    @_spi(Testing) public let confinementQueue: DispatchQueue
+    
+    /// The state managing incremental compilation gets mutated every time a compilation job completes.
+    /// This queue ensures that the access and mutation of that state is thread-safe.
+    @_spi(Testing) public let incrementalCompilationQueue: DispatchQueue
+    
     @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
 
     /// Options, someday
@@ -162,7 +166,7 @@ extension IncrementalCompilationState {
       self.buildStartTime = maybeBuildRecord?.buildStartTime ?? .distantPast
       self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
       
-      self.confinementQueue = DispatchQueue(
+      self.incrementalCompilationQueue = DispatchQueue(
         label: "com.apple.swift-driver.incremental-compilation-state",
         qos: .userInteractive,
         attributes: .concurrent)
@@ -220,12 +224,14 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     precondition(
       sourceFiles.disappeared.isEmpty,
       "Would have to remove nodes from the graph if reading prior")
-    if readPriorsFromModuleDependencyGraph {
-      return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
+    return blockingConcurrentAccessOrMutation {
+      if readPriorsFromModuleDependencyGraph {
+        return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
+      }
+      // Every external is added, but don't want to compile an unchanged input that has an import
+      // so just changed, not changedOrAdded.
+      return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
     }
-    // Every external is added, but don't want to compile an unchanged input that has an import
-    // so just changed, not changedOrAdded.
-    return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
   }
 
   private func readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals(

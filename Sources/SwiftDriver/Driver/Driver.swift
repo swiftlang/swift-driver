@@ -1249,7 +1249,7 @@ extension Driver {
     }
     buildRecordInfo?.writeBuildRecord(
       jobs,
-      incrementalCompilationState?.blockingConcurrentMutation{$0.skippedCompilationInputs})
+      incrementalCompilationState?.blockingConcurrentMutationToProtectedState{$0.skippedCompilationInputs})
   }
 
   private func printBindings(_ job: Job) {

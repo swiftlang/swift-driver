@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import Dispatch
 
 /// A filename from another module
 /*@_spi(Testing)*/ final public class ExternalDependency: Hashable, Comparable, CustomStringConvertible {
@@ -28,8 +29,9 @@ import TSCBasic
   }
   
   static var dummy: Self {
-    let t = InternedStringTable()
-    return Self(fileName: ".".intern(in: t), t)
+    MockIncrementalCompilationSynchronizer.withInternedStringTable { t in
+      return Self(fileName: ".".intern(in: t), t)
+    }
   }
   
   public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
