@@ -151,24 +151,24 @@ public struct ClangModuleDetails: Codable {
   /// The path to the module map used to build this module.
   public var moduleMapPath: TextualVirtualPath
 
-  /// Set of PCM Arguments of depending modules which
-  /// are covered by the directDependencies info of this module
-  public var dependenciesCapturedPCMArgs: Set<[String]>?
-
   /// clang-generated context hash
   public var contextHash: String
 
   /// Options to the compile command
   public var commandLine: [String] = []
 
+  /// Set of PCM Arguments of depending modules which
+  /// are covered by the directDependencies info of this module
+  public var capturedPCMArgs: Set<[String]>?
+
   public init(moduleMapPath: TextualVirtualPath,
-              dependenciesCapturedPCMArgs: Set<[String]>?,
               contextHash: String,
-              commandLine: [String]) {
+              commandLine: [String],
+              capturedPCMArgs: Set<[String]>?) {
     self.moduleMapPath = moduleMapPath
-    self.dependenciesCapturedPCMArgs = dependenciesCapturedPCMArgs
     self.contextHash = contextHash
     self.commandLine = commandLine
+    self.capturedPCMArgs = capturedPCMArgs
   }
 }
 

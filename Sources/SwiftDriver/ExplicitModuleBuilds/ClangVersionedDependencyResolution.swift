@@ -54,6 +54,11 @@ internal extension Driver {
         return moduleInfos
       }.reduce([], +)
 
+    guard !batchScanInputList.isEmpty else {
+      // If no new re-scans are needed, we are done here.
+      return
+    }
+
     // Batch scan all clang modules for each discovered new, unique set of PCMArgs, per module
     let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]] =
       try performBatchDependencyScan(moduleInfos: batchScanInputList)
@@ -142,7 +147,7 @@ private extension InterModuleDependencyGraph {
           // captured in the described dependencies of this module. Only re-scan at PCMArgs not
           // already captured.
           let alreadyCapturedPCMArgs =
-            clangModuleDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+            clangModuleDetails.capturedPCMArgs ?? Set<[String]>()
           let newPCMArgSet = pathPCMArtSet.filter { !alreadyCapturedPCMArgs.contains($0) }
           // Add current path's PCMArgs to the SetMap and stop traversal
           if pcmArgSetMap[moduleId] != nil {
@@ -183,10 +188,10 @@ private extension InterModuleDependencyGraph {
         throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
                                                      "no Clang `details` object")
       }
-      if clangModuleDetails.dependenciesCapturedPCMArgs == nil {
-        clangModuleDetails.dependenciesCapturedPCMArgs = Set<[String]>()
+      if clangModuleDetails.capturedPCMArgs == nil {
+        clangModuleDetails.capturedPCMArgs = Set<[String]>()
       }
-      newPCMArgs.forEach { clangModuleDetails.dependenciesCapturedPCMArgs!.insert($0) }
+      newPCMArgs.forEach { clangModuleDetails.capturedPCMArgs!.insert($0) }
       modules[moduleId]!.details = .clang(clangModuleDetails)
     }
   }

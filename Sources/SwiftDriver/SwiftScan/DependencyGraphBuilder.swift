@@ -230,10 +230,20 @@ private extension SwiftScan {
                                using: api.swiftscan_clang_detail_get_command_line,
                                fieldName: "clang_detail.commandLine")
 
+    let capturedPCMArgs : Set<[String]>?
+    if clangDetailsHaveCapturedPCMArgs {
+      let capturedArgs = try getStringArrayDetail(from: moduleDetailsRef,
+                                                  using: api.swiftscan_clang_detail_get_captured_pcm_args,
+                                                  fieldName: "clang_detail.capturedPCMArgs")
+      capturedPCMArgs = [capturedArgs]
+    } else {
+      capturedPCMArgs = nil
+    }
+
     return ClangModuleDetails(moduleMapPath: moduleMapPath,
-                              dependenciesCapturedPCMArgs: nil,
                               contextHash: contextHash,
-                              commandLine: commandLine)
+                              commandLine: commandLine,
+                              capturedPCMArgs: capturedPCMArgs)
   }
 }
 

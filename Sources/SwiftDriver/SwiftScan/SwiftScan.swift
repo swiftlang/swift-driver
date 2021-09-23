@@ -208,10 +208,14 @@ internal final class SwiftScan {
     return resultGraphMap
   }
 
-  @_spi(Testing) public func canLoadStoreScannerCache() -> Bool {
-    return api.swiftscan_scanner_cache_load != nil &&
-           api.swiftscan_scanner_cache_serialize != nil &&
-           api.swiftscan_scanner_cache_reset != nil
+  @_spi(Testing) public var canLoadStoreScannerCache : Bool {
+    api.swiftscan_scanner_cache_load != nil &&
+    api.swiftscan_scanner_cache_serialize != nil &&
+    api.swiftscan_scanner_cache_reset != nil
+  }
+
+  @_spi(Testing) public var clangDetailsHaveCapturedPCMArgs : Bool {
+    api.swiftscan_clang_detail_get_captured_pcm_args != nil
   }
 
   func serializeScannerCache(to path: AbsolutePath) {
@@ -288,6 +292,10 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_scanner_cache_load")
     self.swiftscan_scanner_cache_reset =
       try loadOptional("swiftscan_scanner_cache_reset")
+
+    // Clang dependency captured PCM args
+    self.swiftscan_clang_detail_get_captured_pcm_args =
+      try loadOptional("swiftscan_clang_detail_get_captured_pcm_args")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
