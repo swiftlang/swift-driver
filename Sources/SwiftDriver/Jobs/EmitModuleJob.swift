@@ -33,9 +33,15 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
 
-    if isMergeModule || shouldCreateEmitModuleJob {
+    if isMergeModule {
       return
     }
+
+    // Skip files created by other jobs when emitting a module and building at the same time
+    if shouldCreateEmitModuleJob && compilerOutputType != .swiftModule {
+      return
+    }
+
     // Add outputs that can't be merged
     addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
     if let dependenciesFilePath = dependenciesFilePath {
@@ -103,7 +109,9 @@ extension Driver {
 
   /// Returns true if the -emit-module-separately is active.
   mutating func shouldEmitModuleSeparately() -> Bool {
-    return parsedOptions.hasArgument(.emitModuleSeparately)
+    return parsedOptions.hasFlag(positive: .emitModuleSeparately,
+                                 negative: .noEmitModuleSeparately,
+                                 default: false)
            && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
                                      negative: .noWholeModuleOptimization,
                                      default: false)
