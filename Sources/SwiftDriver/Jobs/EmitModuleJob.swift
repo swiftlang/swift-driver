@@ -89,7 +89,9 @@ extension Driver {
     commandLine.appendPath(outputPath)
     if isFeatureSupported(.emit_abi_descriptor) {
       commandLine.appendFlag(.emitAbiDescriptorPath)
-      commandLine.appendPath(outputPath.replacingExtension(with: .jsonABIBaseline))
+      let abiOutput = outputPath.replacingExtension(with: .jsonABIBaseline)
+      commandLine.appendPath(abiOutput)
+      outputs.append(TypedVirtualPath(file: abiOutput.intern(), type: .jsonABIBaseline))
     }
     return Job(
       moduleName: moduleOutputInfo.name,

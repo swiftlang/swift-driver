@@ -2117,10 +2117,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("-import-objc-header")))
     }
 
@@ -2129,10 +2130,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath("/foo/bar/Test.abi.json")))
     }
 
     do {
@@ -2141,10 +2143,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .relative(RelativePath("Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
     }
 
     do {
@@ -2153,10 +2156,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .relative(RelativePath("Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
     }
 
     do {
@@ -2181,10 +2185,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-parse-as-library")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath("/foo/bar/Test.abi.json")))
     }
 
     do {
@@ -2195,10 +2200,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath("/foo/bar/Test.abi.json")))
     }
 
     do {
@@ -3319,6 +3325,8 @@ final class SwiftDriverTests: XCTestCase {
       "emitModule (swift-frontend)" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
       "emitModule (swift-frontend)" -> "test.swiftdoc" [color=green];
+      "test.abi.json" [fontsize=12];
+      "emitModule (swift-frontend)" -> "test.abi.json" [color=green];
       "compile (swift-frontend)" [style=bold];
       "test.swift" -> "compile (swift-frontend)" [color=blue];
       "test-1.o" [fontsize=12];
@@ -3346,6 +3354,8 @@ final class SwiftDriverTests: XCTestCase {
       "emitModule (swift-frontend)" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
       "emitModule (swift-frontend)" -> "test.swiftdoc" [color=green];
+      "test.abi.json" [fontsize=12];
+      "emitModule (swift-frontend)" -> "test.abi.json" [color=green];
       "compile (swift-frontend)" [style=bold];
       "test.swift" -> "compile (swift-frontend)" [color=blue];
       "test-1.o" [fontsize=12];
@@ -4304,6 +4314,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("main.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("main.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .relative(RelativePath("main.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("main.abi.json")))
     }
 
     do {
@@ -4362,6 +4373,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[4].outputs[0].file, .relative(RelativePath("ABC.swiftmodule")))
       XCTAssertEqual(plannedJobs[4].outputs[1].file, .relative(RelativePath("ABC.swiftdoc")))
       XCTAssertEqual(plannedJobs[4].outputs[2].file, .relative(RelativePath("ABC.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[4].outputs[3].file, .relative(RelativePath("ABC.abi.json")))
     }
 
     do {
@@ -4616,6 +4628,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(matchTemporary(compileJob.outputs[0].file, "foo.swiftmodule"))
       XCTAssertTrue(matchTemporary(compileJob.outputs[1].file, "foo.swiftdoc"))
       XCTAssertTrue(matchTemporary(compileJob.outputs[2].file, "foo.swiftsourceinfo"))
+      XCTAssertTrue(matchTemporary(compileJob.outputs[3].file, "foo.abi.json"))
     }
     // implicit with Project/ Directory
     do {
@@ -4632,6 +4645,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(mergeModuleJob.outputs[0].file, .absolute(path.appending(component: "foo.swiftmodule")))
         XCTAssertEqual(mergeModuleJob.outputs[1].file, .absolute(path.appending(component: "foo.swiftdoc")))
         XCTAssertEqual(mergeModuleJob.outputs[2].file, .absolute(projectDirPath.appending(component: "foo.swiftsourceinfo")))
+        XCTAssertEqual(mergeModuleJob.outputs[3].file, .absolute(path.appending(component: "foo.abi.json")))
       }
     }
     // avoid implicit swiftsourceinfo
@@ -4643,6 +4657,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.outputs.count, 2)
       XCTAssertTrue(matchTemporary(compileJob.outputs[0].file, "foo.swiftmodule"))
       XCTAssertTrue(matchTemporary(compileJob.outputs[1].file, "foo.swiftdoc"))
+      XCTAssertTrue(matchTemporary(compileJob.outputs[2].file, "foo.abi.json"))
     }
   }
 
