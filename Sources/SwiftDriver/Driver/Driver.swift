@@ -327,9 +327,15 @@ public struct Driver {
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
 
+  /// A collection of all the features the selected toolchain's `swift-frontend` supports
+  public let supportedFrontendFeatures: Set<String>
+
   /// A global queue for emitting non-interrupted messages into stderr
   public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
 
+  enum KnownCompilerFeature: String {
+    case emit_abi_descriptor = "emit-abi-descriptor"
+  }
 
   lazy var sdkPath: VirtualPath? = {
     guard let rawSdkPath = frontendTargetInfo.sdkPath?.path else {
@@ -359,6 +365,10 @@ public struct Driver {
         return false
       }
     }
+  }
+
+  func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
+    return supportedFrontendFeatures.contains(feature.rawValue)
   }
 
   /// Handler for emitting diagnostics to stderr.
@@ -602,11 +612,12 @@ public struct Driver {
                                                                                outputFileMap: outputFileMap)
 
     self.supportedFrontendFlags =
-      try Self.computeSupportedCompilerFeatures(of: self.toolchain, hostTriple: self.hostTriple,
+      try Self.computeSupportedCompilerArgs(of: self.toolchain, hostTriple: self.hostTriple,
                                                 parsedOptions: &self.parsedOptions,
                                                 diagnosticsEngine: diagnosticEngine,
                                                 fileSystem: fileSystem, executor: executor,
                                                 env: env)
+    self.supportedFrontendFeatures = try Self.computeSupportedCompilerFeatures(of: self.toolchain, env: env)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
       &parsedOptions,

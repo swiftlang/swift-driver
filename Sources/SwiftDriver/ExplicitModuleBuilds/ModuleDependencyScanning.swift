@@ -348,7 +348,7 @@ public extension Driver {
       .appending(component: "lib_InternalSwiftScan" + sharedLibExt)
   }
 
-  fileprivate static func getRootPath(of toolchain: Toolchain, env: [String: String])
+  static func getRootPath(of toolchain: Toolchain, env: [String: String])
   throws -> AbsolutePath {
     if let overrideString = env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] {
       return try AbsolutePath(validating: overrideString)
