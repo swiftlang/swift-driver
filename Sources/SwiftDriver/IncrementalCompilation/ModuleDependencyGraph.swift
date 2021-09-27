@@ -442,7 +442,7 @@ extension ModuleDependencyGraph {
       // The most current version is already in the graph
       return nil
    case .old:
-      return .changed
+      return .newer
     }
   }
 
@@ -456,7 +456,7 @@ extension ModuleDependencyGraph {
     case .buildingFromSwiftDeps, .updatingFromAPrior:
       // If the external dependency has changed, better recompile any dependents
       return self.currencyCache.isCurrent(integrand.externalDependency.externalDependency)
-      ? nil : .changed
+      ? nil : .newer
     case .updatingAfterCompilation:
       // Since this file has been compiled anyway, no need
       return nil
