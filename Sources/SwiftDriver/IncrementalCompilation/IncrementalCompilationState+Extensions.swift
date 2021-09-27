@@ -274,6 +274,19 @@ extension IncrementalCompilationState {
     public func report(_ message: String) {
       diagnosticEngine.emit(.remark_incremental_compilation(because: message))
     }
+    
+    /// Entry point for ``ExternalIntegrand``
+    func report(_ message: String, _ integrand: ModuleDependencyGraph.ExternalIntegrand) {
+      report(message, integrand.externalDependency)
+    }
+    
+    func report(_ message: String, _ fed: FingerprintedExternalDependency) {
+      report(message, fed.externalDependency)
+    }
+
+    func report(_ message: String, _ externalDependency: ExternalDependency) {
+      report("\(message): \(externalDependency.shortDescription)")
+    }
 
 
     // Emits a remark indicating incremental compilation has been disabled.

@@ -351,10 +351,16 @@ extension ModuleDependencyGraph {
   func findNodesInvalidated(
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
+    guard self.info.isCrossModuleIncrementalBuildEnabled else {
+      return indiscriminatelyFindNodesInvalidated(by: integrand,
+                                                  .incrementalImportsIsDisabled)
+    }
     // If the integrand has no fingerprint, it's academic, cannot integrate it incrementally.
-    self.info.isCrossModuleIncrementalBuildEnabled && integrand.externalDependency.fingerprint != nil
-    ?    incrementallyFindNodesInvalidated(by: integrand)
-    : indiscriminatelyFindNodesInvalidated(by: integrand)
+    guard integrand.externalDependency.fingerprint != nil else {
+       return indiscriminatelyFindNodesInvalidated(by: integrand,
+                                                   .missingFingerprint)
+    }
+    return incrementallyFindNodesInvalidated(by: integrand)
   }
 
   /// Collects the nodes invalidated by a change to the given external
@@ -374,10 +380,26 @@ extension ModuleDependencyGraph {
     precondition(self.phase != .buildingFromSwiftDeps)
 
     guard let whyIntegrate = whyIncrementallyFindNodesInvalidated(by: integrand) else {
+      info.reporter?.report("Ignoring unchanged existing external incremental dependency", integrand)
       return DirectlyInvalidatedNodeSet()
     }
     return integrateIncrementalImport(of: integrand.externalDependency, whyIntegrate)
-           ?? indiscriminatelyFindNodesInvalidated(by: integrand)
+           ?? indiscriminatelyFindNodesInvalidated(by: integrand, .couldNotRead)
+  }
+  
+  /// In order to report what happened in a sensible order, reify the reason for indiscriminately invalidating.
+  private enum WhyIndiscriminatelyInvalidate: CustomStringConvertible {
+    case incrementalImportsIsDisabled
+    case missingFingerprint
+    case couldNotRead
+    
+    var description: String {
+      switch self {
+      case .incrementalImportsIsDisabled: return "Incremental imports are disabled"
+      case .missingFingerprint: return "No fingerprint in swiftmodule"
+      case .couldNotRead: return "Could not read"
+      }
+    }
   }
 
   /// Collects the nodes invalidated by a change to the given external
@@ -392,12 +414,14 @@ extension ModuleDependencyGraph {
   /// - Parameter integrand: The external dependency to integrate.
   /// - Returns: The set of module dependency graph nodes invalidated by integration.
   private func indiscriminatelyFindNodesInvalidated(
-    by integrand: ExternalIntegrand
+    by integrand: ExternalIntegrand, _ why: WhyIndiscriminatelyInvalidate
   ) -> DirectlyInvalidatedNodeSet {
     guard let reason = whyIndiscriminatelyFindNodesInvalidated(by: integrand)
     else {
+      // Every single system swiftmodule can show up here, so don't report it.
       return DirectlyInvalidatedNodeSet()
     }
+    info.reporter?.report("\(why.description): Invalidating all nodes in \(reason)", integrand)
     return collectUntracedNodes(thatUse: integrand.externalDependency, reason)
   }
 
@@ -417,7 +441,7 @@ extension ModuleDependencyGraph {
    case .old where self.currencyCache.isCurrent(integrand.externalDependency.externalDependency):
       // The most current version is already in the graph
       return nil
-    case .old:
+   case .old:
       return .changed
     }
   }
@@ -455,6 +479,7 @@ extension ModuleDependencyGraph {
     else {
       return nil
     }
+    info.reporter?.report("Integrating \(why) incremental import", fed)
     // When doing incremental imports, never read the same swiftmodule twice
     self.currencyCache.beCurrent(fed.externalDependency)
     let invalidatedNodes = Integrator.integrate(
