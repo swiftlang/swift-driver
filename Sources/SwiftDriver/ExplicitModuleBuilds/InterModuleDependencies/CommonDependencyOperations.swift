@@ -184,7 +184,7 @@ extension InterModuleDependencyGraph {
 
     // As far as their dependencies go, these module infos are identical
     if firstInfo.directDependencies == secondInfo.directDependencies,
-       firstDetails.dependenciesCapturedPCMArgs == secondDetails.dependenciesCapturedPCMArgs,
+       firstDetails.capturedPCMArgs == secondDetails.capturedPCMArgs,
        firstInfo.sourceFiles == secondInfo.sourceFiles {
       return firstInfo
     }
@@ -198,15 +198,15 @@ extension InterModuleDependencyGraph {
     let secondModuleDependencies = secondInfo.directDependencies ?? []
     let combinedDependencies = Array(Set(firstModuleDependencies + secondModuleDependencies))
 
-    let firstModuleCapturedPCMArgs = firstDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
-    let secondModuleCapturedPCMArgs = secondDetails.dependenciesCapturedPCMArgs ?? Set<[String]>()
+    let firstModuleCapturedPCMArgs = firstDetails.capturedPCMArgs ?? Set<[String]>()
+    let secondModuleCapturedPCMArgs = secondDetails.capturedPCMArgs ?? Set<[String]>()
     let combinedCapturedPCMArgs = firstModuleCapturedPCMArgs.union(secondModuleCapturedPCMArgs)
 
     let combinedModuleDetails =
       ClangModuleDetails(moduleMapPath: firstDetails.moduleMapPath,
-                         dependenciesCapturedPCMArgs: combinedCapturedPCMArgs,
                          contextHash: firstDetails.contextHash,
-                         commandLine: firstDetails.commandLine)
+                         commandLine: firstDetails.commandLine,
+                         capturedPCMArgs: combinedCapturedPCMArgs)
 
     return ModuleInfo(modulePath: firstInfo.modulePath,
                       sourceFiles: combinedSourceFiles,

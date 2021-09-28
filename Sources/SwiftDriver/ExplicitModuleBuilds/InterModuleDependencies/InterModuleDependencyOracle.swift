@@ -87,7 +87,7 @@ public class InterModuleDependencyOracle {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to serialize scanner cache with no scanner instance.")
     }
-    if swiftScan.canLoadStoreScannerCache() {
+    if swiftScan.canLoadStoreScannerCache {
       swiftScan.serializeScannerCache(to: path)
     }
   }
@@ -96,7 +96,7 @@ public class InterModuleDependencyOracle {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to load scanner cache with no scanner instance.")
     }
-    if swiftScan.canLoadStoreScannerCache() {
+    if swiftScan.canLoadStoreScannerCache {
       return swiftScan.loadScannerCache(from: path)
     }
     return false
@@ -106,7 +106,7 @@ public class InterModuleDependencyOracle {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    if swiftScan.canLoadStoreScannerCache() {
+    if swiftScan.canLoadStoreScannerCache {
       swiftScan.resetScannerCache()
     }
   }
