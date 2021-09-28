@@ -64,6 +64,7 @@ extension Driver {
 
     return Job(
       moduleName: moduleOutputInfo.name,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: .generatePCH,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

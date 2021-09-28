@@ -29,6 +29,7 @@ extension Driver {
     let lldbCommandLine: [Job.ArgTemplate] = [.squashedArgumentList(option: "--repl=", args: commandLine)]
     return Job(
       moduleName: moduleOutputInfo.name,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: .repl,
       tool: .absolute(try toolchain.getToolPath(.lldb)),
       commandLine: lldbCommandLine,

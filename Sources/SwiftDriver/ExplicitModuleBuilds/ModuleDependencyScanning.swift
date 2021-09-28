@@ -29,6 +29,7 @@ public extension Driver {
 
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
+               moduleAlias: moduleOutputInfo.aliases,
                kind: .scanDependencies,
                tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
                commandLine: commandLine,
@@ -232,6 +233,7 @@ public extension Driver {
 
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
+               moduleAlias: moduleOutputInfo.aliases,
                kind: .scanDependencies,
                tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
                commandLine: commandLine,
@@ -281,6 +283,7 @@ public extension Driver {
 
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
+               moduleAlias: moduleOutputInfo.aliases,
                kind: .scanDependencies,
                tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
                commandLine: commandLine,

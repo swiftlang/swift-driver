@@ -403,6 +403,7 @@ extension Driver {
     commandLine.appendFlag(.printModule)
     return Job(
       moduleName: moduleName,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: .compareABIBaseline,
       tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,
@@ -468,6 +469,7 @@ extension Driver {
     allInputs.append(inputPath.path)
     allJobs.append(Job(
       moduleName: moduleName,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: .compile,
       tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,

@@ -38,6 +38,7 @@ extension Toolchain {
     
     return Job(
       moduleName: "",
+      moduleAlias: nil,
       kind: .emitSupportedFeatures,
       tool: .absolute(try getToolPath(.swiftCompiler)),
       commandLine: commandLine,

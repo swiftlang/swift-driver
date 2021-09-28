@@ -411,6 +411,7 @@ extension Option {
   public static let moduleName: Option = Option("-module-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "Name of the module to build")
   public static let module: Option = Option("-module", .separate, attributes: [.noDriver], metaVar: "<name>", helpText: "Names of modules")
   public static let module_: Option = Option("--module", .separate, alias: Option.module, attributes: [.noDriver], metaVar: "<name>", helpText: "Names of modules")
+  public static let moduleAlias: Option = Option("-module-alias", .separate, attributes: [.frontend], metaVar: "<alias_name>=<underlying_name>", helpText: "If a file imports or references a module with <alias_name>, then <underlying_name> will be used for the contents of the file")
   public static let newDriverPath: Option = Option("-new-driver-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Path of the new driver to be used")
   public static let noClangModuleBreadcrumbs: Option = Option("-no-clang-module-breadcrumbs", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't emit DWARF skeleton CUs for imported Clang modules. Use this when building a redistributable static archive.")
   public static let noColorDiagnostics: Option = Option("-no-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Do not print diagnostics in color")
@@ -1018,6 +1019,7 @@ extension Option {
       Option.moduleName,
       Option.module,
       Option.module_,
+      Option.moduleAlias,
       Option.newDriverPath,
       Option.noClangModuleBreadcrumbs,
       Option.noColorDiagnostics,

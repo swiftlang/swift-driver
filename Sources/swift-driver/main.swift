@@ -27,7 +27,7 @@ func getExitCode(_ code: Int32) -> Int32 {
 }
 
 do {
-
+  
   let processSet = ProcessSet()
   intHandler = try InterruptHandler {
     // Terminate running compiler jobs and let the driver exit gracefully, remembering
@@ -35,27 +35,30 @@ do {
     processSet.terminate()
     driverInterrupted = true
   }
-
+  
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
     CommandLine.arguments.append("-experimental-explicit-module-build")
   }
-
-  let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
-
+  
+  let (mode, args) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
+  var arguments = args
+  if args.first?.hasSuffix("swift-driver") ?? false {
+//      arguments[0] = "swiftc"
+  }
   if case .subcommand(let subcommand) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.
     let subcommandPath = Process.findExecutable(arguments[0])?.parentDirectory.appending(component: subcommand)
-                         ?? Process.findExecutable(subcommand)
-
+    ?? Process.findExecutable(subcommand)
+    
     if subcommandPath == nil || !localFileSystem.exists(subcommandPath!) {
       fatalError("cannot find subcommand executable '\(subcommand)'")
     }
-
+    
     // Execute the subcommand.
     try exec(path: subcommandPath?.pathString ?? "", args: arguments)
   }
-
+  
   let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                          processSet: processSet,
                                          fileSystem: localFileSystem,
@@ -68,10 +71,10 @@ do {
   // FIXME: The following check should be at the end of Driver.init, but current
   // usage of the DiagnosticVerifier in tests makes this difficult.
   guard !driver.diagnosticEngine.hasErrors else { throw Diagnostics.fatalError }
-
+  
   let jobs = try driver.planBuild()
   try driver.run(jobs: jobs)
-
+  
   if driver.diagnosticEngine.hasErrors {
     exit(getExitCode(EXIT_FAILURE))
   }

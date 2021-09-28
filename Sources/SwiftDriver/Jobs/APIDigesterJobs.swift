@@ -55,6 +55,7 @@ extension Driver {
 
     return Job(
       moduleName: moduleOutputInfo.name,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: mode.baselineGenerationJobKind,
       tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,
@@ -96,6 +97,7 @@ extension Driver {
 
     return Job(
       moduleName: moduleOutputInfo.name,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: mode.baselineComparisonJobKind,
       tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,

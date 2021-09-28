@@ -42,6 +42,7 @@ extension Driver {
 
     return Job(
       moduleName: moduleOutputInfo.name,
+      moduleAlias: moduleOutputInfo.aliases,
       kind: .autolinkExtract,
       tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
       commandLine: commandLine,

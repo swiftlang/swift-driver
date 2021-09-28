@@ -202,7 +202,8 @@ extension Driver {
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
-
+    try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
+    
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
     if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,

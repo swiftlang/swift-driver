@@ -35,9 +35,13 @@ public final class SwiftDriverExecutor: DriverExecutor {
   public func execute(job: Job,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
-    let arguments: [String] = try resolver.resolveArgumentList(for: job,
+    var arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                forceResponseFiles: forceResponseFiles)
 
+    if arguments.first?.hasSuffix("swift-driver") ?? false {
+      arguments[0] = "/Users/ellie/srcdev/srcswift/build/Xcode-DebugAssert/swift-macosx-x86_64/Debug/bin/swiftc"
+    }
+    
     try job.verifyInputsNotModified(since: recordedInputModificationDates,
                                     fileSystem: fileSystem)
 

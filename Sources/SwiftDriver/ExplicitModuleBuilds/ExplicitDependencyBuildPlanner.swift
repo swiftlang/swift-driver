@@ -172,6 +172,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
       jobs.append(Job(
         moduleName: moduleId.moduleName,
+        moduleAlias: nil, // ES TODO: pass in module aliases
         kind: .emitModule,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: commandLine,
@@ -237,6 +238,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
         jobs.append(Job(
           moduleName: moduleId.moduleName,
+          moduleAlias: nil, // ES TODO: pass in module aliases
           kind: .generatePCM,
           tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
           commandLine: commandLine,

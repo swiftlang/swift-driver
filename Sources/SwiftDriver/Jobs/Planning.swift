@@ -661,6 +661,7 @@ extension Driver {
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
       return Job(
         moduleName: moduleOutputInfo.name,
+        moduleAlias: moduleOutputInfo.aliases,
         kind: .versionRequest,
         tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: [.flag("--version")],
@@ -677,6 +678,7 @@ extension Driver {
       }
       return Job(
         moduleName: moduleOutputInfo.name,
+        moduleAlias: moduleOutputInfo.aliases,
         kind: .help,
         tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
         commandLine: commandLine,

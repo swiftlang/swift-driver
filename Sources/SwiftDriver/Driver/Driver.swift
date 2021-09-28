@@ -773,8 +773,10 @@ extension Driver {
 
     assert(!args.isEmpty)
 
-    let execName = try VirtualPath(path: args[0]).basenameWithoutExt
-
+    var execName = try VirtualPath(path: args[0]).basenameWithoutExt
+    if execName.hasSuffix("swift-driver") {
+//      execName = "swiftc"
+    }
     // If we are not run as 'swift' or 'swiftc' or there are no program arguments, always invoke as normal.
     guard execName == "swift" || execName == "swiftc", args.count > 1 else {
       return (.normal(isRepl: false), args)
@@ -979,7 +981,7 @@ extension Driver {
     args: inout [String]
   ) throws -> DriverKind {
     // Get the basename of the driver executable.
-    let execRelPath = args.removeFirst()
+    let execRelPath = "swiftc" // args.removeFirst()
     var driverName = try VirtualPath(path: execRelPath).basenameWithoutExt
 
     // Determine if the driver kind is being overriden.
@@ -2005,7 +2007,7 @@ extension Driver {
       diagnosticsEngine.emit(.error_mode_cannot_emit_module)
       moduleOutputKind = nil
     }
-
+    
     // Determine the name of the module.
     var moduleName: String
     var moduleNameIsFallback = false
@@ -2048,9 +2050,23 @@ extension Driver {
       fallbackOrDiagnose(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     }
 
+    
+    // ES TODO: add checks against module name
+    var moduleAliases: [String: String]? = nil
+    let aliasList = parsedOptions.arguments(for: [.moduleAlias])
+    for item in aliasList {
+      let pair = item.argument.asSingle.components(separatedBy: "=")
+      if let lhs = pair.first, let rhs = pair.last, !rhs.isEmpty {
+        if moduleAliases == nil {
+          moduleAliases = [String: String]()
+        }
+        moduleAliases?[lhs] = rhs
+      }
+    }
+       
     // If we're not emiting a module, we're done.
     if moduleOutputKind == nil {
-      return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
 
     // Determine the module file to output.
@@ -2084,9 +2100,9 @@ extension Driver {
 
     switch moduleOutputKind! {
     case .topLevel:
-      return ModuleOutputInfo(output: .topLevel(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .topLevel(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     case .auxiliary:
-      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
   }
 }

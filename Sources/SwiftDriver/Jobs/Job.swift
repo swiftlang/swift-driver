@@ -64,6 +64,10 @@ public struct Job: Codable, Equatable, Hashable {
   /// The Swift module this job involves.
   public var moduleName: String
 
+  /// Aliases and underlying names of modules imported into or
+  /// referenced by a source file in this module
+  public var moduleAlias: [String: String]?
+  
   /// The tool to invoke.
   public var tool: VirtualPath
 
@@ -105,6 +109,7 @@ public struct Job: Codable, Equatable, Hashable {
 
   public init(
     moduleName: String,
+    moduleAlias: [String: String]? = nil,
     kind: Kind,
     tool: VirtualPath,
     commandLine: [ArgTemplate],
@@ -118,6 +123,7 @@ public struct Job: Codable, Equatable, Hashable {
     supportsResponseFiles: Bool = false
   ) {
     self.moduleName = moduleName
+    self.moduleAlias = moduleAlias
     self.kind = kind
     self.tool = tool
     self.commandLine = commandLine

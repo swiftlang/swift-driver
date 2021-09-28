@@ -162,6 +162,7 @@ extension Toolchain {
 
     return Job(
       moduleName: "",
+      moduleAlias: nil,
       kind: .printTargetInfo,
       tool: .absolute(try getToolPath(.swiftCompiler)),
       commandLine: commandLine,
