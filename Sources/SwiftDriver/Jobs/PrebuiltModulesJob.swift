@@ -12,6 +12,19 @@
 import TSCBasic
 import SwiftOptions
 
+@_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
+  let data = try localFileSystem.readFileContents(path).cString
+  let myStrings = data.components(separatedBy: .newlines)
+  let prefix = "// swift-module-flags: "
+  if let argLine = myStrings.first(where: { $0.hasPrefix(prefix) }) {
+    let args = argLine.dropFirst(prefix.count).components(separatedBy: " ")
+    if let idx = args.firstIndex(of: "-target"), idx + 1 < args.count {
+      return args[idx + 1].contains("macabi")
+    }
+  }
+  return false
+}
+
 func isIosMac(_ path: VirtualPath) -> Bool {
   // Infer macabi interfaces by the file name.
   // FIXME: more robust way to do this.
@@ -440,7 +453,7 @@ extension Driver {
       commandLine.appendFlag(.parseStdlib)
     }
     // Add macabi-specific search path.
-    if isIosMac(inputPath.path.file) {
+    if try isIosMacInterface(inputPath.path.file) {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
     }
