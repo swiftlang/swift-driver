@@ -5030,6 +5030,17 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testIsIosMacInterface() throws {
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -target x86_64-apple-ios15.0-macabi" }
+      XCTAssertTrue(try isIosMacInterface(VirtualPath.absolute(file.path)))
+    }
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0" }
+      XCTAssertFalse(try isIosMacInterface(VirtualPath.absolute(file.path)))
+    }
+  }
+
   func testSupportedFeatureJson() throws {
     let driver = try Driver(args: ["swiftc", "-emit-module", "foo.swift"])
     XCTAssertFalse(driver.supportedFrontendFeatures.isEmpty)
