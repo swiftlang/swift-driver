@@ -85,7 +85,7 @@ extension Driver {
       } else {
         // When -lto is set, .bc will be used for linking. Otherwise, .bc is
         // top-level output (-emit-bc)
-        return lto == nil
+        return lto == nil || linkerOutputType == nil
       }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false

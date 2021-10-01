@@ -313,6 +313,28 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver6.compilerOutputType, .llvmBitcode)
   }
 
+  func testLtoOutputPath() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-c", "-target", "x86_64-apple-macosx10.9"])
+      XCTAssertEqual(driver.compilerOutputType, .llvmBitcode)
+      XCTAssertEqual(driver.linkerOutputType, nil)
+      let jobs = try driver.planBuild()
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].outputs.count, 1)
+      XCTAssertEqual(jobs[0].outputs[0].file.basename, "foo.bc")
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-c", "-target", "x86_64-apple-macosx10.9", "-o", "foo.o"])
+      XCTAssertEqual(driver.compilerOutputType, .llvmBitcode)
+      XCTAssertEqual(driver.linkerOutputType, nil)
+      let jobs = try driver.planBuild()
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].outputs.count, 1)
+      XCTAssertEqual(jobs[0].outputs[0].file.basename, "foo.o")
+    }
+  }
+
   func testPrimaryOutputKindsDiagnostics() throws {
       try assertDriverDiagnostics(args: "swift", "-i") {
         $1.expect(.error("the flag '-i' is no longer required and has been removed; use 'swift input-filename'"))
