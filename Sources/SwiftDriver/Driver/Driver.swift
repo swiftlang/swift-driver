@@ -602,6 +602,7 @@ public struct Driver {
       fileSystem: fileSystem,
       moduleOutputInfo: moduleOutputInfo,
       outputFileMap: outputFileMap,
+      incremental: self.shouldAttemptIncrementalCompilation,
       parsedOptions: parsedOptions,
       recordedInputModificationDates: recordedInputModificationDates)
 
