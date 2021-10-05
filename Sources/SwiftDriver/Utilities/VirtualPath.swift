@@ -340,7 +340,12 @@ extension VirtualPath {
       return try self.queue.sync(flags: .barrier) {
         guard let idx = self.uniquer[key] else {
           let path: VirtualPath
-          if let absolute = try? AbsolutePath(validating: key) {
+          // The path representation does not properly handle paths on all
+          // platforms.  On Windows, we often see an empty key which we would
+          // like to treat as being the relative path to cwd.
+          if key.isEmpty {
+            path = .relative(try RelativePath(validating: "."))
+          } else if let absolute = try? AbsolutePath(validating: key) {
             path = .absolute(absolute)
           } else {
             let relative = try RelativePath(validating: key)

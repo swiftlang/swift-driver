@@ -314,6 +314,14 @@ public extension Driver {
 @_spi(Testing) public extension Driver {
   static func getScanLibPath(of toolchain: Toolchain, hostTriple: Triple,
                              env: [String: String]) throws -> AbsolutePath {
+    if hostTriple.isWindows {
+      // no matter if we are in a build tree or an installed tree, the layout is
+      // always: `bin/_InternalSwiftScan.dll`
+      return try getRootPath(of: toolchain, env: env)
+                    .appending(component: "bin")
+                    .appending(component: "_InternalSwiftScan.dll")
+    }
+
     let sharedLibExt: String
     if hostTriple.isMacOSX {
       sharedLibExt = ".dylib"

@@ -787,7 +787,7 @@ extension Driver {
     let execName = try VirtualPath(path: args[0]).basenameWithoutExt
 
     // If we are not run as 'swift' or 'swiftc' or there are no program arguments, always invoke as normal.
-    guard execName == "swift" || execName == "swiftc", args.count > 1 else {
+    guard [executableName("swift"), executableName("swiftc")].contains(execName), args.count > 1 else {
       return (.normal(isRepl: false), args)
     }
 
@@ -797,13 +797,13 @@ extension Driver {
 
     // Check for flags associated with frontend tools.
     if firstArg == "-frontend" {
-      updatedArgs.replaceSubrange(0...1, with: ["swift-frontend"])
-      return (.subcommand("swift-frontend"), updatedArgs)
+      updatedArgs.replaceSubrange(0...1, with: [executableName("swift-frontend")])
+      return (.subcommand(executableName("swift-frontend")), updatedArgs)
     }
 
     if firstArg == "-modulewrap" {
-      updatedArgs[0] = "swift-frontend"
-      return (.subcommand("swift-frontend"), updatedArgs)
+      updatedArgs[0] = executableName("swift-frontend")
+      return (.subcommand(executableName("swift-frontend")), updatedArgs)
     }
 
     // Only 'swift' supports subcommands.
@@ -824,7 +824,7 @@ extension Driver {
         return (.normal(isRepl: true), updatedArgs)
     }
 
-    let subcommand = "swift-\(firstArg)"
+    let subcommand = executableName("swift-\(firstArg)")
 
     updatedArgs.replaceSubrange(0...1, with: [subcommand])
 
@@ -2222,10 +2222,12 @@ extension Driver {
 
       if !fileSystem.exists(path) {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
-      } else if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
-                            diagnosticsEngine: diagnosticsEngine) {
-        diagnosticsEngine.emit(.error_sdk_too_old(sdkPath))
-        return nil
+      } else if !(targetTriple?.isWindows ?? (defaultToolchainType == WindowsToolchain.self)) {
+        if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
+                       diagnosticsEngine: diagnosticsEngine) {
+          diagnosticsEngine.emit(.error_sdk_too_old(sdkPath))
+          return nil
+        }
       }
 
       return .absolute(path)
@@ -2510,7 +2512,7 @@ extension Triple {
     case .wasi:
       return WebAssemblyToolchain.self
     case .win32:
-      fatalError("Windows target not supported yet")
+      return WindowsToolchain.self
     default:
       diagnosticsEngine.emit(.error_unknown_target(triple))
       throw Diagnostics.fatalError
@@ -2523,7 +2525,7 @@ extension Driver {
   #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
   static let defaultToolchainType: Toolchain.Type = DarwinToolchain.self
   #elseif os(Windows)
-  static let defaultToolchainType: Toolchain.Type = { fatalError("Windows target not supported yet") }()
+  static let defaultToolchainType: Toolchain.Type = WindowsToolchain.self
   #else
   static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
   #endif
