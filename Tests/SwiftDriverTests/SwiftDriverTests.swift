@@ -946,6 +946,55 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testResponseFileExpansionRelativePathsInCWD() throws {
+    try withTemporaryDirectory { path in
+      guard let preserveCwd = localFileSystem
+        .currentWorkingDirectory else { fatalError() }
+      try! localFileSystem.changeCurrentWorkingDirectory(to: path)
+      defer { try! localFileSystem.changeCurrentWorkingDirectory(to: preserveCwd) }
+
+      let diags = DiagnosticsEngine()
+      let fooPath = path.appending(component: "foo.rsp")
+      let barPath = path.appending(component: "bar.rsp")
+      try localFileSystem.writeFileContents(fooPath) {
+        $0 <<< "hello\nbye\nbye\\ to\\ you\n@bar.rsp"
+      }
+      try localFileSystem.writeFileContents(barPath) {
+        $0 <<< "from\nbar\n@foo.rsp"
+      }
+      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@foo.rsp", "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
+      XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
+      XCTAssertEqual(diags.diagnostics.count, 1)
+      XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
+    }
+  }
+
+  /// Tests that relative paths in response files are resolved based on the CWD, not the response file's location.
+  func testResponseFileExpansionRelativePathsNotInCWD() throws {
+    try withTemporaryDirectory { path in
+      guard let preserveCwd = localFileSystem
+        .currentWorkingDirectory else { fatalError() }
+      try! localFileSystem.changeCurrentWorkingDirectory(to: path)
+      defer { try! localFileSystem.changeCurrentWorkingDirectory(to: preserveCwd) }
+
+      try localFileSystem.createDirectory(path.appending(component: "subdir"))
+
+      let diags = DiagnosticsEngine()
+      let fooPath = path.appending(components: "subdir", "foo.rsp")
+      let barPath = path.appending(components: "subdir", "bar.rsp")
+      try localFileSystem.writeFileContents(fooPath) {
+        $0 <<< "hello\nbye\nbye\\ to\\ you\n@subdir/bar.rsp"
+      }
+      try localFileSystem.writeFileContents(barPath) {
+        $0 <<< "from\nbar\n@subdir/foo.rsp"
+      }
+      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@subdir/foo.rsp", "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
+      XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
+      XCTAssertEqual(diags.diagnostics.count, 1)
+      XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
+    }
+  }
+
   /// Tests how response files tokens such as spaces, comments, escaping characters and quotes, get parsed and expanded.
   func testResponseFileTokenization() throws {
     try withTemporaryDirectory { path  in

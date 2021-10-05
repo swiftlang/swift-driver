@@ -869,6 +869,18 @@ extension Driver {
 
 // MARK: - Response files.
 extension Driver {
+  /// Tracks visited response files by unique file ID to prevent recursion,
+  /// even if they are referenced with different path strings.
+  private struct VisitedResponseFile: Hashable, Equatable {
+    var device: UInt64
+    var inode: UInt64
+
+    init(fileInfo: FileInfo) {
+      self.device = fileInfo.device
+      self.inode = fileInfo.inode
+    }
+  }
+
   /// Tokenize a single line in a response file.
   ///
   /// This method supports response files with:
@@ -934,31 +946,81 @@ extension Driver {
            .flatMap { tokenizeResponseFileLine($0) }
   }
 
+  /// Resolves the absolute path for a response file.
+  ///
+  /// A response file may be specified using either an absolute or relative
+  /// path. Relative paths resolved relative to the given base directory, which
+  /// defaults to the process's current working directory, or are forbidden if
+  /// the base path is nil.
+  ///
+  /// - Parameter path: An absolute or relative path to a response file.
+  /// - Parameter basePath: An absolute path used to resolve relative paths; if
+  ///   nil, relative paths will not be allowed.
+  /// - Returns: The absolute path to the response file if it was a valid file,
+  ///   or nil if it was not a file or was a relative path when `basePath` was
+  ///   nil.
+  private static func resolveResponseFile(
+    _ path: String,
+    relativeTo basePath: AbsolutePath?,
+    fileSystem: FileSystem
+  ) -> AbsolutePath? {
+    let responseFile: AbsolutePath
+    if let basePath = basePath {
+      responseFile = AbsolutePath(path, relativeTo: basePath)
+    } else {
+      guard let absolutePath = try? AbsolutePath(validating: path) else {
+        return nil
+      }
+      responseFile = absolutePath
+    }
+    return fileSystem.isFile(responseFile) ? responseFile : nil
+  }
+
+  /// Tracks the given response file and returns a token if it has not already
+  /// been visited.
+  ///
+  /// - Returns: A value that uniquely identifies the response file that was
+  ///   added to `visitedResponseFiles` and should be removed when the caller
+  ///   is done visiting the file, or nil if visiting the file would result in
+  ///   recursion.
+  private static func shouldVisitResponseFile(
+    _ path: AbsolutePath,
+    fileSystem: FileSystem,
+    visitedResponseFiles: inout Set<VisitedResponseFile>
+  ) throws -> VisitedResponseFile? {
+    let visitationToken = try VisitedResponseFile(fileInfo: fileSystem.getFileInfo(path))
+    return visitedResponseFiles.insert(visitationToken).inserted ? visitationToken : nil
+  }
+
   /// Recursively expands the response files.
-  /// - Parameter visitedResponseFiles: Set containing visited response files to detect recursive parsing.
+  /// - Parameter basePath: The absolute path used to resolve response files
+  ///   with relative path names. If nil, relative paths will be ignored.
+  /// - Parameter visitedResponseFiles: Set containing visited response files
+  ///   to detect recursive parsing.
   private static func expandResponseFiles(
     _ args: [String],
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
-    visitedResponseFiles: inout Set<AbsolutePath>
+    relativeTo basePath: AbsolutePath?,
+    visitedResponseFiles: inout Set<VisitedResponseFile>
   ) throws -> [String] {
     var result: [String] = []
 
     // Go through each arg and add arguments from response files.
     for arg in args {
-      if arg.first == "@", let responseFile = try? AbsolutePath(validating: String(arg.dropFirst())) {
+      if arg.first == "@", let responseFile = resolveResponseFile(String(arg.dropFirst()), relativeTo: basePath, fileSystem: fileSystem) {
         // Guard against infinite parsing loop.
-        guard visitedResponseFiles.insert(responseFile).inserted else {
+        guard let visitationToken = try shouldVisitResponseFile(responseFile, fileSystem: fileSystem, visitedResponseFiles: &visitedResponseFiles) else {
           diagnosticsEngine.emit(.warn_recursive_response_file(responseFile))
           continue
         }
         defer {
-          visitedResponseFiles.remove(responseFile)
+          visitedResponseFiles.remove(visitationToken)
         }
 
         let contents = try fileSystem.readFileContents(responseFile).cString
         let lines = tokenizeResponseFile(contents)
-        result.append(contentsOf: try expandResponseFiles(lines, fileSystem: fileSystem, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles))
+        result.append(contentsOf: try expandResponseFiles(lines, fileSystem: fileSystem, diagnosticsEngine: diagnosticsEngine, relativeTo: basePath, visitedResponseFiles: &visitedResponseFiles))
       } else {
         result.append(arg)
       }
@@ -973,8 +1035,8 @@ extension Driver {
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> [String] {
-    var visitedResponseFiles = Set<AbsolutePath>()
-    return try expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: diagnosticsEngine, visitedResponseFiles: &visitedResponseFiles)
+    var visitedResponseFiles = Set<VisitedResponseFile>()
+    return try expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: diagnosticsEngine, relativeTo: fileSystem.currentWorkingDirectory, visitedResponseFiles: &visitedResponseFiles)
   }
 }
 
