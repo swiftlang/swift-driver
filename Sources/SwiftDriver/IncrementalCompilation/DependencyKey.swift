@@ -352,8 +352,8 @@ extension ExternalDependency {
     /// An `import` of this file was added to the source code.
     case added
 
-    /// The imported file has changed.
-    case changed
+    /// The imported file is newer.
+    case newer
 
     /// Used when testing
     case testing

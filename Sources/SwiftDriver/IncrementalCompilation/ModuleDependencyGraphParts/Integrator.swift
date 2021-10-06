@@ -148,10 +148,35 @@ extension ModuleDependencyGraph.Integrator {
     assert(matchHere.dependencySource == dependencySource)
     // Node was and still is. Do not remove it.
     disappearedNodes.removeValue(forKey: matchHere.key)
-    if matchHere.fingerprint != integrand.fingerprint {
+    enum FingerprintDisposition: String {
+      case missing, changed, stable
+      init(_ integrand: SourceFileDependencyGraph.Node,
+           _ matchHere: ModuleDependencyGraph.Node) {
+        switch (integrand.fingerprint, matchHere.fingerprint) {
+        case (nil, _):
+          self = .missing
+        case (_?, nil):
+          self = .changed
+        case let (integrandFingerprint?, matchHereFingerprint?):
+          self = integrandFingerprint == matchHereFingerprint
+          ? .stable : .changed
+        }
+      }
+    }
+    let disposition = FingerprintDisposition(integrand, matchHere)
+    switch disposition {
+    case .stable:
+      break
+    case .missing:
+      // Since we only put fingerprints in enums, structs, classes, etc.,
+      // the driver really lacks the information to do much here.
+      // Just report it.
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
+      break
+    case .changed:
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
-      reporter?.report("Fingerprint changed for \(matchHere)")
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
     }
     return matchHere
   }
