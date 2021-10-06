@@ -628,9 +628,6 @@ extension IncrementalCompilationTests {
       reading(deps: "main", "other")
       // Because `let foo = 1`, there is no fingerprint
       fingerprintsMissing(.topLevel(name: "foo"), "main")
-      trace {
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
-      }
       fingerprintsMissing(.topLevel(name: "bar"), "other")
       schedLinking
     }
@@ -664,6 +661,7 @@ extension IncrementalCompilationTests {
       fingerprintsChanged("main")
       fingerprintsMissing(.topLevel(name: "foo"), "main")
       trace {
+        TraceStep(.interface, source: "main")
         TraceStep(.interface, .topLevel(name: "foo"), "main")
         TraceStep(.implementation, source: "other")
       }
@@ -971,6 +969,7 @@ extension IncrementalCompilationTests {
     
     for input in affectedInputs {
       trace {
+        TraceStep(.interface, source: "main")
         TraceStep(.interface, .topLevel(name: "foo"), "main")
         TraceStep(.implementation, source: input)
       }
@@ -1057,10 +1056,6 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       fingerprintsMissing(.topLevel(name: "foo"), "main")
-      trace {
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
-        TraceStep(.implementation, source: "other")
-      }
       fingerprintsMissing(.topLevel(name: "bar"), "other")
       schedulingPostCompileJobs
       linking

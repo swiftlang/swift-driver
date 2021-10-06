@@ -165,8 +165,15 @@ extension ModuleDependencyGraph.Integrator {
     }
     let disposition = FingerprintDisposition(integrand, matchHere)
     switch disposition {
-    case .stable: break
-    case .missing, .changed:
+    case .stable:
+      break
+    case .missing:
+      // Since we only put fingerprints in enums, structs, classes, etc.,
+      // the driver really lacks the information to do much here.
+      // Just report it.
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
+      break
+    case .changed:
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
       reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
