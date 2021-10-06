@@ -386,9 +386,9 @@ extension IncrementalCompilationTests {
     let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
     let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
     try priorsWithOldVersion?.write(to: .absolute(priorsPath),
-                                on: localFileSystem,
-                                compilerVersion: compilerVersion,
-                                mockSerializedGraphVersion: incrementedVersion)
+                                    on: localFileSystem,
+                                    compilerVersion: compilerVersion,
+                                    mockSerializedGraphVersion: incrementedVersion)
     try setModTime(of: .absolute(priorsPath), to: priorsModTime)
 
     try checkReactionToObsoletePriors()
@@ -436,8 +436,8 @@ extension IncrementalCompilationTests {
 fileprivate enum RemovalTestOption: String, CaseIterable, Comparable, Hashable, CustomStringConvertible {
   case
   removeInputFromInvocation,
-  removeSwiftDepsFile,
-  restoreBadPriors,
+  removeSwiftDepsOfRemovedInput,
+  simulatePriorsNotRemovedWhenInputWasRemoved,
   removedFileDependsOnChangedFile
 
   private static let byInt  = [Int: Self](uniqueKeysWithValues: allCases.enumerated().map{($0, $1)})
@@ -488,12 +488,12 @@ extension IncrementalCompilationTests {
     try testAddingInput(newInput: newInput, defining: topLevelName)
 
     let removeInputFromInvocation = options.contains(.removeInputFromInvocation)
-    let removeSwiftDepsFile = options.contains(.removeSwiftDepsFile)
-    let restoreBadPriors = options.contains(.restoreBadPriors)
-    let removedFileDependsOnChangedFile = options.contains(.removedFileDependsOnChangedFile)
+    let removeSwiftDepsOfRemovedInput = options.contains(.removeSwiftDepsOfRemovedInput)
+    let simulatePriorsNotRemovedWhenInputWasRemoved = options.contains(.simulatePriorsNotRemovedWhenInputWasRemoved)
+    let removedFileDependsOnChangedFileAndMainWasChanged = options.contains(.removedFileDependsOnChangedFile)
 
     do {
-      let wrapperFn = options.contains(.restoreBadPriors)
+      let wrapperFn = options.contains(.simulatePriorsNotRemovedWhenInputWasRemoved)
       ? preservingPriorsDo
       : {_ = try $0()}
       try wrapperFn {
@@ -501,19 +501,19 @@ extension IncrementalCompilationTests {
           removedInput: newInput,
           defining: topLevelName,
           removeInputFromInvocation: removeInputFromInvocation,
-          removeSwiftDepsFile: removeSwiftDepsFile)
+          removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput)
       }
     }
-    if removedFileDependsOnChangedFile {
+    if removedFileDependsOnChangedFileAndMainWasChanged {
       replace(contentsOf: "main", with: "let foo = \"hello\"")
     }
     try checkRestorationOfIncrementalityAfterRemoval(
       removedInput: newInput,
       defining: topLevelName,
       removeInputFromInvocation: removeInputFromInvocation,
-      removeSwiftDepsFile: removeSwiftDepsFile,
-      afterRestoringBadPriors: restoreBadPriors,
-      removedFileDependsOnChangedFile: removedFileDependsOnChangedFile)
+      removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput,
+      priorsAreStaleFromBeforeInputWasRemoved: simulatePriorsNotRemovedWhenInputWasRemoved,
+      removedFileDependsOnChangedFileAndMainWasChanged: removedFileDependsOnChangedFileAndMainWasChanged)
   }
 }
 
@@ -597,6 +597,8 @@ extension IncrementalCompilationTests {
       readGraph
       findingBatchingCompiling("other")
       reading(deps: "other")
+      // Since the code is `bar = foo`, there is no fingprint for `bar`
+      fingerprintsMissing(.topLevel(name: "bar"), "other")
       schedLinking
       skipped("main")
     }
@@ -619,11 +621,17 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
+      enablingCrossModule
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
+      // Because `let foo = 1`, there is no fingerprint
+      fingerprintsMissing(.topLevel(name: "foo"), "main")
+      trace {
+        TraceStep(.interface, .topLevel(name: "foo"), "main")
+      }
+      fingerprintsMissing(.topLevel(name: "bar"), "other")
       schedLinking
     }
   }
@@ -653,16 +661,16 @@ extension IncrementalCompilationTests {
       skipping("other")
       findingBatchingCompiling("main")
       reading(deps: "main")
-      fingerprintChanged(.interface, "main")
-      fingerprintChanged(.implementation, "main")
+      fingerprintsChanged("main")
+      fingerprintsMissing(.topLevel(name: "foo"), "main")
       trace {
-        TraceStep(.interface, source: "main")
         TraceStep(.interface, .topLevel(name: "foo"), "main")
         TraceStep(.implementation, source: "other")
       }
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
       reading(deps: "other")
+      fingerprintsMissing(.topLevel(name: "bar"), "other")
       schedLinking
     }
   }
@@ -702,6 +710,8 @@ extension IncrementalCompilationTests {
       schedulingPostCompileJobs
       compiling("main", "other")
       reading(deps: "main", "other")
+      fingerprintsMissing(.topLevel(name: "foo"), "main")
+      fingerprintsMissing(.topLevel(name: "bar"), "other")
       linking
     }
   }
@@ -786,12 +796,12 @@ extension IncrementalCompilationTests {
     removedInput: String,
     defining topLevelName: String,
     removeInputFromInvocation: Bool,
-    removeSwiftDepsFile: Bool
+    removeSwiftDepsOfRemovedInput: Bool
   ) throws -> Driver {
     let extraArguments = removeInputFromInvocation
     ? [] : [inputPath(basename: removedInput).pathString]
 
-    if removeSwiftDepsFile {
+    if removeSwiftDepsOfRemovedInput {
       removeSwiftDeps(removedInput)
     }
 
@@ -801,18 +811,17 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      switch (removeInputFromInvocation, removeSwiftDepsFile) {
+      switch (removeInputFromInvocation, removeSwiftDepsOfRemovedInput) {
       case (false, false):
+        // No change:
         readGraphAndSkipAll("main", "other", removedInput)
-      case (true, false):
-        disabledForRemoval(removedInput)
-        findingBatchingCompiling("main", "other")
-        linking
-      case (true, true):
+      case (true, _):
+        // Give up on incremental if an input is removed:
         disabledForRemoval(removedInput)
         findingBatchingCompiling("main", "other")
         linking
       case (false, true):
+        // Missing swiftdeps; compile it, read swiftdeps, link
         readGraph
         enablingCrossModule
         maySkip("main", "other", removedInput)
@@ -821,6 +830,7 @@ extension IncrementalCompilationTests {
         skipping("main", "other")
         findingBatchingCompiling(removedInput)
         reading(deps: removedInput)
+        fingerprintsMissing(.topLevel(name: topLevelName), removedInput)
         schedulingPostCompileJobs
         linking
         skipped("main", "other")
@@ -840,27 +850,34 @@ extension IncrementalCompilationTests {
     }
     return driver
   }
+}
 
+// MARK: - Incremental test stages; checkRestorationOfIncrementalityAfterRemoval
+extension IncrementalCompilationTests {
   /// Ensure that incremental builds happen after a removal.
   ///
   /// - Parameters:
   ///   - newInput: The basename without extension of the new file
   ///   - topLevelName: The top-level decl name added by the new file
-  private func checkRestorationOfIncrementalityAfterRemoval(
+  fileprivate func checkRestorationOfIncrementalityAfterRemoval(
     removedInput: String,
     defining topLevelName: String,
     removeInputFromInvocation: Bool,
-    removeSwiftDepsFile: Bool,
-    afterRestoringBadPriors: Bool,
-    removedFileDependsOnChangedFile: Bool
+    removeSwiftDepsOfRemovedInput: Bool,
+    priorsAreStaleFromBeforeInputWasRemoved: Bool,
+    removedFileDependsOnChangedFileAndMainWasChanged: Bool
   ) throws {
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
     let extraArguments = removeInputFromInvocation
       ? [] : [inputPath(basename: removedInput).pathString]
-    let haveGraph = !removeInputFromInvocation || afterRestoringBadPriors
-    let mainChanged = removedFileDependsOnChangedFile
+    let havePriors = !removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved
+    let mainChanged = removedFileDependsOnChangedFileAndMainWasChanged
     let changedInputs = mainChanged ? ["main"] : []
     let unchangedInputs = inputs.filter {!changedInputs.contains($0)}
+    let affectedInputs = removeInputFromInvocation
+      ? ["other"] : [removedInput, "other"]
+    let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
+    let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
 
     let driver = try doABuild(
       "restoring incrementality after removal of \(removedInput)",
@@ -868,54 +885,36 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      if haveGraph {
+      if havePriors {
         readGraph
       }
       enablingCrossModule
 
-      if changedInputs.isEmpty && haveGraph {
+      if changedInputs.isEmpty && havePriors {
         skippingAll(inputs)
       }
       else {
-        let firstWave = haveGraph ? changedInputs : inputs
-        let omittedFromFirstWave = haveGraph ? unchangedInputs : []
-        schedulingChanged(changedInputs)
-        maySkip(unchangedInputs)
-        queuingInitial(firstWave)
-        notSchedulingDependentsUnknownChanges(changedInputs)
-        skipping(omittedFromFirstWave)
-        findingBatchingCompiling(firstWave)
-        reading(deps: firstWave)
-        if !haveGraph {
-          for (input, name) in [("main", "foo"), ("other", "bar")] {
-            newDefinitionOfSourceFile(.interface,      input)
-            newDefinitionOfSourceFile(.implementation, input)
-            newDefinitionOfTopLevelName(.interface,      name: name, input: input)
-            newDefinitionOfTopLevelName(.implementation, name: name, input: input)
-          }
+        let swiftDepsReadAfterFirstWave = havePriors ? changedInputs : inputs
+        let omittedFromFirstWave = havePriors ? unchangedInputs : []
+        respondToChangedInputs(
+          changedInputs: changedInputs,
+          unchangedInputs: unchangedInputs,
+          swiftDepsReadAfterFirstWave: swiftDepsReadAfterFirstWave,
+          omittedFromFirstWave: omittedFromFirstWave)
+        if !havePriors {
+          addDefsWithoutGraph
         }
         else {
-          fingerprintChanged(.interface, "main")
-          fingerprintChanged(.implementation, "main")
+          // At this point in the result builder:
+          // (!removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved) && removedFileDependsOnChangedFileAndMainWasChanged
 
-          let affectedInputs = removeInputFromInvocation
-            ? ["other"]
-            : [removedInput, "other"]
-          for input in affectedInputs {
-            trace {
-              TraceStep(.interface, source: "main")
-              TraceStep(.interface, .topLevel(name: "foo"), "main")
-              TraceStep(.implementation, .sourceFileProvide(name: "\(input).swiftdeps"),
-                        input == removedInput && afterRestoringBadPriors
-                        ? nil : input)
-            }
-          }
-          let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
-          queuingLater(affectedInputsInBuild)
-          schedulingInvalidated(affectedInputsInBuild)
-          let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
-          findingBatchingCompiling(affectedInputsInInvocationOrder)
-          reading(deps: affectedInputsInInvocationOrder)
+          integrateChangedMainWithPriors(
+            removedInput: removedInput,
+            defining: topLevelName,
+            affectedInputs: affectedInputs,
+            affectedInputsInBuild: affectedInputsInBuild,
+            affectedInputsInInvocationOrder: affectedInputsInInvocationOrder,
+            removeInputFromInvocation: removeInputFromInvocation)
         }
         schedLinking
       }
@@ -931,6 +930,61 @@ extension IncrementalCompilationTests {
         XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
         XCTAssert(graph.contains(name: topLevelName))
       }
+    }
+  }
+  
+  @DiagsBuilder private func respondToChangedInputs(
+    changedInputs: [String],
+    unchangedInputs: [String],
+    swiftDepsReadAfterFirstWave: [String],
+    omittedFromFirstWave: [String]
+  ) -> [Diagnostic.Message] {
+    schedulingChanged(changedInputs)
+    maySkip(unchangedInputs)
+    queuingInitial(swiftDepsReadAfterFirstWave)
+    notSchedulingDependentsUnknownChanges(changedInputs)
+    skipping(omittedFromFirstWave)
+    findingBatchingCompiling(swiftDepsReadAfterFirstWave)
+    reading(deps: swiftDepsReadAfterFirstWave)
+  }
+  
+  @DiagsBuilder private var addDefsWithoutGraph: [Diagnostic.Message] {
+    for (input, name) in [("main", "foo"), ("other", "bar")] {
+      newDefinitionOfSourceFile(.interface,      input)
+      newDefinitionOfSourceFile(.implementation, input)
+      newDefinitionOfTopLevelName(.interface,      name: name, input: input)
+      newDefinitionOfTopLevelName(.implementation, name: name, input: input)
+    }
+  }
+  
+  @DiagsBuilder private func integrateChangedMainWithPriors(
+    removedInput: String,
+    defining topLevelName: String,
+    affectedInputs: [String],
+    affectedInputsInBuild: [String],
+    affectedInputsInInvocationOrder: [String],
+    removeInputFromInvocation: Bool
+  ) -> [Diagnostic.Message]
+  {
+    fingerprintsChanged("main")
+    fingerprintsMissing(.topLevel(name: "foo"), "main")
+    
+    for input in affectedInputs {
+      trace {
+        TraceStep(.interface, .topLevel(name: "foo"), "main")
+        TraceStep(.implementation, source: input)
+      }
+    }
+    queuingLater(affectedInputsInBuild)
+    schedulingInvalidated(affectedInputsInBuild)
+    findingBatchingCompiling(affectedInputsInInvocationOrder)
+    reading(deps: "other")
+    fingerprintsMissing(.topLevel(name: "bar"), "other")
+    
+    let readingAnotherDeps = !removeInputFromInvocation // if removed, won't read it
+    if readingAnotherDeps {
+      reading(deps: removedInput)
+      fingerprintsMissing(.topLevel(name: topLevelName), removedInput)
     }
   }
 
@@ -1002,6 +1056,12 @@ extension IncrementalCompilationTests {
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
+      fingerprintsMissing(.topLevel(name: "foo"), "main")
+      trace {
+        TraceStep(.interface, .topLevel(name: "foo"), "main")
+        TraceStep(.implementation, source: "other")
+      }
+      fingerprintsMissing(.topLevel(name: "bar"), "other")
       schedulingPostCompileJobs
       linking
     }
@@ -1220,8 +1280,8 @@ extension IncrementalCompilationTests {
       {print($0, to: &stderrStream); stderrStream.flush()}
     ])
     var driver = try Driver(args: arguments, env: ProcessEnv.vars,
-                      diagnosticsEngine: diagnosticEngine,
-                      fileSystem: localFileSystem)
+                            diagnosticsEngine: diagnosticEngine,
+                            fileSystem: localFileSystem)
     doTheCompile(&driver)
     // Add a newline after any diagnostics for readability
     print("", to: &stderrStream); stderrStream.flush()
@@ -1332,7 +1392,21 @@ extension DiagVerifiable {
     reading(deps: inputs)
   }
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
-     "Incremental compilation: Fingerprint changed for \(aspect) of source file from \(input).swiftdeps in \(input).swift"
+    "Incremental compilation: Fingerprint changed for existing \(aspect) of source file from \(input).swiftdeps in \(input).swift"
+  }
+  @DiagsBuilder func fingerprintsChanged(_ input: String) -> [Diagnostic.Message] {
+    for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
+      fingerprintChanged(aspect, input)
+    }
+  }
+  
+  @DiagsBuilder func fingerprintMissing(_ key: DependencyKey, _ input: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Fingerprint missing for existing \(key) in \(input).swift"
+  }
+  @DiagsBuilder func fingerprintsMissing(_ designator: DependencyKey.Designator, _ input: String) -> [Diagnostic.Message] {
+    for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
+      fingerprintMissing(DependencyKey(aspect: aspect, designator: designator), input)
+    }
   }
 
   @DiagsBuilder func newDefinitionOfSourceFile(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {

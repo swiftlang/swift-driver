@@ -169,7 +169,7 @@ extension ModuleDependencyGraph.Integrator {
     case .missing, .changed:
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
-      reporter?.report("Fingerprint \(disposition.rawValue) for \(matchHere)")
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
     }
     return matchHere
   }
