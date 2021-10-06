@@ -2608,7 +2608,7 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import Swift"
       }
-      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build", "-target",
+      var driver = try Driver(args: ["swiftc", "-explicit-module-build", "-target",
                                      "x86_64-apple-macosx10.14", main.pathString])
       guard driver.isFrontendArgSupported(.clangTarget) else {
         throw XCTSkip("Skipping: compiler does not support '-clang-target'")
@@ -2625,7 +2625,7 @@ final class SwiftDriverTests: XCTestCase {
         $0 <<< "import Swift"
       }
       var driver = try Driver(args: ["swiftc", "-disable-clang-target",
-                                     "-experimental-explicit-module-build", "-target",
+                                     "-explicit-module-build", "-target",
                                      "x86_64-apple-macosx10.14", main.pathString])
       guard driver.isFrontendArgSupported(.clangTarget) else {
         throw XCTSkip("Skipping: compiler does not support '-clang-target'")

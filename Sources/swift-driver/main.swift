@@ -37,7 +37,7 @@ do {
   }
 
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
-    CommandLine.arguments.append("-experimental-explicit-module-build")
+    CommandLine.arguments.append("-explicit-module-build")
   }
 
   let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
