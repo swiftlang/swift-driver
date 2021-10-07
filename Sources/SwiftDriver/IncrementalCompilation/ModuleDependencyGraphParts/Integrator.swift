@@ -173,12 +173,12 @@ extension ModuleDependencyGraph.Integrator {
       // Since we only put fingerprints in enums, structs, classes, etc.,
       // the driver really lacks the information to do much here.
       // Just report it.
-      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere.description(in: destination))")
       break
     case .changed:
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
-      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere.description(in: destination))")
     }
     return matchHere
   }
