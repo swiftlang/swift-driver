@@ -303,7 +303,7 @@ extension IncrementalCompilationTests {
       "-whole-module-optimization",
       "-no-color-diagnostics",
     ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + sdkArgumentsForTesting
-    _ = try doABuild(whenAutolinking: [], arguments: args, expecting: disabledForWMO)
+    _ = try doABuild(whenAutolinking: [], expecting: disabledForWMO, arguments: args)
   }
 
   // FIXME: Expect failure in Linux in CI just as testIncrementalDiagnostics
@@ -602,7 +602,7 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("other")
       reading(deps: "other")
       // Since the code is `bar = foo`, there is no fingprint for `bar`
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
       skipped("main")
     }
@@ -631,8 +631,8 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       // Because `let foo = 1`, there is no fingerprint
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
     }
   }
@@ -663,7 +663,7 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("main")
       reading(deps: "main")
       fingerprintsChanged("main")
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
       trace {
         TraceStep(.interface, sourceFileProvide: "main")
         TraceStep(.interface, topLevel: "foo", input: "main")
@@ -672,7 +672,7 @@ extension IncrementalCompilationTests {
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
       reading(deps: "other")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
     }
   }
@@ -712,8 +712,8 @@ extension IncrementalCompilationTests {
       schedulingPostCompileJobs
       compiling("main", "other")
       reading(deps: "main", "other")
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       linking
     }
   }
@@ -832,7 +832,7 @@ extension IncrementalCompilationTests {
         skipping("main", "other")
         findingBatchingCompiling(removedInput)
         reading(deps: removedInput)
-        fingerprintsMissing(.topLevel(name: topLevelName), removedInput)
+        fingerprintsMissingOfTopLevelName(name: topLevelName, removedInput)
         schedulingPostCompileJobs
         linking
         skipped("main", "other")
@@ -907,27 +907,16 @@ extension IncrementalCompilationTests {
           addDefsWithoutGraph
         }
         else {
-          fingerprintChanged(.interface, "main")
-          fingerprintChanged(.implementation, "main")
+          // At this point in the result builder:
+          // (!removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved) && removedFileDependsOnChangedFileAndMainWasChanged
 
-          let affectedInputs = removeInputFromInvocation
-            ? ["other"]
-            : [removedInput, "other"]
-          for input in affectedInputs {
-            trace {
-              TraceStep(.interface, sourceFileProvide: "main")
-              TraceStep(.interface, topLevel: "foo", input: "main")
-              TraceStep(.implementation,
-                        sourceFileProvide: input,
-                        input: input == removedInput && afterRestoringBadPriors ? nil : input)
-            }
-          }
-          let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
-          queuingLater(affectedInputsInBuild)
-          schedulingInvalidated(affectedInputsInBuild)
-          let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
-          findingBatchingCompiling(affectedInputsInInvocationOrder)
-          reading(deps: affectedInputsInInvocationOrder)
+          integrateChangedMainWithPriors(
+            removedInput: removedInput,
+            defining: topLevelName,
+            affectedInputs: affectedInputs,
+            affectedInputsInBuild: affectedInputsInBuild,
+            affectedInputsInInvocationOrder: affectedInputsInInvocationOrder,
+            removeInputFromInvocation: removeInputFromInvocation)
         }
         schedLinking
       }
@@ -980,25 +969,25 @@ extension IncrementalCompilationTests {
   ) -> [Diagnostic.Message]
   {
     fingerprintsChanged("main")
-    fingerprintsMissing(.topLevel(name: "foo"), "main")
+    fingerprintsMissingOfTopLevelName(name: "foo", "main")
     
     for input in affectedInputs {
       trace {
-        TraceStep(.interface, source: "main")
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
-        TraceStep(.implementation, source: input)
+        TraceStep(.interface, sourceFileProvide: "main")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: input)
       }
     }
     queuingLater(affectedInputsInBuild)
     schedulingInvalidated(affectedInputsInBuild)
     findingBatchingCompiling(affectedInputsInInvocationOrder)
     reading(deps: "other")
-    fingerprintsMissing(.topLevel(name: "bar"), "other")
+    fingerprintsMissingOfTopLevelName(name: "bar", "other")
     
     let readingAnotherDeps = !removeInputFromInvocation // if removed, won't read it
     if readingAnotherDeps {
       reading(deps: removedInput)
-      fingerprintsMissing(.topLevel(name: topLevelName), removedInput)
+      fingerprintsMissingOfTopLevelName(name: topLevelName, removedInput)
     }
   }
 
@@ -1070,8 +1059,8 @@ extension IncrementalCompilationTests {
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedulingPostCompileJobs
       linking
     }
@@ -1262,15 +1251,15 @@ extension IncrementalCompilationTests {
 
     return try checkDiagnostics
     ? doABuild(whenAutolinking: autolinkExpectedDiags,
-               arguments: allArgs,
-               expecting: expectedDiags())
+               expecting: expectedDiags(),
+               arguments: allArgs)
     : doABuildWithoutExpectations(arguments: allArgs)
   }
 
   private func doABuild(
     whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
-    arguments: [String],
-    expecting expectedDiags: [Diagnostic.Message]
+    expecting expectedDiags: [Diagnostic.Message],
+    arguments: [String]
   ) throws -> Driver {
     try assertDriverDiagnostics(args: arguments) {
       driver, verifier in
@@ -1403,21 +1392,19 @@ extension DiagVerifiable {
   @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {
     reading(deps: inputs)
   }
+  
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Fingerprint changed for existing \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
-  @DiagsBuilder func fingerprintsChanged(_ input: String) -> [Diagnostic.Message] {
+ @DiagsBuilder func fingerprintsChanged(_ input: String) -> [Diagnostic.Message] {
     for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
       fingerprintChanged(aspect, input)
     }
   }
   
-  @DiagsBuilder func fingerprintMissing(_ key: DependencyKey, _ input: String) -> [Diagnostic.Message] {
-    "Incremental compilation: Fingerprint missing for existing \(key) in \(input).swift"
-  }
-  @DiagsBuilder func fingerprintsMissing(_ designator: DependencyKey.Designator, _ input: String) -> [Diagnostic.Message] {
+   @DiagsBuilder func fingerprintsMissingOfTopLevelName(name: String, _ input: String) -> [Diagnostic.Message] {
     for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
-      fingerprintMissing(DependencyKey(aspect: aspect, designator: designator), input)
+      "Incremental compilation: Fingerprint missing for existing \(aspect) of top-level name '\(name)' in \(input).swift"
     }
   }
 
