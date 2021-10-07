@@ -156,7 +156,7 @@ private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmAr
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
+      var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-module-name", "testModuleDependencyBuildCommandGeneration",
                                      "test.swift"])
       let pcmArgs = ["-Xcc","-target","-Xcc","x86_64-apple-macosx10.15"]
@@ -215,7 +215,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let externalDetails: ExternalTargetModuleDetailsMap =
             [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/A.swiftmodule"),
                                                       isFramework: true)]
-      var driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
+      var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-module-name", "testModuleDependencyBuildCommandGenerationWithExternalFramework",
                                      "test.swift"])
       var moduleDependencyGraph =
@@ -295,7 +295,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   /// Test generation of explicit module build jobs for dependency modules when the driver
-  /// is invoked with -experimental-explicit-module-build
+  /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
@@ -315,7 +315,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
-                                     "-experimental-explicit-module-build",
+                                     "-explicit-module-build",
                                      main.pathString] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
@@ -463,7 +463,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
-                                     "-experimental-explicit-module-build",
+                                     "-explicit-module-build",
                                      main.pathString] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
@@ -594,7 +594,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
-                                     "-experimental-explicit-module-build",
+                                     "-explicit-module-build",
                                      "-working-directory", path.pathString,
                                      // TODO: clang targets need to be taught
                                      // how to work with explicit modules
@@ -639,7 +639,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                           toolchain: Toolchain,
                                                           hostTriple: Triple) {
     // Just instantiating to get at the toolchain path
-    let driver = try Driver(args: ["swiftc", "-experimental-explicit-module-build",
+    let driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                    "-module-name", "testDependencyScanning",
                                    "test.swift"])
     let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
@@ -709,7 +709,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let lotsOfInputs = (0...700).map{"test\($0).swift"}
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-experimental-explicit-module-build",
+                                     "-explicit-module-build",
                                      "-working-directory", path.pathString,
                                      main.pathString] + lotsOfInputs + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
@@ -759,7 +759,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
                                      "-import-objc-header",
-                                     "-experimental-explicit-module-build",
+                                     "-explicit-module-build",
                                      "-working-directory", path.pathString,
                                      "-disable-clang-target",
                                      main.pathString] + sdkArgumentsForTesting,
@@ -842,7 +842,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath,
                                      "-I", swiftModuleInterfacesPath,
-                                     "-experimental-explicit-module-build",
+                                     "-explicit-module-build",
                                      "-working-directory", path.pathString,
                                      "-disable-clang-target",
                                      main.pathString] + sdkArgumentsForTesting,
