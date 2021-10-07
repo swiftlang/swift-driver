@@ -84,7 +84,7 @@ public final class IncrementalCompilationState {
     try blockingConcurrentMutation {try fn(protectedState)}
   }
   
-  /// Block any other threads from doing anything to  or observing ``IncrementalCompilationState/protectedState``
+  /// Block any other threads from doing anything to  or observing `protectedState`.
   public func blockingConcurrentAccessOrMutationToProtectedState<R>(
     _ fn: (inout ProtectedState) throws -> R
   ) rethrows -> R {

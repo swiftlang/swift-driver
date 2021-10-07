@@ -35,14 +35,14 @@ extension IncrementalCompilationState {
     /// fileprivate in order to control concurrency.
     fileprivate let moduleDependencyGraph: ModuleDependencyGraph
     
-    fileprivate let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+    fileprivate let reporter: Reporter?
     
     init(skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
          _ moduleDependencyGraph: ModuleDependencyGraph,
          _ driver: inout Driver) {
       self.skippedCompileGroups = skippedCompileGroups
       self.moduleDependencyGraph = moduleDependencyGraph
-      self.info = moduleDependencyGraph.info
+      self.reporter = moduleDependencyGraph.info.reporter
       self.driver = driver
     }
   }
@@ -51,14 +51,6 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState.ProtectedState: IncrementalCompilationSynchronizer {
   public var incrementalCompilationQueue: DispatchQueue {
     moduleDependencyGraph.incrementalCompilationQueue
-  }
-}
-
-// MARK: - shorthands
-extension IncrementalCompilationState.ProtectedState {
-  
-  fileprivate var reporter: IncrementalCompilationState.Reporter? {
-    info.reporter
   }
 }
 

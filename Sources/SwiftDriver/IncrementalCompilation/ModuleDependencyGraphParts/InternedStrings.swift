@@ -26,7 +26,6 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   
   public var isEmpty: Bool { index == 0 }
   
-  // PRIVATE?
   init(index: Int) {
     self.index = index
   }

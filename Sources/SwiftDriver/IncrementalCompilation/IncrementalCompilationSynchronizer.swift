@@ -37,11 +37,11 @@ extension IncrementalCompilationSynchronizer {
 /// Methods to bridge the semantic gap from intention to implementation.
 extension DispatchQueue {
   /// Ensure that it is safe to mutate or access the state protected by the queue.
-  func mutationSafetyPrecondition() {
+  fileprivate func mutationSafetyPrecondition() {
     dispatchPrecondition(condition: .onQueueAsBarrier(self))
   }
   /// Ensure that it is safe to access the state protected by the queue.
-  func accessSafetyPrecondition() {
+  fileprivate func accessSafetyPrecondition() {
     dispatchPrecondition(condition: .onQueue(self))
   }
   
