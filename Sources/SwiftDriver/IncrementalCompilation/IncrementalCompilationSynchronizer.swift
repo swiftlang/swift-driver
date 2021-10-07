@@ -55,7 +55,7 @@ extension DispatchQueue {
   }
 }
 
-/// A test fixture for tests, etc., that require synchronization and  an ``InternedStringTable``
+/// A fixture for tests and dot file creation, etc., that require synchronization and  an ``InternedStringTable``
 public struct MockIncrementalCompilationSynchronizer: IncrementalCompilationSynchronizer {
   public let incrementalCompilationQueue: DispatchQueue
   
