@@ -45,9 +45,18 @@ extension Driver {
 
 /// Set to nil if cannot perform on this host
 private let cachedSDKPath: Result<String, Error>? = {
-  #if !os(macOS)
-  return nil
+  #if os(Windows)
+  if let sdk = ProcessEnv.vars["SDKROOT"] {
+    return Result{sdk}
+  } else if let root = ProcessEnv.vars["DEVELOPER_DIR"] {
+    return Result{"\(root)\\Platforms\\Windows.platform\\Developer\\SDKs\\Windows.sdk"}
+  }
+  // Assume that if neither of the environment variables are set, we are
+  // using a build-tree version of the swift frontend, and so we do not set
+  // `-sdk`. Fallthrough to return `nil`.
   #endif
+
+  #if os(macOS)
   return Result {
     if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
       return pathFromEnv
@@ -70,4 +79,7 @@ private let cachedSDKPath: Result<String, Error>? = {
     }
     return path.spm_chomp()
   }
+  #endif
+
+  return nil
 }()
