@@ -26,6 +26,8 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   
   public var isEmpty: Bool { index == 0 }
   
+  // This constructor cannot be private because it is called from the `internedString`
+  // method in ``ModuleDependencyGraph/deserialize/Visitor``.
   init(index: Int) {
     self.index = index
   }
