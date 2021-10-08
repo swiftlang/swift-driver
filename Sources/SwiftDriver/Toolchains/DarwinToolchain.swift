@@ -240,7 +240,7 @@ public final class DarwinToolchain: Toolchain {
       case canonicalName = "CanonicalName"
     }
 
-    public enum SDKPlatformKind: String {
+    public enum SDKPlatformKind: String, CaseIterable {
       case macosx
       case iphoneos
       case iphonesimulator
@@ -288,9 +288,9 @@ public final class DarwinToolchain: Toolchain {
       let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
 
       self.versionString = try keyedContainer.decode(String.self, forKey: .version)
-      self.canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
-      let verRange = canonicalName.range(of: versionString)!
-      self.platformKind = SDKPlatformKind(rawValue: String(canonicalName[..<verRange.lowerBound])) ?? SDKPlatformKind.unknown
+      let canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
+      self.platformKind = SDKPlatformKind.allCases.first { canonicalName.hasPrefix($0.rawValue) } ?? SDKPlatformKind.unknown
+      self.canonicalName = canonicalName
       guard let version = try? Version(versionString: versionString, usesLenientParsing: true) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
