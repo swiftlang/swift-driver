@@ -155,6 +155,7 @@ private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmAr
 /// Test that for the given JSON module dependency graph, valid jobs are generated
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
+    #if os(macOS)
     do {
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-module-name", "testModuleDependencyBuildCommandGeneration",
@@ -208,6 +209,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
+    #endif
   }
 
   func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
@@ -297,6 +299,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {
+    #if os(macOS)
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -444,9 +447,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
+    #endif
   }
 
   func testImmediateModeExplicitModuleBuild() throws {
+    #if os(macOS)
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -570,6 +575,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
+    #endif
   }
 
   func testExplicitModuleBuildEndToEnd() throws {

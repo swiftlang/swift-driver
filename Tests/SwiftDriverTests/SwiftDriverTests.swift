@@ -2673,6 +2673,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testClangTargetForExplicitModule() throws {
+    #if os(macOS)
     // Check -clang-target is on by defualt when explicit module is on.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "Foo.swift")
@@ -2706,6 +2707,7 @@ final class SwiftDriverTests: XCTestCase {
         job.commandLine.contains(.flag("-clang-target"))
       })
     }
+    #endif
   }
 
   func testDisableClangTargetForImplicitModule() throws {
