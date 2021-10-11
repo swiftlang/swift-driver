@@ -418,8 +418,6 @@ extension DarwinToolchain {
       sdkPath: targetInfo.sdkPath?.path
     )
 
-    commandLine.appendFlag("-no_objc_category_merging")
-
     // These custom arguments should be right before the object file at the
     // end.
     try commandLine.appendAllExcept(
