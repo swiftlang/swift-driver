@@ -183,7 +183,7 @@ final class JobExecutorTests: XCTestCase {
           "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
-          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging", "-o",
+          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-o",
           .path(.relative(RelativePath("main"))),
         ],
         inputs: [
@@ -254,7 +254,7 @@ final class JobExecutorTests: XCTestCase {
           "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
-          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-no_objc_category_merging",
+          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0",
           "-o", .path(.absolute(exec)),
         ],
         inputs: [
