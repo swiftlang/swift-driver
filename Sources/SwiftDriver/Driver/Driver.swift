@@ -300,6 +300,9 @@ public struct Driver {
   /// Path to the Swift module source information file.
   let moduleSourceInfoPath: VirtualPath.Handle?
 
+  /// Path to the semantic info file for the module.
+  let moduleSemanticInfoPath: VirtualPath.Handle?
+
   /// Path to the module's digester baseline file.
   let digesterBaselinePath: VirtualPath.Handle?
 
@@ -704,6 +707,17 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name,
         projectDirectory: projectDirectory)
+
+    func calculateSemanticInfoPath(_ sourceinfoPath: VirtualPath.Handle?) -> VirtualPath.Handle? {
+      guard let sourceinfoPath = sourceinfoPath else {
+        return nil
+      }
+      return VirtualPath.lookup(sourceinfoPath)
+        .replacingExtension(with: .moduleSemanticInfo).intern()
+    }
+
+    // Piggyback semantic info on the source info file.
+    self.moduleSemanticInfoPath = calculateSemanticInfoPath(self.moduleSourceInfoPath)
     self.digesterBaselinePath = try Self.computeDigesterBaselineOutputPath(
       &parsedOptions,
       moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
