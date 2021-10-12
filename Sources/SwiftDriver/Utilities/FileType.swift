@@ -57,9 +57,6 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Serialized source information.
   case swiftSourceInfoFile = "swiftsourceinfo"
 
-  /// module semantic info
-  case moduleSemanticInfo = "swiftsemanticinfo"
-
   /// Assembler source.
   case assembly = "s"
 
@@ -152,7 +149,7 @@ extension FileType: CustomStringConvertible {
     switch self {
     case .swift, .sil, .sib, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .swiftSourceInfoFile, .assembly,
-         .remap, .tbd, .pcm, .pch, .clangModuleMap, .moduleSemanticInfo:
+         .remap, .tbd, .pcm, .pch, .clangModuleMap:
       return rawValue
     case .object:
       return "object"
@@ -239,7 +236,7 @@ extension FileType {
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
          .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, .moduleSemanticInfo:
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
       return false
     }
   }
@@ -284,8 +281,6 @@ extension FileType {
       return "private-swiftinterface"
     case .swiftSourceInfoFile:
       return "swiftsourceinfo"
-    case .moduleSemanticInfo:
-      return "swiftsemanticinfo"
     case .clangModuleMap:
       return "modulemap"
     case .assembly:
@@ -351,8 +346,7 @@ extension FileType {
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline,
-         .moduleSemanticInfo:
+         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -374,7 +368,7 @@ extension FileType {
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .modDepCache,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
          .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath, .jsonAPIBaseline,
-         .jsonABIBaseline, .moduleSemanticInfo:
+         .jsonABIBaseline:
       return false
     }
   }
