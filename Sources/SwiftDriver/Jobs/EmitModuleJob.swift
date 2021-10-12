@@ -33,10 +33,6 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
 
-    if isFrontendArgSupported(.emitModuleSemanticInfoPath) {
-      addSupplementalOutput(path: moduleSemanticInfoPath, flag: "-emit-module-semantic-info-path", type: .moduleSemanticInfo)
-    }
-
     if isMergeModule {
       return
     }
