@@ -16,6 +16,14 @@ import TSCBasic
 import XCTest
 import TestUtilities
 
+private var testInputsPath: AbsolutePath = {
+  var root: AbsolutePath = AbsolutePath(#file)
+  while root.basename != "Tests" {
+    root = root.parentDirectory
+  }
+  return root.parentDirectory.appending(component: "TestInputs")
+}()
+
 /// Check that an explicit module build job contains expected inputs and options
 private func checkExplicitModuleBuildJob(job: Job,
                                          pcmArgs: [String],
@@ -305,18 +313,21 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
-      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let cHeadersPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+                        .pathString
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-macosx11.0",
-                                     "-I", cHeadersPath,
-                                     "-I", swiftModuleInterfacesPath,
+                                     "-I", cHeadersPath.nativePathString().escaped(),
+                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
                                      "-explicit-module-build",
-                                     main.pathString] + sdkArgumentsForTesting)
+                                     main.pathString.escaped()] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
@@ -453,18 +464,21 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import C\n"
       }
 
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
-      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let cHeadersPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+                        .pathString
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swift",
                                      "-target", "x86_64-apple-macosx11.0",
-                                     "-I", cHeadersPath,
-                                     "-I", swiftModuleInterfacesPath,
+                                     "-I", cHeadersPath.nativePathString().escaped(),
+                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
                                      "-explicit-module-build",
-                                     main.pathString] + sdkArgumentsForTesting)
+                                     main.pathString.escaped()] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
 
@@ -585,22 +599,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
-      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let cHeadersPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(compnent: "CHeaders")
+                        .pathString
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath,
-                                     "-I", swiftModuleInterfacesPath,
+                                     "-I", cHeadersPath.nativePathString().escaped(),
+                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString,
+                                     "-working-directory", path.pathString.nativePathString().escaped(),
                                      // TODO: clang targets need to be taught
                                      // how to work with explicit modules
                                      // properly.
                                      "-disable-clang-target",
-                                     main.pathString] + sdkArgumentsForTesting,
+                                     main.pathString.escaped()] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -624,6 +640,26 @@ final class ExplicitModuleBuildTests: XCTestCase {
         .appending(component: "lib")
         .appending(component: "swift")
       return (stdLibPath, stdLibPath.appending(component: "shims"))
+    } else if driver.targetTriple.isWindows {
+      if let sdkroot = try driver.toolchain.defaultSDKPath(driver.targetTriple) {
+        return (sdkroot
+                  .appending(component: "usr")
+                  .appending(component: "lib")
+                  .appending(component: "swift"),
+                sdkroot
+                  .appending(component: "usr")
+                  .appending(component: "lib")
+                  .appending(component: "swift")
+                  .appending(component: "shims"))
+      }
+      return (toolchainRootPath
+                .appending(component: "lib")
+                .appending(component: "swift")
+                .appending(component: driver.targetTriple.osNameUnversioned),
+              toolchainRootPath
+                .appending(component: "lib")
+                .appending(component: "swift")
+                .appending(component: "shims"))
     } else {
       return (toolchainRootPath.appending(component: "lib")
                 .appending(component: "swift")
@@ -675,19 +711,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import E;"
         $0 <<< "import G;"
       }
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
-      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+      let cHeadersPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+                        .pathString
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let scannerCommand = ["-scan-dependencies",
                             "-import-prescan",
-                            "-I", cHeadersPath,
-                            "-I", swiftModuleInterfacesPath,
-                            "-I", stdLibPath.description,
-                            "-I", shimsPath.description,
-                            main.pathString] + sdkArgumentsForTesting
+                            "-I", cHeadersPath.nativePathString().escaped(),
+                            "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
+                            "-I", stdLibPath.description.nativePathString().escaped(),
+                            "-I", shimsPath.description.nativePathString().escaped(),
+                            main.pathString.escaped()] + sdkArgumentsForTesting
 
       let imports =
         try! dependencyOracle.getImports(workingDirectory: path,
@@ -710,8 +749,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString,
-                                     main.pathString] + lotsOfInputs + sdkArgumentsForTesting,
+                                     "-working-directory", path.pathString.nativePathString().escaped(),
+                                     main.pathString.escaped()] + lotsOfInputs + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let scannerJob = try driver.dependencyScanningJob()
 
@@ -749,20 +788,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import E;"
         $0 <<< "import G;"
       }
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
-      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+
+      let cHeadersPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+                        .pathString
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath,
-                                     "-I", swiftModuleInterfacesPath,
+                                     "-I", cHeadersPath.nativePathString().escaped(),
+                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
                                      "-import-objc-header",
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString,
+                                     "-working-directory", path.pathString.nativePathString().escaped(),
                                      "-disable-clang-target",
-                                     main.pathString] + sdkArgumentsForTesting,
+                                     main.pathString.escaped()] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
@@ -785,6 +828,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if hostTriple.isMacOSX,
          hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 11
+      } else if driver.targetTriple.isWindows {
+        expectedNumberOfDependencies = 13
       } else {
         expectedNumberOfDependencies = 12
       }
@@ -833,19 +878,23 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import E;"
         $0 <<< "import G;"
       }
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-        .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-      let testInputsPath = packageRootPath + "/TestInputs"
-      let cHeadersPath : String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
-      let swiftModuleInterfacesPath : String = testInputsPath + "/ExplicitModuleBuilds/Swift"
+
+      let cHeadersPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+                        .pathString
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath,
-                                     "-I", swiftModuleInterfacesPath,
+                                     "-I", cHeadersPath.nativePathString().escaped(),
+                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString,
+                                     "-working-directory", path.pathString.nativePathString().escaped(),
                                      "-disable-clang-target",
-                                     main.pathString] + sdkArgumentsForTesting,
+                                     main.pathString.escaped()] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
@@ -960,10 +1009,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           job.outputs[0].file.basenameWithoutExt == basenameWithoutExt
       }
     }
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputsPath = packageRootPath + "/TestInputs"
-    let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
+
+    let mockSDKPath: String =
+        testInputsPath.appending(component: "mock-sdk.sdk").pathString
     let diagnosticEnging = DiagnosticsEngine()
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, diagnosticEnging)
     let interfaceMap = try collector.collectSwiftInterfaceMap()
@@ -1137,11 +1185,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(current.file != baseline.file)
       XCTAssertTrue(current.file.basename == baseline.file.basename)
     }
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputsPath = packageRootPath + "/TestInputs"
-    let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
-    let baselineABIPath : String = testInputsPath + "/ABIBaselines"
+    let mockSDKPath: String =
+        testInputsPath.appending(component: "mock-sdk.sdk").pathString
+    let baselineABIPath: String =
+        testInputsPath.appending(component: "ABIBaselines").pathString
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, DiagnosticsEngine())
     let interfaceMap = try collector.collectSwiftInterfaceMap()
     try withTemporaryDirectory { path in
