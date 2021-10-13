@@ -601,7 +601,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let cHeadersPath: String =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(compnent: "CHeaders")
+                        .appending(component: "CHeaders")
                         .pathString
       let swiftModuleInterfacesPath: String =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
