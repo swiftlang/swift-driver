@@ -100,7 +100,7 @@ extension IncrementalCompilationState {
 
   /// A collection of immutable state that is handy to access.
   /// Make it a class so that anything that needs it can just keep a pointer around.
-  public struct IncrementalDependencyAndInputSetup {
+  public struct IncrementalDependencyAndInputSetup: IncrementalCompilationSynchronizer {
     @_spi(Testing) public let outputFileMap: OutputFileMap
     @_spi(Testing) public let buildRecordInfo: BuildRecordInfo
     @_spi(Testing) public let maybeBuildRecord: BuildRecord?
@@ -109,6 +109,11 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let inputFiles: [TypedVirtualPath]
     @_spi(Testing) public let fileSystem: FileSystem
     @_spi(Testing) public let sourceFiles: SourceFiles
+    
+    /// The state managing incremental compilation gets mutated every time a compilation job completes.
+    /// This queue ensures that the access and mutation of that state is thread-safe.
+    @_spi(Testing) public let incrementalCompilationQueue: DispatchQueue
+    
     @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
 
     /// Options, someday
@@ -160,6 +165,11 @@ extension IncrementalCompilationState {
       self.diagnosticEngine = diagnosticEngine
       self.buildStartTime = maybeBuildRecord?.buildStartTime ?? .distantPast
       self.buildEndTime = maybeBuildRecord?.buildEndTime ?? .distantFuture
+      
+      self.incrementalCompilationQueue = DispatchQueue(
+        label: "com.apple.swift-driver.incremental-compilation-state",
+        qos: .userInteractive,
+        attributes: .concurrent)
     }
 
     func computeInitialStateForPlanning() throws -> InitialStateForPlanning? {
@@ -189,8 +199,17 @@ extension IncrementalCompilationState {
         incrementalOptions: options, buildStartTime: buildStartTime,
         buildEndTime: buildEndTime)
     }
+    
+    /// Is this source file part of this build?
+    ///
+    /// - Parameter sourceFile: the Swift source-code file in question
+    /// - Returns: true iff this file was in the command-line invocation of the driver
+    func isPartOfBuild(_ sourceFile: SwiftSourceFile) -> Bool {
+      sourceFiles.currentSet.contains(sourceFile)
+    }
   }
 }
+  
 
 // MARK: - building/reading the ModuleDependencyGraph & scheduling externals for 1st wave
 extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
@@ -205,12 +224,14 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     precondition(
       sourceFiles.disappeared.isEmpty,
       "Would have to remove nodes from the graph if reading prior")
-    if readPriorsFromModuleDependencyGraph {
-      return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
+    return blockingConcurrentAccessOrMutation {
+      if readPriorsFromModuleDependencyGraph {
+        return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
+      }
+      // Every external is added, but don't want to compile an unchanged input that has an import
+      // so just changed, not changedOrAdded.
+      return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
     }
-    // Every external is added, but don't want to compile an unchanged input that has an import
-    // so just changed, not changedOrAdded.
-    return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
   }
 
   private func readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals(
@@ -274,7 +295,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
   -> (ModuleDependencyGraph, TransitivelyInvalidatedSwiftSourceFileSet)?
   {
-    let graph = ModuleDependencyGraph(self, .buildingFromSwiftDeps)
+    let graph = ModuleDependencyGraph.createForBuildingFromSwiftDeps(self)
     var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedSwiftSourceFileSet()
     for input in sourceFiles.currentInOrder {
        guard let invalidatedInputs =
@@ -290,7 +311,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
 
   private func bulidEmptyGraphAndCompileEverything()
   -> (ModuleDependencyGraph, TransitivelyInvalidatedSwiftSourceFileSet) {
-    let graph = ModuleDependencyGraph(self, .buildingAfterEachCompilation)
+    let graph = ModuleDependencyGraph.createForBuildingAfterEachCompilation(self)
     return (graph, TransitivelyInvalidatedSwiftSourceFileSet())
   }
 }

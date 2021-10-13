@@ -379,18 +379,22 @@ extension IncrementalCompilationTests {
     let outputFileMap = try XCTUnwrap(driver.incrementalCompilationState).info.outputFileMap
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(outputFileMap: outputFileMap)
-    let priorsWithOldVersion = try ModuleDependencyGraph.read(
-      from: .absolute(priorsPath),
-      info: info)
-    let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
-    let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
-    let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
-    try priorsWithOldVersion?.write(to: .absolute(priorsPath),
-                                    on: localFileSystem,
-                                    compilerVersion: compilerVersion,
-                                    mockSerializedGraphVersion: incrementedVersion)
+    let priorsModTime = try info.blockingConcurrentAccessOrMutation {
+      () -> Date in
+      let priorsWithOldVersion = try ModuleDependencyGraph.read(
+        from: .absolute(priorsPath),
+        info: info)
+      let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
+      let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
+      let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
+      try priorsWithOldVersion?.write(to: .absolute(priorsPath),
+                                on: localFileSystem,
+                                compilerVersion: compilerVersion,
+                                mockSerializedGraphVersion: incrementedVersion)
+      return priorsModTime
+    }
     try setModTime(of: .absolute(priorsPath), to: priorsModTime)
-
+    
     try checkReactionToObsoletePriors()
     try checkNullBuild(checkDiagnostics: true)
 #endif
@@ -598,7 +602,7 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("other")
       reading(deps: "other")
       // Since the code is `bar = foo`, there is no fingprint for `bar`
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
       skipped("main")
     }
@@ -627,8 +631,8 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       // Because `let foo = 1`, there is no fingerprint
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
     }
   }
@@ -659,16 +663,16 @@ extension IncrementalCompilationTests {
       findingBatchingCompiling("main")
       reading(deps: "main")
       fingerprintsChanged("main")
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
       trace {
-        TraceStep(.interface, source: "main")
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
-        TraceStep(.implementation, source: "other")
+        TraceStep(.interface, sourceFileProvide: "main")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: "other")
       }
       queuingLaterSchedInvalBatchLink("other")
       findingBatchingCompiling("other")
       reading(deps: "other")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
     }
   }
@@ -696,8 +700,8 @@ extension IncrementalCompilationTests {
       queuingInitial("main")
       schedulingAlwaysRebuild("main")
       trace {
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
-        TraceStep(.implementation, source: "other")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: "other")
       }
       foundDependent(of: "main", compiling: "other")
       schedulingChanged("main")
@@ -708,8 +712,8 @@ extension IncrementalCompilationTests {
       schedulingPostCompileJobs
       compiling("main", "other")
       reading(deps: "main", "other")
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       linking
     }
   }
@@ -828,7 +832,7 @@ extension IncrementalCompilationTests {
         skipping("main", "other")
         findingBatchingCompiling(removedInput)
         reading(deps: removedInput)
-        fingerprintsMissing(.topLevel(name: topLevelName), removedInput)
+        fingerprintsMissingOfTopLevelName(name: topLevelName, removedInput)
         schedulingPostCompileJobs
         linking
         skipped("main", "other")
@@ -965,25 +969,25 @@ extension IncrementalCompilationTests {
   ) -> [Diagnostic.Message]
   {
     fingerprintsChanged("main")
-    fingerprintsMissing(.topLevel(name: "foo"), "main")
+    fingerprintsMissingOfTopLevelName(name: "foo", "main")
     
     for input in affectedInputs {
       trace {
-        TraceStep(.interface, source: "main")
-        TraceStep(.interface, .topLevel(name: "foo"), "main")
-        TraceStep(.implementation, source: input)
+        TraceStep(.interface, sourceFileProvide: "main")
+        TraceStep(.interface, topLevel: "foo", input: "main")
+        TraceStep(.implementation, sourceFileProvide: input)
       }
     }
     queuingLater(affectedInputsInBuild)
     schedulingInvalidated(affectedInputsInBuild)
     findingBatchingCompiling(affectedInputsInInvocationOrder)
     reading(deps: "other")
-    fingerprintsMissing(.topLevel(name: "bar"), "other")
+    fingerprintsMissingOfTopLevelName(name: "bar", "other")
     
     let readingAnotherDeps = !removeInputFromInvocation // if removed, won't read it
     if readingAnotherDeps {
       reading(deps: removedInput)
-      fingerprintsMissing(.topLevel(name: topLevelName), removedInput)
+      fingerprintsMissingOfTopLevelName(name: topLevelName, removedInput)
     }
   }
 
@@ -1055,8 +1059,8 @@ extension IncrementalCompilationTests {
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
-      fingerprintsMissing(.topLevel(name: "foo"), "main")
-      fingerprintsMissing(.topLevel(name: "bar"), "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedulingPostCompileJobs
       linking
     }
@@ -1146,8 +1150,9 @@ extension IncrementalCompilationTests {
 }
 
 // MARK: - Graph inspection
-fileprivate extension Driver {
-  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) -> Void ) throws {
+extension Driver {
+  /// Expose the protected ``ModuleDependencyGraph`` to a function and also prevent concurrent access or modification
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void ) throws {
     let incrementalCompilationState: IncrementalCompilationState
     do {
       incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState)
@@ -1156,7 +1161,7 @@ fileprivate extension Driver {
       XCTFail("no graph")
       throw error
     }
-    incrementalCompilationState.blockingConcurrentAccessOrMutation {$0.withModuleDependencyGraph(fn)}
+    try incrementalCompilationState.blockingConcurrentAccessOrMutationToProtectedState {try $0.testWithModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)
@@ -1171,32 +1176,32 @@ fileprivate extension ModuleDependencyGraph {
     return nodes
   }
   func contains(sourceBasenameWithoutExt target: String) -> Bool {
-    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target)}
+    allNodes.contains {$0.contains(sourceBasenameWithoutExt: target, in: self)}
   }
   func contains(name target: String) -> Bool {
-    allNodes.contains {$0.contains(name: target)}
+    allNodes.contains {$0.contains(name: target, in: self)}
   }
   func ensureOmits(sourceBasenameWithoutExt target: String) {
     // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
-      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target),
+      XCTAssertFalse(node.contains(sourceBasenameWithoutExt: target, in: self),
                      "graph should omit source: \(target)")
     }
   }
   func ensureOmits(name: String) {
     // Written this way to show the faulty node when the assertion fails
     nodeFinder.forEachNode { node in
-      XCTAssertFalse(node.contains(name: name),
+      XCTAssertFalse(node.contains(name: name, in: self),
                      "graph should omit decl named: \(name)")
     }
   }
 }
 
 fileprivate extension ModuleDependencyGraph.Node {
-  func contains(sourceBasenameWithoutExt target: String) -> Bool {
+  func contains(sourceBasenameWithoutExt target: String, in g: ModuleDependencyGraph) -> Bool {
     switch key.designator {
     case .sourceFileProvide(name: let name):
-      return (try? VirtualPath(path: name))
+      return (try? VirtualPath(path: name.lookup(in: g)))
         .map {$0.basenameWithoutExt == target}
       ?? false
     case .externalDepend(let externalDependency):
@@ -1209,18 +1214,19 @@ fileprivate extension ModuleDependencyGraph.Node {
     }
   }
 
-  func contains(name target: String) -> Bool {
+  func contains(name target: String, in g: ModuleDependencyGraph) -> Bool {
     switch key.designator {
     case .topLevel(name: let name),
       .dynamicLookup(name: let name):
-      return name == target
+      return name.lookup(in: g) == target
     case .externalDepend, .sourceFileProvide:
       return false
     case .nominal(context: let context),
          .potentialMember(context: let context):
-      return context.range(of: target) != nil
+      return context.lookup(in: g).range(of: target) != nil
     case .member(context: let context, name: let name):
-      return context.range(of: target) != nil || name == target
+      return context.lookup(in: g).range(of: target) != nil ||
+                name.lookup(in: g) == target
     }
   }
 }
@@ -1386,21 +1392,19 @@ extension DiagVerifiable {
   @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {
     reading(deps: inputs)
   }
+  
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Fingerprint changed for existing \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
-  @DiagsBuilder func fingerprintsChanged(_ input: String) -> [Diagnostic.Message] {
+ @DiagsBuilder func fingerprintsChanged(_ input: String) -> [Diagnostic.Message] {
     for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
       fingerprintChanged(aspect, input)
     }
   }
   
-  @DiagsBuilder func fingerprintMissing(_ key: DependencyKey, _ input: String) -> [Diagnostic.Message] {
-    "Incremental compilation: Fingerprint missing for existing \(key) in \(input).swift"
-  }
-  @DiagsBuilder func fingerprintsMissing(_ designator: DependencyKey.Designator, _ input: String) -> [Diagnostic.Message] {
+   @DiagsBuilder func fingerprintsMissingOfTopLevelName(name: String, _ input: String) -> [Diagnostic.Message] {
     for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
-      fingerprintMissing(DependencyKey(aspect: aspect, designator: designator), input)
+      "Incremental compilation: Fingerprint missing for existing \(aspect) of top-level name '\(name)' in \(input).swift"
     }
   }
 
@@ -1654,22 +1658,37 @@ extension DiagVerifiable {
 // MARK: - trace building
 @resultBuilder fileprivate enum TraceBuilder {
   static func buildBlock(_ components: TraceStep...) -> String {
-    "Incremental compilation: Traced: \(components.map {$0.messagePart}.joined(separator: " -> "))"
+    // Omit "Incremental compilation: Traced: " prefix because depending on
+    // hash table iteration order "interface of source file from *.swiftdeps in *.swift ->"
+    // may occur first. Since the tests do substring matching, this will work.
+    "\(components.map {$0.messagePart}.joined(separator: " -> "))"
   }
 }
 
 fileprivate struct TraceStep {
-  let key: DependencyKey
-  let input: String?
+  let messagePart: String
 
-  init(_ aspect: DependencyKey.DeclAspect, _ designator: DependencyKey.Designator, _ input: String?) {
-    self.key = DependencyKey(aspect: aspect, designator: designator)
-    self.input = input
+  init(_ aspect: DependencyKey.DeclAspect, sourceFileProvide source: String) {
+    self.init(aspect, sourceFileProvide: source, input: source)
   }
-  init(_ aspect: DependencyKey.DeclAspect, source: String) {
-    self.init(aspect, .sourceFileProvide(name: "\(source).swiftdeps"), source)
+  init(_ aspect: DependencyKey.DeclAspect, sourceFileProvide source: String, input: String?) {
+    self.init(aspect, input: input) { t in
+        .sourceFileProvide(name: "\(source).swiftdeps".intern(in: t))
+    }
   }
-  var messagePart: String {
-    "\(key)\(input.map {" in \($0).swift"} ?? "")"
+  init(_ aspect: DependencyKey.DeclAspect, topLevel name: String, input: String) {
+    self.init(aspect, input: input) { t in
+        .topLevel(name: name.intern(in: t))
+    }
+  }
+  private init(_ aspect: DependencyKey.DeclAspect,
+       input: String?,
+       _ createDesignator: (InternedStringTable) -> DependencyKey.Designator
+) {
+    self.messagePart = MockIncrementalCompilationSynchronizer.withInternedStringTable { t in
+      let key = DependencyKey(aspect: aspect, designator: createDesignator(t))
+      let inputPart = input.map {" in \($0).swift"} ?? ""
+      return "\(key.description(in: t))\(inputPart)"
+    }
   }
 }

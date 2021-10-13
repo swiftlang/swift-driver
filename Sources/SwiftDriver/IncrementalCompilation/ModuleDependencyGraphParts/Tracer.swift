@@ -17,7 +17,7 @@ extension ModuleDependencyGraph {
   struct Tracer {
     typealias Graph = ModuleDependencyGraph
 
-    let startingPoints: DirectlyInvalidatedNodeArray
+    let startingPoints: DirectlyInvalidatedNodeSet
     let graph: ModuleDependencyGraph
 
     private(set) var tracedUses = TransitivelyInvalidatedNodeArray()
@@ -58,8 +58,7 @@ extension ModuleDependencyGraph.Tracer {
                in graph: ModuleDependencyGraph,
                diagnosticEngine: DiagnosticsEngine) {
     self.graph = graph
-    // Sort so "Tracing" diagnostics are deterministically ordered
-    self.startingPoints = defs.sorted()
+    self.startingPoints = defs
     self.currentPathIfTracing = graph.info.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
@@ -85,7 +84,7 @@ extension ModuleDependencyGraph.Tracer {
     let pathLengthAfterArrival = traceArrival(at: definition);
     
     // If this use also provides something, follow it
-    for use in graph.nodeFinder.orderedUses(of: definition) {
+    for use in graph.nodeFinder.uses(of: definition) {
       collectNextPreviouslyUntracedDependent(of: use)
     }
     traceDeparture(pathLengthAfterArrival);
@@ -127,8 +126,8 @@ extension ModuleDependencyGraph.Tracer {
           node.dependencySource.map {
             source in
             source.typedFile.type == .swift
-            ? "\(node.key) in \(source.file.basename)"
-            : "\(node.key)"
+            ? "\(node.key.description(in: graph)) in \(source.file.basename)"
+            : "\(node.key.description(in: graph))"
           }
         }
         .joined(separator: " -> ")

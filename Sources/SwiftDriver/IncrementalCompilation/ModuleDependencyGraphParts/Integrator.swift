@@ -81,6 +81,7 @@ extension ModuleDependencyGraph.Integrator {
     dependencySource: DependencySource,
     into destination: Graph
   ) -> DirectlyInvalidatedNodeSet {
+    precondition(g.internedStringTable === destination.internedStringTable)
     var integrator = Self(sourceGraph: g,
                           dependencySource: dependencySource,
                           destination: destination)
@@ -89,7 +90,8 @@ extension ModuleDependencyGraph.Integrator {
     if destination.info.verifyDependencyGraphAfterEveryImport {
       integrator.verifyAfterImporting()
     }
-    destination.dotFileWriter?.write(g, for: dependencySource.typedFile)
+    destination.dotFileWriter?.write(g, for: dependencySource.typedFile,
+                                     internedStringTable: destination.internedStringTable)
     destination.dotFileWriter?.write(destination)
     return integrator.invalidatedNodes
   }
@@ -171,12 +173,12 @@ extension ModuleDependencyGraph.Integrator {
       // Since we only put fingerprints in enums, structs, classes, etc.,
       // the driver really lacks the information to do much here.
       // Just report it.
-      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere.description(in: destination))")
       break
     case .changed:
       matchHere.setFingerprint(integrand.fingerprint)
       addChanged(matchHere)
-      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere)")
+      reporter?.report("Fingerprint \(disposition.rawValue) for existing \(matchHere.description(in: destination))")
     }
     return matchHere
   }
@@ -280,13 +282,13 @@ extension ModuleDependencyGraph.Integrator {
   }
   mutating func addPatriated(_ node: Graph.Node) {
     if isUpdating {
-      reporter?.report("Discovered a definition for \(node)")
+      reporter?.report("Discovered a definition for \(node.description(in: destination))")
       invalidatedNodes.insert(node)
     }
   }
   mutating func addNew(_ node: Graph.Node) {
     if isUpdating {
-      reporter?.report("New definition: \(node)")
+      reporter?.report("New definition: \(node.description(in: destination))")
       invalidatedNodes.insert(node)
     }
   }

@@ -22,13 +22,15 @@ public struct DependencyGraphDotFileWriter {
     self.info = info
   }
 
-  mutating func write(_ sfdg: SourceFileDependencyGraph, for file: TypedVirtualPath) {
+  mutating func write(_ sfdg: SourceFileDependencyGraph, for file: TypedVirtualPath,
+                      internedStringTable: InternedStringTable) {
     let basename = file.file.basename
-    write(sfdg, basename: basename)
+    write(sfdg, basename: basename, internedStringTable: internedStringTable)
   }
   
   mutating func write(_ mdg: ModuleDependencyGraph) {
-    write(mdg, basename: Self.moduleDependencyGraphBasename)
+    write(mdg, basename: Self.moduleDependencyGraphBasename,
+          internedStringTable: mdg.internedStringTable)
   }
 
   @_spi(Testing) public static let moduleDependencyGraphBasename = "moduleDependencyGraph"
@@ -36,7 +38,11 @@ public struct DependencyGraphDotFileWriter {
 
 // MARK: Asking to write dot files / implementation
 fileprivate extension DependencyGraphDotFileWriter {
-  mutating func write<Graph: ExportableGraph>(_ graph: Graph, basename: String) {
+  mutating func write<Graph: ExportableGraph>(
+    _ graph: Graph,
+    basename: String,
+    internedStringTable: InternedStringTable
+  ) {
     let path = dotFilePath(for: basename)
     try! info.fileSystem.writeFileContents(path) { stream in
       var s = DOTDependencyGraphSerializer<Graph>(
@@ -44,7 +50,8 @@ fileprivate extension DependencyGraphDotFileWriter {
         graphID: basename,
         stream,
         includeExternals: info.dependencyDotFilesIncludeExternals,
-        includeAPINotes: info.dependencyDotFilesIncludeAPINotes)
+        includeAPINotes: info.dependencyDotFilesIncludeAPINotes,
+        internedStringTable: internedStringTable)
       s.emit()
     }
   }
@@ -103,7 +110,7 @@ extension ModuleDependencyGraph: ExportableGraph {
 fileprivate protocol ExportableNode: Hashable {
   var key: DependencyKey {get}
   var isProvides: Bool {get}
-  var label: String {get}
+  func label(in: InternedStringTable) -> String
 }
 
 extension SourceFileDependencyGraph.Node: ExportableNode {
@@ -116,19 +123,19 @@ extension ModuleDependencyGraph.Node: ExportableNode {
 }
 
 extension ExportableNode {
-  fileprivate func emit(id: Int, to out: inout WritableByteStream) {
-    out <<< DotFileNode(id: id, node: self).description <<< "\n"
+  fileprivate func emit(id: Int, to out: inout WritableByteStream, _ t: InternedStringTable) {
+    out <<< DotFileNode(id: id, node: self, in: t).description <<< "\n"
   }
 
-  fileprivate var label: String {
-    "\(key.description) \(isProvides ? "here" : "somewhere else")"
+  fileprivate func label(in t: InternedStringTable) -> String {
+    "\(key.description(in: t)) \(isProvides ? "here" : "somewhere else")"
   }
 
   fileprivate var isExternal: Bool {
     key.designator.externalDependency != nil
   }
   fileprivate var isAPINotes: Bool {
-    key.designator.externalDependency?.fileName.hasSuffix(".apinotes")
+    key.designator.externalDependency?.fileNameString.hasSuffix(".apinotes")
       ?? false
   }
 
@@ -164,24 +171,26 @@ fileprivate extension DependencyKey.Designator {
     }
   }
 
-  static let oneOfEachKind: [DependencyKey.Designator] = [
-    .topLevel(name: ""),
-    .dynamicLookup(name: ""),
-    .externalDepend(ExternalDependency(fileName: ".")),
-    .sourceFileProvide(name: ""),
-    .nominal(context: ""),
-    .potentialMember(context: ""),
-    .member(context: "", name: "")
-  ]
+  static var oneOfEachKind: [DependencyKey.Designator] {
+    [
+      .topLevel(name: .empty),
+      .dynamicLookup(name: .empty),
+      .externalDepend(.dummy),
+      .sourceFileProvide(name: .empty),
+      .nominal(context: .empty),
+      .potentialMember(context: .empty),
+      .member(context: .empty, name: .empty)
+  ]}
 }
 
 // MARK: - writing one dot file
 
-fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
+fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph>: InternedStringTableHolder {
   private let includeExternals: Bool
   private let includeAPINotes: Bool
   private let graphID: String
   private let graph: Graph
+  fileprivate let internedStringTable: InternedStringTable
   private var nodeIDs = [Graph.Node: Int]()
   private var out: WritableByteStream
 
@@ -190,9 +199,11 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
     graphID: String,
     _ stream: WritableByteStream,
     includeExternals: Bool,
-    includeAPINotes: Bool
+    includeAPINotes: Bool,
+    internedStringTable: InternedStringTable
   ) {
     self.graph = graph
+    self.internedStringTable = internedStringTable
     self.graphID = graphID
     self.out = stream
     self.includeExternals = includeExternals
@@ -218,7 +229,7 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph> {
   private mutating func emitNodes() {
     graph.forEachExportableNode { (n: Graph.Node) in
       if include(n) {
-        n.emit(id: register(n), to: &out)
+        n.emit(id: register(n), to: &out, internedStringTable)
       }
     }
   }
@@ -265,9 +276,9 @@ fileprivate struct DotFileNode: CustomStringConvertible {
   let fillColor: Color
   let style: Style?
 
-  init<Node: ExportableNode>(id: Int, node: Node) {
+  init<Node: ExportableNode>(id: Int, node: Node, in t: InternedStringTable) {
     self.id = String(id)
-    self.label = node.label
+    self.label = node.label(in: t)
     self.shape = node.shape
     self.fillColor = node.fillColor
     self.style = node.style

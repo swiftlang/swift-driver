@@ -18,17 +18,21 @@ import XCTest
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {
-    let dependencySource = DependencySource(mock: i)
-    // optimization
-    if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
-       fileNode.isTraced {
-      return true
+    blockingConcurrentAccessOrMutation {
+      let dependencySource = DependencySource(
+        SwiftSourceFile(mock: i),
+        internedStringTable)
+      // optimization
+      if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
+         fileNode.isTraced {
+        return true
+      }
+      if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
+         nodes.contains(where: {$0.isTraced}) {
+        return true
+      }
+      return false
     }
-    if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
-       nodes.contains(where: {$0.isTraced}) {
-      return true
-    }
-    return false
   }
 
   func setUntraced() {
@@ -58,23 +62,24 @@ extension Version {
 
 // MARK: - mocking
 
-extension TypedVirtualPath {
-  init(mockInput i: Int) {
-    self.init(file: try! VirtualPath.intern(path: "\(i).swift"), type: .swift)
-  }
-}
-
 extension DependencySource {
-  init(mock i: Int) {
-    self.init(try! VirtualPath.intern(path: String(i) + "." + FileType.swift.rawValue))!
-  }
-
   var sourceFileProvideNameForMockDependencySource: String {
-    file.name
+    typedFile.file.name
   }
 
   var interfaceHashForMockDependencySource: String {
     file.name
+  }
+  
+  fileprivate  var sourceFileProvidesNameForMocking: InternedString {
+    // Only when mocking are these two guaranteed to be the same
+    internedFileName
+  }
+}
+
+extension SwiftSourceFile {
+  init(mock i: Int) {
+    self.init(try! VirtualPath.intern(path: String(i) + "." + FileType.swift.rawValue))
   }
 }
 
@@ -99,13 +104,6 @@ fileprivate extension DependencyKey {
               designator:
                 .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
     )
-  }
-}
-
-fileprivate extension DependencySource {
-  var sourceFileProvidesNameForMocking: String {
-    // Only when mocking are these two guaranteed to be the same
-    file.name
   }
 }
 
@@ -173,7 +171,7 @@ struct MockModuleDependencyGraphCreator {
   }
 
   func mockUpAGraph() -> ModuleDependencyGraph {
-    ModuleDependencyGraph(info, .buildingFromSwiftDeps)
+    .createForBuildingFromSwiftDeps(info)
   }
 }
 
@@ -182,8 +180,8 @@ extension OutputFileMap {
   static func mock(maxIndex: Int) -> Self {
     OutputFileMap( entries: (0...maxIndex) .reduce(into: [:]) {
       entries, index in
-      let inputHandle = TypedVirtualPath(mockInput: index).file.intern()
-      let swiftDepsHandle = DependencySource(mock: index).file.intern()
+      let inputHandle = SwiftSourceFile(mock: index).fileHandle
+      let swiftDepsHandle = SwiftSourceFile(mock: index).fileHandle
       entries[inputHandle] = [.swiftDeps: swiftDepsHandle]
     }
     )

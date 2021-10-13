@@ -33,9 +33,9 @@ public struct KeyAndFingerprintHolder:
   /// frontend creates an interface node,
   /// it adds a dependency to it from the implementation source file node (which
   /// has the intefaceHash as its fingerprint).
-  let fingerprint: String?
+  let fingerprint: InternedString?
 
-  init(_ key: DependencyKey, _ fingerprint: String?) throws {
+  init(_ key: DependencyKey, _ fingerprint: InternedString?) throws {
     self.key = key
     self.fingerprint = fingerprint
     assert(verifyKeyAndFingerprint())

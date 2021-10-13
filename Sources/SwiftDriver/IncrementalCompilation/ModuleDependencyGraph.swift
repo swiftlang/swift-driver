@@ -20,13 +20,13 @@ import SwiftOptions
 
 /// Holds all the dependency relationships in this module, and declarations in other modules that
 /// are dependended-upon.
-/*@_spi(Testing)*/ public final class ModuleDependencyGraph {
+/*@_spi(Testing)*/ public final class ModuleDependencyGraph: InternedStringTableHolder {
 
   /// Supports finding nodes in two ways.
-  @_spi(Testing) public var nodeFinder = NodeFinder()
+  @_spi(Testing) public var nodeFinder: NodeFinder
 
   // The set of paths to external dependencies known to be in the graph
-  public internal(set) var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
+  public internal(set) var fingerprintedExternalDependencies:  Set<FingerprintedExternalDependency>
 
   /// A lot of initial state that it's handy to have around.
   @_spi(Testing) public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
@@ -34,15 +34,25 @@ import SwiftOptions
   /// For debugging, something to write out files for visualizing graphs
   var dotFileWriter: DependencyGraphDotFileWriter?
 
-  @_spi(Testing) public var phase: Phase
+  @_spi(Testing) public var phase: Phase {
+    willSet { mutationSafetyPrecondition() }
+  }
 
   /// The phase when the graph was created. Used to help diagnose later failures
   let creationPhase: Phase
 
   fileprivate var currencyCache: ExternalDependencyCurrencyCache
+  
+  /// To speed all the node insertions and lookups, intern all the strings.
+  /// Put them here because it matches the concurrency constraints; just as modifications to this graph
+  /// are serialized, so must all the mods to this table be.
+  @_spi(Testing) public let internedStringTable: InternedStringTable
 
-  public init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-               _ phase: Phase
+  private init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+               _ phase: Phase,
+              _ internedStringTable: InternedStringTable,
+              _ nodeFinder: NodeFinder,
+              _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
   ) {
     self.currencyCache = ExternalDependencyCurrencyCache(
       info.fileSystem, buildStartTime: info.buildStartTime)
@@ -52,6 +62,54 @@ import SwiftOptions
       : nil
     self.phase = phase
     self.creationPhase = phase
+    self.internedStringTable = internedStringTable
+    self.nodeFinder = nodeFinder
+    self.fingerprintedExternalDependencies = fingerprintedExternalDependencies
+  }
+
+  private convenience init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+              _ phase: Phase
+  ) {
+    assert(phase != .updatingFromAPrior,
+           "If updating from prior, should be supplying more ingredients")
+    self.init(info, phase, InternedStringTable(info.incrementalCompilationQueue),
+              NodeFinder(),
+              Set())
+  }
+  
+  public static func createFromPrior(
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    _ internedStringTable: InternedStringTable,
+    _ nodeFinder: NodeFinder,
+    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
+  ) -> Self {
+    self.init(info,
+              .updatingFromAPrior,
+              internedStringTable,
+              nodeFinder,
+              fingerprintedExternalDependencies)
+  }
+  
+  public static func createForBuildingFromSwiftDeps(
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) -> Self {
+    self.init(info, .buildingFromSwiftDeps)
+  }
+  public static func createForBuildingAfterEachCompilation(
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) -> Self {
+    self.init(info, .buildingAfterEachCompilation)
+  }
+  public static func createForSimulatingCleanBuild(
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) -> Self {
+    self.init(info, .updatingAfterCompilation)
+  }
+}
+
+extension ModuleDependencyGraph: IncrementalCompilationSynchronizer  {
+  @_spi(Testing) public var incrementalCompilationQueue: DispatchQueue {
+    info.incrementalCompilationQueue
   }
 }
 
@@ -119,22 +177,6 @@ extension ModuleDependencyGraph {
         by: ExternalIntegrand(fed, shouldBeIn: self)))
     }
   }
-
-  /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
-  ///
-  /// If the priors were read from an invocation containing a subsuequently removed input,
-  /// the nodes defining decls from that input must be culled.
-  ///
-  /// - Parameter node: The (deserialized) node to test.
-  /// - Returns: true iff the node corresponds to a definition on a removed source file.
-  fileprivate func isForRemovedInput(_ node: Node) -> Bool {
-    guard let fileWithDeps = node.dependencySource?.typedFile,
-          fileWithDeps.type == .swift // e.g., could be a .swiftdeps file
-    else {
-      return false
-    }
-    return !isPartOfBuild(SwiftSourceFile(fileWithDeps))
-  }
 }
 
 // MARK: - Scheduling the first wave
@@ -146,7 +188,8 @@ extension ModuleDependencyGraph {
   /// - Returns: The input files that must be recompiled, excluding `changedInput`
   func collectInputsInvalidatedBy(changedInput: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileArray {
-    let changedSource = DependencySource(changedInput)
+    accessSafetyPrecondition()
+    let changedSource = DependencySource(changedInput, internedStringTable)
     let allUses = collectInputsUsing(dependencySource: changedSource)
 
     return allUses.filter {
@@ -163,6 +206,7 @@ extension ModuleDependencyGraph {
   /*@_spi(Testing)*/ public func collectInputsUsing(
     dependencySource: DependencySource
   ) -> TransitivelyInvalidatedSwiftSourceFileSet {
+    accessSafetyPrecondition()
     let nodes = nodeFinder.findNodes(for: dependencySource) ?? [:]
     /// Tests expect this to be reflexive
     return collectInputsUsingInvalidated(nodes: DirectlyInvalidatedNodeSet(nodes.values))
@@ -170,10 +214,12 @@ extension ModuleDependencyGraph {
 
   /// Does the graph contain any dependency nodes for a given source-code file?
   func containsNodes(forSourceFile file: SwiftSourceFile) -> Bool {
-    containsNodes(forDependencySource: DependencySource(file))
+    accessSafetyPrecondition()
+    return containsNodes(forDependencySource: DependencySource(file, internedStringTable))
   }
 
   private func containsNodes(forDependencySource source: DependencySource) -> Bool {
+    accessSafetyPrecondition()
     return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
       ?? false
   }
@@ -225,14 +271,6 @@ extension ModuleDependencyGraph {
     }
   }
 
-  /// Is this source file part of this build?
-  ///
-  /// - Parameter sourceFile: the Swift source-code file in question
-  /// - Returns: true iff this file was in the command-line invocation of the driver
-  fileprivate func isPartOfBuild(_ sourceFile: SwiftSourceFile) -> Bool {
-    info.sourceFiles.currentSet.contains(sourceFile)
-  }
-
   /// Given an external dependency & its fingerprint, find any nodes directly using that dependency.
   ///
   /// - Parameters:
@@ -255,6 +293,7 @@ extension ModuleDependencyGraph {
     let node = Node(key: key,
                     fingerprint: externalDefs.fingerprint,
                     dependencySource: nil)
+    accessSafetyPrecondition()
     let untracedUses = DirectlyInvalidatedNodeSet(
       nodeFinder
         .uses(of: node)
@@ -270,8 +309,11 @@ extension ModuleDependencyGraph {
   private func collectInputsRequiringCompilationAfterProcessing(
     input: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
-    let dependencySource = DependencySource(input)
-    guard let sourceGraph = dependencySource.read(info: info)
+    accessSafetyPrecondition()
+    mutationSafetyPrecondition() // string table
+    let dependencySource = DependencySource(input, internedStringTable)
+    guard let sourceGraph = dependencySource.read(info: info,
+                                                  internedStringTable: internedStringTable)
     else {
       // to preserve legacy behavior cancel whole thing
       info.diagnosticEngine.emit(
@@ -302,7 +344,7 @@ extension ModuleDependencyGraph {
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
     var invalidatedInputs = TransitivelyInvalidatedSwiftSourceFileSet()
     for invalidatedInput in collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes) {
-      guard isPartOfBuild(invalidatedInput)
+      guard info.isPartOfBuild(invalidatedInput)
       else {
         info.diagnosticEngine.emit(
           warning: "Failed to find source file '\(invalidatedInput.typedFile.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental.")
@@ -326,6 +368,7 @@ extension ModuleDependencyGraph {
 
     init(_ fed: FingerprintedExternalDependency,
          in graph: ModuleDependencyGraph ) {
+      graph.mutationSafetyPrecondition()
       self = graph.fingerprintedExternalDependencies.insert(fed).inserted
       ? .new(fed)
       : .old(fed)
@@ -333,6 +376,7 @@ extension ModuleDependencyGraph {
 
     init(_ fed: FingerprintedExternalDependency,
          shouldBeIn graph: ModuleDependencyGraph ) {
+      graph.accessSafetyPrecondition()
       assert(graph.fingerprintedExternalDependencies.contains(fed))
       self = .old(fed)
     }
@@ -376,6 +420,7 @@ extension ModuleDependencyGraph {
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
     assert(self.info.isCrossModuleIncrementalBuildEnabled)
+    accessSafetyPrecondition()
     // Better not be reading swiftdeps one-by-one for a selective compilation
     precondition(self.phase != .buildingFromSwiftDeps)
 
@@ -383,6 +428,7 @@ extension ModuleDependencyGraph {
       info.reporter?.report("Ignoring unchanged existing external incremental dependency", integrand)
       return DirectlyInvalidatedNodeSet()
     }
+    mutationSafetyPrecondition()
     return integrateIncrementalImport(of: integrand.externalDependency, whyIntegrate)
            ?? indiscriminatelyFindNodesInvalidated(by: integrand, .couldNotRead)
   }
@@ -435,6 +481,7 @@ extension ModuleDependencyGraph {
   /// - Returns: nil if no integration is needed, or else why the integration is happening
   private func whyIncrementallyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
+    accessSafetyPrecondition()
    switch integrand {
    case .new:
       return .added
@@ -452,6 +499,7 @@ extension ModuleDependencyGraph {
   /// - Returns: nil if no invalidation is needed, otherwise the reason.
   private func whyIndiscriminatelyFindNodesInvalidated(by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
+    accessSafetyPrecondition()
     switch self.phase {
     case .buildingFromSwiftDeps, .updatingFromAPrior:
       // If the external dependency has changed, better recompile any dependents
@@ -473,9 +521,11 @@ extension ModuleDependencyGraph {
     of fed: FingerprintedExternalDependency,
     _ why: ExternalDependency.InvalidationReason
   ) -> DirectlyInvalidatedNodeSet? {
+    mutationSafetyPrecondition()
     guard
       let source = fed.incrementalDependencySource,
-      let unserializedDepGraph = source.read(info: info)
+      let unserializedDepGraph = source.read(info: info,
+                                             internedStringTable: internedStringTable)
     else {
       return nil
     }
@@ -535,7 +585,6 @@ extension ModuleDependencyGraph {
 
 // MARK: - tracking traced nodes
 extension ModuleDependencyGraph {
-
  func ensureGraphWillRetrace(_ nodes: DirectlyInvalidatedNodeSet) {
    for node in nodes {
       node.setUntraced()
@@ -547,7 +596,8 @@ extension ModuleDependencyGraph {
 extension ModuleDependencyGraph {
   @discardableResult
   @_spi(Testing) public func verifyGraph() -> Bool {
-    nodeFinder.verify()
+    accessSafetyPrecondition()
+    return nodeFinder.verify()
   }
 }
 // MARK: - Serialization
@@ -562,7 +612,8 @@ extension ModuleDependencyGraph {
   ///
   /// - Minor number 1: Don't serialize the `inputDepedencySourceMap`
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 2, 0)
+  /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 3, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
@@ -606,6 +657,7 @@ extension ModuleDependencyGraph {
     case malformedIdentifierRecord
     case malformedModuleDepGraphNodeRecord
     case malformedDependsOnRecord
+    case malforedUseIDRecord
     case malformedMapRecord
     case malformedExternalDepNodeRecord
     case unknownRecord
@@ -616,6 +668,24 @@ extension ModuleDependencyGraph {
     case timeTravellingPriors(priorsModTime: Date,
                               buildStartTime: Date,
                               priorsTimeIntervalSinceStart: TimeInterval)
+    
+    fileprivate init(forMalformed kind: RecordID) {
+      switch kind {
+        
+      case .metadata:
+        self = .malformedMetadataRecord
+      case .moduleDepGraphNode:
+        self = .malformedModuleDepGraphNodeRecord
+      case .dependsOnNode:
+        self = .malformedDependsOnRecord
+      case .useIDNode:
+        self = .malforedUseIDRecord
+      case .externalDepNode:
+        self = .malformedExternalDepNodeRecord
+      case .identifierNode:
+        self = .malformedIdentifierRecord
+      }
+    }
   }
 
   /// Attempts to read a serialized dependency graph from the given path.
@@ -634,18 +704,26 @@ extension ModuleDependencyGraph {
                                               info: info) else {
       return nil
     }
+    let graph = try deserialize(data, info: info)
+    info.reporter?.report("Read dependency graph", path)
+    return graph
+  }
 
-    struct Visitor: BitstreamVisitor {
-      private let fileSystem: FileSystem
-      private let graph: ModuleDependencyGraph
+  @_spi(Testing) public static func deserialize(
+    _ data: ByteString,
+    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+  ) throws -> ModuleDependencyGraph {
+
+    struct Visitor: BitstreamVisitor, IncrementalCompilationSynchronizer {
+      private let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
+      private let internedStringTable: InternedStringTable
       var majorVersion: UInt64?
       var minorVersion: UInt64?
       var compilerVersionString: String?
 
-      // The empty string is hardcoded as identifiers[0]
-      private var identifiers: [String] = [""]
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
+      private var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
 
       /// Deserialized nodes, in order appearing in the priors file. If `nil`, the node is for a removed source file.
       ///
@@ -653,24 +731,38 @@ extension ModuleDependencyGraph {
       /// `Array` supports the deserialization of the def-use links by mapping index to node.
       /// The optionality of the contents lets the ``ModuleDependencyGraph/isForRemovedInput`` check to be cached.
       public private(set) var potentiallyUsedNodes: [Node?] = []
+      
+      private var nodeFinder = NodeFinder()
+      
+      var incrementalCompilationQueue: DispatchQueue {
+        info.incrementalCompilationQueue
+      }
 
       init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) {
-        self.fileSystem = info.fileSystem
-        let graph = ModuleDependencyGraph(info, .updatingFromAPrior)
-        self.graph = graph
+        self.info = info
+        self.internedStringTable = InternedStringTable(info.incrementalCompilationQueue)
+      }
+      
+      private var fileSystem: FileSystem {
+        info.fileSystem
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
+        mutationSafetyPrecondition()
+        let graph = ModuleDependencyGraph.createFromPrior(info,
+                                                          internedStringTable,
+                                                          nodeFinder,
+                                                          fingerprintedExternalDependencies)
         for (dependencyKey, useID) in self.nodeUses {
           guard let use = self.potentiallyUsedNodes[useID] else {
             // Don't record uses of defs of removed files.
             continue
           }
-          let isNewUse = self.graph.nodeFinder
+          let isNewUse = graph.nodeFinder
             .record(def: dependencyKey, use: use)
           assert(isNewUse, "Duplicate use def-use arc in graph?")
         }
-        return self.graph
+        return graph
       }
 
       func validate(signature: Bitcode.Signature) throws {
@@ -686,20 +778,71 @@ extension ModuleDependencyGraph {
       mutating func didExitBlock() throws {}
 
       private mutating func finalize(node newNode: Node) {
-        if graph.isForRemovedInput(newNode) {
+        mutationSafetyPrecondition()
+        if isForRemovedInput(newNode) {
           // Preserve the mapping of Int to Node for reconstructing def-use links with a placeholder.
           self.potentiallyUsedNodes.append(nil)
           return
         }
         self.potentiallyUsedNodes.append(newNode)
-        let oldNode = self.graph.nodeFinder.insert(newNode)
+        let oldNode = self.nodeFinder.insert(newNode)
         assert(oldNode == nil,
                "Integrated the same node twice: \(oldNode!), \(newNode)")
       }
-
+      
+      /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
+      ///
+      /// If the priors were read from an invocation containing a subsuequently removed input,
+      /// the nodes defining decls from that input must be culled.
+      ///
+      /// - Parameter node: The (deserialized) node to test.
+      /// - Returns: true iff the node corresponds to a definition on a removed source file.
+      fileprivate func isForRemovedInput(_ node: Node) -> Bool {
+        guard let fileWithDeps = node.dependencySource?.typedFile,
+              fileWithDeps.type == .swift // e.g., could be a .swiftdeps file
+        else {
+          return false
+        }
+        return !info.isPartOfBuild(SwiftSourceFile(fileWithDeps))
+      }
+      
       mutating func visit(record: BitcodeElement.Record) throws {
         guard let kind = RecordID(rawValue: record.id) else {
           throw ReadError.unknownRecord
+        }
+        
+        var malformedError: ReadError {.init(forMalformed: kind)}
+        
+        func stringIndex(field i: Int) throws -> Int {
+          let u = record.fields[i]
+          guard u < UInt64(internedStringTable.count) else {
+            throw malformedError
+          }
+          return Int(u)
+        }
+        func internedString(field i: Int) throws -> InternedString {
+          try InternedString(deserializedIndex: stringIndex(field: i))
+        }
+        func nonemptyInternedString(field i: Int) throws -> InternedString? {
+          let s = try internedString(field: i)
+          return s.isEmpty ? nil : s
+        }
+        func dependencyKey(kindCodeField: Int,
+                           declAspectField: Int,
+                           contextField: Int,
+                           identifierField: Int
+        ) throws -> DependencyKey {
+          let kindCode = record.fields[kindCodeField]
+          guard let declAspect = DependencyKey.DeclAspect(record.fields[declAspectField])
+          else {
+            throw malformedError
+          }
+          let context = try internedString(field: contextField)
+          let identifier = try internedString(field: identifierField)
+          let designator = try DependencyKey.Designator(
+            kindCode: kindCode, context: context, name: identifier,
+            internedStringTable: internedStringTable, fileSystem: fileSystem)
+          return DependencyKey(aspect: declAspect, designator: designator)
         }
 
         switch kind {
@@ -708,83 +851,78 @@ extension ModuleDependencyGraph {
           guard self.majorVersion == nil, self.minorVersion == nil, self.compilerVersionString == nil else {
             throw ReadError.unexpectedMetadataRecord
           }
-          guard record.fields.count == 2,
+          guard record.fields.count == 3,
                 case .blob(let compilerVersionBlob) = record.payload
-          else { throw ReadError.malformedMetadataRecord }
+          else { throw malformedError }
 
           self.majorVersion = record.fields[0]
           self.minorVersion = record.fields[1]
+          let stringCount = record.fields[2]
+          internedStringTable.reserveCapacity(Int(stringCount))
           self.compilerVersionString = String(decoding: compilerVersionBlob, as: UTF8.self)
         case .moduleDepGraphNode:
-          let kindCode = record.fields[0]
-          guard record.fields.count == 7,
-                let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-                record.fields[2] < identifiers.count,
-                record.fields[3] < identifiers.count,
-                case .blob(let fingerprintBlob) = record.payload
+           guard record.fields.count == 6
           else {
-            throw ReadError.malformedModuleDepGraphNodeRecord
+            throw malformedError
           }
-          let context = identifiers[Int(record.fields[2])]
-          let identifier = identifiers[Int(record.fields[3])]
-          let designator = try DependencyKey.Designator(
-            kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
-          let key = DependencyKey(aspect: declAspect, designator: designator)
-          let hasDepSource = Int(record.fields[4]) != 0
-          let depSourceStr = hasDepSource ? identifiers[Int(record.fields[5])] : nil
-          let hasFingerprint = Int(record.fields[6]) != 0
-          let fingerprint = hasFingerprint ? String(decoding: fingerprintBlob, as: UTF8.self) : nil
-          guard let dependencySource = try depSourceStr
-                  .map({ try VirtualPath.intern(path: $0) })
-                  .map(DependencySource.init)
-          else {
-            throw ReadError.unknownDependencySourceExtension
+          let key = try dependencyKey(kindCodeField: 0,
+                                      declAspectField: 1,
+                                      contextField: 2,
+                                      identifierField: 3)
+          let depSourceFileOrNone = try nonemptyInternedString(field: 4)
+          let depSource = try depSourceFileOrNone.map {
+            internedFile -> DependencySource in
+            let pathString = internedFile.lookup(in: internedStringTable)
+            let pathHandle = try VirtualPath.intern(path: pathString)
+            guard let source =  DependencySource(ifAppropriateFor: pathHandle,
+                             internedString: internedFile)
+            else {
+              throw ReadError.unknownDependencySourceExtension
+            }
+            return source
           }
+          let fingerprint = try nonemptyInternedString(field: 5)
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
-                                   dependencySource: dependencySource))
+                                   dependencySource: depSource))
         case .dependsOnNode:
-          let kindCode = record.fields[0]
-          guard record.fields.count == 4,
-                let declAspect = DependencyKey.DeclAspect(record.fields[1]),
-                record.fields[2] < identifiers.count,
-                record.fields[3] < identifiers.count
+          guard record.fields.count == 4
           else {
-            throw ReadError.malformedDependsOnRecord
+            throw malformedError
           }
-          let context = identifiers[Int(record.fields[2])]
-          let identifier = identifiers[Int(record.fields[3])]
-          let designator = try DependencyKey.Designator(
-            kindCode: kindCode, context: context, name: identifier, fileSystem: fileSystem)
-          self.currentDefKey = DependencyKey(aspect: declAspect, designator: designator)
+          self.currentDefKey = try dependencyKey(
+            kindCodeField: 0,
+            declAspectField: 1,
+            contextField: 2,
+            identifierField: 3)
         case .useIDNode:
-          guard let key = self.currentDefKey, record.fields.count == 1 else {
-            throw ReadError.malformedDependsOnRecord
+          guard let key = self.currentDefKey,
+                  record.fields.count == 1 else {
+            throw malformedError
           }
           self.nodeUses.append( (key, Int(record.fields[0])) )
         case .externalDepNode:
-          guard record.fields.count == 2,
-                record.fields[0] < identifiers.count,
-                case .blob(let fingerprintBlob) = record.payload
+          guard record.fields.count == 2
           else {
-            throw ReadError.malformedExternalDepNodeRecord
+            throw malformedError
           }
-          let path = identifiers[Int(record.fields[0])]
-          let hasFingerprint = Int(record.fields[1]) != 0
-          let fingerprint = hasFingerprint ? String(decoding: fingerprintBlob, as: UTF8.self) : nil
-          self.graph.fingerprintedExternalDependencies.insert(
-            FingerprintedExternalDependency(ExternalDependency(fileName: path), fingerprint))
+          let path = try internedString(field: 0)
+          let fingerprint = try nonemptyInternedString(field: 1)
+          fingerprintedExternalDependencies.insert(
+            FingerprintedExternalDependency(
+              ExternalDependency(fileName: path, internedStringTable),
+              fingerprint))
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload
           else {
-            throw ReadError.malformedIdentifierRecord
+            throw malformedError
           }
-          identifiers.append(String(decoding: identifierBlob, as: UTF8.self))
+          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: internedStringTable)
         }
       }
     }
-
+    
     var visitor = Visitor(info)
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
@@ -799,9 +937,7 @@ extension ModuleDependencyGraph {
       throw ReadError.mismatchedSerializedGraphVersion(
         expected: Self.serializedGraphVersion, read: readVersion)
     }
-    let graph = visitor.finalizeGraph()
-    info.reporter?.report("Read dependency graph", path)
-    return graph
+    return visitor.finalizeGraph()
   }
 
   /// Ensure the saved path points to saved graph from the prior build, and read it.
@@ -852,6 +988,12 @@ extension ModuleDependencyGraph {
   }
 }
 
+fileprivate extension InternedString {
+  init(deserializedIndex: Int) {
+    self.index = deserializedIndex
+  }
+}
+
 extension ModuleDependencyGraph {
   /// Attempts to serialize this dependency graph and write its contents
   /// to the given file path.
@@ -889,19 +1031,19 @@ extension ModuleDependencyGraph {
     }
   }
 
-  fileprivate final class Serializer {
+  @_spi(Testing) public final class Serializer: InternedStringTableHolder {
+    public let internedStringTable: InternedStringTable
     let compilerVersion: String
     let serializedGraphVersion: Version
     let stream = BitstreamWriter()
     private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
-    private var identifiersToWrite = [String]()
-    private var identifierIDs = [String: Int]()
-    private var lastIdentifierID: Int = 1
     fileprivate private(set) var nodeIDs = [Node: Int]()
     private var lastNodeID: Int = 0
 
-    private init(compilerVersion: String,
+    private init(internedStringTable: InternedStringTable,
+                 compilerVersion: String,
                  serializedGraphVersion: Version) {
+      self.internedStringTable = internedStringTable
       self.compilerVersion = compilerVersion
       self.serializedGraphVersion = serializedGraphVersion
     }
@@ -950,26 +1092,13 @@ extension ModuleDependencyGraph {
         $0.append(RecordID.metadata)
         $0.append(serializedGraphVersion.majorForWriting)
         $0.append(serializedGraphVersion.minorForWriting)
+        $0.append(min(UInt(internedStringTable.count), UInt(UInt32.max)))
       },
       blob: self.compilerVersion)
     }
 
-    private func addIdentifier(_ str: String) {
-      guard !str.isEmpty && self.identifierIDs[str] == nil else {
-        return
-      }
-
-      defer { self.lastIdentifierID += 1 }
-      self.identifierIDs[str] = self.lastIdentifierID
-      self.identifiersToWrite.append(str)
-    }
-
-    private func lookupIdentifierCode(for string: String) -> UInt32 {
-      guard !string.isEmpty else {
-        return 0
-      }
-
-      return UInt32(self.identifierIDs[string]!)
+    private func lookupIdentifierCode(for string: InternedString?) -> UInt32 {
+      UInt32(string.map {$0.index} ?? 0)
     }
 
     private func cacheNodeID(for node: Node) {
@@ -980,32 +1109,9 @@ extension ModuleDependencyGraph {
     private func populateCaches(from graph: ModuleDependencyGraph) {
       graph.nodeFinder.forEachNode { node in
         self.cacheNodeID(for: node)
-
-        if let dependencySourceFileName = node.dependencySource?.file.name {
-          self.addIdentifier(dependencySourceFileName)
-        }
-        if let context = node.key.designator.context {
-          self.addIdentifier(context)
-        }
-        if let name = node.key.designator.name {
-          self.addIdentifier(name)
-        }
       }
 
-      for key in graph.nodeFinder.usesByDef.keys {
-        if let context = key.designator.context {
-          self.addIdentifier(context)
-        }
-        if let name = key.designator.name {
-          self.addIdentifier(name)
-        }
-      }
-
-      for edF in graph.fingerprintedExternalDependencies {
-        self.addIdentifier(edF.externalDependency.fileName)
-      }
-
-      for str in self.identifiersToWrite {
+      for str in internedStringTable.strings {
         self.stream.writeRecord(self.abbreviations[.identifierNode]!, {
           $0.append(RecordID.identifierNode)
         }, blob: str)
@@ -1013,46 +1119,39 @@ extension ModuleDependencyGraph {
     }
 
     private func registerAbbreviations() {
+      let dependencyKeyOperands: [Bitstream.Abbreviation.Operand] = [
+        // dependency kind discriminator
+        .fixed(bitWidth: 3),
+        // dependency decl aspect discriminator
+        .fixed(bitWidth: 1),
+        // dependency context
+        .vbr(chunkBitWidth: 13),
+        // dependency name
+        .vbr(chunkBitWidth: 13),
+      ]
+      
       self.abbreviate(.metadata, [
         .literal(RecordID.metadata.rawValue),
         // Major version
         .fixed(bitWidth: 16),
         // Minor version
         .fixed(bitWidth: 16),
+        // Number of strings to be interned
+        .fixed(bitWidth: 32),
         // Frontend version
         .blob,
       ])
-      self.abbreviate(.moduleDepGraphNode, [
-        .literal(RecordID.moduleDepGraphNode.rawValue),
-        // dependency kind discriminator
-        .fixed(bitWidth: 3),
-        // dependency decl aspect discriminator
-        .fixed(bitWidth: 1),
-        // dependency context
+      self.abbreviate(.moduleDepGraphNode,
+        [Bitstream.Abbreviation.Operand.literal(RecordID.moduleDepGraphNode.rawValue)] +
+        dependencyKeyOperands + [
+        // swiftdeps path / none if empty
         .vbr(chunkBitWidth: 13),
-        // dependency name
-        .vbr(chunkBitWidth: 13),
-        // swiftdeps?
-        .fixed(bitWidth: 1),
-        // swiftdeps path
-        .vbr(chunkBitWidth: 13),
-        // fingerprint?
-        .fixed(bitWidth: 1),
-        // fingerprint bytes
-        .blob,
-      ])
-      self.abbreviate(.dependsOnNode, [
-        .literal(RecordID.dependsOnNode.rawValue),
-        // dependency kind discriminator
-        .fixed(bitWidth: 3),
-        // dependency decl aspect discriminator
-        .fixed(bitWidth: 1),
-        // dependency context
-        .vbr(chunkBitWidth: 13),
-        // dependency name
+        // fingerprint
         .vbr(chunkBitWidth: 13),
       ])
-
+      self.abbreviate(.dependsOnNode,
+        [.literal(RecordID.dependsOnNode.rawValue)] +
+        dependencyKeyOperands)
       self.abbreviate(.useIDNode, [
         .literal(RecordID.useIDNode.rawValue),
         // node ID
@@ -1062,10 +1161,8 @@ extension ModuleDependencyGraph {
         .literal(RecordID.externalDepNode.rawValue),
         // path ID
         .vbr(chunkBitWidth: 13),
-        // fingerprint?
-        .fixed(bitWidth: 1),
-        // fingerprint bytes
-        .blob
+        // fingerprint ID
+        .vbr(chunkBitWidth: 13),
       ])
       self.abbreviate(.identifierNode, [
         .literal(RecordID.identifierNode.rawValue),
@@ -1087,7 +1184,9 @@ extension ModuleDependencyGraph {
       _ compilerVersion: String,
       _ serializedGraphVersion: Version
     ) -> ByteString {
+      graph.accessSafetyPrecondition()
       let serializer = Serializer(
+        internedStringTable: graph.internedStringTable,
         compilerVersion: compilerVersion,
         serializedGraphVersion: serializedGraphVersion)
       serializer.emitSignature()
@@ -1099,32 +1198,30 @@ extension ModuleDependencyGraph {
         serializer.writeMetadata()
 
         serializer.populateCaches(from: graph)
+        
+        func write(key: DependencyKey, to buffer: inout BitstreamWriter.RecordBuffer) {
+          buffer.append(key.designator.code)
+          buffer.append(key.aspect.code)
+          buffer.append(serializer.lookupIdentifierCode(
+                      for: key.designator.context))
+          buffer.append(serializer.lookupIdentifierCode(
+                      for: key.designator.name))
+        }
 
         graph.nodeFinder.forEachNode { node in
-          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!, {
+          serializer.stream.writeRecord(serializer.abbreviations[.moduleDepGraphNode]!) {
             $0.append(RecordID.moduleDepGraphNode)
-            $0.append(node.key.designator.code)
-            $0.append(node.key.aspect.code)
+            write(key: node.key, to: &$0)
             $0.append(serializer.lookupIdentifierCode(
-                        for: node.key.designator.context ?? ""))
-            $0.append(serializer.lookupIdentifierCode(
-                        for: node.key.designator.name ?? ""))
-            $0.append((node.dependencySource != nil) ? UInt32(1) : UInt32(0))
-            $0.append(serializer.lookupIdentifierCode(
-                        for: node.dependencySource?.file.name ?? ""))
-            $0.append((node.fingerprint != nil) ? UInt32(1) : UInt32(0))
-          }, blob: node.fingerprint ?? "")
+                        for: node.dependencySource?.internedFileName))
+            $0.append(serializer.lookupIdentifierCode(for: node.fingerprint))
+          }
         }
 
         for key in graph.nodeFinder.usesByDef.keys {
           serializer.stream.writeRecord(serializer.abbreviations[.dependsOnNode]!) {
             $0.append(RecordID.dependsOnNode)
-            $0.append(key.designator.code)
-            $0.append(key.aspect.code)
-            $0.append(serializer.lookupIdentifierCode(
-                        for: key.designator.context ?? ""))
-            $0.append(serializer.lookupIdentifierCode(
-                        for: key.designator.name ?? ""))
+            write(key: key, to: &$0)
           }
           for use in graph.nodeFinder.usesByDef[key, default: []] {
             guard let useID = serializer.nodeIDs[use] else {
@@ -1138,13 +1235,13 @@ extension ModuleDependencyGraph {
           }
         }
         for fingerprintedExternalDependency in graph.fingerprintedExternalDependencies {
-          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
+          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!) {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(
-                        for: fingerprintedExternalDependency.externalDependency.fileName))
-            $0.append((fingerprintedExternalDependency.fingerprint != nil) ? UInt32(1) : UInt32(0))
-          }, 
-          blob: (fingerprintedExternalDependency.fingerprint ?? ""))
+              for: fingerprintedExternalDependency.externalDependency.fileName))
+            $0.append( serializer.lookupIdentifierCode(
+              for: fingerprintedExternalDependency.fingerprint))
+          }
         }
       }
       return ByteString(serializer.stream.data)
@@ -1175,8 +1272,10 @@ fileprivate extension DependencyKey.DeclAspect {
 }
 
 fileprivate extension DependencyKey.Designator {
-  init(kindCode: UInt64, context: String, name: String, fileSystem: FileSystem) throws {
-    func mustBeEmpty(_ s: String) throws {
+  init(kindCode: UInt64, context: InternedString, name: InternedString,
+       internedStringTable: InternedStringTable,
+       fileSystem: FileSystem) throws {
+    func mustBeEmpty(_ s: InternedString) throws {
       guard s.isEmpty else {
         throw ModuleDependencyGraph.ReadError.bogusNameOrContext
       }
@@ -1199,7 +1298,7 @@ fileprivate extension DependencyKey.Designator {
       self = .dynamicLookup(name: name)
     case 5:
       try mustBeEmpty(context)
-      self = .externalDepend(ExternalDependency(fileName: name))
+      self = .externalDepend(ExternalDependency(fileName: name, internedStringTable))
     case 6:
       try mustBeEmpty(context)
       self = .sourceFileProvide(name: name)

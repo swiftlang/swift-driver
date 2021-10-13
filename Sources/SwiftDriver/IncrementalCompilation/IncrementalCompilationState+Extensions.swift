@@ -135,7 +135,7 @@ extension IncrementalCompilationState {
   public func collectJobsDiscoveredToBeNeededAfterFinishing(
     job finishedJob: Job
   ) throws -> [Job]? {
-    try blockingConcurrentAccessOrMutation {
+    try blockingConcurrentAccessOrMutationToProtectedState {
       try $0.collectBatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
     }
   }
@@ -147,7 +147,7 @@ extension IncrementalCompilationState {
   }
 
   public var skippedJobs: [Job] {
-    blockingConcurrentMutation {
+    blockingConcurrentMutationToProtectedState {
       $0.skippedJobs
     }
   }
@@ -385,7 +385,7 @@ extension IncrementalCompilationState {
     else {
       throw WriteDependencyGraphError.noBuildRecordInfo
     }
-    try blockingConcurrentMutation {
+    try blockingConcurrentMutationToProtectedState {
       try $0.writeGraph(
         to: recordInfo.dependencyGraphPath,
         on: info.fileSystem,

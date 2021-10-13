@@ -10,27 +10,48 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import Dispatch
 
 /// A filename from another module
 /*@_spi(Testing)*/ final public class ExternalDependency: Hashable, Comparable, CustomStringConvertible {
 
 
   /// Delay computing the path as an optimization.
-  let fileName: String
+  let fileName: InternedString
+  let fileNameString: String // redundant, but allows caching pathHandle
+
   lazy var pathHandle = getPathHandle()
 
-  /*@_spi(Testing)*/ public init(fileName: String) {
-    self.fileName = fileName
+  /*@_spi(Testing)*/ public init(
+    fileName: InternedString, _ t: InternedStringTable) {
+      self.fileName = fileName
+      self.fileNameString = fileName.lookup(in: t)
+  }
+  
+  static var dummy: Self {
+    MockIncrementalCompilationSynchronizer.withInternedStringTable { t in
+      return Self(fileName: ".".intern(in: t), t)
+    }
+  }
+  
+  public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileName == rhs.fileName
+  }
+  public static func <(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
+    lhs.fileNameString < rhs.fileNameString
+  }
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(fileName)
   }
 
   /// Should only be called by debugging functions or functions that are cached
   private func getPathHandle() -> VirtualPath.Handle? {
-    try? VirtualPath.intern(path: fileName)
+    try? VirtualPath.intern(path: fileNameString)
   }
 
   /// Cache this here
   var isSwiftModule: Bool {
-    fileName.hasSuffix(".\(FileType.swiftModule.rawValue)")
+    fileNameString.hasSuffix(".\(FileType.swiftModule.rawValue)")
   }
 
   var swiftModuleFile: TypedVirtualPath? {
@@ -49,44 +70,37 @@ import TSCBasic
     guard let path = path else {
       return "non-path: '\(fileName)'"
     }
-    switch path.extension {
-    case FileType.swiftModule.rawValue:
-      // Swift modules have an extra component at the end that is not descriptive
-      return path.parentDirectory.basename
-    default:
-      return path.basename
-    }
+    return path.externalDependencyPathDescription
   }
 
   public var shortDescription: String {
     pathHandle.map { pathHandle in
-      DependencySource(pathHandle).map { $0.shortDescription }
+      DependencySource(ifAppropriateFor: pathHandle, internedString: fileName).map { $0.shortDescription }
         ?? VirtualPath.lookup(pathHandle).basename
     }
     ?? description
   }
+}
 
-  public static func < (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
-    lhs.fileName < rhs.fileName
+extension VirtualPath {
+  var externalDependencyPathDescription: String {
+    switch self.extension {
+    case FileType.swiftModule.rawValue:
+      // Swift modules have an extra component at the end that is not descriptive
+      return parentDirectory.basename
+    default:
+      return basename
+    }
   }
-
-  public static func == (lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
-    lhs.fileName == rhs.fileName
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(fileName)
-  }
-
 }
 
 /// Since the integration surfaces all externalDependencies to be processed later,
 /// a combination of the dependency and fingerprint are needed.
 public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDependencyAndFingerprintEnforcer {
-  var externalDependency: ExternalDependency
-  let fingerprint: String?
+  let externalDependency: ExternalDependency
+  let fingerprint: InternedString?
 
-  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: String?) {
+  @_spi(Testing) public init(_ externalDependency: ExternalDependency, _ fingerprint: InternedString?) {
     self.externalDependency = externalDependency
     self.fingerprint = fingerprint
     assert(verifyExternalDependencyAndFingerprint())
@@ -99,14 +113,21 @@ public struct FingerprintedExternalDependency: Hashable, Equatable, ExternalDepe
     else {
       return nil
     }
-    return DependencySource(swiftModuleFile)
+    return DependencySource(typedFile: swiftModuleFile,
+                            internedFileName: externalDependency.fileName)
+  }
+}
+
+extension FingerprintedExternalDependency {
+  public func description(in holder: InternedStringTableHolder) -> String {
+    "\(externalDependency) \(fingerprint.map {"fingerprint: \($0.description(in: holder))"} ?? "no fingerprint")"
   }
 }
 
 /// A `DependencyKey` carries all of the information necessary to uniquely
 /// identify a dependency node in the graph, and serves as a point of identity
 /// for the dependency graph's map from definitions to uses.
-public struct DependencyKey: CustomStringConvertible {
+public struct DependencyKey {
   /// Captures which facet of the dependency structure a dependency key represents.
   ///
   /// A `DeclAspect` is used to separate dependencies with a scope limited to
@@ -148,7 +169,7 @@ public struct DependencyKey: CustomStringConvertible {
   }
 
   /// Enumerates the current sorts of dependency nodes in the dependency graph.
-  /*@_spi(Testing)*/ public enum Designator: Hashable, CustomStringConvertible {
+  /*@_spi(Testing)*/ public enum Designator: Hashable {
     /// A top-level name.
     ///
     /// Corresponds to the top-level names that occur in a given file. When
@@ -157,7 +178,7 @@ public struct DependencyKey: CustomStringConvertible {
     ///
     /// The `name` parameter is the human-readable name of the top-level
     /// declaration.
-    case topLevel(name: String)
+    case topLevel(name: InternedString)
     /// A dependency originating from the lookup of a "dynamic member".
     ///
     /// A "dynamic member lookup" is the Swift frontend's term for lookups that
@@ -171,7 +192,7 @@ public struct DependencyKey: CustomStringConvertible {
     ///
     /// - Note: This is distinct from "dynamic member lookup", which uses
     ///         a normal `member` constraint.
-    case dynamicLookup(name: String)
+    case dynamicLookup(name: InternedString)
     /// A dependency that resides outside of the module being built.
     ///
     /// These dependencies correspond to clang modules and their immediate
@@ -194,7 +215,7 @@ public struct DependencyKey: CustomStringConvertible {
     ///
     /// Swiftmodule files may contain a special section with swiftdeps information
     /// for the module. In that case the enclosing node should have a fingerprint.
-    case sourceFileProvide(name: String)
+    case sourceFileProvide(name: InternedString)
     /// A "nominal" type that is used, or defined by this file.
     ///
     /// Unlike a top-level name, a `nominal` dependency always names exactly
@@ -205,7 +226,7 @@ public struct DependencyKey: CustomStringConvertible {
     /// These nodes generally capture the space of ABI-breaking changes made to
     /// types themselves such as the addition or removal of generic parameters,
     /// or a change in base name.
-    case nominal(context: String)
+    case nominal(context: InternedString)
     /// A "potential member" constraint models the abstract interface of a
     /// particular type or protocol. They can be thought of as a kind of
     /// "globstar" member constraint. Whenever a member is added, removed or
@@ -218,12 +239,12 @@ public struct DependencyKey: CustomStringConvertible {
     ///
     /// Like `nominal` nodes, the `context` field is the mangled name of the
     /// subject type.
-    case potentialMember(context: String)
+    case potentialMember(context: InternedString)
     /// A member of a type.
     ///
     /// The `context` field corresponds to the mangled name of the type. The
     /// `name` field corresponds to the *unmangled* name of the member.
-    case member(context: String, name: String)
+    case member(context: InternedString, name: InternedString)
 
     var externalDependency: ExternalDependency? {
       switch self {
@@ -234,7 +255,7 @@ public struct DependencyKey: CustomStringConvertible {
       }
     }
 
-    public var context: String? {
+    public var context: InternedString? {
       switch self {
       case .topLevel(name: _):
         return nil
@@ -253,14 +274,14 @@ public struct DependencyKey: CustomStringConvertible {
       }
     }
 
-    public var name: String? {
+    public var name: InternedString? {
       switch self {
       case .topLevel(name: let name):
         return name
       case .dynamicLookup(name: let name):
         return name
-      case .externalDepend(let path):
-        return path.fileName
+      case .externalDepend(let externalDependency):
+        return externalDependency.fileName
       case .sourceFileProvide(name: let name):
         return name
       case .member(context: _, name: let name):
@@ -284,22 +305,22 @@ public struct DependencyKey: CustomStringConvertible {
       }
     }
 
-    public var description: String {
+    public func description(in holder: InternedStringTableHolder) -> String {
       switch self {
       case let .topLevel(name: name):
-        return "top-level name '\(name)'"
+        return "top-level name '\(name.lookup(in: holder))'"
       case let .nominal(context: context):
-        return "type '\(context)'"
+        return "type '\(context.lookup(in: holder))'"
       case let .potentialMember(context: context):
-        return "potential members of '\(context)'"
+        return "potential members of '\(context.lookup(in: holder))'"
       case let .member(context: context, name: name):
-        return "member '\(name)' of '\(context)'"
+        return "member '\(name.lookup(in: holder))' of '\(context.lookup(in: holder))'"
       case let .dynamicLookup(name: name):
-        return "AnyObject member '\(name)'"
+        return "AnyObject member '\(name.lookup(in: holder))'"
       case let .externalDepend(externalDependency):
         return "import '\(externalDependency.shortDescription)'"
       case let .sourceFileProvide(name: name):
-        return "source file from \((try? VirtualPath(path: name).basename) ?? name)"
+        return "source file from \((try? VirtualPath(path: name.lookup(in: holder)).basename) ?? name.lookup(in: holder))"
       }
     }
   }
@@ -322,8 +343,8 @@ public struct DependencyKey: CustomStringConvertible {
     return Self(aspect: .implementation, designator: designator)
   }
 
-  public var description: String {
-    "\(aspect) of \(designator)"
+  public func description(in holder: InternedStringTableHolder) -> String {
+    "\(aspect) of \(designator.description(in: holder))"
   }
 
   @discardableResult
@@ -333,16 +354,60 @@ public struct DependencyKey: CustomStringConvertible {
   }
 }
 
-extension DependencyKey: Equatable, Hashable, Comparable {
-  public static func < (lhs: Self, rhs: Self) -> Bool {
-    guard lhs.aspect == rhs.aspect else {
-      return lhs.aspect < rhs.aspect
-    }
-    return lhs.designator < rhs.designator
+extension DependencyKey: Equatable, Hashable {}
+
+/// See ``ModuleDependencyGraph/Node/isInIncreasingOrder(::in:)``
+public func isInIncreasingOrder(_ lhs: DependencyKey,
+                                _ rhs: DependencyKey,
+                                in holder: InternedStringTableHolder) -> Bool {
+  guard lhs.aspect == rhs.aspect else {
+    return lhs.aspect < rhs.aspect
   }
+  return isInIncreasingOrder(lhs.designator, rhs.designator, in: holder)
 }
 
-extension DependencyKey.Designator: Comparable {}
+/// Takes the place of `<` by expanding the interned strings.
+public func isInIncreasingOrder(_ lhs: DependencyKey.Designator,
+                                _ rhs: DependencyKey.Designator,
+                                in holder: InternedStringTableHolder) -> Bool {
+  func f(_ s: InternedString) -> String {
+    s.lookup(in: holder)
+  }
+  switch (lhs, rhs) {
+  case
+    let (.topLevel(ln), .topLevel(rn)),
+    let (.dynamicLookup(ln), .dynamicLookup(rn)),
+    let (.sourceFileProvide(ln), .sourceFileProvide(rn)),
+    let (.nominal(ln), .nominal(rn)),
+    let (.potentialMember(ln), .potentialMember(rn)):
+    return f(ln) < f(rn)
+    
+  case let (.externalDepend(ld), .externalDepend(rd)):
+    return ld < rd
+    
+  case let (.member(lc, ln), .member(rc, rn)):
+    return lc == rc ? f(ln) < f(rn) : f(lc) < f(rc)
+    
+  default: break
+  }
+  
+  /// Preserves the ordering that obtained before interned strings were introduced.
+  func kindOrdering(_ d: DependencyKey.Designator) -> Int {
+    switch d {
+    case .topLevel: return 1
+    case .dynamicLookup: return 2
+    case .externalDepend: return 3
+    case .sourceFileProvide: return 4
+    case .nominal: return 5
+    case .potentialMember: return 6
+    case .member: return 7
+    }
+  }
+  assert(kindOrdering(lhs) != kindOrdering(rhs))
+  return kindOrdering(lhs) < kindOrdering(rhs)
+}
+
+//extension DependencyKey.Designator: Comparable {}
 
 // MARK: - InvalidationReason
 extension ExternalDependency {

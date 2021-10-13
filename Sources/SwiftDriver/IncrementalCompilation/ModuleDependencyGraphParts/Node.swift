@@ -36,7 +36,7 @@ extension ModuleDependencyGraph {
     private(set) var keyAndFingerprint: KeyAndFingerprintHolder
 
     /*@_spi(Testing)*/ public var key: DependencyKey { keyAndFingerprint.key }
-    /*@_spi(Testing)*/ public var fingerprint: String? { keyAndFingerprint.fingerprint }
+    /*@_spi(Testing)*/ public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
 
     /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
     /// If more than one source file has the same DependencyKey, then there
@@ -57,7 +57,7 @@ extension ModuleDependencyGraph {
 
     /// This dependencySource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
-    init(key: DependencyKey, fingerprint: String?,
+    init(key: DependencyKey, fingerprint: InternedString?,
          dependencySource: DependencySource?) {
       self.keyAndFingerprint = try! KeyAndFingerprintHolder(key, fingerprint)
       self.dependencySource = dependencySource
@@ -68,7 +68,7 @@ extension ModuleDependencyGraph {
 
 // MARK: - Setting fingerprint
 extension ModuleDependencyGraph.Node {
-  func setFingerprint(_ newFP: String?) {
+  func setFingerprint(_ newFP: InternedString?) {
     keyAndFingerprint = try! KeyAndFingerprintHolder(key, newFP)
   }
 }
@@ -98,27 +98,26 @@ extension ModuleDependencyGraph.Node: Equatable, Hashable {
   }
 }
 
-extension ModuleDependencyGraph.Node: Comparable {
-  public static func < (lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
-    func lt<T: Comparable> (_ a: T?, _ b: T?) -> Bool {
-      switch (a, b) {
-      case let (x?, y?): return x < y
-      case (nil, nil): return false
-      case (nil, _?): return true
-      case (_?, nil): return false
-      }
-    }
-    return lhs.key != rhs.key ? lhs.key < rhs.key :
-      lhs.dependencySource != rhs.dependencySource
-        ? lt(lhs.dependencySource, rhs.dependencySource)
-        : lt(lhs.fingerprint, rhs.fingerprint)
+/// May not be used today, but will be needed if we ever need to deterministically order nodes.
+/// For example, when following def-use links in ``ModuleDependencyGraph/Tracer``
+public func isInIncreasingOrder(
+  _ lhs: ModuleDependencyGraph.Node, _ rhs: ModuleDependencyGraph.Node,
+  in holder: InternedStringTableHolder
+)-> Bool {
+  if lhs.key != rhs.key {
+    return isInIncreasingOrder(lhs.key, rhs.key, in: holder)
   }
+  guard let rds = rhs.dependencySource else {return false}
+  guard let lds = lhs.dependencySource else {return true}
+  guard lds == rds else {return lds < rds}
+  guard let rf = rhs.fingerprint else {return false}
+  guard let lf = lhs.fingerprint else {return true}
+  return isInIncreasingOrder(lf, rf, in: holder)
 }
 
-
-extension ModuleDependencyGraph.Node: CustomStringConvertible {
-  public var description: String {
-    "\(key) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
+extension ModuleDependencyGraph.Node {
+  public func description(in holder: InternedStringTableHolder) -> String {
+    "\(key.description(in: holder)) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
   }
 }
 
