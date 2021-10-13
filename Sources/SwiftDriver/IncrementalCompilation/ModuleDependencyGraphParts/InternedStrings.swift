@@ -24,14 +24,12 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
     self.init(index: s.isEmpty ? 0 : table.intern(s))
   }
   
-  public var isEmpty: Bool { index == 0 }
-  
-  // This constructor cannot be private because it is called from the `internedString`
-  // method in ``ModuleDependencyGraph/deserialize/Visitor``.
-  init(index: Int) {
+  private init(index: Int) {
     self.index = index
   }
   
+  public var isEmpty: Bool { index == 0 }
+    
   public static var empty: Self {
     let r = Self(index: 0)
     assert(r.isEmpty)

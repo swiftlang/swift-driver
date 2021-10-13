@@ -821,7 +821,7 @@ extension ModuleDependencyGraph {
           return Int(u)
         }
         func internedString(field i: Int) throws -> InternedString {
-          try InternedString(index: stringIndex(field: i))
+          try InternedString(deserializedIndex: stringIndex(field: i))
         }
         func nonemptyInternedString(field i: Int) throws -> InternedString? {
           let s = try internedString(field: i)
@@ -985,6 +985,12 @@ extension ModuleDependencyGraph {
                                            buildStartTime: buildStartTime,
                                            priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart)
     }
+  }
+}
+
+fileprivate extension InternedString {
+  init(deserializedIndex: Int) {
+    self.index = deserializedIndex
   }
 }
 
