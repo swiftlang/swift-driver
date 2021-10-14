@@ -2745,6 +2745,16 @@ extension Driver {
       return singleOutputPath
     }
 
+    // The driver lacks a compilerMode for *only* emitting a Swift module, but if the
+    // primary output type is a .swiftmodule and we are using the emit-module-separately
+    // flow, then also consider single output paths specified in the output file-map.
+    if compilerOutputType == .swiftModule &&
+        Driver.shouldEmitModuleSeparately(parsedOptions: &parsedOptions),
+       let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+           outputType: type) {
+      return singleOutputPath
+    }
+
     // If there is an output argument, derive the name from there.
     if let outputPathArg = parsedOptions.getLastArgument(.o) {
       let path = try VirtualPath(path: outputPathArg.asSingle)
