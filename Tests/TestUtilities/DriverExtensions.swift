@@ -53,10 +53,9 @@ private let cachedSDKPath: Result<String, Error>? = {
   }
   // Assume that if neither of the environment variables are set, we are
   // using a build-tree version of the swift frontend, and so we do not set
-  // `-sdk`. Fallthrough to return `nil`.
-  #endif
-
-  #if os(macOS)
+  // `-sdk`.
+  return nil
+  #elseif os(macOS)
   return Result {
     if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
       return pathFromEnv
@@ -79,7 +78,7 @@ private let cachedSDKPath: Result<String, Error>? = {
     }
     return path.spm_chomp()
   }
-  #endif
-
+  #else
   return nil
+  #endif
 }()

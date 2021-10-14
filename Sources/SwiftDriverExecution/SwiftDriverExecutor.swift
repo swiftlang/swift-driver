@@ -47,7 +47,6 @@ public final class SwiftDriverExecutor: DriverExecutor {
       }
 
       try exec(path: arguments[0], args: arguments)
-      fatalError("unreachable, exec always throws on failure")
     } else {
       var childEnv = env
       childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
