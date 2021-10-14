@@ -807,6 +807,29 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
 
+  func testEmitModuleSepratelyEmittingDiagnosticsWithOutputFileMap() throws {
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      try localFileSystem.writeFileContents(outputFileMap) {
+        $0 <<< """
+        {
+          "": {
+            "diagnostics": "/build/Foo-test.dia"
+          }
+        }
+        """
+      }
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
+                                      "-serialize-diagnostics", "-experimental-emit-module-separately",
+                                      "-output-file-map", outputFileMap.description])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertTrue(plannedJobs[0].kind == .emitModule)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-serialize-diagnostics-path"), .path(.absolute(.init("/build/Foo-test.dia")))]))
+    }
+  }
+
   func testReferenceDependencies() throws {
     var driver = try Driver(args: ["swiftc", "foo.swift", "-incremental"])
     let plannedJobs = try driver.planBuild()
