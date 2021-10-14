@@ -606,6 +606,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let swiftModuleInterfacesPath: String =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
+                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString().escaped(),
