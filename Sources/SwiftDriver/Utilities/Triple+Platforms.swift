@@ -228,10 +228,10 @@ extension Triple {
         return Version(14, 0, 0)
       }
 
-      // Mac Catalyst was introduced with an iOS deployment target of 13.0;
+      // Mac Catalyst was introduced with an iOS deployment target of 13.1;
       // the linker doesn't want to see a deployment target before that.
       if _iOSVersion.major < 13 {
-        return Version(13, 0, 0)
+        return Version(13, 1, 0)
       }
 
       return _iOSVersion
