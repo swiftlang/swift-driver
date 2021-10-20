@@ -465,6 +465,25 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testHermeticSealAtLink() throws {
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-experimental-hermetic-seal-at-link", "-lto=llvm-full") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-enable-llvm-vfe")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-enable-llvm-wme")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-conditional-runtime-records")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-internalize-at-link")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-lto=llvm-full")))
+    }
+
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-experimental-hermetic-seal-at-link") {
+      $1.expect(.error("-experimental-hermetic-seal-at-link requires -lto=llvm-full or -lto=llvm-thin"))
+    }
+
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-experimental-hermetic-seal-at-link", "-lto=llvm-full", "-enable-library-evolution") {
+      $1.expect(.error("Cannot use -experimental-hermetic-seal-at-link with -enable-library-evolution"))
+    }
+  }
+
   func testModuleSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift") { driver in
       XCTAssertNil(driver.moduleOutputInfo.output)

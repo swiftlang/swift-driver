@@ -205,6 +205,14 @@ extension Driver {
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
 
+    // Expand the -experimental-hermetic-seal-at-link flag
+    if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
+      commandLine.appendFlag("-enable-llvm-vfe")
+      commandLine.appendFlag("-enable-llvm-wme")
+      commandLine.appendFlag("-conditional-runtime-records")
+      commandLine.appendFlag("-internalize-at-link")
+    }
+
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
     if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,

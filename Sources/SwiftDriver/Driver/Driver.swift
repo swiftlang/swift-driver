@@ -583,6 +583,7 @@ public struct Driver {
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    Self.validateLinkArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
@@ -2422,6 +2423,19 @@ extension Driver {
       let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
       if parts.count != 2 {
         diagnosticsEngine.emit(.error_opt_invalid_mapping(option: coveragePrefixMap.option, value: value))
+      }
+    }
+  }
+
+  private static func validateLinkArgs(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) {
+    if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
+      if parsedOptions.hasArgument(.enableLibraryEvolution) {
+        diagnosticsEngine.emit(.error_hermetic_seal_cannot_have_library_evolution)
+      }
+
+      let lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
+      if lto == nil {
+        diagnosticsEngine.emit(.error_hermetic_seal_requires_lto)
       }
     }
   }
