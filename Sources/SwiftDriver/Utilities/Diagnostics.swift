@@ -89,6 +89,14 @@ extension Diagnostic.Message {
     return .error("module name \"\(moduleName)\" is reserved for the standard library\(suffix)")
   }
 
+  static var error_hermetic_seal_cannot_have_library_evolution: Diagnostic.Message {
+    .error("Cannot use -experimental-hermetic-seal-at-link with -enable-library-evolution")
+  }
+
+  static var error_hermetic_seal_requires_lto: Diagnostic.Message {
+    .error("-experimental-hermetic-seal-at-link requires -lto=llvm-full or -lto=llvm-thin")
+  }
+
   static func warning_no_such_sdk(_ path: String) -> Diagnostic.Message {
     .warning("no such SDK: \(path)")
   }
