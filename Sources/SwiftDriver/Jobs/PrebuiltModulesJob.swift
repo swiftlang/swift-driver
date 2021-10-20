@@ -25,6 +25,16 @@ import SwiftOptions
   return false
 }
 
+fileprivate func getErrKind(_ content: String) -> String {
+  if content.contains("error: ") {
+    return "err"
+  } else if content.contains("warning: "){
+    return "warn"
+  } else {
+    return "note"
+  }
+}
+
 func isIosMac(_ path: VirtualPath) -> Bool {
   // Infer macabi interfaces by the file name.
   // FIXME: more robust way to do this.
@@ -47,7 +57,7 @@ fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ logPath: Absol
     try localFileSystem.createDirectory(logPath, recursive: true)
   }
   let interfaceBase = getLastInputPath(job).basename
-  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : "err").txt"
+  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : getErrKind(content)).txt"
   try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
     $0 <<< content
   }
