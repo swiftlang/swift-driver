@@ -104,7 +104,14 @@ public protocol Toolchain {
 
 extension Toolchain {
   public var searchPaths: [AbsolutePath] {
-    getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
+      // Conditionalize this on the build time host because cross-compiling from
+      // a non-Windows host, we would use a Windows toolchain, but would want to
+      // use the platform variable for the path.
+#if os(Windows)
+      return getEnvSearchPaths(pathString: env["Path"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
+#else
+      return getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
+#endif
   }
 
   /// Returns the `executablePath`'s directory.
@@ -131,6 +138,9 @@ extension Toolchain {
   private func envVarName(for toolName: String) -> String {
     let lookupName = toolName
       .replacingOccurrences(of: "-", with: "_")
+      // FIXME(compnerd) we should extract the extension for generating the
+      // toolname rather than assuming that we can convert the tool name blindly
+      .replacingOccurrences(of: ".", with: "_")
       .uppercased()
     return "SWIFT_DRIVER_\(lookupName)_EXEC"
   }
@@ -157,7 +167,7 @@ extension Toolchain {
       return path
     } else if let path = try? xcrunFind(executable: executable) {
       return path
-    } else if !["swift-frontend", "swift"].contains(executable),
+    } else if ![executableName("swift-frontend"), executableName("swift")].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
               parentDirectory != executableDir,
               let path = lookupExecutablePath(filename: executable, searchPaths: [parentDirectory]) {
@@ -166,11 +176,25 @@ extension Toolchain {
       return path
     } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
       return path
-    } else if executable == "swift-frontend" {
+    } else if executable == executableName("swift-frontend") {
       // Temporary shim: fall back to looking for "swift" before failing.
-      return try lookup(executable: "swift")
+      return try lookup(executable: executableName("swift"))
     } else if fallbackToExecutableDefaultPath {
-      return AbsolutePath("/usr/bin/" + executable)
+      if self is WindowsToolchain {
+        if let DEVELOPER_DIR = env["DEVELOPER_DIR"] {
+          return AbsolutePath(DEVELOPER_DIR)
+                    .appending(component: "Toolchains")
+                    .appending(component: "unknown-Asserts-development.xctoolchain")
+                    .appending(component: "usr")
+                    .appending(component: "bin")
+                    .appending(component: executable)
+        }
+        return try getToolPath(.swiftCompiler)
+                .parentDirectory
+                .appending(component: executable)
+      } else {
+        return AbsolutePath("/usr/bin/" + executable)
+      }
     } else {
       throw ToolchainError.unableToFind(tool: executable)
     }

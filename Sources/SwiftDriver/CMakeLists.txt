@@ -86,12 +86,14 @@ add_library(SwiftDriver
   Jobs/VerifyDebugInfoJob.swift
   Jobs/VerifyModuleInterfaceJob.swift
   Jobs/WebAssemblyToolchain+LinkerSupport.swift
+  Jobs/WindowsToolchain+LinkerSupport.swift
   Jobs/PrebuiltModulesJob.swift
 
   Toolchains/DarwinToolchain.swift
   Toolchains/GenericUnixToolchain.swift
   Toolchains/Toolchain.swift
   Toolchains/WebAssemblyToolchain.swift
+  Toolchains/WindowsToolchain.swift
 
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DateAdditions.swift

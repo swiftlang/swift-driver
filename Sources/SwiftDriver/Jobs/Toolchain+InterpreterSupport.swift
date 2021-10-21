@@ -73,3 +73,16 @@ extension GenericUnixToolchain {
     return envVars
   }
 }
+
+extension WindowsToolchain {
+  public func platformSpecificInterpreterEnvironmentVariables(
+    env: [String : String],
+    parsedOptions: inout ParsedOptions,
+    sdkPath: VirtualPath.Handle?,
+    targetInfo: FrontendTargetInfo) throws -> [String: String] {
+
+    // TODO(compnerd): setting up `Path` is meaningless currently as the lldb
+    // support required for the interpreter mode fails to load the dependencies.
+    return [:]
+  }
+}
