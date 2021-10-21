@@ -9,6 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
+import SwiftOptions
 extension Driver {
   /// Add options that are common to command lines that emit modules, e.g.,
   /// options for the paths of various module files.
@@ -114,13 +116,18 @@ extension Driver {
     }
   }
 
-  /// Returns true if the -emit-module-separately is active.
-  mutating func shouldEmitModuleSeparately() -> Bool {
+  static func shouldEmitModuleSeparately(parsedOptions: inout ParsedOptions) -> Bool {
     return parsedOptions.hasFlag(positive: .emitModuleSeparately,
                                  negative: .noEmitModuleSeparately,
+
                                  default: false)
-           && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
-                                     negative: .noWholeModuleOptimization,
-                                     default: false)
+             && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
+                                       negative: .noWholeModuleOptimization,
+                                       default: false)
+  }
+
+  /// Returns true if the -emit-module-separately is active.
+  mutating func shouldEmitModuleSeparately() -> Bool {
+    return Self.shouldEmitModuleSeparately(parsedOptions: &self.parsedOptions)
   }
 }
