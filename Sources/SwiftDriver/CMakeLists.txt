@@ -26,6 +26,7 @@ add_library(SwiftDriver
   Driver/OutputFileMap.swift
   Driver/ToolExecutionDelegate.swift
   Driver/DriverVersion.swift
+  Driver/WindowsExtensions.swift
 
   Execution/ArgsResolver.swift
   Execution/DriverExecutor.swift
