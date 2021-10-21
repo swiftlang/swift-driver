@@ -297,9 +297,14 @@ final class ParsableMessageTests: XCTestCase {
         }
         // Now hijack the error stream and emit finished messages
         try withHijackedBufferedErrorStream(in: path) { errorBuffer in
+#if os(Windows)
+          let status = ProcessResult.ExitStatus.terminated(code: 0)
+#else
+          let status = ProcessResult.ExitStatus.signalled(signal: 9)
+#endif
           let resultSignalled = ProcessResult(arguments: args!,
                                               environment: ProcessEnv.vars,
-                                              exitStatus: ProcessResult.ExitStatus.signalled(signal: 9),
+                                              exitStatus: status,
                                               output: Result.success([]),
                                               stderrOutput: Result.success([]))
           // First emit the began messages
