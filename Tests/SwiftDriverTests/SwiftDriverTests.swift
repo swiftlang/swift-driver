@@ -3091,6 +3091,12 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-sdk-version"),
           .flag("10.15.0")
         ]))
+        if driver.isFrontendArgSupported(.targetSdkName) {
+          XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+            .flag("-target-sdk-name"),
+            .flag("macosx10.15"),
+          ]))
+        }
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
           .flag("-platform_version"),
@@ -3141,6 +3147,12 @@ final class SwiftDriverTests: XCTestCase {
           .flag("-target-variant-sdk-version"),
           .flag("13.4.0")
         ]))
+        if driver.isFrontendArgSupported(.targetSdkName) {
+          XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
+            .flag("-target-sdk-name"),
+            .flag("macosx10.15.4"),
+          ]))
+        }
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
           .flag("-platform_version"),

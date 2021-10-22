@@ -96,7 +96,8 @@ public protocol Toolchain {
   func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
-    frontendTargetInfo: FrontendTargetInfo
+    frontendTargetInfo: FrontendTargetInfo,
+    driver: Driver
   ) throws
 
   var dummyForTestingObjectFormat: Triple.ObjectFormat {get}
@@ -220,7 +221,8 @@ extension Toolchain {
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
-    frontendTargetInfo: FrontendTargetInfo
+    frontendTargetInfo: FrontendTargetInfo,
+    driver: Driver
   ) throws {}
 }
 
