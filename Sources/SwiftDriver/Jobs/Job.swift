@@ -41,7 +41,7 @@ public struct Job: Codable, Equatable, Hashable {
     case generateAPIBaseline = "generate-api-baseline"
     case generateABIBaseline = "generate-abi-baseline"
     case compareAPIBaseline = "compare-api-baseline"
-    case compareABIBaseline = "compare-abi-baseline"
+    case compareABIBaseline = "Check ABI stability"
   }
 
   public enum ArgTemplate: Equatable, Hashable {

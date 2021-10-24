@@ -510,7 +510,7 @@ extension Driver {
     }
     if let baselineArg = parsedOptions.getLastArgument(.compareToBaselinePath)?.asSingle,
        let baselinePath = try? VirtualPath.intern(path: baselineArg) {
-      addJob(try digesterCompareToBaselineJob(modulePath: moduleOutputPath, baselinePath: baselinePath, mode: digesterMode))
+      addJob(try digesterDiagnosticsJob(modulePath: moduleOutputPath, baselinePath: baselinePath, mode: digesterMode))
     }
   }
 
