@@ -252,18 +252,11 @@ class APIDigesterTests: XCTestCase {
                                      "-digester-breakage-allowlist-path", "allowlist/path"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .compareABIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-diagnose-sdk"))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-baseline-path", .path(.absolute(.init("/baseline/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-serialize-diagnostics-path",
-                                                                   .path(.relative(.init("breaking-changes.dia")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-input-paths", .path(.absolute(.init("/baseline/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-breakage-allowlist-path",
                                                                    .path(.relative(.init("allowlist/path")))]))
-
       XCTAssertTrue(digesterJob.commandLine.contains("-abi"))
+      XCTAssertTrue(digesterJob.commandLine.contains("-serialize-diagnostics-path"))
     }
   }
 

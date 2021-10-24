@@ -65,6 +65,50 @@ extension Driver {
     )
   }
 
+  mutating func digesterDiagnosticsJob(modulePath: VirtualPath.Handle, baselinePath:
+                                              VirtualPath.Handle, mode: DigesterMode) throws -> Job {
+    func getDescriptorPath(for mode: DigesterMode) -> TypedVirtualPath? {
+      switch mode {
+      case .api:
+        return nil
+      case .abi:
+        return abiDescriptorPath
+      }
+    }
+    guard let currentABI = getDescriptorPath(for: mode) else {
+      // we don't have existing descriptor to use so we have to load the module from interface/swiftmodule
+      return try digesterCompareToBaselineJob(modulePath: modulePath, baselinePath: baselinePath, mode: digesterMode)
+    }
+    var commandLine = [Job.ArgTemplate]()
+    commandLine.appendFlag("-diagnose-sdk")
+    commandLine.appendFlag("-input-paths")
+    commandLine.appendPath(VirtualPath.lookup(baselinePath))
+    commandLine.appendFlag("-input-paths")
+    commandLine.appendPath(currentABI.file)
+    if mode == .abi {
+      commandLine.appendFlag("-abi")
+    }
+    if let arg = parsedOptions.getLastArgument(.digesterBreakageAllowlistPath)?.asSingle {
+      let path = try VirtualPath(path: arg)
+      commandLine.appendFlag("-breakage-allowlist-path")
+      commandLine.appendPath(path)
+    }
+    commandLine.appendFlag("-serialize-diagnostics-path")
+    let diag = TypedVirtualPath(file: currentABI.file.parentDirectory.appending(component: currentABI.file.basename + ".dia").intern(), type: .diagnostics)
+    commandLine.appendPath(diag.file)
+    let inputs: [TypedVirtualPath] = [currentABI]
+    return Job(
+      moduleName: moduleOutputInfo.name,
+      kind: .compareABIBaseline,
+      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
+      commandLine: commandLine,
+      inputs: inputs,
+      primaryInputs: [],
+      outputs: [diag],
+      supportsResponseFiles: true
+    )
+  }
+
   mutating func digesterCompareToBaselineJob(modulePath: VirtualPath.Handle, baselinePath: VirtualPath.Handle, mode: DigesterMode) throws -> Job {
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendFlag("-diagnose-sdk")
