@@ -1047,7 +1047,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-module-cache-path", moduleCachePath
                                     ])
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                into: path,
                                                                                 exhaustive: true)
 
       XCTAssertTrue(danglingJobs.count == 2)
@@ -1093,7 +1093,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                     ])
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                into: path,
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
@@ -1131,7 +1131,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                     ])
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                into: path,
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
@@ -1147,7 +1147,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                     ])
       let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                into: path,
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
@@ -1167,7 +1167,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                     ])
       let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                                into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                                into: path,
                                                                                 exhaustive: false)
       let F = findJob(jobs, "F", "arm64-apple-macos")!
       let H = findJob(jobs, "H", "arm64e-apple-macos")!
@@ -1209,7 +1209,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-module-cache-path", moduleCachePath
                                     ])
       let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
-                                                                     into: VirtualPath(path: "/tmp/").absolutePath!,
+                                                                     into: path,
                                                                      exhaustive: true,
                                                                      currentABIDir: path.appending(component: "ABI"),
                                                                      baselineABIDir: VirtualPath(path: baselineABIPath).absolutePath)
