@@ -173,10 +173,10 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
 * Features
   * [x] Precompiled bridging headers
   * [x] Support embedding of bitcode
-  * [ ] Incremental compilation
+  * [x] Incremental compilation
   * [x] Parseable output, as used by SwiftPM
   * [x] Response files
-  * [ ] Input and primary input file lists
+  * [x] Input and primary input file lists
   * [x] Complete `OutputFileMap` implementation to handle all file types uniformly
 * Testing
   * [ ] Build stuff with SwiftPM or Xcode or your favorite build system, using `swift-driver`. Were the results identical? What changed?
@@ -185,5 +185,5 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
   * [ ] Port interesting tests from the Swift repository's [driver test suite](https://github.com/apple/swift/tree/main/test/Driver) over to XCTest
   * [ ] Fuzz the command-line options to try to crash the Swift driver itself
 * Integration
-  * [ ] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/main/utils/build-script) to build `swift-driver`.
-  * [ ] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/main/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
+  * [x] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/main/utils/build-script) to build `swift-driver`.
+  * [x] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/main/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
