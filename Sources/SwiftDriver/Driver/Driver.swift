@@ -356,6 +356,17 @@ public struct Driver {
       .appending(component: "Frameworks")
   } ()
 
+  lazy var abiDescriptorPath: TypedVirtualPath? = {
+    guard isFeatureSupported(.emit_abi_descriptor) else {
+      return nil
+    }
+    guard let moduleOutput = moduleOutputInfo.output else {
+      return nil
+    }
+    return TypedVirtualPath(file: VirtualPath.lookup(moduleOutput.outputPath)
+      .replacingExtension(with: .jsonABIBaseline).intern(), type: .jsonABIBaseline)
+  }()
+
   public func isFrontendArgSupported(_ opt: Option) -> Bool {
     var current = opt.spelling
     while(true) {
@@ -694,6 +705,7 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+
     let projectDirectory = Self.computeProjectDirectoryPath(
       moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
       fileSystem: self.fileSystem)
@@ -721,7 +733,6 @@ public struct Driver {
         compilerMode: compilerMode,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-
     self.swiftPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
         outputPath: .emitPrivateModuleInterfacePath,
