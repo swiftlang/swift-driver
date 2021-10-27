@@ -4282,6 +4282,23 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
     }
+
+    // The flag -check-api-availability-only is not passed down to the verify job.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-verify-emitted-module-interface",
+                                     "-enable-library-evolution",
+                                     "-check-api-availability-only"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+      XCTAssertTrue(emitJob.commandLine.contains(.flag("-check-api-availability-only")))
+
+      let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
+      XCTAssertFalse(verifyJob.commandLine.contains(.flag("-check-api-availability-only")))
+    }
   }
 
   func testPCHGeneration() throws {
