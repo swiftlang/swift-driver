@@ -400,6 +400,13 @@ extension Driver {
         finalOutputPath: tbdPath,
         input: nil,
         flag: "-emit-tbd-path")
+
+      if let abiDescriptorPath = abiDescriptorPath {
+        addOutputOfType(outputType: .jsonABIBaseline,
+                        finalOutputPath: abiDescriptorPath.fileHandle,
+                        input: nil,
+                        flag: "-emit-abi-descriptor-path")
+      }
     }
 
     if parsedOptions.hasArgument(.updateCode) {

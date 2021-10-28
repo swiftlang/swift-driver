@@ -2011,8 +2011,32 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 2)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
       XCTAssertEqual(plannedJobs[0].inputs[1].file, VirtualPath.relative(RelativePath("multi-threaded.swift")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("test.swiftmodule")))
+    }
+  }
+
+  func testEmitABIDescriptor() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-abi-descriptor-path")))
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule", "-experimental-emit-module-separately"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .emitModule)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-abi-descriptor-path")))
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule", "-no-emit-module-separately"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
+      XCTAssertTrue(plannedJobs[2].commandLine.contains(.flag("-emit-abi-descriptor-path")))
     }
   }
 
@@ -2026,7 +2050,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 2)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
       XCTAssertEqual(plannedJobs[0].inputs[1].file, VirtualPath.relative(RelativePath("multi-threaded.swift")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 3)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("test.swiftmodule")))
     }
   }
@@ -4402,7 +4426,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 5)
       XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "Swift.bc"))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
