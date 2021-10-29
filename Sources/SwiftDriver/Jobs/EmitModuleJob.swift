@@ -84,6 +84,8 @@ extension Driver {
 
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+    try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
+    try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
