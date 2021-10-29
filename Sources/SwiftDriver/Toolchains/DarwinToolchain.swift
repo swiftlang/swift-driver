@@ -353,7 +353,8 @@ public final class DarwinToolchain: Toolchain {
       commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).description))
     }
 
-    if driver.isFrontendArgSupported(.targetSdkName) {
+    if driver.isFrontendArgSupported(.targetSdkName) &&
+       env["ENABLE_RESTRICT_SWIFTMODULE_SDK"] != nil {
       commandLine.append(.flag(Option.targetSdkName.spelling))
       commandLine.append(.flag(sdkInfo.canonicalName))
     }
