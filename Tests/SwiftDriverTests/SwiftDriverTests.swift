@@ -3049,6 +3049,9 @@ final class SwiftDriverTests: XCTestCase {
 
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
+    var envVars = ProcessEnv.vars
+    envVars["ENABLE_RESTRICT_SWIFTMODULE_SDK"] = "YES"
+
     try withTemporaryDirectory { tmpDir in
       let sdk1 = tmpDir.appending(component: "MacOSX10.15.sdk")
       try localFileSystem.writeFileContents(sdk1.appending(component: "SDKSettings.json")) {
@@ -3108,7 +3111,7 @@ final class SwiftDriverTests: XCTestCase {
         var driver = try Driver(args: ["swiftc",
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-sdk", sdk1.description,
-                                       "foo.swift"])
+                                       "foo.swift"], env: envVars)
         let frontendJobs = try driver.planBuild()
         XCTAssertEqual(frontendJobs[0].kind, .compile)
         XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
@@ -3162,7 +3165,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-target-variant", "x86_64-apple-ios13.1-macabi",
                                        "-sdk", sdk2.description,
-                                       "foo.swift"])
+                                       "foo.swift"], env: envVars)
         let frontendJobs = try driver.planBuild()
         XCTAssertEqual(frontendJobs[0].kind, .compile)
         XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
