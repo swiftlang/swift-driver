@@ -1585,6 +1585,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
     }
 
+    do {
+      // The Android NDK only uses the lld linker now
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "aarch64-unknown-linux-android24"], env: env)
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let lastJob = plannedJobs.last!
+      XCTAssertTrue(lastJob.tool.name.contains("clang"))
+      XCTAssertTrue(lastJob.commandLine.contains(.flag("-fuse-ld=lld")))
+    }
   }
 
   func testWebAssemblyUnsupportedFeatures() throws {

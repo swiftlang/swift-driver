@@ -14,7 +14,7 @@ import SwiftOptions
 
 extension GenericUnixToolchain {
   private func defaultLinker(for targetTriple: Triple) -> String? {
-    if targetTriple.os == .openbsd {
+    if targetTriple.os == .openbsd || targetTriple.environment == .android {
       return "lld"
     }
 
