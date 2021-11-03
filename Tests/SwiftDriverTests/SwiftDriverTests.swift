@@ -820,7 +820,7 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitModuleEmittingDependencies() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-experimental-emit-module-separately"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
-    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertTrue(plannedJobs[0].kind == .emitModule)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
@@ -843,7 +843,7 @@ final class SwiftDriverTests: XCTestCase {
                                       "-output-file-map", outputFileMap.description])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       
-      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[0].kind == .emitModule)
       XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-serialize-diagnostics-path"), .path(.absolute(.init("/build/Foo-test.dia")))]))
     }
@@ -2166,7 +2166,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule", "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].kind, .emitModule)
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-abi-descriptor-path")))
     }
@@ -2410,8 +2410,8 @@ final class SwiftDriverTests: XCTestCase {
       // -experimental-emit-module-separately.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule]))
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
@@ -3620,7 +3620,7 @@ final class SwiftDriverTests: XCTestCase {
       "swiftc", "-working-directory", "/Foo/Bar", "-emit-module", "/tmp/main.swift"
     ])
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftmodule"))))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-module-doc-path")))
@@ -3740,7 +3740,7 @@ final class SwiftDriverTests: XCTestCase {
       "swiftc", "-emit-module", "/tmp/main.swift", "-emit-module-path", "test-ios-macabi.swiftmodule"
     ])
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertTrue(plannedJobs[0].kind == .emitModule)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "test-ios-macabi.swiftmodule"))))
@@ -4184,7 +4184,7 @@ final class SwiftDriverTests: XCTestCase {
         throw XCTSkip("Skipping: compiler does not support '-user-module-version'")
       }
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs.count, 2)
       let emitModuleJob = plannedJobs[0]
       XCTAssertEqual(emitModuleJob.kind, .emitModule)
       XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-user-module-version")))
@@ -4202,7 +4202,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-verify-emitted-module-interface",
                                      "-enable-library-evolution"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.count, 3)
       let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
       let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
 
@@ -4220,7 +4220,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface", "-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs.count, 2)
     }
 
     // Explicitly disabled
@@ -4230,7 +4230,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-enable-library-evolution",
                                      "-no-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs.count, 2)
     }
 
     // Disabled by default in merge-module
@@ -4250,7 +4250,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-enable-library-evolution",
                                      "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs.count, 2)
     }
 
     // Emit-module separately
@@ -4260,7 +4260,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-enable-library-evolution",
                                      "-experimental-emit-module-separately"], env: envVars)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.count, 3)
       let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
       let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
       let emitInterfaceOutput = emitJob.outputs.filter { $0.type == .swiftInterface }
@@ -4323,7 +4323,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-enable-library-evolution",
                                      "-check-api-availability-only"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.count, 3)
 
       let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
       XCTAssertTrue(emitJob.commandLine.contains(.flag("-check-api-availability-only")))
