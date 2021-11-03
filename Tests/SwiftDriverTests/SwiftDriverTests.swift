@@ -4203,13 +4203,12 @@ final class SwiftDriverTests: XCTestCase {
                                      "-enable-library-evolution"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
-      let emitJob = plannedJobs[0]
-      let verifyJob = plannedJobs[1]
-      XCTAssertEqual(emitJob.kind, .emitModule)
+      let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+      let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
+
       let mergeInterfaceOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
       XCTAssertTrue(mergeInterfaceOutputs.count == 1,
                     "Merge module job should only have one swiftinterface output")
-      XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == mergeInterfaceOutputs[0])
       XCTAssertTrue(verifyJob.outputs.isEmpty)
@@ -4262,13 +4261,11 @@ final class SwiftDriverTests: XCTestCase {
                                      "-experimental-emit-module-separately"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
-      let emitJob = plannedJobs[0]
-      let verifyJob = plannedJobs[1]
-      XCTAssertEqual(emitJob.kind, .emitModule)
+      let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+      let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
       let emitInterfaceOutput = emitJob.outputs.filter { $0.type == .swiftInterface }
       XCTAssertTrue(emitInterfaceOutput.count == 1,
                     "Emit module job should only have one swiftinterface output")
-      XCTAssertEqual(verifyJob.kind, .verifyModuleInterface)
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
       XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
