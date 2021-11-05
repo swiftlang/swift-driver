@@ -301,7 +301,12 @@ extension GenericUnixToolchain {
                             lto == nil ? $0.type == .object
                                        : $0.type == .object || $0.type == .llvmBitcode
                          }.map { .path($0.file) })
-      return try getToolPath(.staticLinker(lto))
+      if targetTriple.environment == .android {
+        // Always use the LTO archiver llvm-ar for Android
+        return try getToolPath(.staticLinker(.llvmFull))
+      } else {
+        return try getToolPath(.staticLinker(lto))
+      }
     }
 
   }
