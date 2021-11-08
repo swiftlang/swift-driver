@@ -346,11 +346,11 @@ public final class DarwinToolchain: Toolchain {
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
 
     commandLine.append(.flag("-target-sdk-version"))
-    commandLine.append(.flag(sdkInfo.sdkVersion(for: frontendTargetInfo.target.triple).description))
+    commandLine.append(.flag(sdkInfo.sdkVersion(for: frontendTargetInfo.target.triple).sdkVersionString))
 
     if let targetVariantTriple = frontendTargetInfo.targetVariant?.triple {
       commandLine.append(.flag("-target-variant-sdk-version"))
-      commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).description))
+      commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).sdkVersionString))
     }
 
     if driver.isFrontendArgSupported(.targetSdkName) &&
@@ -381,4 +381,13 @@ extension Diagnostic.Message {
         "pass '-no-link-objc-runtime' to silence this warning"
       )
     }
+}
+
+private extension Version {
+  var sdkVersionString: String {
+    if patch == 0 && prereleaseIdentifiers.isEmpty && buildMetadataIdentifiers.isEmpty {
+      return "\(major).\(minor)"
+    }
+    return self.description
+  }
 }
