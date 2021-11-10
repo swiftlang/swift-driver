@@ -46,6 +46,21 @@ extension Driver {
 
     // Add outputs that can't be merged
     addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
+
+    // Workaround for rdar://85253406
+    // Ensure that the separate emit-module job does not emit `.d.` outputs.
+    // If we have both individual source files and the emit-module file emit .d files, we
+    // are risking collisions in output filenames.
+    //
+    // In cases where other compile jobs exist, they will produce dependency outputs already.
+    // There are currently no cases where this is the only job because even an `-emit-module` 
+    // driver invocation currently still involves partial compilation jobs.
+    // When partial compilation jobs are removed for the `compilerOutputType == .swiftModule`
+    // case, this will need to be changed here.
+    // 
+    if shouldCreateEmitModuleJob {
+      return
+    }
     if let dependenciesFilePath = dependenciesFilePath {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
