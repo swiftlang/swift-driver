@@ -15,6 +15,7 @@ let package = Package(
   name: "swift-driver",
   platforms: [
     macOSPlatform,
+    .iOS(.v13),
   ],
   products: [
     .executable(
