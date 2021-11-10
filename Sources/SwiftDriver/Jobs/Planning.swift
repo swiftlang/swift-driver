@@ -452,6 +452,8 @@ extension Driver {
                               default: false)
     else { return }
 
+    let optIn = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
+      parsedOptions.hasArgument(.verifyEmittedModuleInterface)
     func addVerifyJob(forPrivate: Bool) throws {
       let isNeeded =
         forPrivate
@@ -464,11 +466,11 @@ extension Driver {
       let mergeInterfaceOutputs = emitModuleJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
-      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0])
+      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0], optIn: optIn)
       addJob(job)
     }
     try addVerifyJob(forPrivate: false)
-    try addVerifyJob(forPrivate: true )
+    try addVerifyJob(forPrivate: true)
   }
 
   private mutating func addAutolinkExtractJob(
