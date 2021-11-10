@@ -300,6 +300,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.modulePath.path,
                          type: .pcm)
+
       // If an existing dependency module path stub exists, replace it.
       if let existingIndex = commandLine.firstIndex(of: .flag("-fmodule-file=" + moduleArtifactInfo.moduleName + "=<replace-me>")) {
         commandLine[existingIndex] = .flag("-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
@@ -307,14 +308,10 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         commandLine.appendFlags("-Xcc",
                                 "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
       }
-      
-      let clangModuleMapPath =
-        TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
-                         type: .clangModuleMap)
-      commandLine.appendFlags("-Xcc",
-                              "-fmodule-map-file=\(clangModuleMapPath.file.description)")
+
+      commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+                              "-fmodule-file=\(clangModulePath.file.description)")
       inputs.append(clangModulePath)
-      inputs.append(clangModuleMapPath)
     }
   }
 
