@@ -822,7 +822,8 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertTrue(plannedJobs[0].kind == .emitModule)
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-dependencies-path")))
+    // TODO: This check is disabled as per rdar://85253406
+    // XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-dependencies-path")))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
 
