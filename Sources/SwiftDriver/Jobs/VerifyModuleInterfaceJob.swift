@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath) throws -> Job {
+  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, optIn: Bool) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")
@@ -26,6 +26,10 @@ extension Driver {
       outputs.append(TypedVirtualPath(file: outputPath, type: .diagnostics))
     }
 
+    // TODO: remove this because we'd like module interface errors to fail the build.
+    if !optIn && isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
+      commandLine.appendFlag(.downgradeTypecheckInterfaceError)
+    }
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .verifyModuleInterface,
