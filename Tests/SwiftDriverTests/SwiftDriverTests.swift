@@ -2675,6 +2675,8 @@ final class SwiftDriverTests: XCTestCase {
     expectedDefaultContents = "-apple-macosx"
     #elseif os(Linux) || os(Android)
     expectedDefaultContents = "-unknown-linux"
+    #elseif os(Windows)
+    expectedDefaultContents = "-unknown-windows-msvc"
     #else
     expectedDefaultContents = "-"
     #endif
