@@ -38,6 +38,8 @@ final class SwiftDriverTests: XCTestCase {
     let toolchain: Toolchain
     #if os(macOS)
     toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    #elseif os(Windows)
+    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
     #else
     toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
     #endif
@@ -3765,6 +3767,8 @@ final class SwiftDriverTests: XCTestCase {
                                            env: ProcessEnv.vars)
     #if os(macOS)
     toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    #elseif os(Windows)
+    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
     #else
     toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
     #endif
