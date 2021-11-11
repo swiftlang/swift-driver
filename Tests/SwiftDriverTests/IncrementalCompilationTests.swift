@@ -341,7 +341,7 @@ extension IncrementalCompilationTests {
 
   /// Ensure that a saved prior module dependency graph is rejected if not from the previous build
   func testObsoletePriors() throws {
-#if !os(Linux)
+#if _runtime(_ObjC)
     let before = Date().advanced(by: -2.0)
     let driver = try buildInitialState(checkDiagnostics: true)
     let path = try XCTUnwrap(driver.buildRecordInfo?.dependencyGraphPath)
@@ -370,7 +370,7 @@ extension IncrementalCompilationTests {
 
   /// Ensure that the driver can detect and then recover from a priors version mismatch
   func testPriorsVersionDetectionAndRecovery() throws {
-#if !os(Linux)
+#if _runtime(_ObjC)
     // create a baseline priors
     try buildInitialState(checkDiagnostics: true)
     let driver = try checkNullBuild(checkDiagnostics: true)
@@ -476,7 +476,7 @@ extension RemovalTestOptions {
 
 extension IncrementalCompilationTests {
   func testRemoval() throws {
-#if !os(Linux)
+#if _runtime(_ObjC)
     for optionsToTest in RemovalTestOptions.allCombinations {
       try testRemoval(optionsToTest)
     }
