@@ -2032,6 +2032,17 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testADDITIONAL_SWIFT_DRIVER_FLAGS() throws {
+    var env = ProcessEnv.vars
+    env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] = "-Xfrontend -unknown1 -Xfrontend -unknown2"
+    var driver = try Driver(args: ["swiftc", "foo.swift", "-module-name", "Test"], env: env)
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-unknown1")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-unknown2")))
+    XCTAssertTrue(plannedJobs[1].kind == .link)
+  }
+
   func testBatchModeCompiles() throws {
     do {
       var driver1 = try Driver(args: ["swiftc", "foo1.swift", "bar1.swift", "foo2.swift", "bar2.swift", "foo3.swift", "bar3.swift", "foo4.swift", "bar4.swift", "foo5.swift", "bar5.swift", "wibble.swift", "-module-name", "Test", "-enable-batch-mode", "-driver-batch-count", "3"])

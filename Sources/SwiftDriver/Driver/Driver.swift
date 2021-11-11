@@ -468,8 +468,12 @@ public struct Driver {
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
     }
+    var args = args
+    if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
+      args.append(contentsOf: additional.components(separatedBy: " "))
+    }
 
-    var args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
+    args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
