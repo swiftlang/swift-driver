@@ -985,7 +985,7 @@ final class SwiftDriverTests: XCTestCase {
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
       XCTAssertEqual(diags.diagnostics.count, 1)
-      XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
+      XCTAssert(diags.diagnostics.first?.description.contains("is recursively expanded") ?? false)
     }
   }
 
