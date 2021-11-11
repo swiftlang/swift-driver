@@ -135,6 +135,10 @@ extension IncrementalCompilationTests {
   /// autolink job.
   /// Much of the code below is taking from testLinking(), but uses the output file map code here.
   func testAutolinkOutputPath() {
+#if os(Windows)
+    XCTSkip("Driver.init fatalError")
+    return
+#endif
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"

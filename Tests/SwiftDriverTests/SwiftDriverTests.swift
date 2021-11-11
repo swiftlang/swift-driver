@@ -249,6 +249,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testRecordedInputModificationDates() throws {
+#if os(Windows)
+    throw XCTSkip("TSCUtility.RelativePath failure")
+#endif
     try withTemporaryDirectory { path in
       guard let cwd = localFileSystem
         .currentWorkingDirectory else { fatalError() }
@@ -942,6 +945,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testOutputFileMapRelativePathArg() throws {
+#if os(Windows)
+    throw XCTSkip("TSCUtility.RelativePath failure")
+#endif
     try withTemporaryDirectory { path in
       guard let cwd = localFileSystem
         .currentWorkingDirectory else { fatalError() }
