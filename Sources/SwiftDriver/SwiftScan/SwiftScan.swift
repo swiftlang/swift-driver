@@ -56,7 +56,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
 }
 
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
-internal final class SwiftScan {
+@_spi(Testing) public final class SwiftScan {
   /// The path to the libSwiftScan dylib.
   let path: AbsolutePath
 
@@ -251,6 +251,26 @@ internal final class SwiftScan {
       throw DependencyScanningError.argumentQueryFailed
     }
   }
+
+  @_spi(Testing) public func canQueryTargetInfo() -> Bool {
+    return api.swiftscan_compiler_target_info_query != nil &&
+           api.swiftscan_string_set_dispose != nil
+  }
+
+  @_spi(Testing) public func queryTargetInfo(invocationCommand: [String])
+  throws -> FrontendTargetInfo {
+    // Create and configure the scanner invocation
+    let invocation = api.swiftscan_scan_invocation_create()
+    defer { api.swiftscan_scan_invocation_dispose(invocation) }
+    withArrayOfCStrings(invocationCommand) { invocationStringArray in
+      api.swiftscan_scan_invocation_set_argv(invocation,
+                                             Int32(invocationCommand.count),
+                                             invocationStringArray)
+    }
+    let targetInfoString = try toSwiftString(api.swiftscan_compiler_target_info_query(invocation))
+    let targetInfoData = Data(targetInfoString.utf8)
+    return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)
+  }
 }
 
 // Used for testing purposes only
@@ -289,6 +309,10 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_compiler_supported_arguments_query")
     self.swiftscan_compiler_supported_features_query =
       try loadOptional("swiftscan_compiler_supported_features_query")
+
+    // Target Info query
+    self.swiftscan_compiler_target_info_query =
+      try loadOptional("swiftscan_compiler_target_info_query")
 
     // Dependency scanner serialization/deserialization features
     self.swiftscan_scanner_cache_serialize =
