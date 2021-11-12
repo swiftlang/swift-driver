@@ -38,6 +38,8 @@ final class SwiftDriverTests: XCTestCase {
     let toolchain: Toolchain
     #if os(macOS)
     toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    #elseif os(Windows)
+    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
     #else
     toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
     #endif
@@ -247,6 +249,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testRecordedInputModificationDates() throws {
+#if os(Windows)
+    throw XCTSkip("TSCUtility.RelativePath failure")
+#endif
     try withTemporaryDirectory { path in
       guard let cwd = localFileSystem
         .currentWorkingDirectory else { fatalError() }
@@ -940,6 +945,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testOutputFileMapRelativePathArg() throws {
+#if os(Windows)
+    throw XCTSkip("TSCUtility.RelativePath failure")
+#endif
     try withTemporaryDirectory { path in
       guard let cwd = localFileSystem
         .currentWorkingDirectory else { fatalError() }
@@ -985,7 +993,7 @@ final class SwiftDriverTests: XCTestCase {
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
       XCTAssertEqual(diags.diagnostics.count, 1)
-      XCTAssert(diags.diagnostics.first!.description.contains("is recursively expanded"))
+      XCTAssert(diags.diagnostics.first?.description.contains("is recursively expanded") ?? false)
     }
   }
 
@@ -2684,6 +2692,8 @@ final class SwiftDriverTests: XCTestCase {
     expectedDefaultContents = "-apple-macosx"
     #elseif os(Linux) || os(Android)
     expectedDefaultContents = "-unknown-linux"
+    #elseif os(Windows)
+    expectedDefaultContents = "-unknown-windows-msvc"
     #else
     expectedDefaultContents = "-"
     #endif
@@ -3776,6 +3786,8 @@ final class SwiftDriverTests: XCTestCase {
                                            env: ProcessEnv.vars)
     #if os(macOS)
     toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    #elseif os(Windows)
+    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
     #else
     toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
     #endif

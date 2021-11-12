@@ -168,7 +168,7 @@ extension Toolchain {
       return path
     } else if let path = try? xcrunFind(executable: executable) {
       return path
-    } else if ![executableName("swift-frontend"), executableName("swift")].contains(executable),
+    } else if !["swift-frontend", "swift", "swift-frontend.exe", "swift.exe"].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
               parentDirectory != executableDir,
               let path = lookupExecutablePath(filename: executable, searchPaths: [parentDirectory]) {

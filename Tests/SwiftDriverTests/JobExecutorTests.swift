@@ -288,6 +288,9 @@ final class JobExecutorTests: XCTestCase {
   }
 
   func testStubProcessProtocol() throws {
+#if os(Windows)
+    throw XCTSkip("processId.getter returning `-1`")
+#endif
     let job = Job(
       moduleName: "main",
       kind: .compile,
@@ -342,6 +345,9 @@ final class JobExecutorTests: XCTestCase {
   }
 
   func testInputModifiedDuringSingleJobBuild() throws {
+#if os(Windows)
+    throw XCTSkip("Requires -sdk")
+#endif
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
@@ -438,6 +444,9 @@ final class JobExecutorTests: XCTestCase {
 
   private func getHostToolchainSdkArg(_ executor: SwiftDriverExecutor) throws -> [String] {
     #if os(macOS)
+    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    return try ["-sdk", toolchain.sdk.get().pathString]
+    #elseif os(Windows)
     let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
     return try ["-sdk", toolchain.sdk.get().pathString]
     #else
