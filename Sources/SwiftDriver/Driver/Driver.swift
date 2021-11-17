@@ -2144,9 +2144,12 @@ extension Driver {
       fallbackOrDiagnose(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     }
 
+    // Retrieve and validate module aliases if passed in
+    let moduleAliases = moduleAliasesFromInput(parsedOptions.arguments(for: [.moduleAlias]), with: moduleName, onError: diagnosticsEngine)
+
     // If we're not emiting a module, we're done.
     if moduleOutputKind == nil {
-      return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
 
     // Determine the module file to output.
@@ -2180,10 +2183,60 @@ extension Driver {
 
     switch moduleOutputKind! {
     case .topLevel:
-      return ModuleOutputInfo(output: .topLevel(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .topLevel(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     case .auxiliary:
-      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback)
+      return ModuleOutputInfo(output: .auxiliary(moduleOutputPath.intern()), name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
+  }
+
+  // Validate and return module aliases passed via -module-alias
+  static func moduleAliasesFromInput(_ aliasArgs: [ParsedOption],
+                                     with moduleName: String,
+                                     onError diagnosticsEngine: DiagnosticsEngine) -> [String: String]? {
+    var moduleAliases: [String: String]? = nil
+    let validate = { (_ arg: String, allowModuleName: Bool) -> Bool in
+      if !arg.sd_isSwiftIdentifier {
+        diagnosticsEngine.emit(.error_bad_module_name(moduleName: arg, explicitModuleName: true))
+        return false
+      }
+      if arg == "Swift" {
+        diagnosticsEngine.emit(.error_stdlib_module_name(moduleName: arg, explicitModuleName: true))
+        return false
+      }
+      if !allowModuleName, arg == moduleName {
+        diagnosticsEngine.emit(.error_bad_module_alias(arg, moduleName: moduleName))
+        return false
+      }
+      return true
+    }
+    
+    var used = [""]
+    for item in aliasArgs {
+      let arg = item.argument.asSingle
+      let pair = arg.components(separatedBy: "=")
+      guard pair.count == 2 else {
+        diagnosticsEngine.emit(.error_bad_module_alias(arg, moduleName: moduleName, formatted: false))
+        continue
+      }
+      guard let lhs = pair.first, validate(lhs, false) else { continue }
+      guard let rhs = pair.last, validate(rhs, true) else { continue }
+
+      if moduleAliases == nil {
+        moduleAliases = [String: String]()
+      }
+      if let _ = moduleAliases?[lhs] {
+        diagnosticsEngine.emit(.error_bad_module_alias(lhs, moduleName: moduleName, isDuplicate: true))
+        continue
+      }
+      if used.contains(rhs)  {
+        diagnosticsEngine.emit(.error_bad_module_alias(rhs, moduleName: moduleName, isDuplicate: true))
+        continue
+      }
+      moduleAliases?[lhs] = rhs
+      used.append(lhs)
+      used.append(rhs)
+    }
+    return moduleAliases
   }
 }
 

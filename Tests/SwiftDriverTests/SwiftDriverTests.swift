@@ -2226,6 +2226,55 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testModuleAliasingWithImplicitBuild() throws {
+    var driver = try Driver(args: [
+      "swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Car=Bar",
+      "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule",
+    ])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertTrue(plannedJobs.contains { job in
+      job.commandLine.contains(.flag("-module-alias")) &&
+      job.commandLine.contains(.flag("Car=Bar")) &&
+      job.outputs[0].file.absolutePath?.pathString == "/tmp/dir/Foo.swiftmodule"
+    })
+    XCTAssertEqual(driver.moduleOutputInfo.name, "Foo")
+    XCTAssertNotNil(driver.moduleOutputInfo.aliases)
+    XCTAssertEqual(driver.moduleOutputInfo.aliases!.count, 1)
+    XCTAssertEqual(driver.moduleOutputInfo.aliases!["Car"], "Bar")
+  }
+
+  func testInvalidModuleAliasing() throws {
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "CarBar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+    ) {
+      $1.expect(.error("invalid format \"CarBar\"; use the format '-module-alias alias_name=underlying_name'"))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Foo=Bar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+    ) {
+      $1.expect(.error("module alias \"Foo\" should be different from the module name \"Foo\""))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "C-ar=Bar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+    ) {
+      $1.expect(.error("module name \"C-ar\" is not a valid identifier"))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Car=Bar", "-module-alias", "Train=Car", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+    ) {
+      $1.expect(.error("the name \"Car\" is already used for a module alias or an underlying name"))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Car=Bar", "-module-alias", "Car=Bus", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+    ) {
+      $1.expect(.error("the name \"Car\" is already used for a module alias or an underlying name"))
+    }
+  }
+
   func testWholeModuleOptimizationUsingSupplementaryOutputFileMap() throws {
     var driver1 = try Driver(args: [
       "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
