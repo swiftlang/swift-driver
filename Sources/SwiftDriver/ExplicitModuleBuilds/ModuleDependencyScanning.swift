@@ -159,6 +159,7 @@ public extension Driver {
       sanitizeCommandForLibScanInvocation(&command)
       dependencyGraph =
         try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+                                                        moduleAliases: moduleOutputInfo.aliases,
                                                         commandLine: command)
     } else {
       // Fallback to legacy invocation of the dependency scanner with
@@ -188,6 +189,7 @@ public extension Driver {
       moduleVersionedGraphMap =
         try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
                                                              commandLine: command,
+                                                             moduleAliases: moduleOutputInfo.aliases,
                                                              batchInfos: moduleInfos)
     } else {
       // Fallback to legacy invocation of the dependency scanner with

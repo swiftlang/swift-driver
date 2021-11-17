@@ -31,23 +31,27 @@ public class InterModuleDependencyOracle {
   public init() {}
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
+                                             moduleAliases: [String: String]? = nil,
                                              commandLine: [String])
   throws -> InterModuleDependencyGraph {
     precondition(hasScannerInstance)
     return try queue.sync {
       return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
+                                                        moduleAliases: moduleAliases,
                                                        invocationCommand: commandLine)
     }
   }
 
   @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
                                                   commandLine: [String],
+                                                  moduleAliases: [String: String]? = nil,
                                                   batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     precondition(hasScannerInstance)
     return try queue.sync {
       return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
                                                             invocationCommand: commandLine,
+                                                             moduleAliases: moduleAliases,
                                                             batchInfos: batchInfos)
     }
   }
