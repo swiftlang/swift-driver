@@ -630,8 +630,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver2 = try Driver(args: ["swiftc",
                                       "-I",
                                       path.pathString.nativePathString().escaped(),
-                                      "-j",
-                                      "1",
                                       "-explicit-module-build",
                                       "-module-name",
                                       "Foo",
