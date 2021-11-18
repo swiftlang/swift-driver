@@ -592,6 +592,63 @@ final class ExplicitModuleBuildTests: XCTestCase {
     #endif
   }
 
+  func testModuleAliasingWithExplicitBuild() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let srcBar = path.appending(component: "bar.swift")
+      let moduleBarPath = path.appending(component: "Bar.swiftmodule").pathString.nativePathString().escaped()
+      try localFileSystem.writeFileContents(srcBar) {
+        $0 <<< "public class KlassBar {}"
+      }
+      
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver1 = try Driver(args: ["swiftc",
+                                      "-explicit-module-build",
+                                      "-module-name",
+                                      "Bar",
+                                      "-emit-module",
+                                      "-emit-module-path",
+                                      moduleBarPath,
+                                      srcBar.pathString.nativePathString().escaped()] + sdkArgumentsForTesting,
+                               env: ProcessEnv.vars)
+      let jobs1 = try driver1.planBuild()
+      try driver1.run(jobs: jobs1)
+      XCTAssertFalse(driver1.diagnosticEngine.hasErrors)
+      XCTAssertTrue(FileManager.default.fileExists(atPath: moduleBarPath))
+      
+      let srcFoo = path.appending(component: "foo.swift")
+      let moduleFooPath = path.appending(component: "Foo.swiftmodule").pathString.nativePathString().escaped()
+
+      // Module Foo imports Car but it's mapped to Bar (real name)
+      // `-module-alias Car=Bar` allows Car (alias) to be referenced
+      // in source files in Foo, but its contents will be compiled
+      // as Bar (real name on-disk).
+      try localFileSystem.writeFileContents(srcFoo) {
+        $0 <<< "import Car\n"
+        $0 <<< "func run() -> Car.KlassBar? { return nil }"
+      }
+      var driver2 = try Driver(args: ["swiftc",
+                                      "-I",
+                                      path.pathString.nativePathString().escaped(),
+                                      "-j",
+                                      "1",
+                                      "-explicit-module-build",
+                                      "-module-name",
+                                      "Foo",
+                                      "-emit-module",
+                                      "-emit-module-path",
+                                      moduleFooPath,
+                                      "-module-alias",
+                                      "Car=Bar",
+                                      srcFoo.pathString.nativePathString().escaped()] + sdkArgumentsForTesting,
+                               env: ProcessEnv.vars)
+      let jobs2 = try driver2.planBuild()
+      try driver2.run(jobs: jobs2)
+      XCTAssertFalse(driver2.diagnosticEngine.hasErrors)
+      XCTAssertTrue(FileManager.default.fileExists(atPath: moduleFooPath))
+    }
+  }
+  
   func testExplicitModuleBuildEndToEnd() throws {
     // The macOS-only restriction is temporary while Clang's dependency scanner
     // is gaining the ability to perform name-based module lookup.
