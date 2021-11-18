@@ -204,6 +204,7 @@ extension Driver {
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
+    try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
 
     // Expand the -experimental-hermetic-seal-at-link flag
     if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {

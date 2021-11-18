@@ -48,4 +48,7 @@
 
   /// Whether `name` was picked by the driver instead of the user.
   public let nameIsFallback: Bool
+
+  /// Map of aliases and real names of modules referenced by source files in the current module
+  public let aliases: [String: String]?
 }

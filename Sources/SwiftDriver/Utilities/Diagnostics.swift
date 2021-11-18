@@ -89,6 +89,22 @@ extension Diagnostic.Message {
     return .error("module name \"\(moduleName)\" is reserved for the standard library\(suffix)")
   }
 
+  static func error_bad_module_alias(_ arg: String,
+                                     moduleName: String,
+                                     formatted: Bool = true,
+                                     isDuplicate: Bool = false) -> Diagnostic.Message {
+    if !formatted {
+      return .error("invalid format \"\(arg)\"; use the format '-module-alias alias_name=underlying_name'")
+    }
+    if arg == moduleName {
+      return .error("module alias \"\(arg)\" should be different from the module name \"\(moduleName)\"")
+    }
+    if isDuplicate {
+      return .error("the name \"\(arg)\" is already used for a module alias or an underlying name")
+    }
+    return .error("bad module alias \"\(arg)\"")
+  }
+
   static var error_hermetic_seal_cannot_have_library_evolution: Diagnostic.Message {
     .error("Cannot use -experimental-hermetic-seal-at-link with -enable-library-evolution")
   }
