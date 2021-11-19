@@ -121,14 +121,25 @@ extension IncrementalCompilationState.FirstWaveComputer {
         : compileGroups[input]
     }
 
-    let mandatoryJobsInOrder = try
-      jobsInPhases.beforeCompiles +
-      batchJobFormer.formBatchedJobs(
-        mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-        showJobLifecycle: showJobLifecycle)
+    let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
+      mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
+      showJobLifecycle: showJobLifecycle)
 
+    // In the case where there are no compilation jobs to run on this build (no source-files were changed),
+    // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
+    // have any dependencies on them.
+    let skipAllJobs = batchedCompilationJobs.isEmpty ? !afterCompileJobsDependOnBeforeCompileJobs() : false
+    let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
     return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
+  }
+
+  /// Determine if any of the jobs in the `afterCompiles` group depend on outputs produced by jobs in
+  /// `beforeCompiles` group.
+  private func afterCompileJobsDependOnBeforeCompileJobs() -> Bool {
+      let beforeCompileJobOutputs = jobsInPhases.beforeCompiles.reduce(into: Set<TypedVirtualPath>(),
+                                                                       { (pathSet, job) in pathSet.formUnion(job.outputs) })
+      return jobsInPhases.afterCompiles.contains {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
   }
 
   /// Figure out which compilation inputs are *not* mandatory at the start

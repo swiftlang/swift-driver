@@ -323,6 +323,14 @@ extension IncrementalCompilationTests {
     }
   }
 
+  func testNullBuildNoEmitModule() throws {
+    let extraArguments = ["-experimental-emit-module-separately", "-emit-module"]
+    try buildInitialState(extraArguments: extraArguments)
+    let driver = try checkNullBuild(extraArguments: extraArguments)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertTrue(mandatoryJobs.isEmpty)
+  }
+
   func testSymlinkModification() throws {
     // Remap
     // main.swift -> links/main.swift
