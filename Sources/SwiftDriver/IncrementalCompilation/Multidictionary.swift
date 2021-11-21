@@ -13,6 +13,9 @@
 /// A collection that associates keys with one or more values.
 @_spi(Testing) public struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   private var dictionary: Dictionary<Key, Set<Value>> = [:]
+
+  /// Reverse index used to make value removal more efficient.
+  private var reverseIndex: Dictionary<Value, Set<Key>> = [:]
   
   public typealias Element = (Key, Set<Value>)
   public typealias Index = Dictionary<Key, Set<Value>>.Index
@@ -84,12 +87,7 @@
   ///                this dictionary.
   /// - Returns: The set of keys associated with the given value.
   public func keysContainingValue(_ v: Value) -> Set<Key> {
-    return self.dictionary.reduce(into: Set<Key>()) { acc, next in
-      guard next.value.contains(v) else {
-        return
-      }
-      acc.insert(next.key)
-    }
+    return self.reverseIndex[v, default: []]
   }
 
   /// Inserts the given value in the set of values associated with the given key.
@@ -101,6 +99,7 @@
   ///            other values for the given key. Else, returns `false.
   @discardableResult
   public mutating func insertValue(_ v: Value, forKey key: Key) -> Bool {
+    self.reverseIndex[v, default: []].insert(key)
     return self.dictionary[key, default: []].insert(v).inserted
   }
 
@@ -112,6 +111,7 @@
   /// - Returns: The removed element, if any.
   @discardableResult
   public mutating func removeValue(_ v: Value, forKey key: Key) -> Value? {
+    self.reverseIndex[v]?.remove(key)
     return self.dictionary[key, default: []].remove(v)
   }
 
@@ -123,8 +123,9 @@
   ///
   /// - Parameter v: The value to remove.
   public mutating func removeOccurrences(of v: Value) {
-    for k in self.dictionary.keys {
+    for k in self.reverseIndex[v, default: []] {
       self.dictionary[k]!.remove(v)
     }
+    self.reverseIndex.removeValue(forKey: v)
   }
 }
