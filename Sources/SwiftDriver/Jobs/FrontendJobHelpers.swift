@@ -347,7 +347,8 @@ extension Driver {
 
     /// Add all of the outputs needed for a given input.
     func addAllOutputsFor(input: TypedVirtualPath?) {
-      if !shouldCreateEmitModuleJob {
+      if !emitModuleSeparately {
+        // Generate the module files with the main job.
         addOutputOfType(
           outputType: .swiftModule,
           finalOutputPath: moduleOutputInfo.output?.outputPath,

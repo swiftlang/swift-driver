@@ -183,7 +183,7 @@ extension Driver {
   }
 
   private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void) throws -> Job? {
-    if shouldCreateEmitModuleJob {
+    if emitModuleSeparately {
       let emitJob = try emitModuleJob()
       addJobBeforeCompiles(emitJob)
       return emitJob
@@ -351,7 +351,7 @@ extension Driver {
       assert(input.type.isPartOfSwiftCompilation)
       // We can skip the compile jobs if all we want is a module when it's
       // built separately.
-      let canSkipIfOnlyModule = compilerOutputType == .swiftModule && shouldCreateEmitModuleJob
+      let canSkipIfOnlyModule = compilerOutputType == .swiftModule && emitModuleSeparately
       try createAndAddCompileJobGroup(primaryInput: input,
                                       emitModuleTrace: emitModuleTrace,
                                       canSkipIfOnlyModule: canSkipIfOnlyModule,
@@ -427,7 +427,7 @@ extension Driver {
     guard moduleOutputInfo.output != nil,
           !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty),
           compilerMode.usesPrimaryFileInputs,
-          !shouldCreateEmitModuleJob
+          !emitModuleSeparately
     else { return nil }
     return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
   }
@@ -445,8 +445,8 @@ extension Driver {
                              default: onByDefault),
 
       // Don't verify by default modules emitted from a merge-module job
-      // as it's more likely to be invalid
-      shouldCreateEmitModuleJob || compilerMode == .singleCompile ||
+      // as it's more likely to be invalid.
+      emitModuleSeparately || compilerMode == .singleCompile ||
         parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                               negative: .noVerifyEmittedModuleInterface,
                               default: false)
