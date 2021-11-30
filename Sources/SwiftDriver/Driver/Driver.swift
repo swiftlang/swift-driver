@@ -336,7 +336,8 @@ public struct Driver {
   /// A global queue for emitting non-interrupted messages into stderr
   public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
 
-  enum KnownCompilerFeature: String {
+  @_spi(Testing)
+  public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
   }
 
@@ -381,7 +382,8 @@ public struct Driver {
     }
   }
 
-  func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
+  @_spi(Testing)
+  public func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
     return supportedFrontendFeatures.contains(feature.rawValue)
   }
 
