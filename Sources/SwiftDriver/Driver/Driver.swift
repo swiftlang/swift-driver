@@ -1471,13 +1471,7 @@ extension Driver {
       switch outputOption.option {
       case .emitImportedModules:
         return .singleCompile
-
-      case .repl:
-        if driverKind == .interactive, !parsedOptions.hasAnyInput {
-          diagnosticsEngine.emit(.warning_unnecessary_repl_mode(option: outputOption.option, kind: driverKind))
-        }
-        fallthrough
-      case .lldbRepl:
+      case .repl, .lldbRepl:
         return .repl
 
       case .deprecatedIntegratedRepl:
@@ -1553,10 +1547,6 @@ extension Driver {
 }
 
 extension Diagnostic.Message {
-  static func warning_unnecessary_repl_mode(option: Option, kind: DriverKind) -> Diagnostic.Message {
-    .warning("unnecessary option '\(option.spelling)'; this is the default for '\(kind.rawValue)' with no input files")
-  }
-
   static func warn_ignoring_batch_mode(_ option: Option) -> Diagnostic.Message {
     .warning("ignoring '-enable-batch-mode' because '\(option.spelling)' was also specified")
   }
