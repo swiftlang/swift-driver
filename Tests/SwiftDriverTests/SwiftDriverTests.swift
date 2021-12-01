@@ -2569,8 +2569,13 @@ final class SwiftDriverTests: XCTestCase {
       // Specifying -no-emit-module-separately-wmo doesn't schedule the separate emit-module job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
       let plannedJobs = try driver.planBuild()
+      #if os(Linux) || os(Android)
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link, .autolinkExtract]))
+      #else
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link]))
+      #endif
 
       // The compile job produces both the object file and the module files.
       let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
