@@ -20,6 +20,8 @@
   public typealias Element = (Key, Set<Value>)
   public typealias Index = Dictionary<Key, Set<Value>>.Index
 
+  public init() {}
+
   /// The number of key-value pairs in this multi-dictionary.
   public var count: Int {
     self.dictionary.count
@@ -123,9 +125,22 @@
   ///
   /// - Parameter v: The value to remove.
   public mutating func removeOccurrences(of v: Value) {
-    for k in self.reverseIndex[v, default: []] {
+    for k in self.reverseIndex.removeValue(forKey: v) ?? [] {
       self.dictionary[k]!.remove(v)
     }
-    self.reverseIndex.removeValue(forKey: v)
+    assert(expensivelyCheckThatValueIsRemoved(v))
+  }
+
+  /// For assertions. Returns true `v` is removed from all `dictionary` values.
+  private func expensivelyCheckThatValueIsRemoved(_ v: Value) -> Bool {
+    if self.reverseIndex[v] != nil {
+      return false
+    }
+    for vals in self.dictionary.values {
+      if vals.contains(v) {
+        return false
+      }
+    }
+    return true
   }
 }
