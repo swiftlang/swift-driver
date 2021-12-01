@@ -424,7 +424,8 @@ extension Driver {
         input: nil,
         flag: "-emit-tbd-path")
 
-      if let abiDescriptorPath = abiDescriptorPath {
+      if let abiDescriptorPath = abiDescriptorPath,
+         !emitModuleSeparately {
         addOutputOfType(outputType: .jsonABIBaseline,
                         finalOutputPath: abiDescriptorPath.fileHandle,
                         input: nil,
