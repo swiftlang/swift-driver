@@ -101,8 +101,10 @@
   ///            other values for the given key. Else, returns `false.
   @discardableResult
   public mutating func insertValue(_ v: Value, forKey key: Key) -> Bool {
-    self.reverseIndex[v, default: []].insert(key)
-    return self.dictionary[key, default: []].insert(v).inserted
+    let inserted1 = self.reverseIndex[v, default: []].insert(key).inserted
+    let inserted2 = self.dictionary[key, default: []].insert(v).inserted
+    assert(inserted1 == inserted2)
+    return inserted1
   }
 
   /// Removes the given value from the set of values associated with the given key.
@@ -113,8 +115,11 @@
   /// - Returns: The removed element, if any.
   @discardableResult
   public mutating func removeValue(_ v: Value, forKey key: Key) -> Value? {
-    self.reverseIndex[v]?.remove(key)
-    return self.dictionary[key, default: []].remove(v)
+    let removedKey = self.reverseIndex[v]?.remove(key)
+    let removedVal = self.dictionary[key, default: []].remove(v)
+    assert((removedKey == nil && removedVal == nil) ||
+           (removedKey != nil && removedVal != nil))
+    return removedVal
   }
 
   /// Removes all occurrences of the given value from all entries in this
