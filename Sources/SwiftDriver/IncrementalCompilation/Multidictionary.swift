@@ -116,7 +116,7 @@
   @discardableResult
   public mutating func removeValue(_ v: Value, forKey key: Key) -> Value? {
     let removedKey = self.reverseIndex[v]?.remove(key)
-    let removedVal = self.dictionary[key, default: []].remove(v)
+    let removedVal = self.dictionary[key]?.remove(v)
     assert((removedKey == nil && removedVal == nil) ||
            (removedKey != nil && removedVal != nil))
     return removedVal

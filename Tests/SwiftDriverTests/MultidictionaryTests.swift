@@ -55,6 +55,83 @@ class MultidictionaryTests: XCTestCase {
     XCTAssertEqual(dict.keysContainingValue(4), ["c"])
   }
 
+  func testInsertion_existingPair() {
+    var dict = multidictionaryWith([
+      "a": [1],
+      "b": [1, 2],
+      "c": [1, 2, 3, 4],
+    ])
+
+    // Inserting an existing k:v pair a second time should do nothing.
+    XCTAssertFalse(dict.insertValue(1, forKey: "a"))
+
+    XCTAssertEqual(dict.count, 3)
+    XCTAssertEqual(dict["a"], [1])
+    XCTAssertEqual(dict["b"], [1, 2])
+    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
+    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
+    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+  }
+
+  func testRemoveValue() throws {
+    var dict = multidictionaryWith([
+      "a": [1],
+      "b": [1, 2],
+      "c": [1, 2, 3, 4],
+    ])
+
+    XCTAssertNotNil(dict.removeValue(2, forKey: "c"))
+
+    XCTAssertEqual(dict.count, 3)
+    XCTAssertEqual(dict["a"], [1])
+    XCTAssertEqual(dict["b"], [1, 2])
+    XCTAssertEqual(dict["c"], [1, 3, 4])
+    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(2), ["b"])
+    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
+    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+  }
+
+  func testRemoveValue_nonExistentValue() throws {
+    var dict = multidictionaryWith([
+      "a": [1],
+      "b": [1, 2],
+      "c": [1, 2, 3, 4],
+    ])
+
+    XCTAssertNil(dict.removeValue(5, forKey: "c"))
+
+    XCTAssertEqual(dict.count, 3)
+    XCTAssertEqual(dict["a"], [1])
+    XCTAssertEqual(dict["b"], [1, 2])
+    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
+    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
+    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+  }
+
+  func testRemoveValue_nonExistentKey() throws {
+    var dict = multidictionaryWith([
+      "a": [1],
+      "b": [1, 2],
+      "c": [1, 2, 3, 4],
+    ])
+
+    XCTAssertNil(dict.removeValue(1, forKey: "d"))
+
+    XCTAssertEqual(dict.count, 3)
+    XCTAssertEqual(dict["a"], [1])
+    XCTAssertEqual(dict["b"], [1, 2])
+    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
+    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
+    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
+    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+  }
+
   func testRemoveOccurencesOf() throws {
     var dict = multidictionaryWith([
       "a": [1],
@@ -74,21 +151,21 @@ class MultidictionaryTests: XCTestCase {
     XCTAssertEqual(dict.keysContainingValue(4), ["c"])
   }
 
-  func testRemoveValue() throws {
+  func testRemoveOccurencesOf_nonExistentValue() throws {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
       "c": [1, 2, 3, 4],
     ])
 
-    dict.removeValue(2, forKey: "c")
+    dict.removeOccurrences(of: 5)
 
     XCTAssertEqual(dict.count, 3)
     XCTAssertEqual(dict["a"], [1])
     XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 3, 4])
+    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
     XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b"])
+    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
     XCTAssertEqual(dict.keysContainingValue(3), ["c"])
     XCTAssertEqual(dict.keysContainingValue(4), ["c"])
   }
