@@ -136,7 +136,7 @@
     assert(expensivelyCheckThatValueIsRemoved(v))
   }
 
-  /// For assertions. Returns true `v` is removed from all `dictionary` values.
+  /// For assertions. Returns true `v` is removed from all `forwardDictionary` values.
   private func expensivelyCheckThatValueIsRemoved(_ v: Value) -> Bool {
     if self.reverseIndex[v] != nil {
       return false
