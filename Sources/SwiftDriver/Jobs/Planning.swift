@@ -226,6 +226,12 @@ extension Driver {
     // Ensure that only one job emits the module files and insert a verify swiftinterface job
     var jobCreatingSwiftModule: Job? = nil
     func addPostModuleFilesJobs(_ emitModuleJob: Job) throws {
+      let emitsSwiftInterface =
+        emitModuleJob.outputs.contains(where: { out in out.type == .swiftInterface })
+      guard emitsSwiftInterface else {
+        return
+      }
+
       // We should only emit module files from one job
       assert(jobCreatingSwiftModule == nil)
       jobCreatingSwiftModule = emitModuleJob
