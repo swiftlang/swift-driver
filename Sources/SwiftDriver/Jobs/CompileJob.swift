@@ -359,12 +359,6 @@ extension Driver {
 
     addJobOutputs(outputs)
 
-    // If we're prioritizing the emit module job, schedule the compile jobs
-    // after that.
-    if forceEmitModuleBeforeCompile {
-      inputs.append(TypedVirtualPath(file: moduleOutputInfo.output!.outputPath, type: .swiftModule))
-    }
-
     // Bridging header is needed for compiling these .swift sources.
     if let pchPath = bridgingPrecompiledHeader {
       let pchInput = TypedVirtualPath(file: pchPath, type: .pch)

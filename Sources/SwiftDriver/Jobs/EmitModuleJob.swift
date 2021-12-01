@@ -40,7 +40,7 @@ extension Driver {
     }
 
     // Skip files created by other jobs when emitting a module and building at the same time
-    if shouldCreateEmitModuleJob && compilerOutputType != .swiftModule {
+    if emitModuleSeparately && compilerOutputType != .swiftModule {
       return
     }
 
@@ -58,7 +58,7 @@ extension Driver {
     // When partial compilation jobs are removed for the `compilerOutputType == .swiftModule`
     // case, this will need to be changed here.
     // 
-    if shouldCreateEmitModuleJob {
+    if emitModuleSeparately {
       return
     }
     if let dependenciesFilePath = dependenciesFilePath {
@@ -126,27 +126,30 @@ extension Driver {
     )
   }
 
-  /// Returns true if the emit module job should be created.
-  var shouldCreateEmitModuleJob: Bool {
-    mutating get {
-      return moduleOutputInfo.output != nil
-        && inputFiles.allSatisfy() { $0.type.isPartOfSwiftCompilation } // Ignore calls for linking.
-        && (forceEmitModuleBeforeCompile
-            || shouldEmitModuleSeparately())
+  static func computeEmitModuleSeparately(parsedOptions: inout ParsedOptions,
+                                          compilerMode: CompilerMode,
+                                          compilerOutputType: FileType?,
+                                          moduleOutputInfo: ModuleOutputInfo,
+                                          inputFiles: [TypedVirtualPath]) -> Bool {
+    if moduleOutputInfo.output == nil ||
+       !inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
+      return false
     }
-  }
 
-  static func shouldEmitModuleSeparately(parsedOptions: inout ParsedOptions) -> Bool {
-    return parsedOptions.hasFlag(positive: .emitModuleSeparately,
-                                 negative: .noEmitModuleSeparately,
-                                 default: true)
-             && !parsedOptions.hasFlag(positive: .wholeModuleOptimization,
-                                       negative: .noWholeModuleOptimization,
-                                       default: false)
-  }
+    switch (compilerMode) {
+    case .standardCompile, .batchCompile(_):
+      return parsedOptions.hasFlag(positive: .emitModuleSeparately,
+                                   negative: .noEmitModuleSeparately,
+                                   default: true)
 
-  /// Returns true if the -emit-module-separately is active.
-  mutating func shouldEmitModuleSeparately() -> Bool {
-    return Self.shouldEmitModuleSeparately(parsedOptions: &self.parsedOptions)
+    case .singleCompile:
+      return parsedOptions.hasFlag(positive: .emitModuleSeparatelyWMO,
+                                   negative: .noEmitModuleSeparatelyWMO,
+                                   default: false) &&
+             compilerOutputType != .swiftModule // The main job already generates only the module files.
+
+    default:
+      return false
+    }
   }
 }

@@ -2490,15 +2490,6 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      // Leave it to the whole-module job emit the swiftmodule even with the
-      // -experimental-emit-module-separately flag, basically ignoring it.
-      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swift", "-whole-module-optimization", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link]))
-    }
-
-    do {
       // Specifying -no-emit-module-separately uses a mergeModule job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-no-emit-module-separately" ])
       let plannedJobs = try driver.planBuild()
@@ -2519,6 +2510,88 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+    }
+  }
+
+  func testEmitModuleSeparatelyWMO() throws {
+    // Adapt the number of output files to the compiler feature.
+    let dummyDriver = try Driver(args: ["swiftc"])
+    var abiFileCount = 0
+    if dummyDriver.isFeatureSupported(.emit_abi_descriptor) {
+      abiFileCount = 1
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+
+      // The compile job only produces the object file.
+      let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
+      XCTAssertTrue(compileJob.tool.name.contains("swift"))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-parse-as-library")))
+      XCTAssertEqual(compileJob.outputs.count, 1)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
+
+      // The emit module job produces the module files.
+      let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+      XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
+      XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftmodule"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftdoc"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo"))}).count)
+      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.abi.json"))}).count)
+
+      // We don't know the output file of the symbol graph, just make sure the flag is passed along.
+      XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-emit-symbol-graph-dir")))
+    }
+
+    do {
+      // Ignore the `-emit-module-separately-wmo` flag when building only the module files to avoid duplicating outputs.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-wmo", "-emit-module-separately-wmo"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile]))
+
+      // The compile job produces the module files.
+      let emitModuleJob = plannedJobs[0]
+      XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
+      XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftmodule"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftdoc"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo"))}).count)
+      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.abi.json"))}).count)
+    }
+
+    do {
+      // Specifying -no-emit-module-separately-wmo doesn't schedule the separate emit-module job.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
+      let plannedJobs = try driver.planBuild()
+      #if os(Linux) || os(Android)
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link, .autolinkExtract]))
+      #else
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link]))
+      #endif
+
+      // The compile job produces both the object file and the module files.
+      let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
+      XCTAssertEqual(compileJob.outputs.count, 4 + abiFileCount)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftmodule"))}).count)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftdoc"))}).count)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo"))}).count)
+      XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.abi.json"))}).count)
+    }
+
+    do {
+      // Don't use emit-module-separetely as a linker.
+      var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
     }
   }
