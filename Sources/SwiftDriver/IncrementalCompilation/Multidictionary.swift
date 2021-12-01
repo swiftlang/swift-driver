@@ -89,7 +89,7 @@
   ///                this dictionary.
   /// - Returns: The set of keys associated with the given value.
   public func keysContainingValue(_ v: Value) -> Set<Key> {
-    return self.reverseIndex[v, default: []]
+    return self.reverseIndex[v] ?? []
   }
 
   /// Inserts the given value in the set of values associated with the given key.
