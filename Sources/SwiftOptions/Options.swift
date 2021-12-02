@@ -133,6 +133,7 @@ extension Option {
   public static let disableInterfaceLockfile: Option = Option("-disable-interface-lock", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't lock interface file when building module")
   public static let disableInvalidEphemeralnessAsError: Option = Option("-disable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as warnings")
   public static let disableLegacyTypeInfo: Option = Option("-disable-legacy-type-info", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable legacy type layout")
+  public static let disableLexicalLifetimes: Option = Option("-disable-lexical-lifetimes", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disables early lexical lifetimes. Mutually exclusive with -enable-experimental-lexical-lifetimes")
   public static let disableLlvmOptzns: Option = Option("-disable-llvm-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run LLVM optimization passes")
   public static let disableLlvmValueNames: Option = Option("-disable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't add names to local values in LLVM IR")
   public static let disableLlvmVerify: Option = Option("-disable-llvm-verify", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run the LLVM IR verifier.")
@@ -155,6 +156,7 @@ extension Option {
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
   public static let disableSilPerfOptzns: Option = Option("-disable-sil-perf-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL performance optimization passes")
+  public static let disableStandardSubstitutionsInReflectionMangling: Option = Option("-disable-standard-substitutions-in-reflection-mangling", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable referencing stdlib symbols via mangled names in reflection mangling")
   public static let disableSwiftBridgeAttr: Option = Option("-disable-swift-bridge-attr", .flag, attributes: [.helpHidden, .frontend], helpText: "Disable using the swift bridge attribute")
   public static let disableSwiftSpecificLlvmOptzns: Option = Option("-disable-swift-specific-llvm-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run Swift specific LLVM optimization passes.")
   public static let disableSwift3ObjcInference: Option = Option("-disable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable Swift 3's @objc inference rules for NSObject-derived classes and 'dynamic' members (emulates Swift 4 behavior)")
@@ -280,10 +282,11 @@ extension Option {
   public static let enableExperimentalDistributed: Option = Option("-enable-experimental-distributed", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental 'distributed' actors and functions")
   public static let enableExperimentalFlowSensitiveConcurrentCaptures: Option = Option("-enable-experimental-flow-sensitive-concurrent-captures", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable flow-sensitive concurrent captures")
   public static let enableExperimentalForwardModeDifferentiation: Option = Option("-enable-experimental-forward-mode-differentiation", .flag, attributes: [.frontend], helpText: "Enable experimental forward mode differentiation")
-  public static let enableExperimentalLexicalLifetimes: Option = Option("-enable-experimental-lexical-lifetimes", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental lexical lifetimes")
+  public static let enableExperimentalLexicalLifetimes: Option = Option("-enable-experimental-lexical-lifetimes", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental lexical lifetimes. Mutually exclusive with -disable-early-lexical-lifetimes")
   public static let enableExperimentalMoveOnly: Option = Option("-enable-experimental-move-only", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental move only")
   public static let enableExperimentalNamedOpaqueTypes: Option = Option("-enable-experimental-named-opaque-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for named opaque result types")
   public static let enableExperimentalStaticAssert: Option = Option("-enable-experimental-static-assert", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental #assert")
+  public static let enableExperimentalStringProcessing: Option = Option("-enable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental string processing")
   public static let enableExperimentalStructuralOpaqueTypes: Option = Option("-enable-experimental-structural-opaque-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for structural opaque result types")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
   public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
@@ -500,7 +503,9 @@ extension Option {
   public static let requireExplicitAvailabilityTarget: Option = Option("-require-explicit-availability-target", .separate, attributes: [.frontend, .noInteractive], metaVar: "<target>", helpText: "Suggest fix-its adding @available(<target>, *) to public declarations without availability")
   public static let requireExplicitAvailability: Option = Option("-require-explicit-availability", .flag, attributes: [.frontend, .noInteractive], helpText: "Require explicit availability on public declarations")
   public static let requireExplicitSendable: Option = Option("-require-explicit-sendable", .flag, attributes: [.frontend, .noInteractive], helpText: "Require explicit Sendable annotations on public declarations")
+  public static let requirementMachineAbstractSignaturesEQ: Option = Option("-requirement-machine-abstract-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental generic signature minimization: 'on', 'off', or 'verify'")
   public static let requirementMachineDepthLimit: Option = Option("-requirement-machine-depth-limit", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum depth before we give up on confluent completion")
+  public static let requirementMachineInferredSignaturesEQ: Option = Option("-requirement-machine-inferred-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental generic signature minimization: 'on', 'off', or 'verify'")
   public static let requirementMachineProtocolSignaturesEQ: Option = Option("-requirement-machine-protocol-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental protocol requirement signature minimization: 'on', 'off', or 'verify'")
   public static let requirementMachineStepLimit: Option = Option("-requirement-machine-step-limit", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum steps before we give up on confluent completion")
   public static let requirementMachineEQ: Option = Option("-requirement-machine=", .joined, attributes: [.frontend, .moduleInterface], helpText: "Control usage of experimental generics implementation: 'on', 'off', or 'verify'")
@@ -529,6 +534,7 @@ extension Option {
   public static let serializeDiagnostics: Option = Option("-serialize-diagnostics", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Serialize diagnostics in a binary format")
   public static let serializeModuleInterfaceDependencyHashes: Option = Option("-serialize-module-interface-dependency-hashes", .flag, attributes: [.frontend, .noDriver])
   public static let serializeParseableModuleInterfaceDependencyHashes: Option = Option("-serialize-parseable-module-interface-dependency-hashes", .flag, alias: Option.serializeModuleInterfaceDependencyHashes, attributes: [.frontend, .noDriver])
+  public static let serializedPathObfuscate: Option = Option("-serialized-path-obfuscate", .separate, attributes: [.frontend, .noDriver], metaVar: "<prefix=replacement>", helpText: "Remap source paths in debug info")
   public static let showDiagnosticsAfterFatal: Option = Option("-show-diagnostics-after-fatal", .flag, attributes: [.frontend, .noDriver], helpText: "Keep emitting subsequent diagnostics after a fatal error")
   public static let debugOnSil: Option = Option("-sil-based-debuginfo", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Write the SIL into a file and generate debug-info to debug on SIL  level.")
   public static let silDebugSerialization: Option = Option("-sil-debug-serialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not eliminate functions in Mandatory Inlining/SILCombine dead functions. (for debugging only)")
@@ -762,6 +768,7 @@ extension Option {
       Option.disableInterfaceLockfile,
       Option.disableInvalidEphemeralnessAsError,
       Option.disableLegacyTypeInfo,
+      Option.disableLexicalLifetimes,
       Option.disableLlvmOptzns,
       Option.disableLlvmValueNames,
       Option.disableLlvmVerify,
@@ -784,6 +791,7 @@ extension Option {
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
       Option.disableSilPerfOptzns,
+      Option.disableStandardSubstitutionsInReflectionMangling,
       Option.disableSwiftBridgeAttr,
       Option.disableSwiftSpecificLlvmOptzns,
       Option.disableSwift3ObjcInference,
@@ -913,6 +921,7 @@ extension Option {
       Option.enableExperimentalMoveOnly,
       Option.enableExperimentalNamedOpaqueTypes,
       Option.enableExperimentalStaticAssert,
+      Option.enableExperimentalStringProcessing,
       Option.enableExperimentalStructuralOpaqueTypes,
       Option.enableImplicitDynamic,
       Option.enableIncrementalImports,
@@ -1129,7 +1138,9 @@ extension Option {
       Option.requireExplicitAvailabilityTarget,
       Option.requireExplicitAvailability,
       Option.requireExplicitSendable,
+      Option.requirementMachineAbstractSignaturesEQ,
       Option.requirementMachineDepthLimit,
+      Option.requirementMachineInferredSignaturesEQ,
       Option.requirementMachineProtocolSignaturesEQ,
       Option.requirementMachineStepLimit,
       Option.requirementMachineEQ,
@@ -1158,6 +1169,7 @@ extension Option {
       Option.serializeDiagnostics,
       Option.serializeModuleInterfaceDependencyHashes,
       Option.serializeParseableModuleInterfaceDependencyHashes,
+      Option.serializedPathObfuscate,
       Option.showDiagnosticsAfterFatal,
       Option.debugOnSil,
       Option.silDebugSerialization,
