@@ -652,7 +652,15 @@ final class ExplicitModuleBuildTests: XCTestCase {
         return (sdkroot
                   .appending(component: "usr")
                   .appending(component: "lib")
-                  .appending(component: "swift"),
+                  .appending(component: "swift")
+                  .appending(component: "windows")
+                  // TODO(compnerd) this should be dropped, but we need to
+                  // synchronize with the frontend and installer to ensure that
+                  // everything is setup properly.  With the swiftmodule
+                  // directory structure being supported, we no longer need to
+                  // put the swiftmodules in the architecture directory, only
+                  // the import libraries.
+                  .appending(component: driver.targetTriple.archName),
                 sdkroot
                   .appending(component: "usr")
                   .appending(component: "lib")
@@ -772,7 +780,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
-    let (_, _, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
@@ -808,6 +816,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString().escaped(),
                                      "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     "-I", stdlibPath.pathString.escaped(),
+                                     "-I", shimsPath.pathString.escaped(),
                                      "-import-objc-header",
                                      "-explicit-module-build",
                                      "-working-directory", path.pathString.nativePathString().escaped(),
@@ -876,7 +886,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanReuseCache() throws {
-    let (_, _, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let cacheSavePath = path.appending(component: "saved.moddepcache")
       let main = path.appending(component: "testDependencyScanning.swift")
@@ -898,6 +908,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString().escaped(),
                                      "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     "-I", stdlibPath.pathString.escaped(),
+                                     "-I", shimsPath.pathString.escaped(),
                                      "-explicit-module-build",
                                      "-working-directory", path.pathString.nativePathString().escaped(),
                                      "-disable-clang-target",
