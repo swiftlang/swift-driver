@@ -12,6 +12,7 @@
 import XCTest
 import TSCBasic
 import TSCUtility
+import Foundation
 
 @_spi(Testing) import SwiftDriver
 
@@ -122,10 +123,14 @@ final class ParsableMessageTests: XCTestCase {
       try withTemporaryDirectory { path in
         try withHijackedBufferedErrorStream(in: path) { errorBuffer in
           let resolver = try ArgsResolver(fileSystem: localFileSystem)
+
+          let workdir: AbsolutePath =
+                try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/WorkDir", relativeTo: $0) } ?? AbsolutePath(validating: "/WorkDir")
+
           var driver = try Driver(args: ["swiftc", "-o", "test.o",
                                          "main.swift", "test1.swift", "test2.swift",
                                          "-enable-batch-mode", "-driver-batch-count", "1",
-                                         "-working-directory", "/WorkDir"])
+                                         "-working-directory", workdir.pathString])
           let jobs = try driver.planBuild()
           let compileJob = jobs[0]
           let args : [String] = try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
@@ -152,30 +157,45 @@ final class ParsableMessageTests: XCTestCase {
           """
             "pid" : -1000,
           """))
+#if os(Windows)
+          let mainPath: String = workdir.appending(component: "main.swift").pathString.nativePathString().escaped()
+#else
+          let mainPath: String = workdir.appending(component: "main.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
+#endif
           XCTAssertTrue(errorOutput.contains(
           """
             \"inputs\" : [
-              \"\\/WorkDir\\/main.swift\"
+              \"\(mainPath)\"
             ],
           """))
           XCTAssertTrue(errorOutput.contains(
           """
             "pid" : -1001,
           """))
+#if os(Windows)
+          let test1Path: String = workdir.appending(component: "test1.swift").pathString.nativePathString().escaped()
+#else
+          let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
+#endif
           XCTAssertTrue(errorOutput.contains(
           """
             \"inputs\" : [
-              \"\\/WorkDir\\/test1.swift\"
+              \"\(test1Path)\"
             ],
           """))
           XCTAssertTrue(errorOutput.contains(
           """
             "pid" : -1002,
           """))
+#if os(Windows)
+          let test2Path: String = workdir.appending(component: "test2.swift").pathString.nativePathString().escaped()
+#else
+          let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
+#endif
           XCTAssertTrue(errorOutput.contains(
           """
             \"inputs\" : [
-              \"\\/WorkDir\\/test2.swift\"
+              \"\(test2Path)\"
             ],
           """))
 
@@ -299,8 +319,15 @@ final class ParsableMessageTests: XCTestCase {
         try withHijackedBufferedErrorStream(in: path) { errorBuffer in
 #if os(Windows)
           let status = ProcessResult.ExitStatus.terminated(code: 0)
+          let kind = "finished"
+          let signal = ""
 #else
           let status = ProcessResult.ExitStatus.signalled(signal: 9)
+          let kind = "signalled"
+          let signal = """
+          ,
+            \"signal\" : 9
+          """
 #endif
           let resultSignalled = ProcessResult(arguments: args!,
                                               environment: ProcessEnv.vars,
@@ -312,35 +339,32 @@ final class ParsableMessageTests: XCTestCase {
           let errorOutput = try localFileSystem.readFileContents(errorBuffer).description
           XCTAssertTrue(errorOutput.contains(
           """
-            \"kind\" : \"signalled\",
+            \"kind\" : \"\(kind)\",
             \"name\" : \"compile\",
             \"pid\" : -1000,
             \"process\" : {
               \"real_pid\" : 42
-            },
-            \"signal\" : 9
+            }\(signal)
           }
           """))
           XCTAssertTrue(errorOutput.contains(
           """
-            \"kind\" : \"signalled\",
+            \"kind\" : \"\(kind)\",
             \"name\" : \"compile\",
             \"pid\" : -1001,
             \"process\" : {
               \"real_pid\" : 42
-            },
-            \"signal\" : 9
+            }\(signal)
           }
           """))
           XCTAssertTrue(errorOutput.contains(
           """
-            \"kind\" : \"signalled\",
+            \"kind\" : \"\(kind)\",
             \"name\" : \"compile\",
             \"pid\" : -1002,
             \"process\" : {
               \"real_pid\" : 42
-            },
-            \"signal\" : 9
+            }\(signal)
           }
           """))
         }
@@ -398,7 +422,7 @@ final class ParsableMessageTests: XCTestCase {
           let compileArgs = jobs[0].commandLine
           XCTAssertTrue(compileArgs.contains((.flag("-frontend-parseable-output"))))
           try driver.run(jobs: jobs)
-          let invocationErrorOutput = try localFileSystem.readFileContents(errorBuffer).description
+          let invocationErrorOutput = try localFileSystem.readFileContents(errorBuffer).description.replacingOccurrences(of: "\r\n", with: "\n")
           XCTAssertTrue(invocationErrorOutput.contains(
           """
           {
