@@ -145,7 +145,7 @@ extension Driver {
     case .singleCompile:
       return parsedOptions.hasFlag(positive: .emitModuleSeparatelyWMO,
                                    negative: .noEmitModuleSeparatelyWMO,
-                                   default: false) &&
+                                   default: true) &&
              compilerOutputType != .swiftModule // The main job already generates only the module files.
 
     default:
