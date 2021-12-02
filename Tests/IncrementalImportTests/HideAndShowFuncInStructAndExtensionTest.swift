@@ -174,12 +174,18 @@ fileprivate extension Array where Element == Change {
   }
 
   var expectedOutput: ExpectedProcessResult {
+#if os(Windows)
+      let eol = "\r\n"
+#else
+      let eol = "\n"
+#endif
+
     let specOrGen = Change.allCases .map {
       contains($0) ? "specific" : "general"
     }
     let output = zip(specOrGen, Change.allLociOfExposure)
       .map { "\($0.0) in \($0.1)"}
-      .joined(separator: "\n")
+      .joined(separator: eol)
     return ExpectedProcessResult(output: output)
   }
 
