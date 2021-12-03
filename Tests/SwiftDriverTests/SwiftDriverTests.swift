@@ -2081,20 +2081,29 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
-    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface"])
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd"])
     let plannedJobs = try driver1.planBuild()
-    XCTAssertEqual(plannedJobs.count, 2)
-    XCTAssertEqual(plannedJobs[0].kind, .compile)
-    XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-    XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "Test.o"))
-    XCTAssertEqual(plannedJobs[0].outputs[1].file, VirtualPath.relative(RelativePath("Test-Swift.h")))
-    XCTAssertEqual(plannedJobs[0].outputs[2].file, VirtualPath.relative(RelativePath("Test.swiftinterface")))
-    XCTAssertEqual(plannedJobs[0].outputs[3].file, VirtualPath.relative(RelativePath("Test.private.swiftinterface")))
-    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
-    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-module-interface-path")))
-    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-emit-private-module-interface-path")))
+    XCTAssertEqual(plannedJobs.count, 3)
+    XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
 
-    XCTAssertEqual(plannedJobs[1].kind, .link)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertEqual(plannedJobs[0].outputs.count, 1)
+    XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "Test.o"))
+    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+
+    let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+    XCTAssertEqual(emitModuleJob.outputs.count, 8)
+    XCTAssertEqual(emitModuleJob.outputs[0].file, VirtualPath.relative(RelativePath("Test.swiftmodule")))
+    XCTAssertEqual(emitModuleJob.outputs[1].file, VirtualPath.relative(RelativePath("Test.swiftdoc")))
+    XCTAssertEqual(emitModuleJob.outputs[2].file, VirtualPath.relative(RelativePath("Test.swiftsourceinfo")))
+    XCTAssertEqual(emitModuleJob.outputs[3].file, VirtualPath.relative(RelativePath("Test.swiftinterface")))
+    XCTAssertEqual(emitModuleJob.outputs[4].file, VirtualPath.relative(RelativePath("Test.private.swiftinterface")))
+    XCTAssertEqual(emitModuleJob.outputs[5].file, VirtualPath.relative(RelativePath("Test-Swift.h")))
+    XCTAssertEqual(emitModuleJob.outputs[6].file, VirtualPath.relative(RelativePath("Test.tbd")))
+    XCTAssertEqual(emitModuleJob.outputs[7].file, VirtualPath.relative(RelativePath("Test.abi.json")))
+    XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
+    XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-module-interface-path")))
+    XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
   }
 
 
@@ -2231,16 +2240,21 @@ final class SwiftDriverTests: XCTestCase {
           "-num-threads", "4", "-output-file-map", file.path.pathString, "-emit-module-interface"
         ])
         let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
-        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs.count, 3)
+        XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+
         XCTAssertEqual(plannedJobs[0].kind, .compile)
-        XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+        XCTAssertEqual(plannedJobs[0].outputs.count, 3)
         XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "foo.o"))
         XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[1].file, "bar.o"))
         XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[2].file, "wibble.o"))
-        XCTAssertEqual(plannedJobs[0].outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
         XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
-        XCTAssertEqual(plannedJobs[1].kind, .link)
+        let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+        XCTAssertEqual(emitModuleJob.outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
+        XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
+
+        XCTAssertEqual(plannedJobs[2].kind, .link)
       }
     }
   }
@@ -2300,7 +2314,7 @@ final class SwiftDriverTests: XCTestCase {
       "-emit-module-interface", "-driver-filelist-threshold=0"
     ])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
-    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
   }
