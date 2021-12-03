@@ -985,7 +985,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             main.pathString.escaped()] + sdkArgumentsForTesting
 
       let imports =
-        try dependencyOracle.getImports(workingDirectory: path,
+        try! dependencyOracle.getImports(workingDirectory: path,
                                          commandLine: scannerCommand)
       let expectedImports = ["C", "E", "G", "Swift", "SwiftOnoneSupport"]
       // Dependnig on how recent the platform we are running on, the Concurrency module may or may not be present.
