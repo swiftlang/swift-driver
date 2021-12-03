@@ -43,25 +43,27 @@ public class InterModuleDependencyOracle {
   }
 
   @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
-                                                  commandLine: [String],
                                                   moduleAliases: [String: String]? = nil,
+                                                  commandLine: [String],
                                                   batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     precondition(hasScannerInstance)
     return try queue.sync {
       return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
-                                                            invocationCommand: commandLine,
                                                              moduleAliases: moduleAliases,
+                                                            invocationCommand: commandLine,
                                                             batchInfos: batchInfos)
     }
   }
 
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
+                                        moduleAliases: [String: String]? = nil,
                                              commandLine: [String])
   throws -> InterModuleDependencyImports {
     precondition(hasScannerInstance)
     return try queue.sync {
       return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
+                                                      moduleAliases: moduleAliases,
                                                       invocationCommand: commandLine)
     }
   }

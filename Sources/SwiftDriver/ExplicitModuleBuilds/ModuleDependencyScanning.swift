@@ -131,6 +131,7 @@ public extension Driver {
       sanitizeCommandForLibScanInvocation(&command)
       imports =
         try interModuleDependencyOracle.getImports(workingDirectory: cwd,
+                                                   moduleAliases: moduleOutputInfo.aliases,
                                                    commandLine: command)
 
     } else {
@@ -188,8 +189,8 @@ public extension Driver {
       sanitizeCommandForLibScanInvocation(&command)
       moduleVersionedGraphMap =
         try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
-                                                             commandLine: command,
                                                              moduleAliases: moduleOutputInfo.aliases,
+                                                             commandLine: command,
                                                              batchInfos: moduleInfos)
     } else {
       // Fallback to legacy invocation of the dependency scanner with

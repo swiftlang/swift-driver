@@ -93,6 +93,7 @@ internal final class SwiftScan {
   }
 
   func preScanImports(workingDirectory: AbsolutePath,
+                      moduleAliases: [String: String]?,
                       invocationCommand: [String]) throws -> InterModuleDependencyImports {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
@@ -112,7 +113,7 @@ internal final class SwiftScan {
       throw DependencyScanningError.dependencyScanFailed
     }
 
-    let importSet = try constructImportSet(from: importSetRef)
+    let importSet = try constructImportSet(from: importSetRef, with: moduleAliases)
     // Free the memory allocated for the in-memory representation of the import set
     // returned by the scanner, now that we have translated it.
     api.swiftscan_import_set_dispose(importSetRef)
@@ -149,8 +150,8 @@ internal final class SwiftScan {
   }
 
   func batchScanDependencies(workingDirectory: AbsolutePath,
-                             invocationCommand: [String],
                              moduleAliases: [String: String]?,
+                             invocationCommand: [String],
                              batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     // Create and configure the scanner invocation

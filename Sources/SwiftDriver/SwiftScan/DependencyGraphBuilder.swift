@@ -45,12 +45,13 @@ internal extension SwiftScan {
 
   /// From a reference to a binary-format set of module imports return by libSwiftScan pre-scan query,
   /// construct an instance of an `InterModuleDependencyImports` set
-  func constructImportSet(from importSetRef: swiftscan_import_set_t) throws
+  func constructImportSet(from importSetRef: swiftscan_import_set_t,
+                          with moduleAliases: [String: String]?) throws
   -> InterModuleDependencyImports {
     guard let importsRef = api.swiftscan_import_set_get_imports(importSetRef) else {
       throw DependencyScanningError.missingField("import_set.imports")
     }
-    return InterModuleDependencyImports(imports: try toSwiftStringArray(importsRef.pointee))
+    return InterModuleDependencyImports(imports: try toSwiftStringArray(importsRef.pointee), moduleAliases: moduleAliases)
   }
 
   /// From a reference to a binary-format dependency graph collection returned by libSwiftScan batch scan query,
@@ -380,7 +381,11 @@ private extension SwiftScan {
                                moduleAliases: [String: String]?) throws -> ModuleDependencyId {
     switch encodedName {
       case _ where encodedName.starts(with: "swiftTextual:"):
-        return .swift(String(encodedName.suffix(encodedName.count - "swiftTextual:".count)))
+      var namePart = String(encodedName.suffix(encodedName.count - "swiftTextual:".count))
+      if let moduleAliases = moduleAliases, let realName = moduleAliases[namePart] {
+        namePart = realName
+      }
+      return .swift(namePart)
       case _ where encodedName.starts(with: "swiftBinary:"):
         var namePart = String(encodedName.suffix(encodedName.count - "swiftBinary:".count))
         if let moduleAliases = moduleAliases, let realName = moduleAliases[namePart] {

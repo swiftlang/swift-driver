@@ -108,7 +108,7 @@ public struct SwiftModuleDetails: Codable {
   public var extraPcmArgs: [String]
 
   /// A flag to indicate whether or not this module is a framework.
-  public var isFramework: Bool
+  public var isFramework: Bool?
 }
 
 /// Details specific to Swift placeholder dependencies.
@@ -133,7 +133,7 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
   public var moduleSourceInfoPath: TextualVirtualPath?
 
   /// A flag to indicate whether or not this module is a framework.
-  public var isFramework: Bool
+  public var isFramework: Bool?
 
   public init(compiledModulePath: TextualVirtualPath,
               moduleDocPath: TextualVirtualPath? = nil,
@@ -274,4 +274,23 @@ public struct InterModuleDependencyGraph: Codable {
 
 public struct InterModuleDependencyImports: Codable {
   public var imports: [String]
+  
+  public init(imports: [String], moduleAliases: [String: String]? = nil) {
+    var realImports = [String]()
+    if let aliases = moduleAliases {
+      for elem in imports {
+        if let realName = aliases[elem] {
+          realImports.append(realName)
+        } else {
+          realImports.append(elem)
+        }
+      }
+    }
+
+    if !realImports.isEmpty {
+      self.imports = realImports
+    } else {
+      self.imports = imports
+    }
+  }
 }
