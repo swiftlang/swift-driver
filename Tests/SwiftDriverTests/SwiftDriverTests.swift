@@ -4943,12 +4943,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-embed-bitcode", "-c", "-parse-as-library", "-emit-module", "-whole-module-optimization", "embed-bitcode.swift", "-parse-stdlib", "-module-name", "Swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs.count, 3)
 
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertEqual(plannedJobs[0].inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 5)
+      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
       XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "Swift.bc"))
 
       XCTAssertEqual(plannedJobs[1].kind, .backend)
@@ -4956,6 +4956,16 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(matchTemporary(plannedJobs[1].inputs[0].file, "Swift.bc"))
       XCTAssertEqual(plannedJobs[1].outputs.count, 1)
       XCTAssertEqual(plannedJobs[1].outputs[0].file, .relative(RelativePath("Swift.o")))
+
+      let emitModuleJob = plannedJobs[2]
+      XCTAssertEqual(emitModuleJob.kind, .emitModule)
+      XCTAssertEqual(emitModuleJob.inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
+      XCTAssertEqual(emitModuleJob.outputs.count, 4)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.swiftmodule"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.swiftdoc"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.swiftsourceinfo"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.abi.json"))}).count)
     }
 
     try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-module", "embed-bitcode.swift"]) { driver, verify in
