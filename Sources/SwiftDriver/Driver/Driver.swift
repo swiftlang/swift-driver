@@ -2102,10 +2102,9 @@ extension Driver {
       // An option has been passed which requires a module, but the user hasn't
       // requested one. Generate a module, but treat it as an intermediate output.
       moduleOutputKind = .auxiliary
-    } else if compilerMode != .singleCompile &&
-      parsedOptions.hasArgument(.emitObjcHeader, .emitObjcHeaderPath,
-                                .emitModuleInterface, .emitModuleInterfacePath,
-                                .emitPrivateModuleInterfacePath) {
+    } else if parsedOptions.hasArgument(.emitObjcHeader, .emitObjcHeaderPath,
+                                        .emitModuleInterface, .emitModuleInterfacePath,
+                                        .emitPrivateModuleInterfacePath) {
       // An option has been passed which requires whole-module knowledge, but we
       // don't have that. Generate a module, but treat it as an intermediate
       // output.
