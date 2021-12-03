@@ -398,38 +398,39 @@ extension Driver {
     } else {
       addAllOutputsFor(input: nil)
 
-      // Outputs that only make sense when the whole module is processed
-      // together.
-      addOutputOfType(
-        outputType: .objcHeader,
-        finalOutputPath: objcGeneratedHeaderPath,
-        input: nil,
-        flag: "-emit-objc-header-path")
+      if !emitModuleSeparately {
+        // Outputs that only make sense when the whole module is processed
+        // together.
+        addOutputOfType(
+          outputType: .objcHeader,
+          finalOutputPath: objcGeneratedHeaderPath,
+          input: nil,
+          flag: "-emit-objc-header-path")
 
-      addOutputOfType(
-        outputType: .swiftInterface,
-        finalOutputPath: swiftInterfacePath,
-        input: nil,
-        flag: "-emit-module-interface-path")
+        addOutputOfType(
+          outputType: .swiftInterface,
+          finalOutputPath: swiftInterfacePath,
+          input: nil,
+          flag: "-emit-module-interface-path")
 
-      addOutputOfType(
-        outputType: .privateSwiftInterface,
-        finalOutputPath: swiftPrivateInterfacePath,
-        input: nil,
-        flag: "-emit-private-module-interface-path")
+        addOutputOfType(
+          outputType: .privateSwiftInterface,
+          finalOutputPath: swiftPrivateInterfacePath,
+          input: nil,
+          flag: "-emit-private-module-interface-path")
 
-      addOutputOfType(
-        outputType: .tbd,
-        finalOutputPath: tbdPath,
-        input: nil,
-        flag: "-emit-tbd-path")
+        addOutputOfType(
+          outputType: .tbd,
+          finalOutputPath: tbdPath,
+          input: nil,
+          flag: "-emit-tbd-path")
 
-      if let abiDescriptorPath = abiDescriptorPath,
-         !emitModuleSeparately {
-        addOutputOfType(outputType: .jsonABIBaseline,
-                        finalOutputPath: abiDescriptorPath.fileHandle,
-                        input: nil,
-                        flag: "-emit-abi-descriptor-path")
+        if let abiDescriptorPath = abiDescriptorPath {
+          addOutputOfType(outputType: .jsonABIBaseline,
+                          finalOutputPath: abiDescriptorPath.fileHandle,
+                          input: nil,
+                          flag: "-emit-abi-descriptor-path")
+        }
       }
     }
 
