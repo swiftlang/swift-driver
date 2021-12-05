@@ -15,7 +15,8 @@
 internal extension SwiftScan {
   /// From a reference to a binary-format dependency graph returned by libSwiftScan,
   /// construct an instance of an `InterModuleDependencyGraph`.
-  func constructGraph(from scannerGraphRef: swiftscan_dependency_graph_t) throws
+  func constructGraph(from scannerGraphRef: swiftscan_dependency_graph_t,
+                      moduleAliases: [String: String]?) throws
   -> InterModuleDependencyGraph {
     let mainModuleNameRef =
       api.swiftscan_dependency_graph_get_main_module_name(scannerGraphRef)
@@ -35,7 +36,7 @@ internal extension SwiftScan {
       guard let moduleRef = moduleRefOrNull else {
         throw DependencyScanningError.missingField("dependency_set_t.modules[_]")
       }
-      let (moduleId, moduleInfo) = try constructModuleInfo(from: moduleRef)
+      let (moduleId, moduleInfo) = try constructModuleInfo(from: moduleRef, moduleAliases: moduleAliases)
       resultGraph.modules[moduleId] = moduleInfo
     }
 
@@ -44,18 +45,20 @@ internal extension SwiftScan {
 
   /// From a reference to a binary-format set of module imports return by libSwiftScan pre-scan query,
   /// construct an instance of an `InterModuleDependencyImports` set
-  func constructImportSet(from importSetRef: swiftscan_import_set_t) throws
+  func constructImportSet(from importSetRef: swiftscan_import_set_t,
+                          with moduleAliases: [String: String]?) throws
   -> InterModuleDependencyImports {
     guard let importsRef = api.swiftscan_import_set_get_imports(importSetRef) else {
       throw DependencyScanningError.missingField("import_set.imports")
     }
-    return InterModuleDependencyImports(imports: try toSwiftStringArray(importsRef.pointee))
+    return InterModuleDependencyImports(imports: try toSwiftStringArray(importsRef.pointee), moduleAliases: moduleAliases)
   }
 
   /// From a reference to a binary-format dependency graph collection returned by libSwiftScan batch scan query,
   /// corresponding to the specified batch scan input (`BatchScanModuleInfo`), construct instances of
   /// `InterModuleDependencyGraph` for each result.
   func constructBatchResultGraphs(for batchInfos: [BatchScanModuleInfo],
+                                  moduleAliases: [String: String]?,
                                   from batchResultRef: swiftscan_batch_scan_result_t) throws
   -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     var resultMap: [ModuleDependencyId: [InterModuleDependencyGraph]] = [:]
@@ -66,7 +69,7 @@ internal extension SwiftScan {
       guard let resultGraphRef = resultGraphRefOrNull else {
         throw DependencyScanningError.dependencyScanFailed
       }
-      let decodedGraph = try constructGraph(from: resultGraphRef)
+      let decodedGraph = try constructGraph(from: resultGraphRef, moduleAliases: moduleAliases)
 
       let moduleId: ModuleDependencyId
       switch batchInfos[index] {
@@ -89,12 +92,13 @@ internal extension SwiftScan {
 private extension SwiftScan {
   /// From a reference to a binary-format module dependency module info returned by libSwiftScan,
   /// construct an instance of an `ModuleInfo` as used by the driver
-  func constructModuleInfo(from moduleInfoRef: swiftscan_dependency_info_t)
+  func constructModuleInfo(from moduleInfoRef: swiftscan_dependency_info_t,
+                           moduleAliases: [String: String]?)
   throws -> (ModuleDependencyId, ModuleInfo) {
     // Decode the module name and module kind
     let encodedModuleName =
       try toSwiftString(api.swiftscan_module_info_get_module_name(moduleInfoRef))
-    let moduleId = try decodeModuleNameAndKind(from: encodedModuleName)
+    let moduleId = try decodeModuleNameAndKind(from: encodedModuleName, moduleAliases: moduleAliases)
 
     // Decode module path and source file locations
     let modulePathStr = try toSwiftString(api.swiftscan_module_info_get_module_path(moduleInfoRef))
@@ -111,7 +115,7 @@ private extension SwiftScan {
     if let encodedDirectDepsRef = api.swiftscan_module_info_get_direct_dependencies(moduleInfoRef) {
       let encodedDirectDependencies = try toSwiftStringArray(encodedDirectDepsRef.pointee)
       directDependencies =
-        try encodedDirectDependencies.map { try decodeModuleNameAndKind(from: $0) }
+      try encodedDirectDependencies.map { try decodeModuleNameAndKind(from: $0, moduleAliases: moduleAliases) }
     } else {
       directDependencies = nil
     }
@@ -373,12 +377,21 @@ private extension SwiftScan {
   /// "swiftBinary"
   /// "swiftPlaceholder"
   /// "clang""
-  func decodeModuleNameAndKind(from encodedName: String) throws -> ModuleDependencyId {
+  func decodeModuleNameAndKind(from encodedName: String,
+                               moduleAliases: [String: String]?) throws -> ModuleDependencyId {
     switch encodedName {
       case _ where encodedName.starts(with: "swiftTextual:"):
-        return .swift(String(encodedName.suffix(encodedName.count - "swiftTextual:".count)))
+      var namePart = String(encodedName.suffix(encodedName.count - "swiftTextual:".count))
+      if let moduleAliases = moduleAliases, let realName = moduleAliases[namePart] {
+        namePart = realName
+      }
+      return .swift(namePart)
       case _ where encodedName.starts(with: "swiftBinary:"):
-        return .swiftPrebuiltExternal(String(encodedName.suffix(encodedName.count - "swiftBinary:".count)))
+        var namePart = String(encodedName.suffix(encodedName.count - "swiftBinary:".count))
+        if let moduleAliases = moduleAliases, let realName = moduleAliases[namePart] {
+          namePart = realName
+        }
+        return .swiftPrebuiltExternal(namePart)
       case _ where encodedName.starts(with: "swiftPlaceholder:"):
         return .swiftPlaceholder(String(encodedName.suffix(encodedName.count - "swiftPlaceholder:".count)))
       case _ where encodedName.starts(with: "clang:"):

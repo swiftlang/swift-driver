@@ -93,6 +93,7 @@ internal final class SwiftScan {
   }
 
   func preScanImports(workingDirectory: AbsolutePath,
+                      moduleAliases: [String: String]?,
                       invocationCommand: [String]) throws -> InterModuleDependencyImports {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
@@ -112,7 +113,7 @@ internal final class SwiftScan {
       throw DependencyScanningError.dependencyScanFailed
     }
 
-    let importSet = try constructImportSet(from: importSetRef)
+    let importSet = try constructImportSet(from: importSetRef, with: moduleAliases)
     // Free the memory allocated for the in-memory representation of the import set
     // returned by the scanner, now that we have translated it.
     api.swiftscan_import_set_dispose(importSetRef)
@@ -120,6 +121,7 @@ internal final class SwiftScan {
   }
 
   func scanDependencies(workingDirectory: AbsolutePath,
+                        moduleAliases: [String: String]?,
                         invocationCommand: [String]) throws -> InterModuleDependencyGraph {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
@@ -139,7 +141,7 @@ internal final class SwiftScan {
       throw DependencyScanningError.dependencyScanFailed
     }
 
-    let dependencyGraph = try constructGraph(from: graphRef)
+    let dependencyGraph = try constructGraph(from: graphRef, moduleAliases: moduleAliases)
     // Free the memory allocated for the in-memory representation of the dependency
     // graph returned by the scanner, now that we have translated it into an
     // `InterModuleDependencyGraph`.
@@ -148,6 +150,7 @@ internal final class SwiftScan {
   }
 
   func batchScanDependencies(workingDirectory: AbsolutePath,
+                             moduleAliases: [String: String]?,
                              invocationCommand: [String],
                              batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
@@ -201,6 +204,7 @@ internal final class SwiftScan {
     // Translate `swiftscan_batch_scan_result_t`
     // into `[ModuleDependencyId: [InterModuleDependencyGraph]]`
     let resultGraphMap = try constructBatchResultGraphs(for: batchInfos,
+                                                        moduleAliases:  moduleAliases,
                                                         from: batchResultRef.pointee)
     // Free the memory allocated for the in-memory representation of the batch scan
     // result, now that we have translated it.

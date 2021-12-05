@@ -313,7 +313,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           let isFramework: Bool
           swiftModulePath = .init(file: dependencyInfo.modulePath.path,
                                   type: .swiftModule)
-          isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework
+          isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework ?? false
           // Accumulate the required information about this dependency
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
@@ -336,7 +336,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         case .swiftPrebuiltExternal:
           let prebuiltModuleDetails = try dependencyGraph.swiftPrebuiltDetails(of: dependencyId)
           let compiledModulePath = prebuiltModuleDetails.compiledModulePath
-          let isFramework = prebuiltModuleDetails.isFramework
+          let isFramework = prebuiltModuleDetails.isFramework ?? false
           let swiftModulePath: TypedVirtualPath =
             .init(file: compiledModulePath.path, type: .swiftModule)
           // Accumulate the requried information about this dependency

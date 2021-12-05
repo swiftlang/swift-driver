@@ -592,6 +592,255 @@ final class ExplicitModuleBuildTests: XCTestCase {
     #endif
   }
 
+  
+  func testModuleAliasingPrebuiltWithScanDeps() throws {
+    try withTemporaryDirectory { path in
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      let srcBar = path.appending(component: "bar.swift")
+      let moduleBarPath = path.appending(component: "Bar.swiftmodule").pathString.nativePathString().escaped()
+      try localFileSystem.writeFileContents(srcBar) {
+        $0 <<< "public class KlassBar {}"
+      }
+      
+      // Create Bar.swiftmodule
+      var driver = try Driver(args: ["swiftc",
+                                      "-explicit-module-build",
+                                      srcBar.pathString.nativePathString().escaped(),
+                                      "-module-name",
+                                      "Bar",
+                                      "-emit-module",
+                                      "-emit-module-path",
+                                      moduleBarPath] + sdkArgumentsForTesting,
+                               env: ProcessEnv.vars)
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      XCTAssertTrue(FileManager.default.fileExists(atPath: moduleBarPath))
+      
+      // Foo imports Car which is mapped to the real module Bar via
+      // `-module-alias Car=Bar`; it allows Car (alias) to be referenced
+      // in source files, while its contents are compiled as Bar (real
+      // name on disk).
+      let srcFoo = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(srcFoo) {
+        $0 <<< "import Car\n"
+        $0 <<< "func run() -> Car.KlassBar? { return nil }"
+      }
+      
+      // Module alias with the fallback scanner (frontend scanner)
+      var driverA = try Driver(args: ["swiftc",
+                                      "-nonlib-dependency-scanner",
+                                      "-explicit-module-build",
+                                      srcFoo.pathString.nativePathString().escaped(),
+                                      "-module-alias", "Car=Bar",
+                                      "-I",
+                                      path.pathString.nativePathString().escaped(),
+                                     ])
+      
+      // Resulting graph should contain the real module name Bar
+      let dependencyGraphA = try driverA.gatherModuleDependencies()
+      XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "Bar"
+      })
+      XCTAssertFalse(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "Car"
+      })
+
+      let plannedJobsA = try driverA.planBuild()
+      XCTAssertTrue(plannedJobsA.contains { job in
+        job.commandLine.contains(.flag("-module-alias")) &&
+        job.commandLine.contains(.flag("Car=Bar"))
+      })
+
+      // Module alias with the default scanner (driver scanner)
+      var driverB = try Driver(args: ["swiftc",
+                                      "-explicit-module-build",
+                                      srcFoo.pathString.nativePathString().escaped(),
+                                      "-module-alias", "Car=Bar",
+                                      "-I",
+                                      path.pathString.nativePathString().escaped(),
+                                     ])
+      
+      // Resulting graph should contain the real module name Bar
+      let dependencyGraphB = try driverB.gatherModuleDependencies()
+      XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "Bar"
+      })
+      XCTAssertFalse(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "Car"
+      })
+
+      let plannedJobsB = try driverB.planBuild()
+      XCTAssertTrue(plannedJobsB.contains { job in
+        job.commandLine.contains(.flag("-module-alias")) &&
+        job.commandLine.contains(.flag("Car=Bar"))
+      })
+    }
+  }
+  
+  func testModuleAliasingInterfaceWithScanDeps() throws {
+    try withTemporaryDirectory { path in
+      let swiftModuleInterfacesPath: String =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+                        .pathString
+
+      // Foo imports Car which is mapped to the real module Bar via
+      // `-module-alias Car=Bar`; it allows Car (alias) to be referenced
+      // in source files, while its contents are compiled as Bar (real
+      // name on disk).
+      let srcFoo = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(srcFoo) {
+        $0 <<< "import Car\n"
+      }
+      
+      // Module alias with the fallback scanner (frontend scanner)
+      var driverA = try Driver(args: ["swiftc",
+                                      "-nonlib-dependency-scanner",
+                                      "-explicit-module-build",
+                                      srcFoo.pathString.nativePathString().escaped(),
+                                      "-module-alias", "Car=F",
+                                      "-I",
+                                      swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     ])
+      
+      // Resulting graph should contain the real module name Bar
+      let dependencyGraphA = try driverA.gatherModuleDependencies()
+      XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "F"
+      })
+      XCTAssertFalse(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "Car"
+      })
+
+      let plannedJobsA = try driverA.planBuild()
+      XCTAssertTrue(plannedJobsA.contains { job in
+        job.commandLine.contains(.flag("-module-alias")) &&
+        job.commandLine.contains(.flag("Car=F"))
+      })
+
+      // Module alias with the default scanner (driver scanner)
+      var driverB = try Driver(args: ["swiftc",
+                                      "-explicit-module-build",
+                                      srcFoo.pathString.nativePathString().escaped(),
+                                      "-module-alias", "Car=F",
+                                      "-I",
+                                      swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     ])
+      
+      // Resulting graph should contain the real module name Bar
+      let dependencyGraphB = try driverB.gatherModuleDependencies()
+      XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "F"
+      })
+      XCTAssertFalse(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
+        key.moduleName == "Car"
+      })
+
+      let plannedJobsB = try driverB.planBuild()
+      XCTAssertTrue(plannedJobsB.contains { job in
+        job.commandLine.contains(.flag("-module-alias")) &&
+        job.commandLine.contains(.flag("Car=F"))
+      })
+    }
+  }
+  
+  func testModuleAliasingWithImportPrescan() throws {
+    let (_, _, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = InterModuleDependencyOracle()
+    let scanLibPath = try Driver.getScanLibPath(of: toolchain,
+                                                hostTriple: hostTriple,
+                                                env: ProcessEnv.vars)
+    guard try dependencyOracle
+            .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                           swiftScanLibPath: scanLibPath) else {
+      XCTFail("Dependency scanner library not found")
+      return
+    }
+
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "foo.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import Car;"
+        $0 <<< "import Jet;"
+      }
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let scannerCommand = ["-scan-dependencies",
+                            "-import-prescan",
+                            "-module-alias",
+                            "Car=Bar",
+                            main.pathString.escaped()] + sdkArgumentsForTesting
+
+      let deps =
+        try! dependencyOracle.getImports(workingDirectory: path,
+                                         moduleAliases: ["Car": "Bar"],
+                                         commandLine: scannerCommand)
+      
+      XCTAssertTrue(deps.imports.contains("Bar"))
+      XCTAssertFalse(deps.imports.contains("Car"))
+      XCTAssertTrue(deps.imports.contains("Jet"))
+    }
+  }
+  
+  func testModuleAliasingWithExplicitBuild() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let srcBar = path.appending(component: "bar.swift")
+      let moduleBarPath = path.appending(component: "Bar.swiftmodule").pathString.nativePathString().escaped()
+      try localFileSystem.writeFileContents(srcBar) {
+        $0 <<< "public class KlassBar {}"
+      }
+      
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver1 = try Driver(args: ["swiftc",
+                                      "-explicit-module-build",
+                                      "-module-name",
+                                      "Bar",
+                                      "-emit-module",
+                                      "-emit-module-path",
+                                      moduleBarPath,
+                                      srcBar.pathString.nativePathString().escaped()] + sdkArgumentsForTesting,
+                               env: ProcessEnv.vars)
+      let jobs1 = try driver1.planBuild()
+      try driver1.run(jobs: jobs1)
+      XCTAssertFalse(driver1.diagnosticEngine.hasErrors)
+      XCTAssertTrue(FileManager.default.fileExists(atPath: moduleBarPath))
+      
+      let srcFoo = path.appending(component: "foo.swift")
+      let moduleFooPath = path.appending(component: "Foo.swiftmodule").pathString.nativePathString().escaped()
+
+      // Module Foo imports Car but it's mapped to Bar (real name)
+      // `-module-alias Car=Bar` allows Car (alias) to be referenced
+      // in source files in Foo, but its contents will be compiled
+      // as Bar (real name on-disk).
+      try localFileSystem.writeFileContents(srcFoo) {
+        $0 <<< "import Car\n"
+        $0 <<< "func run() -> Car.KlassBar? { return nil }"
+      }
+      var driver2 = try Driver(args: ["swiftc",
+                                      "-I",
+                                      path.pathString.nativePathString().escaped(),
+                                      "-explicit-module-build",
+                                      "-module-name",
+                                      "Foo",
+                                      "-emit-module",
+                                      "-emit-module-path",
+                                      moduleFooPath,
+                                      "-module-alias",
+                                      "Car=Bar",
+                                      srcFoo.pathString.nativePathString().escaped()] + sdkArgumentsForTesting,
+                               env: ProcessEnv.vars)
+      let jobs2 = try driver2.planBuild()
+      try driver2.run(jobs: jobs2)
+      XCTAssertFalse(driver2.diagnosticEngine.hasErrors)
+      XCTAssertTrue(FileManager.default.fileExists(atPath: moduleFooPath))
+    }
+  }
+  
   func testExplicitModuleBuildEndToEnd() throws {
     // The macOS-only restriction is temporary while Clang's dependency scanner
     // is gaining the ability to perform name-based module lookup.
