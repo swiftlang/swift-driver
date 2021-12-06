@@ -14,7 +14,7 @@ import Foundation
 
 internal func executableName(_ name: String) -> String {
 #if os(Windows)
-  if name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ".exe" {
+  if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ".exe" {
     return name
   }
   return "\(name).exe"
