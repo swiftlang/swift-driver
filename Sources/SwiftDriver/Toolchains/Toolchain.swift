@@ -138,10 +138,10 @@ extension Toolchain {
   /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
   private func envVarName(for toolName: String) -> String {
     let lookupName = toolName
+#if os(Windows)
+      .replacingOccurrences(of: ".exe", with: "")
+#endif
       .replacingOccurrences(of: "-", with: "_")
-      // FIXME(compnerd) we should extract the extension for generating the
-      // toolname rather than assuming that we can convert the tool name blindly
-      .replacingOccurrences(of: ".", with: "_")
       .uppercased()
     return "SWIFT_DRIVER_\(lookupName)_EXEC"
   }
