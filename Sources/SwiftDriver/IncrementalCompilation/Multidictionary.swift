@@ -141,11 +141,6 @@
     if self.reverseIndex[v] != nil {
       return false
     }
-    for vals in self.forwardDictionary.values {
-      if vals.contains(v) {
-        return false
-      }
-    }
-    return true
+    return !self.forwardDictionary.values.contains(where: { $0.contains(v) })
   }
 }
