@@ -158,24 +158,24 @@ extension Toolchain {
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
   func lookup(executable: String) throws -> AbsolutePath {
-    if let overrideString = envVar(forExecutable: executable) {
+    if let overrideString = envVar(forExecutable: executableName(executable)) {
       return try AbsolutePath(validating: overrideString)
     } else if let toolDir = toolDirectory,
-              let path = lookupExecutablePath(filename: executable, searchPaths: [toolDir]) {
+              let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [toolDir]) {
       // Looking for tools from the tools directory.
       return path
-    } else if let path = lookupExecutablePath(filename: executable, searchPaths: [executableDir]) {
+    } else if let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [executableDir]) {
       return path
-    } else if let path = try? xcrunFind(executable: executable) {
+    } else if let path = try? xcrunFind(executable: executableName(executable)) {
       return path
     } else if !["swift-frontend", "swift", "swift-frontend.exe", "swift.exe"].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
               parentDirectory != executableDir,
-              let path = lookupExecutablePath(filename: executable, searchPaths: [parentDirectory]) {
+              let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [parentDirectory]) {
       // If the driver library's client and the frontend are in different directories,
       // try looking for tools next to the frontend.
       return path
-    } else if let path = lookupExecutablePath(filename: executable, searchPaths: searchPaths) {
+    } else if let path = lookupExecutablePath(filename: executableName(executable), searchPaths: searchPaths) {
       return path
     } else if executable == executableName("swift-frontend") {
       // Temporary shim: fall back to looking for "swift" before failing.
@@ -188,7 +188,7 @@ extension Toolchain {
                     .appending(component: "unknown-Asserts-development.xctoolchain")
                     .appending(component: "usr")
                     .appending(component: "bin")
-                    .appending(component: executable)
+                    .appending(component: executableName(executable))
         }
         return try getToolPath(.swiftCompiler)
                 .parentDirectory
