@@ -173,7 +173,7 @@ extension DarwinToolchain {
     guard parsedOptions.hasFlag(
       positive: .linkObjcRuntime,
       negative: .noLinkObjcRuntime,
-      default: !targetTriple.supports(.compatibleObjCRuntime)
+      default: !targetTriple.supports(.nativeARC)
     ) else {
       return
     }
