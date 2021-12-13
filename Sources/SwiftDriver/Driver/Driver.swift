@@ -820,7 +820,7 @@ extension Driver {
     let execName = try VirtualPath(path: args[0]).basenameWithoutExt
 
     // If we are not run as 'swift' or 'swiftc' or there are no program arguments, always invoke as normal.
-    guard [executableName("swift"), executableName("swiftc")].contains(execName), args.count > 1 else {
+    guard ["swift", "swiftc", executableName("swift"), executableName("swiftc")].contains(execName), args.count > 1 else {
       return (.normal(isRepl: false), args)
     }
 
@@ -840,7 +840,7 @@ extension Driver {
     }
 
     // Only 'swift' supports subcommands.
-    guard execName == "swift" else {
+    guard ["swift", executableName("swift")].contains(execName) else {
       return (.normal(isRepl: false), args)
     }
 
