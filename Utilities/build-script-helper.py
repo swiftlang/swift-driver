@@ -432,6 +432,10 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
     # LLBuild
     build_llbuild_using_cmake(args, target, swiftc_exec, dependencies_dir,
                               base_cmake_flags, swift_flags)
+    # SwiftSystem
+    build_system_using_cmake(args, target, swiftc_exec, dependencies_dir,
+                             base_cmake_flags, swift_flags)
+
     # TSC
     build_tsc_using_cmake(args, target, swiftc_exec, dependencies_dir,
                           base_cmake_flags, swift_flags)
@@ -473,12 +477,28 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_f
   cmake_build(args, swiftc_exec, llbuild_cmake_flags, llbuild_swift_flags,
               llbuild_source_dir, llbuild_build_dir, 'products/all')
 
+def build_system_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
+  print('Building Swift Driver dependency: Swift System')
+  system_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-system')
+  system_build_dir = os.path.join(build_dir, 'swift-system')
+  flags = [
+      # requried due to swift-autolink-extract bug ("The file was not recognized as a valid object file")
+      "-DBUILD_SHARED_LIBS=YES"]
+  system_cmake_flags = base_cmake_flags + flags
+  system_swift_flags = swift_flags[:]
+  cmake_build(args, swiftc_exec, system_cmake_flags, system_swift_flags,
+              system_source_dir, system_build_dir)
+
 def build_tsc_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
   print('Building Swift Driver dependency: TSC')
   tsc_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-tools-support-core')
   tsc_build_dir = os.path.join(build_dir, 'swift-tools-support-core')
+  flags = [
+      '-DSwiftSystem_DIR=' + os.path.join(os.path.join(build_dir, 'swift-system'), 'cmake/modules')]
+  tsc_cmake_flags = base_cmake_flags + flags
+
   tsc_swift_flags = swift_flags[:]
-  cmake_build(args, swiftc_exec, base_cmake_flags, tsc_swift_flags,
+  cmake_build(args, swiftc_exec, tsc_cmake_flags, tsc_swift_flags,
               tsc_source_dir, tsc_build_dir)
 
 def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flags, swift_flags):
@@ -522,7 +542,8 @@ def build_swift_driver_using_cmake(args, target, swiftc_exec, build_dir, base_cm
         '-DLLBuild_DIR=' + os.path.join(os.path.join(dependencies_dir, 'llbuild'), 'cmake/modules'),
         '-DTSC_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-tools-support-core'), 'cmake/modules'),
         '-DYams_DIR=' + os.path.join(os.path.join(dependencies_dir, 'yams'), 'cmake/modules'),
-        '-DArgumentParser_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-argument-parser'), 'cmake/modules')]
+        '-DArgumentParser_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-argument-parser'), 'cmake/modules'),
+        '-DSwiftSystem_DIR=' + os.path.join(os.path.join(dependencies_dir, 'swift-system'), 'cmake/modules')]
   driver_cmake_flags = base_cmake_flags + flags
   cmake_build(args, swiftc_exec, driver_cmake_flags, driver_swift_flags,
               driver_source_dir, driver_build_dir)
