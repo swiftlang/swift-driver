@@ -250,7 +250,11 @@ extension DarwinToolchain {
     commandLine.appendFlag("-o")
     commandLine.appendPath(outputFile)
 
-    return try getToolPath(linkerTool)
+    if let arg = parsedOptions.getLastArgument(.useLd) {
+      return AbsolutePath(arg.asSingle)
+    } else {
+      return try getToolPath(linkerTool)
+    }
   }
 
   private func addLinkInputs(shouldUseInputFileList: Bool,

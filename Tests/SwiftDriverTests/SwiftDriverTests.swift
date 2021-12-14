@@ -1244,6 +1244,19 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
+    do {
+      // -use-ld
+      var driver = try Driver(args: commonArgs + ["-use-ld=/bin/my-ld"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(3, plannedJobs.count)
+      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+      XCTAssertEqual(linkJob.tool.name, "/bin/my-ld")
+    }
+
     #if os(Linux)
     do {
       // Xlinker flags
