@@ -53,6 +53,10 @@ extension Diagnostic.Message {
     .error("unsupported option '\(arg)' for target '\(target.triple)'")
   }
 
+  static func error_sanitizer_unavailable_on_target(sanitizer: String, target: Triple) -> Diagnostic.Message {
+    .error("\(sanitizer) sanitizer is unavailable on target '\(target.triple)'")
+  }
+
   static var error_mode_cannot_emit_module: Diagnostic.Message {
     .error("this mode does not support emitting modules")
   }
