@@ -27,6 +27,14 @@ private func executableName(_ name: String) -> String {
 #endif
 }
 
+private func rebase(_ arc: String, at base: AbsolutePath) -> String {
+  base.appending(component: arc).pathString.nativePathString()
+}
+
+private func rebase(_ arcs: String..., at base: AbsolutePath) -> String {
+  base.appending(components: arcs).pathString.nativePathString()
+}
+
 final class SwiftDriverTests: XCTestCase {
 
   private var envWithFakeSwiftHelp: [String: String] {
@@ -247,10 +255,18 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver1.inputFiles,
                    [ TypedVirtualPath(file: VirtualPath.relative(RelativePath("a.swift")).intern(), type: .swift),
                      TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/tmp/b.swift")).intern(), type: .swift) ])
-    let driver2 = try Driver(args: ["swiftc", "a.swift", "-working-directory", "/wobble", "/tmp/b.swift"])
+
+    let workingDirectory =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/wobble", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+    let tempDirectory =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/tmp", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+
+    let driver2 = try Driver(args: ["swiftc", "a.swift", "-working-directory", workingDirectory.pathString, rebase("b.swift", at: tempDirectory)])
     XCTAssertEqual(driver2.inputFiles,
-                   [ TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/wobble/a.swift")).intern(), type: .swift),
-                     TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/tmp/b.swift")).intern(), type: .swift) ])
+                   [ TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath(rebase("a.swift", at: workingDirectory))).intern(), type: .swift),
+                     TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath(rebase("b.swift", at: tempDirectory))).intern(), type: .swift) ])
 
     let driver3 = try Driver(args: ["swift", "-"])
     XCTAssertEqual(driver3.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
@@ -574,10 +590,14 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath(executableName("Test"))))
 
     // Forwarding of arguments.
-    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g"])
+    let workingDirectory =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/tmp", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+
+    var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", workingDirectory.pathString, "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g"])
     let plannedJobs2 = try driver2.planBuild()
     let compileJob = plannedJobs2.first(where: {$0.kind == .compile})!
-    XCTAssert(compileJob.commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: "/tmp/diff.txt")))))
+    XCTAssert(compileJob.commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: rebase("diff.txt", at: workingDirectory))))))
     XCTAssert(compileJob.commandLine.contains(.flag("-HI")))
     XCTAssert(!compileJob.commandLine.contains(.flag("-Xfrontend")))
     XCTAssert(compileJob.commandLine.contains(.flag("-no-color-diagnostics")))
@@ -996,10 +1016,10 @@ final class SwiftDriverTests: XCTestCase {
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
       try localFileSystem.writeFileContents(fooPath) {
-        $0 <<< "hello\nbye\nbye\\ to\\ you\n@\(barPath.pathString)"
+        $0 <<< "hello\nbye\nbye\\ to\\ you\n@\(barPath.pathString.nativePathString().escaped())"
       }
       try localFileSystem.writeFileContents(barPath) {
-        $0 <<< "from\nbar\n@\(fooPath.pathString)"
+        $0 <<< "from\nbar\n@\(fooPath.pathString.nativePathString().escaped())"
       }
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
@@ -1071,7 +1091,7 @@ final class SwiftDriverTests: XCTestCase {
         //This is a comment
         // this is another comment
         but this is \\\\\a command
-        @\#(barPath.pathString)
+        @\#(barPath.pathString.nativePathString().escaped())
         @NotAFile
         -flag="quoted string with a \"quote\" inside" -another-flag
         """#
@@ -2416,15 +2436,18 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-no-emit-module-separately"])
+      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/foo/bar")
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[2].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath("/foo/bar/Test.abi.json")))
+      XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
+      XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
+      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
+      XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
     }
 
     do {
@@ -2469,35 +2492,41 @@ final class SwiftDriverTests: XCTestCase {
 
   func testEmitModuleSeparately() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"])
+      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/foo/bar")
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-parse-as-library")))
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath("/foo/bar/Test.abi.json")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-symbol-graph-dir")))
     }
 
     do {
+      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/foo/bar")
+
       // We don't expect partial jobs when asking only for the swiftmodule with
       // -experimental-emit-module-separately.
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath("/foo/bar/Test.swiftmodule")))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath("/foo/bar/Test.swiftdoc")))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath("/foo/bar/Test.abi.json")))
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
     }
 
     do {
@@ -2534,7 +2563,11 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"])
+      let symbolGraphDir =
+          try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: symbolGraphDir), "-emit-symbol-graph", "-emit-symbol-graph-dir", symbolGraphDir.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2550,18 +2583,21 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
       XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
       XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftmodule"))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftdoc"))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo"))}).count)
-      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.abi.json"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: symbolGraphDir)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: symbolGraphDir)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: symbolGraphDir)))}).count)
+      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: symbolGraphDir)))}).count)
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
       XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-emit-symbol-graph-dir")))
     }
 
     do {
+      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/foo/bar")
+
       // Ignore the `-emit-module-separately-wmo` flag when building only the module files to avoid duplicating outputs.
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-wmo", "-emit-module-separately-wmo"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-wmo", "-emit-module-separately-wmo"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile]))
@@ -2570,15 +2606,18 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = plannedJobs[0]
       XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
       XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftmodule"))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftdoc"))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo"))}).count)
-      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.abi.json"))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
+      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
     }
 
     do {
+      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/foo/bar")
+
       // Specifying -no-emit-module-separately-wmo doesn't schedule the separate emit-module job.
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
       let plannedJobs = try driver.planBuild()
       #if os(Linux) || os(Android)
       XCTAssertEqual(plannedJobs.count, 3)
@@ -2592,10 +2631,10 @@ final class SwiftDriverTests: XCTestCase {
       let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
       XCTAssertEqual(compileJob.outputs.count, 4 + abiFileCount)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
-      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftmodule"))}).count)
-      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftdoc"))}).count)
-      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo"))}).count)
-      XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath("/foo/bar/Test.abi.json"))}).count)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
+      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
+      XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
     }
 
     do {
@@ -3746,42 +3785,58 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLEqualPassedDownToLinkerInvocation() throws {
+    let workingDirectory =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/Foo/Bar", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+
     var driver = try Driver(args: [
-      "swiftc", "-working-directory", "/Foo/Bar", "-emit-executable", "test.swift", "-L=.", "-F=."
+      "swiftc", "-working-directory", workingDirectory.pathString, "-emit-executable", "test.swift", "-L=.", "-F=."
     ])
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    let workDir: VirtualPath = try VirtualPath(path: workingDirectory.pathString.nativePathString())
+
     XCTAssertEqual(plannedJobs.count, 2)
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-F=", .absolute(.init("/Foo/Bar")))))
-    XCTAssertFalse(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-L=", .absolute(.init("/Foo/Bar")))))
-    XCTAssertTrue(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-L=", .absolute(.init("/Foo/Bar")))))
-    XCTAssertFalse(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-F=", .absolute(.init("/Foo/Bar")))))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-F=", workDir)))
+    XCTAssertFalse(plannedJobs[0].commandLine.contains(.joinedOptionAndPath("-L=", workDir)))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-L=", workDir)))
+    XCTAssertFalse(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-F=", workDir)))
     // Test implicit output file also honors the working directory.
     XCTAssertTrue(plannedJobs[1].commandLine.contains(.flag("-o")))
-    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/test"))))
+    XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: rebase(executableName("test"), at: workingDirectory)))))
   }
 
   func testWorkingDirectoryForImplicitOutputs() throws {
+    let workingDirectory =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/Foo/Bar", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+
     var driver = try Driver(args: [
-      "swiftc", "-working-directory", "/Foo/Bar", "-emit-executable", "-c", "/tmp/main.swift"
+      "swiftc", "-working-directory", workingDirectory.pathString, "-emit-executable", "-c", "/tmp/main.swift"
     ])
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
     XCTAssertEqual(plannedJobs.count, 1)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.o"))))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: rebase("main.o", at: workingDirectory)))))
   }
 
   func testWorkingDirectoryForImplicitModules() throws {
+    let workingDirectory =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/Foo/Bar", relativeTo: $0) }
+                ?? AbsolutePath(validating: "/Foo/Bar")
+
     var driver = try Driver(args: [
-      "swiftc", "-working-directory", "/Foo/Bar", "-emit-module", "/tmp/main.swift"
+      "swiftc", "-working-directory", workingDirectory.pathString, "-emit-module", "/tmp/main.swift"
     ])
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-o")))
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftmodule"))))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: rebase("main.swiftmodule", at: workingDirectory)))))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-module-doc-path")))
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftdoc"))))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: rebase("main.swiftdoc", at: workingDirectory)))))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-module-source-info-path")))
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/Foo/Bar/main.swiftsourceinfo"))))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: rebase("main.swiftsourceinfo", at: workingDirectory)))))
   }
 
   func testDOTFileEmission() throws {
@@ -5280,15 +5335,19 @@ final class SwiftDriverTests: XCTestCase {
 
   func testFrontendTargetInfoWithWorkingDirectory() throws {
     do {
+      let workingDirectory =
+          try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/absolute/path", relativeTo: $0) }
+                  ?? AbsolutePath(validating: "/Foo/Bar")
+
       var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift",
                                      "-resource-dir", "resource/dir",
                                      "-sdk", "sdk",
-                                     "-working-directory", "/absolute/path"])
+                                     "-working-directory", workingDirectory.pathString])
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.path(.absolute(.init("/absolute/path/resource/dir")))))
+      XCTAssertTrue(job.commandLine.contains(.path(try VirtualPath(path: rebase("resource", "dir", at: workingDirectory)))))
       XCTAssertFalse(job.commandLine.contains(.path(.relative(.init("resource/dir")))))
-      XCTAssertTrue(job.commandLine.contains(.path(.absolute(.init("/absolute/path/sdk")))))
+      XCTAssertTrue(job.commandLine.contains(.path(try VirtualPath(path: rebase("sdk", at: workingDirectory)))))
       XCTAssertFalse(job.commandLine.contains(.path(.relative(.init("sdk")))))
     }
   }
