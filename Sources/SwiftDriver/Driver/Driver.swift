@@ -27,7 +27,7 @@ public struct Driver {
     case integratedReplRemoved
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
-    case unableToLoadOutputFileMap(String)
+    case unableToLoadOutputFileMap(String, String)
     case unableToDecodeFrontendTargetInfo(String?, [String], String)
     case failedToRetrieveFrontendTargetInfo
     case failedToRunFrontendToRetrieveTargetInfo(Int, String?)
@@ -101,8 +101,8 @@ public struct Driver {
         return "Missing Context Hash for Swift dependency: \(moduleName)"
       case .dependencyScanningFailure(let code, let error):
         return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
-      case .unableToLoadOutputFileMap(let path):
-        return "unable to load output file map '\(path)': no such file or directory"
+      case .unableToLoadOutputFileMap(let path, let error):
+        return "unable to load output file map '\(path)': \(error)"
       case .missingExternalDependency(let moduleName):
         return "Missing External dependency info for module: \(moduleName)"
       case .baselineGenerationRequiresTopLevelModule(let arg):
@@ -539,8 +539,8 @@ public struct Driver {
         do {
           let path = try VirtualPath(path: outputFileMapArg)
           outputFileMap = try .load(fileSystem: fileSystem, file: path, diagnosticEngine: diagnosticEngine)
-        } catch {
-          throw Error.unableToLoadOutputFileMap(outputFileMapArg)
+        } catch let error {
+          throw Error.unableToLoadOutputFileMap(outputFileMapArg, error.localizedDescription)
         }
       } else {
         outputFileMap = nil
