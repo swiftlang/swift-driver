@@ -168,7 +168,7 @@ public final class DarwinToolchain: Toolchain {
                            targetVariantTriple: Triple?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
     // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
-    // Guard for the sake of tests runnin on all platforms
+    // Guard for the sake of tests running on all platforms
     #if os(macOS)
     // Validating arclite library path when link-objc-runtime.
     validateLinkObjcRuntimeARCLiteLib(&parsedOptions,
@@ -225,11 +225,16 @@ public final class DarwinToolchain: Toolchain {
   func validateLinkObjcRuntimeARCLiteLib(_ parsedOptions: inout ParsedOptions,
                                            targetTriple: Triple,
                                            diagnosticsEngine: DiagnosticsEngine) {
-    if parsedOptions.hasFlag(positive: .linkObjcRuntime, negative: .noLinkObjcRuntime, default: targetTriple.supports(.compatibleObjCRuntime)) {
-        guard let _ = try? findARCLiteLibPath() else {
-            diagnosticsEngine.emit(.warn_arclite_not_found_when_link_objc_runtime)
-            return
-        }
+    guard parsedOptions.hasFlag(positive: .linkObjcRuntime,
+                                negative: .noLinkObjcRuntime,
+                                default: !targetTriple.supports(.nativeARC))
+    else {
+      return
+    }
+
+    guard let _ = try? findARCLiteLibPath() else {
+        diagnosticsEngine.emit(.warn_arclite_not_found_when_link_objc_runtime)
+        return
     }
   }
 
