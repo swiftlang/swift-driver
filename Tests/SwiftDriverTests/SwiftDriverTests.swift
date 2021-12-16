@@ -3627,11 +3627,15 @@ final class SwiftDriverTests: XCTestCase {
       let generateDSYMJob = plannedJobs.last!
       let cmd = generateDSYMJob.commandLine
 
-      if driver.targetTriple.isDarwin {
+      if driver.targetTriple.objectFormat == .elf  {
+        XCTAssertEqual(plannedJobs.count, 6)
+      } else {
         XCTAssertEqual(plannedJobs.count, 5)
+      }
+
+      if driver.targetTriple.isDarwin {
         XCTAssertEqual(generateDSYMJob.outputs.last?.file, try VirtualPath(path: "Test.dSYM"))
       } else {
-        XCTAssertEqual(plannedJobs.count, 6)
         XCTAssertFalse(plannedJobs.map { $0.kind }.contains(.generateDSYM))
       }
 
