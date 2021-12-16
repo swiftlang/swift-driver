@@ -16,6 +16,17 @@ import TSCBasic
 import XCTest
 import TestUtilities
 
+private func executableName(_ name: String) -> String {
+#if os(Windows)
+  if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ".exe" {
+    return name
+  }
+  return "\(name).exe"
+#else
+  return name
+#endif
+}
+
 final class SwiftDriverTests: XCTestCase {
 
   private var envWithFakeSwiftHelp: [String: String] {
@@ -74,16 +85,16 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(driver5.args, ["swift", "-repl"])
 
     let driver6 = try Driver.invocationRunMode(forArgs: ["swift", "foo", "bar"])
-    XCTAssertEqual(driver6.mode, .subcommand("swift-foo"))
-    XCTAssertEqual(driver6.args, ["swift-foo", "bar"])
+    XCTAssertEqual(driver6.mode, .subcommand(executableName("swift-foo")))
+    XCTAssertEqual(driver6.args, [executableName("swift-foo"), "bar"])
 
     let driver7 = try Driver.invocationRunMode(forArgs: ["swift", "-frontend", "foo", "bar"])
-    XCTAssertEqual(driver7.mode, .subcommand("swift-frontend"))
-    XCTAssertEqual(driver7.args, ["swift-frontend", "foo", "bar"])
+    XCTAssertEqual(driver7.mode, .subcommand(executableName("swift-frontend")))
+    XCTAssertEqual(driver7.args, [executableName("swift-frontend"), "foo", "bar"])
 
     let driver8 = try Driver.invocationRunMode(forArgs: ["swift", "-modulewrap", "foo", "bar"])
-    XCTAssertEqual(driver8.mode, .subcommand("swift-frontend"))
-    XCTAssertEqual(driver8.args, ["swift-frontend", "-modulewrap", "foo", "bar"])
+    XCTAssertEqual(driver8.mode, .subcommand(executableName("swift-frontend")))
+    XCTAssertEqual(driver8.args, [executableName("swift-frontend"), "-modulewrap", "foo", "bar"])
   }
 
   func testSubcommandsHandling() throws {
@@ -558,9 +569,9 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(matchTemporary(plannedJobs[0].outputs.first!.file, "foo.o"))
     XCTAssertEqual(plannedJobs[1].outputs.count, 1)
     XCTAssertTrue(matchTemporary(plannedJobs[1].outputs.first!.file, "bar.o"))
-    XCTAssertTrue(plannedJobs[2].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
+    XCTAssertTrue(plannedJobs[2].tool.name.contains(driver1.targetTriple.isDarwin ? executableName("ld") : executableName("clang")))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
-    XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
+    XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath(executableName("Test"))))
 
     // Forwarding of arguments.
     var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", "/tmp", "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g"])
@@ -2064,7 +2075,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(matchTemporary(plannedJobs[2].outputs.first!.file, "foo5.o"))
       XCTAssertTrue(plannedJobs[3].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
       XCTAssertEqual(plannedJobs[3].outputs.count, 1)
-      XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath("Test")))
+      XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath(executableName("Test"))))
     }
 
     // Test 1 partition results in 1 job
@@ -3624,7 +3635,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertFalse(plannedJobs.map { $0.kind }.contains(.generateDSYM))
       }
 
-      XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: "Test"))))
+      XCTAssertTrue(cmd.contains(.path(try VirtualPath(path: executableName("Test")))))
     }
 
     do {
@@ -3785,33 +3796,33 @@ final class SwiftDriverTests: XCTestCase {
     var output = ""
     serializer.writeDOT(to: &output)
 
-    let linkerDriver = driver.targetTriple.isDarwin ? "ld" : "clang"
+    let linkerDriver = driver.targetTriple.isDarwin ? executableName("ld") : executableName("clang")
     #if os(Linux) || os(Android)
     XCTAssertEqual(output,
     """
     digraph Jobs {
-      "emitModule (swift-frontend)" [style=bold];
+      "emitModule (\(executableName("swift-frontend")))" [style=bold];
       "test.swift" [fontsize=12];
-      "test.swift" -> "emitModule (swift-frontend)" [color=blue];
+      "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
       "test.swiftmodule" [fontsize=12];
-      "emitModule (swift-frontend)" -> "test.swiftmodule" [color=green];
+      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
-      "emitModule (swift-frontend)" -> "test.swiftdoc" [color=green];
+      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
       "test.abi.json" [fontsize=12];
-      "emitModule (swift-frontend)" -> "test.abi.json" [color=green];
-      "compile (swift-frontend)" [style=bold];
-      "test.swift" -> "compile (swift-frontend)" [color=blue];
+      "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
+      "compile (\(executableName("swift-frontend")))" [style=bold];
+      "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
       "test-1.o" [fontsize=12];
-      "compile (swift-frontend)" -> "test-1.o" [color=green];
-      "autolinkExtract (swift-autolink-extract)" [style=bold];
-      "test-1.o" -> "autolinkExtract (swift-autolink-extract)" [color=blue];
+      "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
+      "autolinkExtract (\(executableName("swift-autolink-extract")))" [style=bold];
+      "test-1.o" -> "autolinkExtract (\(executableName("swift-autolink-extract")))" [color=blue];
       "test-2.autolink" [fontsize=12];
-      "autolinkExtract (swift-autolink-extract)" -> "test-2.autolink" [color=green];
-      "link (clang)" [style=bold];
-      "test-1.o" -> "link (clang)" [color=blue];
-      "test-2.autolink" -> "link (clang)" [color=blue];
-      "test" [fontsize=12];
-      "link (clang)" -> "test" [color=green];
+      "autolinkExtract (\(executableName("swift-autolink-extract")))" -> "test-2.autolink" [color=green];
+      "link (\(executableName("clang")))" [style=bold];
+      "test-1.o" -> "link (\(executableName("clang")))" [color=blue];
+      "test-2.autolink" -> "link (\(executableName("clang")))" [color=blue];
+      "\(executableName("test"))" [fontsize=12];
+      "link (\(executableName("clang")))" -> "\(executableName("test"))" [color=green];
     }
 
     """)
@@ -3819,23 +3830,23 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(output,
     """
     digraph Jobs {
-      "emitModule (swift-frontend)" [style=bold];
+      "emitModule (\(executableName("swift-frontend")))" [style=bold];
       "test.swift" [fontsize=12];
-      "test.swift" -> "emitModule (swift-frontend)" [color=blue];
+      "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
       "test.swiftmodule" [fontsize=12];
-      "emitModule (swift-frontend)" -> "test.swiftmodule" [color=green];
+      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
       "test.swiftdoc" [fontsize=12];
-      "emitModule (swift-frontend)" -> "test.swiftdoc" [color=green];
+      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
       "test.abi.json" [fontsize=12];
-      "emitModule (swift-frontend)" -> "test.abi.json" [color=green];
-      "compile (swift-frontend)" [style=bold];
-      "test.swift" -> "compile (swift-frontend)" [color=blue];
+      "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
+      "compile (\(executableName("swift-frontend")))" [style=bold];
+      "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
       "test-1.o" [fontsize=12];
-      "compile (swift-frontend)" -> "test-1.o" [color=green];
+      "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
       "link (\(linkerDriver))" [style=bold];
       "test-1.o" -> "link (\(linkerDriver))" [color=blue];
-      "test" [fontsize=12];
-      "link (\(linkerDriver))" -> "test" [color=green];
+      "\(executableName("test"))" [fontsize=12];
+      "link (\(linkerDriver))" -> "\(executableName("test"))" [color=green];
     }
 
     """)
