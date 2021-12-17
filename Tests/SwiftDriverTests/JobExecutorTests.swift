@@ -290,7 +290,7 @@ final class JobExecutorTests: XCTestCase {
   func testStubProcessProtocol() throws {
 #if os(Windows)
     throw XCTSkip("processId.getter returning `-1`")
-#endif
+#else
     let job = Job(
       moduleName: "main",
       kind: .compile,
@@ -311,6 +311,7 @@ final class JobExecutorTests: XCTestCase {
     try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
+#endif
   }
 
   func testSwiftDriverExecOverride() throws {
@@ -347,7 +348,7 @@ final class JobExecutorTests: XCTestCase {
   func testInputModifiedDuringSingleJobBuild() throws {
 #if os(Windows)
     throw XCTSkip("Requires -sdk")
-#endif
+#else
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
@@ -369,6 +370,7 @@ final class JobExecutorTests: XCTestCase {
       }
 
     }
+#endif
   }
 
   func testShellEscapingArgsInJobDescription() throws {
