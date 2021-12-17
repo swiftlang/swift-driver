@@ -3785,7 +3785,7 @@ final class SwiftDriverTests: XCTestCase {
     var output = ""
     serializer.writeDOT(to: &output)
 
-    let dynamicLinker = driver.targetTriple.isDarwin ? "ld" : "clang"
+    let linkerDriver = driver.targetTriple.isDarwin ? "ld" : "clang"
     #if os(Linux) || os(Android)
     XCTAssertEqual(output,
     """
@@ -3832,10 +3832,10 @@ final class SwiftDriverTests: XCTestCase {
       "test.swift" -> "compile (swift-frontend)" [color=blue];
       "test-1.o" [fontsize=12];
       "compile (swift-frontend)" -> "test-1.o" [color=green];
-      "link (\(dynamicLinker))" [style=bold];
-      "test-1.o" -> "link (\(dynamicLinker))" [color=blue];
+      "link (\(linkerDriver))" [style=bold];
+      "test-1.o" -> "link (\(linkerDriver))" [color=blue];
       "test" [fontsize=12];
-      "link (\(dynamicLinker))" -> "test" [color=green];
+      "link (\(linkerDriver))" -> "test" [color=green];
     }
 
     """)
