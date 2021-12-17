@@ -35,6 +35,14 @@ private func rebase(_ arcs: String..., at base: AbsolutePath) -> String {
   base.appending(components: arcs).pathString.nativePathString()
 }
 
+private var testInputsPath: AbsolutePath = {
+  var root: AbsolutePath = AbsolutePath(#file)
+  while root.basename != "Tests" {
+    root = root.parentDirectory
+  }
+  return root.parentDirectory.appending(component: "TestInputs")
+}()
+
 final class SwiftDriverTests: XCTestCase {
 
   private var envWithFakeSwiftHelp: [String: String] {
@@ -3426,12 +3434,9 @@ final class SwiftDriverTests: XCTestCase {
 
   func testDarwinSDKTooOld() throws {
     func getSDKPath(sdkDirName: String) -> AbsolutePath {
-      let packageRootPath = AbsolutePath(String(URL(fileURLWithPath: #file).pathComponents
-          .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()))
-      let testInputsPath = packageRootPath.appending(component: "TestInputs")
-                                          .appending(component: "SDKChecks")
-      return testInputsPath.appending(component: sdkDirName)
+      return testInputsPath.appending(component: "SDKChecks").appending(component: sdkDirName)
     }
+
     // Ensure an error is emitted for an unsupported SDK
     func checkSDKUnsupported(sdkDirName: String)
     throws {
@@ -5375,10 +5380,8 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPrebuiltModuleCacheFlags() throws {
-    let packageRootPath = URL(fileURLWithPath: #file).pathComponents
-      .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
-    let testInputsPath = packageRootPath + "/TestInputs"
-    let mockSDKPath : String = testInputsPath + "/mock-sdk.sdk"
+    let mockSDKPath: String =
+        testInputsPath.appending(component: "mock-sdk.sdk").pathString.nativePathString()
 
     do {
       var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "foo.swift", "-sdk", mockSDKPath])
