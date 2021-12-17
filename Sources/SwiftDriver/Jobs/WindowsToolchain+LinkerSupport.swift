@@ -124,9 +124,7 @@ extension WindowsToolchain {
     commandLine.appendFlag("-o")
     commandLine.appendPath(outputFile)
 
-    parsedOptions.arguments(for: .l).forEach {
-      commandLine.appendFlag("\($0.option.spelling)\($0.argument.asSingle)")
-    }
+    addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
     // TODO(compnerd) handle static libraries
     return try getToolPath(.clang)
