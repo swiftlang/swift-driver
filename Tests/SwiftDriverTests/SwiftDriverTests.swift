@@ -3399,7 +3399,7 @@ final class SwiftDriverTests: XCTestCase {
       let sdkPath = getSDKPath(sdkDirName: sdkDirName)
       // Get around the check for SDK's existence
       try localFileSystem.createDirectory(sdkPath)
-      let args = [ "swiftc", "foo.swift", "-sdk", sdkPath.pathString ]
+      let args = [ "swiftc", "foo.swift", "-target", "x86_64-apple-macosx10.9", "-sdk", sdkPath.pathString ]
       try assertDriverDiagnostics(args: args) { driver, verifier in
         verifier.expect(.error("Swift does not support the SDK \(sdkPath.pathString)"))
       }
@@ -3409,7 +3409,7 @@ final class SwiftDriverTests: XCTestCase {
     func checkSDKOkay(sdkDirName: String) throws {
       let sdkPath = getSDKPath(sdkDirName: sdkDirName)
       try localFileSystem.createDirectory(sdkPath)
-      let args = [ "swiftc", "foo.swift", "-sdk", sdkPath.pathString ]
+      let args = [ "swiftc", "foo.swift", "-target", "x86_64-apple-macosx10.9", "-sdk", sdkPath.pathString ]
       try assertNoDiagnostics { de in let _ = try Driver(args: args, diagnosticsEngine: de) }
     }
 
