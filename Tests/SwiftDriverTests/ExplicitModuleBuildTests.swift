@@ -596,6 +596,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleAliasingPrebuiltWithScanDeps() throws {
     try withTemporaryDirectory { path in
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
       let srcBar = path.appending(component: "bar.swift")
       let moduleBarPath = path.appending(component: "Bar.swiftmodule").pathString.nativePathString().escaped()
@@ -610,8 +611,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-module-name",
                                       "Bar",
                                       "-emit-module",
-                                      "-emit-module-path",
-                                      moduleBarPath] + sdkArgumentsForTesting,
+                                      "-emit-module-path", moduleBarPath,
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      ] + sdkArgumentsForTesting,
                                env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -796,14 +799,18 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
       
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+
       var driver1 = try Driver(args: ["swiftc",
                                       "-explicit-module-build",
                                       "-module-name",
                                       "Bar",
                                       "-emit-module",
-                                      "-emit-module-path",
-                                      moduleBarPath,
-                                      srcBar.pathString.nativePathString().escaped()] + sdkArgumentsForTesting,
+                                      "-emit-module-path", moduleBarPath,
+                                      srcBar.pathString.nativePathString().escaped(),
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                     ] + sdkArgumentsForTesting,
                                env: ProcessEnv.vars)
       let jobs1 = try driver1.planBuild()
       try driver1.run(jobs: jobs1)
@@ -832,7 +839,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       moduleFooPath,
                                       "-module-alias",
                                       "Car=Bar",
-                                      srcFoo.pathString.nativePathString().escaped()] + sdkArgumentsForTesting,
+                                      srcFoo.pathString.nativePathString().escaped(),
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      ] + sdkArgumentsForTesting,
                                env: ProcessEnv.vars)
       let jobs2 = try driver2.planBuild()
       try driver2.run(jobs: jobs2)
