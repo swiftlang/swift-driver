@@ -21,8 +21,13 @@ final class SwiftDriverTests: XCTestCase {
         "input1", "-color-diagnostics", "-Ifoo", "-I", "bar spaces",
         "-I=wibble", "input2", "-module-name", "main",
         "-sanitize=a,b,c", "--", "-foo", "-bar"], for: .batch)
+#if os(Windows)
+      XCTAssertEqual(results.description,
+                     #"input1 -color-diagnostics -I foo -I "bar spaces" -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar"#)
+#else
       XCTAssertEqual(results.description,
                      "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
+#endif
     }
 
   func testParseErrors() {

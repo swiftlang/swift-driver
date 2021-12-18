@@ -384,8 +384,13 @@ final class JobExecutorTests: XCTestCase {
                   commandLine: [.path(.absolute(.init("/with space"))),
                                 .path(.absolute(.init("/withoutspace")))],
                   inputs: [], primaryInputs: [], outputs: [])
+#if os(Windows)
+    XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
+                   #""/path/to/the tool" "/with space" /withoutspace"#)
+#else
     XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
                    "'/path/to/the tool' '/with space' /withoutspace")
+#endif
   }
 
   func testInputModifiedDuringMultiJobBuild() throws {
@@ -440,7 +445,12 @@ final class JobExecutorTests: XCTestCase {
       let resolvedCommandLine = try resolver.resolve(
         .squashedArgumentList(option: "--opt=", args: [.path(tmpPath), .path(tmpPath2)]))
       XCTAssertEqual(resolvedCommandLine, "--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)")
+#if os(Windows)
+      XCTAssertEqual(resolvedCommandLine.spm_shellEscaped(),
+                     #""--opt=\#(path.appending(component: "one.txt").pathString) \#(path.appending(component: "two.txt").pathString)""#)
+#else
       XCTAssertEqual(resolvedCommandLine.spm_shellEscaped(), "'--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)'")
+#endif
     }
   }
 
