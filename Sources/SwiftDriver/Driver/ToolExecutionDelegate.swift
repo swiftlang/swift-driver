@@ -91,14 +91,15 @@ import Glibc
 
     buildRecordInfo?.jobFinished(job: job, result: result)
 
-    // FIXME: Currently, TSCBasic.Process uses NSProcess on Windows and discards
-    // the bits of the exit code used to differentiate between normal and abnormal
-    // termination.
-    #if !os(Windows)
+#if os(Windows)
+    if case .abnormal = result.exitStatus {
+      anyJobHadAbnormalExit = true
+    }
+#else
     if case .signalled = result.exitStatus {
       anyJobHadAbnormalExit = true
     }
-    #endif
+#endif
 
     switch mode {
     case .silent:
@@ -123,7 +124,13 @@ import Glibc
                                                 pid: pid).map {
           ParsableMessage(name: job.kind.rawValue, kind: .finished($0))
         }
-#if !os(Windows)
+#if os(Windows)
+      case .abnormal(let exception):
+        messages = constructAbnormalExitMessage(job: job, output: output,
+                                                exception: exception, pid: pid).map {
+          ParsableMessage(name: job.kind.rawValue, kind: .abnormal($0))
+        }
+#else
       case .signalled(let signal):
         let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
         messages = constructJobSignalledMessages(job: job, error: errorMessage, output: output,
@@ -132,6 +139,7 @@ import Glibc
         }
 #endif
       }
+
       for message in messages {
         emit(message)
       }
@@ -263,6 +271,22 @@ private extension ToolExecutionDelegate {
   func constructSingleFinishedMessage(exitCode: Int32, output: String?, pid: Int, realPid: Int)
   -> FinishedMessage {
     return FinishedMessage(exitStatus: Int(exitCode), output: output, pid: pid, realPid: realPid)
+  }
+
+  // MARK: - Abnormal Exit
+  func constructAbnormalExitMessage(job: Job, output: String?, exception: UInt32, pid: Int) -> [AbnormalExitMessage] {
+    let result: [AbnormalExitMessage]
+    if job.kind == .compile, job.primaryInputs.count > 1 {
+      result = job.primaryInputs.map {
+        guard let quasiPid = batchJobInputQuasiPIDMap[(job, $0)] else {
+          fatalError("Parsable-Output batch sub-job abnormal exit with no matching started message: \(job.description): \($0.file.description)")
+        }
+        return AbnormalExitMessage(pid: quasiPid, realPid: pid, output: output, exception: exception)
+      }
+    } else {
+      result = [AbnormalExitMessage(pid: pid, realPid: pid, output: output, exception: exception)]
+    }
+    return result
   }
 
   // MARK: - Job Signalled

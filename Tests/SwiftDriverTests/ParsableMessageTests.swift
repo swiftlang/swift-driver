@@ -118,6 +118,25 @@ final class ParsableMessageTests: XCTestCase {
     """)
   }
 
+  func testAbnormalExitMessage() throws {
+    let exit = AbnormalExitMessage(pid: 1024, realPid: 1024, output: nil, exception: 0x8000_0003)
+    let message = ParsableMessage(name: "compile", kind: .abnormal(exit))
+    let encoded = try message.toJSON()
+    let string = String(data: encoded, encoding: .utf8)!
+
+    XCTAssertEqual(string, """
+    {
+      "exception" : 2147483651,
+      "kind" : "abnormal-exit",
+      "name" : "compile",
+      "pid" : 1024,
+      "process" : {
+        "real_pid" : 1024
+      }
+    }
+    """)
+  }
+
   func testBeganBatchMessages() throws {
     do {
       try withTemporaryDirectory { path in
