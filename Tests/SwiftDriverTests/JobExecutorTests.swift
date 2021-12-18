@@ -449,8 +449,11 @@ final class JobExecutorTests: XCTestCase {
     let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
     return try ["-sdk", toolchain.sdk.get().pathString]
     #elseif os(Windows)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
-    return try ["-sdk", toolchain.sdk.get().pathString]
+    let toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    if let path = try toolchain.defaultSDKPath(nil) {
+      return ["-sdk", path.pathString.nativePathString()]
+    }
+    return []
     #else
     return []
     #endif
