@@ -442,8 +442,8 @@ extension ExplicitDependencyBuildPlanner {
       return previouslyHashsedName
     }
     let hashedArguments: String
-    #if os(macOS)
-    if #available(macOS 10.15, iOS 13, *) {
+    #if canImport(Darwin)
+    if #available(macOS 10.15, *) {
       hashedArguments = CryptoKitSHA256().hash(hashInput).hexadecimalRepresentation
     } else {
       hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation

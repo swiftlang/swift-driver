@@ -972,7 +972,7 @@ extension Driver {
   ///
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
-    #if !os(macOS) && !os(Linux) && !os(Android) && !os(OpenBSD)
+    #if !canImport(Darwin) && !os(Linux) && !os(Android) && !os(OpenBSD)
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
     return content.split { $0 == "\n" || $0 == "\r\n" }
@@ -2621,7 +2621,7 @@ extension Triple {
 
 /// Toolchain computation.
 extension Driver {
-  #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+  #if canImport(Darwin)
   static let defaultToolchainType: Toolchain.Type = DarwinToolchain.self
   #elseif os(Windows)
   static let defaultToolchainType: Toolchain.Type = WindowsToolchain.self

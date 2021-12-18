@@ -12,7 +12,7 @@
 import TSCBasic
 import Foundation
 
-#if os(macOS)
+#if canImport(Darwin)
 import Darwin
 #endif
 
@@ -736,7 +736,7 @@ extension TSCBasic.FileSystem {
   /// - Returns: A `Date` value containing the last modification time.
   public func lastModificationTime(for file: VirtualPath) throws -> Date {
     try resolvingVirtualPath(file) { path in
-      #if os(macOS)
+      #if canImport(Darwin)
       var s = Darwin.stat()
       let err = stat(path.pathString, &s)
       guard err == 0 else {

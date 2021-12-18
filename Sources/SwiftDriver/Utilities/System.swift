@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if os(macOS)
+#if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
 #endif
 
-#if os(macOS) || os(Linux) || os(Android) || os(OpenBSD)
+#if canImport(Darwin) || os(Linux) || os(Android) || os(OpenBSD)
 // Adapted from llvm::sys::commandLineFitsWithinSystemLimits.
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   let upperBound = sysconf(Int32(_SC_ARG_MAX))

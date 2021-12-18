@@ -169,7 +169,7 @@ public final class DarwinToolchain: Toolchain {
                            diagnosticsEngine: DiagnosticsEngine) throws {
     // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
     // Guard for the sake of tests running on all platforms
-    #if os(macOS)
+    #if canImport(Darwin)
     // Validating arclite library path when link-objc-runtime.
     validateLinkObjcRuntimeARCLiteLib(&parsedOptions,
                                       targetTriple: targetTriple,
