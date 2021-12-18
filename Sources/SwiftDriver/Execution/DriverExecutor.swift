@@ -123,10 +123,13 @@ extension DriverExecutor {
     switch exitStatus {
       case .terminated(let code):
         returnCode = Int(code)
-      #if !os(Windows)
+#if os(Windows)
+      case .abnormal(let exception):
+        returnCode = Int(exception)
+#else
       case .signalled(let signal):
         returnCode = Int(signal)
-      #endif
+#endif
     }
     return returnCode
   }

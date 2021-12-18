@@ -211,10 +211,13 @@ public final class MultiJobExecutor {
       switch (result.exitStatus, continueBuildingAfterErrors) {
       case (.terminated(let code), false) where code != EXIT_SUCCESS:
          isBuildCancelled = true
-       #if !os(Windows)
+#if os(Windows)
+      case (.abnormal, false):
+         isBuildCancelled = true
+#else
        case (.signalled, _):
          isBuildCancelled = true
-       #endif
+#endif
       default:
         break
       }
@@ -614,7 +617,10 @@ class ExecuteJobRule: LLBuildRule {
           if !job.kind.isCompile || code != EXIT_FAILURE {
             context.diagnosticsEngine.emit(.error_command_failed(kind: job.kind, code: code))
           }
-#if !os(Windows)
+#if os(Windows)
+        case let .abnormal(exception):
+          context.diagnosticsEngine.emit(.error_command_exception(kind: job.kind, exception: exception))
+#else
         case let .signalled(signal):
           // An interrupt of an individual compiler job means it was deliberatly cancelled,
           // most likely by the driver itself. This does not constitute an error.
@@ -666,5 +672,9 @@ private extension TSCBasic.Diagnostic.Message {
 
   static func error_command_signalled(kind: Job.Kind, signal: Int32) -> TSCBasic.Diagnostic.Message {
     .error("\(kind.rawValue) command failed due to signal \(signal) (use -v to see invocation)")
+  }
+
+  static func error_command_exception(kind: Job.Kind, exception: UInt32) -> TSCBasic.Diagnostic.Message {
+    .error("\(kind.rawValue) command failed due to exception \(exception) (use -v to see invocation)")
   }
 }

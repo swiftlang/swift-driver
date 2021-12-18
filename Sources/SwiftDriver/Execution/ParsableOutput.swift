@@ -16,6 +16,7 @@ import Foundation
   public enum Kind {
     case began(BeganMessage)
     case finished(FinishedMessage)
+    case abnormal(AbnormalExitMessage)
     case signalled(SignalledMessage)
     case skipped(SkippedMessage)
   }
@@ -133,6 +134,27 @@ import Foundation
   }
 }
 
+@_spi(Testing) public struct AbnormalExitMessage: Encodable {
+  let pid: Int
+  let process: ActualProcess
+  let output: String?
+  let exception: UInt32
+
+  public init(pid: Int, realPid: Int, output: String?, exception: UInt32) {
+    self.pid = pid
+    self.process = ActualProcess(realPid: realPid)
+    self.output = output
+    self.exception = exception
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case pid
+    case process
+    case output
+    case exception
+  }
+}
+
 @_spi(Testing) public struct SignalledMessage: Encodable {
   let pid: Int
   let process: ActualProcess
@@ -173,6 +195,9 @@ import Foundation
       try msg.encode(to: encoder)
     case .finished(let msg):
       try container.encode("finished", forKey: .kind)
+      try msg.encode(to: encoder)
+    case .abnormal(let msg):
+      try container.encode("abnormal-exit", forKey: .kind)
       try msg.encode(to: encoder)
     case .signalled(let msg):
       try container.encode("signalled", forKey: .kind)

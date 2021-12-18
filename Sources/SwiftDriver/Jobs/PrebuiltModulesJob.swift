@@ -122,7 +122,10 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
           stderrStream.flush()
         }
       }
-#if !os(Windows)
+#if os(Windows)
+    case .abnormal(let exception):
+      diagnosticsEngine.emit(.remark("\(job.moduleName) exception: \(exception)"))
+#else
     case .signalled:
       diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
 #endif
