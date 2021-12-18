@@ -3206,7 +3206,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "foo.swift"])
       let frontendJobs = try driver.planBuild()
       XCTAssertTrue(frontendJobs.count == 2)
-      XCTAssertTrue(frontendJobs[1].tool.absolutePath!.pathString == ld.pathString)
+      XCTAssertEqual(frontendJobs[1].tool.absolutePath!.pathString, ld.pathString)
     }
   }
 
