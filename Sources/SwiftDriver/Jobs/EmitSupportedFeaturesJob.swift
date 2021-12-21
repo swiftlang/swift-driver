@@ -59,18 +59,18 @@ extension Driver {
                                                fileSystem: FileSystem,
                                                executor: DriverExecutor, env: [String: String])
   throws -> Set<String> {
-    // if libSwiftScan is present in the toolchain, query the compiler supported features
-    // using the SwiftScan interface, instead of calling out to swift-frontend.
-    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
-                                                   hostTriple: hostTriple,
-                                                   env: env)
-
-    if fileSystem.exists(swiftScanLibPath) {
-      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
-      if libSwiftScanInstance.canQuerySupportedArguments() {
-        return try libSwiftScanInstance.querySupportedArguments()
-      }
-    }
+    // TODO: Once we are sure libSwiftScan is deployed across supported platforms and architectures
+    // we should deploy it here.
+//    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
+//                                                   hostTriple: hostTriple,
+//                                                   env: env)
+//
+//    if fileSystem.exists(swiftScanLibPath) {
+//      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+//      if libSwiftScanInstance.canQuerySupportedArguments() {
+//        return try libSwiftScanInstance.querySupportedArguments()
+//      }
+//    }
 
     // Invoke `swift-frontend -emit-supported-features`
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
