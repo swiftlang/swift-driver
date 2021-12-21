@@ -92,6 +92,10 @@ extension WindowsToolchain {
       try commandLine.appendPath(VirtualPath(path: framework.argument.asSingle))
     }
 
+    try commandLine.appendAllExcept(includeList: [.linkerOption],
+                                    excludeList: [.l],
+                                    from: &parsedOptions)
+
     if let sdkPath = targetInfo.sdkPath?.path {
       commandLine.appendFlag("-I")
       commandLine.appendPath(VirtualPath.lookup(sdkPath))
