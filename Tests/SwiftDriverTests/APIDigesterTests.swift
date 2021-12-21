@@ -176,8 +176,10 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testBaselineGenerationEndToEnd() throws {
+#if true
     // rdar://82302797
     throw XCTSkip()
+#else
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
@@ -214,6 +216,7 @@ class APIDigesterTests: XCTestCase {
         XCTAssertTrue((json?["children"] as? [Any])!.count >= 1)
       }
     }
+#endif
   }
 
   func testComparisonOptionValidation() throws {
@@ -261,8 +264,10 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testAPIComparisonEndToEnd() throws {
+#if true
     // rdar://82302797
     throw XCTSkip()
+#else
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
@@ -315,11 +320,14 @@ class APIDigesterTests: XCTestCase {
         "API breakage: accessor MyStruct.a.Set() has parameter 0 type change from Swift.Int to Swift.Bool"
       ])
     }
+#endif
   }
 
   func testABIComparisonEndToEnd() throws {
+#if true
     // rdar://82302797
     throw XCTSkip()
+#else
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
@@ -386,5 +394,6 @@ class APIDigesterTests: XCTestCase {
       XCTAssertTrue(messages.contains("ABI breakage: var MyStruct.a in a non-resilient type changes position from 0 to 1"))
       XCTAssertTrue(messages.contains("ABI breakage: var MyStruct.b in a non-resilient type changes position from 1 to 0"))
     }
+#endif
   }
 }

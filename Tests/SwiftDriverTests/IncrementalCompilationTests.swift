@@ -134,11 +134,10 @@ extension IncrementalCompilationTests {
   /// Ensure that autolink output file goes with .o directory, to not prevent incremental omission of
   /// autolink job.
   /// Much of the code below is taking from testLinking(), but uses the output file map code here.
-  func testAutolinkOutputPath() {
+  func testAutolinkOutputPath() throws {
 #if os(Windows)
-    XCTSkip("Driver.init fatalError")
-    return
-#endif
+    throw XCTSkip("Driver.init fatalError")
+#else
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
@@ -158,6 +157,7 @@ extension IncrementalCompilationTests {
     let autoOut = autoOuts[0]
     let expected = AbsolutePath(derivedDataPath, "\(module).autolink")
     XCTAssertEqual(autoOut.file.absolutePath, expected)
+#endif
   }
 }
 

@@ -34,10 +34,10 @@ class IncrementalBuildPerformanceTests: XCTestCase {
 
   func testPerformance(_ whatToMeasure: WhatToMeasure) throws {
 
-    #if !os(macOS)
+#if !os(macOS)
       // rdar://81411914
       throw XCTSkip()
-    #endif
+#else
 
     let packageRootPath = AbsolutePath(#file)
       .parentDirectory
@@ -52,6 +52,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
     #endif
 
     try test(swiftDepsDirectory: swiftDepsDirectoryPath.pathString, atMost: limit, whatToMeasure)
+#endif
   }
 
   /// Test the cost of reading `swiftdeps` files without doing a full build.

@@ -286,7 +286,7 @@ final class SwiftDriverTests: XCTestCase {
   func testRecordedInputModificationDates() throws {
 #if os(Windows)
     throw XCTSkip("TSCUtility.RelativePath failure")
-#endif
+#else
     try withTemporaryDirectory { path in
       guard let cwd = localFileSystem
         .currentWorkingDirectory else { fatalError() }
@@ -306,6 +306,7 @@ final class SwiftDriverTests: XCTestCase {
         .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift) : utilMDate,
       ])
     }
+#endif
   }
 
   func testPrimaryOutputKinds() throws {
@@ -986,7 +987,7 @@ final class SwiftDriverTests: XCTestCase {
   func testOutputFileMapRelativePathArg() throws {
 #if os(Windows)
     throw XCTSkip("TSCUtility.RelativePath failure")
-#endif
+#else
     try withTemporaryDirectory { path in
       guard let cwd = localFileSystem
         .currentWorkingDirectory else { fatalError() }
@@ -1016,6 +1017,7 @@ final class SwiftDriverTests: XCTestCase {
         "main.swift", "util.swift",
       ]))
     }
+#endif
   }
 
   func testResponseFileExpansion() throws {
@@ -1687,15 +1689,16 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   private func clangPathInActiveXcode() throws -> AbsolutePath? {
-    #if !os(macOS)
+#if !os(macOS)
     return nil
-    #endif
+#else
     let process = Process(arguments: ["xcrun", "-toolchain", "default", "-f", "clang"])
     try process.launch()
     let result = try process.waitUntilExit()
     guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else { return nil }
     guard let path = String(bytes: try result.output.get(), encoding: .utf8) else { return nil }
     return path.isEmpty ? nil : AbsolutePath(path.spm_chomp())
+#endif
   }
 
   func testCompatibilityLibs() throws {
