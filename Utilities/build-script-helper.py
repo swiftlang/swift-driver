@@ -254,8 +254,9 @@ def install_swiftdriver(args, build_dir, prefix, targets) :
 
   # Binary Swift Modules:
   # swift-driver: SwiftDriver.swiftmodule, SwiftOptions.swiftmodule
-  # TODO: swift-argument-parser: ArgumentParser.swiftmodule (disabled until needed)
   # swift-tools-support-core: TSCUtility.swiftmodule, TSCLibc.swiftmodule, TSCBasic.swiftmodule
+  # swift-argument-parser: ArgumentParser.swiftmodule (disabled until needed)
+  # swift-system: SystemPackage.swiftmodule
   install_binary_swift_modules(args, build_dir, install_lib, targets)
 
   # Modulemaps for C Modules:
@@ -333,10 +334,17 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
     install_library(args, build_dir, package_subpath, lib,
                     universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core', targets)
 
+  # Instal the swift-system shared library into the toolchain lib
+  package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-system')
+  install_library(args, build_dir, package_subpath, 'libSystemPackage',
+                  universal_lib_dir, toolchain_lib_dir, 'swift-system', targets)
+
+  # Instal the swift-argument-parser shared library into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser')
   install_library(args, build_dir, package_subpath, 'libArgumentParser',
                   universal_lib_dir, toolchain_lib_dir,'swift-argument-parser', targets)
 
+  # Instal the llbuild core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'llbuild')
   for lib in ['libllbuildSwift', 'libllbuild']:
     install_library(args, build_dir, package_subpath, lib,
@@ -376,6 +384,12 @@ def install_binary_swift_modules(args, build_dir, toolchain_lib_dir, targets):
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser',
                                  product_subpath)
   install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'ArgumentParser', targets)
+
+  # swift-system
+  package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-system',
+                                 product_subpath)
+  install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'SystemPackage', targets)
+  
 
 # Install the modulemaps and headers of the driver's C module dependencies into the toolchain
 # include directory
