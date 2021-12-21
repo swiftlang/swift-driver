@@ -2833,12 +2833,28 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       XCTAssertFalse(job.commandLine.contains(.flag("--")))
-      // On darwin, swift ships in the OS. Immediate mode should use that runtime.
-      #if os(macOS)
-      XCTAssertFalse(job.extraEnvironment.keys.contains("\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH"))
-      #else
-      XCTAssertTrue(job.extraEnvironment.keys.contains("\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH"))
-      #endif
+
+      let envVar: String
+      if driver.targetTriple.isDarwin {
+        envVar = "DYLD_LIBRARY_PATH"
+      } else if driver.targetTriple.isWindows {
+        envVar = "Path"
+      } else {
+        // assume Unix
+        envVar = "LD_LIBRARY_PATH"
+      }
+
+      // The library search path applies to import libraries not runtime
+      // libraries on Windows.  There is no way to derive the path from the
+      // command on Windows.
+      if !driver.targetTriple.isWindows {
+        #if os(macOS)
+        // On darwin, swift ships in the OS. Immediate mode should use that runtime.
+        XCTAssertFalse(job.extraEnvironment.keys.contains(envVar))
+        #else
+        XCTAssertTrue(job.extraEnvironment.keys.contains(envVar))
+        #endif
+      }
     }
 
     do {
@@ -2869,11 +2885,25 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(job.inputs.count, 1)
       XCTAssertEqual(job.inputs[0].file, .relative(RelativePath("foo.swift")))
       XCTAssertEqual(job.outputs.count, 0)
-      XCTAssertTrue(job.extraEnvironment.contains {
-        $0 == "\(driver.targetTriple.isDarwin ? "DYLD" : "LD")_LIBRARY_PATH" && $1.contains("/path/to/lib")
-      })
+
+      let envVar: String
       if driver.targetTriple.isDarwin {
-        XCTAssertTrue(job.extraEnvironment.contains { $0 == "DYLD_FRAMEWORK_PATH" && $1.contains("/path/to/framework") })
+        envVar = "DYLD_LIBRARY_PATH"
+      } else if driver.targetTriple.isWindows {
+        envVar = "Path"
+      } else {
+        // assume Unix
+        envVar = "LD_LIBRARY_PATH"
+      }
+
+      // The library search path applies to import libraries not runtime
+      // libraries on Windows.  There is no way to derive the path from the
+      // command on Windows.
+      if !driver.targetTriple.isWindows {
+        XCTAssertTrue(job.extraEnvironment[envVar, default: ""].contains("/path/to/lib"))
+        if driver.targetTriple.isDarwin {
+          XCTAssertTrue(job.extraEnvironment["DYLD_FRAMEWORK_PATH", default: ""].contains("/path/to/framework"))
+        }
       }
 
       XCTAssertTrue(job.commandLine.contains(.flag("-lsomelib")))
