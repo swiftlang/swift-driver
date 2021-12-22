@@ -3053,13 +3053,15 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEnvironmentInferenceWarning() throws {
-    try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-ios13.0", "foo.swift"]) {
+    let sdkRoot = testInputsPath.appending(component: "SDKChecks").appending(component: "iPhoneOS.sdk")
+
+    try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-ios13.0", "foo.swift", "-sdk", sdkRoot.pathString]) {
       $1.expect(.warning("inferring simulator environment for target 'x86_64-apple-ios13.0'; use '-target x86_64-apple-ios13.0-simulator'"))
     }
-    try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-watchos6.0", "foo.swift"]) {
+    try assertDriverDiagnostics(args: ["swiftc", "-target", "x86_64-apple-watchos6.0", "foo.swift", "-sdk", sdkRoot.pathString]) {
       $1.expect(.warning("inferring simulator environment for target 'x86_64-apple-watchos6.0'; use '-target x86_64-apple-watchos6.0-simulator'"))
     }
-    try assertNoDriverDiagnostics(args: "swiftc", "-target", "x86_64-apple-ios13.0-simulator", "foo.swift")
+    try assertNoDriverDiagnostics(args: "swiftc", "-target", "x86_64-apple-ios13.0-simulator", "foo.swift", "-sdk", sdkRoot.pathString)
   }
 
   func testDarwinToolchainArgumentValidation() throws {
