@@ -37,7 +37,7 @@ public struct OutputFileMapCreator {
   }
 
   private func generateDict() -> [String: [String: String]] {
-    let master = ["swift-dependencies": "\(derivedData.pathString)/\(module)-master.swiftdeps"]
+    let master = ["swift-dependencies": derivedData.appending(component: "\(module)-master.swiftdeps").pathString.nativePathString()]
     let mainEntryDict = self.excludeMainEntry ? [:] : ["": master]
     func baseNameEntry(_ s: AbsolutePath) -> [String: String] {
       [
