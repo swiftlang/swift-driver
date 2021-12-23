@@ -3910,60 +3910,60 @@ final class SwiftDriverTests: XCTestCase {
     serializer.writeDOT(to: &output)
 
     let linkerDriver = driver.targetTriple.isDarwin ? executableName("ld") : executableName("clang")
-    #if os(Linux) || os(Android)
-    XCTAssertEqual(output,
-    """
-    digraph Jobs {
-      "emitModule (\(executableName("swift-frontend")))" [style=bold];
-      "test.swift" [fontsize=12];
-      "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
-      "test.swiftmodule" [fontsize=12];
-      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
-      "test.swiftdoc" [fontsize=12];
-      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
-      "test.abi.json" [fontsize=12];
-      "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
-      "compile (\(executableName("swift-frontend")))" [style=bold];
-      "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
-      "test-1.o" [fontsize=12];
-      "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
-      "autolinkExtract (\(executableName("swift-autolink-extract")))" [style=bold];
-      "test-1.o" -> "autolinkExtract (\(executableName("swift-autolink-extract")))" [color=blue];
-      "test-2.autolink" [fontsize=12];
-      "autolinkExtract (\(executableName("swift-autolink-extract")))" -> "test-2.autolink" [color=green];
-      "link (\(executableName("clang")))" [style=bold];
-      "test-1.o" -> "link (\(executableName("clang")))" [color=blue];
-      "test-2.autolink" -> "link (\(executableName("clang")))" [color=blue];
-      "\(executableName("test"))" [fontsize=12];
-      "link (\(executableName("clang")))" -> "\(executableName("test"))" [color=green];
-    }
+    if driver.targetTriple.objectFormat == .elf {
+        XCTAssertEqual(output,
+        """
+        digraph Jobs {
+          "emitModule (\(executableName("swift-frontend")))" [style=bold];
+          "test.swift" [fontsize=12];
+          "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+          "test.swiftmodule" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
+          "test.swiftdoc" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
+          "test.abi.json" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
+          "compile (\(executableName("swift-frontend")))" [style=bold];
+          "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+          "test-1.o" [fontsize=12];
+          "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
+          "autolinkExtract (\(executableName("swift-autolink-extract")))" [style=bold];
+          "test-1.o" -> "autolinkExtract (\(executableName("swift-autolink-extract")))" [color=blue];
+          "test-2.autolink" [fontsize=12];
+          "autolinkExtract (\(executableName("swift-autolink-extract")))" -> "test-2.autolink" [color=green];
+          "link (\(executableName("clang")))" [style=bold];
+          "test-1.o" -> "link (\(executableName("clang")))" [color=blue];
+          "test-2.autolink" -> "link (\(executableName("clang")))" [color=blue];
+          "\(executableName("test"))" [fontsize=12];
+          "link (\(executableName("clang")))" -> "\(executableName("test"))" [color=green];
+        }
 
-    """)
-    #else
-    XCTAssertEqual(output,
-    """
-    digraph Jobs {
-      "emitModule (\(executableName("swift-frontend")))" [style=bold];
-      "test.swift" [fontsize=12];
-      "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
-      "test.swiftmodule" [fontsize=12];
-      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
-      "test.swiftdoc" [fontsize=12];
-      "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
-      "test.abi.json" [fontsize=12];
-      "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
-      "compile (\(executableName("swift-frontend")))" [style=bold];
-      "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
-      "test-1.o" [fontsize=12];
-      "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
-      "link (\(linkerDriver))" [style=bold];
-      "test-1.o" -> "link (\(linkerDriver))" [color=blue];
-      "\(executableName("test"))" [fontsize=12];
-      "link (\(linkerDriver))" -> "\(executableName("test"))" [color=green];
-    }
+        """)
+    } else {
+        XCTAssertEqual(output,
+        """
+        digraph Jobs {
+          "emitModule (\(executableName("swift-frontend")))" [style=bold];
+          "test.swift" [fontsize=12];
+          "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+          "test.swiftmodule" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
+          "test.swiftdoc" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
+          "test.abi.json" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
+          "compile (\(executableName("swift-frontend")))" [style=bold];
+          "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+          "test-1.o" [fontsize=12];
+          "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
+          "link (\(linkerDriver))" [style=bold];
+          "test-1.o" -> "link (\(linkerDriver))" [color=blue];
+          "\(executableName("test"))" [fontsize=12];
+          "link (\(linkerDriver))" -> "\(executableName("test"))" [color=green];
+        }
 
-    """)
-    #endif
+        """)
+    }
   }
 
   func testRegressions() throws {
