@@ -180,7 +180,7 @@ fileprivate extension Array where Element == Change {
       let eol = "\n"
 #endif
 
-    let specOrGen = Change.allCases .map {
+    let specOrGen = Change.allCases.map {
       contains($0) ? "specific" : "general"
     }
     let output = zip(specOrGen, Change.allLociOfExposure)
