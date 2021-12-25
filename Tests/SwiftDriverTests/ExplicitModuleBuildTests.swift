@@ -645,9 +645,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       path.pathString.nativePathString().escaped(),
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=Bar",
-                                      "-I",
-                                      path.pathString.nativePathString().escaped(),
-                                     ])
+                                      "-I", path.pathString.nativePathString().escaped(),
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                     ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
       let dependencyGraphA = try driverA.gatherModuleDependencies()
@@ -671,9 +672,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       path.pathString.nativePathString().escaped(),
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=Bar",
-                                      "-I",
-                                      path.pathString.nativePathString().escaped(),
-                                     ])
+                                      "-I", path.pathString.nativePathString().escaped(),
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                     ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
       let dependencyGraphB = try driverB.gatherModuleDependencies()
@@ -694,10 +696,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
   
   func testModuleAliasingInterfaceWithScanDeps() throws {
     try withTemporaryDirectory { path in
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
+
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
       // Foo imports Car which is mapped to the real module Bar via
       // `-module-alias Car=E`; it allows Car (alias) to be referenced
@@ -707,7 +711,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(srcFoo) {
         $0 <<< "import Car\n"
       }
-      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
 
       // Module alias with the fallback scanner (frontend scanner)
       var driverA = try Driver(args: ["swiftc",
@@ -715,8 +718,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-explicit-module-build",
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=E",
-                                      "-I",
-                                      swiftModuleInterfacesPath.nativePathString().escaped(),
+                                      "-I", swiftModuleInterfacesPath.pathString.nativePathString().escaped(),
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
                                      ] + sdkArgumentsForTesting)
       guard driverA.isFrontendArgSupported(.moduleAlias) else {
         throw XCTSkip("Skipping: compiler does not support '-module-alias'")
@@ -742,10 +746,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-explicit-module-build",
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=E",
-                                      "-working-directory",
-                                      path.pathString.nativePathString().escaped(),
-                                      "-I",
-                                      swiftModuleInterfacesPath.nativePathString().escaped(),
+                                      "-working-directory", path.pathString.nativePathString().escaped(),
+                                      "-I", swiftModuleInterfacesPath.pathString.nativePathString().escaped(),
+                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                      "-I", shimsPath.pathString.nativePathString().escaped(),
                                      ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
