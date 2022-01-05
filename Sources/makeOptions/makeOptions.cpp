@@ -323,6 +323,7 @@ int makeOptions_main() {
           emitFlagIf(ArgumentIsPath, ".argumentIsPath");
         emitFlagIf(ModuleInterfaceOption, ".moduleInterface");
         emitFlagIf(SupplementaryOutput, ".supplementaryOutput");
+        emitFlagIf(SwiftSymbolGraphExtractOption, ".symbolGraphExtract");
         out << "]";
       }
 

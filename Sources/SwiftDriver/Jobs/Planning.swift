@@ -255,6 +255,10 @@ extension Driver {
         debugInfo: debugInfo,
         addJob: addJobAfterCompiles,
         addLinkerInput: addLinkerInput)
+
+      if let symgraphJob = try symbolGraphExtractJob(inputs: emitModuleJob.outputs) {
+        addJobAfterCompiles(symgraphJob)
+      }
     }
 
     try addJobsForPrimaryInputs(

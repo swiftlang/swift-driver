@@ -83,6 +83,8 @@ extension WindowsToolchain.ToolchainValidationError {
       return try lookup(executable: "llvm-dwarfdump.exe")
     case .swiftHelp:
       return try lookup(executable: "swift-help.exe")
+    case .swiftSymbolGraphExtract:
+      return try lookup(executable: "swift-symbolgraph-extract.exe")
     }
   }
 

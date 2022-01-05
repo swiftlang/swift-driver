@@ -25,6 +25,7 @@ public enum Tool: Hashable {
   case dwarfdump
   case swiftHelp
   case swiftAPIDigester
+  case swiftSymbolGraphExtract
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers

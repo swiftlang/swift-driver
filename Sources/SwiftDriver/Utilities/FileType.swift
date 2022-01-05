@@ -142,6 +142,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// ABI baseline JSON
   case jsonABIBaseline = "abi.json"
+
+  /// Symbol graph JSON
+  case symbolGraphJson = "symbols.json"
 }
 
 extension FileType: CustomStringConvertible {
@@ -219,6 +222,9 @@ extension FileType: CustomStringConvertible {
 
     case .jsonABIBaseline:
       return "abi-baseline-json"
+
+    case .symbolGraphJson:
+      return "symbol-graph-json"
     }
   }
 }
@@ -236,7 +242,7 @@ extension FileType {
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
          .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, .symbolGraphJson:
       return false
     }
   }
@@ -335,6 +341,8 @@ extension FileType {
       return "api-baseline-json"
     case .jsonABIBaseline:
       return "abi-baseline-json"
+    case .symbolGraphJson:
+      return "symbol-graph-json"
     }
   }
 }
@@ -346,7 +354,8 @@ extension FileType {
          .objcHeader, .autolink, .importedModules, .tbd, .moduleTrace,
          .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline:
+         .jsonTargetInfo, .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline,
+         .symbolGraphJson:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -368,7 +377,7 @@ extension FileType {
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .modDepCache,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
          .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath, .jsonAPIBaseline,
-         .jsonABIBaseline:
+         .jsonABIBaseline, .symbolGraphJson:
       return false
     }
   }

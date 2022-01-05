@@ -29,6 +29,7 @@ public struct OptionAttributes: OptionSet, Hashable {
   public static let argumentIsPath                = OptionAttributes(rawValue: 0x200)
   public static let moduleInterface               = OptionAttributes(rawValue: 0x400)
   public static let supplementaryOutput           = OptionAttributes(rawValue: 0x800)
+  public static let symbolGraphExtract            = OptionAttributes(rawValue: 0x1000)
 }
 
 /// Describes a command-line option.

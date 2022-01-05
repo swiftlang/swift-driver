@@ -85,6 +85,8 @@ public final class GenericUnixToolchain: Toolchain {
       return try lookup(executable: "swift-help")
     case .swiftAPIDigester:
       return try lookup(executable: "swift-api-digester")
+    case .swiftSymbolGraphExtract:
+      return try lookup(executable: "swift-symbolgraph-extract")
     }
   }
 

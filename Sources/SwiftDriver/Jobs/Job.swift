@@ -25,6 +25,7 @@ public struct Job: Codable, Equatable, Hashable {
     case emitModule = "emit-module"
     case generatePCH = "generate-pch"
     case moduleWrap = "module-wrap"
+    case symbolGraphExtract = "symbolgraph-extract"
 
     /// Generate a compiled Clang module.
     case generatePCM = "generate-pcm"
@@ -192,6 +193,9 @@ extension Job : CustomStringConvertible {
     case .moduleWrap:
       return "Wrapping Swift module \(moduleName)"
 
+    case .symbolGraphExtract:
+        return "Emitting symbol graph for module \(moduleName)"
+
     case .generatePCM:
         return "Compiling Clang module \(moduleName)"
 
@@ -262,7 +266,8 @@ extension Job.Kind {
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap,
-        .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline, .compareABIBaseline:
+        .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline, .compareABIBaseline,
+        .symbolGraphExtract:
         return false
     }
   }
@@ -278,7 +283,7 @@ extension Job.Kind {
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline:
+         .compareABIBaseline, .symbolGraphExtract:
       return false
     }
   }
