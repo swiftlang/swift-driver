@@ -328,23 +328,24 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
     install_library(args, build_dir, package_subpath, lib,
                     universal_lib_dir, toolchain_lib_dir, 'swift-driver', targets)
 
-  # Instal the swift-tools-support core shared libraries into the toolchain lib
+  # Install the swift-tools-support core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-tools-support-core')
   for lib in ['libTSCBasic', 'libTSCLibc', 'libTSCUtility']:
     install_library(args, build_dir, package_subpath, lib,
                     universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core', targets)
 
-  # Instal the swift-system shared library into the toolchain lib
+  # Install the swift-system shared library into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-system')
   install_library(args, build_dir, package_subpath, 'libSystemPackage',
                   universal_lib_dir, toolchain_lib_dir, 'swift-system', targets)
 
-  # Instal the swift-argument-parser shared library into the toolchain lib
+  # Install the swift-argument-parser shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser')
-  install_library(args, build_dir, package_subpath, 'libArgumentParser',
-                  universal_lib_dir, toolchain_lib_dir,'swift-argument-parser', targets)
+  for lib in ['libArgumentParser', 'libArgumentParserToolInfo']:
+      install_library(args, build_dir, package_subpath, lib,
+                      universal_lib_dir, toolchain_lib_dir,'swift-argument-parser', targets)
 
-  # Instal the llbuild core shared libraries into the toolchain lib
+  # Install the llbuild core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'llbuild')
   for lib in ['libllbuildSwift', 'libllbuild']:
     install_library(args, build_dir, package_subpath, lib,
