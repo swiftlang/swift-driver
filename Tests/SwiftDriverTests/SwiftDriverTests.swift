@@ -5714,6 +5714,57 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(mapA.entries, [VirtualPath.relative(.init("a.swift")).intern(): [:]])
     }
   }
+  
+  func testCleaningUpOldCompilationOutputs() throws {
+#if !os(macOS)
+    throw XCTSkip("sdkArguments does not work on Linux")
+#else
+    // Build something, create an error, see if the .o and .swiftdeps files get cleaned up
+    try withTemporaryDirectory { tmpDir in
+      let main = tmpDir.appending(component: "main.swift")
+      let ofm = tmpDir.appending(component: "ofm")
+      OutputFileMapCreator.write(module: "mod",
+                                 inputPaths: [main],
+                                 derivedData: tmpDir,
+                                 to: ofm)
+      
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "// no errors here"
+        $0 <<< "func foo() {}"
+      }
+      /// return true if no error
+      func doBuild() throws -> Bool {
+        let sdkArguments = try XCTUnwrap(try Driver.sdkArgumentsForTesting())
+        var driver = try Driver(args: ["swiftc",
+                                       "-working-directory", tmpDir.pathString.nativePathString().escaped(),
+                                       "-module-name", "mod",
+                                       "-c",
+                                       "-incremental",
+                                       "-output-file-map", ofm.pathString.nativePathString().escaped(),
+                                       main.pathString.escaped()] + sdkArguments,
+                                env: ProcessEnv.vars)
+        let jobs = try driver.planBuild()
+        do {try driver.run(jobs: jobs)}
+        catch {return false}
+        return true
+      }
+      XCTAssertTrue(try doBuild())
+
+      let outputs = [
+        tmpDir.appending(component: "main.o"),
+        tmpDir.appending(component: "main.swiftdeps")
+        ]
+      XCTAssert(outputs.allSatisfy(localFileSystem.exists))
+      
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "#error(\"Yipes!\")"
+        $0 <<< "func foo() {}"
+      }
+      XCTAssertFalse(try doBuild())
+      XCTAssert(outputs.allSatisfy {!localFileSystem.exists($0)})
+    }
+#endif
+  }
 }
 
 func assertString(

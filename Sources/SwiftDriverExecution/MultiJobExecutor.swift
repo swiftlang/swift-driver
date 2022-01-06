@@ -612,6 +612,7 @@ class ExecuteJobRule: LLBuildRule {
       let success = result.exitStatus == .terminated(code: EXIT_SUCCESS)
 
       if !success {
+        job.removeOutputsOfFailedCompilation(from: context.fileSystem)
         switch result.exitStatus {
         case let .terminated(code):
           if !job.kind.isCompile || code != EXIT_FAILURE {
@@ -660,6 +661,17 @@ class ExecuteJobRule: LLBuildRule {
     }
 
     engine.taskIsComplete(value)
+  }
+}
+
+fileprivate extension Job {
+  /// Don't leave incorrect compiler outputs lying around, but don't remove diagnostics!
+  func removeOutputsOfFailedCompilation(from fileSystem: TSCBasic.FileSystem) {
+    guard kind.isCompile else {return}
+    for output in outputs where output.type != .diagnostics {
+      guard let absolutePath = output.file.absolutePath else { continue }
+      try? fileSystem.removeFileTree(absolutePath)
+    }
   }
 }
 
