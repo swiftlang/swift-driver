@@ -5716,6 +5716,9 @@ final class SwiftDriverTests: XCTestCase {
   }
   
   func testCleaningUpOldCompilationOutputs() throws {
+#if !os(macOS)
+    throw XCTSkip("sdkArguments does not work on Linux")
+#else
     // Build something, create an error, see if the .o and .swiftdeps files get cleaned up
     try withTemporaryDirectory { tmpDir in
       let main = tmpDir.appending(component: "main.swift")
@@ -5761,6 +5764,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(try doBuild())
       XCTAssert(outputs.allSatisfy {!localFileSystem.exists($0)})
     }
+#endif
   }
 }
 
