@@ -255,6 +255,8 @@ extension Driver {
       if shouldSupportAnonymousContextMangledNames {
         commandLine.appendFlag(.enableAnonymousContextMangledNames)
       }
+
+      try commandLine.appendAll(.debugCompilationDir, from: &parsedOptions)
     }
 
     // Pass through any subsystem flags.
