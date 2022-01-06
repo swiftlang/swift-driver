@@ -5744,7 +5744,6 @@ final class SwiftDriverTests: XCTestCase {
                                        main.pathString.escaped()] + sdkArguments,
                                 env: ProcessEnv.vars)
         let jobs = try driver.planBuild()
-        let failed: Bool
         do {try driver.run(jobs: jobs)}
         catch {return false}
         return true
