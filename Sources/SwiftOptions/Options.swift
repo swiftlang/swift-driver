@@ -65,7 +65,7 @@ extension Option {
   public static let c: Option = Option("-c", .flag, alias: Option.emitObject, attributes: [.frontend, .noInteractive], group: .modes)
   public static let debugAssertAfterParse: Option = Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing", group: .debugCrash)
   public static let debugAssertImmediately: Option = Option("-debug-assert-immediately", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure immediately", group: .debugCrash)
-  public static let debugCompilationDir: Option = Option("-debug-compilation-dir", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "The compilation directory to embed in the debug info.")
+  public static let debugCompilationDir: Option = Option("-debug-compilation-dir", .separate, attributes: [.frontend], metaVar: "<path>", helpText: "The compilation directory to embed in the debug info.")
   public static let debugConstraintsAttempt: Option = Option("-debug-constraints-attempt", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Debug the constraint solver at a given attempt")
   public static let debugConstraintsOnLineEQ: Option = Option("-debug-constraints-on-line=", .joined, alias: Option.debugConstraintsOnLine, attributes: [.helpHidden, .frontend, .noDriver])
   public static let debugConstraintsOnLine: Option = Option("-debug-constraints-on-line", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<line>", helpText: "Debug the constraint solver for expressions on <line>")
