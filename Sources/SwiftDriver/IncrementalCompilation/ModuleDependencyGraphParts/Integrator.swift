@@ -21,6 +21,7 @@ extension ModuleDependencyGraph {
 
     // Shorthands
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
+    typealias DefinitionLocation = Graph.DefinitionLocation
 
     public private(set) var invalidatedNodes = DirectlyInvalidatedNodeSet()
 
@@ -47,7 +48,7 @@ extension ModuleDependencyGraph {
       self.dependencySource = dependencySource
       self.destination = destination
       self.disappearedNodes = destination.nodeFinder
-        .findNodes(for: dependencySource)
+      .findNodes(for: .known(dependencySource))
         ?? [:]
     }
     
@@ -124,8 +125,8 @@ extension ModuleDependencyGraph.Integrator {
 
     let integratedNode = destination.nodeFinder.findNodes(for: integrand.key)
       .flatMap {
-        integrateWithNodeHere(integrand, $0) ??
-        integrateWithExpat(   integrand, $0)
+        integrateWithNodeDefinedHere(    integrand, $0) ??
+        integrateWithNodeDefinedNowhere( integrand, $0)
       }
     ?? integrateWithNewNode(integrand)
 
@@ -140,14 +141,14 @@ extension ModuleDependencyGraph.Integrator {
   ///  - Returns: nil if a corresponding node did *not* already exist for the same source,
   ///  Otherwise, the integrated corresponding node.
   ///  If the integrated node was changed by the integration, it is added to ``invalidatedNodes``.
-  private mutating func integrateWithNodeHere(
+  private mutating func integrateWithNodeDefinedHere(
     _ integrand: SourceFileDependencyGraph.Node,
-    _ nodesMatchingKey: [DependencySource?: Graph.Node]
+    _ nodesMatchingKey: [DefinitionLocation: Graph.Node]
   ) -> Graph.Node? {
-    guard let matchHere = nodesMatchingKey[dependencySource] else {
+    guard let matchHere = nodesMatchingKey[.known(dependencySource)] else {
       return nil
     }
-    assert(matchHere.dependencySource == dependencySource)
+    assert(matchHere.definitionLocation == .known(dependencySource))
     // Node was and still is. Do not remove it.
     disappearedNodes.removeValue(forKey: matchHere.key)
     enum FingerprintDisposition: String {
@@ -183,27 +184,26 @@ extension ModuleDependencyGraph.Integrator {
     return matchHere
   }
 
-  /// If a node to be integrated correspnds with an expat node in the destination graph, integrate it.
-  /// (An "expat" is a node belonging to no dependency source; a definition that has been used,
-  /// but whose source has not been integrated yet.)
-  /// When an expat is integrated into a dependency source, it is "moved" in the graph.
+  /// If a node to be integrated correspnds with a node in the graph belonging to no dependency source read as yet, integrate it.
+  /// The node to be integrated represents the definition of a declaration whose uses have already been seen.
+  /// The existing node is "moved" to its proper place in the graph, corresponding to the location of the definition of the declaration.
   ///
   /// - Parameters:
   ///   - integrand: the node to be integrated
   ///   - nodesMatchingKey: all nodes in the destination graph with matching `DependencyKey`
-  /// - Returns: nil if a corresponding node was *not* an expat in the destination, or the integrated corresponding node if it was.
+  /// - Returns: nil if a corresponding node *did* have a definition location, or the integrated corresponding node if it did not.
   ///  If the integrated node was changed by the integration, it is added to ``invalidatedNodes``.
-  private mutating func integrateWithExpat(
+  private mutating func integrateWithNodeDefinedNowhere(
     _ integrand: SourceFileDependencyGraph.Node,
-    _ nodesMatchingKey: [DependencySource?: Graph.Node]
+    _ nodesMatchingKey: [DefinitionLocation: Graph.Node]
   ) -> Graph.Node? {
-    guard let expat = nodesMatchingKey[nil] else {
+    guard let nodeWithNoDefinitionLocation = nodesMatchingKey[.unknown] else {
       return nil
     }
     assert(nodesMatchingKey.count == 1,
-           "If an expat exists, then must not be any matches in other files")
+           "The graph never holds more than one node for a given key that has no definition location")
     let integratedNode = destination.nodeFinder
-      .replace(expat,
+      .replace(nodeWithNoDefinitionLocation,
                newDependencySource: self.dependencySource,
                newFingerprint: integrand.fingerprint)
     addPatriated(integratedNode)
@@ -223,7 +223,7 @@ extension ModuleDependencyGraph.Integrator {
     let newNode = Graph.Node(
       key: integrand.key,
       fingerprint: integrand.fingerprint,
-      dependencySource: dependencySource)
+      definitionLocation: .known(dependencySource))
     let oldNode = destination.nodeFinder.insert(newNode)
     assert(oldNode == nil, "Should be new!")
     addNew(newNode)
@@ -298,7 +298,7 @@ extension ModuleDependencyGraph.Integrator {
 extension ModuleDependencyGraph.Integrator {
   @discardableResult
   func verifyAfterImporting() -> Bool {
-    guard let nodesInFile = destination.nodeFinder.findNodes(for: dependencySource),
+    guard let nodesInFile = destination.nodeFinder.findNodes(for: .known(dependencySource)),
           !nodesInFile.isEmpty
     else {
       fatalError("Just imported \(dependencySource), should have nodes")

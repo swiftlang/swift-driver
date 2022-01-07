@@ -118,7 +118,7 @@ extension SourceFileDependencyGraph.Node: ExportableNode {
 
 extension ModuleDependencyGraph.Node: ExportableNode {
   fileprivate var isProvides: Bool {
-    !isExpat
+    definitionLocation != .unknown
   }
 }
 

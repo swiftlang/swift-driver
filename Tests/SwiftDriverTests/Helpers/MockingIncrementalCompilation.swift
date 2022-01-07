@@ -27,7 +27,7 @@ extension ModuleDependencyGraph {
          fileNode.isTraced {
         return true
       }
-      if let nodes = nodeFinder.findNodes(for: dependencySource)?.values,
+      if let nodes = nodeFinder.findNodes(for: .known(dependencySource))?.values,
          nodes.contains(where: {$0.isTraced}) {
         return true
       }
@@ -94,7 +94,7 @@ extension ModuleDependencyGraph.NodeFinder {
     forMock dependencySource: DependencySource
   ) -> Graph.Node?  {
     let fileKey = DependencyKey(fileKeyForMockDependencySource: dependencySource)
-    return findNode((dependencySource, fileKey))
+    return findNode((.known(dependencySource), fileKey))
   }
 }
 

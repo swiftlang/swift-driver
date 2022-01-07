@@ -78,8 +78,8 @@ extension ModuleDependencyGraph.Tracer {
     tracedUses.append(definition)
     
     // If this node is merely used, but not defined anywhere, nothing else
-    // can possibly depend upon it.
-    if definition.isExpat { return }
+    // can possibly depend upon it
+    if case .unknown = definition.definitionLocation { return }
     
     let pathLengthAfterArrival = traceArrival(at: definition);
     
@@ -115,7 +115,7 @@ extension ModuleDependencyGraph.Tracer {
   }
 
   private func printPath(_ path: [Graph.Node]) {
-    guard path.first?.dependencySource != path.last?.dependencySource
+    guard path.first?.definitionLocation != path.last?.definitionLocation
     else {
       return
     }
@@ -123,12 +123,12 @@ extension ModuleDependencyGraph.Tracer {
       [
         "Traced:",
         path.compactMap { node in
-          node.dependencySource.map {
-            source in
-            source.typedFile.type == .swift
-            ? "\(node.key.description(in: graph)) in \(source.file.basename)"
-            : "\(node.key.description(in: graph))"
+          guard case let .known(source) = node.definitionLocation else {
+            return nil
           }
+          return source.typedFile.type == .swift
+          ? "\(node.key.description(in: graph)) in \(source.file.basename)"
+          : "\(node.key.description(in: graph))"
         }
         .joined(separator: " -> ")
       ].joined(separator: " ")

@@ -1010,7 +1010,11 @@ extension ModuleDependencyGraph {
   ) -> [SwiftSourceFile] {
     var foundSources = [SwiftSourceFile]()
     for dependent in collectUntracedNodes(thatUse: fingerprintedExternalDependency, .testing) {
-      let dependencySource = dependent.dependencySource!
+      guard case let .known(dependencySource) = dependent.definitionLocation
+      else {
+        XCTFail("definition location should be known")
+        break
+      }
       foundSources.append(SwiftSourceFile(dependencySource.typedFile))
       // findSwiftDepsToRecompileWhenWholeSwiftDepChanges is reflexive
       // Don't return job twice.
