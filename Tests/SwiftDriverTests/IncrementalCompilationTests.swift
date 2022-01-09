@@ -12,6 +12,7 @@
 import XCTest
 import TSCBasic
 import TSCUtility
+import Foundation
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
@@ -1078,6 +1079,7 @@ extension IncrementalCompilationTests {
 // MARK: - Incremental test perturbation helpers
 extension IncrementalCompilationTests {
   private func touch(_ name: String) {
+    Thread.sleep(forTimeInterval: 1)
     print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
     let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
     try! localFileSystem.writeFileContents(path) { $0 <<< contents }
