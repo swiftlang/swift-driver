@@ -606,16 +606,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
       
       // Create Bar.swiftmodule
       var driver = try Driver(args: ["swiftc",
-                                      "-explicit-module-build",
-                                      srcBar.pathString.nativePathString().escaped(),
-                                      "-module-name",
-                                      "Bar",
-                                      "-emit-module",
-                                      "-emit-module-path", moduleBarPath,
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
-                                      ] + sdkArgumentsForTesting,
-                               env: ProcessEnv.vars)
+                                     "-explicit-module-build",
+                                     "-working-directory",
+                                     path.pathString.nativePathString().escaped(),      
+                                     srcBar.pathString.nativePathString().escaped(),
+                                     "-module-name",
+                                     "Bar",
+                                     "-emit-module",
+                                     "-emit-module-path", moduleBarPath,
+                                     "-I", stdLibPath.pathString.nativePathString().escaped(),
+                                     "-I", shimsPath.pathString.nativePathString().escaped(),
+                              ] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      guard driver.isFrontendArgSupported(.moduleAlias) else {
+        throw XCTSkip("Skipping: compiler does not support '-module-alias'")
+      }
+
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
@@ -635,6 +641,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driverA = try Driver(args: ["swiftc",
                                       "-nonlib-dependency-scanner",
                                       "-explicit-module-build",
+                                      "-working-directory",
+                                      path.pathString.nativePathString().escaped(),
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=Bar",
                                       "-I",
@@ -659,6 +667,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Module alias with the default scanner (driver scanner)
       var driverB = try Driver(args: ["swiftc",
                                       "-explicit-module-build",
+                                      "-working-directory",
+                                      path.pathString.nativePathString().escaped(),
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=Bar",
                                       "-I",
@@ -707,6 +717,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-I",
                                       swiftModuleInterfacesPath.nativePathString().escaped(),
                                      ])
+      guard driverA.isFrontendArgSupported(.moduleAlias) else {
+        throw XCTSkip("Skipping: compiler does not support '-module-alias'")
+      }
       
       // Resulting graph should contain the real module name Bar
       let dependencyGraphA = try driverA.gatherModuleDependencies()
@@ -728,6 +741,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-explicit-module-build",
                                       srcFoo.pathString.nativePathString().escaped(),
                                       "-module-alias", "Car=F",
+                                      "-working-directory",
+                                      path.pathString.nativePathString().escaped(),
                                       "-I",
                                       swiftModuleInterfacesPath.nativePathString().escaped(),
                                      ])
@@ -751,6 +766,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
   
   func testModuleAliasingWithImportPrescan() throws {
     let (_, _, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+
+    let dummyDriver = try Driver(args: ["swiftc", "-module-name", "dummyDriverCheck", "test.swift"])
+    guard dummyDriver.isFrontendArgSupported(.moduleAlias) else {
+      throw XCTSkip("Skipping: compiler does not support '-module-alias'")
+    }
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
@@ -805,6 +825,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-explicit-module-build",
                                       "-module-name",
                                       "Bar",
+                                      "-working-directory",
+                                      path.pathString.nativePathString().escaped(),
                                       "-emit-module",
                                       "-emit-module-path", moduleBarPath,
                                       srcBar.pathString.nativePathString().escaped(),
@@ -812,6 +834,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-I", shimsPath.pathString.nativePathString().escaped(),
                                      ] + sdkArgumentsForTesting,
                                env: ProcessEnv.vars)
+      guard driver1.isFrontendArgSupported(.moduleAlias) else {
+        throw XCTSkip("Skipping: compiler does not support '-module-alias'")
+      }
+
       let jobs1 = try driver1.planBuild()
       try driver1.run(jobs: jobs1)
       XCTAssertFalse(driver1.diagnosticEngine.hasErrors)
@@ -834,6 +860,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-explicit-module-build",
                                       "-module-name",
                                       "Foo",
+                                      "-working-directory",
+                                      path.pathString.nativePathString().escaped(),
                                       "-emit-module",
                                       "-emit-module-path",
                                       moduleFooPath,
@@ -878,10 +906,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
                                      "-explicit-module-build",
                                      "-working-directory", path.pathString.nativePathString().escaped(),
-                                     // TODO: clang targets need to be taught
-                                     // how to work with explicit modules
-                                     // properly.
-                                     "-disable-clang-target",
                                      main.pathString.escaped()] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
