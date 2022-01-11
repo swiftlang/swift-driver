@@ -30,6 +30,12 @@ final class SwiftDriverTests: XCTestCase {
 #endif
     }
 
+  func testParsingRemaining() throws {
+    let options = OptionTable()
+    let results = try options.parse(["--", "input1", "input2"], for: .batch)
+    XCTAssertEqual(results.description, "-- input1 input2")
+  }
+
   func testParseErrors() {
     let options = OptionTable()
 
@@ -66,5 +72,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-repl", option: .repl, currentDriverKind: .batch))
     }
 
+    XCTAssertThrowsError(try options.parse(["--invalid"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "--invalid"))
+    }
   }
 }
