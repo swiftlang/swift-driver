@@ -28,6 +28,7 @@ extension ModuleDependencyGraph {
   /// value is subject to change during integration and tracing.
 
   public final class Node {
+    public typealias DefinitionLocation = ModuleDependencyGraph.DefinitionLocation
 
     /*@_spi(Testing)*/ public typealias Graph = ModuleDependencyGraph
 
@@ -38,15 +39,14 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/ public var key: DependencyKey { keyAndFingerprint.key }
     /*@_spi(Testing)*/ public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
 
-    /// The dependencySource file that holds this entity iff the entities .swiftdeps (or in future, .swiftmodule) is known.
-    /// If more than one source file has the same DependencyKey, then there
-    /// will be one node for each in the driver, distinguished by this field.
-    /// Nodes can move from file to file when the driver reads the result of a
+    /// Each Node corresponds to a declaration, somewhere. If the definition has been already found,
+    /// the `definitionLocation` will point to it.
+    /// If uses are encountered before the definition (in reading swiftdeps files), the `definitionLocation`
+    /// will be set to `.unknown`.
+    /// A node's definition location can move from file to file when the driver reads the result of a
     /// compilation.
-    /// Nil represents a node with no known residance
-    @_spi(Testing) public let dependencySource: DependencySource?
-    var isExpat: Bool { dependencySource == nil }
-
+ 
+    @_spi(Testing) public let definitionLocation: DefinitionLocation
     /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
     /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
     /// When reading a serialized, prior graph, *don't* recover this state, since it will be a new driver
@@ -58,10 +58,10 @@ extension ModuleDependencyGraph {
     /// This dependencySource is the file where the swiftDeps, etc. was read, not necessarily anything in the
     /// SourceFileDependencyGraph or the DependencyKeys
     init(key: DependencyKey, fingerprint: InternedString?,
-         dependencySource: DependencySource?) {
+         definitionLocation: DefinitionLocation) {
       self.keyAndFingerprint = try! KeyAndFingerprintHolder(key, fingerprint)
-      self.dependencySource = dependencySource
-      self.cachedHash = Self.computeHash(key, dependencySource)
+      self.definitionLocation = definitionLocation
+      self.cachedHash = Self.computeHash(key, definitionLocation)
     }
   }
 }
@@ -84,12 +84,12 @@ extension ModuleDependencyGraph.Node {
 extension ModuleDependencyGraph.Node: Equatable, Hashable {
   public static func ==(lhs: ModuleDependencyGraph.Node, rhs: ModuleDependencyGraph.Node) -> Bool {
     lhs.keyAndFingerprint.key == rhs.keyAndFingerprint.key &&
-    lhs.dependencySource == rhs.dependencySource
+    lhs.definitionLocation == rhs.definitionLocation
   }
-  static private func computeHash(_ key: DependencyKey, _ source: DependencySource?) -> Int {
+  static private func computeHash(_ key: DependencyKey, _ definitionLocation: ModuleDependencyGraph.DefinitionLocation) -> Int {
     var h = Hasher()
     h.combine(key)
-    h.combine(source)
+    h.combine(definitionLocation)
     return h.finalize()
   }
 
@@ -107,9 +107,10 @@ public func isInIncreasingOrder(
   if lhs.key != rhs.key {
     return isInIncreasingOrder(lhs.key, rhs.key, in: holder)
   }
-  guard let rds = rhs.dependencySource else {return false}
-  guard let lds = lhs.dependencySource else {return true}
-  guard lds == rds else {return lds < rds}
+  guard lhs.definitionLocation == rhs.definitionLocation
+  else {
+    return lhs.definitionLocation < rhs.definitionLocation
+  }
   guard let rf = rhs.fingerprint else {return false}
   guard let lf = lhs.fingerprint else {return true}
   return isInIncreasingOrder(lf, rf, in: holder)
@@ -117,19 +118,55 @@ public func isInIncreasingOrder(
 
 extension ModuleDependencyGraph.Node {
   public func description(in holder: InternedStringTableHolder) -> String {
-    "\(key.description(in: holder)) \( dependencySource.map { "in \($0.description)" } ?? "<expat>" )"
+    "\(key.description(in: holder)) \( definitionLocation.locationString )"
   }
 }
 
 extension ModuleDependencyGraph.Node {
   public func verify() {
-    verifyExpatsHaveNoFingerprints()
+    verifyNodesithoutDefinitionLocationHasNoFingerprints()
     key.verify()
   }
   
-  public func verifyExpatsHaveNoFingerprints() {
-    if isExpat && fingerprint != nil {
+  public func verifyNodesithoutDefinitionLocationHasNoFingerprints() {
+    if case .unknown = definitionLocation, fingerprint != nil {
       fatalError(#function)
+    }
+  }
+}
+
+// MARK: - DefinitionLocation
+
+extension ModuleDependencyGraph {
+  /// Represents a (possibly unknown) location for a declaration.
+  /// Although a graph node represents a declaration, the location of the definition is not
+  /// always known. For example, it may be in a `swiftdeps` file yet to be read.
+  public enum DefinitionLocation: Equatable, Hashable, Comparable {
+    case unknown, known(DependencySource)
+    
+    public static func <(lhs: Self, rhs: Self) -> Bool {
+      switch (lhs, rhs) {
+        case (.unknown, .unknown): return false
+        case (.known, .unknown): return false
+        case (.unknown, .known): return true
+        case let (.known(lh), .known(rh)): return lh < rh
+      }
+    }
+    
+    /// A string explaining where the definition is.
+    public var locationString: String {
+      switch self {
+        case .unknown: return "nowhere"
+        case let .known(dependencySource): return "in \(dependencySource.description)"
+      }
+    }
+    
+    /// The file holding the definition.
+    public var internedFileNameIfAny: InternedString? {
+      switch self {
+        case .unknown: return nil
+        case let .known(dependencySource): return dependencySource.internedFileName
+      }
     }
   }
 }

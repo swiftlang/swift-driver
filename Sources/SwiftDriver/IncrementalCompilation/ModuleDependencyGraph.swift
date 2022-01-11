@@ -207,7 +207,7 @@ extension ModuleDependencyGraph {
     dependencySource: DependencySource
   ) -> TransitivelyInvalidatedSwiftSourceFileSet {
     accessSafetyPrecondition()
-    let nodes = nodeFinder.findNodes(for: dependencySource) ?? [:]
+    let nodes = nodeFinder.findNodes(for: .known(dependencySource)) ?? [:]
     /// Tests expect this to be reflexive
     return collectInputsUsingInvalidated(nodes: DirectlyInvalidatedNodeSet(nodes.values))
   }
@@ -220,7 +220,7 @@ extension ModuleDependencyGraph {
 
   private func containsNodes(forDependencySource source: DependencySource) -> Bool {
     accessSafetyPrecondition()
-    return nodeFinder.findNodes(for: source).map {!$0.isEmpty}
+    return nodeFinder.findNodes(for: .known(source)).map {!$0.isEmpty}
       ?? false
   }
 }
@@ -264,7 +264,7 @@ extension ModuleDependencyGraph {
       .tracedUses
     return affectedNodes.reduce(into: TransitivelyInvalidatedSwiftSourceFileSet()) {
       invalidatedInputs, affectedNode in
-      if let source = affectedNode.dependencySource,
+      if case let .known(source) = affectedNode.definitionLocation,
          let swiftSourceFile = SwiftSourceFile(ifSource: source.typedFile) {
         invalidatedInputs.insert(swiftSourceFile)
       }
@@ -292,7 +292,7 @@ extension ModuleDependencyGraph {
     // external dependency node.
     let node = Node(key: key,
                     fingerprint: externalDefs.fingerprint,
-                    dependencySource: nil)
+                    definitionLocation: .unknown)
     accessSafetyPrecondition()
     let untracedUses = DirectlyInvalidatedNodeSet(
       nodeFinder
@@ -798,12 +798,12 @@ extension ModuleDependencyGraph {
       /// - Parameter node: The (deserialized) node to test.
       /// - Returns: true iff the node corresponds to a definition on a removed source file.
       fileprivate func isForRemovedInput(_ node: Node) -> Bool {
-        guard let fileWithDeps = node.dependencySource?.typedFile,
-              fileWithDeps.type == .swift // e.g., could be a .swiftdeps file
+        guard case let .known(dependencySource) = node.definitionLocation,
+           dependencySource.typedFile.type == .swift // e.g., could be a .swiftdeps file
         else {
           return false
         }
-        return !info.isPartOfBuild(SwiftSourceFile(fileWithDeps))
+        return !info.isPartOfBuild(SwiftSourceFile(dependencySource.typedFile))
       }
       
       mutating func visit(record: BitcodeElement.Record) throws {
@@ -870,8 +870,8 @@ extension ModuleDependencyGraph {
                                       contextField: 2,
                                       identifierField: 3)
           let depSourceFileOrNone = try nonemptyInternedString(field: 4)
-          let depSource = try depSourceFileOrNone.map {
-            internedFile -> DependencySource in
+          let defLoc: DefinitionLocation = try depSourceFileOrNone.map {
+            internedFile -> DefinitionLocation in
             let pathString = internedFile.lookup(in: internedStringTable)
             let pathHandle = try VirtualPath.intern(path: pathString)
             guard let source =  DependencySource(ifAppropriateFor: pathHandle,
@@ -879,12 +879,13 @@ extension ModuleDependencyGraph {
             else {
               throw ReadError.unknownDependencySourceExtension
             }
-            return source
+            return .known(source)
           }
+          ?? .unknown
           let fingerprint = try nonemptyInternedString(field: 5)
           self.finalize(node: Node(key: key,
                                    fingerprint: fingerprint,
-                                   dependencySource: depSource))
+                                   definitionLocation: defLoc))
         case .dependsOnNode:
           guard record.fields.count == 4
           else {
@@ -1213,7 +1214,7 @@ extension ModuleDependencyGraph {
             $0.append(RecordID.moduleDepGraphNode)
             write(key: node.key, to: &$0)
             $0.append(serializer.lookupIdentifierCode(
-                        for: node.dependencySource?.internedFileName))
+                        for: node.definitionLocation.internedFileNameIfAny))
             $0.append(serializer.lookupIdentifierCode(for: node.fingerprint))
           }
         }
