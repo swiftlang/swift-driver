@@ -12,6 +12,7 @@
 import XCTest
 import TSCBasic
 import TSCUtility
+import Foundation
 
 @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
@@ -399,10 +400,16 @@ final class JobExecutorTests: XCTestCase {
       try localFileSystem.writeFileContents(main) {
         $0 <<< "let foo = 1"
       }
+
       let other = path.appending(component: "other.swift")
       try localFileSystem.writeFileContents(other) {
         $0 <<< "let bar = 2"
       }
+
+      // Sleep for 1s to allow for quiescing mtimes on filesystems with
+      // insufficient timestamp precision.
+      Thread.sleep(forTimeInterval: 1)
+
       try assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString]) {driver, verifier in
         let jobs = try driver.planBuild()
         XCTAssertTrue(jobs.count > 1)
