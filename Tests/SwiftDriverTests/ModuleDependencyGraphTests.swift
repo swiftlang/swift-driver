@@ -1142,9 +1142,9 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     let implementationKey = try! XCTUnwrap(interfaceKey.correspondingImplementation)
     let nodePair = NodePair(
       interface: findExistingNodeOrCreateIfNew(interfaceKey, fingerprint,
-                                               isProvides: true),
+                                               definitionVsUse: .definition),
       implementation: findExistingNodeOrCreateIfNew(implementationKey, fingerprint,
-                                                    isProvides: true))
+                                                    definitionVsUse: .definition))
 
     // if interface changes, have to rebuild implementation.
     // This dependency used to be represented by
@@ -1178,13 +1178,13 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
 
   private mutating func findExistingNodeOrCreateIfNew(_ key: DependencyKey,
                                                       _ fingerprint: InternedString?,
-                                                      isProvides: Bool) -> Node {
+                                                      definitionVsUse: DefinitionVsUse) -> Node {
     func createNew() -> Node {
       let n = try! Node(key: key,
                         fingerprint: fingerprint,
                         sequenceNumber: allNodes.count,
                         defsIDependUpon: [],
-                        isProvides: isProvides)
+                        definitionVsUse: definitionVsUse)
       allNodes.append(n)
       memoizedNodes[key] = n
       return n
@@ -1192,18 +1192,18 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     let result = memoizedNodes[key] ?? createNew()
 
     assert(key == result.key)
-    if !isProvides {
+    if definitionVsUse == .use {
       return result
     }
     // If have provides and depends with same key, result is one node that
-    // isProvides
-    if let fingerprint = fingerprint, !result.isProvides {
-      assert(result.fingerprint == nil, "Depends should not have fingerprints");
+    // is a definition
+    if let fingerprint = fingerprint, result.definitionVsUse == .use {
+      assert(result.fingerprint == nil, "A use should not have a fingerprint");
       let newNode =
         try! Node(key: result.key, fingerprint: fingerprint,
                  sequenceNumber: result.sequenceNumber,
                  defsIDependUpon: result.defsIDependUpon,
-                 isProvides: true)
+                 definitionVsUse: .definition)
       memoizedNodes[key] = newNode
       return newNode
     }
@@ -1215,7 +1215,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
         try! Node(key: result.key, fingerprint: nil,
                  sequenceNumber: result.sequenceNumber,
                  defsIDependUpon: result.defsIDependUpon,
-                 isProvides: true)
+                 definitionVsUse: .definition)
       memoizedNodes[key] = newNode
       return newNode
     }
@@ -1257,7 +1257,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
             includePrivateDeps: includePrivateDeps,
             dependencySource: dependencySource)
     else { return }
-    let defNode = findExistingNodeOrCreateIfNew(defAndUseKeys.def, nil, isProvides: false)
+    let defNode = findExistingNodeOrCreateIfNew(defAndUseKeys.def, nil, definitionVsUse: .use)
 
     // If the depended-upon node is defined in this file, then don't
     // create an arc to the user, when the user is the whole file.
@@ -1285,7 +1285,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     else {
       fatalError("Use must be an already-added provides")
     }
-    assert(useNode.isProvides, "Use (using node) must be a provides");
+    assert(useNode.definitionVsUse == .definition, "Use (using node) must be a definition");
     addArc(def: defNode, use: useNode)
   }
 
@@ -1312,7 +1312,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
           fingerprint: oldNode.fingerprint,
           sequenceNumber: useSequenceNumber,
           defsIDependUpon: depHolder.dependedUpon,
-          isProvides: oldNode.isProvides)
+          definitionVsUse: oldNode.definitionVsUse)
       }
     }
   }

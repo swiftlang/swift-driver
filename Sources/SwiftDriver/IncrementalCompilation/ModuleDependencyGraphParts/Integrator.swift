@@ -118,8 +118,8 @@ extension ModuleDependencyGraph.Integrator {
   private mutating func integrate(
     oneNode integrand: SourceFileDependencyGraph.Node)
   {
-    guard integrand.isProvides else {
-      // depends are captured by recordWhatIsDependedUpon below
+    guard integrand.definitionVsUse == .definition else {
+      // Uses are captured by recordWhatIsDependedUpon below.
       return
     }
 
@@ -219,7 +219,8 @@ extension ModuleDependencyGraph.Integrator {
  private mutating func integrateWithNewNode(
     _ integrand: SourceFileDependencyGraph.Node
   ) -> Graph.Node {
-    precondition(integrand.isProvides, "Dependencies are arcs in the module graph")
+    precondition(integrand.definitionVsUse == .definition,
+                 "Dependencies are arcs in the module graph")
     let newNode = Graph.Node(
       key: integrand.key,
       fingerprint: integrand.fingerprint,

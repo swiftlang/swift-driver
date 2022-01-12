@@ -97,21 +97,21 @@ final class NonincrementalCompilationTests: XCTestCase {
           XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
           XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
           XCTAssertEqual(node.defsIDependUpon, [2])
-          XCTAssertTrue(node.isProvides)
+          XCTAssertEqual(node.definitionVsUse, .definition)
         case let (1, .sourceFileProvide(name: name)):
           saw1 = true
           XCTAssertEqual(node.key.aspect, .implementation)
           XCTAssertEqual(name.lookup(in: internedStringTable), "main.swiftdeps")
           XCTAssertEqual(node.fingerprint?.lookup(in: internedStringTable), "ec443bb982c3a06a433bdd47b85eeba2")
           XCTAssertEqual(node.defsIDependUpon, [])
-          XCTAssertTrue(node.isProvides)
+          XCTAssertEqual(node.definitionVsUse, .definition)
         case let (2, .topLevel(name: name)):
           saw2 = true
           XCTAssertEqual(node.key.aspect, .interface)
           XCTAssertEqual(name.lookup(in: internedStringTable), "a")
           XCTAssertNil(node.fingerprint)
           XCTAssertEqual(node.defsIDependUpon, [])
-          XCTAssertFalse(node.isProvides)
+          XCTAssertEqual(node.definitionVsUse, .use)
         default:
           XCTFail()
         }
@@ -148,7 +148,7 @@ final class NonincrementalCompilationTests: XCTestCase {
           XCTAssertEqual(context.lookup(in: internedStringTable), "5hello1BV")
           XCTAssertEqual(name.lookup(in: internedStringTable), "init")
           XCTAssertEqual(node.defsIDependUpon, [])
-          XCTAssertFalse(node.isProvides)
+          XCTAssertEqual(node.definitionVsUse, .use)
         }
       }
       XCTAssertTrue(foundNode)
@@ -202,7 +202,7 @@ final class NonincrementalCompilationTests: XCTestCase {
           foundNode = true
           XCTAssertEqual(node.key.aspect, .interface)
           XCTAssertEqual(node.defsIDependUpon, [0])
-          XCTAssertTrue(node.isProvides)
+          XCTAssertEqual(node.definitionVsUse, .definition)
         }
       }
       XCTAssertTrue(foundNode)
