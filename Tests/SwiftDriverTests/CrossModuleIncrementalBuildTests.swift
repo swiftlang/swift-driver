@@ -167,7 +167,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
             foundNode = true
             XCTAssertEqual(node.key.aspect, .interface)
             XCTAssertTrue(node.defsIDependUpon.isEmpty)
-            XCTAssertFalse(node.isProvides)
+            XCTAssertEqual(node.definitionVsUse, .use)
           }
         }
         XCTAssertTrue(foundNode)

@@ -109,7 +109,7 @@ extension ModuleDependencyGraph: ExportableGraph {
 // MARK: - Making dependency graph nodes exportable
 fileprivate protocol ExportableNode: Hashable {
   var key: DependencyKey {get}
-  var isProvides: Bool {get}
+  var definitionVsUse: DefinitionVsUse {get}
   func label(in: InternedStringTable) -> String
 }
 
@@ -117,8 +117,8 @@ extension SourceFileDependencyGraph.Node: ExportableNode {
 }
 
 extension ModuleDependencyGraph.Node: ExportableNode {
-  fileprivate var isProvides: Bool {
-    definitionLocation != .unknown
+  fileprivate var definitionVsUse: DefinitionVsUse {
+    definitionLocation == .unknown ? .use : .definition
   }
 }
 
@@ -128,7 +128,7 @@ extension ExportableNode {
   }
 
   fileprivate func label(in t: InternedStringTable) -> String {
-    "\(key.description(in: t)) \(isProvides ? "here" : "somewhere else")"
+    "\(key.description(in: t)) \(definitionVsUse == .definition ? "here" : "somewhere else")"
   }
 
   fileprivate var isExternal: Bool {
@@ -143,10 +143,14 @@ extension ExportableNode {
     key.designator.shape
   }
   fileprivate var fillColor: Color {
-    isProvides ? .azure : key.aspect == .interface ? .yellow : .white
+    switch (definitionVsUse, key.aspect) {
+      case (.definition,  _             ): return .azure
+      case (.use,        .interface     ): return .yellow
+      case (.use,        .implementation): return .white
+    }
   }
   fileprivate var style: Style? {
-    isProvides ? .solid : .dotted
+    definitionVsUse == .definition ? .solid : .dotted
   }
 }
 

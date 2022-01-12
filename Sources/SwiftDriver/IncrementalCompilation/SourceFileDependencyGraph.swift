@@ -62,19 +62,19 @@ extension SourceFileDependencyGraph {
 
     public let sequenceNumber: Int
     public let defsIDependUpon: [Int]
-    public let isProvides: Bool
+    public let definitionVsUse: DefinitionVsUse
     
     /*@_spi(Testing)*/ public init(
       key: DependencyKey,
       fingerprint: InternedString?,
       sequenceNumber: Int,
       defsIDependUpon: [Int],
-      isProvides: Bool
+      definitionVsUse: DefinitionVsUse
     ) throws {
       self.keyAndFingerprint = try KeyAndFingerprintHolder(key, fingerprint)
       self.sequenceNumber = sequenceNumber
       self.defsIDependUpon = defsIDependUpon
-      self.isProvides = isProvides
+      self.definitionVsUse = definitionVsUse
     }
     
     public func verify() {
@@ -91,10 +91,11 @@ extension SourceFileDependencyGraph {
     }
 
     public func description(in holder: InternedStringTableHolder) -> String {
-      [
+      let providesString = definitionVsUse == .definition ? "provides" : "depends"
+      return [
         key.description(in: holder),
         fingerprint.map {"fingerprint: \($0.description(in: holder))"},
-        isProvides ? "provides" : "depends",
+        providesString,
         defsIDependUpon.isEmpty ? nil : "depends on \(defsIDependUpon.count)"
       ]
         .compactMap{$0}
@@ -189,7 +190,7 @@ extension SourceFileDependencyGraph {
       private var fingerprint: String?
       private var nodeSequenceNumber = 0
       private var defsNodeDependUpon: [Int] = []
-      private var isProvides = false
+      private var definitionVsUse: DefinitionVsUse = .use
 
       private var nextSequenceNumber = 0
       private var identifiers: [InternedString] // The empty string is hardcoded as identifiers[0]
@@ -225,7 +226,7 @@ extension SourceFileDependencyGraph {
                             fingerprint: fingerprint?.intern(in: internedStringTable),
                             sequenceNumber: nodeSequenceNumber,
                             defsIDependUpon: defsNodeDependUpon,
-                            isProvides: isProvides)
+                            definitionVsUse: definitionVsUse)
         self.key = nil
         self.defsNodeDependUpon.removeAll(keepingCapacity: true)
         self.nodes.append(node)
@@ -256,7 +257,7 @@ extension SourceFileDependencyGraph {
           }
           let context = identifiers[Int(record.fields[2])]
           let identifier = identifiers[Int(record.fields[3])]
-          self.isProvides = record.fields[4] != 0
+            self.definitionVsUse = .deserializing(record.fields[4])
           let designator = try DependencyKey.Designator(
             kindCode: kindCode, context: context, name: identifier,
             internedStringTable: internedStringTable)
@@ -366,3 +367,14 @@ fileprivate extension DependencyKey.Designator {
   }
 }
 
+// MARK: - Provides or Depends
+
+/// The frontend reports Swift dependency information about `Decl`s (declarations).
+/// The reports are either for definitions or uses. The old terminology (pre-fine-grained) was `provides` vs `depends`.
+public enum DefinitionVsUse {
+  case definition, use
+  
+  static func deserializing(_ field: UInt64) -> Self {
+    field != 0 ? .definition : .use
+  }
+}
