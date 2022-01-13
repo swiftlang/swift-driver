@@ -16,13 +16,21 @@ import TSCLibc
 import TSCBasic
 import TSCUtility
 
+#if os(Windows)
+import WinSDK
+#endif
+
 var intHandler: InterruptHandler?
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 var driverInterrupted = false
 func getExitCode(_ code: Int32) -> Int32 {
   if driverInterrupted {
     intHandler = nil
+#if os(Windows)
+    TerminateProcess(GetCurrentProcess(), UINT(0xC0000000 | UINT(2)))
+#else
     kill(getpid(), SIGINT)
+#endif
     fatalError("Invalid state, could not kill process")
   }
   return code
