@@ -1264,7 +1264,7 @@ extension Driver {
       recordedInputModificationDates: recordedInputModificationDates)
   }
 
-  private func writeIncrementalBuildInformation(_ jobs: [Job]) {
+  public func writeIncrementalBuildInformation(_ jobs: [Job]) {
     // In case the write fails, don't crash the build.
     // A mitigation to rdar://76359678.
     // If the write fails, import incrementality is lost, but it is not a fatal error.
