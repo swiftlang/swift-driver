@@ -57,7 +57,7 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
 
     func quote(_ argument: String) -> String {
       var unquoted: Substring = argument[...]
-      var quoted: String = #"""#
+      var quoted: String = "\""
       while !unquoted.isEmpty {
         guard let firstNonBS = unquoted.firstIndex(where: { $0 != "\\" }) else {
           // The rest of the string is backslashes. Escape all of them and exit.
@@ -66,11 +66,11 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
         }
 
         let bsCount = unquoted.distance(from: unquoted.startIndex, to: firstNonBS)
-        if unquoted[firstNonBS] == #"""# {
+        if unquoted[firstNonBS] == "\"" {
           // This is an embedded quote. Escape all preceeding backslashes, then
           // add one additional backslash to escape the quote.
           (0 ..< (2 * bsCount + 1)).forEach { _ in quoted += "\\" }
-          quoted += #"""#
+          quoted += "\""
         } else {
           // This is just a normal character. Don't escape any of the preceding
           // backslashes, just append them as they are and then append the
@@ -81,7 +81,7 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
 
         unquoted = unquoted.dropFirst(bsCount + 1)
       }
-      return quoted + #"""#
+      return quoted + "\""
     }
 
     var quoted: String = ""
