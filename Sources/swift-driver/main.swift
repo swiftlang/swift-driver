@@ -21,7 +21,9 @@ let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHan
 var driverInterrupted = false
 func getExitCode(_ code: Int32) -> Int32 {
   if driverInterrupted {
-    return (SIGINT | 0x80)
+    intHandler = nil
+    kill(getpid(), SIGINT)
+    fatalError("Invalid state, could not kill process")
   }
   return code
 }
