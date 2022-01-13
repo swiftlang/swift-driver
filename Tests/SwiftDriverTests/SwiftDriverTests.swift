@@ -958,15 +958,20 @@ final class SwiftDriverTests: XCTestCase {
         .swiftDeps: "foo.build/foo.swiftdeps"
       ]
     ]
+
+    let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo_root", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/foo_root")
+
     let resolvedStringyEntries: [String: [FileType: String]] = [
-      "": [.swiftDeps: "/foo_root/foo.build/master.swiftdeps"],
-      "/foo_root/foo.swift" : [
-        .dependencies: "/foo_root/foo.build/foo.d",
-        .object: "/foo_root/foo.build/foo.swift.o",
-        .swiftModule: "/foo_root/foo.build/foo~partial.swiftmodule",
-        .swiftDeps: "/foo_root/foo.build/foo.swiftdeps"
+      "": [.swiftDeps: root.appending(components: "foo.build", "master.swiftdeps").pathString],
+      root.appending(component: "foo.swift").pathString : [
+        .dependencies: root.appending(components: "foo.build", "foo.d").pathString,
+        .object: root.appending(components: "foo.build", "foo.swift.o").pathString,
+        .swiftModule: root.appending(components: "foo.build", "foo~partial.swiftmodule").pathString,
+        .swiftDeps: root.appending(components: "foo.build", "foo.swiftdeps").pathString
       ]
     ]
+
     func outputFileMapFromStringyEntries(
       _ entries: [String: [FileType: String]]
     ) throws -> OutputFileMap {
@@ -975,10 +980,11 @@ final class SwiftDriverTests: XCTestCase {
         $0.value.mapValues(VirtualPath.intern(path:))
       )}))
     }
+
     let sampleOutputFileMap =
       try outputFileMapFromStringyEntries(stringyEntries)
     let resolvedOutputFileMap = sampleOutputFileMap
-      .resolveRelativePaths(relativeTo: .init("/foo_root"))
+      .resolveRelativePaths(relativeTo: root)
     let expectedOutputFileMap =
       try outputFileMapFromStringyEntries(resolvedStringyEntries)
     XCTAssertEqual(expectedOutputFileMap, resolvedOutputFileMap)
