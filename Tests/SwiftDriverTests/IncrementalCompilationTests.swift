@@ -1029,11 +1029,14 @@ extension IncrementalCompilationTests {
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
   ) throws {
+    Thread.sleep(forTimeInterval: 1)
+
     for (file, _) in self.inputPathsAndContents {
       try localFileSystem.removeFileTree(file)
       let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
       try localFileSystem.createSymbolicLink(file, pointingAt: linkTarget, relative: false)
     }
+
     try doABuild(
       "touch both symlinks; non-propagating",
       checkDiagnostics: checkDiagnostics,
@@ -1053,10 +1056,13 @@ extension IncrementalCompilationTests {
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
   ) throws {
+    Thread.sleep(forTimeInterval: 1)
+
     for (file, contents) in self.inputPathsAndContents {
       let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
       try! localFileSystem.writeFileContents(linkTarget) { $0 <<< contents }
     }
+
     try doABuild(
       "touch both symlink targets; non-propagating",
       checkDiagnostics: checkDiagnostics,
