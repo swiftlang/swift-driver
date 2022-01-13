@@ -4243,23 +4243,36 @@ final class SwiftDriverTests: XCTestCase {
     try withTemporaryDirectory { path in
       // Replace the error stream with one we capture here.
       let errorStream = stderrStream
+
+      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/build", relativeTo: $0) }
+                    ?? AbsolutePath(validating: "/build")
+
       let errorOutputFile = path.appending(component: "dummy_error_stream")
       TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
 
-      let dummyInput = path.appending(component: "output_file_map_test.swift")
+      let libObj: String = root.appending(component: "lib.o").pathString.nativePathString()
+      let mainObj: String = root.appending(component: "main.o").pathString.nativePathString()
+      let basicOutputFileMapObj: String = root.appending(component: "basic_output_file_map.o").pathString.nativePathString()
+
+      let dummyInput = path.appending(component: "output_file_map_test.swift").pathString.nativePathString()
+      let mainSwift: String = path.appending(components: "Inputs", "main.swift").pathString.nativePathString()
+      let libSwift: String = path.appending(components: "Inputs", "lib.swift").pathString.nativePathString()
       let outputFileMap = path.appending(component: "output_file_map.json")
-      let fileMap = "{\"\(dummyInput.description)\": {\"object\": \"/build/basic_output_file_map.o\"}, \"\(path)/Inputs/main.swift\": {\"object\": \"/build/main.o\"}, \"\(path)/Inputs/lib.swift\": {\"object\": \"/build/lib.o\"}}"
+
+      let fileMap = "{\"\(dummyInput.escaped())\": {\"object\": \"\(basicOutputFileMapObj.escaped())\"}, \"\(mainSwift.escaped())\": {\"object\": \"\(mainObj.escaped())\"}, \"\(libSwift.escaped())\": {\"object\": \"\(libObj.escaped())\"}}"
       try localFileSystem.writeFileContents(outputFileMap) { $0 <<< fileMap }
+
       var driver = try Driver(args: ["swiftc", "-driver-print-output-file-map",
                                      "-target", "x86_64-apple-macosx10.9",
-                                     "-o", "/build/basic_output_file_map.out",
+                                     "-o", root.appending(component: "basic_output_file_map.out").pathString.nativePathString(),
                                      "-module-name", "OutputFileMap",
-                                     "-output-file-map", outputFileMap.description])
+                                     "-output-file-map", outputFileMap.pathString.nativePathString()])
       try driver.run(jobs: [])
       let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
-      XCTAssertTrue(invocationError.contains("/Inputs/lib.swift -> object: \"/build/lib.o\""))
-      XCTAssertTrue(invocationError.contains("/Inputs/main.swift -> object: \"/build/main.o\""))
-      XCTAssertTrue(invocationError.contains("/output_file_map_test.swift -> object: \"/build/basic_output_file_map.o\""))
+
+      XCTAssertTrue(invocationError.contains("\(libSwift) -> object: \"\(libObj)\""))
+      XCTAssertTrue(invocationError.contains("\(mainSwift) -> object: \"\(mainObj)\""))
+      XCTAssertTrue(invocationError.contains("\(dummyInput) -> object: \"\(basicOutputFileMapObj)\""))
 
       // Restore the error stream to what it was
       TSCBasic.stderrStream = errorStream
