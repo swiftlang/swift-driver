@@ -700,23 +700,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
                         .pathString
 
       // Foo imports Car which is mapped to the real module Bar via
-      // `-module-alias Car=Bar`; it allows Car (alias) to be referenced
-      // in source files, while its contents are compiled as Bar (real
+      // `-module-alias Car=E`; it allows Car (alias) to be referenced
+      // in source files, while its contents are compiled as E (real
       // name on disk).
       let srcFoo = path.appending(component: "Foo.swift")
       try localFileSystem.writeFileContents(srcFoo) {
         $0 <<< "import Car\n"
       }
-      
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
       // Module alias with the fallback scanner (frontend scanner)
       var driverA = try Driver(args: ["swiftc",
                                       "-nonlib-dependency-scanner",
                                       "-explicit-module-build",
                                       srcFoo.pathString.nativePathString().escaped(),
-                                      "-module-alias", "Car=F",
+                                      "-module-alias", "Car=E",
                                       "-I",
                                       swiftModuleInterfacesPath.nativePathString().escaped(),
-                                     ])
+                                     ] + sdkArgumentsForTesting)
       guard driverA.isFrontendArgSupported(.moduleAlias) else {
         throw XCTSkip("Skipping: compiler does not support '-module-alias'")
       }
@@ -724,7 +725,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Resulting graph should contain the real module name Bar
       let dependencyGraphA = try driverA.gatherModuleDependencies()
       XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
-        key.moduleName == "F"
+        key.moduleName == "E"
       })
       XCTAssertFalse(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
         key.moduleName == "Car"
@@ -733,24 +734,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let plannedJobsA = try driverA.planBuild()
       XCTAssertTrue(plannedJobsA.contains { job in
         job.commandLine.contains(.flag("-module-alias")) &&
-        job.commandLine.contains(.flag("Car=F"))
+        job.commandLine.contains(.flag("Car=E"))
       })
 
       // Module alias with the default scanner (driver scanner)
       var driverB = try Driver(args: ["swiftc",
                                       "-explicit-module-build",
                                       srcFoo.pathString.nativePathString().escaped(),
-                                      "-module-alias", "Car=F",
+                                      "-module-alias", "Car=E",
                                       "-working-directory",
                                       path.pathString.nativePathString().escaped(),
                                       "-I",
                                       swiftModuleInterfacesPath.nativePathString().escaped(),
-                                     ])
+                                     ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
       let dependencyGraphB = try driverB.gatherModuleDependencies()
       XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
-        key.moduleName == "F"
+        key.moduleName == "E"
       })
       XCTAssertFalse(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
         key.moduleName == "Car"
@@ -759,7 +760,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let plannedJobsB = try driverB.planBuild()
       XCTAssertTrue(plannedJobsB.contains { job in
         job.commandLine.contains(.flag("-module-alias")) &&
-        job.commandLine.contains(.flag("Car=F"))
+        job.commandLine.contains(.flag("Car=E"))
       })
     }
   }
