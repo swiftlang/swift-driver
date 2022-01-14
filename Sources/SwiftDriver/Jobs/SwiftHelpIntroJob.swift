@@ -16,15 +16,6 @@ extension Driver {
     return [
       Job(
         moduleName: moduleOutputInfo.name,
-        kind: .versionRequest,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
-        commandLine: [.flag("--version")],
-        inputs: [],
-        primaryInputs: [],
-        outputs: [],
-        requiresInPlaceExecution: false),
-      Job(
-        moduleName: moduleOutputInfo.name,
         kind: .help,
         tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
         commandLine: [.flag("intro")],

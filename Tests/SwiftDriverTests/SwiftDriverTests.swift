@@ -553,12 +553,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(driver.moduleOutputInfo.name, "main")
     }
 
-    try assertDriverDiagnostics(args: "swift", "-repl") { driver, verifier in
-      verifier.expect(.warning("unnecessary option '-repl'; this is the default for 'swift' with no input files"))
-      XCTAssertNil(driver.moduleOutputInfo.output)
-      XCTAssertEqual(driver.moduleOutputInfo.name, "REPL")
-    }
-
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so") { driver in
       XCTAssertEqual(driver.moduleOutputInfo.name, "Wibble")
     }
@@ -2750,20 +2744,11 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"], env: envWithFakeSwiftHelp)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.count, 1)
 
-      let versionJob = plannedJobs[0]
-      XCTAssertTrue(versionJob.tool.name.contains("swift"))
-      XCTAssertTrue(versionJob.commandLine.contains(.flag("--version")))
-
-      let helpJob = plannedJobs[1]
+      let helpJob = plannedJobs[0]
       XCTAssertTrue(helpJob.tool.name.contains("swift-help"))
       XCTAssertTrue(helpJob.commandLine.contains(.flag("intro")))
-
-      let replJob = plannedJobs[2]
-      XCTAssertTrue(replJob.tool.name.contains("lldb"))
-      XCTAssertTrue(replJob.requiresInPlaceExecution)
-      XCTAssert(replJob.commandLine.contains(where: { isExpectedLLDBREPLFlag($0) }))
     }
 
     do {

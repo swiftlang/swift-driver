@@ -110,7 +110,7 @@ struct SwiftHelp: ParsableCommand {
     // `repl` not included in `Subcommand`, also print it here.
     do {
       let padding = String(repeating: " ", count: maxSubcommandNameLength - "repl".count)
-      print("  \(plainBold)swift repl\(plain)\(padding)    Experiment with Swift code interactively (default)")
+      print("  \(plainBold)swift repl\(plain)\(padding)    Experiment with Swift code interactively")
     }
 
     print("\n  Use \(plainBold)`swift --help`\(plain) for descriptions of available options and flags.")

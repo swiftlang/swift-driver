@@ -746,19 +746,7 @@ extension Driver {
       }
       return ([try generateDumpPCMJob(input: inputFiles.first!)], nil)
     case .intro:
-      // TODO: Remove this check once the REPL no longer launches
-      // by default.
-      if !inputFiles.isEmpty {
-        throw PlanningError.replReceivedInput
-      }
-      // end TODO.
-
-      var introJobs = try helpIntroJobs()
-
-      // TODO: Remove this to stop launching the REPL by default.
-      introJobs.append(try replJob())
-
-      return (introJobs, nil)
+      return (try helpIntroJobs(), nil)
     }
   }
 }
