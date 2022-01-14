@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
+import Foundation
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
@@ -106,6 +107,7 @@ extension Module {
     }
     try createSourceDir()
     try removeUnwantedSources()
+    Thread.sleep(forTimeInterval: 1)
     try addNeededSources()
   }
 
