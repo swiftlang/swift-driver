@@ -1962,9 +1962,22 @@ extension Driver {
         isShared: sanitizer != .fuzzer
       )
 
-      // TSan is explicitly not supported for 32 bits.
-      if sanitizer == .thread && !targetTriple.arch!.is64Bit {
-        sanitizerSupported = false
+      if sanitizer == .thread {
+        // TSAN is unavailable on Windows
+        if targetTriple.isWindows {
+          diagnosticEngine.emit(
+            .error_sanitizer_unavailable_on_target(
+              sanitizer: "thread",
+              target: targetTriple
+            )
+          )
+          continue
+        }
+
+        // TSan is explicitly not supported for 32 bits.
+        if !targetTriple.arch!.is64Bit {
+          sanitizerSupported = false
+        }
       }
 
       if !sanitizerSupported {
