@@ -256,7 +256,8 @@ extension Driver {
         commandLine.appendFlag(.enableAnonymousContextMangledNames)
       }
 
-      try commandLine.appendAll(.debugCompilationDir, from: &parsedOptions)
+      // TODO: Should we support -fcoverage-compilation-dir?
+      try commandLine.appendAll(.fileCompilationDir, from: &parsedOptions)
     }
 
     // Pass through any subsystem flags.
