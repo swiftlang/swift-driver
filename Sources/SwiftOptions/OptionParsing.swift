@@ -133,6 +133,10 @@ extension OptionTable {
         index += 1
 
       case .remaining:
+        if argument != option.spelling {
+          throw OptionParseError.unknownOption(
+            index: index - 1, argument: argument)
+        }
         parsedOptions.addOption(.DASHDASH, argument: .single("--"))
         arguments[index...].map { String($0) }.forEach { parsedOptions.addInput($0) }
         index = arguments.endIndex

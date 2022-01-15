@@ -1013,7 +1013,7 @@ final class SwiftDriverTests: XCTestCase {
       // FIXME: Needs a better way to check that outputFileMap correctly loaded
       XCTAssertNoThrow(try Driver(args: [
         "swiftc",
-        "--output-file-map", outputFileMapRelative,
+        "-output-file-map", outputFileMapRelative,
         "main.swift", "util.swift",
       ]))
     }
