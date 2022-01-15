@@ -3296,15 +3296,31 @@ final class SwiftDriverTests: XCTestCase {
 
   func testToolsDirectory() throws {
     try withTemporaryDirectory { tmpDir in
+#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
       let ld = tmpDir.appending(component: "ld")
-      try localFileSystem.writeFileContents(ld) { $0 <<< "" }
+#else
+      let ld = tmpDir.appending(component: executableName("clang"))
+#endif
+      // tiny PE binary from: https://archive.is/w01DO
+      let contents: [UInt8] = [
+          0x4d, 0x5a, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x4c, 0x01, 0x01, 0x00,
+          0x6a, 0x2a, 0x58, 0xc3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x04, 0x00, 0x03, 0x01, 0x0b, 0x01, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
+          0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
+          0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x68, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x02
+      ]
+      try localFileSystem.writeFileContents(ld) { $0 <<< contents }
       try localFileSystem.chmod(.executable, path: AbsolutePath(ld.pathString))
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx10.14",
                                      "-tools-directory", tmpDir.pathString,
                                      "foo.swift"])
-      let frontendJobs = try driver.planBuild()
-      XCTAssertTrue(frontendJobs.count == 2)
+      let frontendJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(frontendJobs.count, 2)
+      XCTAssertEqual(frontendJobs[1].kind, .link)
       XCTAssertEqual(frontendJobs[1].tool.absolutePath!.pathString, ld.pathString)
     }
   }

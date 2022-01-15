@@ -24,8 +24,9 @@ extension WindowsToolchain {
                                             sanitizers: Set<Sanitizer>,
                                             targetInfo: FrontendTargetInfo)
       throws -> AbsolutePath {
-    let targetTriple = targetInfo.target.triple
+    var clang = try getToolPath(.clang)
 
+    let targetTriple = targetInfo.target.triple
     if !targetTriple.triple.isEmpty {
       commandLine.appendFlag("-target")
       commandLine.appendFlag(targetTriple.triple)
@@ -38,6 +39,18 @@ extension WindowsToolchain {
       commandLine.appendFlag("-shared")
     case .executable:
       break
+    }
+
+    if let arg = parsedOptions.getLastArgument(.toolsDirectory) {
+      let path = try AbsolutePath(validating: arg.asSingle)
+
+      if let tool = lookupExecutablePath(filename: executableName("clang"),
+                                         searchPaths: [path]) {
+        clang = tool
+      }
+
+      commandLine.appendFlag("-B")
+      commandLine.appendPath(path)
     }
 
     // Select the linker to use.
@@ -131,6 +144,6 @@ extension WindowsToolchain {
     addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
     // TODO(compnerd) handle static libraries
-    return try getToolPath(.clang)
+    return clang
   }
 }
