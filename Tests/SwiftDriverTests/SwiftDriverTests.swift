@@ -44,6 +44,26 @@ private var testInputsPath: AbsolutePath = {
 }()
 
 final class SwiftDriverTests: XCTestCase {
+  private var ld: AbsolutePath!
+
+  override func setUp() {
+    do {
+      self.ld = try withTemporaryDirectory(removeTreeOnDeinit: false) {
+        let ld = $0.appending(component: executableName("ld64.lld"))
+
+        try localFileSystem.writeFileContents(ld) { $0 <<< "" }
+        try localFileSystem.chmod(.executable, path: AbsolutePath(ld.pathString.nativePathString()))
+
+        return ld
+      }
+    } catch {
+      fatalError("unable to create stub 'ld' tool")
+    }
+  }
+
+  deinit {
+    try? localFileSystem.removeFileTree(AbsolutePath(validating: self.ld.dirname))
+  }
 
   private var envWithFakeSwiftHelp: [String: String] {
     // During build-script builds, build products are not installed into the toolchain
@@ -2135,7 +2155,11 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
-    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd"])
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd"],
+                             env: envVars)
     let plannedJobs = try driver1.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2528,11 +2552,15 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmitModuleSeparately() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     do {
       let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
                     ?? AbsolutePath(validating: "/foo/bar")
 
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2576,7 +2604,8 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Calls using the driver to link a library shouldn't trigger an emit-module job, like in LLDB tests.
-      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"])
+      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.link]))
@@ -2584,7 +2613,8 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Use emit-module to build sil files.
-      var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"])
+      var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2592,6 +2622,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmitModuleSeparatelyWMO() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     // Adapt the number of output files to the compiler feature.
     let dummyDriver = try Driver(args: ["swiftc"])
     var abiFileCount = 0
@@ -2604,7 +2637,8 @@ final class SwiftDriverTests: XCTestCase {
           try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
                 ?? AbsolutePath(validating: "/Foo/Bar")
 
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: symbolGraphDir), "-emit-symbol-graph", "-emit-symbol-graph-dir", symbolGraphDir.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: symbolGraphDir), "-emit-symbol-graph", "-emit-symbol-graph-dir", symbolGraphDir.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2676,7 +2710,8 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Don't use emit-module-separetely as a linker.
-      var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"])
+      var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2941,8 +2976,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testTargetVariant() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     do {
-      var driver = try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "foo.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
 
@@ -2954,7 +2993,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-emit-library", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-module-name", "foo", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-emit-library", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-module-name", "foo", "foo.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
 
@@ -2973,7 +3013,8 @@ final class SwiftDriverTests: XCTestCase {
 
     // Test -target-variant is passed to generate pch job
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
 
@@ -3037,8 +3078,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDisableClangTargetForImplicitModule() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     var driver = try Driver(args: ["swiftc", "-target",
-                                   "x86_64-apple-macosx10.14", "foo.swift"])
+                                   "x86_64-apple-macosx10.14", "foo.swift"],
+                            env: envVars)
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
@@ -3046,7 +3091,11 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPCHasCompileInput() throws {
-    var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"])
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
+    var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"],
+                            env: envVars)
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssert(plannedJobs[0].kind == .generatePCH)
@@ -3155,8 +3204,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testProfileLinkerArgs() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-macosx10.9", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-macosx10.9", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3167,7 +3220,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3179,7 +3233,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "arm64-apple-ios7.1", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "arm64-apple-ios7.1", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3190,7 +3245,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3202,7 +3258,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "arm64-apple-tvos9.0", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "arm64-apple-tvos9.0", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3213,7 +3270,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "i386-apple-watchos2.0-simulator", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "i386-apple-watchos2.0-simulator", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3225,7 +3283,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "armv7k-apple-watchos2.0", "test.swift"])
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "armv7k-apple-watchos2.0", "test.swift"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 2)
@@ -3237,7 +3296,7 @@ final class SwiftDriverTests: XCTestCase {
 
     // FIXME: This will fail when run on macOS, because
     // swift-autolink-extract is not present
-    #if os(Linux) || os(Android)
+    #if os(Linux) || os(Android) || os(Windows)
     do {
       var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-unknown-linux-gnu", "test.swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
@@ -3329,6 +3388,7 @@ final class SwiftDriverTests: XCTestCase {
   func testDarwinSDKVersioning() throws {
     var envVars = ProcessEnv.vars
     envVars["ENABLE_RESTRICT_SWIFTMODULE_SDK"] = "YES"
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
 
     try withTemporaryDirectory { tmpDir in
       let sdk1 = tmpDir.appending(component: "MacOSX10.15.sdk")
@@ -3412,11 +3472,14 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
+        var envVars = ProcessEnv.vars
+        envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
         var driver = try Driver(args: ["swiftc",
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-target-variant", "x86_64-apple-ios13.1-macabi",
                                        "-sdk", sdk1.description,
-                                       "foo.swift"])
+                                       "foo.swift"], env: envVars)
         let frontendJobs = try driver.planBuild()
         XCTAssertEqual(frontendJobs[0].kind, .compile)
         XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
@@ -3472,11 +3535,14 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
+        var envVars = ProcessEnv.vars
+        envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
         var driver = try Driver(args: ["swiftc",
                                        "-target-variant", "x86_64-apple-macosx10.14",
                                        "-target", "x86_64-apple-ios13.1-macabi",
                                        "-sdk", sdk2.description,
-                                       "foo.swift"])
+                                       "foo.swift"], env: envVars)
         let frontendJobs = try driver.planBuild()
         XCTAssertEqual(frontendJobs[0].kind, .compile)
         XCTAssertTrue(frontendJobs[0].commandLine.contains(subsequence: [
@@ -3554,10 +3620,14 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDarwinLinkerPlatformVersion() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-macos10.15",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3572,7 +3642,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-macos10.15",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3587,7 +3658,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-ios12.0-macabi",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3602,7 +3674,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "aarch64-apple-ios12.0-macabi",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3617,7 +3690,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "aarch64-apple-ios12.0",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3632,7 +3706,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "aarch64-apple-tvos12.0",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3647,7 +3722,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "aarch64-apple-watchos6.0",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3662,7 +3738,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-ios12.0-simulator",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -3677,7 +3754,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "aarch64-apple-ios12.0-simulator",
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: envVars)
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
@@ -4394,9 +4472,13 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLTOOutputs() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     let targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-macosx10.9"]
     for target in targets {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-target", target])
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-target", target],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-bc")))
@@ -5471,11 +5553,15 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPrebuiltModuleCacheFlags() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     let mockSDKPath: String =
         testInputsPath.appending(component: "mock-sdk.sdk").pathString.nativePathString()
 
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "foo.swift", "-sdk", mockSDKPath])
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "foo.swift", "-sdk", mockSDKPath],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertTrue(job.commandLine.contains(.flag("-prebuilt-module-cache-path")))
@@ -5538,8 +5624,12 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testFilelist() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
+
     do {
-      var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-no-emit-module-separately"])
+      var driver = try Driver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-no-emit-module-separately"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
 
       let jobA = plannedJobs[0]
@@ -5592,7 +5682,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization"])
+      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
@@ -5621,7 +5712,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"])
+      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
@@ -5638,7 +5730,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1", "-embed-bitcode"])
+      var driver = try Driver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1", "-embed-bitcode"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
@@ -5658,7 +5751,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"])
+      var driver = try Driver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[3]
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
@@ -5678,7 +5772,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"])
+      var driver = try Driver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"],
+                              env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[1]
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
