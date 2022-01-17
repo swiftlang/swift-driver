@@ -441,16 +441,7 @@ extension ExplicitDependencyBuildPlanner {
     if let previouslyHashsedName = hashedModuleNameCache[cacheQuery] {
       return previouslyHashsedName
     }
-    let hashedArguments: String
-    #if canImport(Darwin)
-    if #available(macOS 10.15, *) {
-      hashedArguments = CryptoKitSHA256().hash(hashInput).hexadecimalRepresentation
-    } else {
-      hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
-    }
-    #else
-    hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
-    #endif
+    let hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
     let resultingName = moduleName + "-" + hashedArguments
     hashedModuleNameCache[cacheQuery] = resultingName
     return resultingName
