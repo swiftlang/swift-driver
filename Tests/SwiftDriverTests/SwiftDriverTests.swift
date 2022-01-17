@@ -4372,9 +4372,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testVerboseImmediateMode() throws {
     #if os(macOS) && arch(arm64)
-      // Temporarily disabled on Apple Silicon
-      // rdar://80558898
-      throw XCTSkip()
+      try XCTSkipIf(true, "Temporarily disabled on Apple Silicon (rdar://80558898)")
     #endif
 
 // There is nothing particularly macOS-specific about this test other than
