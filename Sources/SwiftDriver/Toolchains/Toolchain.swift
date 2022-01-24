@@ -209,10 +209,10 @@ extension Toolchain {
     if let overrideString = envVar(forExecutable: executableName(executable)) {
       return try AbsolutePath(validating: overrideString)
     } else if let toolDir = toolDirectory,
-              let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [toolDir]) {
+              let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [toolDir]) {
       // Looking for tools from the tools directory.
       return path
-    } else if let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [executableDir]) {
+    } else if let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [executableDir]) {
       return path
     } else if let path = try? xcrunFind(executable: executableName(executable)) {
       return path
