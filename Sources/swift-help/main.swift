@@ -123,7 +123,9 @@ struct SwiftHelp: ParsableCommand {
     switch topic {
     case .driver(let kind):
       driverOptionTable.printHelp(driverKind: kind, includeHidden: showHidden)
-      printIntro()
+      if kind == .interactive {
+        printIntro()
+      }
     case .subcommand(let subcommand):
       // Try to find the subcommand adjacent to the help tool.
       // If we didn't find the tool there, let the OS search for it.
