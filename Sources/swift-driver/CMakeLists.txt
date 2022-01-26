@@ -11,3 +11,6 @@ add_executable(swift-driver
 target_link_libraries(swift-driver PUBLIC
   SwiftDriver
   SwiftDriverExecution)
+
+install(TARGETS swift-driver
+  DESTINATION bin)
