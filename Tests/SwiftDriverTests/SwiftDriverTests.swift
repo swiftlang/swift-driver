@@ -3067,6 +3067,16 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testValidDeprecatedTargets() throws {
+    var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7-apple-ios13.0", "foo.swift"])
+    let plannedJobs = try driver.planBuild()
+    let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})
+    XCTAssertNotNil(emitModuleJob)
+    let currentJob = emitModuleJob!
+    XCTAssert(currentJob.commandLine.contains(.flag("-target")))
+    XCTAssert(currentJob.commandLine.contains(.flag("armv7-apple-ios13.0")))
+  }
+
   func testClangTargetForExplicitModule() throws {
     #if os(macOS)
     // Check -clang-target is on by defualt when explicit module is on.
@@ -3161,13 +3171,21 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.0",
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.1",
                                            "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.iOSVersionAboveMaximumDeploymentTarget(12) = error else {
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("iOS 11", "armv7") = error else {
         XCTFail()
         return
       }
     }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target", 
+                                           "armv7s-apple-ios12.0", "foo.swift"])) { error in
+        guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("iOS 11", "armv7s") = error else {
+          XCTFail()
+          return
+        }
+      }
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios13.0",
                                            "-target-variant", "x86_64-apple-macosx10.14",
