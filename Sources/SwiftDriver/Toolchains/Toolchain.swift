@@ -66,7 +66,9 @@ public protocol Toolchain {
   /// Perform platform-specific argument validation.
   func validateArgs(_ parsedOptions: inout ParsedOptions,
                     targetTriple: Triple,
-                    targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) throws
+                    targetVariantTriple: Triple?,
+                    compilerOutputType: FileType?,
+                    diagnosticsEngine: DiagnosticsEngine) throws
 
   /// Adds platform-specific linker flags to the provided command line
   func addPlatformSpecificLinkerArgs(
@@ -214,8 +216,9 @@ extension Toolchain {
   }
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
-                           targetTriple: Triple,
-                           targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) {}
+                           targetTriple: Triple, targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
+                           diagnosticsEngine: DiagnosticsEngine) {}
 
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],

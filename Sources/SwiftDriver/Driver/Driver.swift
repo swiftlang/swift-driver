@@ -603,6 +603,7 @@ public struct Driver {
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
+                               compilerOutputType: self.compilerOutputType,
                                diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.

@@ -143,7 +143,7 @@ public final class DarwinToolchain: Toolchain {
   public enum ToolchainValidationError: Error, DiagnosticData {
     case osVersionBelowMinimumDeploymentTarget(String)
     case argumentNotSupported(String)
-    case iOSVersionAboveMaximumDeploymentTarget(Int)
+    case invalidDeploymentTargetForIR(String, String)
     case unsupportedTargetVariant(variant: Triple)
     case darwinOnlySupportsLibCxx
 
@@ -151,8 +151,9 @@ public final class DarwinToolchain: Toolchain {
       switch self {
       case .osVersionBelowMinimumDeploymentTarget(let target):
         return "Swift requires a minimum deployment target of \(target)"
-      case .iOSVersionAboveMaximumDeploymentTarget(let version):
-        return "iOS \(version) does not support 32-bit programs"
+      case .invalidDeploymentTargetForIR(let target, let archName):
+        return
+          "\(target) and above does not support emitting binaries or IR for \(archName)"
       case .unsupportedTargetVariant(variant: let variant):
         return "unsupported '\(variant.isiOS ? "-target-variant" : "-target")' value '\(variant.triple)'; use 'ios-macabi' instead"
       case .argumentNotSupported(let argument):
@@ -166,6 +167,7 @@ public final class DarwinToolchain: Toolchain {
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple,
                            targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
     // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
     // Guard for the sake of tests running on all platforms
@@ -176,7 +178,8 @@ public final class DarwinToolchain: Toolchain {
                                       diagnosticsEngine: diagnosticsEngine)
     #endif
     // Validating apple platforms deployment targets.
-    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple)
+    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple, 
+                                 compilerOutputType: compilerOutputType)
     if let targetVariantTriple = targetVariantTriple,
        !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
       throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
@@ -198,7 +201,7 @@ public final class DarwinToolchain: Toolchain {
   }
 
   func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
-                                targetTriple: Triple) throws {
+                                targetTriple: Triple, compilerOutputType: FileType?) throws {
     // Check minimum supported OS versions.
     if targetTriple.isMacOSX,
        targetTriple.version(for: .macOS) < Triple.Version(10, 9, 0) {
@@ -213,8 +216,11 @@ public final class DarwinToolchain: Toolchain {
         throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("iOS 7")
       }
       if targetTriple.arch?.is32Bit == true,
-         targetTriple.version(for: .iOS(.device)) >= Triple.Version(11, 0, 0) {
-        throw ToolchainValidationError.iOSVersionAboveMaximumDeploymentTarget(targetTriple.version(for: .iOS(.device)).major)
+         targetTriple.version(for: .iOS(.device)) >= Triple.Version(11, 0, 0), 
+         compilerOutputType != .swiftModule {
+        throw
+            ToolchainValidationError
+              .invalidDeploymentTargetForIR("iOS 11", targetTriple.archName)
       }
     } else if targetTriple.isWatchOS,
               targetTriple.version(for: .watchOS(.device)) < Triple.Version(2, 0, 0) {
