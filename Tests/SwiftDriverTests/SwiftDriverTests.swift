@@ -1046,7 +1046,11 @@ final class SwiftDriverTests: XCTestCase {
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
       try localFileSystem.writeFileContents(fooPath) {
+#if os(Windows)
+        $0 <<< "hello\nbye\n\"bye to you\"\n@\(barPath.pathString.nativePathString().escaped())"
+#else
         $0 <<< "hello\nbye\nbye\\ to\\ you\n@\(barPath.pathString.nativePathString().escaped())"
+#endif
       }
       try localFileSystem.writeFileContents(barPath) {
         $0 <<< "from\nbar\n@\(fooPath.pathString.nativePathString().escaped())"
@@ -1069,7 +1073,11 @@ final class SwiftDriverTests: XCTestCase {
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
       try localFileSystem.writeFileContents(fooPath) {
+#if os(Windows)
+        $0 <<< "hello\nbye\n\"bye to you\"\n@bar.rsp"
+#else
         $0 <<< "hello\nbye\nbye\\ to\\ you\n@bar.rsp"
+#endif
       }
       try localFileSystem.writeFileContents(barPath) {
         $0 <<< "from\nbar\n@foo.rsp"
@@ -1095,7 +1103,11 @@ final class SwiftDriverTests: XCTestCase {
       let fooPath = path.appending(components: "subdir", "foo.rsp")
       let barPath = path.appending(components: "subdir", "bar.rsp")
       try localFileSystem.writeFileContents(fooPath) {
+#if os(Windows)
+        $0 <<< "hello\nbye\n\"bye to you\"\n@subdir/bar.rsp"
+#else
         $0 <<< "hello\nbye\nbye\\ to\\ you\n@subdir/bar.rsp"
+#endif
       }
       try localFileSystem.writeFileContents(barPath) {
         $0 <<< "from\nbar\n@subdir/foo.rsp"
@@ -1115,6 +1127,21 @@ final class SwiftDriverTests: XCTestCase {
       let barPath = path.appending(component: "bar.rsp")
       let escapingPath = path.appending(component: "escaping.rsp")
 
+#if os(Windows)
+      try localFileSystem.writeFileContents(fooPath) {
+        $0 <<< "a\\b c\\\\d e\\\\\"f g\" h\\\"i j\\\\\\\"k \"lmn\" o pqr \"st \\\"u\" \\v"
+           <<< "\n@\(barPath.pathString.nativePathString().escaped())"
+      }
+      try localFileSystem.writeFileContents(barPath) {
+        $0 <<< #"""
+        -Xswiftc -use-ld=lld
+        -Xcc -IS:\Library\sqlite-3.36.0\usr\include
+        -Xlinker -LS:\Library\sqlite-3.36.0\usr\lib
+        """#
+      }
+      let args = try Driver.expandResponseFiles(["@\(fooPath.pathString)"], fileSystem: localFileSystem, diagnosticsEngine: diags)
+      XCTAssertEqual(args, ["a\\b", "c\\\\d", "e\\f g", "h\"i", "j\\\"k", "lmn", "o", "pqr", "st \"u", "\\v", "-Xswiftc", "-use-ld=lld", "-Xcc", "-IS:\\Library\\sqlite-3.36.0\\usr\\include", "-Xlinker", "-LS:\\Library\\sqlite-3.36.0\\usr\\lib"])
+#else
       try localFileSystem.writeFileContents(fooPath) {
         $0 <<< #"""
         Command1 --kkc
@@ -1149,6 +1176,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
       let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(escapingArgs, ["swift", "--driver-mode=swiftc", "-v","the end"])
+#endif
     }
   }
 
