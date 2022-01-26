@@ -363,6 +363,9 @@ public struct Driver {
     guard let moduleOutput = moduleOutputInfo.output else {
       return nil
     }
+    guard parsedOptions.hasArgument(.enableLibraryEvolution) else {
+      return nil
+    }
     return TypedVirtualPath(file: VirtualPath.lookup(moduleOutput.outputPath)
       .replacingExtension(with: .jsonABIBaseline).intern(), type: .jsonABIBaseline)
   }()
