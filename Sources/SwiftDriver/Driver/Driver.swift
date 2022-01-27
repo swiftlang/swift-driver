@@ -360,6 +360,11 @@ public struct Driver {
     guard isFeatureSupported(.emit_abi_descriptor) else {
       return nil
     }
+    // Emit the descriptor only on platforms where Library Evolution is supported,
+    // or opted-into explicitly.
+    guard targetTriple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
+      return nil
+    }
     guard let moduleOutput = moduleOutputInfo.output else {
       return nil
     }
