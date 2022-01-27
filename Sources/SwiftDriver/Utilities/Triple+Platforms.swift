@@ -344,20 +344,6 @@ extension Triple {
       self.nonDarwin = nonDarwin
     }
 
-    /// Describes the availability of a feature that is supported on multiple platforms,
-    /// but is tied to a particular version.
-    ///
-    /// If `tvOS` availability is omitted, it will be set to be the same as `iOS`.
-    public init(
-      macOS: Availability,
-      iOS: Availability,
-      watchOS: Availability,
-      nonDarwin: Bool = false
-    ) {
-      self.init(macOS: macOS, iOS: iOS, tvOS: iOS, watchOS: watchOS,
-                nonDarwin: nonDarwin)
-    }
-
     /// Returns the version when the feature was introduced on the specified Darwin
     /// platform, or `.unavailable` if the feature has not been introduced there.
     public subscript(darwinPlatform: DarwinPlatform) -> Availability {
@@ -404,6 +390,7 @@ extension Triple.FeatureAvailability {
   static let nativeARC = Self(
     macOS: .available(since: Triple.Version(10, 11, 0)),
     iOS: .available(since: Triple.Version(9, 0, 0)),
+    tvOS: .available(since: Triple.Version(9, 0, 0)),
     watchOS: .availableInAllVersions
   )
   // When updating the versions listed here, please record the most recent
