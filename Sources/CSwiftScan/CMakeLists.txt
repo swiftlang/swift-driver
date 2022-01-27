@@ -8,3 +8,10 @@
 
 add_library(CSwiftScan STATIC
   CSwiftScanImpl.c)
+
+set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS CSwiftScan)
+
+install(TARGETS CSwiftScan
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
