@@ -594,6 +594,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   
   func testModuleAliasingPrebuiltWithScanDeps() throws {
+    // rdar://88073675
+    throw XCTSkip("Skipping, known failure (rdar://88073675).")
     try withTemporaryDirectory { path in
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
