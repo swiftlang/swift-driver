@@ -64,7 +64,6 @@ extension Driver {
       targetInfo: frontendTargetInfo
     )
 
-    // TODO: some, but not all, linkers support response files.
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .link,
@@ -73,7 +72,10 @@ extension Driver {
       displayInputs: inputs,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: outputFile.intern(), type: .image)]
+      outputs: [.init(file: outputFile.intern(), type: .image)],
+      // FIXME: newer ld64 supports response files as well, though really,
+      // Darwin should use clang as the linker driver like the other targets
+      supportsResponseFiles: !frontendTargetInfo.target.triple.isDarwin
     )
   }
 }
