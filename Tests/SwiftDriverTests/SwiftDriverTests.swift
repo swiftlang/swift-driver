@@ -1205,9 +1205,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(resolvedArgs[1].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
-      XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
-      XCTAssertTrue(contents.contains("-D\nTEST_20000"))
-      XCTAssertTrue(contents.contains("-D\nTEST_1"))
+      XCTAssertTrue(contents.hasPrefix("\"-frontend\"\n\"-interpret\"\n\"foo.swift\""))
+      XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_20000\""))
+      XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_1\""))
     }
     // Forced response file
     do {
@@ -1221,7 +1221,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(resolvedArgs[1].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
-      XCTAssertTrue(contents.hasPrefix("-frontend\n-interpret\nfoo.swift"))
+      XCTAssertTrue(contents.hasPrefix("\"-frontend\"\n\"-interpret\"\n\"foo.swift\""))
     }
 
     // No response file
