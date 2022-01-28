@@ -2209,7 +2209,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
     let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
-    XCTAssertEqual(emitModuleJob.outputs.count, 8)
+    XCTAssertEqual(emitModuleJob.outputs.count, driver1.targetTriple.isDarwin ? 8 : 7)
     XCTAssertEqual(emitModuleJob.outputs[0].file, VirtualPath.relative(RelativePath("Test.swiftmodule")))
     XCTAssertEqual(emitModuleJob.outputs[1].file, VirtualPath.relative(RelativePath("Test.swiftdoc")))
     XCTAssertEqual(emitModuleJob.outputs[2].file, VirtualPath.relative(RelativePath("Test.swiftsourceinfo")))
@@ -2217,7 +2217,9 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(emitModuleJob.outputs[4].file, VirtualPath.relative(RelativePath("Test.private.swiftinterface")))
     XCTAssertEqual(emitModuleJob.outputs[5].file, VirtualPath.relative(RelativePath("Test-Swift.h")))
     XCTAssertEqual(emitModuleJob.outputs[6].file, VirtualPath.relative(RelativePath("Test.tbd")))
-    XCTAssertEqual(emitModuleJob.outputs[7].file, VirtualPath.relative(RelativePath("Test.abi.json")))
+    if driver1.targetTriple.isDarwin {
+      XCTAssertEqual(emitModuleJob.outputs[7].file, VirtualPath.relative(RelativePath("Test.abi.json")))
+    }
     XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
     XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-module-interface-path")))
     XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
@@ -2296,12 +2298,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 2)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
       XCTAssertEqual(plannedJobs[0].inputs[1].file, VirtualPath.relative(RelativePath("multi-threaded.swift")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("test.swiftmodule")))
     }
   }
 
   func testEmitABIDescriptor() throws {
+#if !os(macOS)
+    throw XCTSkip("Skipping: ABI descriptor is only emitted on Darwin platforms.")
+#endif
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
@@ -2323,6 +2328,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
       XCTAssertTrue(plannedJobs[2].commandLine.contains(.flag("-emit-abi-descriptor-path")))
     }
+    
   }
 
   func testDashDashPassingDownInput() throws {
@@ -2335,7 +2341,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].inputs.count, 2)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
       XCTAssertEqual(plannedJobs[0].inputs[1].file, VirtualPath.relative(RelativePath("multi-threaded.swift")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, VirtualPath.relative(RelativePath("test.swiftmodule")))
     }
   }
@@ -2527,11 +2533,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
 
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
+      }
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("-import-objc-header")))
     }
 
@@ -2543,11 +2551,13 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
-      XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+      }
     }
 
     do {
@@ -2556,11 +2566,13 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .relative(RelativePath("Test.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
+      }
     }
 
     do {
@@ -2569,11 +2581,13 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
       XCTAssertEqual(plannedJobs[2].outputs[2].file, .relative(RelativePath("Test.swiftsourceinfo")))
-      XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
+      }
     }
 
     do {
@@ -2605,11 +2619,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-parse-as-library")))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
-      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+      }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-emit-symbol-graph-dir")))
@@ -2626,11 +2642,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
+      XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
       XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
       XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
-      XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+      }
     }
 
     do {
@@ -2664,20 +2682,14 @@ final class SwiftDriverTests: XCTestCase {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.pathString.nativePathString()
 
-    // Adapt the number of output files to the compiler feature.
-    let dummyDriver = try Driver(args: ["swiftc"])
-    var abiFileCount = 0
-    if dummyDriver.isFeatureSupported(.emit_abi_descriptor) {
-      abiFileCount = 1
-    }
-
     do {
       let symbolGraphDir =
           try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
                 ?? AbsolutePath(validating: "/Foo/Bar")
-
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: symbolGraphDir), "-emit-symbol-graph", "-emit-symbol-graph-dir", symbolGraphDir.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
-                              env: envVars)
+                               env: envVars)
+      
+      let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -2696,7 +2708,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: symbolGraphDir)))}).count)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: symbolGraphDir)))}).count)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: symbolGraphDir)))}).count)
-      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: symbolGraphDir)))}).count)
+      if abiFileCount == 1 {
+        XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: symbolGraphDir)))}).count)
+      }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
       XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-emit-symbol-graph-dir")))
@@ -2708,6 +2722,7 @@ final class SwiftDriverTests: XCTestCase {
 
       // Ignore the `-emit-module-separately-wmo` flag when building only the module files to avoid duplicating outputs.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-wmo", "-emit-module-separately-wmo"])
+      let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile]))
@@ -2719,7 +2734,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
-      XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+      if abiFileCount == 1 {
+        XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+      }
     }
 
     do {
@@ -2728,6 +2745,7 @@ final class SwiftDriverTests: XCTestCase {
 
       // Specifying -no-emit-module-separately-wmo doesn't schedule the separate emit-module job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
+      let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try driver.planBuild()
       #if os(Linux) || os(Android)
       XCTAssertEqual(plannedJobs.count, 3)
@@ -2744,13 +2762,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
-      XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+      if abiFileCount == 1 {
+        XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+      }
     }
 
     do {
-      // Don't use emit-module-separetely as a linker.
+        // Don't use emit-module-separetely as a linker.
       var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
-                              env: envVars)
+                               env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -4075,8 +4095,6 @@ final class SwiftDriverTests: XCTestCase {
           "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
           "test.swiftdoc" [fontsize=12];
           "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
-          "test.abi.json" [fontsize=12];
-          "emitModule (\(executableName("swift-frontend")))" -> "test.abi.json" [color=green];
           "compile (\(executableName("swift-frontend")))" [style=bold];
           "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
           "test-1.o" [fontsize=12];
@@ -4093,7 +4111,7 @@ final class SwiftDriverTests: XCTestCase {
         }
 
         """)
-    } else {
+    } else if driver.targetTriple.objectFormat == .macho {
         XCTAssertEqual(output,
         """
         digraph Jobs {
@@ -4117,6 +4135,28 @@ final class SwiftDriverTests: XCTestCase {
         }
 
         """)
+    } else {
+      XCTAssertEqual(output,
+      """
+      digraph Jobs {
+        "emitModule (\(executableName("swift-frontend")))" [style=bold];
+        "test.swift" [fontsize=12];
+        "test.swift" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+        "test.swiftmodule" [fontsize=12];
+        "emitModule (\(executableName("swift-frontend")))" -> "test.swiftmodule" [color=green];
+        "test.swiftdoc" [fontsize=12];
+        "emitModule (\(executableName("swift-frontend")))" -> "test.swiftdoc" [color=green];
+        "compile (\(executableName("swift-frontend")))" [style=bold];
+        "test.swift" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+        "test-1.o" [fontsize=12];
+        "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
+        "link (\(linkerDriver))" [style=bold];
+        "test-1.o" -> "link (\(linkerDriver))" [color=blue];
+        "\(executableName("test"))" [fontsize=12];
+        "link (\(linkerDriver))" -> "\(executableName("test"))" [color=green];
+      }
+
+      """)
     }
   }
 
@@ -5167,11 +5207,13 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
       XCTAssertEqual(emitModuleJob.inputs.count, 1)
       XCTAssertEqual(emitModuleJob.inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
-      XCTAssertEqual(emitModuleJob.outputs.count, 4)
+      XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(emitModuleJob.outputs[0].file, .relative(RelativePath("main.swiftmodule")))
       XCTAssertEqual(emitModuleJob.outputs[1].file, .relative(RelativePath("main.swiftdoc")))
       XCTAssertEqual(emitModuleJob.outputs[2].file, .relative(RelativePath("main.swiftsourceinfo")))
-      XCTAssertEqual(emitModuleJob.outputs[3].file, .relative(RelativePath("main.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(emitModuleJob.outputs[3].file, .relative(RelativePath("main.abi.json")))
+      }
     }
 
     do {
@@ -5226,11 +5268,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(emitModuleJob.inputs.count, 2)
       XCTAssertEqual(emitModuleJob.inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(emitModuleJob.inputs[1].file, .relative(RelativePath("empty.swift")))
-      XCTAssertEqual(emitModuleJob.outputs.count, 4)
+      XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(emitModuleJob.outputs[0].file, .relative(RelativePath("ABC.swiftmodule")))
       XCTAssertEqual(emitModuleJob.outputs[1].file, .relative(RelativePath("ABC.swiftdoc")))
       XCTAssertEqual(emitModuleJob.outputs[2].file, .relative(RelativePath("ABC.swiftsourceinfo")))
-      XCTAssertEqual(emitModuleJob.outputs[3].file, .relative(RelativePath("ABC.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(emitModuleJob.outputs[3].file, .relative(RelativePath("ABC.abi.json")))
+      }
     }
 
     do {
@@ -5254,11 +5298,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(emitModuleJob.kind, .emitModule)
       XCTAssertEqual(emitModuleJob.inputs.count, 1)
       XCTAssertEqual(plannedJobs[0].inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
-      XCTAssertEqual(emitModuleJob.outputs.count, 4)
+      XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.swiftmodule"))}).count)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.swiftdoc"))}).count)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.swiftsourceinfo"))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.abi.json"))}).count)
+      if driver.targetTriple.isDarwin {
+        XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .relative(RelativePath("Swift.abi.json"))}).count)
+      }
     }
 
     try assertDriverDiagnostics(args: ["swiftc", "-embed-bitcode", "-emit-module", "embed-bitcode.swift"]) { driver, verify in
@@ -5491,11 +5537,13 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let emitModuleJob = plannedJobs[0]
       XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-emit-module-source-info-path")))
-      XCTAssertEqual(emitModuleJob.outputs.count, 4)
+      XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertTrue(emitModuleJob.outputs[0].file == VirtualPath.relative(RelativePath("foo.swiftmodule")))
       XCTAssertTrue(emitModuleJob.outputs[1].file == VirtualPath.relative(RelativePath("foo.swiftdoc")))
       XCTAssertTrue(emitModuleJob.outputs[2].file == VirtualPath.relative(RelativePath("foo.swiftsourceinfo")))
-      XCTAssertTrue(emitModuleJob.outputs[3].file == VirtualPath.relative(RelativePath("foo.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertTrue(emitModuleJob.outputs[3].file == VirtualPath.relative(RelativePath("foo.abi.json")))
+      }
     }
     // implicit with Project/ Directory
     do {
@@ -5508,11 +5556,13 @@ final class SwiftDriverTests: XCTestCase {
         let plannedJobs = try driver.planBuild()
         let emitModuleJob = plannedJobs[0]
         XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-emit-module-source-info-path")))
-        XCTAssertEqual(emitModuleJob.outputs.count, 4)
+        XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
         XCTAssertEqual(emitModuleJob.outputs[0].file, .absolute(path.appending(component: "foo.swiftmodule")))
         XCTAssertEqual(emitModuleJob.outputs[1].file, .absolute(path.appending(component: "foo.swiftdoc")))
         XCTAssertEqual(emitModuleJob.outputs[2].file, .absolute(projectDirPath.appending(component: "foo.swiftsourceinfo")))
-        XCTAssertEqual(emitModuleJob.outputs[3].file, .absolute(path.appending(component: "foo.abi.json")))
+        if driver.targetTriple.isDarwin {
+          XCTAssertEqual(emitModuleJob.outputs[3].file, .absolute(path.appending(component: "foo.abi.json")))
+        }
       }
     }
     // avoid implicit swiftsourceinfo
@@ -5521,10 +5571,12 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let emitModuleJob = plannedJobs[0]
       XCTAssertFalse(emitModuleJob.commandLine.contains(.flag("-emit-module-source-info-path")))
-      XCTAssertEqual(emitModuleJob.outputs.count, 3)
+      XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 3 : 2)
       XCTAssertTrue(emitModuleJob.outputs[0].file == VirtualPath.relative(RelativePath("foo.swiftmodule")))
       XCTAssertTrue(emitModuleJob.outputs[1].file == VirtualPath.relative(RelativePath("foo.swiftdoc")))
-      XCTAssertTrue(emitModuleJob.outputs[2].file == VirtualPath.relative(RelativePath("foo.abi.json")))
+      if driver.targetTriple.isDarwin {
+        XCTAssertTrue(emitModuleJob.outputs[2].file == VirtualPath.relative(RelativePath("foo.abi.json")))
+      }
     }
   }
 
