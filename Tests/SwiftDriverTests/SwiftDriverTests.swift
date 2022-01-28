@@ -509,6 +509,17 @@ final class SwiftDriverTests: XCTestCase {
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-gdwarf-types", "-debug-info-format=codeview") {
       $1.expect(.error("argument '-debug-info-format=codeview' is not allowed with '-gdwarf-types'"))
     }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag(".")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+    }
   }
 
   func testCoverageSettings() throws {
