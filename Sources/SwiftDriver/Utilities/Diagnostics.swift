@@ -41,6 +41,10 @@ extension Diagnostic.Message {
     .error("invalid value '\(value)' in '\(arg.spelling)'")
   }
 
+  static func error_invalid_arg_value_with_allowed(arg: Option, value: String, options: [String]) -> Diagnostic.Message {
+    .error("invalid value '\(value)' in '\(arg.spelling)', valid options are: \(options.joined(separator: ", "))")
+  }
+
   static func warning_inferring_simulator_target(originalTriple: Triple, inferredTriple: Triple) -> Diagnostic.Message {
     .warning("inferring simulator environment for target '\(originalTriple.triple)'; use '-target \(inferredTriple.triple)' instead")
   }

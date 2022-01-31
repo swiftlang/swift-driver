@@ -23,7 +23,7 @@ public enum LinkOutputType {
 }
 
 /// Describes the kind of link-time-optimization we expect to perform.
-public enum LTOKind: String, Hashable {
+public enum LTOKind: String, Hashable, CaseIterable {
   /// Perform LLVM ThinLTO.
   case llvmThin = "llvm-thin"
   /// Perform LLVM full LTO.

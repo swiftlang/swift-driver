@@ -878,7 +878,8 @@ extension Driver {
                               diagnosticsEngine: DiagnosticsEngine) -> LTOKind? {
     guard let arg = parsedOptions.getLastArgument(.lto)?.asSingle else { return nil }
     guard let kind = LTOKind(rawValue: arg) else {
-      diagnosticsEngine.emit(.error_invalid_arg_value(arg: .lto, value: arg))
+      diagnosticsEngine.emit(.error_invalid_arg_value_with_allowed(
+        arg: .lto, value: arg, options: LTOKind.allCases.map { $0.rawValue }))
       return nil
     }
     return kind
