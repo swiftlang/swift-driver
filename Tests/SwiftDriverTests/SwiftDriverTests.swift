@@ -4511,7 +4511,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(try Driver(args: ["swiftc", "-lto=llvm-full"]).lto, .llvmFull)
 
     try assertDriverDiagnostics(args: ["swiftc", "-lto=nop"]) { driver, verify in
-      verify.expect(.error("invalid value 'nop' in '-lto='"))
+      verify.expect(.error("invalid value 'nop' in '-lto=', valid options are: llvm-thin, llvm-full"))
     }
   }
 
