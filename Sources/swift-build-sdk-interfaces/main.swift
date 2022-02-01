@@ -11,7 +11,13 @@
 //===----------------------------------------------------------------------===//
 import SwiftDriverExecution
 import SwiftDriver
-import TSCLibc
+#if os(Windows)
+import CRT
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+import Darwin
+#else
+import Glibc
+#endif
 import TSCBasic
 import TSCUtility
 
