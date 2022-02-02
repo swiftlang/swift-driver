@@ -4,7 +4,6 @@
 import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 class IncrementalBuildPerformanceTests: XCTestCase {
   enum WhatToMeasure { case readingSwiftDeps, writing, readingPriors }

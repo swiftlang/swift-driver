@@ -10,9 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import Foundation
 import SwiftOptions
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Version
 
 /// The Swift driver.
 public struct Driver {

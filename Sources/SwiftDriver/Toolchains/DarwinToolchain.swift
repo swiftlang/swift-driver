@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import Foundation
 import SwiftOptions
+
+import struct TSCUtility.Version
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///

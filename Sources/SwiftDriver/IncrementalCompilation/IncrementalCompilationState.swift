@@ -12,7 +12,6 @@
 
 import Dispatch
 import TSCBasic
-import TSCUtility
 import SwiftOptions
 
 /// An instance of `IncrementalCompilationState` encapsulates the data necessary

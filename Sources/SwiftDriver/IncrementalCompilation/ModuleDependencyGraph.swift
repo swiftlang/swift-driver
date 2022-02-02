@@ -12,9 +12,14 @@
 
 import Foundation
 import TSCBasic
-import TSCUtility
 import SwiftOptions
 
+import enum TSCUtility.BitcodeElement
+import enum TSCUtility.Bitstream
+import class TSCUtility.BitstreamWriter
+import protocol TSCUtility.BitstreamVisitor
+import struct TSCUtility.Bitcode
+import struct TSCUtility.Version
 
 // MARK: - ModuleDependencyGraph
 

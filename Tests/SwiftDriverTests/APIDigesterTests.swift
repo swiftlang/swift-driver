@@ -12,7 +12,6 @@
 
 import XCTest
 import TSCBasic
-import TSCUtility
 @_spi(Testing) import SwiftDriver
 
 class APIDigesterTests: XCTestCase {

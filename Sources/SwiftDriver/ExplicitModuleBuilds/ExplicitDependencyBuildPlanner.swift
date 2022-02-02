@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import Foundation
 
 /// A map from a module identifier to a path to its .swiftmodule file.

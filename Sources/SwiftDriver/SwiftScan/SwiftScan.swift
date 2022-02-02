@@ -12,9 +12,13 @@
 
 @_implementationOnly import CSwiftScan
 
-import TSCUtility
 import TSCBasic
 import Foundation
+
+import class TSCUtility.DLHandle
+import func TSCUtility.dlopen
+import func TSCUtility.dlsym
+import struct TSCUtility.Version
 
 public enum DependencyScanningError: Error, DiagnosticData {
   case missingRequiredSymbol(String)

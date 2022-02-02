@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import TSCUtility
 
 extension Driver {
   mutating func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath) throws -> Job {

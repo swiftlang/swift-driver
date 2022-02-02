@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
 
 /// Whether we should produce color diagnostics by default.
 fileprivate func shouldColorDiagnostics() -> Bool {

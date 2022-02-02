@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCUtility
+import struct TSCUtility.Version
 
 // TODO: maybe move this to TSC.
 extension Version {
