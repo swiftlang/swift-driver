@@ -13,7 +13,6 @@
 import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
   static let maxIndex = 12

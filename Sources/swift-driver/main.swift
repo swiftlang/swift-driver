@@ -19,11 +19,13 @@ import Darwin
 import Glibc
 #endif
 import TSCBasic
-import TSCUtility
 
 #if os(Windows)
 import WinSDK
 #endif
+
+import enum TSCUtility.Diagnostics
+import typealias TSCUtility.InterruptHandler
 
 var intHandler: InterruptHandler?
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])

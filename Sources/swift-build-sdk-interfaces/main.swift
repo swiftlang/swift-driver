@@ -19,7 +19,6 @@ import Darwin
 import Glibc
 #endif
 import TSCBasic
-import TSCUtility
 
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 

@@ -12,9 +12,9 @@
 
 import Dispatch
 import TSCBasic
-import TSCUtility
 import SwiftOptions
 
+import struct TSCUtility.Version
 
 extension IncrementalCompilationState {
   /// Encapsulates the data necessary to make incremental build scheduling decisions and protects it from concurrent access.
