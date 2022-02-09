@@ -467,7 +467,7 @@ final class JobExecutorTests: XCTestCase {
     #elseif os(Windows)
     let toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
     if let path = try toolchain.defaultSDKPath(nil) {
-      return ["-sdk", path.pathString.nativePathString()]
+      return ["-sdk", path.nativePathString(escaped: false)]
     }
     return []
     #else
