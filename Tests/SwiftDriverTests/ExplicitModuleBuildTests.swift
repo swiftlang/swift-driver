@@ -1028,8 +1028,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-import-prescan",
                             "-I", cHeadersPath.nativePathString().escaped(),
                             "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
-                            "-I", stdLibPath.description.nativePathString().escaped(),
-                            "-I", shimsPath.description.nativePathString().escaped(),
+                            "-I", stdLibPath.nativePathString(escaped: true),
+                            "-I", shimsPath.nativePathString(escaped: true),
                             main.pathString.escaped()] + sdkArgumentsForTesting
 
       let imports =
