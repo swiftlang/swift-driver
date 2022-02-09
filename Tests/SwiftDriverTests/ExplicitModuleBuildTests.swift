@@ -328,7 +328,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting)
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
@@ -479,7 +479,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting)
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
 
@@ -799,7 +799,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-import-prescan",
                             "-module-alias",
                             "Car=Bar",
-                            main.pathString.escaped()] + sdkArgumentsForTesting
+                            main.nativePathString(escaped: true)] + sdkArgumentsForTesting
 
       let deps =
         try! dependencyOracle.getImports(workingDirectory: path,
@@ -906,7 +906,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
-                                     main.pathString.escaped()] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -1022,7 +1022,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                             "-I", stdLibPath.nativePathString(escaped: true),
                             "-I", shimsPath.nativePathString(escaped: true),
-                            main.pathString.escaped()] + sdkArgumentsForTesting
+                            main.nativePathString(escaped: true)] + sdkArgumentsForTesting
 
       let imports =
         try! dependencyOracle.getImports(workingDirectory: path,
@@ -1046,7 +1046,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
-                                     main.pathString.escaped()] + lotsOfInputs + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: true)] + lotsOfInputs + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let scannerJob = try driver.dependencyScanningJob()
 
@@ -1095,13 +1095,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-I", stdlibPath.pathString.escaped(),
-                                     "-I", shimsPath.pathString.escaped(),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-import-objc-header",
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
@@ -1185,12 +1185,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-I", stdlibPath.pathString.escaped(),
-                                     "-I", shimsPath.pathString.escaped(),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }

@@ -14,22 +14,6 @@ import Foundation
 import TSCBasic
 import SwiftDriver
 
-extension String {
-  public func escaped() -> Self {
-#if os(Windows)
-    return self.replacingOccurrences(of: "\\", with: "\\\\")
-#else
-    return self
-#endif
-  }
-
-  public func nativePathString() -> Self {
-    return URL(fileURLWithPath: self).withUnsafeFileSystemRepresentation {
-      String(cString: $0!)
-    }
-  }
-}
-
 extension AbsolutePath {
   public func nativePathString(escaped: Bool) -> String {
     return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
