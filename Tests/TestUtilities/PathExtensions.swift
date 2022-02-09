@@ -28,3 +28,13 @@ extension String {
     }
   }
 }
+
+extension AbsolutePath {
+  public func nativePathString(escaped: Bool) -> String {
+    return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
+      let repr: String = String(cString: $0!)
+      if escaped { return repr.replacingOccurrences(of: "\\", with: "\\\\") }
+      return repr
+    }
+  }
+}

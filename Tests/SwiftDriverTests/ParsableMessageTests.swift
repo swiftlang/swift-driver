@@ -176,7 +176,7 @@ final class ParsableMessageTests: XCTestCase {
             "pid" : -1000,
           """))
 #if os(Windows)
-          let mainPath: String = workdir.appending(component: "main.swift").pathString.nativePathString().escaped()
+          let mainPath: String = workdir.appending(component: "main.swift").nativePathString(escaped: true)
 #else
           let mainPath: String = workdir.appending(component: "main.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
 #endif
@@ -191,7 +191,7 @@ final class ParsableMessageTests: XCTestCase {
             "pid" : -1001,
           """))
 #if os(Windows)
-          let test1Path: String = workdir.appending(component: "test1.swift").pathString.nativePathString().escaped()
+          let test1Path: String = workdir.appending(component: "test1.swift").nativePathString(escaped: true)
 #else
           let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
 #endif
@@ -206,7 +206,7 @@ final class ParsableMessageTests: XCTestCase {
             "pid" : -1002,
           """))
 #if os(Windows)
-          let test2Path: String = workdir.appending(component: "test2.swift").pathString.nativePathString().escaped()
+          let test2Path: String = workdir.appending(component: "test2.swift").nativePathString(escaped: true)
 #else
           let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
 #endif

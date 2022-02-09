@@ -25,14 +25,14 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
     """
     {
       "": {
-        "swift-dependencies": "\(workingDirectory.appending(component: "module.swiftdeps").pathString.nativePathString().escaped())"
+        "swift-dependencies": "\(workingDirectory.appending(component: "module.swiftdeps").nativePathString(escaped: true))"
       }
     """.appending(files.map { file in
       """
       ,
-      "\(file.pathString.nativePathString().escaped())": {
+      "\(file.nativePathString(escaped: true))": {
         "dependencies": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + ".d")",
-        "object": "\(transform(file.pathString.nativePathString().escaped()) + ".o")",
+        "object": "\(transform(file.nativePathString(escaped: true)) + ".o")",
         "swiftmodule": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + "~partial.swiftmodule")",
         "swift-dependencies": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + ".swiftdeps")"
         }
