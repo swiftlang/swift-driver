@@ -4671,6 +4671,18 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testExperimentalPerformanceAnnotations() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-experimental-performance-annotations",
+                                     "-emit-sil", "-o", "foo.sil"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let emitModuleJob = plannedJobs[0]
+      XCTAssertEqual(emitModuleJob.kind, .compile)
+      XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-experimental-performance-annotations")))
+    }
+  }
+
   func testVerifyEmittedInterfaceJob() throws {
     // Evolution enabled
     var envVars = ProcessEnv.vars

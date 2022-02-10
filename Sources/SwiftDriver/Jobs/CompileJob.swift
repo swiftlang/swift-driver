@@ -344,6 +344,7 @@ extension Driver {
 
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
+    try commandLine.appendLast(.ExperimentalPerformanceAnnotations, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
