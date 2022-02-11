@@ -12,6 +12,7 @@
 
 import Foundation
 import TSCBasic
+import SwiftDriver
 
 extension String {
   public func escaped() -> Self {
@@ -32,6 +33,16 @@ extension String {
 extension AbsolutePath {
   public func nativePathString(escaped: Bool) -> String {
     return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
+      let repr: String = String(cString: $0!)
+      if escaped { return repr.replacingOccurrences(of: "\\", with: "\\\\") }
+      return repr
+    }
+  }
+}
+
+extension VirtualPath {
+  public func nativePathString(escaped: Bool) -> String {
+    return URL(fileURLWithPath: self.description).withUnsafeFileSystemRepresentation {
       let repr: String = String(cString: $0!)
       if escaped { return repr.replacingOccurrences(of: "\\", with: "\\\\") }
       return repr
