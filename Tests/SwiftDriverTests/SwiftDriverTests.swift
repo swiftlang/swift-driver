@@ -4438,16 +4438,28 @@ final class SwiftDriverTests: XCTestCase {
       let errorOutputFile = path.appending(component: "dummy_error_stream")
       TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
 
-      let libObj: String = root.appending(component: "lib.o").nativePathString(escaped: false)
-      let mainObj: String = root.appending(component: "main.o").nativePathString(escaped: false)
-      let basicOutputFileMapObj: String = root.appending(component: "basic_output_file_map.o").nativePathString(escaped: false)
+      let libObj: AbsolutePath = root.appending(component: "lib.o")
+      let mainObj: AbsolutePath = root.appending(component: "main.o")
+      let basicOutputFileMapObj: AbsolutePath = root.appending(component: "basic_output_file_map.o")
 
-      let dummyInput = path.appending(component: "output_file_map_test.swift").nativePathString(escaped: false)
-      let mainSwift: String = path.appending(components: "Inputs", "main.swift").nativePathString(escaped: false)
-      let libSwift: String = path.appending(components: "Inputs", "lib.swift").nativePathString(escaped: false)
+      let dummyInput: AbsolutePath = path.appending(component: "output_file_map_test.swift")
+      let mainSwift: AbsolutePath = path.appending(components: "Inputs", "main.swift")
+      let libSwift: AbsolutePath = path.appending(components: "Inputs", "lib.swift")
       let outputFileMap = path.appending(component: "output_file_map.json")
 
-      let fileMap = "{\"\(dummyInput.escaped())\": {\"object\": \"\(basicOutputFileMapObj.escaped())\"}, \"\(mainSwift.escaped())\": {\"object\": \"\(mainObj.escaped())\"}, \"\(libSwift.escaped())\": {\"object\": \"\(libObj.escaped())\"}}"
+      let fileMap = """
+{
+    \"\(dummyInput.nativePathString(escaped: true))\": {
+        \"object\": \"\(basicOutputFileMapObj.nativePathString(escaped: true))\"
+    },
+    \"\(mainSwift.nativePathString(escaped: true))\": {
+        \"object\": \"\(mainObj.nativePathString(escaped: true))\"
+    },
+    \"\(libSwift.nativePathString(escaped: true))\": {
+        \"object\": \"\(libObj.nativePathString(escaped: true))\"
+    }
+}
+"""
       try localFileSystem.writeFileContents(outputFileMap) { $0 <<< fileMap }
 
       var driver = try Driver(args: ["swiftc", "-driver-print-output-file-map",
@@ -4458,9 +4470,9 @@ final class SwiftDriverTests: XCTestCase {
       try driver.run(jobs: [])
       let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
 
-      XCTAssertTrue(invocationError.contains("\(libSwift) -> object: \"\(libObj)\""))
-      XCTAssertTrue(invocationError.contains("\(mainSwift) -> object: \"\(mainObj)\""))
-      XCTAssertTrue(invocationError.contains("\(dummyInput) -> object: \"\(basicOutputFileMapObj)\""))
+      XCTAssertTrue(invocationError.contains("\(libSwift.nativePathString(escaped: false)) -> object: \"\(libObj.nativePathString(escaped: false))\""))
+      XCTAssertTrue(invocationError.contains("\(mainSwift.nativePathString(escaped: false)) -> object: \"\(mainObj.nativePathString(escaped: false))\""))
+      XCTAssertTrue(invocationError.contains("\(dummyInput.nativePathString(escaped: false)) -> object: \"\(basicOutputFileMapObj.nativePathString(escaped: false))\""))
 
       // Restore the error stream to what it was
       TSCBasic.stderrStream = errorStream
@@ -5987,7 +5999,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-c",
                                        "-incremental",
                                        "-output-file-map", ofm.nativePathString(escaped: true),
-                                       main.pathString.escaped()] + sdkArguments,
+                                       main.nativePathString(escaped: true)] + sdkArguments,
                                 env: ProcessEnv.vars)
         let jobs = try driver.planBuild()
         do {try driver.run(jobs: jobs)}

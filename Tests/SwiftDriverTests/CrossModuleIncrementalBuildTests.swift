@@ -31,10 +31,10 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       """
       ,
       "\(file.nativePathString(escaped: true))": {
-        "dependencies": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + ".d")",
+        "dependencies": "\(transform(file.basenameWithoutExt) + ".d")",
         "object": "\(transform(file.nativePathString(escaped: true)) + ".o")",
-        "swiftmodule": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + "~partial.swiftmodule")",
-        "swift-dependencies": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + ".swiftdeps")"
+        "swiftmodule": "\(transform(file.basenameWithoutExt) + "~partial.swiftmodule")",
+        "swift-dependencies": "\(transform(file.basenameWithoutExt) + ".swiftdeps")"
         }
       """
     }.joined(separator: "\n").appending("\n}"))
