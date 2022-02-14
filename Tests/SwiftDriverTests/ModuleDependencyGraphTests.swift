@@ -955,7 +955,7 @@ extension ModuleDependencyGraph {
   -> [Int]
   {
     blockingConcurrentAccessOrMutation {
-      phase = .updatingAfterCompilation
+        setPhase(to: .updatingAfterCompilation)
     }
     let directlyInvalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,

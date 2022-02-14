@@ -39,8 +39,11 @@ import struct TSCUtility.Version
   /// For debugging, something to write out files for visualizing graphs
   var dotFileWriter: DependencyGraphDotFileWriter?
 
-  @_spi(Testing) public var phase: Phase {
-    willSet { mutationSafetyPrecondition() }
+  @_spi(Testing) public fileprivate(set) var phase: Phase
+
+  @_spi(Testing) public func setPhase(to newPhase: Phase) {
+    mutationSafetyPrecondition()
+    self.phase = newPhase
   }
 
   /// The phase when the graph was created. Used to help diagnose later failures
