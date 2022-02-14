@@ -99,13 +99,13 @@ extension IncrementalCompilationState.FirstWaveComputer {
           mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
           showJobLifecycle: showJobLifecycle)
 
-        moduleDependencyGraph.phase = .buildingAfterEachCompilation
+        moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
         return (initiallySkippedCompileGroups: [:],
                 mandatoryJobsInOrder: mandatoryJobsInOrder)
       }
       return try everythingIsMandatory()
     }
-    moduleDependencyGraph.phase = .updatingAfterCompilation
+    moduleDependencyGraph.setPhase(to: .updatingAfterCompilation)
 
     let initiallySkippedInputs = computeInitiallySkippedCompilationInputs(
       inputsInvalidatedByExternals: inputsInvalidatedByExternals,
