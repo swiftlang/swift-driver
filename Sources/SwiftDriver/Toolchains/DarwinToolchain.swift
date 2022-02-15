@@ -129,6 +129,16 @@ public final class DarwinToolchain: Toolchain {
     !(env["RC_DEBUG_OPTIONS"]?.isEmpty ?? true)
   }
 
+  public var globalDebugPathRemapping: String? {
+    // This matches the behavior in Clang.
+    if let map = env["RC_DEBUG_PREFIX_MAP"] {
+      if map.contains("=") {
+        return map
+      }
+    }
+    return nil
+  }
+
   public func runtimeLibraryName(
     for sanitizer: Sanitizer,
     targetTriple: Triple,

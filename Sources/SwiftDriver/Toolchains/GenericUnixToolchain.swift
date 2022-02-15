@@ -102,6 +102,8 @@ public final class GenericUnixToolchain: Toolchain {
 
   public var shouldStoreInvocationInDebugInfo: Bool { false }
 
+  public var globalDebugPathRemapping: String? { nil }
+
   public func runtimeLibraryName(
     for sanitizer: Sanitizer,
     targetTriple: Triple,
