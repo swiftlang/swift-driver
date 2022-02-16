@@ -68,7 +68,7 @@ extension WindowsToolchain.ToolchainValidationError {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend.exe")
     case .staticLinker:
-      return try lookup(executable: "llvm-ar.exe")
+      return try lookup(executable: "lld-link.exe")
     case .dynamicLinker:
       return try lookup(executable: "clang.exe")
     case .clang:
