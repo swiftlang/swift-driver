@@ -24,6 +24,29 @@ extension WindowsToolchain {
                                             sanitizers: Set<Sanitizer>,
                                             targetInfo: FrontendTargetInfo)
       throws -> AbsolutePath {
+    // Special case static linking as clang cannot drive the operation.
+    if linkerOutputType == .staticLibrary {
+      let librarian: String
+      switch parsedOptions.getLastArgument(.useLd)?.asSingle {
+      case .none:
+        librarian = lto == nil ? "link.exe" : "lld-link.exe"
+      case .some("lld"), .some("lld.exe"), .some("lld-link"), .some("lld-link.exe"):
+        librarian = "lld-link.exe"
+      case let .some(linker):
+        librarian = linker
+      }
+
+      commandLine.appendFlag("/LIB")
+      commandLine.appendFlag("/NOLOGO")
+      commandLine.appendFlag("/OUT:\(outputFile.name.spm_shellEscaped())")
+
+      let types: [FileType] = lto == nil ? [.object] : [.object, .llvmBitcode]
+      commandLine.append(contentsOf: inputs.lazy.filter { types.contains($0.type) }
+                                                .map { .path($0.file) })
+
+      return try lookup(executable: librarian)
+    }
+
     var clang = try getToolPath(.clang)
 
     let targetTriple = targetInfo.target.triple
@@ -34,7 +57,7 @@ extension WindowsToolchain {
 
     switch linkerOutputType {
     case .staticLibrary:
-      break
+      fatalError(".staticLibrary should not be reached")
     case .dynamicLibrary:
       commandLine.appendFlag("-shared")
     case .executable:
