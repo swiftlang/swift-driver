@@ -488,6 +488,16 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(jobs[0].commandLine.contains(.flag("qux=")))
     }
 
+    do {
+      var env = ProcessEnv.vars
+      env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+      env["RC_DEBUG_PREFIX_MAP"] = "old=new"
+      var driver = try Driver(args: ["swiftc", "-c", "-target", "arm64-apple-macos12", "foo.swift"], env: env)
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-prefix-map")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("old=new")))
+    }
+
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo", "-debug-prefix-map", "bar") {
         $1.expect(.error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'foo' was provided"))
         $1.expect(.error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'bar' was provided"))

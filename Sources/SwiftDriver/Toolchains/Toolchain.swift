@@ -60,6 +60,12 @@ public protocol Toolchain {
   /// When the compiler invocation should be stored in debug information.
   var shouldStoreInvocationInDebugInfo: Bool { get }
 
+  /// Specific toolchains should override this to provide additional
+  /// -debug-prefix-map entries. For example, Darwin has an
+  /// RC_DEBUG_PREFIX_MAP environment variable that is also understood
+  /// by Clang.
+  var globalDebugPathRemapping: String? { get }
+
   /// Constructs a proper output file name for a linker product.
   func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 

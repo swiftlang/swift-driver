@@ -130,6 +130,8 @@ extension WindowsToolchain.ToolchainValidationError {
     !env["RC_DEBUG_OPTIONS", default: ""].isEmpty
   }
 
+  public var globalDebugPathRemapping: String? { nil }
+    
   public func runtimeLibraryName(for sanitizer: Sanitizer, targetTriple: Triple,
                                  isShared: Bool) throws -> String {
     // TODO(compnerd) handle shared linking
