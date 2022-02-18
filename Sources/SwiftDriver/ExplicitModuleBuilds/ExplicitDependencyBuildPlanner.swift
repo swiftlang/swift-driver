@@ -88,7 +88,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   ///   ClangD: (10.10, 10.13)
   ///
   /// Due to this requirement, we generate jobs for main main module dependencies in two stages:
-  /// 1. Generate jobs for all Swift modules, accumulating, for each Clang dependency, the dependending Swift
+  /// 1. Generate jobs for all Swift modules, accumulating, for each Clang dependency, the depending Swift
   /// module's target version (PCM Args).
   /// 2. Generate jobs for all Clang modules, now that we have each module's set of PCM versions it must be
   /// built against.
@@ -278,7 +278,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                        type: .swiftModule))
       }
     }
-    // Clang module depenencies are specified on the command line eplicitly
+    // Clang module dependencies are specified on the command line explicitly
     for moduleArtifactInfo in clangDependencyArtifacts {
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.modulePath.path,
@@ -327,7 +327,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
             try targetEncodedClangModuleFilePath(for: dependencyInfo,
                                                  hashParts: getPCMHashParts(pcmArgs: pcmArgs,
                                                                             contextHash: dependencyClangModuleDetails.contextHash))
-          // Accumulate the requried information about this dependency
+          // Accumulate the required information about this dependency
           clangDependencyArtifacts.append(
             ClangModuleArtifactInfo(name: dependencyId.moduleName,
                                     modulePath: TextualVirtualPath(path: clangModulePath),
@@ -338,7 +338,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           let isFramework = prebuiltModuleDetails.isFramework ?? false
           let swiftModulePath: TypedVirtualPath =
             .init(file: compiledModulePath.path, type: .swiftModule)
-          // Accumulate the requried information about this dependency
+          // Accumulate the required information about this dependency
           // TODO: add .swiftdoc and .swiftsourceinfo for this module.
           swiftDependencyArtifacts.append(
             SwiftModuleArtifactInfo(name: dependencyId.moduleName,
@@ -399,7 +399,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       return results
     }
 
-    // We need this to enable explict modules in the driver-as-executable mode. For instance,
+    // We need this to enable explicit modules in the driver-as-executable mode. For instance,
     // we have two Swift targets A and B, where A depends on X.pcm which in turn depends on Y.pcm,
     // and B only depends on Y.pcm. In the driver-as-executable mode, the build system isn't aware
     // of the shared dependency of Y.pcm so it will be generated multiple times. If all these Y.pcm

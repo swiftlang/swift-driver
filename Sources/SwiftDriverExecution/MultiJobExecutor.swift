@@ -623,7 +623,7 @@ class ExecuteJobRule: LLBuildRule {
           context.diagnosticsEngine.emit(.error_command_exception(kind: job.kind, exception: exception))
 #else
         case let .signalled(signal):
-          // An interrupt of an individual compiler job means it was deliberatly cancelled,
+          // An interrupt of an individual compiler job means it was deliberately cancelled,
           // most likely by the driver itself. This does not constitute an error.
           if signal != SIGINT {
             context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))

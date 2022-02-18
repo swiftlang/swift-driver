@@ -150,7 +150,7 @@ public struct OutputFileMap: Hashable, Codable {
     try fileSystem.writeFileContents(file, bytes: ByteString(contents))
   }
 
-  /// Human-readable texual representation
+  /// Human-readable textual representation
   var description: String {
     var result = ""
     func outputPairDescription(inputPath: VirtualPath.Handle, outputPair: (FileType, VirtualPath.Handle))

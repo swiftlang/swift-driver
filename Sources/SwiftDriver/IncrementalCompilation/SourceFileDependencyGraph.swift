@@ -168,7 +168,7 @@ extension SourceFileDependencyGraph {
                   fromSwiftModule: typedFile.type == .swiftModule)
   }
 
-  /// Returns nil for a swiftmodule with no depenencies
+  /// Returns nil for a swiftmodule with no dependencies
   /*@_spi(Testing)*/ public init?(
     internedStringTable: InternedStringTable,
     data: ByteString,

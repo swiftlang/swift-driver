@@ -425,7 +425,7 @@ public struct Driver {
   ///   at the beginning.
   /// - Parameter env: The environment variables to use. This is a hook for testing;
   ///   in production, you should use the default argument, which copies the current environment.
-  /// - Parameter diagnosticsEngine: The diagnotic engine used by the driver to emit errors
+  /// - Parameter diagnosticsEngine: The diagnostic engine used by the driver to emit errors
   ///   and warnings.
   /// - Parameter fileSystem: The filesystem used by the driver to find resources/SDKs,
   ///   expand response files, etc. By default this is the local filesystem.
@@ -1049,7 +1049,7 @@ extension Driver {
           content.removeFirst(1)
 
           if quoted, content.first == "\"" {
-            // Consequtive double quotes inside a quoted string imples one quote
+            // Consecutive double quotes inside a quoted string implies one quote
             token.append("\"")
             content.removeFirst(1)
           }
@@ -1196,7 +1196,7 @@ extension Driver {
     let execRelPath = args.removeFirst()
     var driverName = try VirtualPath(path: execRelPath).basenameWithoutExt
 
-    // Determine if the driver kind is being overriden.
+    // Determine if the driver kind is being overridden.
     let driverModeOption = "--driver-mode="
     if let firstArg = args.first, firstArg.hasPrefix(driverModeOption) {
       args.removeFirst()
@@ -2277,7 +2277,7 @@ extension Driver {
     // Retrieve and validate module aliases if passed in
     let moduleAliases = moduleAliasesFromInput(parsedOptions.arguments(for: [.moduleAlias]), with: moduleName, onError: diagnosticsEngine)
 
-    // If we're not emiting a module, we're done.
+    // If we're not emitting a module, we're done.
     if moduleOutputKind == nil {
       return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
@@ -2983,7 +2983,7 @@ extension Driver {
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 
-  /// Determine if the build system has created a Project/ directory for auxilary outputs.
+  /// Determine if the build system has created a Project/ directory for auxiliary outputs.
   static func computeProjectDirectoryPath(moduleOutputPath: VirtualPath.Handle?,
                                           fileSystem: FileSystem) -> VirtualPath.Handle? {
     let potentialProjectDirectory = moduleOutputPath

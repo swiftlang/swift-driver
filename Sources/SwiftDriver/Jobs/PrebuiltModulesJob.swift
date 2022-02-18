@@ -223,7 +223,7 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
 public struct PrebuiltModuleInput {
   // The path to the input/output of the a module building task.
   let path: TypedVirtualPath
-  // The arch infered from the file name.
+  // The arch inferred from the file name.
   let arch: Triple.Arch
   init(_ path: TypedVirtualPath) {
     let baseName = path.file.basename

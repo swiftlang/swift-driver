@@ -44,7 +44,7 @@ extension IncrementalCompilationState {
     let buildRecordInfo: BuildRecordInfo
     /// Record about existence and time of the last compile.
     let maybeBuildRecord: BuildRecord?
-    /// A set of inputs invalidated by external chagnes.
+    /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
     let incrementalOptions: IncrementalCompilationState.Options
@@ -295,7 +295,7 @@ extension IncrementalCompilationState {
 
     // Emits a remark indicating incremental compilation has been disabled.
     //
-    // FIXME: This entrypoint exists for compatiblity with the legacy driver.
+    // FIXME: This entrypoint exists for compatibility with the legacy driver.
     // This message is not necessary, and we should migrate the tests.
     func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
       report("Incremental compilation has been disabled, \(why)")

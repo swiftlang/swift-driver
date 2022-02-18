@@ -45,7 +45,7 @@ public struct Job: Codable, Equatable, Hashable {
   }
 
   public enum ArgTemplate: Equatable, Hashable {
-    /// Represents a command-line flag that is substitued as-is.
+    /// Represents a command-line flag that is substituted as-is.
     case flag(String)
 
     /// Represents a virtual path on disk.

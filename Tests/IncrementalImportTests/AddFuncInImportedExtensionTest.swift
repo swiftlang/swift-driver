@@ -26,13 +26,13 @@ class AddFuncInImportedExtensionTest: XCTestCase {
         public struct S {public init() {}}
         """)
     let structExtension = Source( named: "structExtension", containing: """
-        // Extend the struct, possibly with an additional funcion.
+        // Extend the struct, possibly with an additional function.
         public extension S{
           //# withFunc func foo() {}
         }
         """)
     let  classExtension = Source( named:  "classExtension", containing: """
-        // Extend the class, possibly with an additional funcion.
+        // Extend the class, possibly with an additional function.
         public extension C{
           //# withFunc func foo() {}
         }

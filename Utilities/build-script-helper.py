@@ -51,12 +51,12 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
         error(str(e))
 
 def get_dispatch_cmake_arg(args):
-    """Returns the CMake argument to the Dispatch configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Dispatch configuration to use for building SwiftPM."""
     dispatch_dir = os.path.join(args.dispatch_build_dir, 'cmake/modules')
     return '-Ddispatch_DIR=' + dispatch_dir
 
 def get_foundation_cmake_arg(args):
-    """Returns the CMake argument to the Foundation configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Foundation configuration to use for building SwiftPM."""
     foundation_dir = os.path.join(args.foundation_build_dir, 'cmake/modules')
     return '-DFoundation_DIR=' + foundation_dir
 
@@ -497,7 +497,7 @@ def build_system_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_fl
   system_source_dir = os.path.join(os.path.dirname(args.package_path), 'swift-system')
   system_build_dir = os.path.join(build_dir, 'swift-system')
   flags = [
-      # requried due to swift-autolink-extract bug ("The file was not recognized as a valid object file")
+      # required due to swift-autolink-extract bug ("The file was not recognized as a valid object file")
       "-DBUILD_SHARED_LIBS=YES"]
   system_cmake_flags = base_cmake_flags + flags
   system_swift_flags = swift_flags[:]

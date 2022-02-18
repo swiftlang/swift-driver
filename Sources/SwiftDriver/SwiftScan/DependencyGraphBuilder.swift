@@ -30,9 +30,9 @@ internal extension SwiftScan {
     var resultGraph = InterModuleDependencyGraph(mainModuleName: mainModuleName)
     // Turn the `swiftscan_dependency_set_t` into an array of `swiftscan_dependency_info_t`
     // references we can iterate through in order to construct `ModuleInfo` objects.
-    let moduleRefArrray = Array(UnsafeBufferPointer(start: dependencySetRef.pointee.modules,
+    let moduleRefArray = Array(UnsafeBufferPointer(start: dependencySetRef.pointee.modules,
                                                     count: Int(dependencySetRef.pointee.count)))
-    for moduleRefOrNull in moduleRefArrray {
+    for moduleRefOrNull in moduleRefArray {
       guard let moduleRef = moduleRefOrNull else {
         throw DependencyScanningError.missingField("dependency_set_t.modules[_]")
       }
@@ -64,7 +64,7 @@ internal extension SwiftScan {
     var resultMap: [ModuleDependencyId: [InterModuleDependencyGraph]] = [:]
     let resultGraphRefArray = Array(UnsafeBufferPointer(start: batchResultRef.results,
                                                         count: Int(batchResultRef.count)))
-    // Note, respective indeces of the batch scan input and the returned result must be aligned.
+    // Note, respective indices of the batch scan input and the returned result must be aligned.
     for (index, resultGraphRefOrNull) in resultGraphRefArray.enumerated() {
       guard let resultGraphRef = resultGraphRefOrNull else {
         throw DependencyScanningError.dependencyScanFailed
@@ -252,7 +252,7 @@ private extension SwiftScan {
 }
 
 internal extension SwiftScan {
-  /// Convert a `swiftscan_string_ref_t` reference to a Swfit `String`, assuming the reference is to a valid string
+  /// Convert a `swiftscan_string_ref_t` reference to a Swift `String`, assuming the reference is to a valid string
   /// (non-null)
   func toSwiftString(_ string_ref: swiftscan_string_ref_t) throws -> String {
     if string_ref.length == 0 {
@@ -267,25 +267,25 @@ internal extension SwiftScan {
                   encoding: String.Encoding.utf8, freeWhenDone: false)!
   }
 
-  /// Convert a `swiftscan_string_set_t` reference to a Swfit `[String]`, assuming the individual string references
+  /// Convert a `swiftscan_string_set_t` reference to a Swift `[String]`, assuming the individual string references
   /// are to a valid strings (non-null)
   func toSwiftStringArray(_ string_set: swiftscan_string_set_t) throws -> [String] {
     var result: [String] = []
-    let stringRefArrray = Array(UnsafeBufferPointer(start: string_set.strings,
+    let stringRefArray = Array(UnsafeBufferPointer(start: string_set.strings,
                                                     count: Int(string_set.count)))
-    for stringRef in stringRefArrray {
+    for stringRef in stringRefArray {
       result.append(try toSwiftString(stringRef))
     }
     return result
   }
 
-  /// Convert a `swiftscan_string_set_t` reference to a Swfit `Set<String>`, assuming the individual string references
+  /// Convert a `swiftscan_string_set_t` reference to a Swift `Set<String>`, assuming the individual string references
   /// are to a valid strings (non-null)
   func toSwiftStringSet(_ string_set: swiftscan_string_set_t) throws -> Set<String> {
     var result = Set<String>()
-    let stringRefArrray = Array(UnsafeBufferPointer(start: string_set.strings,
+    let stringRefArray = Array(UnsafeBufferPointer(start: string_set.strings,
                                                     count: Int(string_set.count)))
-    for stringRef in stringRefArrray {
+    for stringRef in stringRefArray {
       result.insert(try toSwiftString(stringRef))
     }
     return result

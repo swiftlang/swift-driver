@@ -1112,7 +1112,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         scannerCommand.removeFirst()
       }
 
-      // Ensure we do not propagate the ususal PCH-handling arguments to the scanner invocation
+      // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
       XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
