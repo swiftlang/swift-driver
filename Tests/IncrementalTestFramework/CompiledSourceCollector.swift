@@ -57,7 +57,7 @@ struct CompiledSourceCollector {
     }
   }
 
-  /// Process a diagnistic
+  /// Process a diagnostic
   mutating func handle(diagnostic d: Diagnostic) {
     collectedCompiledBasenames.append(contentsOf: getCompiledBasenames(from: d))
     getReadDependencies(from: d).map {appendReadDependency($0)}

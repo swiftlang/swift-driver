@@ -1157,7 +1157,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     // But, if an arc is added for this, then *any* change that causes
     // a same-named interface to be dirty will dirty this implementation,
     // even if that interface is in another file.
-    // Therefor no such arc is added here, and any dirtying of either
+    // Therefore no such arc is added here, and any dirtying of either
     // the interface or implementation of this declaration will cause
     // the driver to recompile this source file.
     return nodePair

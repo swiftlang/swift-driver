@@ -24,7 +24,7 @@ import struct TSCUtility.Version
 // MARK: - ModuleDependencyGraph
 
 /// Holds all the dependency relationships in this module, and declarations in other modules that
-/// are dependended-upon.
+/// are depended-upon.
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph: InternedStringTableHolder {
 
   /// Supports finding nodes in two ways.
@@ -241,7 +241,7 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameter input: The file that has just been compiled
   /// - Returns: The input files that must be compiled now that `input` has been compiled.
-  /// These may include inptus that do not need compilation because this build already compiled them.
+  /// These may include inputs that do not need compilation because this build already compiled them.
   /// In case of an error, such as a missing entry in the `OutputFileMap`, nil is returned.
   @_spi(Testing) public func collectInputsRequiringCompilation(
     byCompiling input: SwiftSourceFile
@@ -283,7 +283,7 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameters:
   ///   - fingerprintedExternalDependency: the dependency to trace
-  ///   - why: why the dependecy must be traced
+  ///   - why: why the dependency must be traced
   /// - Returns: any nodes that directly use (depend upon) that external dependency.
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
@@ -397,7 +397,7 @@ extension ModuleDependencyGraph {
     }
   }
 
-  /// Find the nodes *directly* invaliadated by some external dependency
+  /// Find the nodes *directly* invalidated by some external dependency
   ///
   /// This function does not do the transitive closure; that is left to the callers.
   func findNodesInvalidated(
@@ -618,7 +618,7 @@ extension ModuleDependencyGraph {
   /// - WARNING: You *must* increment the minor version number when making any
   ///            changes to the underlying serialization format.
   ///
-  /// - Minor number 1: Don't serialize the `inputDepedencySourceMap`
+  /// - Minor number 1: Don't serialize the `inputDependencySourceMap`
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
   /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
   @_spi(Testing) public static let serializedGraphVersion = Version(1, 3, 0)
@@ -800,7 +800,7 @@ extension ModuleDependencyGraph {
       
       /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
       ///
-      /// If the priors were read from an invocation containing a subsuequently removed input,
+      /// If the priors were read from an invocation containing a subsequently removed input,
       /// the nodes defining decls from that input must be culled.
       ///
       /// - Parameter node: The (deserialized) node to test.

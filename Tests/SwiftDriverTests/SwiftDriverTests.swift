@@ -661,7 +661,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift"]).moduleOutputInfo.name, "foo")
     XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out"]).moduleOutputInfo.name, "a")
 
-    // This is silly, but necesary for compatibility with the integrated driver.
+    // This is silly, but necessary for compatibility with the integrated driver.
     XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized"]).moduleOutputInfo.name, "main")
 
     XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized", "-module-name", "bar"]).moduleOutputInfo.name, "bar")
@@ -3120,7 +3120,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testClangTargetForExplicitModule() throws {
     #if os(macOS)
-    // Check -clang-target is on by defualt when explicit module is on.
+    // Check -clang-target is on by default when explicit module is on.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "Foo.swift")
       try localFileSystem.writeFileContents(main) {

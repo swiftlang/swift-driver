@@ -67,7 +67,7 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
 
         let bsCount = unquoted.distance(from: unquoted.startIndex, to: firstNonBS)
         if unquoted[firstNonBS] == "\"" {
-          // This is an embedded quote. Escape all preceeding backslashes, then
+          // This is an embedded quote. Escape all preceding backslashes, then
           // add one additional backslash to escape the quote.
           (0 ..< (2 * bsCount + 1)).forEach { _ in quoted += "\\" }
           quoted += "\""

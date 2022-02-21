@@ -19,7 +19,7 @@ import TSCBasic
   throws {
     for (externalModuleId, externalModuleDetails) in externalTargetModuleDetailsMap {
       let externalModulePath = externalModuleDetails.path
-      // Replace the occurence of a Swift module to-be-built from source-file
+      // Replace the occurrence of a Swift module to-be-built from source-file
       // to an info that describes a pre-built binary module.
       let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
       guard let currentInfo = modules[swiftModuleId] else {
@@ -65,7 +65,7 @@ extension InterModuleDependencyGraph {
       topologicalIdList.reduce(into: [ModuleDependencyId : Set<ModuleDependencyId>]()) {
         $0[$1] = [$1]
       }
-    // Traverse the set of modules in reverse topological order, accimilating transitive closures
+    // Traverse the set of modules in reverse topological order, assimilating transitive closures
     for moduleId in topologicalIdList.reversed() {
       for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
         transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
