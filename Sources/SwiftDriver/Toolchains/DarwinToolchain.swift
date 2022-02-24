@@ -71,6 +71,8 @@ public final class DarwinToolchain: Toolchain {
       return try lookup(executable: "dsymutil")
     case .clang:
       return try lookup(executable: "clang")
+    case .clangxx:
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .lldb:
