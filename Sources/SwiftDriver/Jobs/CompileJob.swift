@@ -282,6 +282,8 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
 
+    addDisableCMOOption(commandLine: &commandLine)
+
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
     }

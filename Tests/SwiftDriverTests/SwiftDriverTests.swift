@@ -2691,12 +2691,11 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitModuleSeparatelyWMO() throws {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+    let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
+                  ?? AbsolutePath(validating: "/foo/bar")
 
     do {
-      let symbolGraphDir =
-          try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: symbolGraphDir), "-emit-symbol-graph", "-emit-symbol-graph-dir", symbolGraphDir.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", root.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
                                env: envVars)
       
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
@@ -2715,11 +2714,11 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
       XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
       XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: symbolGraphDir)))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: symbolGraphDir)))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: symbolGraphDir)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
+      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
       if abiFileCount == 1 {
-        XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: symbolGraphDir)))}).count)
+        XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
       }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -2727,9 +2726,6 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/foo/bar")
-
       // Ignore the `-emit-module-separately-wmo` flag when building only the module files to avoid duplicating outputs.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-wmo", "-emit-module-separately-wmo"])
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
@@ -2750,9 +2746,6 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/foo/bar")
-
       // Specifying -no-emit-module-separately-wmo doesn't schedule the separate emit-module job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
@@ -2775,6 +2768,40 @@ final class SwiftDriverTests: XCTestCase {
       if abiFileCount == 1 {
         XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
       }
+    }
+
+    #if os(Linux) || os(Android)
+    let autoLinkExtractJob = 1
+    #else
+    let autoLinkExtractJob = 0
+    #endif
+
+    do {
+      // non library-evolution builds require a single job, because cross-module-optimization is enabled by default.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O" ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1 + autoLinkExtractJob)
+    }
+
+    do {
+      // library-evolution builds can emit the module in a separate job.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-library-evolution" ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+    }
+
+    do {
+      // When disabling cross-module-optimization, the module can be emitted in a separate job.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-disable-cmo" ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+    }
+
+    do {
+      // non optimized builds can emit the module in a separate job.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo" ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
     }
 
     do {
