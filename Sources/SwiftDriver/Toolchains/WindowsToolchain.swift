@@ -73,6 +73,8 @@ extension WindowsToolchain.ToolchainValidationError {
       return try lookup(executable: "clang.exe")
     case .clang:
       return try lookup(executable: "clang.exe")
+    case .clangxx:
+      return try lookup(executable: "clang++.exe")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract.exe")
     case .lldb:

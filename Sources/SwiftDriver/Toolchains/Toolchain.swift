@@ -19,6 +19,7 @@ public enum Tool: Hashable {
   case staticLinker(LTOKind?)
   case dynamicLinker
   case clang
+  case clangxx
   case swiftAutolinkExtract
   case dsymutil
   case lldb
