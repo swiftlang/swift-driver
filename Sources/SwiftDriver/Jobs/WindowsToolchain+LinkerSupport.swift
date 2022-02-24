@@ -47,7 +47,9 @@ extension WindowsToolchain {
       return try lookup(executable: librarian)
     }
 
-    var clang = try getToolPath(.clang)
+    var clang = try parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+                    ? getToolPath(.clangxx)
+                    : getToolPath(.clang)
 
     let targetTriple = targetInfo.target.triple
     if !targetTriple.triple.isEmpty {

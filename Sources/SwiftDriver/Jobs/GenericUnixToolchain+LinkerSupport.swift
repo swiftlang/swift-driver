@@ -102,13 +102,17 @@ extension GenericUnixToolchain {
       // Windows rather than msvcprt).  When C++ interop is enabled, we will need to
       // surface this via a driver flag.  For now, opt for the simpler approach of
       // just using `clang` and avoid a dependency on the C++ runtime.
-      var clangPath = try getToolPath(.clang)
+      var clangPath = try parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+                          ? getToolPath(.clangxx)
+                          : getToolPath(.clang)
       if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
         // FIXME: What if this isn't an absolute path?
         let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
 
         // If there is a clang in the toolchain folder, use that instead.
-        if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
+        if let tool = lookupExecutablePath(filename: parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+                                                        ? "clang++" : "clang",
+                                           searchPaths: [toolsDir]) {
           clangPath = tool
         }
 
