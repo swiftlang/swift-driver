@@ -59,7 +59,7 @@ fileprivate enum Change: String, CustomStringConvertible, CaseIterable {
 
 // MARK: - Define imported module
 fileprivate let imported = Source(named: "imported", containing: """
-        // Just for fun, a protocol, as well as the struc with the optional specific func.
+        // Just for fun, a protocol, as well as the struct with the optional specific func.
         public protocol PP {}
         public struct S: PP {
           public init() {}

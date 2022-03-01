@@ -12,8 +12,9 @@
 
 @_spi(Testing) import SwiftDriver
 import TSCBasic
-import TSCUtility
 import XCTest
+
+import struct TSCUtility.Version
 
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {

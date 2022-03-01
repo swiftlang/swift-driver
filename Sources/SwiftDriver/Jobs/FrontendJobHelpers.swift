@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
 
 /// Whether we should produce color diagnostics by default.
 fileprivate func shouldColorDiagnostics() -> Bool {
@@ -255,6 +256,9 @@ extension Driver {
       if shouldSupportAnonymousContextMangledNames {
         commandLine.appendFlag(.enableAnonymousContextMangledNames)
       }
+
+      // TODO: Should we support -fcoverage-compilation-dir?
+      try commandLine.appendAll(.fileCompilationDir, from: &parsedOptions)
     }
 
     // Pass through any subsystem flags.
@@ -294,6 +298,14 @@ extension Driver {
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: self)
+  }
+
+  /// Add options to disable cross-module-optimization.
+  mutating func addDisableCMOOption(commandLine: inout [Job.ArgTemplate]) {
+    if parsedOptions.hasArgument(.disableCrossModuleOptimization) {
+      commandLine.appendFlag(.Xllvm)
+      commandLine.appendFlag("-sil-disable-pass=cmo")
+    }
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],

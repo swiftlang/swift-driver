@@ -97,6 +97,8 @@ public final class WebAssemblyToolchain: Toolchain {
       return try lookup(executable: "clang")
     case .clang:
       return try lookup(executable: "clang")
+    case .clangxx:
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
@@ -125,6 +127,8 @@ public final class WebAssemblyToolchain: Toolchain {
   }
 
   public var shouldStoreInvocationInDebugInfo: Bool { false }
+
+  public var globalDebugPathRemapping: String? { nil }
 
   public func runtimeLibraryName(
     for sanitizer: Sanitizer,

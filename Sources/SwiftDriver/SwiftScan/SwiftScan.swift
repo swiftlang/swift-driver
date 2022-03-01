@@ -12,9 +12,10 @@
 
 @_implementationOnly import CSwiftScan
 
-import TSCUtility
 import TSCBasic
 import Foundation
+
+import struct TSCUtility.Version
 
 public enum DependencyScanningError: Error, DiagnosticData {
   case missingRequiredSymbol(String)
@@ -60,7 +61,7 @@ internal final class SwiftScan {
   let path: AbsolutePath
 
   /// The handle to the dylib.
-  let dylib: DLHandle
+  let dylib: Loader.Handle
 
   /// Lock protecting private state.
   let lock: Lock = Lock()
@@ -74,9 +75,9 @@ internal final class SwiftScan {
   @_spi(Testing) public init(dylib path: AbsolutePath) throws {
     self.path = path
     #if os(Windows)
-    self.dylib = try dlopen(path.pathString, mode: [])
+    self.dylib = try Loader.load(path.pathString, mode: [])
     #else
-    self.dylib = try dlopen(path.pathString, mode: [.lazy, .local, .first])
+    self.dylib = try Loader.load(path.pathString, mode: [.lazy, .local, .first])
     #endif
     self.api = try swiftscan_functions_t(self.dylib)
     guard let scanner = api.swiftscan_scanner_create() else {
@@ -270,13 +271,13 @@ internal final class SwiftScan {
 }
 
 private extension swiftscan_functions_t {
-  init(_ swiftscan: DLHandle) throws {
+  init(_ swiftscan: Loader.Handle) throws {
     self.init()
 
     // MARK: Optional Methods
     // Future optional methods can be queried here
     func loadOptional<T>(_ symbol: String) throws -> T? {
-      guard let sym: T = dlsym(swiftscan, symbol: symbol) else {
+      guard let sym: T = Loader.lookup(symbol: symbol, in: swiftscan) else {
         return nil
       }
       return sym
@@ -303,7 +304,7 @@ private extension swiftscan_functions_t {
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
-      guard let sym: T = dlsym(swiftscan, symbol: symbol) else {
+      guard let sym: T = Loader.lookup(symbol: symbol, in: swiftscan) else {
         throw DependencyScanningError.missingRequiredSymbol(symbol)
       }
       return sym

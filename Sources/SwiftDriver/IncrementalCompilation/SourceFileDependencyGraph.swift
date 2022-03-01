@@ -10,7 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.BitstreamWriter
+import enum TSCUtility.BitcodeElement
+import enum TSCUtility.Bitstream
+import protocol TSCUtility.BitstreamVisitor
+import struct TSCUtility.Bitcode
 
 /*@_spi(Testing)*/ public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
@@ -163,7 +168,7 @@ extension SourceFileDependencyGraph {
                   fromSwiftModule: typedFile.type == .swiftModule)
   }
 
-  /// Returns nil for a swiftmodule with no depenencies
+  /// Returns nil for a swiftmodule with no dependencies
   /*@_spi(Testing)*/ public init?(
     internedStringTable: InternedStringTable,
     data: ByteString,

@@ -183,7 +183,7 @@ public struct DependencyKey {
     ///
     /// A "dynamic member lookup" is the Swift frontend's term for lookups that
     /// occur against instances of `AnyObject`. Because an `AnyObject` node
-    /// behaves like `id` in that it can recieve any kind of Objective-C
+    /// behaves like `id` in that it can receive any kind of Objective-C
     /// message, the compiler takes care to log these names separately.
     ///
     /// The `name` parameter is the human-readable base name of the Swift method

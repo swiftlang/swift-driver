@@ -11,16 +11,22 @@
 //===----------------------------------------------------------------------===//
 import SwiftDriverExecution
 import SwiftDriver
-
-import TSCLibc
+#if os(Windows)
+import CRT
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+import Darwin
+#else
+import Glibc
+#endif
 import TSCBasic
-import TSCUtility
 
 import Dispatch
 
 #if os(Windows)
 import WinSDK
 #endif
+
+import enum TSCUtility.Diagnostics
 
 let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])

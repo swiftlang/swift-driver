@@ -283,7 +283,7 @@ extension Driver {
     return linkerInputs
   }
 
-  /// When in single compile, add one compile job and possiblity multiple backend jobs.
+  /// When in single compile, add one compile job and possibility multiple backend jobs.
   /// Return the compile job if one was created.
   private mutating func addSingleCompileJobs(
     addJob: (Job) -> Void,
@@ -761,11 +761,11 @@ extension Diagnostic.Message {
 extension Driver {
 
   /// Given some jobs, merge the compile jobs into batched jobs, as appropriate
-  /// While it may seem odd to create unbatched jobs, then later disect and rebatch them,
+  /// While it may seem odd to create unbatched jobs, then later dissect and rebatch them,
   /// there are reasons for doing it this way:
   /// 1. For incremental builds, the inputs compiled in the 2nd wave cannot be known in advance, and
   /// 2. The code that creates a compile job intermixes command line formation, output gathering, etc.
-  ///   It does this for good reason: these things are connected by consistency requirments, and
+  ///   It does this for good reason: these things are connected by consistency requirements, and
   /// 3. The outputs of all compilations are needed, not just 1st wave ones, to feed as inputs to the link job.
   ///
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each

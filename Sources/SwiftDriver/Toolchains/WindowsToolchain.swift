@@ -68,11 +68,13 @@ extension WindowsToolchain.ToolchainValidationError {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend.exe")
     case .staticLinker:
-      return try lookup(executable: "llvm-ar.exe")
+      return try lookup(executable: "lld-link.exe")
     case .dynamicLinker:
       return try lookup(executable: "clang.exe")
     case .clang:
       return try lookup(executable: "clang.exe")
+    case .clangxx:
+      return try lookup(executable: "clang++.exe")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract.exe")
     case .lldb:
@@ -130,6 +132,8 @@ extension WindowsToolchain.ToolchainValidationError {
     !env["RC_DEBUG_OPTIONS", default: ""].isEmpty
   }
 
+  public var globalDebugPathRemapping: String? { nil }
+    
   public func runtimeLibraryName(for sanitizer: Sanitizer, targetTriple: Triple,
                                  isShared: Bool) throws -> String {
     // TODO(compnerd) handle shared linking
@@ -138,6 +142,7 @@ extension WindowsToolchain.ToolchainValidationError {
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple, targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
                            diagnosticEngine: DiagnosticsEngine) throws {
     // TODO(compnerd) validate any options we can
   }

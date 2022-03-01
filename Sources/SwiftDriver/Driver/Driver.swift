@@ -10,9 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import Foundation
 import SwiftOptions
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Version
 
 /// The Swift driver.
 public struct Driver {
@@ -360,6 +362,11 @@ public struct Driver {
     guard isFeatureSupported(.emit_abi_descriptor) else {
       return nil
     }
+    // Emit the descriptor only on platforms where Library Evolution is supported,
+    // or opted-into explicitly.
+    guard targetTriple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
+      return nil
+    }
     guard let moduleOutput = moduleOutputInfo.output else {
       return nil
     }
@@ -418,7 +425,7 @@ public struct Driver {
   ///   at the beginning.
   /// - Parameter env: The environment variables to use. This is a hook for testing;
   ///   in production, you should use the default argument, which copies the current environment.
-  /// - Parameter diagnosticsEngine: The diagnotic engine used by the driver to emit errors
+  /// - Parameter diagnosticsEngine: The diagnostic engine used by the driver to emit errors
   ///   and warnings.
   /// - Parameter fileSystem: The filesystem used by the driver to find resources/SDKs,
   ///   expand response files, etc. By default this is the local filesystem.
@@ -603,6 +610,7 @@ public struct Driver {
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
+                               compilerOutputType: self.compilerOutputType,
                                diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
@@ -870,7 +878,8 @@ extension Driver {
                               diagnosticsEngine: DiagnosticsEngine) -> LTOKind? {
     guard let arg = parsedOptions.getLastArgument(.lto)?.asSingle else { return nil }
     guard let kind = LTOKind(rawValue: arg) else {
-      diagnosticsEngine.emit(.error_invalid_arg_value(arg: .lto, value: arg))
+      diagnosticsEngine.emit(.error_invalid_arg_value_with_allowed(
+        arg: .lto, value: arg, options: LTOKind.allCases.map { $0.rawValue }))
       return nil
     }
     return kind
@@ -968,15 +977,113 @@ extension Driver {
     return tokens
   }
 
+  // https://docs.microsoft.com/en-us/previous-versions//17w5ykft(v=vs.85)?redirectedfrom=MSDN
+  private static func tokenizeWindowsResponseFile(_ content: String) -> [String] {
+    let whitespace: [Character] = [" ", "\t", "\r", "\n", "\0" ]
+
+    var content = content
+    var tokens: [String] = []
+    var token: String = ""
+    var quoted: Bool = false
+
+    while !content.isEmpty {
+      // Eat whitespace at the beginning
+      if token.isEmpty {
+        if let end = content.firstIndex(where: { !whitespace.contains($0) }) {
+          let count = content.distance(from: content.startIndex, to: end)
+          content.removeFirst(count)
+        }
+
+        // Stop if this was trailing whitespace.
+        if content.isEmpty { break }
+      }
+
+      // Treat whitespace, double quotes, and backslashes as special characters.
+      if let next = content.firstIndex(where: { (quoted ? ["\\", "\""] : [" ", "\t", "\r", "\n", "\0", "\\", "\""]).contains($0) }) {
+        let count = content.distance(from: content.startIndex, to: next)
+        token.append(contentsOf: content[..<next])
+        content.removeFirst(count)
+
+        switch content.first {
+        case " ", "\t", "\r", "\n", "\0":
+          tokens.append(token)
+          token = ""
+          content.removeFirst(1)
+
+        case "\\":
+          // Backslashes are interpreted in a special manner due to use as both
+          // a path separator and an escape character.  Consume runs of
+          // backslashes and following double quote if escaped.
+          //
+          //  - If an even number of backslashes is followed by a double quote,
+          //  one backslash is emitted for each pair, and the last double quote
+          //  remains unconsumed.  The quote will be processed as the start or
+          //  end of a quoted string by the tokenizer.
+          //
+          //  - If an odd number of backslashes is followed by a double quote,
+          //  one backslash is emitted for each pair, and a double quote is
+          //  emitted for the trailing backslash and quote pair.  The double
+          //  quote is consumed.
+          //
+          //  - Otherwise, backslashes are treated literally.
+          if let next = content.firstIndex(where: { $0 != "\\" }) {
+            let count = content.distance(from: content.startIndex, to: next)
+            if content[next] == "\"" {
+              token.append(String(repeating: "\\", count: count / 2))
+              content.removeFirst(count)
+
+              if count % 2 != 0 {
+                token.append("\"")
+                content.removeFirst(1)
+              }
+            } else {
+              token.append(String(repeating: "\\", count: count))
+              content.removeFirst(count)
+            }
+          } else {
+            token.append(String(repeating: "\\", count: content.count))
+            content.removeFirst(content.count)
+          }
+
+        case "\"":
+          content.removeFirst(1)
+
+          if quoted, content.first == "\"" {
+            // Consecutive double quotes inside a quoted string implies one quote
+            token.append("\"")
+            content.removeFirst(1)
+          }
+
+          quoted.toggle()
+
+        default:
+          fatalError("unexpected character '\(content.first!)'")
+        }
+      } else {
+        // Consume to end of content.
+        token.append(content)
+        content.removeFirst(content.count)
+        break
+      }
+    }
+
+    if !token.isEmpty { tokens.append(token) }
+    return tokens.filter { !$0.isEmpty }
+  }
+
   /// Tokenize each line of the response file, omitting empty lines.
   ///
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
-    #if !canImport(Darwin) && !os(Linux) && !os(Android) && !os(OpenBSD)
+    #if !canImport(Darwin) && !os(Linux) && !os(Android) && !os(OpenBSD) && !os(Windows)
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
+#if os(Windows)
+    return tokenizeWindowsResponseFile(content)
+#else
     return content.split { $0 == "\n" || $0 == "\r\n" }
-           .flatMap { tokenizeResponseFileLine($0) }
+                  .flatMap { tokenizeResponseFileLine($0) }
+#endif
   }
 
   /// Resolves the absolute path for a response file.
@@ -1089,7 +1196,7 @@ extension Driver {
     let execRelPath = args.removeFirst()
     var driverName = try VirtualPath(path: execRelPath).basenameWithoutExt
 
-    // Determine if the driver kind is being overriden.
+    // Determine if the driver kind is being overridden.
     let driverModeOption = "--driver-mode="
     if let firstArg = args.first, firstArg.hasPrefix(driverModeOption) {
       args.removeFirst()
@@ -2170,7 +2277,7 @@ extension Driver {
     // Retrieve and validate module aliases if passed in
     let moduleAliases = moduleAliasesFromInput(parsedOptions.arguments(for: [.moduleAlias]), with: moduleName, onError: diagnosticsEngine)
 
-    // If we're not emiting a module, we're done.
+    // If we're not emitting a module, we're done.
     if moduleOutputKind == nil {
       return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
@@ -2876,7 +2983,7 @@ extension Driver {
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 
-  /// Determine if the build system has created a Project/ directory for auxilary outputs.
+  /// Determine if the build system has created a Project/ directory for auxiliary outputs.
   static func computeProjectDirectoryPath(moduleOutputPath: VirtualPath.Handle?,
                                           fileSystem: FileSystem) -> VirtualPath.Handle? {
     let potentialProjectDirectory = moduleOutputPath

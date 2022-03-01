@@ -97,6 +97,8 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
+    addDisableCMOOption(commandLine: &commandLine)
+
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
     try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
@@ -143,6 +145,13 @@ extension Driver {
                                    default: true)
 
     case .singleCompile:
+      // Non library-evolution builds require a single job, because cross-module-optimization is enabled by default.
+      if !parsedOptions.hasArgument(.enableLibraryEvolution),
+         !parsedOptions.hasArgument(.disableCrossModuleOptimization),
+         let opt = parsedOptions.getLast(in: .O), opt.option != .Onone {
+        return false
+      }
+
       return parsedOptions.hasFlag(positive: .emitModuleSeparatelyWMO,
                                    negative: .noEmitModuleSeparatelyWMO,
                                    default: true) &&

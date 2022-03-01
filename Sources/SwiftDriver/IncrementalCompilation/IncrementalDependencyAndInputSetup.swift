@@ -175,7 +175,7 @@ extension IncrementalCompilationState {
     func computeInitialStateForPlanning() throws -> InitialStateForPlanning? {
       guard sourceFiles.disappeared.isEmpty else {
         // Would have to cleanse nodes of disappeared inputs from graph
-        // and would have to schedule files dependening on defs from disappeared nodes
+        // and would have to schedule files depending on defs from disappeared nodes
         if let reporter = reporter {
           reporter.report(
             "Incremental compilation has been disabled, "

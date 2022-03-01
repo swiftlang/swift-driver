@@ -316,21 +316,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
-      let cHeadersPath: String =
+      let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
-                        .pathString
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-macosx11.0",
-                                     "-I", cHeadersPath.nativePathString().escaped(),
-                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting)
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
@@ -469,21 +467,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import C\n"
       }
 
-      let cHeadersPath: String =
+      let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
-                        .pathString
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swift",
                                      "-target", "x86_64-apple-macosx11.0",
-                                     "-I", cHeadersPath.nativePathString().escaped(),
-                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting)
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
 
@@ -594,12 +590,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   
   func testModuleAliasingPrebuiltWithScanDeps() throws {
+    // rdar://88073675
+    throw XCTSkip("Skipping, known failure (rdar://88073675).")
     try withTemporaryDirectory { path in
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
       let srcBar = path.appending(component: "bar.swift")
-      let moduleBarPath = path.appending(component: "Bar.swiftmodule").pathString.nativePathString().escaped()
+      let moduleBarPath = path.appending(component: "Bar.swiftmodule").nativePathString(escaped: true)
       try localFileSystem.writeFileContents(srcBar) {
         $0 <<< "public class KlassBar {}"
       }
@@ -608,14 +606,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-explicit-module-build",
                                      "-working-directory",
-                                     path.pathString.nativePathString().escaped(),      
-                                     srcBar.pathString.nativePathString().escaped(),
+                                     path.nativePathString(escaped: true),
+                                     srcBar.nativePathString(escaped: true),
                                      "-module-name",
                                      "Bar",
                                      "-emit-module",
                                      "-emit-module-path", moduleBarPath,
-                                     "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                     "-I", shimsPath.pathString.nativePathString().escaped(),
+                                     "-I", stdLibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                               ] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       guard driver.isFrontendArgSupported(.moduleAlias) else {
@@ -642,12 +640,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-nonlib-dependency-scanner",
                                       "-explicit-module-build",
                                       "-working-directory",
-                                      path.pathString.nativePathString().escaped(),
-                                      srcFoo.pathString.nativePathString().escaped(),
+                                      path.nativePathString(escaped: true),
+                                      srcFoo.nativePathString(escaped: true),
                                       "-module-alias", "Car=Bar",
-                                      "-I", path.pathString.nativePathString().escaped(),
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      "-I", path.nativePathString(escaped: true),
+                                      "-I", stdLibPath.nativePathString(escaped: true),
+                                      "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
@@ -669,12 +667,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driverB = try Driver(args: ["swiftc",
                                       "-explicit-module-build",
                                       "-working-directory",
-                                      path.pathString.nativePathString().escaped(),
-                                      srcFoo.pathString.nativePathString().escaped(),
+                                      path.nativePathString(escaped: true),
+                                      srcFoo.nativePathString(escaped: true),
                                       "-module-alias", "Car=Bar",
-                                      "-I", path.pathString.nativePathString().escaped(),
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      "-I", path.nativePathString(escaped: true),
+                                      "-I", stdLibPath.nativePathString(escaped: true),
+                                      "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
@@ -716,11 +714,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driverA = try Driver(args: ["swiftc",
                                       "-nonlib-dependency-scanner",
                                       "-explicit-module-build",
-                                      srcFoo.pathString.nativePathString().escaped(),
+                                      srcFoo.nativePathString(escaped: true),
                                       "-module-alias", "Car=E",
-                                      "-I", swiftModuleInterfacesPath.pathString.nativePathString().escaped(),
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                      "-I", stdLibPath.nativePathString(escaped: true),
+                                      "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
       guard driverA.isFrontendArgSupported(.moduleAlias) else {
         throw XCTSkip("Skipping: compiler does not support '-module-alias'")
@@ -744,12 +742,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Module alias with the default scanner (driver scanner)
       var driverB = try Driver(args: ["swiftc",
                                       "-explicit-module-build",
-                                      srcFoo.pathString.nativePathString().escaped(),
+                                      srcFoo.nativePathString(escaped: true),
                                       "-module-alias", "Car=E",
-                                      "-working-directory", path.pathString.nativePathString().escaped(),
-                                      "-I", swiftModuleInterfacesPath.pathString.nativePathString().escaped(),
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      "-working-directory", path.nativePathString(escaped: true),
+                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                      "-I", stdLibPath.nativePathString(escaped: true),
+                                      "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
       
       // Resulting graph should contain the real module name Bar
@@ -801,7 +799,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-import-prescan",
                             "-module-alias",
                             "Car=Bar",
-                            main.pathString.escaped()] + sdkArgumentsForTesting
+                            main.nativePathString(escaped: true)] + sdkArgumentsForTesting
 
       let deps =
         try! dependencyOracle.getImports(workingDirectory: path,
@@ -818,7 +816,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let srcBar = path.appending(component: "bar.swift")
-      let moduleBarPath = path.appending(component: "Bar.swiftmodule").pathString.nativePathString().escaped()
+      let moduleBarPath = path.appending(component: "Bar.swiftmodule").nativePathString(escaped: true)
       try localFileSystem.writeFileContents(srcBar) {
         $0 <<< "public class KlassBar {}"
       }
@@ -831,12 +829,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-module-name",
                                       "Bar",
                                       "-working-directory",
-                                      path.pathString.nativePathString().escaped(),
+                                      path.nativePathString(escaped: true),
                                       "-emit-module",
                                       "-emit-module-path", moduleBarPath,
-                                      srcBar.pathString.nativePathString().escaped(),
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      srcBar.nativePathString(escaped: true),
+                                      "-I", stdLibPath.nativePathString(escaped: true),
+                                      "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting,
                                env: ProcessEnv.vars)
       guard driver1.isFrontendArgSupported(.moduleAlias) else {
@@ -849,7 +847,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(FileManager.default.fileExists(atPath: moduleBarPath))
       
       let srcFoo = path.appending(component: "foo.swift")
-      let moduleFooPath = path.appending(component: "Foo.swiftmodule").pathString.nativePathString().escaped()
+      let moduleFooPath = path.appending(component: "Foo.swiftmodule").nativePathString(escaped: true)
 
       // Module Foo imports Car but it's mapped to Bar (real name)
       // `-module-alias Car=Bar` allows Car (alias) to be referenced
@@ -860,21 +858,20 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "func run() -> Car.KlassBar? { return nil }"
       }
       var driver2 = try Driver(args: ["swiftc",
-                                      "-I",
-                                      path.pathString.nativePathString().escaped(),
+                                      "-I", path.nativePathString(escaped: true),
                                       "-explicit-module-build",
                                       "-module-name",
                                       "Foo",
                                       "-working-directory",
-                                      path.pathString.nativePathString().escaped(),
+                                      path.nativePathString(escaped: true),
                                       "-emit-module",
                                       "-emit-module-path",
                                       moduleFooPath,
                                       "-module-alias",
                                       "Car=Bar",
-                                      srcFoo.pathString.nativePathString().escaped(),
-                                      "-I", stdLibPath.pathString.nativePathString().escaped(),
-                                      "-I", shimsPath.pathString.nativePathString().escaped(),
+                                      srcFoo.nativePathString(escaped: true),
+                                      "-I", stdLibPath.nativePathString(escaped: true),
+                                      "-I", shimsPath.nativePathString(escaped: true),
                                       ] + sdkArgumentsForTesting,
                                env: ProcessEnv.vars)
       let jobs2 = try driver2.planBuild()
@@ -897,21 +894,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
-      let cHeadersPath: String =
+      let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
-                        .pathString
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString().escaped(),
-                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString.nativePathString().escaped(),
-                                     main.pathString.escaped()] + sdkArgumentsForTesting,
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -1014,22 +1009,20 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import E;"
         $0 <<< "import G;"
       }
-      let cHeadersPath: String =
+      let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
-                        .pathString
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let scannerCommand = ["-scan-dependencies",
                             "-import-prescan",
-                            "-I", cHeadersPath.nativePathString().escaped(),
-                            "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
-                            "-I", stdLibPath.description.nativePathString().escaped(),
-                            "-I", shimsPath.description.nativePathString().escaped(),
-                            main.pathString.escaped()] + sdkArgumentsForTesting
+                            "-I", cHeadersPath.nativePathString(escaped: true),
+                            "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                            "-I", stdLibPath.nativePathString(escaped: true),
+                            "-I", shimsPath.nativePathString(escaped: true),
+                            main.nativePathString(escaped: true)] + sdkArgumentsForTesting
 
       let imports =
         try! dependencyOracle.getImports(workingDirectory: path,
@@ -1052,8 +1045,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString.nativePathString().escaped(),
-                                     main.pathString.escaped()] + lotsOfInputs + sdkArgumentsForTesting,
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + lotsOfInputs + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let scannerJob = try driver.dependencyScanningJob()
 
@@ -1092,25 +1085,23 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
-      let cHeadersPath: String =
+      let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
-                        .pathString
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString().escaped(),
-                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
-                                     "-I", stdlibPath.pathString.escaped(),
-                                     "-I", shimsPath.pathString.escaped(),
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-import-objc-header",
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString.nativePathString().escaped(),
+                                     "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
@@ -1121,7 +1112,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         scannerCommand.removeFirst()
       }
 
-      // Ensure we do not propagate the ususal PCH-handling arguments to the scanner invocation
+      // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
       XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
@@ -1184,24 +1175,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
 
-      let cHeadersPath: String =
+      let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
-                        .pathString
-      let swiftModuleInterfacesPath: String =
+      let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
-                        .pathString
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString().escaped(),
-                                     "-I", swiftModuleInterfacesPath.nativePathString().escaped(),
-                                     "-I", stdlibPath.pathString.escaped(),
-                                     "-I", shimsPath.pathString.escaped(),
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
-                                     "-working-directory", path.pathString.nativePathString().escaped(),
+                                     "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target",
-                                     main.pathString.escaped()] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }

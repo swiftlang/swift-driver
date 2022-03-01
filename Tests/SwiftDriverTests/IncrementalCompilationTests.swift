@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import TSCBasic
-import TSCUtility
 import Foundation
 
 @_spi(Testing) import SwiftDriver
@@ -1311,7 +1310,7 @@ extension IncrementalCompilationTests {
   }
 }
 
-// MARK: - Concisely specifiying sequences of diagnostics
+// MARK: - Concisely specifying sequences of diagnostics
 
 /// Build an array of diagnostics from a closure containing various things
 @resultBuilder fileprivate enum DiagsBuilder {}

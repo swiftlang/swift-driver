@@ -12,7 +12,6 @@
 
 import Dispatch
 import TSCBasic
-import TSCUtility
 import SwiftOptions
 
 /// An instance of `IncrementalCompilationState` encapsulates the data necessary
@@ -22,7 +21,7 @@ import SwiftOptions
 /// using it as an oracle to discover the jobs to execute as the incremental
 /// build progresses. After a job completes, call
 /// `protectedState.collectJobsDiscoveredToBeNeededAfterFinishing(job:)`
-/// to both update the incremental state and recieve an array of jobs that
+/// to both update the incremental state and receive an array of jobs that
 /// need to be executed in response.
 ///
 /// Jobs become "unstuck" as their inputs become available, or may be discovered

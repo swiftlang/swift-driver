@@ -19,6 +19,7 @@ public enum Tool: Hashable {
   case staticLinker(LTOKind?)
   case dynamicLinker
   case clang
+  case clangxx
   case swiftAutolinkExtract
   case dsymutil
   case lldb
@@ -51,7 +52,7 @@ public protocol Toolchain {
   /// Set an absolute path to be used for a particular tool.
   func overrideToolPath(_ tool: Tool, path: AbsolutePath)
 
-  /// Remove the absolute path used for a particular tool, in case it was overriden or cached.
+  /// Remove the absolute path used for a particular tool, in case it was overridden or cached.
   func clearKnownToolPath(_ tool: Tool)
 
   /// Returns path of the default SDK, if there is one.
@@ -60,13 +61,21 @@ public protocol Toolchain {
   /// When the compiler invocation should be stored in debug information.
   var shouldStoreInvocationInDebugInfo: Bool { get }
 
+  /// Specific toolchains should override this to provide additional
+  /// -debug-prefix-map entries. For example, Darwin has an
+  /// RC_DEBUG_PREFIX_MAP environment variable that is also understood
+  /// by Clang.
+  var globalDebugPathRemapping: String? { get }
+
   /// Constructs a proper output file name for a linker product.
   func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 
   /// Perform platform-specific argument validation.
   func validateArgs(_ parsedOptions: inout ParsedOptions,
                     targetTriple: Triple,
-                    targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) throws
+                    targetVariantTriple: Triple?,
+                    compilerOutputType: FileType?,
+                    diagnosticsEngine: DiagnosticsEngine) throws
 
   /// Adds platform-specific linker flags to the provided command line
   func addPlatformSpecificLinkerArgs(
@@ -214,8 +223,9 @@ extension Toolchain {
   }
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
-                           targetTriple: Triple,
-                           targetVariantTriple: Triple?, diagnosticsEngine: DiagnosticsEngine) {}
+                           targetTriple: Triple, targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
+                           diagnosticsEngine: DiagnosticsEngine) {}
 
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],

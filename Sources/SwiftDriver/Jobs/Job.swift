@@ -45,7 +45,7 @@ public struct Job: Codable, Equatable, Hashable {
   }
 
   public enum ArgTemplate: Equatable, Hashable {
-    /// Represents a command-line flag that is substitued as-is.
+    /// Represents a command-line flag that is substituted as-is.
     case flag(String)
 
     /// Represents a virtual path on disk.
@@ -167,9 +167,13 @@ extension Job {
 
 extension Job : CustomStringConvertible {
   public var description: String {
+    func join(_ parts: String?...) -> String {
+      return parts.compactMap { $0 }.joined(separator: " ")
+    }
+
     switch kind {
     case .compile:
-        return "Compiling \(moduleName) \(displayInputs.first?.file.basename ?? "")"
+        return join("Compiling \(moduleName)", displayInputs.first?.file.basename)
 
     case .mergeModule:
         return "Merging module \(moduleName)"
@@ -187,7 +191,7 @@ extension Job : CustomStringConvertible {
         return "Emitting module for \(moduleName)"
 
     case .generatePCH:
-        return "Compiling bridging header \(displayInputs.first?.file.basename ?? "")"
+        return join("Compiling bridging header", displayInputs.first?.file.basename)
 
     case .moduleWrap:
       return "Wrapping Swift module \(moduleName)"
@@ -196,10 +200,10 @@ extension Job : CustomStringConvertible {
         return "Compiling Clang module \(moduleName)"
 
     case .dumpPCM:
-        return "Dump information about Clang module \(displayInputs.first?.file.name ?? "")"
+        return join("Dump information about Clang module", displayInputs.first?.file.name)
 
     case .interpret:
-        return "Interpreting \(displayInputs.first?.file.name ?? "")"
+        return join("Interpreting", displayInputs.first?.file.name)
 
     case .repl:
         return "Executing Swift REPL"
@@ -217,7 +221,7 @@ extension Job : CustomStringConvertible {
         return "Swift help"
 
     case .backend:
-      return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.basename ?? "")"
+      return join("Embedding bitcode for \(moduleName)", displayInputs.first?.file.basename)
 
     case .emitSupportedFeatures:
       return "Emitting supported Swift compiler features"

@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import TSCUtility
 import SwiftOptions
+
+import struct TSCUtility.Version
 
 extension DarwinToolchain {
   internal func findXcodeClangPath() throws -> AbsolutePath? {

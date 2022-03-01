@@ -15,7 +15,7 @@ extension ModuleDependencyGraph {
   // Shorthands
 
   /// The core information for the ModuleDependencyGraph
-  /// Isolate in a sub-structure in order to faciliate invariant maintainance
+  /// Isolate in a sub-structure in order to facilitate invariant maintenance
   public struct NodeFinder {
     @_spi(Testing) public typealias Graph = ModuleDependencyGraph
     

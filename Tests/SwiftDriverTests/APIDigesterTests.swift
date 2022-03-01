@@ -12,7 +12,6 @@
 
 import XCTest
 import TSCBasic
-import TSCUtility
 @_spi(Testing) import SwiftDriver
 
 class APIDigesterTests: XCTestCase {
@@ -229,6 +228,9 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testBaselineComparisonJobFlags() throws {
+#if !os(macOS)
+    throw XCTSkip("Skipping: ABI descriptor is only emitted on Darwin platforms.")
+#endif
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-compare-to-baseline-path", "/baseline/path",
                                      "-sdk", "/path/to/sdk", "-I", "/some/path", "-F", "framework/path",
