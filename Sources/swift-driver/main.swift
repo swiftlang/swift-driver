@@ -20,19 +20,20 @@ import Glibc
 #endif
 import TSCBasic
 
+import Dispatch
+
 #if os(Windows)
 import WinSDK
 #endif
 
 import enum TSCUtility.Diagnostics
-import typealias TSCUtility.InterruptHandler
 
-var intHandler: InterruptHandler?
+let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 var driverInterrupted = false
 func getExitCode(_ code: Int32) -> Int32 {
   if driverInterrupted {
-    intHandler = nil
+    interruptSignalSource.cancel()
 #if os(Windows)
     TerminateProcess(GetCurrentProcess(), UINT(0xC0000000 | UINT(2)))
 #else
@@ -46,7 +47,7 @@ func getExitCode(_ code: Int32) -> Int32 {
 do {
 
   let processSet = ProcessSet()
-  intHandler = try InterruptHandler {
+  interruptSignalSource.setEventHandler {
     // Terminate running compiler jobs and let the driver exit gracefully, remembering
     // to return a corresponding exit code when done.
     processSet.terminate()
