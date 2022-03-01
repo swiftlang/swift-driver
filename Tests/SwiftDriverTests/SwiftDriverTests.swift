@@ -6060,6 +6060,22 @@ final class SwiftDriverTests: XCTestCase {
     }
 #endif
   }
+
+  func testCxxLinking() throws {
+#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+      throw XCTSkip("Darwin does not use clang as the linker driver")
+#else
+      VirtualPath.resetTemporaryFileStore()
+      var driver = try Driver(args: [
+        "swiftc", "-enable-experimental-cxx-interop", "-emit-library", "-o", "library.dll", "library.obj"
+      ])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertTrue(job.tool.name.hasSuffix(executableName("clang++")))
+#endif
+  }
 }
 
 func assertString(
