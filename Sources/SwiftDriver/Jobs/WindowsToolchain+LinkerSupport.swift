@@ -13,6 +13,19 @@
 import TSCBasic
 import SwiftOptions
 
+private func architecture(for triple: Triple) -> String {
+  // The concept of a "major" arch name only applies to Linux triples
+  guard triple.os == .linux else { return triple.archName }
+
+  // HACK: We don't wrap LLVM's ARM target architecture parsing, and we should
+  //       definitely not try to port it. This check was only normalizing
+  //       "armv7a/armv7r" and similar variants for armv6 to 'armv7' and
+  //       'armv6', so just take a brute-force approach
+  if triple.archName.contains("armv7") { return "armv7" }
+  if triple.archName.contains("armv6") { return "armv6" }
+  return triple.archName
+}
+
 extension WindowsToolchain {
   public func addPlatformSpecificLinkerArgs(to commandLine: inout [Job.ArgTemplate],
                                             parsedOptions: inout ParsedOptions,
@@ -111,10 +124,22 @@ extension WindowsToolchain {
     commandLine.appendFlag(.L)
     commandLine.appendPath(VirtualPath.lookup(targetInfo.runtimeLibraryImportPaths.last!.path))
 
-    // FIXME(compnerd) figure out how to ensure that the SDK relative path is
-    // the last one
-    commandLine.appendPath(VirtualPath.lookup(targetInfo.runtimeLibraryImportPaths.last!.path)
-                              .appending(component: "swiftrt.obj"))
+    // Locate the Swift registration helper by honouring any explicit
+    // `-resource-dir`, `-sdk`, or the `SDKROOT` environment variable, and
+    // finally falling back to the target information.
+    let rsrc: VirtualPath
+    if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
+      rsrc = try VirtualPath(path: resourceDir.asSingle)
+    } else if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
+      rsrc = try VirtualPath(path: AbsolutePath(validating: sdk)
+                                      .appending(components: "usr", "lib", "swift",
+                                                 targetTriple.platformName() ?? "",
+                                                 architecture(for: targetTriple))
+                                      .pathString)
+    } else {
+      rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+    }
+    commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
 
     commandLine.append(contentsOf: inputs.compactMap { (input: TypedVirtualPath) -> Job.ArgTemplate? in
       switch input.type {
