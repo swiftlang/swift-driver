@@ -6076,6 +6076,84 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.tool.name.hasSuffix(executableName("clang++")))
 #endif
   }
+
+  func testRegistrarLookup() throws {
+#if os(Windows)
+    let SDKROOT: AbsolutePath =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/SDKROOT", relativeTo: $0) }
+            ?? AbsolutePath(validating: "/SDKROOT")
+
+    let resourceDir: AbsolutePath =
+        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/swift/resources", relativeTo: $0) }
+            ?? AbsolutePath(validating: "/swift/resources")
+
+    let platform: String = "windows"
+#if arch(x86_64)
+    let arch: String = "x86_64"
+#elseif arch(arm64)
+    let arch: String = "aarch64"
+#else
+#error("unsupported build architecture")
+#endif
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-emit-library", "-o", "library.dll", "library.obj", "-resource-dir", resourceDir.nativePathString(escaped: false),
+      ])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertTrue(job.commandLine.contains(.path(.absolute(resourceDir.appending(component: "swiftrt.obj")))))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-emit-library", "-o", "library.dll", "library.obj", "-sdk", SDKROOT.nativePathString(escaped: false),
+      ])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertTrue(job.commandLine.contains(.path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))))
+    }
+
+    do {
+      var env = ProcessEnv.vars
+      env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
+
+      var driver = try Driver(args: [
+        "swiftc", "-emit-library", "-o", "library.dll", "library.obj"
+      ], env: env)
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertTrue(job.commandLine.contains(.path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))))
+    }
+
+    // Cannot test this due to `SDKROOT` escaping from the execution environment
+    // into the `-print-target-info` step, which then resets the
+    // `runtimeResourcePath` to be the SDK relative path rahter than the
+    // toolchain relative path.
+#if false
+    do {
+      var env = ProcessEnv.vars
+      env["SDKROOT"] = nil
+
+      var driver = try Driver(args: [
+        "swiftc", "-emit-library", "-o", "library.dll", "library.obj"
+      ], env: env)
+      driver.frontendTargetInfo.runtimeResourcePath = SDKROOT
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertTrue(job.commandLine.contains(.path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))))
+    }
+#endif
+#endif
+  }
 }
 
 func assertString(
