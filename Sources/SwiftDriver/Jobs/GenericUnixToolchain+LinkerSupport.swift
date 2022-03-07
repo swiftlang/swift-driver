@@ -44,6 +44,7 @@ extension GenericUnixToolchain {
     //       'armv6', so just take a brute-force approach
     if triple.archName.contains("armv7") { return "armv7" }
     if triple.archName.contains("armv6") { return "armv6" }
+    if triple.archName.contains("armv5") { return "armv5" }
     return triple.archName
   }
 
