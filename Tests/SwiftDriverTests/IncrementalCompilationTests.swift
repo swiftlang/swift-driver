@@ -331,6 +331,14 @@ extension IncrementalCompilationTests {
     XCTAssertTrue(mandatoryJobs.isEmpty)
   }
 
+    func testNullBuildNoVerify() throws {
+      let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-emit-module-interface", "-enable-library-evolution", "-verify-emitted-module-interface"]
+      try buildInitialState(extraArguments: extraArguments)
+      let driver = try checkNullBuild(extraArguments: extraArguments)
+      let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+      XCTAssertTrue(mandatoryJobs.isEmpty)
+    }
+
   func testSymlinkModification() throws {
     // Remap
     // main.swift -> links/main.swift

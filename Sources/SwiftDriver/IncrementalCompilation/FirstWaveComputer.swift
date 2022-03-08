@@ -128,18 +128,23 @@ extension IncrementalCompilationState.FirstWaveComputer {
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
     // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
     // have any dependencies on them.
-    let skipAllJobs = batchedCompilationJobs.isEmpty ? !afterCompileJobsDependOnBeforeCompileJobs() : false
+    let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
     let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
     return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
   }
 
   /// Determine if any of the jobs in the `afterCompiles` group depend on outputs produced by jobs in
-  /// `beforeCompiles` group.
-  private func afterCompileJobsDependOnBeforeCompileJobs() -> Bool {
-      let beforeCompileJobOutputs = jobsInPhases.beforeCompiles.reduce(into: Set<TypedVirtualPath>(),
-                                                                       { (pathSet, job) in pathSet.formUnion(job.outputs) })
-      return jobsInPhases.afterCompiles.contains {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
+  /// `beforeCompiles` group, which are not also verification jobs.
+  private func nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() -> Bool {
+    let beforeCompileJobOutputs = jobsInPhases.beforeCompiles.reduce(into: Set<TypedVirtualPath>(),
+                                                                     { (pathSet, job) in pathSet.formUnion(job.outputs) })
+    let afterCompilesDependnigJobs = jobsInPhases.afterCompiles.filter {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
+    if afterCompilesDependnigJobs.isEmpty || afterCompilesDependnigJobs.allSatisfy({ $0.kind == .verifyModuleInterface }) {
+      return false
+    } else {
+      return true
+    }
   }
 
   /// Figure out which compilation inputs are *not* mandatory at the start
