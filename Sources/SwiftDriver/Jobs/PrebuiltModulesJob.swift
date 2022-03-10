@@ -46,18 +46,23 @@ fileprivate func getLastInputPath(_ job: Job) -> AbsolutePath {
 }
 
 fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ logPath: AbsolutePath?, _ stdout: Bool) throws {
-  guard let logPath = logPath else {
+  guard var logPath = logPath else {
     return
   }
   let content = stdout ? try result.utf8Output() : try result.utf8stderrOutput()
   guard !content.isEmpty else {
     return
   }
+
+  let interfaceBase = getLastInputPath(job).basename
+  let errKind = getErrKind(content)
+  if interfaceBase.contains(".abi.json") {
+    logPath = logPath.appending(component: "abi").appending(component: errKind)
+  }
   if !localFileSystem.exists(logPath) {
     try localFileSystem.createDirectory(logPath, recursive: true)
   }
-  let interfaceBase = getLastInputPath(job).basename
-  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : getErrKind(content)).txt"
+  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : errKind).txt"
   try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
     $0 <<< content
   }
