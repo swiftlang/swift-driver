@@ -22,12 +22,12 @@ extension GenericUnixToolchain {
     case .arm, .aarch64, .armeb, .thumb, .thumbeb:
       // BFD linker has issues wrt relocation of the protocol conformance
       // section on these targets, it also generates COPY relocations for
-      // final executables, as such, unless specified, we default to gold
+      // final executables, as such, unless specified, we default to lld
       // linker.
-      return "gold"
+      return "lld"
     case .x86, .x86_64, .ppc64, .ppc64le, .systemz:
       // BFD linker has issues wrt relocations against protected symbols.
-      return "gold"
+      return "lld"
     default:
       // Otherwise, use the default BFD linker.
       return ""
