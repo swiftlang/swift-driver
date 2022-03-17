@@ -1702,3 +1702,21 @@ fileprivate extension Array {
     }
   }
 }
+
+// - MARK: Major architecture
+
+extension Triple {
+  var majorArchName: String {
+    // The concept of a "major" arch name only applies to Linux triples
+    guard self.os == .linux else { return archName }
+
+    // HACK: We don't wrap LLVM's ARM target architecture parsing, and we should
+    //       definitely not try to port it. This check was only normalizing
+    //       "armv7a/armv7r" and similar variants for armv6 to 'armv7' and
+    //       'armv6', so just take a brute-force approach
+    if archName.contains("armv7") { return "armv7" }
+    if archName.contains("armv6") { return "armv6" }
+    if archName.contains("armv5") { return "armv5" }
+    return archName
+  }
+}

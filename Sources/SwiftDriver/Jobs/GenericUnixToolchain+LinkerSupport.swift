@@ -34,20 +34,6 @@ extension GenericUnixToolchain {
     }
   }
 
-  private func majorArchitectureName(for triple: Triple) -> String {
-    // The concept of a "major" arch name only applies to Linux triples
-    guard triple.os == .linux else { return triple.archName }
-
-    // HACK: We don't wrap LLVM's ARM target architecture parsing, and we should
-    //       definitely not try to port it. This check was only normalizing
-    //       "armv7a/armv7r" and similar variants for armv6 to 'armv7' and
-    //       'armv6', so just take a brute-force approach
-    if triple.archName.contains("armv7") { return "armv7" }
-    if triple.archName.contains("armv6") { return "armv6" }
-    if triple.archName.contains("armv5") { return "armv5" }
-    return triple.archName
-  }
-
   public func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
@@ -161,7 +147,7 @@ extension GenericUnixToolchain {
       let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(
           components: targetTriple.platformName() ?? "",
-          String(majorArchitectureName(for: targetTriple)),
+          targetTriple.majorArchName,
           "swiftrt.o"
         )
       commandLine.appendPath(swiftrtPath)

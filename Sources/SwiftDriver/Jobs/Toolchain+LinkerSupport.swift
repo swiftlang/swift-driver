@@ -16,6 +16,7 @@ extension Toolchain {
   // MARK: - Path computation
 
   func computeSecondaryResourceDirPath(for triple: Triple, primaryPath: VirtualPath) -> VirtualPath? {
+    if !triple.isDarwin { return primaryPath.parentDirectory }
     guard triple.isMacCatalyst else { return nil }
     return primaryPath.parentDirectory.appending(component: "macosx")
   }
@@ -36,7 +37,9 @@ extension Toolchain {
     isShared: Bool
   ) throws -> [VirtualPath] {
     let triple = targetInfo.target.triple
-    let resourceDirPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path).appending(component: triple.platformName() ?? "")
+    let resourceDirPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+      .appending(component: triple.platformName() ?? "")
+      .appending(component: triple.isDarwin ? "" : triple.majorArchName)
     var result = [resourceDirPath]
 
     let secondaryResourceDir = computeSecondaryResourceDirPath(for: triple, primaryPath: resourceDirPath)
