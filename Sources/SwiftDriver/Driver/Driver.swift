@@ -477,7 +477,7 @@ public struct Driver {
       throw Error.subcommandPassedToDriver
     }
       
-      if args.contains("-module-alias") || args.contains("GameUtils") {
+      if args.contains("-module-alias") {
       print("ESQQ Driver::init INPUT - ARGS: ", args.joined(separator: " "))
       }
     var args = args
@@ -486,13 +486,13 @@ public struct Driver {
     }
 
     args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
-      if args.contains("-module-alias") || args.contains("GameUtils") {
+      if args.contains("-module-alias") {
       print("ESQQ Driver::init EXPANDED - ARGS: ", args.joined(separator: " "))
       }
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
-      if args.contains("-module-alias") || args.contains("GameUtils") {
+      if args.contains("-module-alias") {
       print("ESQQ Driver::init ParsedOptions - ARGS: ", args.joined(separator: " "))
       }
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
