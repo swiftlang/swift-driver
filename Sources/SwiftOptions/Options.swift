@@ -154,6 +154,7 @@ extension Option {
   public static let disablePreviousImplementationCallsInDynamicReplacements: Option = Option("-disable-previous-implementation-calls-in-dynamic-replacements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable calling the previous implementation in dynamic replacements")
   public static let disableReflectionMetadata: Option = Option("-disable-reflection-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of reflection metadata for nominal types")
   public static let disableReflectionNames: Option = Option("-disable-reflection-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of names of stored properties and enum cases inreflection metadata")
+  public static let disableRequirementMachineConcreteContraction: Option = Option("-disable-requirement-machine-concrete-contraction", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable preprocessing pass to eliminate conformance requirements on generic parameters which are made concrete")
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
   public static let disableSilPerfOptzns: Option = Option("-disable-sil-perf-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL performance optimization passes")
@@ -266,6 +267,7 @@ extension Option {
   public static let emitTbdPath: Option = Option("-emit-tbd-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit the TBD file to <path>")
   public static let emitTbd: Option = Option("-emit-tbd", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit a TBD file")
   public static let emitVerboseSil: Option = Option("-emit-verbose-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit locations during SIL emission")
+  public static let emptyAbiDescriptor: Option = Option("-empty-abi-descriptor", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid printing actual module content into ABI descriptor file")
   public static let emptyBaseline: Option = Option("-empty-baseline", .flag, attributes: [.noDriver], helpText: "Use empty baseline for diagnostics")
   public static let emptyBaseline_: Option = Option("--empty-baseline", .flag, alias: Option.emptyBaseline, attributes: [.noDriver], helpText: "Use empty baseline for diagnostics")
   public static let enableAccessControl: Option = Option("-enable-access-control", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Respect access control restrictions")
@@ -298,6 +300,7 @@ extension Option {
   public static let enableExperimentalPairwiseBuildBlock: Option = Option("-enable-experimental-pairwise-build-block", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental pairwise 'buildBlock' for result builders")
   public static let enableExperimentalStaticAssert: Option = Option("-enable-experimental-static-assert", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental #assert")
   public static let enableExperimentalStringProcessing: Option = Option("-enable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental string processing")
+  public static let experimentalTypeInferenceFromDefaults: Option = Option("-enable-experimental-type-inference-from-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for generic parameter inference from default values")
   public static let enableExplicitExistentialTypes: Option = Option("-enable-explicit-existential-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for explicit existential types")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
   public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
@@ -320,6 +323,7 @@ extension Option {
   public static let enableOssaModules: Option = Option("-enable-ossa-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always serialize SIL in ossa form. If this flag is not passed in, when optimizing ownership will be lowered before serializing SIL")
   public static let enableParameterizedProtocolTypes: Option = Option("-enable-parameterized-protocol-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for primary associated types and parameterized protocols")
   public static let enablePrivateImports: Option = Option("-enable-private-imports", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal and private API to be accessed")
+  public static let enableRequirementMachineLoopNormalization: Option = Option("-enable-requirement-machine-loop-normalization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable stronger minimization algorithm, for debugging only")
   public static let enableResilience: Option = Option("-enable-resilience", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Deprecated, use -enable-library-evolution instead")
   public static let enableSilOpaqueValues: Option = Option("-enable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable SIL Opaque Values")
   public static let enableSourceImport: Option = Option("-enable-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable importing of Swift source files")
@@ -521,12 +525,12 @@ extension Option {
   public static let requireExplicitAvailabilityTarget: Option = Option("-require-explicit-availability-target", .separate, attributes: [.frontend, .noInteractive], metaVar: "<target>", helpText: "Suggest fix-its adding @available(<target>, *) to public declarations without availability")
   public static let requireExplicitAvailability: Option = Option("-require-explicit-availability", .flag, attributes: [.frontend, .noInteractive], helpText: "Require explicit availability on public declarations")
   public static let requireExplicitSendable: Option = Option("-require-explicit-sendable", .flag, attributes: [.frontend, .noInteractive], helpText: "Require explicit Sendable annotations on public declarations")
-  public static let requirementMachineAbstractSignaturesEQ: Option = Option("-requirement-machine-abstract-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental generic signature minimization: 'on', 'off', or 'verify'")
-  public static let requirementMachineInferredSignaturesEQ: Option = Option("-requirement-machine-inferred-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental generic signature minimization: 'on', 'off', or 'verify'")
+  public static let requirementMachineAbstractSignaturesEQ: Option = Option("-requirement-machine-abstract-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental generic signature minimization: 'on', 'off', 'verify' or 'check'")
+  public static let requirementMachineInferredSignaturesEQ: Option = Option("-requirement-machine-inferred-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental generic signature minimization: 'on', 'off', 'verify' or 'check'")
   public static let requirementMachineMaxConcreteNesting: Option = Option("-requirement-machine-max-concrete-nesting=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum concrete type nesting depth before giving up")
   public static let requirementMachineMaxRuleCount: Option = Option("-requirement-machine-max-rule-count=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum number of rules before giving up")
   public static let requirementMachineMaxRuleLength: Option = Option("-requirement-machine-max-rule-length=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum rule length before giving up")
-  public static let requirementMachineProtocolSignaturesEQ: Option = Option("-requirement-machine-protocol-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental protocol requirement signature minimization: 'on', 'off', or 'verify'")
+  public static let requirementMachineProtocolSignaturesEQ: Option = Option("-requirement-machine-protocol-signatures=", .joined, attributes: [.frontend], helpText: "Control usage of experimental protocol requirement signature minimization: 'on', 'off', 'verify' or 'check'")
   public static let resolveImports: Option = Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes)
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
   public static let RmoduleInterfaceRebuild: Option = Option("-Rmodule-interface-rebuild", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emits a remark if an imported module needs to be re-compiled from its module interface")
@@ -562,6 +566,7 @@ extension Option {
   public static let silUnrollThreshold: Option = Option("-sil-unroll-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<250>", helpText: "Controls the aggressiveness of loop unrolling")
   public static let silVerifyAll: Option = Option("-sil-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify SIL after each transform")
   public static let silVerifyNone: Option = Option("-sil-verify-none", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable SIL verification")
+  public static let skipImportInPublicInterface: Option = Option("-skip-import-in-public-interface", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip the import statement corresponding to a module name when printing the public interface.")
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
   public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
@@ -585,6 +590,7 @@ extension Option {
   public static let S: Option = Option("-S", .flag, alias: Option.emitAssembly, attributes: [.frontend, .noInteractive], group: .modes)
   public static let tabWidth: Option = Option("-tab-width", .separate, attributes: [.noInteractive, .noBatch, .indent], metaVar: "<n>", helpText: "Width of tab character.", group: .codeFormatting)
   public static let targetCpu: Option = Option("-target-cpu", .separate, attributes: [.frontend, .moduleInterface], helpText: "Generate code for a particular CPU variant")
+  public static let minInliningTargetVersion: Option = Option("-target-min-inlining-version", .separate, attributes: [.frontend], helpText: "Require inlinable code with no '@available' attribute to back-deploy to this version of the '-target' OS")
   public static let targetSdkName: Option = Option("-target-sdk-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Canonical name of the target SDK used for compilation")
   public static let targetSdkVersion: Option = Option("-target-sdk-version", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The version of target SDK used for compilation")
   public static let targetVariantSdkVersion: Option = Option("-target-variant-sdk-version", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The version of target variant SDK used for compilation")
@@ -808,6 +814,7 @@ extension Option {
       Option.disablePreviousImplementationCallsInDynamicReplacements,
       Option.disableReflectionMetadata,
       Option.disableReflectionNames,
+      Option.disableRequirementMachineConcreteContraction,
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
       Option.disableSilPerfOptzns,
@@ -920,6 +927,7 @@ extension Option {
       Option.emitTbdPath,
       Option.emitTbd,
       Option.emitVerboseSil,
+      Option.emptyAbiDescriptor,
       Option.emptyBaseline,
       Option.emptyBaseline_,
       Option.enableAccessControl,
@@ -952,6 +960,7 @@ extension Option {
       Option.enableExperimentalPairwiseBuildBlock,
       Option.enableExperimentalStaticAssert,
       Option.enableExperimentalStringProcessing,
+      Option.experimentalTypeInferenceFromDefaults,
       Option.enableExplicitExistentialTypes,
       Option.enableImplicitDynamic,
       Option.enableIncrementalImports,
@@ -974,6 +983,7 @@ extension Option {
       Option.enableOssaModules,
       Option.enableParameterizedProtocolTypes,
       Option.enablePrivateImports,
+      Option.enableRequirementMachineLoopNormalization,
       Option.enableResilience,
       Option.enableSilOpaqueValues,
       Option.enableSourceImport,
@@ -1216,6 +1226,7 @@ extension Option {
       Option.silUnrollThreshold,
       Option.silVerifyAll,
       Option.silVerifyNone,
+      Option.skipImportInPublicInterface,
       Option.skipInheritedDocs,
       Option.skipSynthesizedMembers,
       Option.solverDisableShrink,
@@ -1239,6 +1250,7 @@ extension Option {
       Option.S,
       Option.tabWidth,
       Option.targetCpu,
+      Option.minInliningTargetVersion,
       Option.targetSdkName,
       Option.targetSdkVersion,
       Option.targetVariantSdkVersion,

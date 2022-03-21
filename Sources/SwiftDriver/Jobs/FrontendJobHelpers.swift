@@ -215,6 +215,15 @@ extension Driver {
       commandLine.appendFlag("-internalize-at-link")
     }
 
+    // ABI descriptors are mostly for modules with -enable-library-evolution.
+    // We should also be able to emit ABI descriptor for modules without evolution.
+    // However, doing so leads us to deserialize more contents from binary modules,
+    // exposing more deserialization issues as a result.
+    if !parsedOptions.hasArgument(.enableLibraryEvolution) &&
+        isFrontendArgSupported(.emptyAbiDescriptor) {
+      commandLine.appendFlag(.emptyAbiDescriptor)
+    }
+
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
     if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,

@@ -566,6 +566,20 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testABIDescriptorOnlyWhenEnableEvolution() throws {
+    let flagName = "-empty-abi-descriptor"
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift") { driver in
+      let jobs = try driver.planBuild()
+      let command = jobs[0].commandLine
+      XCTAssertTrue(command.contains(.flag(flagName)))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-enable-library-evolution") { driver in
+      let jobs = try driver.planBuild()
+      let command = jobs[0].commandLine
+      XCTAssertFalse(command.contains(.flag(flagName)))
+    }
+  }
+
   func testModuleSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift") { driver in
       XCTAssertNil(driver.moduleOutputInfo.output)
