@@ -76,12 +76,12 @@ extension DarwinToolchain {
   /// macOS resource directory, for testing only.
   var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
     return Result {
-      try getToolPath(.swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
+      try AbsolutePath("../../lib/swift/macosx", relativeTo: getToolPath(.swiftCompiler))
     }
   }
 
   var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { $0.appending(RelativePath("../clang/lib/darwin/libclang_rt.osx.a")) }
+    resourcesDirectory.map { AbsolutePath("../clang/lib/darwin/libclang_rt.osx.a", relativeTo: $0) }
   }
 
   var compatibility50: Result<AbsolutePath, Error> {

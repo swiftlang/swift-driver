@@ -96,7 +96,7 @@ public final class DarwinToolchain: Toolchain {
 
   /// Path to the StdLib inside the SDK.
   public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
-    sdk.appending(RelativePath("usr/lib/swift"))
+    AbsolutePath("usr/lib/swift", relativeTo: sdk)
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
