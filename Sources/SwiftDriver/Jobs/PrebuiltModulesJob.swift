@@ -529,7 +529,7 @@ extension Driver {
     // Create directories for each Swift module
     try inputMap.forEach {
       assert(!$0.value.isEmpty)
-      let moduleDir = prebuiltModuleDir.appending(RelativePath($0.key + ".swiftmodule"))
+      let moduleDir = AbsolutePath("\($0.key).swiftmodule", relativeTo: prebuiltModuleDir)
       if !localFileSystem.exists(moduleDir) {
         try localFileSystem.createDirectory(moduleDir)
       }
@@ -539,8 +539,9 @@ extension Driver {
     let outputMap: [String: [PrebuiltModuleOutput]] =
       Dictionary.init(uniqueKeysWithValues: inputMap.map { key, value in
       let outputPaths: [PrebuiltModuleInput] = value.map {
-        let path = prebuiltModuleDir.appending(RelativePath(key + ".swiftmodule"))
-          .appending(RelativePath($0.path.file.basenameWithoutExt + ".swiftmodule"))
+        let path = AbsolutePath("\($0.path.file.basenameWithoutExt).swiftmodule",
+                                relativeTo: AbsolutePath("\(key).swiftmodule",
+                                                         relativeTo: prebuiltModuleDir))
         return PrebuiltModuleOutput(TypedVirtualPath(file: VirtualPath.absolute(path).intern(),
                                                      type: .swiftModule), $0.arch)
       }

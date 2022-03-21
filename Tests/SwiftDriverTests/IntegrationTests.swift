@@ -95,7 +95,7 @@ final class IntegrationTests: IntegrationTestCase {
         environment: ProcessEnv.vars.merging(extraEnv) { $1 }
       )
 
-      XCTAssertTrue(localFileSystem.isExecutableFile(buildPath.appending(RelativePath("debug/swift-driver"))), result)
+      XCTAssertTrue(localFileSystem.isExecutableFile(AbsolutePath("debug/swift-driver", relativeTo: buildPath)), result)
     }
   #endif
   }
