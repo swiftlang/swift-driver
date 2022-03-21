@@ -1246,6 +1246,81 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testSpecificJobsResponseFiles() throws {
+    // The jobs below often take large command lines (e.g., when passing a large number of Clang
+    // modules to Swift). Ensure that they don't regress in their ability to pass response files
+    // from the driver to the frontend.
+    let manyArgs = (1...20000).map { "-DTEST_\($0)" }
+
+    // Compile + separate emit module job
+    do {
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var driver = try Driver(
+        args: ["swiftc", "-emit-module"] + manyArgs
+          + ["-module-name", "foo", "foo.swift", "bar.swift"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 3)
+      XCTAssertEqual(Set(jobs.map { $0.kind }), Set([.emitModule, .compile]))
+
+      let emitModuleJob = jobs.first(where: { $0.kind == .emitModule })!
+      let emitModuleResolvedArgs: [String] =
+        try resolver.resolveArgumentList(for: emitModuleJob, forceResponseFiles: false)
+      XCTAssertEqual(emitModuleResolvedArgs.count, 2)
+      XCTAssertEqual(emitModuleResolvedArgs[1].first, "@")
+
+      let compileJobs = jobs.filter { $0.kind == .compile }
+      for compileJob in compileJobs {
+        XCTAssertEqual(compileJobs.count, 2)
+        let compileResolvedArgs: [String] =
+          try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+        XCTAssertEqual(compileResolvedArgs.count, 2)
+        XCTAssertEqual(compileResolvedArgs[1].first, "@")
+      }
+    }
+
+    // Compile + no separate emit module job
+    do {
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var driver = try Driver(
+        args: ["swiftc", "-emit-module", "-no-emit-module-separately"] + manyArgs
+          + ["-module-name", "foo", "foo.swift", "bar.swift"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 3)
+      XCTAssertEqual(Set(jobs.map { $0.kind }), Set([.compile, .mergeModule]))
+
+      let mergeModuleJob = jobs.first(where: { $0.kind == .mergeModule })!
+      let mergeModuleResolvedArgs: [String] =
+        try resolver.resolveArgumentList(for: mergeModuleJob, forceResponseFiles: false)
+      XCTAssertEqual(mergeModuleResolvedArgs.count, 2)
+      XCTAssertEqual(mergeModuleResolvedArgs[1].first, "@")
+
+      let compileJobs = jobs.filter { $0.kind == .compile }
+      for compileJob in compileJobs {
+        XCTAssertEqual(compileJobs.count, 2)
+        let compileResolvedArgs: [String] =
+          try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+        XCTAssertEqual(compileResolvedArgs.count, 2)
+        XCTAssertEqual(compileResolvedArgs[1].first, "@")
+      }
+    }
+
+    // Generate PCM (precompiled Clang module) job
+    do {
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var driver = try Driver(
+        args: ["swiftc", "-emit-pcm"] + manyArgs + ["-module-name", "foo", "foo.modulemap"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .generatePCM)
+
+      let generatePCMJob = jobs[0]
+      let generatePCMResolvedArgs: [String] =
+        try resolver.resolveArgumentList(for: generatePCMJob, forceResponseFiles: false)
+      XCTAssertEqual(generatePCMResolvedArgs.count, 2)
+      XCTAssertEqual(generatePCMResolvedArgs[1].first, "@")
+    }
+  }
+
   func testLinking() throws {
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"

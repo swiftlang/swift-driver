@@ -163,14 +163,13 @@ extension Toolchain {
     return Job(
       moduleName: "",
       kind: .printTargetInfo,
-      tool: .absolute(try getToolPath(.swiftCompiler)),
+      tool: try resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: [],
       inputs: [],
       primaryInputs: [],
       outputs: [.init(file: .standardOutput, type: .jsonTargetInfo)],
-      requiresInPlaceExecution: requiresInPlaceExecution,
-      supportsResponseFiles: false
+      requiresInPlaceExecution: requiresInPlaceExecution
     )
   }
 }
