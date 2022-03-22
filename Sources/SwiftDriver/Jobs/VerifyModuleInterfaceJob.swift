@@ -33,7 +33,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .verifyModuleInterface,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: [interfaceInput],
       inputs: inputs,

@@ -383,14 +383,13 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: displayInputs,
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
-      inputOutputMap: inputOutputMap,
-      supportsResponseFiles: true
+      inputOutputMap: inputOutputMap
     )
   }
 }

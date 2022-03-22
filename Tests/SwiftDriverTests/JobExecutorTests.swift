@@ -130,7 +130,7 @@ final class JobExecutorTests: XCTestCase {
       let compileFoo = Job(
         moduleName: "main",
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: try toolchain.resolvedTool(.swiftCompiler),
         commandLine: [
           "-frontend",
           "-c",
@@ -152,7 +152,7 @@ final class JobExecutorTests: XCTestCase {
       let compileMain = Job(
         moduleName: "main",
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: try toolchain.resolvedTool(.swiftCompiler),
         commandLine: [
           "-frontend",
           "-c",
@@ -174,7 +174,7 @@ final class JobExecutorTests: XCTestCase {
       let link = Job(
         moduleName: "main",
         kind: .link,
-        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
+        tool: try toolchain.resolvedTool(.dynamicLinker),
         commandLine: [
           .path(.temporary(RelativePath("foo.o"))),
           .path(.temporary(RelativePath("main.o"))),
@@ -224,7 +224,7 @@ final class JobExecutorTests: XCTestCase {
       let compile = Job(
         moduleName: "main",
         kind: .compile,
-        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+        tool: try toolchain.resolvedTool(.swiftCompiler),
         commandLine: [
           "-frontend",
           "-c",
@@ -246,7 +246,7 @@ final class JobExecutorTests: XCTestCase {
       let link = Job(
         moduleName: "main",
         kind: .link,
-        tool: .absolute(try toolchain.getToolPath(.dynamicLinker)),
+        tool: try toolchain.resolvedTool(.dynamicLinker),
         commandLine: [
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
@@ -294,7 +294,7 @@ final class JobExecutorTests: XCTestCase {
     let job = Job(
       moduleName: "main",
       kind: .compile,
-      tool: .absolute(AbsolutePath("/usr/bin/swift")),
+      tool: ResolvedTool(path: AbsolutePath("/usr/bin/swift"), supportsResponseFiles: false),
       commandLine: [.flag("something")],
       inputs: [],
       primaryInputs: [],
@@ -380,7 +380,9 @@ final class JobExecutorTests: XCTestCase {
                                            env: [:])
     let job = Job(moduleName: "Module",
                   kind: .compile,
-                  tool: .absolute(.init("/path/to/the tool")),
+                  tool: ResolvedTool(
+                    path: AbsolutePath("/path/to/the tool"),
+                    supportsResponseFiles: false),
                   commandLine: [.path(.absolute(.init("/with space"))),
                                 .path(.absolute(.init("/withoutspace")))],
                   inputs: [], primaryInputs: [], outputs: [])

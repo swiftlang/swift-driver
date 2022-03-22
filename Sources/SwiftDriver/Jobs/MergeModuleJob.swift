@@ -86,12 +86,11 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .mergeModule,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs,
-      supportsResponseFiles: true
+      outputs: outputs
     )
   }
 }

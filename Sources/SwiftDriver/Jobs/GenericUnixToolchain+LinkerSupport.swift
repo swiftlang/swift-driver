@@ -58,7 +58,7 @@ extension GenericUnixToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> AbsolutePath {
+  ) throws -> ResolvedTool {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
@@ -103,9 +103,9 @@ extension GenericUnixToolchain {
       // Windows rather than msvcprt).  When C++ interop is enabled, we will need to
       // surface this via a driver flag.  For now, opt for the simpler approach of
       // just using `clang` and avoid a dependency on the C++ runtime.
-      var clangPath = try parsedOptions.hasArgument(.enableExperimentalCxxInterop)
-                          ? getToolPath(.clangxx)
-                          : getToolPath(.clang)
+      let clangTool: Tool =
+        parsedOptions.hasArgument(.enableExperimentalCxxInterop) ? .clangxx : .clang
+      var clangPath = try getToolPath(clangTool)
       if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
         // FIXME: What if this isn't an absolute path?
         let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
@@ -296,7 +296,7 @@ extension GenericUnixToolchain {
       // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return clangPath
+      return try resolvedTool(clangTool, pathOverride: clangPath)
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")
@@ -308,9 +308,9 @@ extension GenericUnixToolchain {
                          }.map { .path($0.file) })
       if targetTriple.environment == .android {
         // Always use the LTO archiver llvm-ar for Android
-        return try getToolPath(.staticLinker(.llvmFull))
+        return try resolvedTool(.staticLinker(.llvmFull))
       } else {
-        return try getToolPath(.staticLinker(lto))
+        return try resolvedTool(.staticLinker(lto))
       }
     }
 
