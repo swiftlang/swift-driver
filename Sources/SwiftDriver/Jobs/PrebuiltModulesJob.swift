@@ -462,6 +462,7 @@ extension Driver {
     if moduleName == "Swift" {
       commandLine.appendFlag(.parseStdlib)
     }
+    commandLine.appendFlag(.suppressWarnings)
     // Add macabi-specific search path.
     if try isIosMacInterface(inputPath.path.file) {
       commandLine.appendFlag(.Fsystem)
