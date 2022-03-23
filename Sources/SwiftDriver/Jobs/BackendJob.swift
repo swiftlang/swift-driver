@@ -70,12 +70,13 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .backend,
-      tool: try toolchain.resolvedTool(.swiftCompiler),
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       displayInputs: inputs,
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      supportsResponseFiles: true
     )
   }
 }

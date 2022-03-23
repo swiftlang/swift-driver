@@ -29,11 +29,12 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .moduleWrap,
-      tool: try toolchain.resolvedTool(.swiftCompiler),
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: [moduleInput],
       primaryInputs: [],
-      outputs: [.init(file: outputPath.intern(), type: .object)]
+      outputs: [.init(file: outputPath.intern(), type: .object)],
+      supportsResponseFiles: true
     )
   }
 }

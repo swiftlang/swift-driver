@@ -43,11 +43,12 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .autolinkExtract,
-      tool: try toolchain.resolvedTool(.swiftAutolinkExtract),
+      tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: output.intern(), type: .autolink)]
+      outputs: [.init(file: output.intern(), type: .autolink)],
+      supportsResponseFiles: true
     )
   }
 }

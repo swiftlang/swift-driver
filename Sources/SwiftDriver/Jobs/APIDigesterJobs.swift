@@ -56,11 +56,12 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: mode.baselineGenerationJobKind,
-      tool: try toolchain.resolvedTool(.swiftAPIDigester),
+      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,
       inputs: [.init(file: modulePath, type: .swiftModule)],
       primaryInputs: [],
-      outputs: [.init(file: outputPath, type: mode.baselineFileType)]
+      outputs: [.init(file: outputPath, type: mode.baselineFileType)],
+      supportsResponseFiles: true
     )
   }
 
@@ -99,11 +100,12 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compareABIBaseline,
-      tool: try toolchain.resolvedTool(.swiftAPIDigester),
+      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [diag]
+      outputs: [diag],
+      supportsResponseFiles: true
     )
   }
 
@@ -139,11 +141,12 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: mode.baselineComparisonJobKind,
-      tool: try toolchain.resolvedTool(.swiftAPIDigester),
+      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: serializedDiagnosticsPath ?? VirtualPath.Handle.standardOutput, type: .diagnostics)]
+      outputs: [.init(file: serializedDiagnosticsPath ?? VirtualPath.Handle.standardOutput, type: .diagnostics)],
+      supportsResponseFiles: true
     )
   }
 

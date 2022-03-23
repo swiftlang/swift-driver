@@ -23,7 +23,7 @@ extension WebAssemblyToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> ResolvedTool {
+  ) throws -> AbsolutePath {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
@@ -151,14 +151,14 @@ extension WebAssemblyToolchain {
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return try resolvedTool(.clang, pathOverride: clangPath)
+      return clangPath
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")
       commandLine.appendPath(outputFile)
 
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
-      return try resolvedTool(.staticLinker(lto))
+      return try getToolPath(.staticLinker(lto))
     }
   }
 }

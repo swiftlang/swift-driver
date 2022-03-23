@@ -106,7 +106,7 @@ public struct Job: Codable, Equatable, Hashable {
   public init(
     moduleName: String,
     kind: Kind,
-    tool: ResolvedTool,
+    tool: VirtualPath,
     commandLine: [ArgTemplate],
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
@@ -114,11 +114,12 @@ public struct Job: Codable, Equatable, Hashable {
     outputs: [TypedVirtualPath],
     inputOutputMap: [TypedVirtualPath : [TypedVirtualPath]] = [:],
     extraEnvironment: [String: String] = [:],
-    requiresInPlaceExecution: Bool = false
+    requiresInPlaceExecution: Bool = false,
+    supportsResponseFiles: Bool = false
   ) {
     self.moduleName = moduleName
     self.kind = kind
-    self.tool = .absolute(tool.path)
+    self.tool = tool
     self.commandLine = commandLine
     self.displayInputs = displayInputs ?? []
     self.inputs = inputs
@@ -127,7 +128,7 @@ public struct Job: Codable, Equatable, Hashable {
     self.compileInputOutputMap = inputOutputMap
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
-    self.supportsResponseFiles = tool.supportsResponseFiles
+    self.supportsResponseFiles = supportsResponseFiles
   }
 
   public var primarySwiftSourceFiles: [SwiftSourceFile] { primaryInputs.swiftSourceFiles }

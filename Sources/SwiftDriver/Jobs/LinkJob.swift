@@ -52,7 +52,7 @@ extension Driver {
     }
 
     // Defer to the toolchain for platform-specific linking
-    let linkTool = try toolchain.addPlatformSpecificLinkerArgs(
+    let toolPath = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions,
       linkerOutputType: linkerOutputType!,
@@ -67,12 +67,15 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .link,
-      tool: linkTool,
+      tool: .absolute(toolPath),
       commandLine: commandLine,
       displayInputs: inputs,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: outputFile.intern(), type: .image)]
+      outputs: [.init(file: outputFile.intern(), type: .image)],
+      // FIXME: newer ld64 supports response files as well, though really,
+      // Darwin should use clang as the linker driver like the other targets
+      supportsResponseFiles: !frontendTargetInfo.target.triple.isDarwin
     )
   }
 }

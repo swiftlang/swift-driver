@@ -206,7 +206,7 @@ extension DarwinToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> ResolvedTool {
+  ) throws -> AbsolutePath {
     // Set up for linking.
     let linkerTool: Tool
     switch linkerOutputType {
@@ -251,7 +251,7 @@ extension DarwinToolchain {
     commandLine.appendFlag("-o")
     commandLine.appendPath(outputFile)
 
-    return try resolvedTool(linkerTool)
+    return try getToolPath(linkerTool)
   }
 
   private func addLinkInputs(shouldUseInputFileList: Bool,

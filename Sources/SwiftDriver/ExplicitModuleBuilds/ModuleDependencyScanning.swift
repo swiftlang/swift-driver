@@ -30,12 +30,13 @@ public extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: try toolchain.resolvedTool(.swiftCompiler),
+               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)])
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
+               supportsResponseFiles: false)
   }
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
@@ -262,12 +263,13 @@ public extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: try toolchain.resolvedTool(.swiftCompiler),
+               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)])
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
+               supportsResponseFiles: false)
   }
 
   /// Precompute the dependencies for a given collection of modules using swift frontend's batch scanning mode
@@ -310,12 +312,13 @@ public extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: try toolchain.resolvedTool(.swiftCompiler),
+               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: outputs)
+               outputs: outputs,
+               supportsResponseFiles: false)
   }
 
   /// Serialize a collection of modules into an input format expected by the batch module dependency scanner.

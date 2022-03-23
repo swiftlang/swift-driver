@@ -36,7 +36,7 @@ extension WindowsToolchain {
                                             lto: LTOKind?,
                                             sanitizers: Set<Sanitizer>,
                                             targetInfo: FrontendTargetInfo)
-    throws -> ResolvedTool {
+      throws -> AbsolutePath {
     // Special case static linking as clang cannot drive the operation.
     if linkerOutputType == .staticLibrary {
       let librarian: String
@@ -57,12 +57,12 @@ extension WindowsToolchain {
       commandLine.append(contentsOf: inputs.lazy.filter { types.contains($0.type) }
                                                 .map { .path($0.file) })
 
-      return try resolvedTool(.staticLinker(lto), pathOverride: lookup(executable: librarian))
+      return try lookup(executable: librarian)
     }
 
-    let clangTool: Tool =
-      parsedOptions.hasArgument(.enableExperimentalCxxInterop) ? .clangxx : .clang
-    var clang = try getToolPath(clangTool)
+    var clang = try parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+                    ? getToolPath(.clangxx)
+                    : getToolPath(.clang)
 
     let targetTriple = targetInfo.target.triple
     if !targetTriple.triple.isEmpty {
@@ -194,6 +194,6 @@ extension WindowsToolchain {
     addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
     // TODO(compnerd) handle static libraries
-    return try resolvedTool(clangTool, pathOverride: clang)
+    return clang
   }
 }

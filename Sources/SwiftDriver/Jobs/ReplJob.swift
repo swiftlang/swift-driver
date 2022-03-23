@@ -30,7 +30,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .repl,
-      tool: try toolchain.resolvedTool(.lldb),
+      tool: .absolute(try toolchain.getToolPath(.lldb)),
       commandLine: lldbCommandLine,
       inputs: inputs,
       primaryInputs: [],

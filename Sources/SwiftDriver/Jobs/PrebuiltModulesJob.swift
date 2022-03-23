@@ -435,7 +435,7 @@ extension Driver {
     return Job(
       moduleName: moduleName,
       kind: .compareABIBaseline,
-      tool: try toolchain.resolvedTool(.swiftAPIDigester),
+      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
       commandLine: commandLine,
       inputs: [currentABI, baselineABI],
       primaryInputs: [],
@@ -501,7 +501,7 @@ extension Driver {
     allJobs.append(Job(
       moduleName: moduleName,
       kind: .compile,
-      tool: try toolchain.resolvedTool(.swiftCompiler),
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: allInputs,
       primaryInputs: [],

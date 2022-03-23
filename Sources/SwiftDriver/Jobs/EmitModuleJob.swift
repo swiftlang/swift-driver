@@ -120,7 +120,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .emitModule,
-      tool: try toolchain.resolvedTool(.swiftCompiler),
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],

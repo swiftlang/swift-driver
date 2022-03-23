@@ -40,13 +40,14 @@ extension Toolchain {
     return Job(
       moduleName: "",
       kind: .emitSupportedFeatures,
-      tool: try resolvedTool(.swiftCompiler),
+      tool: .absolute(try getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
       outputs: [.init(file: .standardOutput, type: .jsonCompilerFeatures)],
-      requiresInPlaceExecution: requiresInPlaceExecution
+      requiresInPlaceExecution: requiresInPlaceExecution,
+      supportsResponseFiles: false
     )
   }
 }

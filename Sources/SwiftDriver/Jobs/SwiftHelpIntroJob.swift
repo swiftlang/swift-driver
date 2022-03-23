@@ -17,7 +17,7 @@ extension Driver {
       Job(
         moduleName: moduleOutputInfo.name,
         kind: .help,
-        tool: try toolchain.resolvedTool(.swiftHelp),
+        tool: .absolute(try toolchain.getToolPath(.swiftHelp)),
         commandLine: [.flag("intro")],
         inputs: [],
         primaryInputs: [],

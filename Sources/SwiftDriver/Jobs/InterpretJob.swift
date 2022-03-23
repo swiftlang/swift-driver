@@ -44,13 +44,14 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .interpret,
-      tool: try toolchain.resolvedTool(.swiftCompiler),
+      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
       outputs: [],
       extraEnvironment: extraEnvironment,
-      requiresInPlaceExecution: true
+      requiresInPlaceExecution: true,
+      supportsResponseFiles: true
     )
   }
 }

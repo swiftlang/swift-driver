@@ -26,46 +26,6 @@ public enum Tool: Hashable {
   case dwarfdump
   case swiftHelp
   case swiftAPIDigester
-
-  /// Returns a value indicating whether or not the tool supports passing arguments via response
-  /// files.
-  public func supportsResponseFiles(in toolchain: Toolchain) -> Bool {
-    switch self {
-    case .swiftCompiler, .clang, .clangxx, .swiftAutolinkExtract, .swiftAPIDigester:
-      return true
-
-    case .dsymutil, .lldb, .dwarfdump, .swiftHelp:
-      // NOTE: Consider *very carefully* whether a tool actually belongs here when adding a new
-      // entry. Incorrectly marking a tool as not supporting response files when it does may cause
-      // large builds to fail that would have otherwise succeeded.
-      return false
-
-    case .staticLinker, .dynamicLinker:
-      // FIXME: newer ld64 supports response files as well, though really,
-      // Darwin should use clang as the linker driver like the other targets
-      return !(toolchain is DarwinToolchain)
-    }
-  }
-}
-
-/// Encapsulates the path to a tool and the knowledge of whether or not it supports taking long
-/// command lines as response files.
-public struct ResolvedTool {
-  /// The absolute path to the tool's executable.
-  public var path: AbsolutePath
-
-  /// Indicates whether the tool can accept long command lines in a response file.
-  public var supportsResponseFiles: Bool
-
-  /// Creates a new resolved tool with the given path and response file nature.
-  ///
-  /// - Note: In most cases, you should **not** call this initializer directly. Instead, use the
-  /// `Toolchain.resolvedTool(_:pathOverride:)` method, which computes these values based on the
-  /// requested tool and toolchain.
-  @_spi(Testing) public init(path: AbsolutePath, supportsResponseFiles: Bool) {
-    self.path = path
-    self.supportsResponseFiles = supportsResponseFiles
-  }
 }
 
 /// Describes a toolchain, which includes information about compilers, linkers
@@ -128,7 +88,7 @@ public protocol Toolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> ResolvedTool
+  ) throws -> AbsolutePath
 
   func runtimeLibraryName(
     for sanitizer: Sanitizer,
@@ -273,23 +233,6 @@ extension Toolchain {
     frontendTargetInfo: FrontendTargetInfo,
     driver: Driver
   ) throws {}
-
-  /// Resolves the path to the given tool and whether or not it supports response files so that it
-  /// can be passed to a job.
-  ///
-  /// - Parameters:
-  ///   - tool: The `Tool` to resolve. Whether or not the invocation supports response files is
-  ///     determined based on how this value responds to the `supportsResponseFiles(in:)` method.
-  ///   - pathOverride: If provided, this path will be used as the path to the tool's executable
-  ///     instead of the default path determined by the toolchain.
-  /// - Returns: A `ResolvedTool` value that provides the path and response file information about
-  ///   the tool when creating a `Job`.
-  public func resolvedTool(_ tool: Tool, pathOverride: AbsolutePath? = nil) throws -> ResolvedTool {
-    return ResolvedTool(
-      path: try pathOverride ?? getToolPath(tool),
-      supportsResponseFiles: tool.supportsResponseFiles(in: self)
-    )
-  }
 }
 
 @_spi(Testing) public enum ToolchainError: Swift.Error {

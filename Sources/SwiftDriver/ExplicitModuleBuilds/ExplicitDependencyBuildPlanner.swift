@@ -172,7 +172,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       jobs.append(Job(
         moduleName: moduleId.moduleName,
         kind: .emitModule,
-        tool: try toolchain.resolvedTool(.swiftCompiler),
+        tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
         commandLine: commandLine,
         inputs: inputs,
         primaryInputs: [],
@@ -237,7 +237,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         jobs.append(Job(
           moduleName: moduleId.moduleName,
           kind: .generatePCM,
-          tool: try toolchain.resolvedTool(.swiftCompiler),
+          tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
           commandLine: commandLine,
           inputs: inputs,
           primaryInputs: [],

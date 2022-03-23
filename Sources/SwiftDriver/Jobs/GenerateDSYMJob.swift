@@ -33,7 +33,7 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .generateDSYM,
-      tool: try toolchain.resolvedTool(.dsymutil),
+      tool: .absolute(try toolchain.getToolPath(.dsymutil)),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
