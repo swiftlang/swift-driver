@@ -248,7 +248,9 @@ public struct SDKPrebuiltModuleInputsCollector {
   let nonFrameworkDirs = [RelativePath("usr/lib/swift"),
                           RelativePath("System/iOSSupport/usr/lib/swift")]
   let frameworkDirs = [RelativePath("System/Library/Frameworks"),
-                      RelativePath("System/iOSSupport/System/Library/Frameworks")]
+                       RelativePath("System/Library/PrivateFrameworks"),
+                       RelativePath("System/iOSSupport/System/Library/Frameworks"),
+                       RelativePath("System/iOSSupport/System/Library/PrivateFrameworks")]
   let sdkInfo: DarwinToolchain.DarwinSDKInfo
   let diagEngine: DiagnosticsEngine
   public init(_ sdkPath: AbsolutePath, _ diagEngine: DiagnosticsEngine) {
@@ -448,10 +450,12 @@ extension Driver {
                                                         _ dependencies: [TypedVirtualPath], _ currentABIDir: AbsolutePath?,
                                                         _ baselineABIDir: AbsolutePath?) throws -> [Job] {
     assert(inputPath.path.file.basenameWithoutExt == outputPath.path.file.basenameWithoutExt)
+    let sdkPath = sdkPath!
+    let isInternal = sdkPath.basename.hasSuffix(".Internal.sdk")
     var commandLine: [Job.ArgTemplate] = []
     commandLine.appendFlag(.compileModuleFromInterface)
     commandLine.appendFlag(.sdk)
-    commandLine.append(.path(sdkPath!))
+    commandLine.append(.path(sdkPath))
     commandLine.appendFlag(.prebuiltModuleCachePath)
     commandLine.appendPath(prebuiltModuleDir)
     commandLine.appendFlag(.moduleName)
@@ -467,6 +471,16 @@ extension Driver {
     if try isIosMacInterface(inputPath.path.file) {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
+      if isInternal {
+        commandLine.appendFlag(.Fsystem)
+        commandLine.append(.path(iosMacPrivateFrameworksSearchPath))
+      }
+    }
+    if isInternal {
+      commandLine.appendFlag(.Fsystem)
+      commandLine.append(.path(sdkPath.appending(component: "System")
+        .appending(component: "Library")
+        .appending(component: "PrivateFrameworks")))
     }
     // Use the specified module cache dir
     if let mcp = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {

@@ -1510,5 +1510,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try abiCheckJobs.forEach { try checkABICheckingJob($0) }
     }
   }
+  func testPrebuiltModuleIntenralSDK() throws {
+    let mockSDKPath = testInputsPath.appending(component: "mock-sdk.Internal.sdk")
+    let mockSDKPathStr: String = mockSDKPath.pathString
+    let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPathStr).absolutePath!, DiagnosticsEngine())
+    let interfaceMap = try collector.collectSwiftInterfaceMap()
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import A\n"
+      }
+      let moduleCachePath = "/tmp/module-cache"
+      var driver = try Driver(args: ["swiftc", main.pathString,
+                                     "-sdk", mockSDKPathStr,
+                                     "-module-cache-path", moduleCachePath
+                                    ])
+      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+                                                                     into: path,
+                                                                     exhaustive: true)
+      let compileJobs = jobs.filter {$0.kind == .compile}
+      XCTAssertTrue(!compileJobs.isEmpty)
+      XCTAssertTrue(compileJobs.allSatisfy { $0.commandLine.contains(.flag("-suppress-warnings")) })
+      let PFPath = mockSDKPath.appending(component: "System").appending(component: "Library")
+        .appending(component: "PrivateFrameworks")
+      XCTAssertTrue(compileJobs.allSatisfy { $0.commandLine.contains(.path(VirtualPath.absolute(PFPath))) })
+    }
+  }
 #endif
 }
