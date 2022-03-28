@@ -1536,5 +1536,17 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(compileJobs.allSatisfy { $0.commandLine.contains(.path(VirtualPath.absolute(PFPath))) })
     }
   }
+  func testCollectSwiftAdopters() throws {
+    let mockSDKPath = testInputsPath.appending(component: "mock-sdk.Internal.sdk")
+    let mockSDKPathStr: String = mockSDKPath.pathString
+    let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPathStr).absolutePath!, DiagnosticsEngine())
+    let adopters = try collector.collectSwiftInterfaceMap().adopters
+    XCTAssertTrue(!adopters.isEmpty)
+    let A = adopters.first {$0.name == "A"}!
+    XCTAssertFalse(A.isFramework)
+    XCTAssertFalse(A.isPrivate)
+    XCTAssertFalse(A.hasModule)
+    XCTAssertTrue(A.hasInterface)
+  }
 #endif
 }

@@ -243,19 +243,19 @@ public struct PrebuiltModuleInput {
 }
 
 public class SwiftAdopter: Codable {
-  let name: String
-  let moduleDir: String
-  let hasInterface: Bool
-  let hasModule: Bool
-  let isFramework: Bool
-  let isPrivateFramework: Bool
+  public let name: String
+  public let moduleDir: String
+  public let hasInterface: Bool
+  public let hasModule: Bool
+  public let isFramework: Bool
+  public let isPrivate: Bool
   init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: AbsolutePath?, _ hasModule: AbsolutePath?) {
     self.name = name
     self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
     self.hasInterface = hasInterface != nil
     self.hasModule = hasModule != nil
     self.isFramework = self.moduleDir.contains("\(name).framework")
-    self.isPrivateFramework = self.moduleDir.contains("PrivateFrameworks")
+    self.isPrivate = self.moduleDir.contains("PrivateFrameworks")
   }
   static func relativeToSDK(_ fullPath: AbsolutePath) -> String {
     var SDKDir: AbsolutePath = fullPath
