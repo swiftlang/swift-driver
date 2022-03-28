@@ -269,6 +269,9 @@ public class SwiftAdopter: Codable {
 
   static public func emitSummary(_ adopters: [SwiftAdopter], to logDir: AbsolutePath?) throws {
     guard let logDir = logDir else { return }
+    if !localFileSystem.exists(logDir) {
+      try localFileSystem.createDirectory(logDir, recursive: true)
+    }
     let data = try JSONEncoder().encode(adopters)
     if let json = try? JSONSerialization.jsonObject(with: data, options: .mutableContainers),
        let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted) {

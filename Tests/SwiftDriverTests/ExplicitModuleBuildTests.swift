@@ -1510,7 +1510,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try abiCheckJobs.forEach { try checkABICheckingJob($0) }
     }
   }
-  func testPrebuiltModuleIntenralSDK() throws {
+  func testPrebuiltModuleInternalSDK() throws {
     let mockSDKPath = testInputsPath.appending(component: "mock-sdk.Internal.sdk")
     let mockSDKPathStr: String = mockSDKPath.pathString
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPathStr).absolutePath!, DiagnosticsEngine())
