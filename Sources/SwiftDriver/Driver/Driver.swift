@@ -349,13 +349,20 @@ public struct Driver {
     return VirtualPath.lookup(rawSdkPath)
   } ()
 
-  lazy var iosMacFrameworksSearchPath: VirtualPath = {
+  lazy var iosMacFrameworksBase: VirtualPath = {
     sdkPath!
       .appending(component: "System")
       .appending(component: "iOSSupport")
       .appending(component: "System")
       .appending(component: "Library")
-      .appending(component: "Frameworks")
+  } ()
+
+  lazy var iosMacFrameworksSearchPath: VirtualPath = {
+    iosMacFrameworksBase.appending(component: "Frameworks")
+  } ()
+
+  lazy var iosMacPrivateFrameworksSearchPath: VirtualPath = {
+    iosMacFrameworksBase.appending(component: "PrivateFrameworks")
   } ()
 
   lazy var abiDescriptorPath: TypedVirtualPath? = {

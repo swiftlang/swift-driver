@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import SwiftOptions
+import Foundation
 
 @_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
   let data = try localFileSystem.readFileContents(path).cString
@@ -241,6 +242,44 @@ public struct PrebuiltModuleInput {
   }
 }
 
+public class SwiftAdopter: Codable {
+  public let name: String
+  public let moduleDir: String
+  public let hasInterface: Bool
+  public let hasModule: Bool
+  public let isFramework: Bool
+  public let isPrivate: Bool
+  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: AbsolutePath?, _ hasModule: AbsolutePath?) {
+    self.name = name
+    self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
+    self.hasInterface = hasInterface != nil
+    self.hasModule = hasModule != nil
+    self.isFramework = self.moduleDir.contains("\(name).framework")
+    self.isPrivate = self.moduleDir.contains("PrivateFrameworks")
+  }
+  static func relativeToSDK(_ fullPath: AbsolutePath) -> String {
+    var SDKDir: AbsolutePath = fullPath
+    while(SDKDir.extension != "sdk") {
+      SDKDir = SDKDir.parentDirectory
+    }
+    assert(SDKDir.extension == "sdk")
+    SDKDir = SDKDir.parentDirectory
+    return fullPath.relative(to: SDKDir).pathString
+  }
+
+  static public func emitSummary(_ adopters: [SwiftAdopter], to logDir: AbsolutePath?) throws {
+    guard let logDir = logDir else { return }
+    if !localFileSystem.exists(logDir) {
+      try localFileSystem.createDirectory(logDir, recursive: true)
+    }
+    let data = try JSONEncoder().encode(adopters)
+    if let json = try? JSONSerialization.jsonObject(with: data, options: .mutableContainers),
+       let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted) {
+      try localFileSystem.writeFileContents(logDir.appending(component: "adopters.json"), bytes: ByteString(jsonData))
+    }
+  }
+}
+
 typealias PrebuiltModuleOutput = PrebuiltModuleInput
 
 public struct SDKPrebuiltModuleInputsCollector {
@@ -248,7 +287,9 @@ public struct SDKPrebuiltModuleInputsCollector {
   let nonFrameworkDirs = [RelativePath("usr/lib/swift"),
                           RelativePath("System/iOSSupport/usr/lib/swift")]
   let frameworkDirs = [RelativePath("System/Library/Frameworks"),
-                      RelativePath("System/iOSSupport/System/Library/Frameworks")]
+                       RelativePath("System/Library/PrivateFrameworks"),
+                       RelativePath("System/iOSSupport/System/Library/Frameworks"),
+                       RelativePath("System/iOSSupport/System/Library/PrivateFrameworks")]
   let sdkInfo: DarwinToolchain.DarwinSDKInfo
   let diagEngine: DiagnosticsEngine
   public init(_ sdkPath: AbsolutePath, _ diagEngine: DiagnosticsEngine) {
@@ -296,7 +337,8 @@ public struct SDKPrebuiltModuleInputsCollector {
     }
   }
 
-  public func collectSwiftInterfaceMap() throws -> [String: [PrebuiltModuleInput]] {
+  public func collectSwiftInterfaceMap() throws -> (inputMap: [String: [PrebuiltModuleInput]], adopters: [SwiftAdopter]) {
+    var allSwiftAdopters: [SwiftAdopter] = []
     var results: [String: [PrebuiltModuleInput]] = [:]
 
     func updateResults(_ dir: AbsolutePath) throws {
@@ -307,7 +349,8 @@ public struct SDKPrebuiltModuleInputsCollector {
       if results[moduleName] == nil {
         results[moduleName] = []
       }
-
+      var hasInterface: AbsolutePath?
+      var hasModule: AbsolutePath?
       // Search inside a .swiftmodule directory for any .swiftinterface file, and
       // add the files into the dictionary.
       // Duplicate entries are discarded, otherwise llbuild will complain.
@@ -320,11 +363,14 @@ public struct SDKPrebuiltModuleInputsCollector {
           if !results[moduleName]!.contains(where: { $0.path.file.basenameWithoutExt == currentBaseName }) {
             results[moduleName]!.append(PrebuiltModuleInput(interfacePath))
           }
+          hasInterface = currentFile
         }
         if currentFile.extension == "swiftmodule" {
           diagEngine.emit(warning: "found \(currentFile)")
+          hasModule = currentFile
         }
       }
+      allSwiftAdopters.append(SwiftAdopter(moduleName, dir, hasInterface, hasModule))
     }
     // Search inside framework dirs in an SDK to find .swiftmodule directories.
     for dir in frameworkDirs {
@@ -356,7 +402,7 @@ public struct SDKPrebuiltModuleInputsCollector {
         }
       }
     }
-    return sanitizeInterfaceMap(results)
+    return (inputMap: sanitizeInterfaceMap(results), adopters: allSwiftAdopters)
   }
 }
 
@@ -448,10 +494,12 @@ extension Driver {
                                                         _ dependencies: [TypedVirtualPath], _ currentABIDir: AbsolutePath?,
                                                         _ baselineABIDir: AbsolutePath?) throws -> [Job] {
     assert(inputPath.path.file.basenameWithoutExt == outputPath.path.file.basenameWithoutExt)
+    let sdkPath = sdkPath!
+    let isInternal = sdkPath.basename.hasSuffix(".Internal.sdk")
     var commandLine: [Job.ArgTemplate] = []
     commandLine.appendFlag(.compileModuleFromInterface)
     commandLine.appendFlag(.sdk)
-    commandLine.append(.path(sdkPath!))
+    commandLine.append(.path(sdkPath))
     commandLine.appendFlag(.prebuiltModuleCachePath)
     commandLine.appendPath(prebuiltModuleDir)
     commandLine.appendFlag(.moduleName)
@@ -467,6 +515,16 @@ extension Driver {
     if try isIosMacInterface(inputPath.path.file) {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
+      if isInternal {
+        commandLine.appendFlag(.Fsystem)
+        commandLine.append(.path(iosMacPrivateFrameworksSearchPath))
+      }
+    }
+    if isInternal {
+      commandLine.appendFlag(.Fsystem)
+      commandLine.append(.path(sdkPath.appending(component: "System")
+        .appending(component: "Library")
+        .appending(component: "PrivateFrameworks")))
     }
     // Use the specified module cache dir
     if let mcp = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
