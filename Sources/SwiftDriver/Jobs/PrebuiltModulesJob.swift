@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import SwiftOptions
+import Foundation
 
 @_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
   let data = try localFileSystem.readFileContents(path).cString
@@ -241,6 +242,41 @@ public struct PrebuiltModuleInput {
   }
 }
 
+public class SwiftAdopter: Codable {
+  let name: String
+  let moduleDir: String
+  let hasInterface: Bool
+  let hasModule: Bool
+  let isFramework: Bool
+  let isPrivateFramework: Bool
+  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: AbsolutePath?, _ hasModule: AbsolutePath?) {
+    self.name = name
+    self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
+    self.hasInterface = hasInterface != nil
+    self.hasModule = hasModule != nil
+    self.isFramework = self.moduleDir.contains("\(name).framework")
+    self.isPrivateFramework = self.moduleDir.contains("PrivateFrameworks")
+  }
+  static func relativeToSDK(_ fullPath: AbsolutePath) -> String {
+    var SDKDir: AbsolutePath = fullPath
+    while(SDKDir.extension != "sdk") {
+      SDKDir = SDKDir.parentDirectory
+    }
+    assert(SDKDir.extension == "sdk")
+    SDKDir = SDKDir.parentDirectory
+    return fullPath.relative(to: SDKDir).pathString
+  }
+
+  static public func emitSummary(_ adopters: [SwiftAdopter], to logDir: AbsolutePath?) throws {
+    guard let logDir = logDir else { return }
+    let data = try JSONEncoder().encode(adopters)
+    if let json = try? JSONSerialization.jsonObject(with: data, options: .mutableContainers),
+       let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted) {
+      try localFileSystem.writeFileContents(logDir.appending(component: "adopters.json"), bytes: ByteString(jsonData))
+    }
+  }
+}
+
 typealias PrebuiltModuleOutput = PrebuiltModuleInput
 
 public struct SDKPrebuiltModuleInputsCollector {
@@ -298,7 +334,8 @@ public struct SDKPrebuiltModuleInputsCollector {
     }
   }
 
-  public func collectSwiftInterfaceMap() throws -> [String: [PrebuiltModuleInput]] {
+  public func collectSwiftInterfaceMap() throws -> (inputMap: [String: [PrebuiltModuleInput]], adopters: [SwiftAdopter]) {
+    var allSwiftAdopters: [SwiftAdopter] = []
     var results: [String: [PrebuiltModuleInput]] = [:]
 
     func updateResults(_ dir: AbsolutePath) throws {
@@ -309,7 +346,8 @@ public struct SDKPrebuiltModuleInputsCollector {
       if results[moduleName] == nil {
         results[moduleName] = []
       }
-
+      var hasInterface: AbsolutePath?
+      var hasModule: AbsolutePath?
       // Search inside a .swiftmodule directory for any .swiftinterface file, and
       // add the files into the dictionary.
       // Duplicate entries are discarded, otherwise llbuild will complain.
@@ -322,11 +360,14 @@ public struct SDKPrebuiltModuleInputsCollector {
           if !results[moduleName]!.contains(where: { $0.path.file.basenameWithoutExt == currentBaseName }) {
             results[moduleName]!.append(PrebuiltModuleInput(interfacePath))
           }
+          hasInterface = currentFile
         }
         if currentFile.extension == "swiftmodule" {
           diagEngine.emit(warning: "found \(currentFile)")
+          hasModule = currentFile
         }
       }
+      allSwiftAdopters.append(SwiftAdopter(moduleName, dir, hasInterface, hasModule))
     }
     // Search inside framework dirs in an SDK to find .swiftmodule directories.
     for dir in frameworkDirs {
@@ -358,7 +399,7 @@ public struct SDKPrebuiltModuleInputsCollector {
         }
       }
     }
-    return sanitizeInterfaceMap(results)
+    return (inputMap: sanitizeInterfaceMap(results), adopters: allSwiftAdopters)
   }
 }
 

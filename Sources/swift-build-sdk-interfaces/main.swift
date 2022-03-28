@@ -67,6 +67,7 @@ do {
     diagnosticsEngine.emit(error: "cannot find sdk: \(sdkPath.pathString)")
     exit(1)
   }
+  let logDir = try getArgumentAsPath("-log-path")
   let collector = SDKPrebuiltModuleInputsCollector(sdkPath, diagnosticsEngine)
   var outputDir = try VirtualPath(path: rawOutputDir).absolutePath!
   // if the given output dir ends with 'prebuilt-modules', we should
@@ -108,7 +109,11 @@ do {
                               .appending(component: "SystemVersion.plist"),
                            to: sysVersionFile)
   let processSet = ProcessSet()
-  let inputMap = try collector.collectSwiftInterfaceMap()
+  let inputTuple = try collector.collectSwiftInterfaceMap()
+  let allAdopters = inputTuple.adopters
+  let currentABIDir = try getArgumentAsPath("-current-abi-dir")
+  try SwiftAdopter.emitSummary(allAdopters, to: currentABIDir)
+  let inputMap = inputTuple.inputMap
   let allModules = coreMode ? ["Foundation"] : Array(inputMap.keys)
   try withTemporaryFile(suffix: ".swift") {
     let tempPath = $0.path
@@ -131,8 +136,6 @@ do {
       args.append(mcpFlag)
       args.append(mcp)
     }
-    let logDir = try getArgumentAsPath("-log-path")
-    let currentABIDir = try getArgumentAsPath("-current-abi-dir")
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
                             diagnosticsEngine: diagnosticsEngine,

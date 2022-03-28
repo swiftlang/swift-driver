@@ -1310,7 +1310,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         testInputsPath.appending(component: "mock-sdk.sdk").pathString
     let diagnosticEnging = DiagnosticsEngine()
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, diagnosticEnging)
-    let interfaceMap = try collector.collectSwiftInterfaceMap()
+    let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
 
     // Check interface map always contain everything
     XCTAssertTrue(interfaceMap["Swift"]!.count == 3)
@@ -1486,7 +1486,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let baselineABIPath: String =
         testInputsPath.appending(component: "ABIBaselines").pathString
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, DiagnosticsEngine())
-    let interfaceMap = try collector.collectSwiftInterfaceMap()
+    let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -1514,7 +1514,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let mockSDKPath = testInputsPath.appending(component: "mock-sdk.Internal.sdk")
     let mockSDKPathStr: String = mockSDKPath.pathString
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPathStr).absolutePath!, DiagnosticsEngine())
-    let interfaceMap = try collector.collectSwiftInterfaceMap()
+    let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
       try localFileSystem.writeFileContents(main) {
