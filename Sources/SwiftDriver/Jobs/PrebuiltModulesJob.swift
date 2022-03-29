@@ -250,7 +250,9 @@ public class SwiftAdopter: Codable {
   public let hasModule: Bool
   public let isFramework: Bool
   public let isPrivate: Bool
-  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: [AbsolutePath], _ hasModule: [AbsolutePath]) {
+  public let hasCompatibilityHeader: Bool
+  public let isMixed: Bool
+  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: [AbsolutePath], _ hasModule: [AbsolutePath]) throws {
     self.name = name
     self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
     self.hasInterface = !hasInterface.isEmpty
@@ -258,7 +260,22 @@ public class SwiftAdopter: Codable {
     self.hasModule = !hasModule.isEmpty
     self.isFramework = self.moduleDir.contains("\(name).framework")
     self.isPrivate = self.moduleDir.contains("PrivateFrameworks")
+    let headers = try SwiftAdopter.collectHeaderNames(moduleDir.parentDirectory.parentDirectory)
+    self.hasCompatibilityHeader = headers.contains { $0 == "\(name)-Swift.h" }
+    self.isMixed = headers.contains { $0 != "\(name)-Swift.h" }
   }
+
+  static func collectHeaderNames(_ headersIn: AbsolutePath) throws -> [String] {
+    var results: [String] = []
+    let collector = { (dir: AbsolutePath) in
+      guard localFileSystem.exists(dir) else { return }
+      try localFileSystem.getDirectoryContents(dir).forEach { results.append($0) }
+    }
+    try collector(headersIn.appending(component: "Headers"))
+    try collector(headersIn.appending(component: "PrivateHeaders"))
+    return results
+  }
+
   static func relativeToSDK(_ fullPath: AbsolutePath) -> String {
     var SDKDir: AbsolutePath = fullPath
     while(SDKDir.extension != "sdk") {
@@ -372,7 +389,7 @@ public struct SDKPrebuiltModuleInputsCollector {
           hasModule.append(currentFile)
         }
       }
-      allSwiftAdopters.append(SwiftAdopter(moduleName, dir, hasInterface, hasModule))
+      allSwiftAdopters.append(try! SwiftAdopter(moduleName, dir, hasInterface, hasModule))
     }
     // Search inside framework dirs in an SDK to find .swiftmodule directories.
     for dir in frameworkDirs {

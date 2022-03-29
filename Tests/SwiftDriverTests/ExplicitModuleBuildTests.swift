@@ -1555,5 +1555,22 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertFalse(B.hasModule)
     XCTAssertTrue(B.hasPrivateInterface)
   }
+
+  func testCollectSwiftAdoptersWhetherMixed() throws {
+    let mockSDKPath = testInputsPath.appending(component: "mock-sdk.Internal.sdk")
+    let mockSDKPathStr: String = mockSDKPath.pathString
+    let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPathStr).absolutePath!, DiagnosticsEngine())
+    let adopters = try collector.collectSwiftInterfaceMap().adopters
+    XCTAssertTrue(!adopters.isEmpty)
+    let B = adopters.first {$0.name == "B"}!
+    XCTAssertTrue(B.isFramework)
+    XCTAssertTrue(B.hasCompatibilityHeader)
+    XCTAssertFalse(B.isMixed)
+
+    let C = adopters.first {$0.name == "C"}!
+    XCTAssertTrue(C.isFramework)
+    XCTAssertFalse(C.hasCompatibilityHeader)
+    XCTAssertTrue(C.isMixed)
+  }
 #endif
 }
