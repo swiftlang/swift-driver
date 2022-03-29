@@ -246,14 +246,16 @@ public class SwiftAdopter: Codable {
   public let name: String
   public let moduleDir: String
   public let hasInterface: Bool
+  public let hasPrivateInterface: Bool
   public let hasModule: Bool
   public let isFramework: Bool
   public let isPrivate: Bool
-  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: AbsolutePath?, _ hasModule: AbsolutePath?) {
+  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: [AbsolutePath], _ hasModule: [AbsolutePath]) {
     self.name = name
     self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
-    self.hasInterface = hasInterface != nil
-    self.hasModule = hasModule != nil
+    self.hasInterface = !hasInterface.isEmpty
+    self.hasPrivateInterface = hasInterface.contains { $0.basename.hasSuffix(".private.swiftinterface") }
+    self.hasModule = !hasModule.isEmpty
     self.isFramework = self.moduleDir.contains("\(name).framework")
     self.isPrivate = self.moduleDir.contains("PrivateFrameworks")
   }
@@ -349,8 +351,8 @@ public struct SDKPrebuiltModuleInputsCollector {
       if results[moduleName] == nil {
         results[moduleName] = []
       }
-      var hasInterface: AbsolutePath?
-      var hasModule: AbsolutePath?
+      var hasInterface: [AbsolutePath] = []
+      var hasModule: [AbsolutePath] = []
       // Search inside a .swiftmodule directory for any .swiftinterface file, and
       // add the files into the dictionary.
       // Duplicate entries are discarded, otherwise llbuild will complain.
@@ -363,11 +365,11 @@ public struct SDKPrebuiltModuleInputsCollector {
           if !results[moduleName]!.contains(where: { $0.path.file.basenameWithoutExt == currentBaseName }) {
             results[moduleName]!.append(PrebuiltModuleInput(interfacePath))
           }
-          hasInterface = currentFile
+          hasInterface.append(currentFile)
         }
         if currentFile.extension == "swiftmodule" {
           diagEngine.emit(warning: "found \(currentFile)")
-          hasModule = currentFile
+          hasModule.append(currentFile)
         }
       }
       allSwiftAdopters.append(SwiftAdopter(moduleName, dir, hasInterface, hasModule))
