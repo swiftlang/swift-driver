@@ -1546,7 +1546,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertFalse(A.isFramework)
     XCTAssertFalse(A.isPrivate)
     XCTAssertFalse(A.hasModule)
+    XCTAssertFalse(A.hasPrivateInterface)
     XCTAssertTrue(A.hasInterface)
+
+    let B = adopters.first {$0.name == "B"}!
+    XCTAssertTrue(B.isFramework)
+    XCTAssertFalse(B.isPrivate)
+    XCTAssertFalse(B.hasModule)
+    XCTAssertTrue(B.hasPrivateInterface)
   }
 #endif
 }
