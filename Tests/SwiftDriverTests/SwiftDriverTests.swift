@@ -2292,6 +2292,18 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testPrivateInterfacePathImplicit() throws {
+    var driver1 = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                   "foo", "-emit-module-interface",
+                                   "-enable-library-evolution"])
+
+    let plannedJobs = try driver1.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    let emitInterfaceJob = plannedJobs[0]
+    XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-module-interface-path")))
+    XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
+  }
+
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)

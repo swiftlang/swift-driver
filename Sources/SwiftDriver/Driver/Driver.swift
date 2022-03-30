@@ -767,7 +767,7 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-    self.swiftPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
+    let givenPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
         outputPath: .emitPrivateModuleInterfacePath,
         compilerOutputType: compilerOutputType,
@@ -775,6 +775,19 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+
+    // Always emitting private swift interfaces if public interfaces are emitted.'
+    // With the introduction of features like @_spi_available, we may print public
+    // and private interfaces differently even from the same codebase. For this reason,
+    // we should always print private interfaces so that we don’t mix the public interfaces
+    // with private Clang modules.
+    if let swiftInterfacePath = self.swiftInterfacePath,
+        givenPrivateInterfacePath == nil {
+      self.swiftPrivateInterfacePath = VirtualPath.lookup(swiftInterfacePath)
+        .replacingExtension(with: .privateSwiftInterface).intern()
+    } else {
+      self.swiftPrivateInterfacePath = givenPrivateInterfacePath
+    }
 
     var optimizationRecordFileType = FileType.yamlOptimizationRecord
     if let argument = parsedOptions.getLastArgument(.saveOptimizationRecordEQ)?.asSingle {
