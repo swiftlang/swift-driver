@@ -39,14 +39,14 @@ extension Driver {
       return
     }
 
+    addSupplementalOutput(path: emitModuleSerializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .emitModuleDiagnostics)
+
     // Skip files created by other jobs when emitting a module and building at the same time
     if emitModuleSeparately && compilerOutputType != .swiftModule {
       return
     }
 
     // Add outputs that can't be merged
-    addSupplementalOutput(path: serializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .diagnostics)
-
     // Workaround for rdar://85253406
     // Ensure that the separate emit-module job does not emit `.d.` outputs.
     // If we have both individual source files and the emit-module file emit .d files, we
