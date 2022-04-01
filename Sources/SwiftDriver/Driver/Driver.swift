@@ -278,6 +278,9 @@ public struct Driver {
   /// Path to the serialized diagnostics file.
   let serializedDiagnosticsFilePath: VirtualPath.Handle?
 
+  /// Path to the serialized diagnostics file of the emit-module task.
+  let emitModuleSerializedDiagnosticsFilePath: VirtualPath.Handle?
+
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
 
@@ -696,6 +699,14 @@ public struct Driver {
     self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .diagnostics, isOutputOptions: [.serializeDiagnostics],
         outputPath: .serializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.emitModuleSerializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .emitModuleDiagnostics, isOutputOptions: [.serializeDiagnostics],
+        outputPath: .emitModuleSerializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -2980,6 +2991,14 @@ extension Driver {
     // primary output type is a .swiftmodule and we are using the emit-module-separately
     // flow, then also consider single output paths specified in the output file-map.
     if compilerOutputType == .swiftModule && emitModuleSeparately,
+       let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+           outputType: type) {
+      return singleOutputPath
+    }
+
+    // Emit-module serialized diagnostics are always specified as a single-output
+    // file
+    if type == .emitModuleDiagnostics,
        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
            outputType: type) {
       return singleOutputPath
