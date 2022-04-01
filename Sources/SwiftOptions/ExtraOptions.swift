@@ -19,6 +19,7 @@ extension Option {
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
   public static let emitModuleSeparatelyWMO: Option = Option("-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job in wmo builds")
   public static let noEmitModuleSeparatelyWMO: Option = Option("-no-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job in wmo builds")
+  public static let emitModuleSerializeDiagnosticsPath: Option = Option("-emit-module-serialize-diagnostics-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a serialized diagnostics file for the emit-module task to <path>")
   public static let useFrontendParseableOutput: Option = Option("-use-frontend-parseable-output", .flag, attributes: [.helpHidden], helpText: "Emit parseable-output from swift-frontend jobs instead of from the driver")
 
   // API digester operations
