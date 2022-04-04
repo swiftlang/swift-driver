@@ -3053,7 +3053,7 @@ final class SwiftDriverTests: XCTestCase {
     guard driver.isFrontendArgSupported(.enableRegexLiterals) else {
       throw XCTSkip("Skipping: compiler does not support '-enable-regex-literals'")
     }
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[1].kind, .link)
