@@ -3049,16 +3049,16 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEnableRegexLiteralFlag() throws {
-    var driver = try Driver(args: ["swiftc", "foo.swift", "-enable-regex-literals"])
-    guard driver.isFrontendArgSupported(.enableRegexLiterals) else {
-      throw XCTSkip("Skipping: compiler does not support '-enable-regex-literals'")
+    var driver = try Driver(args: ["swiftc", "foo.swift", "-enable-bare-slash-regex"])
+    guard driver.isFrontendArgSupported(.enableBareSlashRegex) else {
+      throw XCTSkip("Skipping: compiler does not support '-enable-bare-slash-regex'")
     }
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[1].kind, .link)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-frontend")))
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-enable-regex-literals")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-enable-bare-slash-regex")))
   }
 
   func testImmediateMode() throws {
