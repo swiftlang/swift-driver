@@ -26,13 +26,19 @@ import Foundation
   return false
 }
 
-fileprivate func getErrKind(_ content: String) -> String {
+enum ErrKind: String {
+  case err
+  case warn
+  case note
+}
+
+fileprivate func getErrKind(_ content: String) -> ErrKind {
   if content.contains("error: ") {
-    return "err"
+    return .err
   } else if content.contains("warning: "){
-    return "warn"
+    return .warn
   } else {
-    return "note"
+    return .note
   }
 }
 
@@ -58,12 +64,14 @@ fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ logPath: Absol
   let interfaceBase = getLastInputPath(job).basename
   let errKind = getErrKind(content)
   if interfaceBase.contains(".abi.json") {
-    logPath = logPath.appending(component: "abi").appending(component: errKind)
+    logPath = logPath.appending(component: "abi").appending(component: errKind.rawValue)
+  } else if errKind != .err {
+    logPath = logPath.appending(component: "interface-nonfatal")
   }
   if !localFileSystem.exists(logPath) {
     try localFileSystem.createDirectory(logPath, recursive: true)
   }
-  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : errKind).txt"
+  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : errKind.rawValue).txt"
   try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
     $0 <<< content
   }
