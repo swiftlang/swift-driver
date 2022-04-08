@@ -90,10 +90,11 @@ extension Driver {
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
     case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
-         .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, nil:
+         .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .emitModuleDiagnostics,
+         .objcHeader, .swiftDeps, .remap, .tbd, .moduleTrace, .yamlOptimizationRecord,
+         .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonCompilerFeatures,
+         .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache,
+         .jsonAPIBaseline, .jsonABIBaseline, nil:
       return false
     }
   }
@@ -446,7 +447,7 @@ extension FileType {
       return .emitSupportedFeatures
 
     case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
-         .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
+          .diagnostics, .emitModuleDiagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
          .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
          .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:

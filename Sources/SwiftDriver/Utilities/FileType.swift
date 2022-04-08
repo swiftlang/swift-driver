@@ -75,6 +75,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Clang/Swift serialized diagnostics
   case diagnostics = "dia"
 
+  /// Serialized diagnostics produced by module-generation
+  case emitModuleDiagnostics = "emit-module.dia"
+
   /// Objective-C header
   case objcHeader = "h"
 
@@ -214,6 +217,9 @@ extension FileType: CustomStringConvertible {
     case .diagnostics:
       return "diagnostics"
 
+    case .emitModuleDiagnostics:
+      return "emit-module-diagnostics"
+
     case .jsonAPIBaseline:
       return "api-baseline-json"
 
@@ -232,7 +238,7 @@ extension FileType {
       return true
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
-         .swiftDocumentation, .pcm, .diagnostics, .objcHeader, .image,
+         .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics, .objcHeader, .image,
          .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile, .jsonDependencies,
          .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures, .jsonSwiftArtifacts,
@@ -329,6 +335,8 @@ extension FileType {
       return "bitstream-opt-record"
     case .diagnostics:
       return "diagnostics"
+    case .emitModuleDiagnostics:
+      return "emit-module-diagnostics"
     case .indexUnitOutputPath:
       return "index-unit-output-path"
     case .jsonAPIBaseline:
@@ -351,7 +359,7 @@ extension FileType {
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
          .pcm, .swiftDeps, .remap, .indexData, .bitstreamOptimizationRecord,
-         .indexUnitOutputPath, .modDepCache:
+         .indexUnitOutputPath, .modDepCache, .emitModuleDiagnostics:
       return false
     }
   }
@@ -364,7 +372,7 @@ extension FileType {
       return true
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .autolink,
          .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface,
-         .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .objcHeader, .swiftDeps, .remap,
+         .swiftSourceInfoFile, .raw_sil, .raw_sib, .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord, .modDepCache,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies, .clangModuleMap,
          .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath, .jsonAPIBaseline,
