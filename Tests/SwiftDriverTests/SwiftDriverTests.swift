@@ -5943,6 +5943,29 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testExtractLibraryLevel() throws {
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -library-level api" }
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      XCTAssertEqual(try getLibraryLevel(flags), .api)
+    }
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) {
+        $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0" <<< "\n"
+        $0 <<< "// swift-module-flags-ignorable: -library-level spi"
+      }
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      XCTAssertEqual(try getLibraryLevel(flags), .spi)
+    }
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) {
+        $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0"
+      }
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      XCTAssertEqual(try getLibraryLevel(flags), .unspecified)
+    }
+  }
+
   func testSupportedFeatureJson() throws {
     let driver = try Driver(args: ["swiftc", "-emit-module", "foo.swift"])
     XCTAssertFalse(driver.supportedFrontendFeatures.isEmpty)
