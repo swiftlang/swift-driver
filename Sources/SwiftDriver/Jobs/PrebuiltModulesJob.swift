@@ -13,17 +13,43 @@ import TSCBasic
 import SwiftOptions
 import Foundation
 
-@_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
+func getModuleFlags(_ path: VirtualPath, _ ignorable: Bool) throws -> [String] {
   let data = try localFileSystem.readFileContents(path).cString
   let myStrings = data.components(separatedBy: .newlines)
-  let prefix = "// swift-module-flags: "
+  let prefix = ignorable ? "// swift-module-flags-ignorable: " : "// swift-module-flags: "
   if let argLine = myStrings.first(where: { $0.hasPrefix(prefix) }) {
-    let args = argLine.dropFirst(prefix.count).components(separatedBy: " ")
-    if let idx = args.firstIndex(of: "-target"), idx + 1 < args.count {
-      return args[idx + 1].contains("macabi")
-    }
+    return argLine.dropFirst(prefix.count).components(separatedBy: " ")
+  }
+  return []
+}
+
+@_spi(Testing) public func getAllModuleFlags(_ path: VirtualPath) throws -> [String] {
+  var allFlags: [String] = []
+  allFlags.append(contentsOf: try getModuleFlags(path, true))
+  allFlags.append(contentsOf: try getModuleFlags(path, false))
+  return allFlags;
+}
+
+@_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
+  let args = try getAllModuleFlags(path)
+  if let idx = args.firstIndex(of: "-target"), idx + 1 < args.count {
+    return args[idx + 1].contains("macabi")
   }
   return false
+}
+
+@_spi(Testing) public enum LibraryLevel: String, Codable {
+  case api
+  case spi
+  case unknown
+  case unspecified
+}
+
+@_spi(Testing) public func getLibraryLevel(_ flags: [String]) throws -> LibraryLevel {
+  if let idx = flags.firstIndex(of: "-library-level"), idx + 1 < flags.count {
+    return LibraryLevel(rawValue: flags[idx + 1]) ?? .unknown
+  }
+  return .unspecified
 }
 
 enum ErrKind: String {
@@ -35,7 +61,7 @@ enum ErrKind: String {
 fileprivate func getErrKind(_ content: String) -> ErrKind {
   if content.contains("error: ") {
     return .err
-  } else if content.contains("warning: "){
+  } else if content.contains("warning: ") {
     return .warn
   } else {
     return .note
@@ -250,6 +276,12 @@ public struct PrebuiltModuleInput {
   }
 }
 
+public enum AdopterIssueKind: String, Codable {
+  case libraryEvolutionDisabled
+  case libraryLevelMissing
+  case libraryLevelWrong
+}
+
 public class SwiftAdopter: Codable {
   public let name: String
   public let moduleDir: String
@@ -260,6 +292,7 @@ public class SwiftAdopter: Codable {
   public let isPrivate: Bool
   public let hasCompatibilityHeader: Bool
   public let isMixed: Bool
+  public let issues: [AdopterIssueKind]?
   init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: [AbsolutePath], _ hasModule: [AbsolutePath]) throws {
     self.name = name
     self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
@@ -271,6 +304,27 @@ public class SwiftAdopter: Codable {
     let headers = try SwiftAdopter.collectHeaderNames(moduleDir.parentDirectory.parentDirectory)
     self.hasCompatibilityHeader = headers.contains { $0 == "\(name)-Swift.h" }
     self.isMixed = headers.contains { $0 != "\(name)-Swift.h" }
+    self.issues = try Self.collectModuleIssues(hasInterface.first, self.isPrivate)
+  }
+
+  static func collectModuleIssues(_ interface: AbsolutePath?, _ isPrivate: Bool) throws -> [AdopterIssueKind]? {
+    guard let interface = interface else { return nil }
+    var issues: [AdopterIssueKind] = []
+    let flags = try getAllModuleFlags(VirtualPath.absolute(interface))
+    let libLevel = try getLibraryLevel(flags)
+    if libLevel == .unspecified {
+      issues.append(.libraryLevelMissing)
+    }
+    if libLevel == .spi && !isPrivate {
+      issues.append(.libraryLevelWrong)
+    }
+    if libLevel == .api && isPrivate {
+      issues.append(.libraryLevelWrong)
+    }
+    if !flags.contains("-enable-library-evolution") {
+      issues.append(.libraryEvolutionDisabled)
+    }
+    return issues.isEmpty ? nil : issues
   }
 
   static func collectHeaderNames(_ headersIn: AbsolutePath) throws -> [String] {
