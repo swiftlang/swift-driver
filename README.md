@@ -13,11 +13,29 @@ The `swift-driver` project is a new implementation of the Swift compiler driver 
 
 **Note:** Currently, swift-driver is only compatible with trunk development snapshots from [swift.org](https://swift.org/download/#snapshots).
 
-The preferred way to build `swift-driver` is to use the Swift package manager:
+The preferred way to build `swift-driver` is to use the Swift package manager.
+
+On most platforms you can build using:
 
 ```
 $ swift build
 ```
+
+However, on Windows, some additional work must be done by the developer.
+
+Due to the default version of swift-tools-support-core that `Package.resolved` references, we must first update the package dependencies.
+
+```
+swift package update
+```
+
+Then, we can build the package using:
+
+```cmd
+swift build -Xcc -I -Xcc "%SystemDrive%\Library\sqlite-3.38.0\usr\include" -Xlinker -L -Xlinker "%SystemDrive%\Library\sqlite-3.38.0\usr\lib" -Xlinker "%SDKROOT%\usr\lib\swift\windows\x86_64\swiftCore.lib"
+```
+
+Because SQLite3 is a system library dependency, and there is no singular header and library search path, the developer must specify that.  The path to SQLite3 may need to be adjusted if the library is not located at the specified location. Additionally, because Swift Package Manager does not differentiate between C/C++ and Swift targets and uses the Swift driver as the linker driver we must link in the Swift runtime into all targets manually.
 
 To use `swift-driver` in place of the existing Swift driver, create a symbolic link from `swift` and `swiftc` to `swift-driver`:
 
