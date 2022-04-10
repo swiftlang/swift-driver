@@ -2352,9 +2352,9 @@ final class SwiftDriverTests: XCTestCase {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
-    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-target", "x86_64-apple-macosx10.15", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd"],
+    var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd"],
                              env: envVars)
-    let plannedJobs = try driver1.planBuild()
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 3)
     XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
 
@@ -2767,9 +2767,9 @@ final class SwiftDriverTests: XCTestCase {
       let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
                     ?? AbsolutePath(validating: "/foo/bar")
 
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"],
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library"],
                               env: envVars)
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
