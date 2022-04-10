@@ -48,8 +48,6 @@ private let cachedSDKPath: Result<String, Error>? = {
   #if os(Windows)
   if let sdk = ProcessEnv.vars["SDKROOT"] {
     return Result{sdk}
-  } else if let root = ProcessEnv.vars["DEVELOPER_DIR"] {
-    return Result{"\(root)\\Platforms\\Windows.platform\\Developer\\SDKs\\Windows.sdk"}
   }
   // Assume that if neither of the environment variables are set, we are
   // using a build-tree version of the swift frontend, and so we do not set

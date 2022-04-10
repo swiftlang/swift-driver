@@ -230,14 +230,6 @@ extension Toolchain {
       return try lookup(executable: executableName("swift"))
     } else if fallbackToExecutableDefaultPath {
       if self is WindowsToolchain {
-        if let DEVELOPER_DIR = env["DEVELOPER_DIR"] {
-          return AbsolutePath(DEVELOPER_DIR)
-                    .appending(component: "Toolchains")
-                    .appending(component: "unknown-Asserts-development.xctoolchain")
-                    .appending(component: "usr")
-                    .appending(component: "bin")
-                    .appending(component: executableName(executable))
-        }
         return try getToolPath(.swiftCompiler)
                 .parentDirectory
                 .appending(component: executable)

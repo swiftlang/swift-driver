@@ -109,21 +109,9 @@ extension WindowsToolchain.ToolchainValidationError {
   }
 
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
-    // The SDKROOT environment always takes precedent.  If SDKROOT is undefined,
-    // but we have DEVELOPER_DIR defined and a valid triple, compose the SDK
-    // root relative to the DEVELOPER_DIR.  The SDKs are always laid out as
-    // `[DeveloperDir]\Platforms\[OS].platform\Developer\SDKs\[OS].sdk`,
-    // allowing us to locate it relative to the DEVELOPER_DIR environment
-    // variable.
-
     // TODO(compnerd): replicate the SPM processing of the SDKInfo.plist
     if let SDKROOT = env["SDKROOT"] {
       return AbsolutePath(SDKROOT)
-    } else if let DEVELOPER_DIR = env["DEVELOPER_DIR"], let os = target?.os?.rawValue {
-      // FIXME(compnerd) we should capitalise the OS name, e.g. windows ->
-      // Windows; we get away with this for now as Windows has a
-      // case-insensitive file system.
-      return AbsolutePath("\(DEVELOPER_DIR)\\Platforms\\\(os).platform\\Developer\\SDKs\\\(os).sdk")
     }
     return nil
   }
