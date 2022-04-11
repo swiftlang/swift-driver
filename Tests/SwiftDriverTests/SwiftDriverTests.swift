@@ -308,8 +308,9 @@ final class SwiftDriverTests: XCTestCase {
     throw XCTSkip("TSCUtility.RelativePath failure")
 #else
     try withTemporaryDirectory { path in
-      guard let cwd = localFileSystem
-        .currentWorkingDirectory else { fatalError() }
+      guard let cwd = localFileSystem.currentWorkingDirectory else {
+        fatalError()
+      }
       let main = path.appending(component: "main.swift")
       let util = path.appending(component: "util.swift")
       let utilRelative = util.relative(to: cwd)
@@ -1088,8 +1089,9 @@ final class SwiftDriverTests: XCTestCase {
     throw XCTSkip("TSCUtility.RelativePath failure")
 #else
     try withTemporaryDirectory { path in
-      guard let cwd = localFileSystem
-        .currentWorkingDirectory else { fatalError() }
+      guard let cwd = localFileSystem.currentWorkingDirectory else {
+        fatalError()
+      }
       let outputFileMap = path.appending(component: "outputFileMap.json")
       try localFileSystem.writeFileContents(outputFileMap) {
         $0 <<< """
@@ -1143,8 +1145,9 @@ final class SwiftDriverTests: XCTestCase {
 
   func testResponseFileExpansionRelativePathsInCWD() throws {
     try withTemporaryDirectory { path in
-      guard let preserveCwd = localFileSystem
-        .currentWorkingDirectory else { fatalError() }
+      guard let preserveCwd = localFileSystem.currentWorkingDirectory else {
+        fatalError()
+      }
       try! localFileSystem.changeCurrentWorkingDirectory(to: path)
       defer { try! localFileSystem.changeCurrentWorkingDirectory(to: preserveCwd) }
 
@@ -1171,8 +1174,9 @@ final class SwiftDriverTests: XCTestCase {
   /// Tests that relative paths in response files are resolved based on the CWD, not the response file's location.
   func testResponseFileExpansionRelativePathsNotInCWD() throws {
     try withTemporaryDirectory { path in
-      guard let preserveCwd = localFileSystem
-        .currentWorkingDirectory else { fatalError() }
+      guard let preserveCwd = localFileSystem.currentWorkingDirectory else {
+        fatalError()
+      }
       try! localFileSystem.changeCurrentWorkingDirectory(to: path)
       defer { try! localFileSystem.changeCurrentWorkingDirectory(to: preserveCwd) }
 
