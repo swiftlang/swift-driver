@@ -206,8 +206,8 @@ extension Driver {
     try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
-    if isFrontendArgSupported(.enableRegexLiterals) {
-      try commandLine.appendLast(.enableRegexLiterals, from: &parsedOptions)
+    if isFrontendArgSupported(.enableBareSlashRegex) {
+      try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)
     }
 
     // Expand the -experimental-hermetic-seal-at-link flag
