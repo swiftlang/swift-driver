@@ -29,14 +29,12 @@ public enum Fixture {
     for file: String,
     on fileSystem: FileSystem = localFileSystem
   ) -> AbsolutePath? {
-    let packageRootPath = AbsolutePath(#file)
-      .parentDirectory
-      .parentDirectory
-      .parentDirectory
-    let fixturePath = packageRootPath
-      .appending(component: "TestInputs")
-      .appending(relativePath)
-      .appending(component: file)
+    let packageRootPath: AbsolutePath =
+        AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+    let fixturePath =
+        AbsolutePath(relativePath.pathString,
+                     relativeTo: packageRootPath.appending(component: "TestInputs"))
+            .appending(component: file)
 
     // Check that the fixture is really there.
     guard fileSystem.exists(fixturePath) else {
