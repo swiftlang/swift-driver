@@ -2590,12 +2590,14 @@ final class SwiftDriverTests: XCTestCase {
       "swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Car=Bar",
       "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule",
     ])
+
     let plannedJobs = try driver.planBuild()
-    XCTAssertTrue(plannedJobs.contains { job in
-      job.commandLine.contains(.flag("-module-alias")) &&
-      job.commandLine.contains(.flag("Car=Bar")) &&
-      job.outputs[0].file.absolutePath?.pathString == "/tmp/dir/Foo.swiftmodule"
-    })
+
+    let moduleJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+    XCTAssertTrue(moduleJob.commandLine.contains("-module-alias"))
+    XCTAssertTrue(moduleJob.commandLine.contains("Car=Bar"))
+    XCTAssertEqual(moduleJob.outputs[0].file, .absolute(AbsolutePath("/tmp/dir/Foo.swiftmodule")))
+
     XCTAssertEqual(driver.moduleOutputInfo.name, "Foo")
     XCTAssertNotNil(driver.moduleOutputInfo.aliases)
     XCTAssertEqual(driver.moduleOutputInfo.aliases!.count, 1)
