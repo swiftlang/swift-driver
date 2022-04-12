@@ -727,6 +727,50 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
   }
+  
+  func testEmitModuleSeparatelyDependenciesPath() throws {
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents = """
+      {
+        "": {
+          "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d",
+          "emit-module-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d"
+        },
+        "foo.swift": {
+          "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d"
+        }
+      }
+      """
+      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+
+      // Plain (batch/single-file) compile
+      do {
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.path.pathString,
+                                       "-emit-library", "-module-name", "Test", "-emit-dependencies"])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        XCTAssertEqual(plannedJobs.count, 3)
+        XCTAssertTrue(plannedJobs[0].kind == .emitModule)
+        XCTAssertTrue(plannedJobs[1].kind == .compile)
+        XCTAssertTrue(plannedJobs[2].kind == .link)
+        XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d")))]))
+        XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d")))]))
+      }
+
+      // WMO
+      do {
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
+                                       "-output-file-map", fileMapFile.path.pathString, "-disable-cmo",
+                                       "-emit-library", "-module-name", "Test", "-emit-dependencies"])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        XCTAssertEqual(plannedJobs.count, 3)
+        XCTAssertTrue(plannedJobs[0].kind == .compile)
+        XCTAssertTrue(plannedJobs[1].kind == .emitModule)
+        XCTAssertTrue(plannedJobs[2].kind == .link)
+        XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d")))]))
+        XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d")))]))
+      }
+    }
+  }
 
   func testOutputFileMapLoading() throws {
     let contents = """

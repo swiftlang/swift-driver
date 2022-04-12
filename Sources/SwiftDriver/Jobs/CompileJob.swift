@@ -89,12 +89,12 @@ extension Driver {
       }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .emitModuleDiagnostics,
-         .objcHeader, .swiftDeps, .remap, .tbd, .moduleTrace, .yamlOptimizationRecord,
-         .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonCompilerFeatures,
-         .jsonTargetInfo, .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache,
-         .jsonAPIBaseline, .jsonABIBaseline, nil:
+    case .swift, .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
+         .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile,
+         .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
+         .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
+         .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, nil:
       return false
     }
   }
@@ -446,10 +446,11 @@ extension FileType {
     case .jsonCompilerFeatures:
       return .emitSupportedFeatures
 
-    case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
-          .diagnostics, .emitModuleDiagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
-         .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
+    case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
+         .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
+         .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
+         .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
+         .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
       fatalError("Output type can never be a primary output")
     }
