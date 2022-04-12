@@ -445,17 +445,27 @@ extension Driver {
         parsedOptions.getLastArgument(.libraryLevel)?.asSingle == "api"
 
     guard
-       parsedOptions.hasArgument(.enableLibraryEvolution),
-       parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
-                             negative: .noVerifyEmittedModuleInterface,
-                             default: onByDefault),
+      // Only verify modules with library evolution.
+      parsedOptions.hasArgument(.enableLibraryEvolution),
+
+      // Only verify when requested, on by default and not disabled.
+      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                            negative: .noVerifyEmittedModuleInterface,
+                            default: onByDefault),
 
       // Don't verify by default modules emitted from a merge-module job
       // as it's more likely to be invalid.
       emitModuleSeparately || compilerMode == .singleCompile ||
-        parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
-                              negative: .noVerifyEmittedModuleInterface,
-                              default: false)
+      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                            negative: .noVerifyEmittedModuleInterface,
+                            default: false),
+
+      // Don't verify by default modules emitting a compatibility header. This is
+      // unsupported as the headers are merged after all archs are built. rdar://90864986
+      self.objcGeneratedHeaderPath == nil ||
+      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                            negative: .noVerifyEmittedModuleInterface,
+                            default: false)
     else { return }
 
     let optIn = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
