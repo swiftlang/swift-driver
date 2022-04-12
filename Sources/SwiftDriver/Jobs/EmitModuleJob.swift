@@ -40,6 +40,8 @@ extension Driver {
     }
 
     addSupplementalOutput(path: emitModuleSerializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .emitModuleDiagnostics)
+    
+    addSupplementalOutput(path: emitModuleDependenciesFilePath, flag: "-emit-dependencies-path", type: .emitModuleDependencies)
 
     // Skip files created by other jobs when emitting a module and building at the same time
     if emitModuleSeparately && compilerOutputType != .swiftModule {
