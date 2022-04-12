@@ -281,6 +281,9 @@ public struct Driver {
   /// Path to the serialized diagnostics file of the emit-module task.
   let emitModuleSerializedDiagnosticsFilePath: VirtualPath.Handle?
 
+  /// Path to the discovered dependencies file of the emit-module task.
+  let emitModuleDependenciesFilePath: VirtualPath.Handle?
+
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
 
@@ -707,6 +710,14 @@ public struct Driver {
     self.emitModuleSerializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .emitModuleDiagnostics, isOutputOptions: [.serializeDiagnostics],
         outputPath: .emitModuleSerializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.emitModuleDependenciesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .emitModuleDependencies, isOutputOptions: [.emitDependencies],
+        outputPath: .emitModuleDependenciesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -3000,6 +3011,14 @@ extension Driver {
     // file
     if type == .emitModuleDiagnostics,
        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+           outputType: type) {
+      return singleOutputPath
+    }
+    
+    // Emit-module discovered dependencies are always specified as a single-output
+    // file
+    if type == .emitModuleDependencies,
+      let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
            outputType: type) {
       return singleOutputPath
     }
