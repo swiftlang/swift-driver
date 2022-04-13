@@ -25,6 +25,7 @@ extension Option {
   public static let enableAppExtension: Option = Option("-application-extension", .flag, attributes: [.frontend, .noInteractive], helpText: "Restrict code to those available for App Extensions")
   public static let AssertConfig: Option = Option("-assert-config", .separate, attributes: [.frontend, .moduleInterface], helpText: "Specify the assert_configuration replacement. Possible values are Debug, Release, Unchecked, DisableReplacement.")
   public static let AssumeSingleThreaded: Option = Option("-assume-single-threaded", .flag, attributes: [.helpHidden, .frontend], helpText: "Assume that code will be executed in a single-threaded environment")
+  public static let asyncMain: Option = Option("-async-main", .flag, attributes: [.frontend], helpText: "Resolve main function as if it were called from an asynchronous context")
   public static let autolinkForceLoad: Option = Option("-autolink-force-load", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Force ld to link against this module even if no symbols are used")
   public static let autolinkLibrary: Option = Option("-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add dependent library")
   public static let avoidEmitModuleSourceInfo: Option = Option("-avoid-emit-module-source-info", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "don't emit Swift source info file")
@@ -130,6 +131,7 @@ extension Option {
   public static let disableGenericMetadataPrespecialization: Option = Option("-disable-generic-metadata-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not statically specialize metadata for generic types at types that are known to be used in source.")
   public static let disableImplicitConcurrencyModuleImport: Option = Option("-disable-implicit-concurrency-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Concurrency module.")
   public static let disableImplicitDistributedModuleImport: Option = Option("-disable-implicit-distributed-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the Distributed module.")
+  public static let disableImplicitStringProcessingModuleImport: Option = Option("-disable-implicit-string-processing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _StringProcessing module.")
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules implicitly by the compiler")
   public static let disableIncrementalImports: Option = Option("-disable-incremental-imports", .flag, attributes: [.frontend], helpText: "Disable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
@@ -277,6 +279,7 @@ extension Option {
   public static let enableActorDataRaceChecks: Option = Option("-enable-actor-data-race-checks", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit runtime checks for actor data races")
   public static let enableAnonymousContextMangledNames: Option = Option("-enable-anonymous-context-mangled-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of mangled names in anonymous context descriptors")
   public static let enableAstVerifier: Option = Option("-enable-ast-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Run the AST verifier during compilation. NOTE: This lets the user override the default behavior on whether or not the ASTVerifier is run. The default behavior is to run the verifier when asserts are enabled and not run it when asserts are disabled. NOTE: Can not be used if disable-ast-verifier is used as well")
+  public static let enableBareSlashRegex: Option = Option("-enable-bare-slash-regex", .flag, attributes: [.frontend], helpText: "Enable the use of forward slash regular-expression literal syntax")
   public static let enableBatchMode: Option = Option("-enable-batch-mode", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Enable combining frontend jobs into batches")
   public static let enableBridgingPch: Option = Option("-enable-bridging-pch", .flag, attributes: [.helpHidden], helpText: "Enable automatic generation of bridging PCH files")
   public static let enableConformanceAvailabilityErrors: Option = Option("-enable-conformance-availability-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose conformance availability violations as errors")
@@ -327,7 +330,6 @@ extension Option {
   public static let enableOssaModules: Option = Option("-enable-ossa-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always serialize SIL in ossa form. If this flag is not passed in, when optimizing ownership will be lowered before serializing SIL")
   public static let enableParameterizedProtocolTypes: Option = Option("-enable-parameterized-protocol-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for primary associated types and parameterized protocols")
   public static let enablePrivateImports: Option = Option("-enable-private-imports", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal and private API to be accessed")
-  public static let enableRegexLiterals: Option = Option("-enable-regex-literals", .flag, attributes: [.frontend], helpText: "Enable the use of regular-expression literals")
   public static let enableRequirementMachineOpaqueArchetypes: Option = Option("-enable-requirement-machine-opaque-archetypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable more correct opaque archetype support, which is off by default because it might fail to produce a convergent rewrite system")
   public static let enableResilience: Option = Option("-enable-resilience", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Deprecated, use -enable-library-evolution instead")
   public static let enableSilOpaqueValues: Option = Option("-enable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable SIL Opaque Values")
@@ -691,6 +693,7 @@ extension Option {
       Option.enableAppExtension,
       Option.AssertConfig,
       Option.AssumeSingleThreaded,
+      Option.asyncMain,
       Option.autolinkForceLoad,
       Option.autolinkLibrary,
       Option.avoidEmitModuleSourceInfo,
@@ -796,6 +799,7 @@ extension Option {
       Option.disableGenericMetadataPrespecialization,
       Option.disableImplicitConcurrencyModuleImport,
       Option.disableImplicitDistributedModuleImport,
+      Option.disableImplicitStringProcessingModuleImport,
       Option.disableImplicitSwiftModules,
       Option.disableIncrementalImports,
       Option.disableIncrementalLlvmCodegeneration,
@@ -943,6 +947,7 @@ extension Option {
       Option.enableActorDataRaceChecks,
       Option.enableAnonymousContextMangledNames,
       Option.enableAstVerifier,
+      Option.enableBareSlashRegex,
       Option.enableBatchMode,
       Option.enableBridgingPch,
       Option.enableConformanceAvailabilityErrors,
@@ -993,7 +998,6 @@ extension Option {
       Option.enableOssaModules,
       Option.enableParameterizedProtocolTypes,
       Option.enablePrivateImports,
-      Option.enableRegexLiterals,
       Option.enableRequirementMachineOpaqueArchetypes,
       Option.enableResilience,
       Option.enableSilOpaqueValues,
