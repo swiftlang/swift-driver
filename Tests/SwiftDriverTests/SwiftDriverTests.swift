@@ -5073,6 +5073,16 @@ final class SwiftDriverTests: XCTestCase {
       let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
       XCTAssertFalse(verifyJob.commandLine.contains(.flag("-check-api-availability-only")))
     }
+
+    // Don't verify modules with compatibility headers.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution", "-emit-objc-header-path", "foo-Swift.h"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.filter( { job in job.kind == .verifyModuleInterface}).count, 0)
+    }
   }
 
   func testPCHGeneration() throws {
