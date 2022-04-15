@@ -2020,6 +2020,14 @@ extension Driver {
       }
     }
 
+    for filePrefixMap in parsedOptions.arguments(for: .filePrefixMap) {
+      let value = filePrefixMap.argument.asSingle
+      let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+      if parts.count != 2 {
+        diagnosticsEngine.emit(.error_opt_invalid_mapping(option: filePrefixMap.option, value: value))
+      }
+    }
+
     // Determine the debug level.
     let level: DebugInfo.Level?
     if let levelOption = parsedOptions.getLast(in: .g), levelOption.option != .gnone {

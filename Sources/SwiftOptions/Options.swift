@@ -362,6 +362,7 @@ extension Option {
   public static let FEQ: Option = Option("-F=", .joined, alias: Option.F, attributes: [.frontend, .argumentIsPath])
   public static let fileCompilationDir: Option = Option("-file-compilation-dir", .separate, attributes: [.frontend], metaVar: "<path>", helpText: "The compilation directory to embed in the debug info. Coverage mapping is not supported yet.")
   public static let filelist: Option = Option("-filelist", .separate, attributes: [.frontend, .noDriver], helpText: "Specify source inputs in a file rather than on the command line")
+  public static let filePrefixMap: Option = Option("-file-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in debug, coverage, and index info")
   public static let findUsr: Option = Option("-find-usr", .flag, attributes: [.noDriver], helpText: "Find USR for decls by given condition")
   public static let findUsr_: Option = Option("--find-usr", .flag, alias: Option.findUsr, attributes: [.noDriver], helpText: "Find USR for decls by given condition")
   public static let fixitAll: Option = Option("-fixit-all", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Apply all fixits from diagnostics without any filtering")
@@ -1031,6 +1032,7 @@ extension Option {
       Option.FEQ,
       Option.fileCompilationDir,
       Option.filelist,
+      Option.filePrefixMap,
       Option.findUsr,
       Option.findUsr_,
       Option.fixitAll,
