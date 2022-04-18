@@ -932,23 +932,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       return (stdLibPath, stdLibPath.appending(component: "shims"))
     } else if driver.targetTriple.isWindows {
       if let sdkroot = try driver.toolchain.defaultSDKPath(driver.targetTriple) {
-        return (sdkroot
-                  .appending(component: "usr")
-                  .appending(component: "lib")
-                  .appending(component: "swift")
-                  .appending(component: "windows")
-                  // TODO(compnerd) this should be dropped, but we need to
-                  // synchronize with the frontend and installer to ensure that
-                  // everything is setup properly.  With the swiftmodule
-                  // directory structure being supported, we no longer need to
-                  // put the swiftmodules in the architecture directory, only
-                  // the import libraries.
-                  .appending(component: driver.targetTriple.archName),
-                sdkroot
-                  .appending(component: "usr")
-                  .appending(component: "lib")
-                  .appending(component: "swift")
-                  .appending(component: "shims"))
+        return (sdkroot.appending(components: "usr", "lib", "swift", "windows"),
+                sdkroot.appending(components: "usr", "lib", "swift", "shims"))
       }
       return (toolchainRootPath
                 .appending(component: "lib")
