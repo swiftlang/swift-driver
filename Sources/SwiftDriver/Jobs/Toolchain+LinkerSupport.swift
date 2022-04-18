@@ -48,8 +48,8 @@ extension Toolchain {
     }
 
     if let sdkPath = sdkPath.map(VirtualPath.lookup) {
-      // If we added the secondary resource dir, we also need the iOSSupport directory.
-      if secondaryResourceDir != nil {
+      // If we added the secondary resource dir for MacCatalyst, we also need the iOSSupport directory.
+      if triple.isDarwin && secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
       }
 
