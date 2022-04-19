@@ -6401,7 +6401,7 @@ final class SwiftDriverTests: XCTestCase {
     let jobs = try driver.planBuild()
     XCTAssertEqual(jobs.count, 1)
     let defaultSwiftFrontend = jobs.first!.tool.absolutePath!
-    
+
     try withTemporaryDirectory { toolsDirectory in
       let customSwiftFrontend = toolsDirectory.appending(component: executableName("swift-frontend"))
       try localFileSystem.createSymbolicLink(customSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
@@ -6419,6 +6419,14 @@ final class SwiftDriverTests: XCTestCase {
         let anotherSwiftFrontend = localFileSystem.currentWorkingDirectory!.appending(component: executableName("swift-frontend"))
         try localFileSystem.createSymbolicLink(anotherSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
 
+        // test if SWIFT_DRIVER_TOOLNAME_EXEC is respected
+        do {
+          var driver = try Driver(args: ["swiftc", "-print-target-info"], env: ["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": customSwiftFrontend.pathString, "PATH": ProcessEnv.path!])
+          let jobs = try driver.planBuild()
+          XCTAssertEqual(jobs.count, 1)
+          XCTAssertEqual(jobs.first!.tool.name, customSwiftFrontend.pathString)
+        }
+
         // test if tools directory is respected
         do {
           var driver = try Driver(args: ["swiftc", "-print-target-info", "-tools-directory", toolsDirectory.pathString])
@@ -6426,7 +6434,7 @@ final class SwiftDriverTests: XCTestCase {
           XCTAssertEqual(jobs.count, 1)
           XCTAssertEqual(jobs.first!.tool.name, customSwiftFrontend.pathString)
         }
-      
+
         // test if current working directory is searched
         do {
           var driver = try Driver(args: ["swiftc", "-print-target-info"], env: ["PATH": ""])
