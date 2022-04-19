@@ -6435,9 +6435,9 @@ final class SwiftDriverTests: XCTestCase {
           XCTAssertEqual(jobs.first!.tool.name, customSwiftFrontend.pathString)
         }
 
-        // test if current working directory is searched
+        // test if current working directory is searched before PATH
         do {
-          var driver = try Driver(args: ["swiftc", "-print-target-info"], env: ["PATH": ""])
+          var driver = try Driver(args: ["swiftc", "-print-target-info"], env: ["PATH": toolsDirectory.pathString])
           let jobs = try driver.planBuild()
           XCTAssertEqual(jobs.count, 1)
           XCTAssertEqual(jobs.first!.tool.name, anotherSwiftFrontend.pathString)
