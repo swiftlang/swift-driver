@@ -586,6 +586,7 @@ extension Option {
   public static let staticStdlib: Option = Option("-static-stdlib", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Statically link the Swift standard library")
   public static let `static`: Option = Option("-static", .flag, attributes: [.frontend, .noInteractive, .moduleInterface], helpText: "Make this module statically linkable and make the output of -emit-library a static library.")
   public static let statsOutputDir: Option = Option("-stats-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to write unified compilation-statistics files to")
+  public static let strictConcurrency: Option = Option("-strict-concurrency=", .joined, attributes: [.frontend], helpText: "Specify the how strict concurrency checking will be. The value may be 'off' (most 'Sendable' checking is disabled), 'limited' ('Sendable' checking is enabled in code that uses the concurrency model, or 'on' ('Sendable' and other checking is enabled for all code in the module)")
   public static let supplementaryOutputFileMap: Option = Option("-supplementary-output-file-map", .separate, attributes: [.frontend, .noDriver], helpText: "Specify supplementary outputs in a file rather than on the command line")
   public static let suppressStaticExclusivitySwap: Option = Option("-suppress-static-exclusivity-swap", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Suppress static violations of exclusive access with swap()")
   public static let suppressWarnings: Option = Option("-suppress-warnings", .flag, attributes: [.frontend], helpText: "Suppress all warnings")
@@ -1254,6 +1255,7 @@ extension Option {
       Option.staticStdlib,
       Option.`static`,
       Option.statsOutputDir,
+      Option.strictConcurrency,
       Option.supplementaryOutputFileMap,
       Option.suppressStaticExclusivitySwap,
       Option.suppressWarnings,
