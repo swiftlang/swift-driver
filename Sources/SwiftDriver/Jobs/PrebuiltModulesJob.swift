@@ -598,7 +598,8 @@ extension Driver {
       commandLine.append(.path(iosMacFrameworksSearchPath))
       if isInternal {
         commandLine.appendFlag(.Fsystem)
-        commandLine.append(.path(iosMacPrivateFrameworksSearchPath))
+        commandLine.append(.path(iosMacFrameworksSearchPath.parentDirectory
+          .appending(component: "PrivateFrameworks")))
       }
     }
     if isInternal {
