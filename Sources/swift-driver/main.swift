@@ -63,7 +63,7 @@ do {
   if case .subcommand(let subcommand) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.
-    let subcommandPath = Process.findExecutable(arguments[0])?.parentDirectory.appending(component: subcommand)
+    let subcommandPath = Process.findExecutable(CommandLine.arguments[0])?.parentDirectory.appending(component: subcommand)
                          ?? Process.findExecutable(subcommand)
 
     if subcommandPath == nil || !localFileSystem.exists(subcommandPath!) {
