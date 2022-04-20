@@ -1570,7 +1570,7 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func skipped(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
-      "Skipped Compiling \(input).swift"
+      "Skipped Compile \(input).swift"
     }
   }
   @DiagsBuilder func skipped(_ inputs: String...) -> [Diagnostic.Message] {
@@ -1625,10 +1625,10 @@ extension DiagVerifiable {
 
   // MARK: - compiling
   @DiagsBuilder func starting(_ inputs: [String]) -> [Diagnostic.Message] {
-     "Starting Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
+     "Starting Compile \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
   @DiagsBuilder func finished(_ inputs: [String]) -> [Diagnostic.Message] {
-     "Finished Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
+     "Finished Compile \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
   @DiagsBuilder func compiling(_ inputs: [String]) -> [Diagnostic.Message] {
     starting(inputs); finished(inputs)
@@ -1651,12 +1651,12 @@ extension DiagVerifiable {
   @DiagsBuilder var schedulingPostCompileJobs: [Diagnostic.Message] {
     "Incremental compilation: Scheduling all post-compile jobs because something was compiled"
   }
-  @DiagsBuilder var startingLinking: [Diagnostic.Message] { "Starting Linking theModule" }
+  @DiagsBuilder var startingLinking: [Diagnostic.Message] { "Starting Link theModule" }
 
-  @DiagsBuilder var finishedLinking: [Diagnostic.Message] { "Finished Linking theModule" }
+  @DiagsBuilder var finishedLinking: [Diagnostic.Message] { "Finished Link theModule" }
 
   @DiagsBuilder var skippingLinking: [Diagnostic.Message] {
-    "Incremental compilation: Skipping job: Linking theModule; oldest output is current"
+    "Incremental compilation: Skipping job: Link theModule; oldest output is current"
   }
   @DiagsBuilder var schedLinking: [Diagnostic.Message] { schedulingPostCompileJobs; linking }
 
