@@ -319,14 +319,14 @@ final class NonincrementalCompilationTests: XCTestCase {
       "-driver-show-incremental",
     ],
     expecting: [
-      .remark("Starting Compiling main.swift"),
-      .remark("Finished Compiling main.swift"),
-      .remark("Starting Compiling other.swift"),
-      .remark("Finished Compiling other.swift"),
+      .remark("Starting Compile main.swift"),
+      .remark("Finished Compile main.swift"),
+      .remark("Starting Compile other.swift"),
+      .remark("Finished Compile other.swift"),
     ],
     alsoExpectingWhenAutolinking: [
-      .remark("Starting Extracting autolink information for module theModule"),
-      .remark("Finished Extracting autolink information for module theModule"),
+      .remark("Starting Extract autolink information for module theModule"),
+      .remark("Finished Extract autolink information for module theModule"),
     ])
 
   }
