@@ -66,12 +66,17 @@ do {
     let subcommandPath = Process.findExecutable(CommandLine.arguments[0])?.parentDirectory.appending(component: subcommand)
                          ?? Process.findExecutable(subcommand)
 
-    if subcommandPath == nil || !localFileSystem.exists(subcommandPath!) {
+    guard let subcommandPath = subcommandPath,
+          localFileSystem.exists(subcommandPath) else {
       fatalError("cannot find subcommand executable '\(subcommand)'")
     }
 
+    // Pass the full path to subcommand executable.
+    var arguments = arguments
+    arguments[0] = subcommandPath.pathString
+
     // Execute the subcommand.
-    try exec(path: subcommandPath?.pathString ?? "", args: arguments)
+    try exec(path: subcommandPath.pathString, args: arguments)
   }
 
   let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
