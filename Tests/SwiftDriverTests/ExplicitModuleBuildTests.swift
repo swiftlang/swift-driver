@@ -56,7 +56,7 @@ throws {
         TypedVirtualPath(file: clangModuleDetails.moduleMapPath.path,
                          type: .clangModuleMap)
       XCTAssertEqual(job.kind, .generatePCM)
-      XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
+      XCTAssertEqual(job.description, "Compile Clang module \(moduleId.moduleName)")
       XCTAssertTrue(job.inputs.contains(moduleMapPath))
     case .swiftPrebuiltExternal(_):
       XCTFail("Unexpected prebuilt external module dependency found.")
