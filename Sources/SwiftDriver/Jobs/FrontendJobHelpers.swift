@@ -209,6 +209,9 @@ extension Driver {
     if isFrontendArgSupported(.enableBareSlashRegex) {
       try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)
     }
+    if isFrontendArgSupported(.strictConcurrency) {
+      try commandLine.appendLast(.strictConcurrency, from: &parsedOptions)
+    }
 
     // Expand the -experimental-hermetic-seal-at-link flag
     if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
