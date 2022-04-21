@@ -482,16 +482,25 @@ public struct Driver {
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
     }
+      
+      if args.contains("-module-alias") {
+      print("ESQQ Driver::init INPUT - ARGS: ", args.joined(separator: " "))
+      }
     var args = args
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
       args.append(contentsOf: additional.components(separatedBy: " "))
     }
 
     args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
-
+      if args.contains("-module-alias") {
+      print("ESQQ Driver::init EXPANDED - ARGS: ", args.joined(separator: " "))
+      }
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
     self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
+      if args.contains("-module-alias") {
+      print("ESQQ Driver::init ParsedOptions - ARGS: ", args.joined(separator: " "))
+      }
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
@@ -2237,7 +2246,6 @@ extension Driver {
       case topLevel
       case auxiliary
     }
-
     var moduleOutputKind: ModuleOutputKind?
     if parsedOptions.hasArgument(.emitModule, .emitModulePath) {
       // The user has requested a module, so generate one and treat it as
@@ -2309,6 +2317,9 @@ extension Driver {
       fallbackOrDiagnose(.error_stdlib_module_name(moduleName: moduleName, explicitModuleName: parsedOptions.contains(.moduleName)))
     }
 
+      if parsedOptions.allInputs.contains("-module-alias") || parsedOptions.allInputs.contains("GameUtils") {
+      print("ESQQ Driver::computeModuleInfo - ALL INPUTS:", parsedOptions.allInputs.joined(separator: " "))
+      }
     // Retrieve and validate module aliases if passed in
     let moduleAliases = moduleAliasesFromInput(parsedOptions.arguments(for: [.moduleAlias]), with: moduleName, onError: diagnosticsEngine)
 
