@@ -1114,7 +1114,8 @@ extension Driver {
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
 #if os(Windows)
-    return tokenizeWindowsResponseFile(content)
+    return content.split { $0 == "\n" || $0 == "\r\n" }
+                  .flatMap { tokenizeWindowsResponseFile(String($0)) }
 #else
     return content.split { $0 == "\n" || $0 == "\r\n" }
                   .flatMap { tokenizeResponseFileLine($0) }
