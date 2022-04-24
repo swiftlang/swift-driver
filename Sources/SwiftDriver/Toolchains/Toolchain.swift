@@ -206,8 +206,9 @@ extension Toolchain {
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
   /// - Parameter executable: executable to look for [i.e. `swift`].
   func lookup(executable: String) throws -> AbsolutePath {
-    if let overrideString = envVar(forExecutable: executableName(executable)) {
-      return try AbsolutePath(validating: overrideString)
+    if let overrideString = envVar(forExecutable: executableName(executable)),
+       let path = try? AbsolutePath(validating: overrideString) {
+      return path
     } else if let toolDir = toolDirectory,
               let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [toolDir]) {
       // Looking for tools from the tools directory.
