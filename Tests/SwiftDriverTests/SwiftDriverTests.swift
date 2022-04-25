@@ -6395,58 +6395,6 @@ final class SwiftDriverTests: XCTestCase {
 #endif
 #endif
   }
-
-  func testToolSearching() throws {
-#if os(Windows)
-    let PATH = "Path"
-#else
-    let PATH = "PATH"
-#endif
-    let SWIFT_FRONTEND_EXEC = "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"
-
-    // We need to override SWIFT_DRIVER_SWIFT_FRONTEND_EXEC to prevent it from interfering the tests.
-    var driver = try Driver(args: ["swiftc", "-print-target-info"], env: [PATH: ProcessEnv.path!])
-    let jobs = try driver.planBuild()
-    XCTAssertEqual(jobs.count, 1)
-    let defaultSwiftFrontend = jobs.first!.tool.absolutePath!
-
-    try withTemporaryDirectory { toolsDirectory in
-      let customSwiftFrontend = toolsDirectory.appending(component: executableName("swift-frontend"))
-      try localFileSystem.createSymbolicLink(customSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
-
-      try withTemporaryDirectory { tempDirectory in 
-        try localFileSystem.changeCurrentWorkingDirectory(to: tempDirectory)
-        let anotherSwiftFrontend = localFileSystem.currentWorkingDirectory!.appending(component: executableName("swift-frontend"))
-        try localFileSystem.createSymbolicLink(anotherSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
-
-        // test if SWIFT_DRIVER_TOOLNAME_EXEC is respected
-        do {
-          var driver = try Driver(args: ["swiftc", "-print-target-info"],
-                                  env: [PATH: ProcessEnv.path!, SWIFT_FRONTEND_EXEC: customSwiftFrontend.pathString])
-          let jobs = try driver.planBuild()
-          XCTAssertEqual(jobs.count, 1)
-          XCTAssertEqual(jobs.first!.tool.name, customSwiftFrontend.pathString)
-        }
-
-        // test if tools directory is respected
-        do {
-          var driver = try Driver(args: ["swiftc", "-print-target-info", "-tools-directory", toolsDirectory.pathString],
-                                  env: [PATH: ProcessEnv.path!])
-          let jobs = try driver.planBuild()
-          XCTAssertEqual(jobs.count, 1)
-          XCTAssertEqual(jobs.first!.tool.name, customSwiftFrontend.pathString)
-        }
-
-        // test if current working directory is searched before PATH
-        do {
-          var driver = try Driver(args: ["swiftc", "-print-target-info"], env: [PATH: toolsDirectory.pathString])
-          let jobs = try driver.planBuild()
-          XCTAssertEqual(jobs.count, 1)
-          XCTAssertEqual(jobs.first!.tool.name, anotherSwiftFrontend.pathString)
-        }
-      }
-    }  
-  }
 }
 
 func assertString(
