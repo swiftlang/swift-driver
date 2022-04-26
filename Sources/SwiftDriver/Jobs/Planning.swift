@@ -479,6 +479,13 @@ extension Driver {
     return []
   }
 
+  @_spi(Testing) public static func getAllConfiguredModules(withKey: String, _ configs: [AdopterConfig]) -> Set<String> {
+    let allModules = configs.flatMap {
+      return $0.key == withKey ? $0.moduleNames : []
+    }
+    return Set<String>(allModules)
+  }
+
   private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
   throws {
     // Turn this flag on by default with the env var or for public frameworks.
