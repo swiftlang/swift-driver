@@ -6011,6 +6011,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(configs.count, 1)
       XCTAssertEqual(configs[0].key, "SkipFeature1")
       XCTAssertEqual(configs[0].moduleNames, ["foo", "bar"])
+      let modules = Driver.getAllConfiguredModules(withKey: "SkipFeature1", configs)
+      XCTAssertTrue(modules.contains("foo"))
+      XCTAssertTrue(modules.contains("bar"))
+      XCTAssertTrue(Driver.getAllConfiguredModules(withKey: "SkipFeature2", configs).isEmpty)
     }
     try withTemporaryFile { file in
       try localFileSystem.writeFileContents(file.path) {
