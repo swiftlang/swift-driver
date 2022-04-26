@@ -6003,6 +6003,34 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testAdopterConfigFile() throws {
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) {
+        $0 <<< "["
+        $0 <<< "  {"
+        $0 <<< "  \"key\": \"SkipFeature1\","
+        $0 <<< "  \"moduleNames\": [\"foo\", \"bar\"]"
+        $0 <<< "  }"
+        $0 <<< "]"
+      }
+      let configs = Driver.parseAdopterConfigs(file.path)
+      XCTAssertEqual(configs.count, 1)
+      XCTAssertEqual(configs[0].key, "SkipFeature1")
+      XCTAssertEqual(configs[0].moduleNames, ["foo", "bar"])
+    }
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) {
+        $0 <<< "][ malformed }{"
+      }
+      let configs = Driver.parseAdopterConfigs(file.path)
+      XCTAssertEqual(configs.count, 0)
+    }
+    do {
+      let configs = Driver.parseAdopterConfigs(AbsolutePath("/abc/c/a.json"))
+      XCTAssertEqual(configs.count, 0)
+    }
+  }
+
   func testExtractLibraryLevel() throws {
     try withTemporaryFile { file in
       try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -library-level api" }
