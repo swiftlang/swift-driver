@@ -12,6 +12,7 @@
 
 import TSCBasic
 import SwiftOptions
+import Foundation
 
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput
@@ -436,6 +437,46 @@ extension Driver {
           !emitModuleSeparately
     else { return nil }
     return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
+  }
+
+  func getAdopterConfigPathFromXcodeDefaultToolchain() -> AbsolutePath? {
+    let swiftPath = try? toolchain.resolvedTool(.swiftCompiler).path
+    guard var swiftPath = swiftPath else {
+      return nil
+    }
+    let toolchains = "Toolchains"
+    guard swiftPath.components.contains(toolchains) else {
+      return nil
+    }
+    while swiftPath.basename != toolchains  {
+      swiftPath = swiftPath.parentDirectory
+    }
+    assert(swiftPath.basename == toolchains)
+    return swiftPath.appending(component: "XcodeDefault.xctoolchain")
+      .appending(component: "usr")
+      .appending(component: "local")
+      .appending(component: "lib")
+      .appending(component: "swift")
+      .appending(component: "adopter_configs.json")
+  }
+
+  @_spi(Testing) public struct AdopterConfig: Decodable {
+    public let key: String
+    public let moduleNames: [String]
+  }
+
+  @_spi(Testing) public static func parseAdopterConfigs(_ config: AbsolutePath) -> [AdopterConfig] {
+    let results = try? localFileSystem.readFileContents(config).withData {
+      try JSONDecoder().decode([AdopterConfig].self, from: $0)
+    }
+    return results ?? []
+  }
+
+  func getAdopterConfigsFromXcodeDefaultToolchain() -> [AdopterConfig] {
+    if let config = getAdopterConfigPathFromXcodeDefaultToolchain() {
+      return Driver.parseAdopterConfigs(config)
+    }
+    return []
   }
 
   private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
