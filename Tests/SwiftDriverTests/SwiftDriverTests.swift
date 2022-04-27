@@ -284,12 +284,8 @@ final class SwiftDriverTests: XCTestCase {
                    [ TypedVirtualPath(file: VirtualPath.relative(RelativePath("a.swift")).intern(), type: .swift),
                      TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/tmp/b.swift")).intern(), type: .swift) ])
 
-    let workingDirectory =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/wobble", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
-    let tempDirectory =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/tmp", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
+    let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "wobble")
+    let tempDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "tmp")
 
     let driver2 = try Driver(args: ["swiftc", "a.swift", "-working-directory", workingDirectory.pathString, rebase("b.swift", at: tempDirectory)])
     XCTAssertEqual(driver2.inputFiles,
@@ -649,9 +645,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath(executableName("Test"))))
 
     // Forwarding of arguments.
-    let workingDirectory =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/tmp", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
+    let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "tmp")
 
     var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", workingDirectory.pathString, "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g"])
     let plannedJobs2 = try driver2.planBuild()
@@ -1097,8 +1091,7 @@ final class SwiftDriverTests: XCTestCase {
       ]
     ]
 
-    let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo_root", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/foo_root")
+    let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo_root")
 
     let resolvedStringyEntries: [String: [FileType: String]] = [
       "": [.swiftDeps: root.appending(components: "foo.build", "master.swiftdeps").pathString],
@@ -2749,8 +2742,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/foo/bar")
+      let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-no-emit-module-separately"])
       let plannedJobs = try driver.planBuild()
@@ -2814,8 +2806,7 @@ final class SwiftDriverTests: XCTestCase {
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     do {
-      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/foo/bar")
+      let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library"],
                               env: envVars)
@@ -2837,8 +2828,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/foo/bar")
+      let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
       // We don't expect partial jobs when asking only for the swiftmodule with
       // -experimental-emit-module-separately.
@@ -2886,8 +2876,7 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitModuleSeparatelyWMO() throws {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
-    let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/foo/bar", relativeTo: $0) }
-                  ?? AbsolutePath(validating: "/foo/bar")
+    let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", root.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
@@ -4262,9 +4251,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLEqualPassedDownToLinkerInvocation() throws {
-    let workingDirectory =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/Foo/Bar", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
+    let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "Foo", "Bar")
 
     var driver = try Driver(args: [
       "swiftc", "-working-directory", workingDirectory.pathString, "-emit-executable", "test.swift", "-L=.", "-F=."
@@ -4283,9 +4270,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testWorkingDirectoryForImplicitOutputs() throws {
-    let workingDirectory =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/Foo/Bar", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
+    let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "Foo", "Bar")
 
     var driver = try Driver(args: [
       "swiftc", "-working-directory", workingDirectory.pathString, "-emit-executable", "-c", "/tmp/main.swift"
@@ -4298,9 +4283,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testWorkingDirectoryForImplicitModules() throws {
-    let workingDirectory =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/Foo/Bar", relativeTo: $0) }
-                ?? AbsolutePath(validating: "/Foo/Bar")
+    let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "Foo", "Bar")
 
     var driver = try Driver(args: [
       "swiftc", "-working-directory", workingDirectory.pathString, "-emit-module", "/tmp/main.swift"
@@ -4677,8 +4660,7 @@ final class SwiftDriverTests: XCTestCase {
       // Replace the error stream with one we capture here.
       let errorStream = stderrStream
 
-      let root = try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/build", relativeTo: $0) }
-                    ?? AbsolutePath(validating: "/build")
+      let root = localFileSystem.currentWorkingDirectory!.appending(components: "build")
 
       let errorOutputFile = path.appending(component: "dummy_error_stream")
       TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
@@ -5903,9 +5885,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testFrontendTargetInfoWithWorkingDirectory() throws {
     do {
-      let workingDirectory =
-          try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/absolute/path", relativeTo: $0) }
-                  ?? AbsolutePath(validating: "/Foo/Bar")
+      let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "absolute", "path")
 
       var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift",
                                      "-resource-dir", "resource/dir",
@@ -6352,13 +6332,8 @@ final class SwiftDriverTests: XCTestCase {
 
   func testRegistrarLookup() throws {
 #if os(Windows)
-    let SDKROOT: AbsolutePath =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/SDKROOT", relativeTo: $0) }
-            ?? AbsolutePath(validating: "/SDKROOT")
-
-    let resourceDir: AbsolutePath =
-        try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/swift/resources", relativeTo: $0) }
-            ?? AbsolutePath(validating: "/swift/resources")
+    let SDKROOT: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "SDKROOT")
+    let resourceDir: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "swift", "resources")
 
     let platform: String = "windows"
 #if arch(x86_64)

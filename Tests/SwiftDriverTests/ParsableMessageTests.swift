@@ -142,8 +142,7 @@ final class ParsableMessageTests: XCTestCase {
         try withHijackedBufferedErrorStream(in: path) { errorBuffer in
           let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
-          let workdir: AbsolutePath =
-                try localFileSystem.currentWorkingDirectory.map { AbsolutePath("/WorkDir", relativeTo: $0) } ?? AbsolutePath(validating: "/WorkDir")
+          let workdir: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "WorkDir")
 
           var driver = try Driver(args: ["swiftc", "-o", "test.o",
                                          "main.swift", "test1.swift", "test2.swift",
@@ -170,16 +169,21 @@ final class ParsableMessageTests: XCTestCase {
             "name" : "compile",
           """).count - 1, 3)
 
+#if os(Windows)
+          let mainPath: String = workdir.appending(component: "main.swift").nativePathString(escaped: true)
+          let test1Path: String = workdir.appending(component: "test1.swift").nativePathString(escaped: true)
+          let test2Path: String = workdir.appending(component: "test2.swift").nativePathString(escaped: true)
+#else
+          let mainPath: String = workdir.appending(component: "main.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
+          let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
+          let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
+#endif
+
           /// One per primary
           XCTAssertTrue(errorOutput.contains(
           """
             "pid" : -1000,
           """))
-#if os(Windows)
-          let mainPath: String = workdir.appending(component: "main.swift").nativePathString(escaped: true)
-#else
-          let mainPath: String = workdir.appending(component: "main.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
-#endif
           XCTAssertTrue(errorOutput.contains(
           """
             \"inputs\" : [
@@ -190,11 +194,6 @@ final class ParsableMessageTests: XCTestCase {
           """
             "pid" : -1001,
           """))
-#if os(Windows)
-          let test1Path: String = workdir.appending(component: "test1.swift").nativePathString(escaped: true)
-#else
-          let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
-#endif
           XCTAssertTrue(errorOutput.contains(
           """
             \"inputs\" : [
@@ -205,11 +204,6 @@ final class ParsableMessageTests: XCTestCase {
           """
             "pid" : -1002,
           """))
-#if os(Windows)
-          let test2Path: String = workdir.appending(component: "test2.swift").nativePathString(escaped: true)
-#else
-          let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
-#endif
           XCTAssertTrue(errorOutput.contains(
           """
             \"inputs\" : [
