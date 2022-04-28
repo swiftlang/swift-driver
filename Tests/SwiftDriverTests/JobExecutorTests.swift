@@ -388,7 +388,7 @@ final class JobExecutorTests: XCTestCase {
                   inputs: [], primaryInputs: [], outputs: [])
 #if os(Windows)
     XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
-                   #""/path/to/the tool" "/with space" /withoutspace"#)
+                   #""\path\to\the tool" "\with space" \withoutspace"#)
 #else
     XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
                    "'/path/to/the tool' '/with space' /withoutspace")
