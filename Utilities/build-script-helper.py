@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-from __future__ import print_function
+#!/usr/bin/env python3
 
 import argparse
 from distutils import file_util
@@ -66,10 +64,10 @@ def swiftpm(action, swift_exec, swiftpm_args, env=None):
   subprocess.check_call(cmd, env=env)
 
 def swiftpm_bin_path(swift_exec, swiftpm_args, env=None):
-  swiftpm_args = list(filter(lambda arg: arg != '-v' and arg != '--verbose', swiftpm_args))
+  swiftpm_args = [arg for arg in swiftpm_args if arg != '-v' and arg != '--verbose']
   cmd = [swift_exec, 'build', '--show-bin-path'] + swiftpm_args
   print(' '.join(cmd))
-  return subprocess.check_output(cmd, env=env).strip()
+  return subprocess.check_output(cmd, env=env).strip().decode("UTF-8")
 
 def get_swiftpm_options(args):
   swiftpm_args = [
@@ -121,7 +119,7 @@ def get_swiftpm_options(args):
 
 def install_binary(file, source_dir, install_dir, verbose):
   print('Installing %s into: %s' % (file, install_dir))
-  cmd = ['rsync', '-a', os.path.join(source_dir.decode('UTF-8'), file), install_dir]
+  cmd = ['rsync', '-a', os.path.join(source_dir, file), install_dir]
   if verbose:
     print(' '.join(cmd))
   subprocess.check_call(cmd)
@@ -153,12 +151,7 @@ def add_rpath(rpath, binary, verbose):
     print(stdout)
 
 def should_test_parallel():
-  if platform.system() == 'Linux':
-    distro = platform.linux_distribution()
-    if distro[0] != 'Ubuntu':
-      # Workaround hang in Process.run() that hasn't been tracked down yet.
-      return False
-  return True
+  return platform.system() != 'Linux'
 
 def handle_invocation(args):
   swiftpm_args = get_swiftpm_options(args)
@@ -308,9 +301,8 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
       delete_rpath(driver_lib_dir_path, lib_path, args.verbose)
 
   # Fixup the TSC and llbuild rpaths
-  driver_libs = map(lambda d: os.path.join('lib', d), ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution'])
-  tsc_libs = map(lambda d: os.path.join('dependencies', 'swift-tools-support-core', 'lib', d),
-                 ['libTSCBasic', 'libTSCLibc', 'libTSCUtility'])
+  driver_libs = [os.path.join('lib', d) for d in ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution']]
+  tsc_libs = [os.path.join('dependencies', 'swift-tools-support-core', 'lib', d) for d in ['libTSCBasic', 'libTSCLibc', 'libTSCUtility']]
   for lib in driver_libs + tsc_libs:
     for target in targets:
       lib_path = os.path.join(build_dir, target,
