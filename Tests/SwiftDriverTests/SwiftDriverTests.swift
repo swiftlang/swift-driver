@@ -2976,6 +2976,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O" ])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1 + autoLinkExtractJob)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
     }
 
     do {
@@ -2983,6 +2984,8 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-library-evolution" ])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
+      XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-enable-default-cmo")))
     }
 
     do {
@@ -2990,6 +2993,8 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-disable-cmo" ])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
+      XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-enable-default-cmo")))
     }
 
     do {
@@ -2997,10 +3002,12 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo" ])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
+      XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-enable-default-cmo")))
     }
 
     do {
-        // Don't use emit-module-separetely as a linker.
+      // Don't use emit-module-separetely as a linker.
       var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
                                env: envVars)
       let plannedJobs = try driver.planBuild()

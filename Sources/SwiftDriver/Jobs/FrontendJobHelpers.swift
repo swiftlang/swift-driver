@@ -315,14 +315,6 @@ extension Driver {
                                                            driver: self)
   }
 
-  /// Add options to disable cross-module-optimization.
-  mutating func addDisableCMOOption(commandLine: inout [Job.ArgTemplate]) {
-    if parsedOptions.hasArgument(.disableCrossModuleOptimization) {
-      commandLine.appendFlag(.Xllvm)
-      commandLine.appendFlag("-sil-disable-pass=cmo")
-    }
-  }
-
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
                                                         primaryInputs: [TypedVirtualPath],
                                                         inputsGeneratingCodeCount: Int,

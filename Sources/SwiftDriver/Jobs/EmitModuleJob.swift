@@ -99,8 +99,6 @@ extension Driver {
 
     addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
-    addDisableCMOOption(commandLine: &commandLine)
-
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
     try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
@@ -147,10 +145,9 @@ extension Driver {
                                    default: true)
 
     case .singleCompile:
-      // Non library-evolution builds require a single job, because cross-module-optimization is enabled by default.
-      if !parsedOptions.hasArgument(.enableLibraryEvolution),
-         !parsedOptions.hasArgument(.disableCrossModuleOptimization),
-         let opt = parsedOptions.getLast(in: .O), opt.option != .Onone {
+      // If cross-module-optimization is done, the module must be emitted in the same
+      // swift-frontend invocation which also produces the binary.
+      if canDoCrossModuleOptimization(parsedOptions: &parsedOptions) {
         return false
       }
 
@@ -162,5 +159,14 @@ extension Driver {
     default:
       return false
     }
+  }
+  
+  static func canDoCrossModuleOptimization(parsedOptions: inout ParsedOptions) -> Bool {
+    if !parsedOptions.hasArgument(.enableLibraryEvolution),
+       !parsedOptions.hasArgument(.disableCrossModuleOptimization),
+       let opt = parsedOptions.getLast(in: .O), opt.option != .Onone {
+      return true
+    }
+    return false
   }
 }
