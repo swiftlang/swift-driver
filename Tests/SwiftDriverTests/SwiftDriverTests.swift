@@ -768,16 +768,19 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testOutputFileMapLoading() throws {
+    let objroot: AbsolutePath =
+        AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+
     let contents = """
     {
       "": {
-        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"
+        "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
       },
       "/tmp/foo/Sources/foo/foo.swift": {
-        "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
-        "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
-        "swiftmodule": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
-        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps"
+        "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+        "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+        "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+        "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
       }
     }
     """
@@ -788,26 +791,29 @@ final class SwiftDriverTests: XCTestCase {
         let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
 
         let object = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
-        XCTAssertEqual(VirtualPath.lookup(object).name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
+        XCTAssertEqual(VirtualPath.lookup(object).name, objroot.appending(components: "foo.swift.o").pathString)
 
         let masterDeps = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: ""), outputType: .swiftDeps)
-        XCTAssertEqual(VirtualPath.lookup(masterDeps).name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps")
+        XCTAssertEqual(VirtualPath.lookup(masterDeps).name, objroot.appending(components: "master.swiftdeps").pathString)
       }
     }
   }
 
   func testFindingObjectPathFromllvmBCPath() throws {
+    let objroot: AbsolutePath =
+        AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+
     let contents = """
     {
       "": {
-        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"
+        "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
       },
       "/tmp/foo/Sources/foo/foo.swift": {
-        "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
-        "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
-        "swiftmodule": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
-        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps",
-        "llvm-bc": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"
+        "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+        "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+        "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+        "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))",
+        "llvm-bc": "\(objroot.appending(components: "foo.swift.bc").nativePathString(escaped: true))"
       }
     }
     """
@@ -817,22 +823,25 @@ final class SwiftDriverTests: XCTestCase {
         let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
 
         let obj = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"), outputType: .object)
-        XCTAssertEqual(VirtualPath.lookup(obj).name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o")
+        XCTAssertEqual(VirtualPath.lookup(obj).name, objroot.appending(components: "foo.swift.o").pathString)
       }
     }
   }
 
   func testOutputFileMapLoadingDocAndSourceinfo() throws {
+    let objroot: AbsolutePath =
+        AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+
     let contents = """
     {
       "": {
-        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"
+        "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
       },
       "/tmp/foo/Sources/foo/foo.swift": {
-        "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
-        "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
-        "swiftmodule": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
-        "swift-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps"
+        "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+        "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+        "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+        "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
       }
     }
     """
@@ -843,10 +852,10 @@ final class SwiftDriverTests: XCTestCase {
         let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
 
         let doc = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .swiftDocumentation)
-        XCTAssertEqual(VirtualPath.lookup(doc).name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftdoc")
+        XCTAssertEqual(VirtualPath.lookup(doc).name, objroot.appending(components: "foo~partial.swiftdoc").pathString)
 
         let source = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .swiftSourceInfoFile)
-        XCTAssertEqual(VirtualPath.lookup(source).name, "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftsourceinfo")
+        XCTAssertEqual(VirtualPath.lookup(source).name, objroot.appending(components: "foo~partial.swiftsourceinfo").pathString)
       }
     }
   }
@@ -5781,14 +5790,15 @@ final class SwiftDriverTests: XCTestCase {
     // FIXME: On Linux, we might not have any Clang in the path. We need a
     // better override.
     var env = ProcessEnv.vars
-    env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = "/usr/bin/nonexistent-swift-help"
+    let swiftHelp: AbsolutePath = AbsolutePath("/usr/bin/nonexistent-swift-help")
+    env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = swiftHelp.pathString
     env["SWIFT_DRIVER_CLANG_EXEC"] = "/usr/bin/clang"
     var driver = try Driver(
       args: ["swiftc", "-help"],
       env: env)
     let jobs = try driver.planBuild()
     XCTAssert(jobs.count == 1)
-    XCTAssertEqual(jobs.first!.tool.name, "/usr/bin/nonexistent-swift-help")
+    XCTAssertEqual(jobs.first!.tool.name, swiftHelp.pathString)
   }
 
   func testSourceInfoFileEmitOption() throws {
