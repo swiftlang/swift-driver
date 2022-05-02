@@ -303,10 +303,11 @@ final class SwiftDriverTests: XCTestCase {
 #if os(Windows)
     throw XCTSkip("TSCUtility.RelativePath failure")
 #else
-    try withTemporaryDirectory { path in
-      guard let cwd = localFileSystem.currentWorkingDirectory else {
-        fatalError()
-      }
+    guard let cwd = localFileSystem.currentWorkingDirectory else {
+      fatalError()
+    }
+
+    try withTemporaryDirectory(dir: cwd, removeTreeOnDeinit: true) { path in
       let main = path.appending(component: "main.swift")
       let util = path.appending(component: "util.swift")
       let utilRelative = util.relative(to: cwd)
@@ -1134,10 +1135,11 @@ final class SwiftDriverTests: XCTestCase {
 #if os(Windows)
     throw XCTSkip("TSCUtility.RelativePath failure")
 #else
-    try withTemporaryDirectory { path in
-      guard let cwd = localFileSystem.currentWorkingDirectory else {
-        fatalError()
-      }
+    guard let cwd = localFileSystem.currentWorkingDirectory else {
+      fatalError()
+    }
+
+    try withTemporaryDirectory(dir: cwd, removeTreeOnDeinit: true) { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")
       try localFileSystem.writeFileContents(outputFileMap) {
         $0 <<< """
