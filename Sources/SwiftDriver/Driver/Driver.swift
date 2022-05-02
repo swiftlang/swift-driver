@@ -19,6 +19,7 @@ import struct TSCUtility.Version
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
+    case unknownOrMissingSubcommand(String)
     case invalidDriverName(String)
     case invalidInput(String)
     case noInputFiles
@@ -49,6 +50,8 @@ public struct Driver {
 
     public var description: String {
       switch self {
+      case .unknownOrMissingSubcommand(let subcommand):
+        return "unknown or missing subcommand '\(subcommand)'"
       case .invalidDriverName(let driverName):
         return "invalid driver name: \(driverName)"
       case .invalidInput(let input):
