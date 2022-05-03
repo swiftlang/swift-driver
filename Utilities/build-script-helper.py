@@ -150,9 +150,6 @@ def add_rpath(rpath, binary, verbose):
   if verbose:
     print(stdout)
 
-def should_test_parallel():
-  return platform.system() != 'Linux'
-
 def handle_invocation(args):
   swiftpm_args = get_swiftpm_options(args)
   toolchain_bin = os.path.join(args.toolchain, 'bin')
@@ -195,9 +192,7 @@ def handle_invocation(args):
         if os.path.exists(tool_path):
             env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (tool_path)
     test_args = swiftpm_args
-    test_args += ['-Xswiftc', '-enable-testing']
-    if should_test_parallel():
-      test_args += ['--parallel']
+    test_args += ['-Xswiftc', '-enable-testing', '--parallel']
     # The test suite consults these variables to control what tests get run
     env['SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS'] = "1"
     if args.lit_test_dir:
