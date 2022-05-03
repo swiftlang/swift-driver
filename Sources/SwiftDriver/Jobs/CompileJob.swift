@@ -283,7 +283,13 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
 
-    addDisableCMOOption(commandLine: &commandLine)
+    if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
+       // For historical reasons, -cross-module-optimization turns on "aggressive" CMO
+       // which is different from "default" CMO.
+       !parsedOptions.hasArgument(.CrossModuleOptimization) {
+      assert(!emitModuleSeparately, "Cannot emit module separately with cross-module-optimization")
+      commandLine.appendFlag("-enable-default-cmo")
+    }
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
