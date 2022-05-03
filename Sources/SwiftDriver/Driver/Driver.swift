@@ -3035,21 +3035,9 @@ extension Driver {
     
     // Emit-module discovered dependencies are always specified as a single-output
     // file
-    if type == .emitModuleDependencies {
-      if let path = outputFileMap?.existingOutputForSingleInput(outputType: type) {
-        return path
-      }
-
-      // If an explicit path is not provided by the output file map, attempt to
-      // synthesize a path from the master swift dependency path.  This is
-      // important as we may other emit this file at the location where the
-      // driver was invoked, which is normally the root of the package.
-      if let path = outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {
-        return VirtualPath.lookup(path)
-                    .parentDirectory
-                    .appending(component: "\(moduleName).\(type.rawValue)")
-                    .intern()
-      }
+    if type == .emitModuleDependencies,
+       let path = outputFileMap?.existingOutputForSingleInput(outputType: type) {
+      return path
     }
 
     // If there is an output argument, derive the name from there.
@@ -3067,6 +3055,16 @@ extension Driver {
         .intern()
     }
 
+    // If an explicit path is not provided by the output file map, attempt to
+    // synthesize a path from the master swift dependency path.  This is
+    // important as we may otherwise emit this file at the location where the
+    // driver was invoked, which is normally the root of the package.
+    if let path = outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {
+      return VirtualPath.lookup(path)
+                  .parentDirectory
+                  .appending(component: "\(moduleName).\(type.rawValue)")
+                  .intern()
+    }
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 
