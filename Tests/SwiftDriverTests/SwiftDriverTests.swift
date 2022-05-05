@@ -300,9 +300,6 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testRecordedInputModificationDates() throws {
-#if os(Windows)
-    throw XCTSkip("TSCUtility.RelativePath failure")
-#else
     guard let cwd = localFileSystem.currentWorkingDirectory else {
       fatalError()
     }
@@ -324,7 +321,6 @@ final class SwiftDriverTests: XCTestCase {
         .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift) : utilMDate,
       ])
     }
-#endif
   }
 
   func testPrimaryOutputKinds() throws {
@@ -1132,9 +1128,6 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testOutputFileMapRelativePathArg() throws {
-#if os(Windows)
-    throw XCTSkip("TSCUtility.RelativePath failure")
-#else
     guard let cwd = localFileSystem.currentWorkingDirectory else {
       fatalError()
     }
@@ -1166,7 +1159,6 @@ final class SwiftDriverTests: XCTestCase {
         "main.swift", "util.swift",
       ]))
     }
-#endif
   }
 
   func testResponseFileExpansion() throws {
