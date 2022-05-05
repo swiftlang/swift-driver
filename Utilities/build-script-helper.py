@@ -192,7 +192,8 @@ def handle_invocation(args):
         if os.path.exists(tool_path):
             env['SWIFT_DRIVER_' + tool.upper().replace('-','_') + '_EXEC'] = '%s' % (tool_path)
     test_args = swiftpm_args
-    test_args += ['-Xswiftc', '-enable-testing', '--parallel']
+    # Disabled parallel testing due to rdar://92820883
+    test_args += ['-Xswiftc', '-enable-testing']
     # The test suite consults these variables to control what tests get run
     env['SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS'] = "1"
     if args.lit_test_dir:
