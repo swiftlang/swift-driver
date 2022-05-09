@@ -67,7 +67,7 @@ do {
                          ?? Process.findExecutable(subcommand)
 
     if subcommandPath == nil || !localFileSystem.exists(subcommandPath!) {
-      fatalError("cannot find subcommand executable '\(subcommand)'")
+      throw Driver.Error.unknownOrMissingSubcommand(subcommand)
     }
 
     // Execute the subcommand.
