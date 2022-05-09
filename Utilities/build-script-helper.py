@@ -151,7 +151,7 @@ def add_rpath(rpath, binary, verbose):
     print(stdout)
 
 def should_test_parallel():
-  return platform.system() != 'Linux'
+  return False
 
 def handle_invocation(args):
   swiftpm_args = get_swiftpm_options(args)
