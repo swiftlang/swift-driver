@@ -340,6 +340,9 @@ public struct Driver {
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
 
+  /// A list of unknown driver flags that are recognizable to `swift-frontend`
+  public let savedUnknownDriverFlagsForSwiftFrontend: [String]
+
   /// A collection of all the features the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFeatures: Set<String>
 
@@ -390,10 +393,10 @@ public struct Driver {
       .replacingExtension(with: .jsonABIBaseline).intern(), type: .jsonABIBaseline)
   }()
 
-  public func isFrontendArgSupported(_ opt: Option) -> Bool {
-    var current = opt.spelling
+  public static func isOptionFound(_ opt: String, allOpts: Set<String>) -> Bool {
+    var current = opt
     while(true) {
-      if supportedFrontendFlags.contains(current) {
+      if allOpts.contains(current) {
         return true
       }
       if current.starts(with: "-") {
@@ -402,6 +405,10 @@ public struct Driver {
         return false
       }
     }
+  }
+
+  public func isFrontendArgSupported(_ opt: Option) -> Bool {
+    return Driver.isOptionFound(opt.spelling, allOpts: supportedFrontendFlags)
   }
 
   @_spi(Testing)
@@ -501,7 +508,7 @@ public struct Driver {
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
+    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind, delayThrows: true)
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
@@ -669,6 +676,13 @@ public struct Driver {
                                                 diagnosticsEngine: diagnosticEngine,
                                                 fileSystem: fileSystem, executor: executor,
                                                 env: env)
+    let supportedFrontendFlagsLocal = self.supportedFrontendFlags
+    self.savedUnknownDriverFlagsForSwiftFrontend = try self.parsedOptions.saveUnknownFlags {
+      Driver.isOptionFound($0, allOpts: supportedFrontendFlagsLocal)
+    }
+    self.savedUnknownDriverFlagsForSwiftFrontend.forEach {
+      diagnosticsEngine.emit(warning: "save unknown driver flag \($0) as additional swift-frontend flag")
+    }
     self.supportedFrontendFeatures = try Self.computeSupportedCompilerFeatures(of: self.toolchain, env: env)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
