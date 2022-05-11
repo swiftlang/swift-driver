@@ -6273,6 +6273,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(mapA.entries, [VirtualPath.relative(.init("a.swift")).intern(): [:]])
     }
   }
+
+  func testSaveUnkownDriverFlags() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "a.swift", "b.swift", "-unlikely-flag-for-testing"])
+      let plannedJobs = try driver.planBuild()
+      let jobA = plannedJobs[0]
+      XCTAssertTrue(jobA.commandLine.contains("-unlikely-flag-for-testing"))
+    }
+  }
   
   func testCleaningUpOldCompilationOutputs() throws {
 #if !os(macOS)

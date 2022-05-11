@@ -309,6 +309,10 @@ extension Driver {
       commandLine.appendFlag("-frontend-parseable-output")
     }
 
+    savedUnknownDriverFlagsForSwiftFrontend.forEach {
+      commandLine.appendFlag($0)
+    }
+
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
