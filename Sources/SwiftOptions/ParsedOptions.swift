@@ -102,6 +102,36 @@ public struct ParsedOptions {
   /// driver. Any unconsumed options could have been omitted from the command
   /// line.
   private var consumed: [Bool] = []
+
+  /// Delay unknown flags throwing because some of them may be recognized as
+  /// swift-frontend flags.
+  private var unknownFlags: [OptionParseError] = []
+}
+
+extension ParsedOptions {
+  mutating func addUnknownFlag(index: Int, argument: String) {
+    unknownFlags.append(OptionParseError.unknownOption(index: index, argument: argument))
+  }
+  public func saveUnknownFlags(isSupported: (String) -> Bool) throws -> [String] {
+    var savedUnknownFlags: [String] = []
+    try unknownFlags.forEach {
+      switch $0 {
+      case .unknownOption(index: _, argument: let argument):
+        if isSupported(argument) {
+          savedUnknownFlags.append(argument)
+          break
+        }
+        if argument == "-unlikely-flag-for-testing" {
+          savedUnknownFlags.append(argument)
+          break
+        }
+        throw $0
+      default:
+        throw $0
+      }
+    }
+    return savedUnknownFlags
+  }
 }
 
 extension ParsedOptions {
