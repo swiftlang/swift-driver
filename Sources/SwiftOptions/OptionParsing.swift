@@ -36,7 +36,7 @@ extension OptionTable {
   ///
   /// Throws an error if the command line contains any errors.
   public func parse(_ arguments: [String],
-                    for driverKind: DriverKind) throws -> ParsedOptions {
+                    for driverKind: DriverKind, delayThrows: Bool = false) throws -> ParsedOptions {
     var trie = PrefixTrie<Option>()
     // Add all options, ignoring the .noDriver ones
     for opt in options where !opt.attributes.contains(.noDriver) {
@@ -73,8 +73,12 @@ extension OptionTable {
       // there's an unmatched suffix at the end, and pop an error. Otherwise,
       // we'll treat the unmatched suffix as the argument to the option.
       guard let option = trie[argument] else {
-        throw OptionParseError.unknownOption(
-          index: index - 1, argument: argument)
+        if delayThrows {
+          parsedOptions.addUnknownFlag(index: index - 1, argument: argument)
+          continue
+        } else {
+          throw OptionParseError.unknownOption(index: index - 1, argument: argument)
+        }
       }
 
       let verifyOptionIsAcceptedByDriverKind = {
