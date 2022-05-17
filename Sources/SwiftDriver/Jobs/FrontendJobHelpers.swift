@@ -201,10 +201,8 @@ extension Driver {
     try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
     try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
-    try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
+    try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
-    try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
-    try commandLine.appendAll(.filePrefixMap, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
