@@ -396,6 +396,26 @@ final class SwiftDriverTests: XCTestCase {
       }
   }
 
+  func testFilePrefixMapInvalidDiagnostic() throws {
+    try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "-o", "foo.o", "-file-prefix-map", "invalid") {
+      $1.expect(.error("values for '-file-prefix-map' must be in the format 'original=remapped', but 'invalid' was provided"))
+    }
+  }
+
+  func testFilePrefixMapMultiplePassToFrontend() throws {
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-file-prefix-map", "foo=bar", "-file-prefix-map", "dog=doggo") { driver in
+        let jobs = try driver.planBuild()
+        let commandLine = jobs[0].commandLine
+        let index = commandLine.firstIndex(of: .flag("-file-prefix-map"))
+        let lastIndex = commandLine.lastIndex(of: .flag("-file-prefix-map"))
+        XCTAssertNotNil(index)
+        XCTAssertNotNil(lastIndex)
+        XCTAssertNotEqual(index, lastIndex)
+        XCTAssertEqual(commandLine[index!.advanced(by: 1)], .flag("foo=bar"))
+        XCTAssertEqual(commandLine[lastIndex!.advanced(by: 1)], .flag("dog=doggo"))
+    }
+  }
+
   func testMultiThreadingOutputs() throws {
     try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "2", "-whole-module-optimization") {
       $1.expect(.error("cannot specify -o when generating multiple output files"))
