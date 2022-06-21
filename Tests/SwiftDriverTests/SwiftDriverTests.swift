@@ -422,6 +422,22 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testIndexIgnoreClangModules() throws {
+    // Make sure `-index-ignore-clang-modules` isn't passed by default, only when explicitly given.
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx") { driver in
+        let jobs = try driver.planBuild()
+        let commandLine = jobs[0].commandLine
+        XCTAssertTrue(commandLine.contains(.flag("-index-store-path")))
+        XCTAssertFalse(commandLine.contains(.flag("-index-ignore-clang-modules")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx", "-index-ignore-clang-modules") { driver in
+        let jobs = try driver.planBuild()
+        let commandLine = jobs[0].commandLine
+        XCTAssertTrue(commandLine.contains(.flag("-index-store-path")))
+        XCTAssertTrue(commandLine.contains(.flag("-index-ignore-clang-modules")))
+    }
+  }
+
   func testMultiThreadingOutputs() throws {
     try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "2", "-whole-module-optimization") {
       $1.expect(.error("cannot specify -o when generating multiple output files"))
