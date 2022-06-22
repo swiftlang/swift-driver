@@ -207,6 +207,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             moduleId: .swift("_Concurrency"),
                                             dependencyGraph: moduleDependencyGraph,
                                             pcmFileEncoder: pcmFileEncoder)
+          case .relative(RelativePath("_StringProcessing.swiftmodule")):
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
+                                            moduleId: .swift("_StringProcessing"),
+                                            dependencyGraph: moduleDependencyGraph,
+                                            pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("SwiftOnoneSupport"),
@@ -376,6 +381,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyGraph: dependencyGraph,
                                             pcmFileEncoder: pcmFileEncoder)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_StringProcessing"),
+                                            dependencyGraph: dependencyGraph,
+                                            pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyGraph: dependencyGraph,
@@ -526,6 +535,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
+                                            dependencyGraph: dependencyGraph,
+                                            pcmFileEncoder: pcmFileEncoder)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
+            try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_StringProcessing"),
                                             dependencyGraph: dependencyGraph,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
@@ -1028,9 +1041,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
         try! dependencyOracle.getImports(workingDirectory: path,
                                          commandLine: scannerCommand)
       let expectedImports = ["C", "E", "G", "Swift", "SwiftOnoneSupport"]
-      // Dependnig on how recent the platform we are running on, the Concurrency module may or may not be present.
+      // Dependnig on how recent the platform we are running on, the _Concurrency module may or may not be present.
       let expectedImports2 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency"]
-      XCTAssertTrue(Set(imports.imports) == Set(expectedImports) || Set(imports.imports) == Set(expectedImports2))
+      // Dependnig on how recent the platform we are running on, the _StringProcessing module may or may not be present.
+      let expectedImports3 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency", "_StringProcessing"]
+      XCTAssertTrue(
+        Set(imports.imports) == Set(expectedImports) ||
+        Set(imports.imports) == Set(expectedImports2) ||
+        Set(imports.imports) == Set(expectedImports3))
     }
   }
 
@@ -1139,14 +1157,18 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try! dependencyOracle.getDependencies(workingDirectory: path,
                                                 commandLine: iterationCommand)
 
-        // The _Concurrency module is automatically imported in newer versions
-        // of the Swift compiler. If it happened to be provided, adjust
-        // our expectations accordingly.
+        // The _Concurrency and _StringProcessing modules are automatically
+        // imported in newer versions of the Swift compiler. If they happened to
+        // be provided, adjust our expectations accordingly.
         let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
           $0.moduleName == "_Concurrency"
         }
+        let hasStringProcessingModule = dependencyGraph.modules.keys.contains {
+          $0.moduleName == "_StringProcessing"
+        }
         let adjustedExpectedNumberOfDependencies =
-            expectedNumberOfDependencies + (hasConcurrencyModule ? 1 : 0)
+            expectedNumberOfDependencies + (hasConcurrencyModule ? 1 : 0) +
+            (hasStringProcessingModule ? 1 : 0)
 
         if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
           lock.lock()
