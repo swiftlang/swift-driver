@@ -338,6 +338,7 @@ extension Driver {
       if !parsedOptions.contains(.indexIgnoreSystemModules) {
         commandLine.appendFlag(.indexSystemModules)
       }
+      try commandLine.appendLast(.indexIgnoreClangModules, from: &parsedOptions)
     }
 
     if parsedOptions.contains(.debugInfoStoreInvocation) ||
