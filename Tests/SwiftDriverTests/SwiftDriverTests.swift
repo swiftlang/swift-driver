@@ -3362,7 +3362,7 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
-  func testValidDeprecatedTargets() throws {
+  func testValidDeprecatedTargetiOS() throws {
     var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7-apple-ios13.0", "foo.swift"])
     let plannedJobs = try driver.planBuild()
     let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})
@@ -3370,6 +3370,16 @@ final class SwiftDriverTests: XCTestCase {
     let currentJob = emitModuleJob!
     XCTAssert(currentJob.commandLine.contains(.flag("-target")))
     XCTAssert(currentJob.commandLine.contains(.flag("armv7-apple-ios13.0")))
+  }
+    
+  func testValidDeprecatedTargetWatchOS() throws {
+    var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7k-apple-watchos10.0", "foo.swift"])
+    let plannedJobs = try driver.planBuild()
+    let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})
+    XCTAssertNotNil(emitModuleJob)
+    let currentJob = emitModuleJob!
+    XCTAssert(currentJob.commandLine.contains(.flag("-target")))
+    XCTAssert(currentJob.commandLine.contains(.flag("armv7k-apple-watchos10.0")))
   }
 
   func testClangTargetForExplicitModule() throws {
@@ -3476,11 +3486,19 @@ final class SwiftDriverTests: XCTestCase {
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target", 
                                            "armv7s-apple-ios12.0", "foo.swift"])) { error in
-        guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("iOS 11", "armv7s") = error else {
-          XCTFail()
-          return
-        }
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("iOS 11", "armv7s") = error else {
+        XCTFail()
+        return
       }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target",
+                                             "armv7k-apple-watchos12.0", "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("watchOS 8.7", "armv7k") = error else {
+        XCTFail()
+        return
+      }
+    }
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios13.0",
                                            "-target-variant", "x86_64-apple-macosx10.14",

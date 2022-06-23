@@ -235,9 +235,17 @@ public final class DarwinToolchain: Toolchain {
             ToolchainValidationError
               .invalidDeploymentTargetForIR("iOS 11", targetTriple.archName)
       }
-    } else if targetTriple.isWatchOS,
-              targetTriple.version(for: .watchOS(.device)) < Triple.Version(2, 0, 0) {
-      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("watchOS 2.0")
+    } else if targetTriple.isWatchOS {
+      if targetTriple.version(for: .watchOS(.device)) < Triple.Version(2, 0, 0) {
+        throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("watchOS 2.0")
+      }
+      if targetTriple.arch?.is32Bit == true,
+         targetTriple.version(for: .watchOS(.device)) >= Triple.Version(8, 7, 0),
+         compilerOutputType != .swiftModule {
+        throw
+            ToolchainValidationError
+              .invalidDeploymentTargetForIR("watchOS 8.7", targetTriple.archName)
+      }
     }
   }
     
