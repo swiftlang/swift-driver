@@ -298,6 +298,7 @@ extension Option {
   public static let enableExperimentalCxxInterop: Option = Option("-enable-experimental-cxx-interop", .flag, helpText: "Allow importing C++ modules into Swift (experimental feature)")
   public static let enableExperimentalDistributed: Option = Option("-enable-experimental-distributed", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental 'distributed' actors and functions")
   public static let enableExperimentalEagerClangModuleDiagnostics: Option = Option("-enable-experimental-eager-clang-module-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental eager diagnostics reporting on the importability of all referenced C, C++, and Objective-C libraries")
+  public static let enableExperimentalFeature: Option = Option("-enable-experimental-feature", .separate, attributes: [.frontend], helpText: "Enable an experimental feature")
   public static let enableExperimentalFlowSensitiveConcurrentCaptures: Option = Option("-enable-experimental-flow-sensitive-concurrent-captures", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable flow-sensitive concurrent captures")
   public static let enableExperimentalForwardModeDifferentiation: Option = Option("-enable-experimental-forward-mode-differentiation", .flag, attributes: [.frontend], helpText: "Enable experimental forward mode differentiation")
   public static let enableExperimentalMoveOnly: Option = Option("-enable-experimental-move-only", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental move only")
@@ -307,6 +308,7 @@ extension Option {
   public static let enableExperimentalStaticAssert: Option = Option("-enable-experimental-static-assert", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental #assert")
   public static let enableExperimentalStringProcessing: Option = Option("-enable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental string processing")
   public static let experimentalTypeInferenceFromDefaults: Option = Option("-enable-experimental-type-inference-from-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for generic parameter inference from default values")
+  public static let enableFutureFeature: Option = Option("-enable-future-feature", .separate, attributes: [.frontend], helpText: "Enable a feature that will be introduced in a future language version")
   public static let enableExperimentalVariadicGenerics: Option = Option("-enable-experimental-variadic-generics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for variadic generic types")
   public static let enableExplicitExistentialTypes: Option = Option("-enable-explicit-existential-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for explicit existential types")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
@@ -969,6 +971,7 @@ extension Option {
       Option.enableExperimentalCxxInterop,
       Option.enableExperimentalDistributed,
       Option.enableExperimentalEagerClangModuleDiagnostics,
+      Option.enableExperimentalFeature,
       Option.enableExperimentalFlowSensitiveConcurrentCaptures,
       Option.enableExperimentalForwardModeDifferentiation,
       Option.enableExperimentalMoveOnly,
@@ -978,6 +981,7 @@ extension Option {
       Option.enableExperimentalStaticAssert,
       Option.enableExperimentalStringProcessing,
       Option.experimentalTypeInferenceFromDefaults,
+      Option.enableFutureFeature,
       Option.enableExperimentalVariadicGenerics,
       Option.enableExplicitExistentialTypes,
       Option.enableImplicitDynamic,

@@ -204,6 +204,8 @@ extension Driver {
     try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
+    try commandLine.appendAll(.enableExperimentalFeature, from: &parsedOptions)
+    try commandLine.appendAll(.enableFutureFeature, from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
       try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)
