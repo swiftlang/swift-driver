@@ -3460,42 +3460,98 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDarwinToolchainArgumentValidation() throws {
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios6.0",
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "arm64-apple-ios6.0",
                                            "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("iOS 7") = error else {
-        XCTFail()
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .iOS(.device), version: Triple.Version(7, 0, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-ios6.0-simulator",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .iOS(.simulator), version: Triple.Version(7, 0, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "arm64-apple-tvos6.0",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .tvOS(.device), version: Triple.Version(9, 0, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-tvos6.0-simulator",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .tvOS(.simulator), version: Triple.Version(9, 0, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "arm64-apple-watchos1.0",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .watchOS(.device), version: Triple.Version(2, 0, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-watchos1.0-simulator",
+                                           "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .watchOS(.simulator), version: Triple.Version(2, 0, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.4",
                                            "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("OS X 10.9") = error else {
-        XCTFail()
+      guard case DarwinToolchain.ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: .macOS, version: Triple.Version(10, 9, 0)) = error else {
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.1",
                                            "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("iOS 11", "armv7") = error else {
-        XCTFail()
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .iOS(.device), version: Triple.Version(11, 0, 0), archName: "armv7") = error else {
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target", 
                                            "armv7s-apple-ios12.0", "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("iOS 11", "armv7s") = error else {
-        XCTFail()
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .iOS(.device), version: Triple.Version(11, 0, 0), archName: "armv7s") = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target",
+                                           "i386-apple-ios12.0-simulator", "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .iOS(.simulator), version: Triple.Version(11, 0, 0), archName: "i386") = error else {
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
 
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target",
                                              "armv7k-apple-watchos12.0", "foo.swift"])) { error in
-      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR("watchOS 8.7", "armv7k") = error else {
-        XCTFail()
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .watchOS(.device), version: Triple.Version(9, 0, 0), archName: "armv7k") = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target",
+                                           "i386-apple-watchos12.0", "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .watchOS(.simulator), version: Triple.Version(7, 0, 0), archName: "i386") = error else {
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
@@ -3504,7 +3560,7 @@ final class SwiftDriverTests: XCTestCase {
                                            "-target-variant", "x86_64-apple-macosx10.14",
                                            "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.unsupportedTargetVariant(variant: _) = error else {
-        XCTFail()
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
@@ -3512,7 +3568,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-stdlib", "-target", "x86_64-apple-macosx10.14",
                                            "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-stdlib") = error else {
-        XCTFail()
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
@@ -3520,7 +3576,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-static-executable", "-target", "x86_64-apple-macosx10.14",
                                            "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.argumentNotSupported("-static-executable") = error else {
-        XCTFail()
+        XCTFail("Unexpected error: \(error)")
         return
       }
     }
@@ -3528,10 +3584,17 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
                                            "foo.swift"])) { error in
         guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
-        XCTFail()
+          XCTFail("Unexpected error: \(error)")
         return
       }
     }
+
+    // Not actually a valid arch for tvOS, but we shouldn't fall into the iOS case by mistake and emit a message about iOS >= 11 not supporting armv7.
+    XCTAssertNoThrow(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-tvos9.0", "foo.swift"]))
+
+    // Ensure arm64_32 is not restricted to back-deployment like other 32-bit archs (armv7k/i386).
+    XCTAssertNoThrow(try Driver(args: ["swiftc", "-emit-module", "-c", "-target", "arm64_32-apple-watchos12.0", "foo.swift"]))
+
     // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
     #if os(macOS)
     try assertNoDriverDiagnostics(args: "swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-link-objc-runtime", "foo.swift")

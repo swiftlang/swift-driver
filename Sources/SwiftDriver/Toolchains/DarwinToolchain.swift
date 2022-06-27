@@ -154,19 +154,18 @@ public final class DarwinToolchain: Toolchain {
   }
 
   public enum ToolchainValidationError: Error, DiagnosticData {
-    case osVersionBelowMinimumDeploymentTarget(String)
+    case osVersionBelowMinimumDeploymentTarget(platform: DarwinPlatform, version: Triple.Version)
     case argumentNotSupported(String)
-    case invalidDeploymentTargetForIR(String, String)
+    case invalidDeploymentTargetForIR(platform: DarwinPlatform, version: Triple.Version, archName: String)
     case unsupportedTargetVariant(variant: Triple)
     case darwinOnlySupportsLibCxx
 
     public var description: String {
       switch self {
-      case .osVersionBelowMinimumDeploymentTarget(let target):
-        return "Swift requires a minimum deployment target of \(target)"
-      case .invalidDeploymentTargetForIR(let target, let archName):
-        return
-          "\(target) and above does not support emitting binaries or IR for \(archName)"
+      case .osVersionBelowMinimumDeploymentTarget(let platform, let version):
+        return "Swift requires a minimum deployment target of \(platform.platformDisplayName) \(version.description)"
+      case .invalidDeploymentTargetForIR(let platform, let version, let archName):
+        return "\(platform.platformDisplayName) \(version.description) and above does not support emitting binaries or IR for \(archName)"
       case .unsupportedTargetVariant(variant: let variant):
         return "unsupported '\(variant.isiOS ? "-target-variant" : "-target")' value '\(variant.triple)'; use 'ios-macabi' instead"
       case .argumentNotSupported(let argument):
@@ -215,36 +214,29 @@ public final class DarwinToolchain: Toolchain {
 
   func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
                                 targetTriple: Triple, compilerOutputType: FileType?) throws {
-    // Check minimum supported OS versions.
-    if targetTriple.isMacOSX,
-       targetTriple.version(for: .macOS) < Triple.Version(10, 9, 0) {
-      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("OS X 10.9")
+    guard let os = targetTriple.os else {
+      return
     }
-    // tvOS triples are also iOS, so check it first.
-    else if targetTriple.isTvOS,
-            targetTriple.version(for: .tvOS(.device)) < Triple.Version(9, 0, 0) {
-      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("tvOS 9.0")
-    } else if targetTriple.isiOS {
-      if targetTriple.version(for: .iOS(.device)) < Triple.Version(7, 0, 0) {
-        throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("iOS 7")
-      }
-      if targetTriple.arch?.is32Bit == true,
-         targetTriple.version(for: .iOS(.device)) >= Triple.Version(11, 0, 0), 
-         compilerOutputType != .swiftModule {
-        throw
-            ToolchainValidationError
-              .invalidDeploymentTargetForIR("iOS 11", targetTriple.archName)
-      }
-    } else if targetTriple.isWatchOS {
-      if targetTriple.version(for: .watchOS(.device)) < Triple.Version(2, 0, 0) {
-        throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("watchOS 2.0")
-      }
-      if targetTriple.arch?.is32Bit == true,
-         targetTriple.version(for: .watchOS(.device)) >= Triple.Version(8, 7, 0),
-         compilerOutputType != .swiftModule {
-        throw
-            ToolchainValidationError
-              .invalidDeploymentTargetForIR("watchOS 8.7", targetTriple.archName)
+
+    // Check minimum supported OS versions. Note that Mac Catalyst falls into the iOS device case. The driver automatically uplevels the deployment target to iOS >= 13.1.
+    let minVersions: [Triple.OS: (DarwinPlatform, Triple.Version)] = [
+      .macosx: (.macOS, Triple.Version(10, 9, 0)),
+      .ios: (.iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(7, 0, 0)),
+      .tvos: (.tvOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(9, 0, 0)),
+      .watchos: (.watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(2, 0, 0))
+    ]
+    if let (platform, minVersion) = minVersions[os], targetTriple.version(for: platform) < minVersion {
+      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: platform, version: minVersion)
+    }
+
+    // Check 32-bit deprecation. Exclude watchOS's arm64_32, which is 32-bit but not deprecated.
+    if targetTriple.arch?.is32Bit == true && compilerOutputType != .swiftModule && targetTriple.arch != .aarch64_32 {
+      let minVersions: [Triple.OS: (DarwinPlatform, Triple.Version)] = [
+        .ios: (.iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(11, 0, 0)),
+        .watchos: (.watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), targetTriple._isSimulatorEnvironment ? Triple.Version(7, 0, 0) : Triple.Version(9, 0, 0)),
+      ]
+      if let (platform, minVersion) = minVersions[os], targetTriple.version(for: platform) >= minVersion {
+        throw ToolchainValidationError.invalidDeploymentTargetForIR(platform: platform, version: minVersion, archName: targetTriple.archName)
       }
     }
   }
