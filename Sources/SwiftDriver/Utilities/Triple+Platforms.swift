@@ -79,6 +79,27 @@ public enum DarwinPlatform: Hashable {
     }
   }
 
+  public var platformDisplayName: String {
+    switch self {
+    case .macOS:
+      return "macOS"
+    case .iOS(.device):
+      return "iOS"
+    case .iOS(.simulator):
+      return "iOS Simulator"
+    case .iOS(.catalyst):
+      return "Mac Catalyst"
+    case .tvOS(.device):
+      return "tvOS"
+    case .tvOS(.simulator):
+      return "tvOS Simulator"
+    case .watchOS(.device):
+      return "watchOS"
+    case .watchOS(.simulator):
+      return "watchOS Simulator"
+    }
+  }
+
   /// The platform name, i.e. the name clang uses to identify this platform in its
   /// resource directory.
   public var platformName: String {
