@@ -227,14 +227,10 @@ extension SourceFileDependencyGraph {
       private mutating func finalizeNode() throws {
         guard let key = key else {return}
 
-        var defsIDependUpon = Array(unsafeUninitializedCapacity: defsNodeDependUpon.count) { destinationBuffer, initializedCount in
-                _ = destinationBuffer.initialize(from: defsNodeDependUpon)
-            initializedCount = defsNodeDependUpon.count
-        }
         let node = try Node(key: key,
                             fingerprint: fingerprint?.intern(in: internedStringTable),
                             sequenceNumber: nodeSequenceNumber,
-                            defsIDependUpon: defsIDependUpon,
+                            defsIDependUpon: defsNodeDependUpon,
                             definitionVsUse: definitionVsUse)
         self.key = nil
         self.defsNodeDependUpon.removeAll(keepingCapacity: true)
