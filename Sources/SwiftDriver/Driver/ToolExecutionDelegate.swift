@@ -42,7 +42,6 @@ import Glibc
 
   public let mode: Mode
   public let buildRecordInfo: BuildRecordInfo?
-  public let incrementalCompilationState: IncrementalCompilationState?
   public let showJobLifecycle: Bool
   public let diagnosticEngine: DiagnosticsEngine
   public var anyJobHadAbnormalExit: Bool = false
@@ -53,13 +52,11 @@ import Glibc
 
   @_spi(Testing) public init(mode: ToolExecutionDelegate.Mode,
                              buildRecordInfo: BuildRecordInfo?,
-                             incrementalCompilationState: IncrementalCompilationState?,
                              showJobLifecycle: Bool,
                              argsResolver: ArgsResolver,
                              diagnosticEngine: DiagnosticsEngine) {
     self.mode = mode
     self.buildRecordInfo = buildRecordInfo
-    self.incrementalCompilationState = incrementalCompilationState
     self.showJobLifecycle = showJobLifecycle
     self.diagnosticEngine = diagnosticEngine
     self.argsResolver = argsResolver
