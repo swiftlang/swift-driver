@@ -1402,7 +1402,6 @@ extension Driver {
     return ToolExecutionDelegate(
       mode: mode,
       buildRecordInfo: buildRecordInfo,
-      incrementalCompilationState: incrementalCompilationState,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
       diagnosticEngine: diagnosticEngine)

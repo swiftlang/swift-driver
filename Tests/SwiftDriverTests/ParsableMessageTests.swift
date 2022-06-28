@@ -153,7 +153,6 @@ final class ParsableMessageTests: XCTestCase {
           let args : [String] = try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
           let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                    buildRecordInfo: nil,
-                                                   incrementalCompilationState: nil,
                                                    showJobLifecycle: false,
                                                    argsResolver: resolver,
                                                    diagnosticEngine: DiagnosticsEngine())
@@ -241,7 +240,6 @@ final class ParsableMessageTests: XCTestCase {
           args = try resolver.resolveArgumentList(for: compileJob!, forceResponseFiles: false)
           toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                buildRecordInfo: nil,
-                                               incrementalCompilationState: nil,
                                                showJobLifecycle: false,
                                                argsResolver: resolver,
                                                diagnosticEngine: DiagnosticsEngine())
@@ -319,7 +317,6 @@ final class ParsableMessageTests: XCTestCase {
                                                    forceResponseFiles: false)
           toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                buildRecordInfo: nil,
-                                               incrementalCompilationState: nil,
                                                showJobLifecycle: false,
                                                argsResolver: resolver,
                                                diagnosticEngine: DiagnosticsEngine())
