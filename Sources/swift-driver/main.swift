@@ -45,7 +45,9 @@ func getExitCode(_ code: Int32) -> Int32 {
 }
 
 do {
-
+  #if !os(Windows)
+  signal(SIGINT, SIG_IGN)
+  #endif
   let processSet = ProcessSet()
   interruptSignalSource.setEventHandler {
     // Terminate running compiler jobs and let the driver exit gracefully, remembering
@@ -53,6 +55,7 @@ do {
     processSet.terminate()
     driverInterrupted = true
   }
+  interruptSignalSource.resume()
 
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
     CommandLine.arguments.append("-explicit-module-build")
