@@ -109,7 +109,8 @@ import SwiftOptions
     var parsedOptions = parsedOptionsArg
     let hashInput = parsedOptions
       .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
-      .map { $0.description } // The description includes the spelling of the option itself and, if present, its argument(s).
+      .map { $0.option.spelling }
+      .sorted()
       .joined()
     return SHA256().hash(hashInput).hexadecimalRepresentation
   }
