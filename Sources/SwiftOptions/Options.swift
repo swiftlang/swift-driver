@@ -412,6 +412,7 @@ extension Option {
   public static let indexIgnoreClangModules: Option = Option("-index-ignore-clang-modules", .flag, attributes: [.frontend], helpText: "Avoid indexing clang modules (pcms)")
   public static let indexIgnoreStdlib: Option = Option("-index-ignore-stdlib", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid emitting index data for the standard library.")
   public static let indexIgnoreSystemModules: Option = Option("-index-ignore-system-modules", .flag, attributes: [.noInteractive], helpText: "Avoid indexing system modules")
+  public static let indexIncludeLocals: Option = Option("-index-include-locals", .flag, attributes: [.frontend], helpText: "Include local definitions/references in the produced index data.")
   public static let indexStorePath: Option = Option("-index-store-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Store indexing data to <path>")
   public static let indexSystemModules: Option = Option("-index-system-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit index data for imported serialized swift system modules")
   public static let indexUnitOutputPathFilelist: Option = Option("-index-unit-output-path-filelist", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Specify index unit output paths in a file rather than on the command line")
@@ -1083,6 +1084,7 @@ extension Option {
       Option.indexIgnoreClangModules,
       Option.indexIgnoreStdlib,
       Option.indexIgnoreSystemModules,
+      Option.indexIncludeLocals,
       Option.indexStorePath,
       Option.indexSystemModules,
       Option.indexUnitOutputPathFilelist,
