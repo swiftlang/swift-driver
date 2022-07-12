@@ -416,6 +416,23 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testIndexIncludeLocals() throws {
+    // Make sure `-index-include-locals` is only passed to the frontend when
+    // requested, not by default.
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx") { driver in
+        let jobs = try driver.planBuild()
+        let commandLine = jobs[0].commandLine
+        XCTAssertTrue(commandLine.contains(.flag("-index-store-path")))
+        XCTAssertFalse(commandLine.contains(.flag("-index-include-locals")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx", "-index-include-locals") { driver in
+        let jobs = try driver.planBuild()
+        let commandLine = jobs[0].commandLine
+        XCTAssertTrue(commandLine.contains(.flag("-index-store-path")))
+        XCTAssertTrue(commandLine.contains(.flag("-index-include-locals")))
+    }
+  }
+
   func testMultiThreadingOutputs() throws {
     try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "2", "-whole-module-optimization") {
       $1.expect(.error("cannot specify -o when generating multiple output files"))
