@@ -395,7 +395,7 @@ public struct SDKPrebuiltModuleInputsCollector {
     case .iphonesimulator:
       return "arm64-apple-ios\(version)-simulator"
     case .watchos:
-      return "armv7k-apple-watchos\(version)"
+      return "arm64-apple-watchos\(version)"
     case .watchsimulator:
       return "arm64-apple-watchos\(version)-simulator"
     case .appletvos:
