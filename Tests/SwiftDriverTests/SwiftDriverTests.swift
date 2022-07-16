@@ -1606,7 +1606,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // macOS target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15", "-use-ld=foo"], env: env)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1617,6 +1617,7 @@ final class SwiftDriverTests: XCTestCase {
 
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
+      XCTAssertTrue(cmd.contains(.flag("-fuse-ld=foo")))
       XCTAssertTrue(cmd.contains(.flag("--target=x86_64-apple-macosx10.15")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
