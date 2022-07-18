@@ -3773,9 +3773,16 @@ final class SwiftDriverTests: XCTestCase {
       ]
       try localFileSystem.writeFileContents(ld) { $0 <<< contents }
       try localFileSystem.chmod(.executable, path: AbsolutePath(ld.pathString))
+
+      // Drop SWIFT_DRIVER_CLANG_EXEC from the environment so it doesn't
+      // interfere with tool lookup.
+      var env = ProcessEnv.vars
+      env.removeValue(forKey: "SWIFT_DRIVER_CLANG_EXEC")
+
       var driver = try Driver(args: ["swiftc",
                                      "-tools-directory", tmpDir.pathString,
-                                     "foo.swift"])
+                                     "foo.swift"],
+                              env: env)
       let frontendJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(frontendJobs.count, 2)
       XCTAssertEqual(frontendJobs[1].kind, .link)
