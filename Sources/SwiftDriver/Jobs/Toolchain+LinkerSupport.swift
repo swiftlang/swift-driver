@@ -56,6 +56,19 @@ extension Toolchain {
     return result
   }
 
+  func addLinkRuntimeLibrary(
+    named name: String,
+    to commandLine: inout [Job.ArgTemplate],
+    for targetInfo: FrontendTargetInfo,
+    parsedOptions: inout ParsedOptions
+  ) throws {
+    let path = try clangLibraryPath(
+      for: targetInfo,
+      parsedOptions: &parsedOptions)
+      .appending(component: name)
+    commandLine.appendPath(path)
+  }
+
   func runtimeLibraryExists(
     for sanitizer: Sanitizer,
     targetInfo: FrontendTargetInfo,
