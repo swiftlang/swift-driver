@@ -1047,6 +1047,144 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
   }
 
+  func testEmitConstValues() throws {
+    do { // Just single files
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-module-name", "Foo", "-emit-const-values"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains("-emit-const-values-path"))
+      XCTAssertTrue(plannedJobs[0].outputs.contains(where: { $0.type == .swiftConstValues }))
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
+      XCTAssertTrue(plannedJobs[1].outputs.contains(where: { $0.type == .swiftConstValues }))
+      XCTAssertEqual(plannedJobs[2].kind, .compile)
+      XCTAssertTrue(plannedJobs[2].commandLine.contains("-emit-const-values-path"))
+      XCTAssertTrue(plannedJobs[2].outputs.contains(where: { $0.type == .swiftConstValues }))
+      XCTAssertEqual(plannedJobs[3].kind, .link)
+    }
+
+    do { // Just single files with emit-module
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift", "-emit-module",
+                                     "-module-name", "Foo", "-emit-const-values"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(plannedJobs[0].kind, .emitModule)
+      // Ensure the emit-module job does *not* contain this flag
+      XCTAssertFalse(plannedJobs[0].commandLine.contains("-emit-const-values-path"))
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
+      XCTAssertTrue(plannedJobs[1].outputs.contains(where: { $0.type == .swiftConstValues }))
+      XCTAssertEqual(plannedJobs[2].kind, .compile)
+      XCTAssertTrue(plannedJobs[2].commandLine.contains("-emit-const-values-path"))
+      XCTAssertTrue(plannedJobs[2].outputs.contains(where: { $0.type == .swiftConstValues }))
+      XCTAssertEqual(plannedJobs[3].kind, .compile)
+      XCTAssertTrue(plannedJobs[3].commandLine.contains("-emit-const-values-path"))
+      XCTAssertTrue(plannedJobs[3].outputs.contains(where: { $0.type == .swiftConstValues }))
+    }
+
+    do { // Batch
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-enable-batch-mode","-driver-batch-size-limit", "2",
+                                     "-module-name", "Foo", "-emit-const-values"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift",
+                                                                                           "bar.swift"]))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains("-emit-const-values-path"))
+      XCTAssertEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
+      XCTAssertEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
+      XCTAssertEqual(plannedJobs[2].kind, .link)
+    }
+
+    try withTemporaryFile { fileMapFile in // Batch with output-file-map
+      let outputMapContents = """
+        {
+          "foo.swift": {
+            "object": "/tmp/foo.build/foo.swift.o",
+            "const-values": "/tmp/foo.build/foo.swiftconstvalues"
+          },
+          "bar.swift": {
+            "object": "/tmp/foo.build/bar.swift.o",
+            "const-values": "/tmp/foo.build/bar.swiftconstvalues"
+          },
+          "baz.swift": {
+            "object": "/tmp/foo.build/baz.swift.o",
+            "const-values": "/tmp/foo.build/baz.swiftconstvalues"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-enable-batch-mode","-driver-batch-size-limit", "2",
+                                     "-module-name", "Foo", "-emit-const-values",
+                                     "-output-file-map", fileMapFile.path.description])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift",
+                                                                                           "bar.swift"]))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init("/tmp/foo.build/foo.swiftconstvalues")))]))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init("/tmp/foo.build/bar.swiftconstvalues")))]))
+      XCTAssertEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
+      XCTAssertEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init("/tmp/foo.build/baz.swiftconstvalues")))]))
+      XCTAssertEqual(plannedJobs[2].kind, .link)
+    }
+
+    do { // WMO
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-whole-module-optimization",
+                                     "-module-name", "Foo", "-emit-const-values"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+    }
+
+    try withTemporaryFile { fileMapFile in // WMO with output-file-map
+      let outputMapContents = """
+        {
+          "": {
+            "const-values": "/tmp/foo.build/foo.master.swiftconstvalues"
+          },
+          "foo.swift": {
+            "object": "/tmp/foo.build/foo.swift.o",
+            "const-values": "/tmp/foo.build/foo.swiftconstvalues"
+          },
+          "bar.swift": {
+            "object": "/tmp/foo.build/bar.swift.o",
+            "const-values": "/tmp/foo.build/bar.swiftconstvalues"
+          },
+          "baz.swift": {
+            "object": "/tmp/foo.build/baz.swift.o",
+            "const-values": "/tmp/foo.build/baz.swiftconstvalues"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-whole-module-optimization",
+                                     "-module-name", "Foo", "-emit-const-values",
+                                     "-output-file-map", fileMapFile.path.description])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[0].outputs.first(where: { $0.type == .swiftConstValues })?.file,
+                     .absolute(.init("/tmp/foo.build/foo.master.swiftconstvalues")))
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+    }
+  }
+
   func testEmitModuleSepratelyEmittingDiagnosticsWithOutputFileMap() throws {
     try withTemporaryDirectory { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")

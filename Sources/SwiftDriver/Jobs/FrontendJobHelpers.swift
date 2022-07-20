@@ -395,6 +395,12 @@ extension Driver {
         flag: "-emit-dependencies-path")
 
       addOutputOfType(
+        outputType: .swiftConstValues,
+        finalOutputPath: constValuesFilePath,
+        input: input,
+        flag: "-emit-const-values-path")
+
+      addOutputOfType(
         outputType: .swiftDeps,
         finalOutputPath: referenceDependenciesPath,
         input: input,

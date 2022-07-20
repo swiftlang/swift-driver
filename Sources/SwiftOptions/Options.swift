@@ -223,7 +223,8 @@ extension Option {
   public static let emitAssembly: Option = Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit assembly file(s) (-S)", group: .modes)
   public static let emitBc: Option = Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM BC file(s)", group: .modes)
   public static let emitClangHeaderPath: Option = Option("-emit-clang-header-path", .separate, alias: Option.emitObjcHeaderPath, attributes: [.frontend, .noDriver, .noInteractive, .argumentIsPath, .supplementaryOutput], helpText: "Emit an Objective-C and C++ header file to <path>")
-  public static let emitConstValuesPath: Option = Option("-emit-const-values-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output the extracted compile-time known values")
+  public static let emitConstValuesPath: Option = Option("-emit-const-values-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit the extracted compile-time known values to <path>")
+  public static let emitConstValues: Option = Option("-emit-const-values", .flag, attributes: [.noInteractive, .supplementaryOutput])
   public static let emitDependenciesPath: Option = Option("-emit-dependencies-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output basic Make-compatible dependencies file to <path>")
   public static let emitDependencies: Option = Option("-emit-dependencies", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit basic Make-compatible dependencies files")
   public static let emitExecutable: Option = Option("-emit-executable", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a linked executable", group: .modes)
@@ -900,6 +901,7 @@ extension Option {
       Option.emitBc,
       Option.emitClangHeaderPath,
       Option.emitConstValuesPath,
+      Option.emitConstValues,
       Option.emitDependenciesPath,
       Option.emitDependencies,
       Option.emitExecutable,
