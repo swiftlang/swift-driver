@@ -64,7 +64,7 @@ public final class DarwinToolchain: Toolchain {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
     case .dynamicLinker:
-      return try lookup(executable: "clang")
+      return try lookup(executable: "ld")
     case .staticLinker:
       return try lookup(executable: "libtool")
     case .dsymutil:

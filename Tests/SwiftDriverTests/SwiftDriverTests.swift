@@ -674,7 +674,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(matchTemporary(plannedJobs[0].outputs.first!.file, "foo.o"))
     XCTAssertEqual(plannedJobs[1].outputs.count, 1)
     XCTAssertTrue(matchTemporary(plannedJobs[1].outputs.first!.file, "bar.o"))
-    XCTAssertTrue(plannedJobs[2].tool.name.contains(executableName("clang")))
+    XCTAssertTrue(plannedJobs[2].tool.name.contains(driver1.targetTriple.isDarwin ? executableName("ld") : executableName("clang")))
     XCTAssertEqual(plannedJobs[2].outputs.count, 1)
     XCTAssertEqual(plannedJobs[2].outputs.first!.file, VirtualPath.relative(RelativePath(executableName("Test"))))
 
@@ -1480,8 +1480,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(linkJob.kind, .link)
 
       let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
-      XCTAssertTrue(cmd.contains(.flag("--target=x86_64-apple-macosx10.15")))
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("x86_64")))
+      XCTAssertTrue(cmd.contains(subsequence: ["-platform_version", "macos", "10.15.0"]))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -1511,8 +1513,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(linkJob.kind, .link)
 
       let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
-      XCTAssertTrue(cmd.contains(.flag("--target=arm64-apple-ios10.0")))
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("arm64")))
+      XCTAssertTrue(cmd.contains(subsequence: ["-platform_version", "ios", "10.0.0"]))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -1531,8 +1535,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(linkJob.kind, .link)
 
       let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
-      XCTAssertTrue(cmd.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
+      XCTAssertTrue(cmd.contains(.flag("-arch")))
+      XCTAssertTrue(cmd.contains(.flag("x86_64")))
+      XCTAssertTrue(cmd.contains(subsequence: ["-platform_version", "mac-catalyst", "13.1.0"]))
+      XCTAssertTrue(cmd.contains(.flag("13.1.0")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -1551,7 +1558,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(linkJob.kind, .link)
 
       let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
+      XCTAssertTrue(cmd.contains(.flag("-dylib")))
       XCTAssertTrue(cmd.contains(.flag("-w")))
       XCTAssertTrue(cmd.contains(.flag("-L")))
       XCTAssertTrue(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
@@ -1561,37 +1568,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
 
-    do {
-      // Xlinker flags
-      // Ensure that Xlinker flags are passed as such to the clang linker invocation.
-      var driver = try Driver(args: commonArgs + [
-        "-emit-library", "-L", "/tmp", "-Xlinker", "-w",
-        "-Xlinker", "-alias", "-Xlinker", "_foo_main", "-Xlinker", "_main",
-        "-Xclang-linker", "foo", "-target", "x86_64-apple-macos12.0"], env: env)
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
-      let linkJob = plannedJobs[2]
-      let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(subsequence: [
-        .flag("-Xlinker"), .flag("-alias"),
-        .flag("-Xlinker"), .flag("_foo_main"),
-        .flag("-Xlinker"), .flag("_main"),
-        .flag("foo"),
-      ]))
-    }
-
+    #if os(Linux)
     do {
       // Xlinker flags
       // Ensure that Xlinker flags are passed as such to the clang linker invocation.
       var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w",
-                                                  "-Xlinker", "-rpath=$ORIGIN", "-Xclang-linker", "foo",
+                                                  "-Xlinker", "-rpath=$ORIGIN",
                                                   "-target", "x86_64-unknown-linux"], env: env)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       let linkJob = plannedJobs[3]
       let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-rpath=$ORIGIN"), .flag("foo")]))
+      XCTAssertTrue(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-rpath=$ORIGIN")]))
     }
+    #endif
 
     do {
       var driver = try Driver(args: commonArgs + ["-emit-library", "-no-toolchain-stdlib-rpath",
@@ -1716,8 +1706,8 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs1 = try driver1.planBuild()
       XCTAssertFalse(plannedJobs1.contains(where: { $0.kind == .autolinkExtract }))
       let linkJob1 = plannedJobs1.first(where: { $0.kind == .link })
-      XCTAssertTrue(linkJob1?.tool.name.contains("clang"))
-      XCTAssertTrue(linkJob1?.commandLine.contains(.flag("-flto=thin")))
+      XCTAssertTrue(linkJob1?.tool.name.contains("ld"))
+      XCTAssertTrue(linkJob1?.commandLine.contains(.flag("-lto_library")))
       #endif
 
       var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
@@ -1752,7 +1742,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-o")))
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "foo.o"))
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
-      XCTAssertTrue(cmd.contains(.joinedOptionAndPath("-Wl,-add_ast_path,", .relative(.init("Test.swiftmodule")))))
+      XCTAssertTrue(cmd.contains(subsequence: [.flag("-add_ast_path"), .path(.relative(.init("Test.swiftmodule")))]))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -2095,6 +2085,30 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1iOS))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsiOS))]))
       }
+
+      // libarclite is only relevant on darwin
+      #if os(macOS)
+      do {
+        // Override executive paths and make sure this does not affect the location of the found
+        // libarclite
+        env["SWIFT_DRIVER_SWIFTC_EXEC"] = "/some/path/swiftc"
+        env["SWIFT_DRIVER_CLANG_EXEC"] = "/some/path/clang"
+        guard let clangPathInXcode = try? clangPathInActiveXcode() else {
+          throw XCTSkip()
+        }
+        let clangRelativeArcLite = clangPathInXcode.parentDirectory.parentDirectory
+                                   .appending(components: "lib", "arc", "libarclite_macosx.a")
+
+        var driver = try Driver(args: commonArgs + ["-target", "x86_64-apple-macosx10.9"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(3, plannedJobs.count)
+        let linkJob = plannedJobs[2]
+        XCTAssertEqual(linkJob.kind, .link)
+        let cmd = linkJob.commandLine
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(clangRelativeArcLite))]))
+      }
+      #endif
     }
   }
 
@@ -2189,7 +2203,12 @@ final class SwiftDriverTests: XCTestCase {
 
       let linkJob = plannedJobs[2]
       let linkCmd = linkJob.commandLine
-      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
+      XCTAssertTrue(linkCmd.contains {
+        if case .path(let path) = $0 {
+          return path.name.contains("darwin/libclang_rt.asan_osx_dynamic.dylib")
+        }
+        return false
+      })
     }
 
     do {
@@ -2205,7 +2224,12 @@ final class SwiftDriverTests: XCTestCase {
 
       let linkJob = plannedJobs[2]
       let linkCmd = linkJob.commandLine
-      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=thread")))
+      XCTAssertTrue(linkCmd.contains {
+        if case .path(let path) = $0 {
+          return path.name.contains("darwin/libclang_rt.tsan_osx_dynamic.dylib")
+        }
+        return false
+      })
     }
 
     do {
@@ -2221,7 +2245,12 @@ final class SwiftDriverTests: XCTestCase {
 
       let linkJob = plannedJobs[2]
       let linkCmd = linkJob.commandLine
-      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=undefined")))
+      XCTAssertTrue(linkCmd.contains {
+        if case .path(let path) = $0 {
+          return path.name.contains("darwin/libclang_rt.ubsan_osx_dynamic.dylib")
+        }
+        return false
+      })
     }
 
     // FIXME: This test will fail when run on macOS, because the driver uses
@@ -2370,7 +2399,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(matchTemporary(plannedJobs[1].outputs.first!.file, "foo3.o"))
       XCTAssertEqual(plannedJobs[2].outputs.count, 3)
       XCTAssertTrue(matchTemporary(plannedJobs[2].outputs.first!.file, "foo5.o"))
-      XCTAssertTrue(plannedJobs[3].tool.name.contains("clang"))
+      XCTAssertTrue(plannedJobs[3].tool.name.contains(driver1.targetTriple.isDarwin ? "ld" : "clang"))
       XCTAssertEqual(plannedJobs[3].outputs.count, 1)
       XCTAssertEqual(plannedJobs[3].outputs.first!.file, VirtualPath.relative(RelativePath(executableName("Test"))))
     }
@@ -3316,8 +3345,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[0].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-macosx10.14")))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [
+        "-platform_version", "mac-catalyst", "13.1.0"]))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [
+        "-platform_version", "macos", "10.14.0"]))
     }
 
     // Test -target-variant is passed to generate pch job
@@ -3341,8 +3372,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
 
       XCTAssertEqual(plannedJobs[2].kind, .link)
-      XCTAssert(plannedJobs[2].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-macosx10.14")))
+      XCTAssertTrue(plannedJobs[2].commandLine.contains(subsequence: [
+        "-platform_version", "mac-catalyst", "13.1.0"]))
+      XCTAssertTrue(plannedJobs[2].commandLine.contains(subsequence: [
+        "-platform_version", "macos", "10.14.0"]))
     }
   }
 
@@ -3622,7 +3655,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_osx.a"))
     }
 
     do {
@@ -3634,7 +3667,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_ios.a"))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_iossim.a"))
     }
 
     do {
@@ -3646,7 +3680,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_ios.a"))
     }
 
     do {
@@ -3658,7 +3692,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_tvos.a"))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_tvossim.a"))
     }
 
     do {
@@ -3670,7 +3705,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_tvos.a"))
     }
 
     do {
@@ -3682,7 +3717,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchos.a"))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchossim.a"))
     }
 
     do {
@@ -3694,7 +3730,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile_watchos.a"))
     }
 
     // FIXME: This will fail when run on macOS, because
@@ -3758,7 +3794,11 @@ final class SwiftDriverTests: XCTestCase {
 
   func testToolsDirectory() throws {
     try withTemporaryDirectory { tmpDir in
+#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+      let ld = tmpDir.appending(component: "ld")
+#else
       let ld = tmpDir.appending(component: executableName("clang"))
+#endif
       // tiny PE binary from: https://archive.is/w01DO
       let contents: [UInt8] = [
           0x4d, 0x5a, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x4c, 0x01, 0x01, 0x00,
@@ -3869,9 +3909,12 @@ final class SwiftDriverTests: XCTestCase {
           ]))
         }
         XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-macosx10.14")))
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--sysroot")))
-        XCTAssertTrue(frontendJobs[1].commandLine.containsPathWithBasename(sdk1.basename))
+        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+          .flag("-platform_version"),
+          .flag("macos"),
+          .flag("10.14.0"),
+          .flag("10.15.0"),
+        ]))
       }
 
       do {
@@ -3892,8 +3935,16 @@ final class SwiftDriverTests: XCTestCase {
           .flag("13.1"),
         ]))
         XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-macosx10.14")))
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-ios13.1-macabi")))
+        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+          .flag("-platform_version"),
+          .flag("macos"),
+          .flag("10.14.0"),
+          .flag("10.15.0"),
+          .flag("-platform_version"),
+          .flag("mac-catalyst"),
+          .flag("13.1.0"),
+          .flag("13.1.0"),
+        ]))
       }
 
       do {
@@ -3917,8 +3968,16 @@ final class SwiftDriverTests: XCTestCase {
           ]))
         }
         XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-macosx10.14")))
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-ios13.1-macabi")))
+        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+          .flag("-platform_version"),
+          .flag("macos"),
+          .flag("10.14.0"),
+          .flag("10.15.4"),
+          .flag("-platform_version"),
+          .flag("mac-catalyst"),
+          .flag("13.1.0"),
+          .flag("13.4.0"),
+        ]))
       }
 
       do {
@@ -3939,8 +3998,16 @@ final class SwiftDriverTests: XCTestCase {
           .flag("10.15.4")
         ]))
         XCTAssertEqual(frontendJobs[1].kind, .link)
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-        XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-macosx10.14")))
+        XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+          .flag("-platform_version"),
+          .flag("mac-catalyst"),
+          .flag("13.1.0"),
+          .flag("13.4.0"),
+          .flag("-platform_version"),
+          .flag("macos"),
+          .flag("10.14.0"),
+          .flag("10.15.4"),
+        ]))
       }
     }
   }
@@ -4010,7 +4077,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-macos10.15")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("macos"),
+        .flag("10.15.0"),
+      ]))
     }
 
     // Mac gained aarch64 support in v11
@@ -4022,7 +4093,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=arm64-apple-macos10.15")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("macos"),
+        .flag("11.0.0"),
+      ]))
     }
 
     // Mac Catalyst on x86_64 was introduced in v13.
@@ -4034,7 +4109,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-ios12.0-macabi")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("mac-catalyst"),
+        .flag("13.1.0"),
+      ]))
     }
 
     // Mac Catalyst on arm was introduced in v14.
@@ -4046,7 +4125,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=aarch64-apple-ios12.0-macabi")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("mac-catalyst"),
+        .flag("14.0.0"),
+      ]))
     }
 
     // Regular iOS
@@ -4058,7 +4141,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=aarch64-apple-ios12.0")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("ios"),
+        .flag("12.0.0"),
+      ]))
     }
 
     // Regular tvOS
@@ -4070,7 +4157,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=aarch64-apple-tvos12.0")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("tvos"),
+        .flag("12.0.0"),
+      ]))
     }
 
     // Regular watchOS
@@ -4082,7 +4173,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=aarch64-apple-watchos6.0")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("watchos"),
+        .flag("6.0.0"),
+      ]))
     }
 
     // x86_64 iOS simulator
@@ -4094,7 +4189,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=x86_64-apple-ios12.0-simulator")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("ios-simulator"),
+        .flag("12.0.0"),
+      ]))
     }
 
     // aarch64 iOS simulator
@@ -4106,7 +4205,11 @@ final class SwiftDriverTests: XCTestCase {
       let frontendJobs = try driver.planBuild()
 
       XCTAssertEqual(frontendJobs[1].kind, .link)
-      XCTAssertTrue(frontendJobs[1].commandLine.contains(.flag("--target=aarch64-apple-ios12.0-simulator")))
+      XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+        .flag("-platform_version"),
+        .flag("ios-simulator"),
+        .flag("14.0.0"),
+      ]))
     }
   }
 
@@ -4343,7 +4446,7 @@ final class SwiftDriverTests: XCTestCase {
     var output = ""
     serializer.writeDOT(to: &output)
 
-    let linkerDriver = executableName("clang")
+    let linkerDriver = driver.targetTriple.isDarwin ? executableName("ld") : executableName("clang")
     if driver.targetTriple.objectFormat == .elf {
         XCTAssertEqual(output,
         """
@@ -4859,7 +4962,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-thin", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
-      XCTAssertTrue(plannedJobs[1].commandLine.contains("-flto=thin"))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
     }
 
     do {
@@ -4867,15 +4970,15 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
-      XCTAssertTrue(plannedJobs[1].commandLine.contains("-flto=thin"))
-      XCTAssertTrue(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-Wl,-lto_library,", try VirtualPath(path: "/foo/libLTO.dylib"))))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
     }
 
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
-      XCTAssertTrue(plannedJobs[1].commandLine.contains("-flto=full"))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
     }
 
     do {
@@ -4883,16 +4986,15 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
       XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
-      XCTAssertTrue(plannedJobs[1].commandLine.contains("-flto=full"))
-      XCTAssertTrue(plannedJobs[1].commandLine.contains(.joinedOptionAndPath("-Wl,-lto_library,", try VirtualPath(path: "/foo/libLTO.dylib"))))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains("-lto_library"))
+      XCTAssertTrue(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/foo/libLTO.dylib"))))
     }
 
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-target", "x86_64-apple-macos11.0"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.map(\.kind), [.compile, .link])
-      XCTAssertFalse(plannedJobs[1].commandLine.contains("-flto=thin"))
-      XCTAssertFalse(plannedJobs[1].commandLine.contains("-flto=full"))
+      XCTAssertFalse(plannedJobs[1].commandLine.contains("-lto_library"))
     }
     #endif
   }
