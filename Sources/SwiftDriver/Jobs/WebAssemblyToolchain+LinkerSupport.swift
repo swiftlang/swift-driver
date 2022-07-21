@@ -81,7 +81,7 @@ extension WebAssemblyToolchain {
       let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(
           components: targetTriple.platformName() ?? "",
-          targetTriple.archName,
+          targetTriple.majorArchName,
           "swiftrt.o"
         )
       commandLine.appendPath(swiftrtPath)
