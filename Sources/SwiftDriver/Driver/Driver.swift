@@ -287,6 +287,9 @@ public struct Driver {
   /// Path to the discovered dependencies file of the emit-module task.
   let emitModuleDependenciesFilePath: VirtualPath.Handle?
 
+  /// Path to emitted compile-time-known values.
+  let constValuesFilePath: VirtualPath.Handle?
+
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
 
@@ -728,6 +731,14 @@ public struct Driver {
     self.emitModuleDependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .emitModuleDependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitModuleDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.constValuesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftConstValues, isOutputOptions: [.emitConstValues],
+        outputPath: .emitConstValuesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,

@@ -94,7 +94,8 @@ extension Driver {
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, nil:
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
+         .swiftConstValues, nil:
       return false
     }
   }
@@ -459,7 +460,8 @@ extension FileType {
          .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
+         .swiftConstValues:
       fatalError("Output type can never be a primary output")
     }
   }

@@ -60,6 +60,7 @@ extension Option {
   public static let compilerStyleDiags: Option = Option("-compiler-style-diags", .flag, attributes: [.noDriver], helpText: "Print compiler style diagnostics to stderr.")
   public static let compilerStyleDiags_: Option = Option("--compiler-style-diags", .flag, alias: Option.compilerStyleDiags, attributes: [.noDriver], helpText: "Print compiler style diagnostics to stderr.")
   public static let conditionalRuntimeRecords: Option = Option("-conditional-runtime-records", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow removal of runtime metadata records (public types, protocol conformances) based on whether they're used or unused")
+  public static let constGatherProtocolsFile: Option = Option("-const-gather-protocols-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a list of protocols for extraction of conformances' const values'")
   public static let continueBuildingAfterErrors: Option = Option("-continue-building-after-errors", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Continue building, even after errors are encountered")
   public static let coveragePrefixMap: Option = Option("-coverage-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in coverage info")
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
@@ -222,6 +223,8 @@ extension Option {
   public static let emitAssembly: Option = Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit assembly file(s) (-S)", group: .modes)
   public static let emitBc: Option = Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM BC file(s)", group: .modes)
   public static let emitClangHeaderPath: Option = Option("-emit-clang-header-path", .separate, alias: Option.emitObjcHeaderPath, attributes: [.frontend, .noDriver, .noInteractive, .argumentIsPath, .supplementaryOutput], helpText: "Emit an Objective-C and C++ header file to <path>")
+  public static let emitConstValuesPath: Option = Option("-emit-const-values-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit the extracted compile-time known values to <path>")
+  public static let emitConstValues: Option = Option("-emit-const-values", .flag, attributes: [.noInteractive, .supplementaryOutput])
   public static let emitDependenciesPath: Option = Option("-emit-dependencies-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output basic Make-compatible dependencies file to <path>")
   public static let emitDependencies: Option = Option("-emit-dependencies", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit basic Make-compatible dependencies files")
   public static let emitExecutable: Option = Option("-emit-executable", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a linked executable", group: .modes)
@@ -395,6 +398,8 @@ extension Option {
   public static let iframework: Option = Option("-iframework", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the clang importer system framework search path")
   public static let ignoreAlwaysInline: Option = Option("-ignore-always-inline", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore @inline(__always) attributes.")
   public static let ignoreModuleSourceInfo: Option = Option("-ignore-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid getting source location from .swiftsourceinfo files")
+  public static let ignoreSpiGroups: Option = Option("-ignore-spi-group", .separate, attributes: [.noDriver], helpText: "SPI group name to not diagnose about")
+  public static let ignoreSpiGroups_: Option = Option("--ignore-spi-group", .separate, alias: Option.ignoreSpiGroups, attributes: [.noDriver], helpText: "SPI group name to not diagnose about")
   public static let ignoredUsrs: Option = Option("-ignored-usrs", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "the file containing USRs of removed decls that the digester should ignore")
   public static let ignoredUsrs_: Option = Option("--ignored-usrs", .separate, alias: Option.ignoredUsrs, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "the file containing USRs of removed decls that the digester should ignore")
   public static let importCfTypes: Option = Option("-import-cf-types", .flag, attributes: [.helpHidden, .frontend], helpText: "Recognize and import CF types as class types")
@@ -732,6 +737,7 @@ extension Option {
       Option.compilerStyleDiags,
       Option.compilerStyleDiags_,
       Option.conditionalRuntimeRecords,
+      Option.constGatherProtocolsFile,
       Option.continueBuildingAfterErrors,
       Option.coveragePrefixMap,
       Option.CrossModuleOptimization,
@@ -894,6 +900,8 @@ extension Option {
       Option.emitAssembly,
       Option.emitBc,
       Option.emitClangHeaderPath,
+      Option.emitConstValuesPath,
+      Option.emitConstValues,
       Option.emitDependenciesPath,
       Option.emitDependencies,
       Option.emitExecutable,
