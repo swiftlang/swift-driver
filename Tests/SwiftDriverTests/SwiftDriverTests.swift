@@ -476,8 +476,6 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"]).numParallelJobs, 4)
 
-      XCTAssertNil(try Driver(args: ["swiftc", "-j", "0"]).numParallelJobs)
-
       var env = ProcessEnv.vars
       env["SWIFTC_MAXIMUM_DETERMINISM"] = "1"
       XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"], env: env).numParallelJobs, 1)
@@ -3005,7 +3003,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // Calls using the driver to link a library shouldn't trigger an emit-module job, like in LLDB tests.
-      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15"],
+      var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15", "-module-name", "Test"],
                               env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
@@ -5550,7 +5548,8 @@ final class SwiftDriverTests: XCTestCase {
   func testIndexFilePathHandling() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-index-file", "-index-file-path",
-                                     "bar.swift", "foo.swift", "bar.swift", "baz.swift"])
+                                     "bar.swift", "foo.swift", "bar.swift", "baz.swift",
+                                     "-module-name", "Test"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
