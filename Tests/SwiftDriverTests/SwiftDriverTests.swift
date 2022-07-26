@@ -5908,7 +5908,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       let compileJob = plannedJobs[0]
       let linkJob = plannedJobs[1]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-cxx-interop")))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-experimental-cxx-interop")))
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
       }
@@ -5920,7 +5920,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       let compileJob = plannedJobs[0]
       let linkJob = plannedJobs[1]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-cxx-interop")))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-experimental-cxx-interop")))
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-stdlib=libc++")))
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))

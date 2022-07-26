@@ -116,9 +116,7 @@ extension Driver {
     }
 
     // Add flags for C++ interop
-    if parsedOptions.hasArgument(.enableExperimentalCxxInterop) {
-      commandLine.appendFlag(.enableCxxInterop)
-    }
+    try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
     if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
       commandLine.appendFlag("-Xcc")
       commandLine.appendFlag("-stdlib=\(stdlibVariant)")
@@ -152,7 +150,6 @@ extension Driver {
     try commandLine.appendLast(.enableLibraryEvolution, from: &parsedOptions)
     try commandLine.appendLast(.enableTesting, from: &parsedOptions)
     try commandLine.appendLast(.enablePrivateImports, from: &parsedOptions)
-    try commandLine.appendLast(.enableCxxInterop, from: &parsedOptions)
     try commandLine.appendLast(in: .g, from: &parsedOptions)
     try commandLine.appendLast(.debugInfoFormat, from: &parsedOptions)
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
