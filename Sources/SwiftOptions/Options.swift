@@ -127,6 +127,7 @@ extension Option {
   public static let disableDebuggerShadowCopies: Option = Option("-disable-debugger-shadow-copies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable debugger shadow copies of local variables.This option is only useful for testing the compiler.")
   public static let disableDeserializationRecovery: Option = Option("-disable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let disableDiagnosticPasses: Option = Option("-disable-diagnostic-passes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run diagnostic passes")
+  public static let disableEmitGenericClassRoTList: Option = Option("-disable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of a section with references to class_ro_t of generic class patterns")
   public static let disableExperimentalClangImporterDiagnostics: Option = Option("-disable-experimental-clang-importer-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable experimental diagnostics when importing C, C++, and Objective-C libraries")
   public static let disableExperimentalOpenedExistentialTypes: Option = Option("-disable-experimental-opened-existential-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental support for implicitly opened existentials")
   public static let disableExperimentalStringProcessing: Option = Option("-disable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental string processing")
@@ -148,6 +149,7 @@ extension Option {
   public static let disableMigratorFixits: Option = Option("-disable-migrator-fixits", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable the Migrator phase which automatically applies fix-its")
   public static let disableModulesValidateSystemHeaders: Option = Option("-disable-modules-validate-system-headers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating system headers in the Clang importer")
   public static let disableNamedLazyMemberLoading: Option = Option("-disable-named-lazy-member-loading", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable per-name lazy member loading")
+  public static let disableNewLlvmPassManager: Option = Option("-disable-new-llvm-pass-manager", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the new llvm pass manager")
   public static let disableNewOperatorLookup: Option = Option("-disable-new-operator-lookup", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the new operator decl and precedencegroup lookup behavior")
   public static let disableNonfrozenEnumExhaustivityDiagnostics: Option = Option("-disable-nonfrozen-enum-exhaustivity-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow switches over non-frozen enums without catch-all cases")
   public static let disableNskeyedarchiverDiagnostics: Option = Option("-disable-nskeyedarchiver-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow classes with unstable mangled names to adopt NSCoding")
@@ -300,6 +302,7 @@ extension Option {
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let enableDestroyHoisting: Option = Option("-enable-destroy-hoisting=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "true|false", helpText: "Whether to enable destroy hoisting")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
+  public static let enableEmitGenericClassRoTList: Option = Option("-enable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of a section with references to class_ro_t of generic class patterns")
   public static let enableExperimentalAdditiveArithmeticDerivation: Option = Option("-enable-experimental-additive-arithmetic-derivation", .flag, attributes: [.frontend], helpText: "Enable experimental 'AdditiveArithmetic' derived conformances")
   public static let enableExperimentalAssociatedTypeInference: Option = Option("-enable-experimental-associated-type-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental associated type inference via type witness systems")
   public static let enableExperimentalAsyncTopLevel: Option = Option("-enable-experimental-async-top-level", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental concurrency in top-level code")
@@ -331,7 +334,7 @@ extension Option {
   public static let enableLlvmValueNames: Option = Option("-enable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add names to local values in LLVM IR")
   public static let enableLlvmVfe: Option = Option("-enable-llvm-vfe", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Virtual Function Elimination on Swift class virtual tables")
   public static let enableLlvmWme: Option = Option("-enable-llvm-wme", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Witness Method Elimination on Swift protocol witness tables")
-  public static let enableNewLlvmPassManager: Option = Option("-enable-new-llvm-pass-manager", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable new llvm pass manager")
+  public static let enableNewLlvmPassManager: Option = Option("-enable-new-llvm-pass-manager", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the new llvm pass manager")
   public static let enableNewOperatorLookup: Option = Option("-enable-new-operator-lookup", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the new operator decl and precedencegroup lookup behavior")
   public static let enableNonfrozenEnumExhaustivityDiagnostics: Option = Option("-enable-nonfrozen-enum-exhaustivity-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose switches over non-frozen enums without catch-all cases")
   public static let enableNskeyedarchiverDiagnostics: Option = Option("-enable-nskeyedarchiver-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose classes with unstable mangled names adopting NSCoding")
@@ -407,6 +410,7 @@ extension Option {
   public static let IEQ: Option = Option("-I=", .joined, alias: Option.I, attributes: [.frontend, .argumentIsPath])
   public static let iframework: Option = Option("-iframework", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the clang importer system framework search path")
   public static let ignoreAlwaysInline: Option = Option("-ignore-always-inline", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore @inline(__always) attributes.")
+  public static let ignoreInterfaceProvidedOptions: Option = Option("-ignore-interface-provided-options", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore all module flags specified in the swiftinterface being built")
   public static let ignoreModuleSourceInfo: Option = Option("-ignore-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid getting source location from .swiftsourceinfo files")
   public static let ignoreSpiGroups: Option = Option("-ignore-spi-group", .separate, attributes: [.noDriver], helpText: "SPI group name to not diagnose about")
   public static let ignoreSpiGroups_: Option = Option("--ignore-spi-group", .separate, alias: Option.ignoreSpiGroups, attributes: [.noDriver], helpText: "SPI group name to not diagnose about")
@@ -681,6 +685,7 @@ extension Option {
   public static let warnSwift3ObjcInferenceMinimal: Option = Option("-warn-swift3-objc-inference-minimal", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Warn about deprecated @objc inference in Swift 3 based on direct uses of the Objective-C entrypoint")
   public static let warnSwift3ObjcInference: Option = Option("-warn-swift3-objc-inference", .flag, alias: Option.warnSwift3ObjcInferenceComplete, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild])
   public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors")
+  public static let weakLinkAtTarget: Option = Option("-weak-link-at-target", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Weakly link symbols for declarations that were introduced at the deployment target. Symbols introduced before the deployment target are still strongly linked.")
   public static let wholeModuleOptimization: Option = Option("-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Optimize input files together instead of individually")
   public static let wmo: Option = Option("-wmo", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let workingDirectoryEQ: Option = Option("-working-directory=", .joined, alias: Option.workingDirectory)
@@ -812,6 +817,7 @@ extension Option {
       Option.disableDebuggerShadowCopies,
       Option.disableDeserializationRecovery,
       Option.disableDiagnosticPasses,
+      Option.disableEmitGenericClassRoTList,
       Option.disableExperimentalClangImporterDiagnostics,
       Option.disableExperimentalOpenedExistentialTypes,
       Option.disableExperimentalStringProcessing,
@@ -833,6 +839,7 @@ extension Option {
       Option.disableMigratorFixits,
       Option.disableModulesValidateSystemHeaders,
       Option.disableNamedLazyMemberLoading,
+      Option.disableNewLlvmPassManager,
       Option.disableNewOperatorLookup,
       Option.disableNonfrozenEnumExhaustivityDiagnostics,
       Option.disableNskeyedarchiverDiagnostics,
@@ -985,6 +992,7 @@ extension Option {
       Option.enableDeserializationRecovery,
       Option.enableDestroyHoisting,
       Option.enableDynamicReplacementChaining,
+      Option.enableEmitGenericClassRoTList,
       Option.enableExperimentalAdditiveArithmeticDerivation,
       Option.enableExperimentalAssociatedTypeInference,
       Option.enableExperimentalAsyncTopLevel,
@@ -1092,6 +1100,7 @@ extension Option {
       Option.IEQ,
       Option.iframework,
       Option.ignoreAlwaysInline,
+      Option.ignoreInterfaceProvidedOptions,
       Option.ignoreModuleSourceInfo,
       Option.ignoreSpiGroups,
       Option.ignoreSpiGroups_,
@@ -1366,6 +1375,7 @@ extension Option {
       Option.warnSwift3ObjcInferenceMinimal,
       Option.warnSwift3ObjcInference,
       Option.warningsAsErrors,
+      Option.weakLinkAtTarget,
       Option.wholeModuleOptimization,
       Option.wmo,
       Option.workingDirectoryEQ,
