@@ -19,6 +19,7 @@ import struct TSCUtility.Version
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
+    case unknownOrMissingSubcommand(String)
     case invalidDriverName(String)
     case invalidInput(String)
     case noInputFiles
@@ -49,6 +50,8 @@ public struct Driver {
 
     public var description: String {
       switch self {
+      case .unknownOrMissingSubcommand(let subcommand):
+        return "unknown or missing subcommand '\(subcommand)'"
       case .invalidDriverName(let driverName):
         return "invalid driver name: \(driverName)"
       case .invalidInput(let input):
@@ -284,6 +287,9 @@ public struct Driver {
   /// Path to the discovered dependencies file of the emit-module task.
   let emitModuleDependenciesFilePath: VirtualPath.Handle?
 
+  /// Path to emitted compile-time-known values.
+  let constValuesFilePath: VirtualPath.Handle?
+
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
 
@@ -337,6 +343,9 @@ public struct Driver {
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
 
+  /// A list of unknown driver flags that are recognizable to `swift-frontend`
+  public let savedUnknownDriverFlagsForSwiftFrontend: [String]
+
   /// A collection of all the features the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFeatures: Set<String>
 
@@ -355,20 +364,13 @@ public struct Driver {
     return VirtualPath.lookup(rawSdkPath)
   } ()
 
-  lazy var iosMacFrameworksBase: VirtualPath = {
+  lazy var iosMacFrameworksSearchPath: VirtualPath = {
     sdkPath!
       .appending(component: "System")
       .appending(component: "iOSSupport")
       .appending(component: "System")
       .appending(component: "Library")
-  } ()
-
-  lazy var iosMacFrameworksSearchPath: VirtualPath = {
-    iosMacFrameworksBase.appending(component: "Frameworks")
-  } ()
-
-  lazy var iosMacPrivateFrameworksSearchPath: VirtualPath = {
-    iosMacFrameworksBase.appending(component: "PrivateFrameworks")
+      .appending(component: "Frameworks")
   } ()
 
   lazy var abiDescriptorPath: TypedVirtualPath? = {
@@ -387,10 +389,10 @@ public struct Driver {
       .replacingExtension(with: .jsonABIBaseline).intern(), type: .jsonABIBaseline)
   }()
 
-  public func isFrontendArgSupported(_ opt: Option) -> Bool {
-    var current = opt.spelling
+  public static func isOptionFound(_ opt: String, allOpts: Set<String>) -> Bool {
+    var current = opt
     while(true) {
-      if supportedFrontendFlags.contains(current) {
+      if allOpts.contains(current) {
         return true
       }
       if current.starts(with: "-") {
@@ -399,6 +401,10 @@ public struct Driver {
         return false
       }
     }
+  }
+
+  public func isFrontendArgSupported(_ opt: Option) -> Bool {
+    return Driver.isOptionFound(opt.spelling, allOpts: supportedFrontendFlags)
   }
 
   @_spi(Testing)
@@ -498,7 +504,7 @@ public struct Driver {
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
+    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind, delayThrows: true)
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
@@ -666,6 +672,13 @@ public struct Driver {
                                                 diagnosticsEngine: diagnosticEngine,
                                                 fileSystem: fileSystem, executor: executor,
                                                 env: env)
+    let supportedFrontendFlagsLocal = self.supportedFrontendFlags
+    self.savedUnknownDriverFlagsForSwiftFrontend = try self.parsedOptions.saveUnknownFlags {
+      Driver.isOptionFound($0, allOpts: supportedFrontendFlagsLocal)
+    }
+    self.savedUnknownDriverFlagsForSwiftFrontend.forEach {
+      diagnosticsEngine.emit(warning: "save unknown driver flag \($0) as additional swift-frontend flag")
+    }
     self.supportedFrontendFeatures = try Self.computeSupportedCompilerFeatures(of: self.toolchain, env: env)
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
@@ -718,6 +731,14 @@ public struct Driver {
     self.emitModuleDependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .emitModuleDependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitModuleDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.constValuesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftConstValues, isOutputOptions: [.emitConstValues],
+        outputPath: .emitConstValuesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -1121,7 +1142,8 @@ extension Driver {
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
 #if os(Windows)
-    return tokenizeWindowsResponseFile(content)
+    return content.split { $0 == "\n" || $0 == "\r\n" }
+                  .flatMap { tokenizeWindowsResponseFile(String($0)) }
 #else
     return content.split { $0 == "\n" || $0 == "\r\n" }
                   .flatMap { tokenizeResponseFileLine($0) }
@@ -1391,7 +1413,6 @@ extension Driver {
     return ToolExecutionDelegate(
       mode: mode,
       buildRecordInfo: buildRecordInfo,
-      incrementalCompilationState: incrementalCompilationState,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
       diagnosticEngine: diagnosticEngine)
@@ -2006,6 +2027,14 @@ extension Driver {
       let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
       if parts.count != 2 {
         diagnosticsEngine.emit(.error_opt_invalid_mapping(option: debugPrefixMap.option, value: value))
+      }
+    }
+
+    for filePrefixMap in parsedOptions.arguments(for: .filePrefixMap) {
+      let value = filePrefixMap.argument.asSingle
+      let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+      if parts.count != 2 {
+        diagnosticsEngine.emit(.error_opt_invalid_mapping(option: filePrefixMap.option, value: value))
       }
     }
 
@@ -3018,9 +3047,8 @@ extension Driver {
     // Emit-module discovered dependencies are always specified as a single-output
     // file
     if type == .emitModuleDependencies,
-      let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
-           outputType: type) {
-      return singleOutputPath
+       let path = outputFileMap?.existingOutputForSingleInput(outputType: type) {
+      return path
     }
 
     // If there is an output argument, derive the name from there.
@@ -3038,6 +3066,16 @@ extension Driver {
         .intern()
     }
 
+    // If an explicit path is not provided by the output file map, attempt to
+    // synthesize a path from the master swift dependency path.  This is
+    // important as we may otherwise emit this file at the location where the
+    // driver was invoked, which is normally the root of the package.
+    if let path = outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {
+      return VirtualPath.lookup(path)
+                  .parentDirectory
+                  .appending(component: "\(moduleName).\(type.rawValue)")
+                  .intern()
+    }
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 

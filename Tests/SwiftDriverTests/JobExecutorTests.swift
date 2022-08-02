@@ -179,11 +179,11 @@ final class JobExecutorTests: XCTestCase {
           .path(.temporary(RelativePath("foo.o"))),
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
-          "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
+          "--sysroot", .path(.absolute(try toolchain.sdk.get())),
+          "-lobjc", "-lSystem", .flag("--target=\(hostTriple.triple)"),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
-          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0", "-o",
+          "-rpath", "/usr/lib/swift", "-o",
           .path(.relative(RelativePath("main"))),
         ],
         inputs: [
@@ -249,12 +249,10 @@ final class JobExecutorTests: XCTestCase {
         tool: try toolchain.resolvedTool(.dynamicLinker),
         commandLine: [
           .path(.temporary(RelativePath("main.o"))),
-          .path(.absolute(try toolchain.clangRT.get())),
-          "-syslibroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", "-arch", .flag(hostTriple.archName),
+          "--sysroot", .path(.absolute(try toolchain.sdk.get())),
+          "-lobjc", "-lSystem", .flag("--target=\(hostTriple.triple)"),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
-          "-rpath", "/usr/lib/swift", "-macosx_version_min", "10.14.0",
           "-o", .path(.absolute(exec)),
         ],
         inputs: [
@@ -388,7 +386,7 @@ final class JobExecutorTests: XCTestCase {
                   inputs: [], primaryInputs: [], outputs: [])
 #if os(Windows)
     XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
-                   #""/path/to/the tool" "/with space" /withoutspace"#)
+                   #""\path\to\the tool" "\with space" \withoutspace"#)
 #else
     XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
                    "'/path/to/the tool' '/with space' /withoutspace")

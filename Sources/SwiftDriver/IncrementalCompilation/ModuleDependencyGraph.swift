@@ -433,7 +433,6 @@ extension ModuleDependencyGraph {
     precondition(self.phase != .buildingFromSwiftDeps)
 
     guard let whyIntegrate = whyIncrementallyFindNodesInvalidated(by: integrand) else {
-      info.reporter?.report("Ignoring unchanged existing external incremental dependency", integrand)
       return DirectlyInvalidatedNodeSet()
     }
     mutationSafetyPrecondition()
@@ -487,7 +486,8 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameter fed: The external dependency, with fingerprint and origin info to be integrated
   /// - Returns: nil if no integration is needed, or else why the integration is happening
-  private func whyIncrementallyFindNodesInvalidated(by integrand: ExternalIntegrand
+  private func whyIncrementallyFindNodesInvalidated(
+    by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
     accessSafetyPrecondition()
    switch integrand {

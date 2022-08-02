@@ -537,6 +537,74 @@ extension IncrementalCompilationTests {
   }
 }
 
+// MARK: - Incremental argument hashing tests
+extension IncrementalCompilationTests {
+  func testNullBuildWhenAddingAndRemovingArgumentsNotAffectingIncrementalBuilds() throws {
+    // Adding, removing, or changing the arguments of options which don't affect incremental builds should result in a null build.
+    try buildInitialState(extraArguments: ["-driver-batch-size-limit", "5", "-debug-diagnostic-names"])
+    let driver = try checkNullBuild(extraArguments: ["-driver-batch-size-limit", "10", "-diagnostic-style", "swift"])
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertTrue(mandatoryJobs.isEmpty)
+  }
+
+  func testChangingOptionArgumentLeadsToRecompile() throws {
+    // If an option affects incremental builds, changing only the argument should trigger a full recompile.
+    try buildInitialState(extraArguments: ["-user-module-version", "1.0"])
+    try doABuild(
+      "change user module version",
+      checkDiagnostics: true,
+      extraArguments: ["-user-module-version", "1.1"],
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      createdGraphFromSwiftdeps
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+
+  func testOptionReorderingLeadsToRecompile() throws {
+    // Reordering options which affect incremental builds should trigger a full recompile.
+    try buildInitialState(extraArguments: ["-warnings-as-errors", "-no-warnings-as-errors"])
+    try doABuild(
+      "change user module version",
+      checkDiagnostics: true,
+      extraArguments: ["-no-warnings-as-errors", "-warnings-as-errors"],
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      createdGraphFromSwiftdeps
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+
+  func testArgumentReorderingLeadsToRecompile() throws {
+    // Reordering the arguments of an option which affect incremental builds should trigger a full recompile.
+    try buildInitialState(extraArguments: ["-Ifoo", "-Ibar"])
+    try doABuild(
+      "change user module version",
+      checkDiagnostics: true,
+      extraArguments: ["-Ibar", "-Ifoo"],
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      createdGraphFromSwiftdeps
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+}
+
 // MARK: - Incremental test stages
 extension IncrementalCompilationTests {
   /// Setup the initial post-build state.
@@ -1390,6 +1458,12 @@ extension DiagVerifiable {
   @DiagsBuilder var disablingIncrementalCannotReadBuildRecord: [Diagnostic.Message] {
     "Incremental compilation: Disabling incremental build: could not read build record"
   }
+  @DiagsBuilder var differentArgsPassed: [Diagnostic.Message] {
+      "Incremental compilation: Incremental compilation has been disabled, because different arguments were passed to the compiler"
+  }
+  @DiagsBuilder var disablingIncrementalDifferentArgsPassed: [Diagnostic.Message] {
+      "Incremental compilation: Disabling incremental build: different arguments were passed to the compiler"
+  }
   @DiagsBuilder var missingMainDependencyEntry: [Diagnostic.Message] {
     .warning("ignoring -incremental; output file map has no master dependencies entry (\"swift-dependencies\" under \"\")")
   }
@@ -1570,7 +1644,7 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func skipped(_ inputs: [String]) -> [Diagnostic.Message] {
     for input in inputs {
-      "Skipped Compile \(input).swift"
+      "Skipped Compiling \(input).swift"
     }
   }
   @DiagsBuilder func skipped(_ inputs: String...) -> [Diagnostic.Message] {
@@ -1625,10 +1699,10 @@ extension DiagVerifiable {
 
   // MARK: - compiling
   @DiagsBuilder func starting(_ inputs: [String]) -> [Diagnostic.Message] {
-     "Starting Compile \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
+     "Starting Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
   @DiagsBuilder func finished(_ inputs: [String]) -> [Diagnostic.Message] {
-     "Finished Compile \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
+     "Finished Compiling \(inputs.map{$0 + ".swift"}.joined(separator: ", "))"
   }
   @DiagsBuilder func compiling(_ inputs: [String]) -> [Diagnostic.Message] {
     starting(inputs); finished(inputs)
@@ -1651,12 +1725,12 @@ extension DiagVerifiable {
   @DiagsBuilder var schedulingPostCompileJobs: [Diagnostic.Message] {
     "Incremental compilation: Scheduling all post-compile jobs because something was compiled"
   }
-  @DiagsBuilder var startingLinking: [Diagnostic.Message] { "Starting Link theModule" }
+  @DiagsBuilder var startingLinking: [Diagnostic.Message] { "Starting Linking theModule" }
 
-  @DiagsBuilder var finishedLinking: [Diagnostic.Message] { "Finished Link theModule" }
+  @DiagsBuilder var finishedLinking: [Diagnostic.Message] { "Finished Linking theModule" }
 
   @DiagsBuilder var skippingLinking: [Diagnostic.Message] {
-    "Incremental compilation: Skipping job: Link theModule; oldest output is current"
+    "Incremental compilation: Skipping job: Linking theModule; oldest output is current"
   }
   @DiagsBuilder var schedLinking: [Diagnostic.Message] { schedulingPostCompileJobs; linking }
 

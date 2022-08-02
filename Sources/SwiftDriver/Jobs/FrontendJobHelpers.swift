@@ -116,9 +116,7 @@ extension Driver {
     }
 
     // Add flags for C++ interop
-    if parsedOptions.hasArgument(.enableExperimentalCxxInterop) {
-      commandLine.appendFlag(.enableCxxInterop)
-    }
+    try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
     if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
       commandLine.appendFlag("-Xcc")
       commandLine.appendFlag("-stdlib=\(stdlibVariant)")
@@ -152,7 +150,6 @@ extension Driver {
     try commandLine.appendLast(.enableLibraryEvolution, from: &parsedOptions)
     try commandLine.appendLast(.enableTesting, from: &parsedOptions)
     try commandLine.appendLast(.enablePrivateImports, from: &parsedOptions)
-    try commandLine.appendLast(.enableCxxInterop, from: &parsedOptions)
     try commandLine.appendLast(in: .g, from: &parsedOptions)
     try commandLine.appendLast(.debugInfoFormat, from: &parsedOptions)
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
@@ -201,9 +198,8 @@ extension Driver {
     try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
     try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)
     try commandLine.appendAll(.D, from: &parsedOptions)
-    try commandLine.appendAll(.debugPrefixMap, from: &parsedOptions)
+    try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
-    try commandLine.appendAll(.coveragePrefixMap, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
@@ -309,18 +305,14 @@ extension Driver {
       commandLine.appendFlag("-frontend-parseable-output")
     }
 
+    savedUnknownDriverFlagsForSwiftFrontend.forEach {
+      commandLine.appendFlag($0)
+    }
+
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: self)
-  }
-
-  /// Add options to disable cross-module-optimization.
-  mutating func addDisableCMOOption(commandLine: inout [Job.ArgTemplate]) {
-    if parsedOptions.hasArgument(.disableCrossModuleOptimization) {
-      commandLine.appendFlag(.Xllvm)
-      commandLine.appendFlag("-sil-disable-pass=cmo")
-    }
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
@@ -398,6 +390,12 @@ extension Driver {
         finalOutputPath: dependenciesFilePath,
         input: input,
         flag: "-emit-dependencies-path")
+
+      addOutputOfType(
+        outputType: .swiftConstValues,
+        finalOutputPath: constValuesFilePath,
+        input: input,
+        flag: "-emit-const-values-path")
 
       addOutputOfType(
         outputType: .swiftDeps,

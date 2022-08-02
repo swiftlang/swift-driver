@@ -94,7 +94,8 @@ extension Driver {
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, nil:
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
+         .swiftConstValues, nil:
       return false
     }
   }
@@ -283,7 +284,13 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: MSVC runtime flags
 
-    addDisableCMOOption(commandLine: &commandLine)
+    if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
+       // For historical reasons, -cross-module-optimization turns on "aggressive" CMO
+       // which is different from "default" CMO.
+       !parsedOptions.hasArgument(.CrossModuleOptimization) {
+      assert(!emitModuleSeparately, "Cannot emit module separately with cross-module-optimization")
+      commandLine.appendFlag("-enable-default-cmo")
+    }
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
@@ -338,6 +345,8 @@ extension Driver {
       if !parsedOptions.contains(.indexIgnoreSystemModules) {
         commandLine.appendFlag(.indexSystemModules)
       }
+      try commandLine.appendLast(.indexIgnoreClangModules, from: &parsedOptions)
+      try commandLine.appendLast(.indexIncludeLocals, from: &parsedOptions)
     }
 
     if parsedOptions.contains(.debugInfoStoreInvocation) ||
@@ -451,7 +460,8 @@ extension FileType {
          .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
+         .swiftConstValues:
       fatalError("Output type can never be a primary output")
     }
   }
