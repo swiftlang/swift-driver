@@ -29,6 +29,7 @@ private func checkExplicitModuleBuildJob(job: Job,
                                          pcmArgs: [String],
                                          moduleId: ModuleDependencyId,
                                          dependencyGraph: InterModuleDependencyGraph,
+                                         supportsIgnoreInterfaceFlags: Bool,
                                          pcmFileEncoder: (ModuleInfo, [String]) -> VirtualPath.Handle)
 throws {
   let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
@@ -71,6 +72,7 @@ throws {
   try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: downstreamPCMArgs,
                                               moduleInfo: moduleInfo,
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
 }
 
@@ -80,6 +82,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      pcmArgs: [String],
                                                      moduleInfo : ModuleInfo,
                                                      dependencyGraph: InterModuleDependencyGraph,
+                                                     supportsIgnoreInterfaceFlags: Bool,
                                                      pcmFileEncoder: (ModuleInfo, [String]) -> VirtualPath.Handle
 ) throws {
   for dependencyId in moduleInfo.directDependencies! {
@@ -111,6 +114,9 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         let explicitDepsFlag =
           SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
         XCTAssert(job.commandLine.contains(explicitDepsFlag))
+        if supportsIgnoreInterfaceFlags {
+          XCTAssert(job.commandLine.contains("-ignore-interface-provided-options"))
+        }
         let jsonDepsPathIndex = job.commandLine.firstIndex(of: explicitDepsFlag)
         let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
         guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
@@ -148,6 +154,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
       try checkExplicitModuleBuildJobDependencies(job: job, pcmArgs: pcmArgs, 
                                                   moduleInfo: try dependencyGraph.moduleInfo(of: transitiveDependencyId),
                                                   dependencyGraph: dependencyGraph,
+                                                  supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                                   pcmFileEncoder: pcmFileEncoder)
 
     }
@@ -182,6 +189,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in modulePrebuildJobs {
         XCTAssertEqual(job.outputs.count, 1)
         XCTAssertFalse(driver.isExplicitMainModuleJob(job: job))
+        let supportsIgnoreInterfaceFlags = driver.isFrontendArgSupported(.ignoreInterfaceProvidedOptions)
 
         let (pcmFileEncoder, pcmModuleNameEncoder) = pcmEncoderProducer(dependencyGraph: moduleDependencyGraph, driver: driver)
         switch (job.outputs[0].file) {
@@ -190,32 +198,38 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .clang("SwiftShims"),
                                             dependencyGraph: moduleDependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(pcmArgsEncodedRelativeModulePath(for: "c_simd", with: pcmArgs,
                                                           pcmModuleNameEncoder: pcmModuleNameEncoder)):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .clang("c_simd"),
                                             dependencyGraph: moduleDependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("Swift.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("Swift"),
                                             dependencyGraph: moduleDependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("_Concurrency.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("_Concurrency"),
                                             dependencyGraph: moduleDependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("_StringProcessing.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("_StringProcessing"),
                                             dependencyGraph: moduleDependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs,
                                             moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyGraph: moduleDependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           default:
             XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
@@ -353,7 +367,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
 
       let (pcmFileEncoder, pcmModuleNameEncoder) = pcmEncoderProducer(dependencyGraph: dependencyGraph, driver: driver)
-
+      let supportsIgnoreInterfaceFlags =  driver.isFrontendArgSupported(.ignoreInterfaceProvidedOptions)
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
         let outputFilePath = job.outputs[0].file
@@ -364,30 +378,37 @@ final class ExplicitModuleBuildTests: XCTestCase {
           if pathMatchesSwiftModule(path: outputFilePath, "A") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("E"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("G"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_StringProcessing"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           }
         // Clang Dependencies
@@ -399,26 +420,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("G"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "G", with: pcmArgs9,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("G"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             // Module X is a dependency from Clang module "G" discovered only via versioned PCM
             // re-scan.
@@ -426,26 +452,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("X"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "X", with: pcmArgs9,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("X"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs15,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs15, moduleId: .clang("SwiftShims"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
@@ -517,7 +548,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
 
       let (pcmFileEncoder, pcmModuleNameEncoder) = pcmEncoderProducer(dependencyGraph: dependencyGraph, driver: driver)
-
+      let supportsIgnoreInterfaceFlags = driver.isFrontendArgSupported(.ignoreInterfaceProvidedOptions)
       for job in jobs {
         guard job.kind != .interpret else { continue }
         XCTAssertEqual(job.outputs.count, 1)
@@ -528,22 +559,27 @@ final class ExplicitModuleBuildTests: XCTestCase {
           if pathMatchesSwiftModule(path: outputFilePath, "A") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("A"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("Swift"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_Concurrency"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("_StringProcessing"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
             try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyGraph: dependencyGraph,
+                                            supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                             pcmFileEncoder: pcmFileEncoder)
           }
         // Clang Dependencies
@@ -554,31 +590,37 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("A"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "B", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("B"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "C", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("C"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs9,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs9, moduleId: .clang("SwiftShims"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgs15,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgs15, moduleId: .clang("SwiftShims"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             case .relative(pcmArgsEncodedRelativeModulePath(for: "SwiftShims", with: pcmArgsCurrent,
                                                             pcmModuleNameEncoder: pcmModuleNameEncoder)):
               try checkExplicitModuleBuildJob(job: job, pcmArgs: pcmArgsCurrent, moduleId: .clang("SwiftShims"),
                                               dependencyGraph: dependencyGraph,
+                                              supportsIgnoreInterfaceFlags: supportsIgnoreInterfaceFlags,
                                               pcmFileEncoder: pcmFileEncoder)
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
