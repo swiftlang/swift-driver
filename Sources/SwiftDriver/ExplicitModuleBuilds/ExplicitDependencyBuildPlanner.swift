@@ -50,19 +50,14 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// We avoid re-running the hash computation with the use of this cache
   private var hashedModuleNameCache: [String: String] = [:]
 
-  /// Does this compile support `.ignoreInterfaceProvidedOptions`
-  private var supportsIgnoreInterfaceFlags: Bool
-
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
-              integratedDriver: Bool = true,
-              supportsIgnoreInterfaceFlags: Bool = false) throws {
+              integratedDriver: Bool = true) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.integratedDriver = integratedDriver
     self.mainModuleName = dependencyGraph.mainModuleName
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
-    self.supportsIgnoreInterfaceFlags = supportsIgnoreInterfaceFlags
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -168,12 +163,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           inputs.append(TypedVirtualPath(file: compiledCandidatePath.path,
                                          type: .swiftModule))
         }
-      }
-
-      if supportsIgnoreInterfaceFlags {
-        // Ensure the compiler flags specified in the interface are ignored
-        // because they are already captured in the dependency scanner output
-        commandLine.appendFlag(.ignoreInterfaceProvidedOptions)
       }
 
       // Set the output path
