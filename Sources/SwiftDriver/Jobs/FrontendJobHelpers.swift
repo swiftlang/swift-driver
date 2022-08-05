@@ -201,6 +201,14 @@ extension Driver {
     try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
+    if isFrontendArgSupported(.enableExperimentalFeature) {
+      try commandLine.appendAll(
+        .enableExperimentalFeature, from: &parsedOptions)
+    }
+    if isFrontendArgSupported(.enableUpcomingFeature) {
+      try commandLine.appendAll(
+        .enableUpcomingFeature, from: &parsedOptions)
+    }
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
       try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)
