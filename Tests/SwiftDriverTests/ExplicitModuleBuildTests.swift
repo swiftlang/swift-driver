@@ -1128,7 +1128,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
          hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 11
       } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 13
+        expectedNumberOfDependencies = 14
       } else {
         expectedNumberOfDependencies = 12
       }
