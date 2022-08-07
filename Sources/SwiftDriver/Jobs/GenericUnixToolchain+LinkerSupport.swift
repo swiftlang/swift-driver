@@ -158,13 +158,15 @@ extension GenericUnixToolchain {
         }
       }
 
-      let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-        .appending(
-          components: targetTriple.platformName() ?? "",
-          String(majorArchitectureName(for: targetTriple)),
-          "swiftrt.o"
-        )
-      commandLine.appendPath(swiftrtPath)
+      if !parsedOptions.hasArgument(.nostartfiles) {
+        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+          .appending(
+            components: targetTriple.platformName() ?? "",
+            String(majorArchitectureName(for: targetTriple)),
+            "swiftrt.o"
+          )
+        commandLine.appendPath(swiftrtPath)
+      }
 
       // If we are linking statically, we need to add all
       // dependencies to a library search group to resolve
