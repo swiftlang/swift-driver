@@ -626,7 +626,9 @@ extension Driver {
     explicitDependencyBuildPlanner =
       try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
                                          toolchain: toolchain,
-                                         integratedDriver: integratedDriver)
+                                         integratedDriver: integratedDriver,
+                                         supportsExplicitInterfaceBuild:
+                                          isFrontendArgSupported(.explicitInterfaceModuleBuild))
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }

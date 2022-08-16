@@ -15,7 +15,7 @@
         "repositoryURL": "https://github.com/apple/swift-llbuild.git",
         "state": {
           "branch": "main",
-          "revision": "40ee0e2a91d1bd3e37beb83baaea927f86346f1d",
+          "revision": "efb176d866e3e99855a5b799da224a9f95058f2e",
           "version": null
         }
       },
@@ -33,7 +33,7 @@
         "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
         "state": {
           "branch": "main",
-          "revision": "3f140d7e256f5ec7eaa93a44090fea831da6fb61",
+          "revision": "0b77e67c484e532444ceeab60119b8536f8cd648",
           "version": null
         }
       },
