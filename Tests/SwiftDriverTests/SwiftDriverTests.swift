@@ -6561,6 +6561,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))))
     }
 
+    do {
+      var env = ProcessEnv.vars
+      env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
+
+      var driver = try Driver(args: [
+        "swiftc", "-emit-library", "-o", "library.dll", "library.obj", "-nostartfiles",
+      ], env: env)
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertFalse(job.commandLine.contains(.path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))))
+    }
+
     // Cannot test this due to `SDKROOT` escaping from the execution environment
     // into the `-print-target-info` step, which then resets the
     // `runtimeResourcePath` to be the SDK relative path rahter than the

@@ -487,6 +487,7 @@ extension Option {
   public static let noVerifyEmittedModuleInterface: Option = Option("-no-verify-emitted-module-interface", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Don't check that module interfaces emitted during compilation typecheck")
   public static let noWarningsAsErrors: Option = Option("-no-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Don't treat warnings as errors")
   public static let noWholeModuleOptimization: Option = Option("-no-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable optimizing input files together instead of individually")
+  public static let nostartfiles: Option = Option("-nostartfiles", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild, .noInteractive, .helpHidden], helpText: "Do not link in the Swift language startup routines")
   public static let nostdimport: Option = Option("-nostdimport", .flag, attributes: [.frontend], helpText: "Don't search the standard library import path for modules")
   public static let numThreads: Option = Option("-num-threads", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Enable multi-threading and specify number of threads")
   public static let extraClangOptionsOnly: Option = Option("-only-use-extra-clang-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Options passed via -Xcc are sufficient for Clang configuration")
@@ -1172,6 +1173,7 @@ extension Option {
       Option.noVerifyEmittedModuleInterface,
       Option.noWarningsAsErrors,
       Option.noWholeModuleOptimization,
+      Option.nostartfiles,
       Option.nostdimport,
       Option.numThreads,
       Option.extraClangOptionsOnly,

@@ -124,22 +124,24 @@ extension WindowsToolchain {
     commandLine.appendFlag(.L)
     commandLine.appendPath(VirtualPath.lookup(targetInfo.runtimeLibraryImportPaths.last!.path))
 
-    // Locate the Swift registration helper by honouring any explicit
-    // `-resource-dir`, `-sdk`, or the `SDKROOT` environment variable, and
-    // finally falling back to the target information.
-    let rsrc: VirtualPath
-    if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-      rsrc = try VirtualPath(path: resourceDir.asSingle)
-    } else if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
-      rsrc = try VirtualPath(path: AbsolutePath(validating: sdk)
-                                      .appending(components: "usr", "lib", "swift",
-                                                 targetTriple.platformName() ?? "",
-                                                 architecture(for: targetTriple))
-                                      .pathString)
-    } else {
-      rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+    if !parsedOptions.hasArgument(.nostartfiles) {
+      // Locate the Swift registration helper by honouring any explicit
+      // `-resource-dir`, `-sdk`, or the `SDKROOT` environment variable, and
+      // finally falling back to the target information.
+      let rsrc: VirtualPath
+      if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
+        rsrc = try VirtualPath(path: resourceDir.asSingle)
+      } else if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
+        rsrc = try VirtualPath(path: AbsolutePath(validating: sdk)
+                                        .appending(components: "usr", "lib", "swift",
+                                                   targetTriple.platformName() ?? "",
+                                                   architecture(for: targetTriple))
+                                        .pathString)
+      } else {
+        rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+      }
+      commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
     }
-    commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
 
     commandLine.append(contentsOf: inputs.compactMap { (input: TypedVirtualPath) -> Job.ArgTemplate? in
       switch input.type {

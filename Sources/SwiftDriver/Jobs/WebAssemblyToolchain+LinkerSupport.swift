@@ -78,13 +78,15 @@ extension WebAssemblyToolchain {
         isShared: false
       )
 
-      let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-        .appending(
-          components: targetTriple.platformName() ?? "",
-          targetTriple.archName,
-          "swiftrt.o"
-        )
-      commandLine.appendPath(swiftrtPath)
+      if !parsedOptions.hasArgument(.nostartfiles) {
+        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+          .appending(
+            components: targetTriple.platformName() ?? "",
+            targetTriple.archName,
+            "swiftrt.o"
+          )
+        commandLine.appendPath(swiftrtPath)
+      }
 
       let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
         // Autolink inputs are handled specially
