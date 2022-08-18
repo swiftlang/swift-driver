@@ -603,8 +603,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   
   func testModuleAliasingPrebuiltWithScanDeps() throws {
-    // rdar://88073675
-    throw XCTSkip("Skipping, known failure (rdar://88073675).")
     try withTemporaryDirectory { path in
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
@@ -625,6 +623,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "Bar",
                                      "-emit-module",
                                      "-emit-module-path", moduleBarPath,
+                                     "-module-cache-path", path.nativePathString(escaped: true),
                                      "-I", stdLibPath.nativePathString(escaped: true),
                                      "-I", shimsPath.nativePathString(escaped: true),
                               ] + sdkArgumentsForTesting,
