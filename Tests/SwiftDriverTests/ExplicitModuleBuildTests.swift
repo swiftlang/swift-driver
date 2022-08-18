@@ -39,7 +39,7 @@ throws {
       let moduleInterfacePath =
         TypedVirtualPath(file: swiftModuleDetails.moduleInterfacePath!.path,
                          type: .swiftInterface)
-      XCTAssertEqual(job.kind, .emitModule)
+      XCTAssertEqual(job.kind, .compileModuleFromInterface)
       XCTAssertTrue(job.inputs.contains(moduleInterfacePath))
       if let compiledCandidateList = swiftModuleDetails.compiledModuleCandidates {
         for compiledCandidate in compiledCandidateList {

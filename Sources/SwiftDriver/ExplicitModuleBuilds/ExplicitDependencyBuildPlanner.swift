@@ -182,7 +182,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
       jobs.append(Job(
         moduleName: moduleId.moduleName,
-        kind: .emitModule,
+        kind: .compileModuleFromInterface,
         tool: try toolchain.resolvedTool(.swiftCompiler),
         commandLine: commandLine,
         inputs: inputs,
