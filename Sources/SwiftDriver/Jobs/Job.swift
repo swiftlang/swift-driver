@@ -28,6 +28,7 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Generate a compiled Clang module.
     case generatePCM = "generate-pcm"
+    case compileModuleFromInterface = "compile-module-from-interface"
     case dumpPCM = "dump-pcm"
     case interpret
     case repl
@@ -189,6 +190,9 @@ extension Job : CustomStringConvertible {
     case .emitModule:
         return "Emitting module for \(moduleName)"
 
+    case .compileModuleFromInterface:
+        return "Compiling module interface for Swift module \(moduleName)"
+
     case .generatePCH:
         return join("Compiling bridging header", displayInputs.first?.file.basename)
 
@@ -259,7 +263,7 @@ extension Job.Kind {
   /// Whether this job kind uses the Swift frontend.
   public var isSwiftFrontend: Bool {
     switch self {
-    case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
+    case .backend, .compile, .mergeModule, .emitModule, .compileModuleFromInterface, .generatePCH,
         .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
         .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
         return true
@@ -275,7 +279,7 @@ extension Job.Kind {
     switch self {
     case .compile:
       return true
-    case .backend, .mergeModule, .emitModule, .generatePCH,
+    case .backend, .mergeModule, .emitModule, .generatePCH, .compileModuleFromInterface,
          .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
