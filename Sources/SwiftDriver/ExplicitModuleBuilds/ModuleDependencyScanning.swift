@@ -331,8 +331,7 @@ public extension Driver {
   fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
                                       using resolver: ArgsResolver) throws -> [String] {
     let (args, _) = try resolver.resolveArgumentList(for: job,
-                                                     forceResponseFiles: forceResponseFiles,
-                                                     quotePaths: true)
+                                                     forceResponseFiles: forceResponseFiles)
     return args
   }
 }
