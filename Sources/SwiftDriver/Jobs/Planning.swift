@@ -637,6 +637,11 @@ extension Driver {
   throws -> InterModuleDependencyGraph {
     var dependencyGraph = try performDependencyScan()
 
+    if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
+      try stdoutStream <<< dependencyGraph.toJSONString()
+      stdoutStream.flush()
+    }
+
     if let externalTargetDetails = externalTargetModuleDetailsMap {
       // Resolve external dependencies in the dependency graph, if any.
       try dependencyGraph.resolveExternalDependencies(for: externalTargetDetails)
@@ -647,6 +652,11 @@ extension Driver {
 
     // Set dependency modules' paths to be saved in the module cache.
     try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
+
+    if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
+      try stdoutStream <<< dependencyGraph.toJSONString()
+      stdoutStream.flush()
+    }
 
     return dependencyGraph
   }

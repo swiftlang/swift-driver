@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.JSONEncoder
+
 /// A map from a module identifier to its info
 public typealias ModuleInfoMap = [ModuleDependencyId: ModuleInfo]
 
@@ -270,6 +272,21 @@ public struct InterModuleDependencyGraph: Codable {
 
   /// Information about the main module.
   public var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }
+}
+
+internal extension InterModuleDependencyGraph {
+  func toJSONString() throws -> String {
+    let encoder = JSONEncoder()
+#if os(Linux) || os(Android)
+    encoder.outputFormatting = [.prettyPrinted]
+#else
+    if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
+      encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+    }
+#endif
+    let data = try encoder.encode(self)
+    return String(data: data, encoding: .utf8)!
+  }
 }
 
 public struct InterModuleDependencyImports: Codable {
