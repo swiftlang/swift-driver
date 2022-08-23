@@ -22,6 +22,8 @@ extension Option {
   public static let emitModuleSerializeDiagnosticsPath: Option = Option("-emit-module-serialize-diagnostics-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a serialized diagnostics file for the emit-module task to <path>")
   public static let emitModuleDependenciesPath: Option = Option("-emit-module-dependencies-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a discovered dependencies file for the emit-module task to <path>")
   public static let useFrontendParseableOutput: Option = Option("-use-frontend-parseable-output", .flag, attributes: [.helpHidden], helpText: "Emit parseable-output from swift-frontend jobs instead of from the driver")
+  public static let printExplicitDependencyGraph: Option = Option("-print-explicit-dependency-graph", .flag, attributes: [.helpHidden], helpText: "Print the result of module dependency scanning after external module resolution to output")
+  public static let printPreprocessedExplicitDependencyGraph: Option = Option("-print-preprocessed-explicit-dependency-graph", .flag, attributes: [.helpHidden], helpText: "Print the result of module dependency scanning to output")
 
   // API digester operations
   public static let emitDigesterBaseline: Option = Option("-emit-digester-baseline", .flag, attributes: [.noInteractive, .supplementaryOutput], helpText: "Emit a baseline file for the module using the API digester")
@@ -42,6 +44,8 @@ extension Option {
       Option.emitModuleSeparatelyWMO,
       Option.noEmitModuleSeparatelyWMO,
       Option.useFrontendParseableOutput,
+      Option.printExplicitDependencyGraph,
+      Option.printPreprocessedExplicitDependencyGraph,
       Option.emitDigesterBaseline,
       Option.emitDigesterBaselinePath,
       Option.compareToBaselinePath,
