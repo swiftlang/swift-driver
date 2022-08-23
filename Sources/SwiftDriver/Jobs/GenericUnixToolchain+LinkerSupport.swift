@@ -84,6 +84,17 @@ extension GenericUnixToolchain {
         #else
         commandLine.appendFlag("-fuse-ld=\(linker)")
         #endif
+        // Starting with lld 13, Swift stopped working with the lld
+        // --gc-sections implementation for ELF, unless -z nostart-stop-gc is
+        // also passed to lld:
+        //
+        // https://reviews.llvm.org/D96914
+        if linker == "lld" || linker.hasSuffix("ld.lld") {
+          commandLine.appendFlag(.Xlinker)
+          commandLine.appendFlag("-z")
+          commandLine.appendFlag(.Xlinker)
+          commandLine.appendFlag("nostart-stop-gc")
+        }
       }
 
       // Configure the toolchain.
