@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.NSLock
 import TSCBasic
 @_implementationOnly import Yams
 
@@ -25,7 +26,7 @@ public final class ArgsResolver {
   // FIXME: We probably need a dedicated type for this...
   private let temporaryDirectory: VirtualPath
 
-  private let lock = Lock()
+  private let lock = NSLock()
 
   public init(fileSystem: FileSystem, temporaryDirectory: VirtualPath? = nil) throws {
     self.pathMapping = [:]
@@ -201,4 +202,14 @@ public final class ArgsResolver {
       try fileSystem.removeFileTree(absPath)
     }
   }
+}
+
+fileprivate extension NSLock {
+    /// NOTE: Keep in sync with SwiftPM's 'Sources/Basics/NSLock+Extensions.swift'
+    /// Execute the given block while holding the lock.
+    func withLock<T> (_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
 }

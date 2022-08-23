@@ -63,9 +63,6 @@ internal final class SwiftScan {
   /// The handle to the dylib.
   let dylib: Loader.Handle
 
-  /// Lock protecting private state.
-  let lock: Lock = Lock()
-
   /// libSwiftScan API functions.
   let api: swiftscan_functions_t;
 
