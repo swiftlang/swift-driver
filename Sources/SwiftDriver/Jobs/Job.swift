@@ -191,7 +191,7 @@ extension Job : CustomStringConvertible {
         return "Emitting module for \(moduleName)"
 
     case .compileModuleFromInterface:
-        return "Compiling module interface for Swift module \(moduleName)"
+        return "Compiling Swift module \(moduleName)"
 
     case .generatePCH:
         return join("Compiling bridging header", displayInputs.first?.file.basename)
