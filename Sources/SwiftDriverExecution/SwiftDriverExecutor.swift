@@ -35,8 +35,9 @@ public final class SwiftDriverExecutor: DriverExecutor {
   public func execute(job: Job,
                       forceResponseFiles: Bool = false,
                       recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
+    let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
-                                                               forceResponseFiles: forceResponseFiles)
+                                                               useResponseFiles: useResponseFiles)
 
     try job.verifyInputsNotModified(since: recordedInputModificationDates,
                                     fileSystem: fileSystem)
@@ -86,7 +87,8 @@ public final class SwiftDriverExecutor: DriverExecutor {
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
-    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
+    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
     var result = args.map { $0.spm_shellEscaped() }.joined(separator: " ")
 
     if usedResponseFile {

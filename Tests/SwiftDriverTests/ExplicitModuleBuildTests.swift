@@ -1054,8 +1054,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let (args, _) = try resolver.resolveArgumentList(for: scannerJob,
-                                                       forceResponseFiles: false,
-                                                       quotePaths: true)
+                                                       useResponseFiles: .disabled)
       XCTAssertTrue(args.count > 1)
       XCTAssertFalse(args[0].hasSuffix(".resp"))
     }

@@ -579,7 +579,7 @@ class ExecuteJobRule: LLBuildRule {
     var pid = 0
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
-                                                                 forceResponseFiles: context.forceResponseFiles)
+                                                                 useResponseFiles: context.forceResponseFiles ? .forced : .heuristic)
 
 
       let process : ProcessProtocol
