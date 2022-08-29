@@ -3931,7 +3931,6 @@ final class SwiftDriverTests: XCTestCase {
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     var envVars = ProcessEnv.vars
-    envVars["ENABLE_RESTRICT_SWIFTMODULE_SDK"] = "YES"
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     try withTemporaryDirectory { tmpDir in
