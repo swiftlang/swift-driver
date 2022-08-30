@@ -1485,7 +1485,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
       XCTAssertTrue(resolvedArgs.count == 2)
       XCTAssertEqual(resolvedArgs[1].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
@@ -1494,6 +1494,18 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_20000\""))
       XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_1\""))
     }
+
+    // Needs response file + disable override
+    do {
+      var driver = try Driver(args: ["swift"] + manyArgs + ["foo.swift"])
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .disabled)
+      XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
+    }
+
     // Forced response file
     do {
       var driver = try Driver(args: ["swift"] + ["foo.swift"])
@@ -1501,7 +1513,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: true)
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
       XCTAssertTrue(resolvedArgs.count == 2)
       XCTAssertEqual(resolvedArgs[1].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
@@ -1516,8 +1528,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, forceResponseFiles: false)
-      XCTAssertFalse(resolvedArgs.map { $0.hasPrefix("@") }.reduce(false){ $0 || $1 })
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
+      XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
     }
   }
 
@@ -1539,7 +1551,7 @@ final class SwiftDriverTests: XCTestCase {
 
       let emitModuleJob = jobs.first(where: { $0.kind == .emitModule })!
       let emitModuleResolvedArgs: [String] =
-        try resolver.resolveArgumentList(for: emitModuleJob, forceResponseFiles: false)
+        try resolver.resolveArgumentList(for: emitModuleJob)
       XCTAssertEqual(emitModuleResolvedArgs.count, 2)
       XCTAssertEqual(emitModuleResolvedArgs[1].first, "@")
 
@@ -1547,7 +1559,7 @@ final class SwiftDriverTests: XCTestCase {
       for compileJob in compileJobs {
         XCTAssertEqual(compileJobs.count, 2)
         let compileResolvedArgs: [String] =
-          try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+          try resolver.resolveArgumentList(for: compileJob)
         XCTAssertEqual(compileResolvedArgs.count, 2)
         XCTAssertEqual(compileResolvedArgs[1].first, "@")
       }
@@ -1565,7 +1577,7 @@ final class SwiftDriverTests: XCTestCase {
 
       let mergeModuleJob = jobs.first(where: { $0.kind == .mergeModule })!
       let mergeModuleResolvedArgs: [String] =
-        try resolver.resolveArgumentList(for: mergeModuleJob, forceResponseFiles: false)
+        try resolver.resolveArgumentList(for: mergeModuleJob)
       XCTAssertEqual(mergeModuleResolvedArgs.count, 2)
       XCTAssertEqual(mergeModuleResolvedArgs[1].first, "@")
 
@@ -1573,7 +1585,7 @@ final class SwiftDriverTests: XCTestCase {
       for compileJob in compileJobs {
         XCTAssertEqual(compileJobs.count, 2)
         let compileResolvedArgs: [String] =
-          try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+          try resolver.resolveArgumentList(for: compileJob)
         XCTAssertEqual(compileResolvedArgs.count, 2)
         XCTAssertEqual(compileResolvedArgs[1].first, "@")
       }
@@ -1590,7 +1602,7 @@ final class SwiftDriverTests: XCTestCase {
 
       let generatePCMJob = jobs[0]
       let generatePCMResolvedArgs: [String] =
-        try resolver.resolveArgumentList(for: generatePCMJob, forceResponseFiles: false)
+        try resolver.resolveArgumentList(for: generatePCMJob)
       XCTAssertEqual(generatePCMResolvedArgs.count, 2)
       XCTAssertEqual(generatePCMResolvedArgs[1].first, "@")
     }

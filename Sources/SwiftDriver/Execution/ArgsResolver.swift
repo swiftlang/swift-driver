@@ -14,6 +14,13 @@ import class Foundation.NSLock
 import TSCBasic
 @_implementationOnly import Yams
 
+/// How the resolver is to handle usage of response files
+public enum ResponseFileHandling {
+  case forced
+  case disabled
+  case heuristic
+}
+
 /// Resolver for a job's argument template.
 public final class ArgsResolver {
   /// The map of virtual path to the actual path.
@@ -45,20 +52,34 @@ public final class ArgsResolver {
     }
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+  public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic,
                                   quotePaths: Bool = false) throws -> [String] {
-    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles,
+    let (arguments, _) = try resolveArgumentList(for: job, useResponseFiles: useResponseFiles,
                                                  quotePaths: quotePaths)
     return arguments
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+  public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic,
                                   quotePaths: Bool = false) throws -> ([String], usingResponseFile: Bool) {
     let tool = try resolve(.path(job.tool), quotePaths: quotePaths)
     var arguments = [tool] + (try job.commandLine.map { try resolve($0, quotePaths: quotePaths) })
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
-                                                           forceResponseFiles: forceResponseFiles)
+                                                           useResponseFiles: useResponseFiles)
     return (arguments, usingResponseFile)
+  }
+
+  @available(*, deprecated, message: "use resolveArgumentList(for:,useResponseFiles:,quotePaths:)")
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+                                  quotePaths: Bool = false) throws -> [String] {
+    let useResponseFiles: ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
+    return try resolveArgumentList(for: job, useResponseFiles: useResponseFiles, quotePaths: quotePaths)
+  }
+
+  @available(*, deprecated, message: "use resolveArgumentList(for:,useResponseFiles:,quotePaths:)")
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+                                  quotePaths: Bool = false) throws -> ([String], usingResponseFile: Bool) {
+    let useResponseFiles: ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
+    return try resolveArgumentList(for: job, useResponseFiles: useResponseFiles, quotePaths: quotePaths)
   }
 
   /// Resolve the given argument.
@@ -167,11 +188,15 @@ public final class ArgsResolver {
     return string.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], forceResponseFiles: Bool) throws -> Bool {
+  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], useResponseFiles: ResponseFileHandling) throws -> Bool {
     func quote(_ string: String) -> String {
       return "\"\(String(string.flatMap { ["\\", "\""].contains($0) ? "\\\($0)" : "\($0)" }))\""
     }
-
+    guard useResponseFiles != .disabled else {
+      return false
+    }
+    
+    let forceResponseFiles = useResponseFiles == .forced
     if forceResponseFiles ||
       (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {
       assert(!forceResponseFiles || job.supportsResponseFiles,

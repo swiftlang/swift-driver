@@ -125,7 +125,7 @@ public extension Driver {
     if isSwiftScanLibAvailable {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: preScanJob,
-                                           forceResponseFiles: forceResponseFiles,
+                                           useResponseFiles: .disabled,
                                            using: executor.resolver)
       sanitizeCommandForLibScanInvocation(&command)
       imports =
@@ -154,7 +154,7 @@ public extension Driver {
     if isSwiftScanLibAvailable {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: scannerJob,
-                                           forceResponseFiles: forceResponseFiles,
+                                           useResponseFiles: .disabled,
                                            using: executor.resolver)
       sanitizeCommandForLibScanInvocation(&command)
       dependencyGraph =
@@ -183,7 +183,7 @@ public extension Driver {
     if isSwiftScanLibAvailable {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try itemizedJobCommand(of: batchScanningJob,
-                                           forceResponseFiles: forceResponseFiles,
+                                           useResponseFiles: .disabled,
                                            using: executor.resolver)
       sanitizeCommandForLibScanInvocation(&command)
       moduleVersionedGraphMap =
@@ -328,10 +328,10 @@ public extension Driver {
                                                                   contents)
   }
 
-  fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
+  fileprivate func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
                                       using resolver: ArgsResolver) throws -> [String] {
     let (args, _) = try resolver.resolveArgumentList(for: job,
-                                                     forceResponseFiles: forceResponseFiles)
+                                                     useResponseFiles: useResponseFiles)
     return args
   }
 }

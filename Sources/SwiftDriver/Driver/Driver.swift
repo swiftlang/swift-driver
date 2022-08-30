@@ -1380,7 +1380,7 @@ extension Driver {
       // In verbose mode, print out the job
       if parsedOptions.contains(.v) {
         let arguments: [String] = try executor.resolver.resolveArgumentList(for: inPlaceJob,
-                                                                            forceResponseFiles: forceResponseFiles)
+                                                                            useResponseFiles: forceResponseFiles ? .forced : .heuristic)
         stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
         stdoutStream.flush()
       }

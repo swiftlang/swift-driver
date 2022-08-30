@@ -150,7 +150,7 @@ final class ParsableMessageTests: XCTestCase {
                                          "-working-directory", workdir.pathString])
           let jobs = try driver.planBuild()
           let compileJob = jobs[0]
-          let args : [String] = try resolver.resolveArgumentList(for: compileJob, forceResponseFiles: false)
+          let args : [String] = try resolver.resolveArgumentList(for: compileJob, useResponseFiles: .disabled)
           let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                    buildRecordInfo: nil,
                                                    showJobLifecycle: false,
@@ -237,7 +237,7 @@ final class ParsableMessageTests: XCTestCase {
                                          "-working-directory", "/WorkDir"])
           let jobs = try driver.planBuild()
           compileJob = jobs[0]
-          args = try resolver.resolveArgumentList(for: compileJob!, forceResponseFiles: false)
+          args = try resolver.resolveArgumentList(for: compileJob!)
           toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                buildRecordInfo: nil,
                                                showJobLifecycle: false,
@@ -313,8 +313,7 @@ final class ParsableMessageTests: XCTestCase {
                                          "-working-directory", "/WorkDir"])
           let jobs = try driver.planBuild()
           compileJob = jobs[0]
-          args  = try resolver.resolveArgumentList(for: compileJob!,
-                                                   forceResponseFiles: false)
+          args  = try resolver.resolveArgumentList(for: compileJob!)
           toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
                                                buildRecordInfo: nil,
                                                showJobLifecycle: false,
