@@ -11,7 +11,6 @@ add_library(SwiftOptions
   Option.swift
   OptionTable.swift
   ParsedOptions.swift
-  ExtraOptions.swift
   OptionParsing.swift
   Options.swift
   PrefixTrie.swift)
