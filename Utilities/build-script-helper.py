@@ -412,16 +412,17 @@ def install_include_artifacts(args, toolchain_include_dir, src_include_dir, dst_
 
 def build_using_cmake(args, toolchain_bin, build_dir, targets):
   swiftc_exec = os.path.join(toolchain_bin, 'swiftc')
-  swift_flags = []
+  base_swift_flags = []
   if args.configuration == 'debug':
-    swift_flags.append('-Onone')
-    swift_flags.append('-DDEBUG')
+    base_swift_flags.append('-Onone')
+    base_swift_flags.append('-DDEBUG')
 
   # Ensure we are not sharing the module cache with concurrent builds in CI
-  swift_flags.append('-module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache')))
+  base_swift_flags.append('-module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache')))
 
-  base_cmake_flags = []
   for target in targets:
+    base_cmake_flags = []
+    swift_flags = base_swift_flags.copy()
     swift_flags.append('-target %s' % target)
     if platform.system() == 'Darwin':
       base_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
