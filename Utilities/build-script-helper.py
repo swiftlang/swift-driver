@@ -425,6 +425,7 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
     swift_flags.append('-target %s' % target)
     if platform.system() == 'Darwin':
       base_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
+      base_cmake_flags.append('-DCMAKE_OSX_ARCHITECTURES=%s' % target.split('-')[0])
 
     # Target directory for build artifacts
     # If building for a local compiler build, use the build directory directly
@@ -469,8 +470,6 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_f
         '-DCMAKE_CXX_FLAGS=-target %s' % target,
         '-DLLBUILD_SUPPORT_BINDINGS:=Swift'
     ]
-  if platform.system() == 'Darwin':
-    flags.append('-DCMAKE_OSX_ARCHITECTURES=%s' % target.split('-')[0])
   llbuild_cmake_flags = base_cmake_flags + flags
   if args.sysroot:
     llbuild_cmake_flags.append('-DSQLite3_INCLUDE_DIR=%s/usr/include' % args.sysroot)
