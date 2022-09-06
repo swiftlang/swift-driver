@@ -12,10 +12,15 @@
 
 import TSCBasic
 import enum TSCUtility.Diagnostics
-
-import Foundation
-import Dispatch
 import SwiftDriver
+
+import class Dispatch.DispatchQueue
+import class Foundation.OperationQueue
+import struct Foundation.Date
+import class Foundation.FileHandle
+import var Foundation.EXIT_SUCCESS
+import var Foundation.EXIT_FAILURE
+import var Foundation.SIGINT
 
 // We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)

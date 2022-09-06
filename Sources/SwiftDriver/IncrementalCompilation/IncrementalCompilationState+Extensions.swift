@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
 import SwiftOptions
+import struct Foundation.Date
+import protocol Foundation.LocalizedError
 
 /// In a separate file to ensure that ``IncrementalCompilationState/protectedState``
 /// can only be accessed via ``IncrementalCompilationState/blockingConcurrentMutation(_:)`` and

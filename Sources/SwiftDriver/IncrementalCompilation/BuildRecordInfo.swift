@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 import SwiftOptions
+import struct Foundation.Date
+import class Dispatch.DispatchQueue
 
 /// Holds information required to read and write the build record (aka
 /// compilation record).

@@ -13,7 +13,8 @@
 @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
-import Foundation
+import protocol Foundation.LocalizedError
+import var Foundation.EXIT_SUCCESS
 
 extension Driver {
   /// Initializer which creates an executor suitable for use in tests.

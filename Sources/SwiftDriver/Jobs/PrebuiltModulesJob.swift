@@ -11,7 +11,8 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import SwiftOptions
-import Foundation
+import class Foundation.JSONEncoder
+import class Foundation.JSONSerialization
 
 func getModuleFlags(_ path: VirtualPath, _ ignorable: Bool) throws -> [String] {
   let data = try localFileSystem.readFileContents(path).cString

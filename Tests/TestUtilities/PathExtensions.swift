@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 import SwiftDriver
+import struct Foundation.URL
 
 extension AbsolutePath {
   public func nativePathString(escaped: Bool) -> String {

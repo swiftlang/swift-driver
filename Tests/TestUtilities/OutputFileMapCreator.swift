@@ -11,7 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+import struct Foundation.Data
+import class Foundation.JSONEncoder
 
 public struct OutputFileMapCreator {
   private let module: String

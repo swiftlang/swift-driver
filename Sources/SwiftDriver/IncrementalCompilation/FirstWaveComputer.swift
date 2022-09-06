@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
+import struct Foundation.Date
+import class Dispatch.DispatchQueue
 
 extension IncrementalCompilationState {
 

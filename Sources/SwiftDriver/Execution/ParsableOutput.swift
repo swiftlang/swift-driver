@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Foundation.Data
+import class Foundation.JSONEncoder
 
 @_spi(Testing) public struct ParsableMessage {
   public enum Kind {

@@ -12,7 +12,7 @@
 
 import TSCBasic
 import SwiftOptions
-import Foundation
+import class Foundation.JSONDecoder
 
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput

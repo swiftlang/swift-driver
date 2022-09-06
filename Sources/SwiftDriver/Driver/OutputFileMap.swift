@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+import struct Foundation.Data
+import class Foundation.JSONEncoder
+import class Foundation.JSONDecoder
 
 /// Mapping of input file paths to specific output files.
 public struct OutputFileMap: Hashable, Codable {

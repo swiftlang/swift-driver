@@ -10,10 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
 import SwiftOptions
 
 import struct TSCUtility.Version
+import struct Foundation.Data
+import class Foundation.JSONEncoder
+import class Foundation.JSONDecoder
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///

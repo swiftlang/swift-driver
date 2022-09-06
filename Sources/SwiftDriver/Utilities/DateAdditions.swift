@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Foundation.Date
+import protocol Foundation.LocalizedError
+import func Foundation.floor
 
 public extension Date {
   init(legacyDriverSecsAndNanos secsAndNanos: [Int]) throws {

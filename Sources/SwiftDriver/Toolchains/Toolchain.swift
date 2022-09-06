@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 import SwiftOptions
+import class Foundation.Bundle
 
 public enum Tool: Hashable {
   case swiftCompiler

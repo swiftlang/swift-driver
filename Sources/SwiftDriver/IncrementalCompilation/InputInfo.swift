@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
+import struct Foundation.Date
 
 /// Contains information about the current status of an input to the incremental
 /// build.
