@@ -10,7 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
+import struct Foundation.Data
+import struct Foundation.Date
+import struct Foundation.TimeInterval
+import class Dispatch.DispatchQueue
+#if canImport(Darwin)
+import var Foundation.kCFAbsoluteTimeIntervalSince1970
+#endif
 
 #if canImport(Darwin)
 import Darwin

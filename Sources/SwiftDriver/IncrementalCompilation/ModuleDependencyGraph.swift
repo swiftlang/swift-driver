@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 import SwiftOptions
 
@@ -20,6 +19,9 @@ import class TSCUtility.BitstreamWriter
 import protocol TSCUtility.BitstreamVisitor
 import struct TSCUtility.Bitcode
 import struct TSCUtility.Version
+import struct Foundation.Date
+import class Dispatch.DispatchQueue
+import struct Foundation.TimeInterval
 
 // MARK: - ModuleDependencyGraph
 

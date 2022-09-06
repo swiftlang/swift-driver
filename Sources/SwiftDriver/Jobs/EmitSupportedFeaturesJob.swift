@@ -12,7 +12,8 @@
 
 import TSCBasic
 import SwiftOptions
-import Foundation
+import struct Foundation.Data
+import class Foundation.JSONDecoder
 
 /// Describes information about the compiler's supported arguments and features
 @_spi(Testing) public struct SupportedCompilerFeatures: Codable {

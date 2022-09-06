@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
 import SwiftOptions
+
+import struct Foundation.Date
+import class Dispatch.DispatchQueue
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version

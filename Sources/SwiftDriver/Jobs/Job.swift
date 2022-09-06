@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+import struct Foundation.Date
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable, Hashable {

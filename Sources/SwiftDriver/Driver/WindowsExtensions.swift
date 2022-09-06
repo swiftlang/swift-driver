@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-
 internal func executableName(_ name: String) -> String {
 #if os(Windows)
   if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ".exe" {

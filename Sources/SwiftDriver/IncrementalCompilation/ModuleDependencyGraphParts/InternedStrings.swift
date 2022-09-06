@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import class Dispatch.DispatchQueue
 
 public protocol InternedStringTableHolder {
   var internedStringTable: InternedStringTable {get}

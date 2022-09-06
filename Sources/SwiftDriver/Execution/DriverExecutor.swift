@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+import struct Foundation.Date
+import struct Foundation.Data
+import class Foundation.JSONDecoder
+import var Foundation.EXIT_SUCCESS
 
 /// A type that is capable of executing compilation jobs on some underlying
 /// build service.

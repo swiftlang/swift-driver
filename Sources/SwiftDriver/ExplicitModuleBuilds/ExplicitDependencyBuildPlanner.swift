@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
+import struct Foundation.Data
+import class Foundation.JSONEncoder
 
 /// A map from a module identifier to a path to its .swiftmodule file.
 /// Deprecated in favour of the below `ExternalTargetModuleDetails`

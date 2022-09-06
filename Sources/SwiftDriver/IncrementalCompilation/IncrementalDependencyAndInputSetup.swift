@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
 import SwiftOptions
+import struct Foundation.Date
+import class Dispatch.DispatchQueue
 
 // Initial incremental state computation
 extension IncrementalCompilationState {

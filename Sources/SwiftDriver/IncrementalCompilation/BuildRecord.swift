@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
 @_implementationOnly import Yams
+import struct Foundation.Date
 
 /// Holds the info about inputs needed to plan incremenal compilation
 /// A.k.a. BuildRecord was the legacy name

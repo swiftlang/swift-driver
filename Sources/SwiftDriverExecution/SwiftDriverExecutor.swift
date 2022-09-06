@@ -12,7 +12,8 @@
 
 import SwiftDriver
 import TSCBasic
-import Foundation
+import struct Foundation.Date
+import class Foundation.FileHandle
 
 public final class SwiftDriverExecutor: DriverExecutor {
   let diagnosticsEngine: DiagnosticsEngine

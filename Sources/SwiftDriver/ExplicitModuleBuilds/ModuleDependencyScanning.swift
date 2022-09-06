@@ -10,9 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 import SwiftOptions
+import struct Foundation.Data
+import class Foundation.JSONEncoder
+import class Foundation.JSONDecoder
+import var Foundation.EXIT_SUCCESS
 
 extension Diagnostic.Message {
   static func warn_scanner_frontend_fallback() -> Diagnostic.Message {

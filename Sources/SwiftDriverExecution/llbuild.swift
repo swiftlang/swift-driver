@@ -13,8 +13,10 @@
 // FIXME: This is slightly modified from the SwiftPM version,
 // consider moving this to llbuild.
 
-import Foundation
 import TSCBasic
+import struct Foundation.Data
+import class Foundation.JSONEncoder
+import class Foundation.JSONDecoder
 
 // We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)

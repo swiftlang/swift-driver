@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import TSCBasic
-import Foundation
 
 @_spi(Testing) import SwiftDriver
+import var Foundation.EXIT_SUCCESS
 
 final class ParsableMessageTests: XCTestCase {
   private func withHijackedBufferedErrorStream(
@@ -251,7 +251,7 @@ final class ParsableMessageTests: XCTestCase {
         try withHijackedBufferedErrorStream(in: path) { errorBuffer in
           let resultSuccess = ProcessResult(arguments: args!,
                                             environment: ProcessEnv.vars,
-                                            exitStatus: ProcessResult.ExitStatus.terminated(code: 0),
+                                            exitStatus: ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS),
                                             output: Result.success([]),
                                             stderrOutput: Result.success([]))
           // Emit the finished messages and examine the output
@@ -326,7 +326,7 @@ final class ParsableMessageTests: XCTestCase {
         // Now hijack the error stream and emit finished messages
         try withHijackedBufferedErrorStream(in: path) { errorBuffer in
 #if os(Windows)
-          let status = ProcessResult.ExitStatus.terminated(code: 0)
+          let status = ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS)
           let kind = "finished"
           let signal = ""
 #else
