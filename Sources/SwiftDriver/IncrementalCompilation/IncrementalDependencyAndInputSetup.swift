@@ -12,7 +12,6 @@
 
 import TSCBasic
 import SwiftOptions
-import struct Foundation.Date
 import class Dispatch.DispatchQueue
 
 // Initial incremental state computation
@@ -121,8 +120,8 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let dependencyDotFilesIncludeExternals: Bool = true
     @_spi(Testing) public let dependencyDotFilesIncludeAPINotes: Bool = false
 
-    @_spi(Testing) public let buildStartTime: Date
-    @_spi(Testing) public let buildEndTime: Date
+    @_spi(Testing) public let buildStartTime: TimePoint
+    @_spi(Testing) public let buildEndTime: TimePoint
 
     // Do not try to reuse a graph from a different compilation, so check
     // the build record.
@@ -249,11 +248,10 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       graphIfPresent = nil
     }
     catch let ModuleDependencyGraph.ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
-                                                                   buildStartTime: buildStartTime,
-                                                                   priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart) {
+                                                                   buildStartTime: buildStartTime) {
       diagnosticEngine.emit(
         warning: "Will not do cross-module incremental builds, priors saved at \(priorsModTime)), " +
-        "but the previous build started at \(buildStartTime) [priorsTimeIntervalSinceStart: \(priorsTimeIntervalSinceStart)], at '\(dependencyGraphPath)'")
+        "but the previous build started at \(buildStartTime), at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
     catch {

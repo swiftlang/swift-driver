@@ -311,8 +311,8 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(main) { $0 <<< "print(hi)" }
       try localFileSystem.writeFileContents(util) { $0 <<< "let hi = \"hi\"" }
 
-      let mainMDate = try localFileSystem.getFileInfo(main).modTime
-      let utilMDate = try localFileSystem.getFileInfo(util).modTime
+      let mainMDate = try localFileSystem.lastModificationTime(for: .absolute(main))
+      let utilMDate = try localFileSystem.lastModificationTime(for: .absolute(util))
       let driver = try Driver(args: [
         "swiftc", main.pathString, utilRelative.pathString,
       ])
@@ -4717,14 +4717,14 @@ final class SwiftDriverTests: XCTestCase {
       struct MockExecutor: DriverExecutor {
         let resolver: ArgsResolver
 
-        func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
+        func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
         func execute(workload: DriverExecutorWorkload,
                      delegate: JobExecutionDelegate,
                      numParallelJobs: Int,
                      forceResponseFiles: Bool,
-                     recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
+                     recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
           fatalError()
         }
         func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {

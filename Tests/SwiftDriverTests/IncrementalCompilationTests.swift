@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import TSCBasic
+import Foundation
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
@@ -1228,10 +1229,12 @@ extension IncrementalCompilationTests {
       return
     }
     let goodModTime = { start, end in
-      start.advanced(by: end.timeIntervalSince(start) / 2.0)
+      start + TimePoint(seconds: (end - start).seconds / 2, nanoseconds: .zero)
     }(buildRecord.buildStartTime, buildRecord.buildEndTime)
-    try setModTime(of: .absolute(priorsPath),
-                   to: goodModTime)
+
+    let ti = (TimeInterval(goodModTime.seconds) - kCFAbsoluteTimeIntervalSince1970) + (1.0e-9 * TimeInterval(goodModTime.nanoseconds))
+    let goodModDate = Date(timeIntervalSinceReferenceDate: ti)
+    try setModTime(of: .absolute(priorsPath), to: goodModDate)
   }
 
   private func verifyNoPriors() {

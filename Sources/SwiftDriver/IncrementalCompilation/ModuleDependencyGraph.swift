@@ -19,7 +19,6 @@ import class TSCUtility.BitstreamWriter
 import protocol TSCUtility.BitstreamVisitor
 import struct TSCUtility.Bitcode
 import struct TSCUtility.Version
-import struct Foundation.Date
 import class Dispatch.DispatchQueue
 import struct Foundation.TimeInterval
 
@@ -492,13 +491,13 @@ extension ModuleDependencyGraph {
     by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
     accessSafetyPrecondition()
-   switch integrand {
-   case .new:
+    switch integrand {
+    case .new:
       return .added
-   case .old where self.currencyCache.isCurrent(integrand.externalDependency.externalDependency):
+    case .old where self.currencyCache.isCurrent(integrand.externalDependency.externalDependency):
       // The most current version is already in the graph
       return nil
-   case .old:
+    case .old:
       return .newer
     }
   }
@@ -561,10 +560,10 @@ extension ModuleDependencyGraph {
   /// it must be scheduled for recompilation. Thus invalidation happens for every dependent input file.
   fileprivate struct ExternalDependencyCurrencyCache {
     private let fileSystem: FileSystem
-    private let buildStartTime: Date
+    private let buildStartTime: TimePoint
     private var currencyCache = [ExternalDependency: Bool]()
 
-    init(_ fileSystem: FileSystem, buildStartTime: Date) {
+    init(_ fileSystem: FileSystem, buildStartTime: TimePoint) {
       self.fileSystem = fileSystem
       self.buildStartTime = buildStartTime
     }
@@ -675,9 +674,8 @@ extension ModuleDependencyGraph {
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
-    case timeTravellingPriors(priorsModTime: Date,
-                              buildStartTime: Date,
-                              priorsTimeIntervalSinceStart: TimeInterval)
+    case timeTravellingPriors(priorsModTime: TimePoint,
+                              buildStartTime: TimePoint)
     
     fileprivate init(forMalformed kind: RecordID) {
       switch kind {
@@ -985,16 +983,13 @@ extension ModuleDependencyGraph {
     at path: VirtualPath,
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) throws {
     let buildStartTime = info.buildStartTime
-    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path)
-    else {
+    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path) else {
       return
     }
-    let priorsTimeIntervalSinceStart = priorsModTime.timeIntervalSince(buildStartTime)
-    // CI seems to emit identical times; I'm not sure why. So compare to -1.
-    guard -1.0 <= priorsTimeIntervalSinceStart else {
+
+    guard priorsModTime >= buildStartTime else {
       throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
-                                           buildStartTime: buildStartTime,
-                                           priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart)
+                                           buildStartTime: buildStartTime)
     }
   }
 }

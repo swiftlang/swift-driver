@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import struct Foundation.Date
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS
@@ -25,7 +24,7 @@ public protocol DriverExecutor {
   @discardableResult
   func execute(job: Job,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> ProcessResult
   
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
@@ -33,7 +32,7 @@ public protocol DriverExecutor {
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: Date]
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws
 
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
@@ -41,7 +40,7 @@ public protocol DriverExecutor {
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: Date]
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws
 
   /// Launch a process with the given command line and report the result.
@@ -86,7 +85,7 @@ extension DriverExecutor {
   func execute<T: Decodable>(job: Job,
                              capturingJSONOutputAs outputType: T.Type,
                              forceResponseFiles: Bool,
-                             recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> T {
+                             recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> T {
     let result = try execute(job: job,
                              forceResponseFiles: forceResponseFiles,
                              recordedInputModificationDates: recordedInputModificationDates)
@@ -111,7 +110,7 @@ extension DriverExecutor {
     delegate: JobExecutionDelegate,
     numParallelJobs: Int,
     forceResponseFiles: Bool,
-    recordedInputModificationDates: [TypedVirtualPath: Date]
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws {
     try execute(
       workload: .all(jobs),

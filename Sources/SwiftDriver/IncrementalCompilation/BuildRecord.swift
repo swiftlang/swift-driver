@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 @_implementationOnly import Yams
-import struct Foundation.Date
 
 /// Holds the info about inputs needed to plan incremenal compilation
 /// A.k.a. BuildRecord was the legacy name
@@ -20,16 +19,16 @@ public struct BuildRecord {
   /// When testing, the argsHash may be missing from the build record
   public let argsHash: String?
   /// Next compile, will compare an input mod time against the start time of the previous build
-  public let buildStartTime: Date
+  public let buildStartTime: TimePoint
   /// Next compile, will compare an output mod time against the end time of the previous build
-  public let buildEndTime: Date
+  public let buildEndTime: TimePoint
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
   public init(argsHash: String?,
               swiftVersion: String,
-              buildStartTime: Date,
-              buildEndTime: Date,
+              buildStartTime: TimePoint,
+              buildEndTime: TimePoint,
               inputInfos: [VirtualPath: InputInfo]) {
     self.argsHash = argsHash
     self.swiftVersion = swiftVersion
@@ -67,8 +66,8 @@ public extension BuildRecord {
     var argsHash: String?
     var swiftVersion: String?
     // Legacy driver does not disable incremental if no buildTime field.
-    var buildStartTime: Date = .distantPast
-    var buildEndTime: Date = .distantFuture
+    var buildStartTime: TimePoint = .distantPast
+    var buildEndTime: TimePoint = .distantFuture
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else {
@@ -138,7 +137,7 @@ public extension BuildRecord {
     _ node: Yams.Node,
     forInputInfo: Bool,
     _ failedToReadOutOfDateMap: (String) -> Void
-  ) -> Date? {
+  ) -> TimePoint? {
     guard let vals = node.sequence else {
       failedToReadOutOfDateMap(
         forInputInfo
@@ -153,7 +152,7 @@ public extension BuildRecord {
       failedToReadOutOfDateMap("could not read time value in build record")
       return nil
     }
-    return Date(legacyDriverSecs: secs, nanos: ns)
+    return TimePoint(seconds: UInt64(secs), nanoseconds: UInt32(ns))
   }
 
   private static func decodeInputInfos(
@@ -197,11 +196,11 @@ extension BuildRecord {
   init(jobs: [Job],
        finishedJobResults: [BuildRecordInfo.JobResult],
        skippedInputs: Set<TypedVirtualPath>?,
-       compilationInputModificationDates: [TypedVirtualPath: Date],
+       compilationInputModificationDates: [TypedVirtualPath: TimePoint],
        actualSwiftVersion: String,
        argsHash: String!,
-       timeBeforeFirstJob: Date,
-       timeAfterLastJob: Date
+       timeBeforeFirstJob: TimePoint,
+       timeAfterLastJob: TimePoint
   ) {
     let jobResultsByInput = Dictionary(uniqueKeysWithValues:
       finishedJobResults.flatMap { entry in
@@ -256,10 +255,9 @@ extension BuildRecord {
     }
   }
 
-  private static func encode(_ date: Date, tag tagString: String? = nil) -> Yams.Node {
-    let secsAndNanos = date.legacyDriverSecsAndNanos
+  private static func encode(_ date: TimePoint, tag tagString: String? = nil) -> Yams.Node {
     return Yams.Node(
-      secsAndNanos.map {Yams.Node(String($0))},
+      [ Yams.Node(String(date.seconds)), Yams.Node(String(date.nanoseconds)) ],
       tagString.map {Yams.Tag(Yams.Tag.Name(rawValue: $0))} ?? .implicit,
       .flow)
   }
