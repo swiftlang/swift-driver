@@ -754,7 +754,24 @@ extension TSCBasic.FileSystem {
       // that regenerate lots of symlinks but do not otherwise alter the
       // contents of files - like Bazel - quite happy.
       let path = resolveSymlinks(path)
-      let interval = try localFileSystem.getFileInfo(path).modTime.timeIntervalSince1970
+      #if os(Windows)
+      // The NT epoch is 1601, so we need to add a correction factor to bridge
+      // between Foundation.Date's insistence on using the Mac epoch time of
+      // 2001 as its reference date.
+      //
+      // This factor is a coarse approximation of the difference between
+      // (Jan 1, 1970 at midnight GMT) and (Jan 1, 1601 at midnight GMT).
+      //
+      // DO NOT RELY ON THIS VALUE
+      //
+      // This whole thing needs to be replaced by APIs that traffic in values
+      // derived from uncorrected Windows clocks.
+      let correction: TimeInterval = 11_644_473_600.0
+      let unixReferenceDate = try localFileSystem.getFileInfo(path).modTime.timeIntervalSince1970
+      let interval: TimeInterval = unixReferenceDate + correction
+      #else
+      let interval: TimeInterval = try localFileSystem.getFileInfo(path).modTime.timeIntervalSince1970
+      #endif
       return TimePoint(seconds: UInt64(interval.rounded(.down)), nanoseconds: 0)
       #endif
     }
