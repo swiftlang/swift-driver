@@ -215,6 +215,35 @@ final class NonincrementalCompilationTests: XCTestCase {
     XCTAssertEqual(sn.nanoseconds, 8000)
   }
 
+  func testZeroDuration() {
+    XCTAssertEqual(TimePoint.zero, TimePoint.seconds(0))
+    XCTAssertEqual(TimePoint.zero, TimePoint.nanoseconds(0))
+  }
+
+  func testDurationSecondsArithmetic() {
+    let x = TimePoint.seconds(1)
+    XCTAssertEqual(TimePoint.zero + x, x)
+    XCTAssertEqual(x + TimePoint.zero, x)
+    XCTAssertEqual(x - TimePoint.zero, x)
+
+    let y = TimePoint.nanoseconds(1)
+    let z = TimePoint.nanoseconds(2_000_000)
+    XCTAssertEqual(x + (y + z), (x + y) + z)
+  }
+
+  func testDurationComparison() {
+    let x = TimePoint.seconds(1)
+    let y = TimePoint.nanoseconds(500)
+
+    XCTAssertEqual(x < y, !(x >= y))
+  }
+
+  func testDurationOverflow() {
+    XCTAssertEqual(TimePoint.nanoseconds(1_000_000_000), TimePoint.seconds(1))
+    XCTAssertEqual(TimePoint.nanoseconds(500_000_000) + TimePoint.nanoseconds(500_000_000), TimePoint.seconds(1))
+    XCTAssertEqual(TimePoint.nanoseconds(1_500_000_000) + TimePoint.nanoseconds(500_000_000), TimePoint.seconds(2))
+  }
+
   func testReadAndWriteBuildRecord() throws {
     let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
     let options = "abbbfbcaf36b93e58efaadd8271ff142"

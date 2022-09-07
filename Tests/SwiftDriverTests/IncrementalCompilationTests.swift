@@ -1232,8 +1232,7 @@ extension IncrementalCompilationTests {
       start + TimePoint(seconds: (end - start).seconds / 2, nanoseconds: .zero)
     }(buildRecord.buildStartTime, buildRecord.buildEndTime)
 
-    let ti = (TimeInterval(goodModTime.seconds) - kCFAbsoluteTimeIntervalSince1970) + (1.0e-9 * TimeInterval(goodModTime.nanoseconds))
-    let goodModDate = Date(timeIntervalSinceReferenceDate: ti)
+    let goodModDate = Date(timeIntervalSinceReferenceDate: TimeInterval(goodModTime.seconds))
     try setModTime(of: .absolute(priorsPath), to: goodModDate)
   }
 
