@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import struct Foundation.Data
-import struct Foundation.Date
 import struct Foundation.TimeInterval
 import class Dispatch.DispatchQueue
 #if canImport(Darwin)
@@ -740,7 +739,7 @@ extension TSCBasic.FileSystem {
   /// - Parameter file: The path to a file.
   /// - Throws: `SystemError` if the underlying `stat` operation fails.
   /// - Returns: A `Date` value containing the last modification time.
-  public func lastModificationTime(for file: VirtualPath) throws -> Date {
+  public func lastModificationTime(for file: VirtualPath) throws -> TimePoint {
     try resolvingVirtualPath(file) { path in
       #if canImport(Darwin)
       var s = Darwin.stat()
@@ -748,8 +747,8 @@ extension TSCBasic.FileSystem {
       guard err == 0 else {
         throw SystemError.stat(errno, path.pathString)
       }
-      let ti = (TimeInterval(s.st_mtimespec.tv_sec) - kCFAbsoluteTimeIntervalSince1970) + (1.0e-9 * TimeInterval(s.st_mtimespec.tv_nsec))
-      return Date(timeIntervalSinceReferenceDate: ti)
+      return TimePoint(seconds: UInt64(s.st_mtimespec.tv_sec),
+                       nanoseconds: UInt32(s.st_mtimespec.tv_nsec))
       #else
       // `getFileInfo` is going to ask Foundation to stat this path, and
       // Foundation is always going to use `lstat` to do so. This is going to
@@ -758,7 +757,8 @@ extension TSCBasic.FileSystem {
       // that regenerate lots of symlinks but do not otherwise alter the
       // contents of files - like Bazel - quite happy.
       let path = resolveSymlinks(path)
-      return try localFileSystem.getFileInfo(path).modTime
+      let interval = try localFileSystem.getFileInfo(path).modTime.timeIntervalSince1970
+      return TimePoint(seconds: UInt64(interval.rounded(.down)), nanoseconds: 0)
       #endif
     }
   }
