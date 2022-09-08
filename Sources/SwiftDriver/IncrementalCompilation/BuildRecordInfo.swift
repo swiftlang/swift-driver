@@ -12,7 +12,6 @@
 
 import TSCBasic
 import SwiftOptions
-import struct Foundation.Date
 import class Dispatch.DispatchQueue
 
 /// Holds information required to read and write the build record (aka
@@ -38,9 +37,9 @@ import class Dispatch.DispatchQueue
   let fileSystem: FileSystem
   let currentArgsHash: String
   @_spi(Testing) public let actualSwiftVersion: String
-  @_spi(Testing) public let timeBeforeFirstJob: Date
+  @_spi(Testing) public let timeBeforeFirstJob: TimePoint
   let diagnosticEngine: DiagnosticsEngine
-  let compilationInputModificationDates: [TypedVirtualPath: Date]
+  let compilationInputModificationDates: [TypedVirtualPath: TimePoint]
 
   private var finishedJobResults = [JobResult]()
   // A confinement queue that protects concurrent access to the
@@ -53,9 +52,9 @@ import class Dispatch.DispatchQueue
     fileSystem: FileSystem,
     currentArgsHash: String,
     actualSwiftVersion: String,
-    timeBeforeFirstJob: Date,
+    timeBeforeFirstJob: TimePoint,
     diagnosticEngine: DiagnosticsEngine,
-    compilationInputModificationDates: [TypedVirtualPath: Date])
+    compilationInputModificationDates: [TypedVirtualPath: TimePoint])
   {
     self.buildRecordPath = buildRecordPath
     self.fileSystem = fileSystem
@@ -77,7 +76,7 @@ import class Dispatch.DispatchQueue
     outputFileMap: OutputFileMap?,
     incremental: Bool,
     parsedOptions: ParsedOptions,
-    recordedInputModificationDates: [TypedVirtualPath: Date]
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) {
     // Cannot write a buildRecord without a path.
     guard let buildRecordPath = Self.computeBuildRecordPath(
@@ -100,7 +99,7 @@ import class Dispatch.DispatchQueue
       fileSystem: fileSystem,
       currentArgsHash: currentArgsHash,
       actualSwiftVersion: actualSwiftVersion,
-      timeBeforeFirstJob: Date(),
+      timeBeforeFirstJob: .now(),
       diagnosticEngine: diagnosticEngine,
       compilationInputModificationDates: compilationInputModificationDates)
    }
@@ -165,7 +164,7 @@ import class Dispatch.DispatchQueue
         actualSwiftVersion: actualSwiftVersion,
         argsHash: currentArgsHash,
         timeBeforeFirstJob: timeBeforeFirstJob,
-        timeAfterLastJob: Date())
+        timeAfterLastJob: .now())
     }
 
     guard let contents = buildRecord.encode(currentArgsHash: currentArgsHash,

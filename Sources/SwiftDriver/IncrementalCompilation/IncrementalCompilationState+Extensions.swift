@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 import TSCBasic
 import SwiftOptions
-import struct Foundation.Date
 import protocol Foundation.LocalizedError
 
 /// In a separate file to ensure that ``IncrementalCompilationState/protectedState``
@@ -50,9 +49,9 @@ extension IncrementalCompilationState {
     /// Compiler options related to incremental builds.
     let incrementalOptions: IncrementalCompilationState.Options
     /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
-    let buildStartTime: Date
+    let buildStartTime: TimePoint
     /// The last time this compilation finished. Used to compare against output file mod dates
-    let buildEndTime: Date
+    let buildEndTime: TimePoint
   }
 }
 
@@ -175,8 +174,7 @@ extension IncrementalCompilationState {
       report(skipping: false, "No outputs")
       return false
     }
-    guard .distantPast < oldestOutputModTime
-    else {
+    guard .distantPast < oldestOutputModTime else {
       report(skipping: false, "Missing output", oldestOutput)
       return false
     }
@@ -189,28 +187,28 @@ extension IncrementalCompilationState {
     return true
   }
 
-  private func findOldestOutputForSkipping(postCompileJob: Job) -> (TypedVirtualPath, Date)? {
-    var oldestOutputAndModTime: (TypedVirtualPath, Date)? = nil
+  private func findOldestOutputForSkipping(postCompileJob: Job) -> (TypedVirtualPath, TimePoint)? {
+    var oldestOutputAndModTime: (TypedVirtualPath, TimePoint)? = nil
     for output in postCompileJob.outputs {
-      guard let outputModTime = modTime(output)
-      else {
-        oldestOutputAndModTime = (output, .distantPast)
-        break
+      guard let outputModTime = try? self.fileSystem.lastModificationTime(for: output.file) else {
+        return (output, .distantPast)
       }
-      oldestOutputAndModTime = oldestOutputAndModTime.map {
-        $0.1 < outputModTime ? $0 : (output, outputModTime)
+
+      if let candidate = oldestOutputAndModTime {
+        oldestOutputAndModTime = candidate.1 < outputModTime ? candidate : (output, outputModTime)
+      } else {
+        oldestOutputAndModTime = (output, outputModTime)
       }
-      ?? (output, outputModTime)
     }
     return oldestOutputAndModTime
   }
-  private func findAnInputOf( postCompileJob: Job, newerThan outputModTime: Date) -> TypedVirtualPath? {
+  private func findAnInputOf( postCompileJob: Job, newerThan outputModTime: TimePoint) -> TypedVirtualPath? {
     postCompileJob.inputs.first { input in
-      outputModTime < (modTime(input) ?? .distantFuture)
+      guard let modTime = try? self.fileSystem.lastModificationTime(for: input.file) else {
+        return false
+      }
+      return outputModTime < modTime
     }
-  }
-  private func modTime(_ path: TypedVirtualPath) -> Date? {
-    try? fileSystem.lastModificationTime(for: path.file)
   }
 }
 

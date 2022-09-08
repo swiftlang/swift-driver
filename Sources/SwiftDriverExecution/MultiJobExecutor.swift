@@ -16,7 +16,6 @@ import SwiftDriver
 
 import class Dispatch.DispatchQueue
 import class Foundation.OperationQueue
-import struct Foundation.Date
 import class Foundation.FileHandle
 import var Foundation.EXIT_SUCCESS
 import var Foundation.EXIT_FAILURE
@@ -79,7 +78,7 @@ public final class MultiJobExecutor {
     let forceResponseFiles: Bool
 
     /// The last time each input file was modified, recorded at the start of the build.
-    public let recordedInputModificationDates: [TypedVirtualPath: Date]
+    public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
 
     /// The diagnostics engine to use when reporting errors.
     let diagnosticsEngine: DiagnosticsEngine
@@ -106,7 +105,7 @@ public final class MultiJobExecutor {
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
-      recordedInputModificationDates: [TypedVirtualPath: Date],
+      recordedInputModificationDates: [TypedVirtualPath: TimePoint],
       diagnosticsEngine: DiagnosticsEngine,
       processType: ProcessProtocol.Type = Process.self,
       inputHandleOverride: FileHandle? = nil
@@ -254,7 +253,7 @@ public final class MultiJobExecutor {
   private let forceResponseFiles: Bool
 
   /// The last time each input file was modified, recorded at the start of the build.
-  private let recordedInputModificationDates: [TypedVirtualPath: Date]
+  private let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
 
   /// The diagnostics engine to use when reporting errors.
   private let diagnosticsEngine: DiagnosticsEngine
@@ -273,7 +272,7 @@ public final class MultiJobExecutor {
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
-    recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:],
     processType: ProcessProtocol.Type = Process.self,
     inputHandleOverride: FileHandle? = nil
   ) {

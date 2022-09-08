@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import struct Foundation.Date
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable, Hashable {
@@ -146,7 +145,7 @@ extension Job {
     }
   }
 
-  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date], fileSystem: FileSystem) throws {
+  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: TimePoint], fileSystem: FileSystem) throws {
     for input in inputs {
       if let recordedModificationTime = recordedInputModificationDates[input],
          try fileSystem.lastModificationTime(for: input.file) != recordedModificationTime {

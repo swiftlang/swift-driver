@@ -12,7 +12,6 @@
 
 import SwiftDriver
 import TSCBasic
-import struct Foundation.Date
 import class Foundation.FileHandle
 
 public final class SwiftDriverExecutor: DriverExecutor {
@@ -35,7 +34,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
   public func execute(job: Job,
                       forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:]) throws -> ProcessResult {
     let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: useResponseFiles)
@@ -68,7 +67,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
                       forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:]
   ) throws {
     let llbuildExecutor = MultiJobExecutor(
       workload: workload,

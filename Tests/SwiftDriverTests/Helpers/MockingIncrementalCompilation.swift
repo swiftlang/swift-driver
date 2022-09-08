@@ -118,7 +118,7 @@ extension BuildRecordInfo {
       fileSystem: localFileSystem,
       currentArgsHash: "",
       actualSwiftVersion: "for-testing",
-      timeBeforeFirstJob: Date(),
+      timeBeforeFirstJob: .now(),
       diagnosticEngine: diagnosticEngine,
       compilationInputModificationDates: [:])
   }

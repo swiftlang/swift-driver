@@ -27,21 +27,21 @@ final class NonincrementalCompilationTests: XCTestCase {
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
 
-    try XCTAssertEqual(buildRecord.buildStartTime,
-                       Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
-    try XCTAssertEqual(buildRecord.buildEndTime,
-                       Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
+    XCTAssertEqual(buildRecord.buildStartTime,
+                   TimePoint(seconds: 1570318779, nanoseconds: 32358000))
+    XCTAssertEqual(buildRecord.buildEndTime,
+                   TimePoint(seconds: 1570318779, nanoseconds: 32358010))
     try XCTAssertEqual(buildRecord.inputInfos,
                        [
                         VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
                           InputInfo(status: .needsCascadingBuild,
-                                    previousModTime: Date(legacyDriverSecsAndNanos: [1570318778, 0])),
+                                    previousModTime: TimePoint(seconds: 1570318778, nanoseconds: 0)),
                         VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"):
                           InputInfo(status: .upToDate,
-                                    previousModTime: Date(legacyDriverSecsAndNanos: [1570083660, 0])),
+                                    previousModTime: TimePoint(seconds: 1570083660, nanoseconds: 0)),
                         VirtualPath(path: "/Volumes/gazorp.swift"):
                           InputInfo(status: .needsNonCascadingBuild,
-                                    previousModTime:  Date(legacyDriverSecsAndNanos: [0, 0]))
+                                    previousModTime: .zero),
                        ])
   }
 
@@ -54,21 +54,21 @@ final class NonincrementalCompilationTests: XCTestCase {
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, nil)
 
-    try XCTAssertEqual(buildRecord.buildStartTime,
-                       Date(legacyDriverSecsAndNanos: [1570318779, 32358000]))
-    try XCTAssertEqual(buildRecord.buildEndTime,
-                       Date(legacyDriverSecsAndNanos: [1570318779, 32358010]))
+    XCTAssertEqual(buildRecord.buildStartTime,
+                   TimePoint(seconds: 1570318779, nanoseconds: 32358000))
+    XCTAssertEqual(buildRecord.buildEndTime,
+                   TimePoint(seconds: 1570318779, nanoseconds: 32358010))
     try XCTAssertEqual(buildRecord.inputInfos,
                        [
                         VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
                           InputInfo(status: .needsCascadingBuild,
-                                    previousModTime: Date(legacyDriverSecsAndNanos: [1570318778, 0])),
+                                    previousModTime: TimePoint(seconds: 1570318778, nanoseconds: 0)),
                         VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"):
                           InputInfo(status: .upToDate,
-                                    previousModTime: Date(legacyDriverSecsAndNanos: [1570083660, 0])),
+                                    previousModTime: TimePoint(seconds: 1570083660, nanoseconds: 0)),
                         VirtualPath(path: "/Volumes/gazorp.swift"):
                           InputInfo(status: .needsNonCascadingBuild,
-                                    previousModTime:  Date(legacyDriverSecsAndNanos: [0, 0]))
+                                    previousModTime: .zero)
                        ])
   }
 
@@ -210,10 +210,40 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testDateConversion() {
-    let sn =  [0, 8000]
-    let d = try! Date(legacyDriverSecsAndNanos: sn)
-    XCTAssert(isCloseEnough(d.legacyDriverSecsAndNanos, sn))
+    let sn = TimePoint(seconds: 0, nanoseconds: 8000)
+    XCTAssertEqual(sn.seconds, 0)
+    XCTAssertEqual(sn.nanoseconds, 8000)
   }
+
+  func testZeroDuration() {
+    XCTAssertEqual(TimePoint.zero, TimePoint.seconds(0))
+    XCTAssertEqual(TimePoint.zero, TimePoint.nanoseconds(0))
+  }
+
+  func testDurationSecondsArithmetic() {
+    let x = TimePoint.seconds(1)
+    XCTAssertEqual(TimePoint.zero + x, x)
+    XCTAssertEqual(x + TimePoint.zero, x)
+    XCTAssertEqual(x - TimePoint.zero, x)
+
+    let y = TimePoint.nanoseconds(1)
+    let z = TimePoint.nanoseconds(2_000_000)
+    XCTAssertEqual(x + (y + z), (x + y) + z)
+  }
+
+  func testDurationComparison() {
+    let x = TimePoint.seconds(1)
+    let y = TimePoint.nanoseconds(500)
+
+    XCTAssertEqual(x < y, !(x >= y))
+  }
+
+  func testDurationOverflow() {
+    XCTAssertEqual(TimePoint.nanoseconds(1_000_000_000), TimePoint.seconds(1))
+    XCTAssertEqual(TimePoint.nanoseconds(500_000_000) + TimePoint.nanoseconds(500_000_000), TimePoint.seconds(1))
+    XCTAssertEqual(TimePoint.nanoseconds(1_500_000_000) + TimePoint.nanoseconds(500_000_000), TimePoint.seconds(2))
+  }
+
   func testReadAndWriteBuildRecord() throws {
     let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
     let options = "abbbfbcaf36b93e58efaadd8271ff142"
@@ -236,27 +266,23 @@ final class NonincrementalCompilationTests: XCTestCase {
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)
-    XCTAssert(isCloseEnough(buildRecord.buildStartTime.legacyDriverSecsAndNanos,
-                            [1570318779, 32357931]))
-    XCTAssert(isCloseEnough(buildRecord.buildEndTime.legacyDriverSecsAndNanos,
-                            [1580318779, 33357941]))
+    XCTAssertEqual(buildRecord.buildStartTime,
+                   TimePoint(seconds: 1570318779, nanoseconds: 32357931))
+    XCTAssertEqual(buildRecord.buildEndTime,
+                   TimePoint(seconds: 1580318779, nanoseconds: 33357858))
 
-    XCTAssertEqual(try! buildRecord.inputInfos[VirtualPath(path: file2.pathString)]!.status,
+    XCTAssertEqual(try buildRecord.inputInfos[VirtualPath(path: file2.pathString)]!.status,
                    .needsCascadingBuild)
-    XCTAssert(try! isCloseEnough(
-                XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: file2.pathString)])
-                  .previousModTime.legacyDriverSecsAndNanos,
-                [1570318778, 0]))
-    XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp.pathString)]).status,
+    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: file2.pathString)]).previousModTime,
+                   TimePoint(seconds: 1570318778, nanoseconds: 0))
+    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp.pathString)]).status,
                    .needsNonCascadingBuild)
-    XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp.pathString)])
-                    .previousModTime.legacyDriverSecsAndNanos,
-                   [0, 0])
-    XCTAssertEqual(try! XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)]).status,
+    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp.pathString)]).previousModTime,
+                   .zero)
+    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)]).status,
                    .upToDate)
-    XCTAssert(try! isCloseEnough(XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)])
-                                   .previousModTime.legacyDriverSecsAndNanos,
-                                 [1570083660, 0]))
+    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)]).previousModTime,
+                   TimePoint(seconds: 1570083660, nanoseconds: 0))
 
     let outputString = try XCTUnwrap (buildRecord.encode(currentArgsHash: options,
                                                          diagnosticEngine: DiagnosticsEngine()))

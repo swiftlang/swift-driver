@@ -12,7 +12,6 @@
 import TSCBasic
 import SwiftOptions
 
-import struct Foundation.Date
 import class Dispatch.DispatchQueue
 
 import enum TSCUtility.Diagnostics
@@ -179,7 +178,7 @@ public struct Driver {
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 
   /// The last time each input file was modified, recorded at the start of the build.
-  @_spi(Testing) public let recordedInputModificationDates: [TypedVirtualPath: Date]
+  @_spi(Testing) public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
 
   /// The mapping from input files to output files for each kind.
   let outputFileMap: OutputFileMap?

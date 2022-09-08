@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import struct Foundation.Date
 import class Dispatch.DispatchQueue
 
 extension IncrementalCompilationState {
@@ -257,21 +256,13 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> [ChangedInput] {
     jobsInPhases.compileGroups.compactMap { group in
       let input = group.primaryInput
-      let modDate = buildRecordInfo.compilationInputModificationDates[input]
-        ?? Date.distantFuture
+      let modDate = buildRecordInfo.compilationInputModificationDates[input] ?? .distantFuture
       let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
       let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
       let previousModTime = inputInfo?.previousModTime
 
-      // Because legacy driver reads/writes dates wrt 1970,
-      // and because converting time intervals to/from Dates from 1970
-      // exceeds Double precision, must not compare dates directly
-      var datesMatch: Bool {
-        modDate.timeIntervalSince1970 == previousModTime?.timeIntervalSince1970
-      }
-
       switch previousCompilationStatus {
-      case .upToDate where datesMatch:
+      case .upToDate where modDate == previousModTime:
         reporter?.report("May skip current input:", input)
         return nil
 
@@ -286,7 +277,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       }
       return ChangedInput(typedFile: input,
                           status: previousCompilationStatus,
-                          datesMatch: datesMatch)
+                          datesMatch: modDate == previousModTime)
     }
   }
 
