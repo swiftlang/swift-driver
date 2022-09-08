@@ -1167,6 +1167,69 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testDependencyGraphDotSerialization() throws {
+      let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try Driver.getScanLibPath(of: toolchain,
+                                                  hostTriple: hostTriple,
+                                                  env: ProcessEnv.vars)
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      // Create a simple test case.
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main) {
+          $0 <<< "import C;"
+          $0 <<< "import E;"
+          $0 <<< "import G;"
+        }
+
+        let cHeadersPath: AbsolutePath =
+            testInputsPath.appending(component: "ExplicitModuleBuilds")
+                          .appending(component: "CHeaders")
+        let swiftModuleInterfacesPath: AbsolutePath =
+            testInputsPath.appending(component: "ExplicitModuleBuilds")
+                          .appending(component: "Swift")
+        let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+        var driver = try Driver(args: ["swiftc",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-import-objc-header",
+                                       "-explicit-module-build",
+                                       "-working-directory", path.nativePathString(escaped: true),
+                                       "-disable-clang-target",
+                                       main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                env: ProcessEnv.vars)
+        let resolver = try ArgsResolver(fileSystem: localFileSystem)
+        var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+        if scannerCommand.first == "-frontend" {
+          scannerCommand.removeFirst()
+        }
+        let dependencyGraph =
+          try dependencyOracle.getDependencies(workingDirectory: path,
+                                                commandLine: scannerCommand)
+        let serializer = DOTModuleDependencyGraphSerializer(dependencyGraph)
+        
+        let outputFile = path.appending(component: "dependency_graph.dot")
+        var outputStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(outputFile))
+        serializer.writeDOT(to: &outputStream)
+        outputStream.flush()
+        let contents = try localFileSystem.readFileContents(outputFile).description
+        XCTAssertTrue(contents.contains("\"testDependencyScanning\" [shape=box, style=bold, color=navy"))
+        XCTAssertTrue(contents.contains("\"G\" [style=bold, color=orange"))
+        XCTAssertTrue(contents.contains("\"E\" [style=bold, color=orange, style=filled"))
+        XCTAssertTrue(contents.contains("\"C (C)\" [style=bold, color=lightskyblue, style=filled"))
+        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled"))
+        XCTAssertTrue(contents.contains("\"SwiftShims (C)\" [style=bold, color=lightskyblue, style=filled"))
+        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];"))
+      }
+  }
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanReuseCache() throws {
