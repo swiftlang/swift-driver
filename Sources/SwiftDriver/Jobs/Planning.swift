@@ -10,9 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
 import class Foundation.JSONDecoder
+
+import TSCBasic // <<<
+import protocol TSCBasic.DiagnosticData
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import var TSCBasic.localFileSystem
+import var TSCBasic.stdoutStream
 
 public enum PlanningError: Error, DiagnosticData {
   case replReceivedInput

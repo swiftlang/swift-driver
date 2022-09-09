@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
 #if canImport(Darwin)
 import Darwin.C
@@ -21,6 +20,13 @@ import Glibc
 #else
 #error("Missing libc or equivalent")
 #endif
+
+import TSCBasic // <<<
+import class TSCBasic.DiagnosticsEngine
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.ProcessResult
+import var TSCBasic.stderrStream
+import var TSCBasic.stdoutStream
 
 /// Delegate for printing execution information on the command-line.
 @_spi(Testing) public final class ToolExecutionDelegate: JobExecutionDelegate {

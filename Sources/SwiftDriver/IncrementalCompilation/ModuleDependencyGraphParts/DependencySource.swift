@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import class TSCBasic.DiagnosticsEngine
 
 // MARK: - DependencySource
 /// Points to the source of dependencies, i.e. the file read to obtain the information.

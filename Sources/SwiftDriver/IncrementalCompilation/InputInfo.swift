@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import struct TSCBasic.ProcessResult
 
 /// Contains information about the current status of an input to the incremental
 /// build.

@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import protocol TSCBasic.DiagnosticData
 
 public enum OptionParseError : Error, Equatable, DiagnosticData {
   case unknownOption(index: Int, argument: String)

@@ -9,8 +9,12 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import func TSCBasic.lookupExecutablePath
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 
 extension WebAssemblyToolchain {
   public func addPlatformSpecificLinkerArgs(

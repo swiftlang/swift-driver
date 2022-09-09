@@ -10,10 +10,14 @@
 //
 //===----------------------------------------------------------------------===////
 
-import TSCBasic
 import SwiftOptions
 import struct Foundation.Data
 import class Foundation.JSONDecoder
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
 
 /// Describes information about the compiler's supported arguments and features
 @_spi(Testing) public struct SupportedCompilerFeatures: Codable {

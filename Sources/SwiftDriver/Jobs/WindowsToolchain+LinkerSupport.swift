@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
+
+import func TSCBasic.lookupExecutablePath
+import struct TSCBasic.AbsolutePath
 
 private func architecture(for triple: Triple) -> String {
   // The concept of a "major" arch name only applies to Linux triples

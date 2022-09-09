@@ -9,8 +9,11 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
+import class TSCBasic.LocalFileOutputByteStream
+import class TSCBasic.TerminalController
+import struct TSCBasic.RelativePath
+import var TSCBasic.stderrStream
 import enum TSCUtility.Diagnostics
 
 /// Whether we should produce color diagnostics by default.

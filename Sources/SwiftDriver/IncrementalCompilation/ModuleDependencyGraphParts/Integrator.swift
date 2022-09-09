@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 extension ModuleDependencyGraph {
 
   // MARK: Integrator - state & creation

@@ -9,7 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import struct TSCBasic.SHA256
+import struct TSCBasic.AbsolutePath
+
 import struct Foundation.Data
 import class Foundation.JSONEncoder
 

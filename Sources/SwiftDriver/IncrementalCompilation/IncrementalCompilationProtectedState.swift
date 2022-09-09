@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
-import TSCBasic
 import SwiftOptions
 
+import protocol TSCBasic.FileSystem
 import struct TSCUtility.Version
 
 extension IncrementalCompilationState {

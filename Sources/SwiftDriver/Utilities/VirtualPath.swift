@@ -9,7 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import struct Foundation.Data
 import struct Foundation.TimeInterval
 import class Dispatch.DispatchQueue
@@ -17,6 +17,16 @@ import class Dispatch.DispatchQueue
 #if canImport(Darwin)
 import Darwin
 #endif
+
+import enum TSCBasic.SystemError
+import func TSCBasic.resolveSymlinks
+import protocol TSCBasic.FileSystem
+import protocol TSCBasic.WritableByteStream
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.FileInfo
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
 
 /// A virtual path.
 public enum VirtualPath: Hashable {

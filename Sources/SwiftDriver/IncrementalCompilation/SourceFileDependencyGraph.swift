@@ -9,8 +9,9 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.ByteString
 import class TSCUtility.BitstreamWriter
 import enum TSCUtility.BitcodeElement
 import enum TSCUtility.Bitstream

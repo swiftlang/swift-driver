@@ -10,10 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import struct Foundation.Data
 import class Foundation.JSONEncoder
 import class Foundation.JSONDecoder
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.RelativePath
 
 /// Mapping of input file paths to specific output files.
 public struct OutputFileMap: Hashable, Codable {

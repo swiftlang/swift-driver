@@ -10,7 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.SHA256
+
 import SwiftOptions
 import class Dispatch.DispatchQueue
 

@@ -9,11 +9,23 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 import SwiftOptions
 
 import class Dispatch.DispatchQueue
 
+import TSCBasic // <<<
+import class TSCBasic.DiagnosticsEngine
+import enum TSCBasic.ProcessEnv
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import protocol TSCBasic.OutputByteStream
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.FileInfo
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
+import var TSCBasic.stderrStream
+import var TSCBasic.stdoutStream
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 

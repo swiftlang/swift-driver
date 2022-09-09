@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import struct TSCBasic.RelativePath
 
 extension Driver {
   mutating func mergeModuleJob(inputs providedInputs: [TypedVirtualPath],

@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
+
 import class Foundation.FileHandle
 import struct Foundation.Data
 

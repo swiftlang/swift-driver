@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import struct TSCBasic.RelativePath
 
 // On ELF/WASM platforms there's no built in autolinking mechanism, so we
 // pull the info we need from the .o files directly and pass them as an

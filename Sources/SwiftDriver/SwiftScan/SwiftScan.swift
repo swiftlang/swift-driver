@@ -11,10 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import CSwiftScan
-import TSCBasic
-import struct TSCUtility.Version
+
 import func Foundation.strdup
 import func Foundation.free
+
+import protocol TSCBasic.DiagnosticData
+import struct TSCBasic.AbsolutePath
+import struct TSCUtility.Version
 
 public enum DependencyScanningError: Error, DiagnosticData {
   case missingRequiredSymbol(String)

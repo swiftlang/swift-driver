@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.AbsolutePath
 
 /// Utilities for manipulating a list of command line arguments, including
 /// constructing one from a set of ParsedOptions.

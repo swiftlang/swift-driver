@@ -10,9 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
 import class Dispatch.DispatchQueue
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
 
 // Initial incremental state computation
 extension IncrementalCompilationState {
