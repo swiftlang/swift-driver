@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import struct TSCBasic.ProcessResult
+
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS

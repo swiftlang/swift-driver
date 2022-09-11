@@ -18,7 +18,6 @@ import Darwin
 #else
 import Glibc
 #endif
-import TSCBasic
 
 import Dispatch
 
@@ -26,6 +25,13 @@ import Dispatch
 import WinSDK
 #endif
 
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.Process
+import class TSCBasic.ProcessSet
+import protocol TSCBasic.DiagnosticData
+import var TSCBasic.localFileSystem
 import enum TSCUtility.Diagnostics
 
 let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)

@@ -11,8 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftDriver
-import TSCBasic
 import class Foundation.FileHandle
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.Process
+import class TSCBasic.ProcessSet
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.ProcessResult
 
 public final class SwiftDriverExecutor: DriverExecutor {
   let diagnosticsEngine: DiagnosticsEngine

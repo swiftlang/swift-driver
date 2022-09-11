@@ -9,9 +9,14 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
 import protocol Foundation.LocalizedError
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.ProcessResult
 
 /// In a separate file to ensure that ``IncrementalCompilationState/protectedState``
 /// can only be accessed via ``IncrementalCompilationState/blockingConcurrentMutation(_:)`` and

@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.RelativePath
 
 extension Driver {
   /// Add the appropriate compile mode option to the command line for a compile job.

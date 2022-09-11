@@ -9,10 +9,19 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 import SwiftOptions
 import class Foundation.JSONEncoder
 import class Foundation.JSONSerialization
+
+import TSCBasic // <<<
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.WritableByteStream
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
+import var TSCBasic.stderrStream
 
 func getModuleFlags(_ path: VirtualPath, _ ignorable: Bool) throws -> [String] {
   let data = try localFileSystem.readFileContents(path).cString

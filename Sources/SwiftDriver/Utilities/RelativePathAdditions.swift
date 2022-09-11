@@ -9,7 +9,9 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.RelativePath
 
 extension RelativePath {
   /// Retrieve the basename of the relative path without any extensions,

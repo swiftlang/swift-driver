@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import func TSCBasic.determineTempDirectory
 
 /// A map from a module identifier to a set of module dependency graphs
 /// Used to compute distinct graphs corresponding to different target versions for a given clang module

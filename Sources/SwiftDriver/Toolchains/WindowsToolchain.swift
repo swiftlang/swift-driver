@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
 
 extension WindowsToolchain {
   public enum ToolchainValidationError: Error, DiagnosticData {

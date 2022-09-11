@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
 
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.ByteString
 import enum TSCUtility.BitcodeElement
 import enum TSCUtility.Bitstream
 import class TSCUtility.BitstreamWriter

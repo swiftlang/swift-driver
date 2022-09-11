@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import func TSCBasic.topologicalSort
 
 @_spi(Testing) public extension InterModuleDependencyGraph {
   /// For targets that are built alongside the driver's current module, the scanning action will report them as

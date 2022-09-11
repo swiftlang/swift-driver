@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-import enum TSCUtility.Diagnostics
 import SwiftDriver
 
 import class Dispatch.DispatchQueue
@@ -20,6 +18,15 @@ import class Foundation.FileHandle
 import var Foundation.EXIT_SUCCESS
 import var Foundation.EXIT_FAILURE
 import var Foundation.SIGINT
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.Process
+import class TSCBasic.ProcessSet
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.ProcessResult
+import enum TSCUtility.Diagnostics
 
 // We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)

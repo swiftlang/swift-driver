@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 /// Because the incremental compilation system treats files containing Swift source code specially,
 /// it is helpful to statically distinguish them wherever an input must be swift source code.
 public struct SwiftSourceFile: Hashable {

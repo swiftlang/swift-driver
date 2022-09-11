@@ -10,8 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 import SwiftOptions
-import TSCBasic
 import ArgumentParser
+
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
+import class TSCBasic.Process
+import var TSCBasic.localFileSystem
 
 enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
   case driver(DriverKind)

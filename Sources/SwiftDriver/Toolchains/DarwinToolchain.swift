@@ -9,13 +9,20 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
 
-import struct TSCUtility.Version
 import struct Foundation.Data
 import class Foundation.JSONEncoder
 import class Foundation.JSONDecoder
+
+import protocol TSCBasic.FileSystem
+import protocol TSCBasic.DiagnosticData
+import class TSCBasic.DiagnosticsEngine
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import var TSCBasic.localFileSystem
+import struct TSCUtility.Version
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///

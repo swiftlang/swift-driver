@@ -9,7 +9,11 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import class TSCBasic.DiagnosticsEngine
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+
 @_implementationOnly import Yams
 
 /// Holds the info about inputs needed to plan incremenal compilation

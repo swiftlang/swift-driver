@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+
 import Dispatch
 
 // An inter-module dependency oracle, responsible for responding to queries about

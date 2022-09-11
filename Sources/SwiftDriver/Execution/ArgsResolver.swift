@@ -11,7 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.NSLock
-import TSCBasic
+
+import TSCBasic // <<<
+import func TSCBasic.withTemporaryDirectory
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+
 @_implementationOnly import Yams
 
 /// How the resolver is to handle usage of response files

@@ -18,7 +18,15 @@ import Darwin
 #else
 import Glibc
 #endif
-import TSCBasic
+
+import TSCBasic // <<<
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.ProcessSet
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.withTemporaryFile
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
+import var TSCBasic.stderrStream
 
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 

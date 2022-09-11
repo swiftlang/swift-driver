@@ -10,7 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import TSCBasic // <<<
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import var TSCBasic.localFileSystem
+import var TSCBasic.stdoutStream
+
 import SwiftOptions
 import struct Foundation.Data
 import class Foundation.JSONEncoder

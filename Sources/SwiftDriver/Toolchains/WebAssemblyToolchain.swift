@@ -9,8 +9,13 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import var TSCBasic.localFileSystem
 
 /// Toolchain for WebAssembly-based systems.
 public final class WebAssemblyToolchain: Toolchain {

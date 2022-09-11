@@ -10,9 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
 import class Foundation.Bundle
+
+import func TSCBasic.getEnvSearchPaths
+import func TSCBasic.lookupExecutablePath
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 
 public enum Tool: Hashable {
   case swiftCompiler

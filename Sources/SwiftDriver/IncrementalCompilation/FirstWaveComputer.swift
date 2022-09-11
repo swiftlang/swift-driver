@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import protocol TSCBasic.FileSystem
+
 import class Dispatch.DispatchQueue
 
 extension IncrementalCompilationState {

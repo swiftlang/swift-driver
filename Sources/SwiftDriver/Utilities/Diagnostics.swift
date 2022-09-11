@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.Diagnostic
 
 extension Diagnostic.Message {
   static var error_static_emit_executable_disallowed: Diagnostic.Message {
