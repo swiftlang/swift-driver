@@ -97,6 +97,9 @@ add_library(SwiftDriver
   Toolchains/WebAssemblyToolchain.swift
   Toolchains/WindowsToolchain.swift
 
+  ToolingInterface/SimpleExecutor.swift
+  ToolingInterface/ToolingUtil.swift
+
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DOTModuleDependencyGraphSerializer.swift
   Utilities/DateAdditions.swift

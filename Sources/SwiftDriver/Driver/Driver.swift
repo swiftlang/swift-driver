@@ -1247,7 +1247,7 @@ extension Driver {
   }
 
   /// Expand response files in the input arguments and return a new argument list.
-  @_spi(Testing) public static func expandResponseFiles(
+  public static func expandResponseFiles(
     _ args: [String],
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine
