@@ -27,6 +27,18 @@ extension Diagnostic.Message {
   static func warn_scanner_frontend_fallback() -> Diagnostic.Message {
     .warning("Fallback to `swift-frontend` dependency scanner invocation")
   }
+  static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
+    .error("Dependency scanning failure: \(message)")
+  }
+  static func scanner_diagnostic_warn(_ message: String) -> Diagnostic.Message {
+    .warning(message)
+  }
+  static func scanner_diagnostic_note(_ message: String) -> Diagnostic.Message {
+    .note(message)
+  }
+  static func scanner_diagnostic_remark(_ message: String) -> Diagnostic.Message {
+    .remark(message)
+  }
 }
 
 public extension Driver {
@@ -177,6 +189,23 @@ public extension Driver {
         try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
                                                         moduleAliases: moduleOutputInfo.aliases,
                                                         commandLine: command)
+      let possibleDiags = try interModuleDependencyOracle.getScannerDiagnostics()
+      if let diags = possibleDiags {
+        for diagnostic in diags {
+          switch diagnostic.severity {
+          case .error:
+            diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+          case .warning:
+            diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message))
+          case .note:
+            diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message))
+          case .remark:
+            diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message))
+          case .ignored:
+            diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+          }
+        }
+      }
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`

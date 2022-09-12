@@ -57,6 +57,28 @@ public enum DependencyScanningError: Error, DiagnosticData {
   }
 }
 
+@_spi(Testing) public struct ScannerDiagnosticPayload {
+  @_spi(Testing) public let severity: Diagnostic.Behavior
+  @_spi(Testing) public let message: String
+}
+
+internal extension swiftscan_diagnostic_severity_t {
+  func toDiagnosticBehavior() -> Diagnostic.Behavior {
+    switch self {
+    case SWIFTSCAN_DIAGNOSTIC_SEVERITY_ERROR:
+      return Diagnostic.Behavior.error
+    case SWIFTSCAN_DIAGNOSTIC_SEVERITY_WARNING:
+      return Diagnostic.Behavior.warning
+    case SWIFTSCAN_DIAGNOSTIC_SEVERITY_NOTE:
+      return Diagnostic.Behavior.note
+    case SWIFTSCAN_DIAGNOSTIC_SEVERITY_REMARK:
+      return Diagnostic.Behavior.remark
+    default:
+      return Diagnostic.Behavior.error
+    }
+  }
+}
+
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
 internal final class SwiftScan {
   /// The path to the libSwiftScan dylib.
@@ -235,6 +257,41 @@ internal final class SwiftScan {
   func resetScannerCache() {
     api.swiftscan_scanner_cache_reset(scanner)
   }
+  
+  @_spi(Testing) public func supportsScannerDiagnostics() -> Bool {
+    return api.swiftscan_scanner_diagnostics_query != nil &&
+           api.swiftscan_scanner_diagnostics_reset != nil &&
+           api.swiftscan_diagnostic_get_message != nil &&
+           api.swiftscan_diagnostic_get_severity != nil &&
+           api.swiftscan_diagnostics_set_dispose != nil
+  }
+  
+  @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
+    var result: [ScannerDiagnosticPayload] = []
+    let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
+    guard let diagnosticSetRef = diagnosticSetRefOrNull else {
+      // Seems heavy-handed to fail here
+      // throw DependencyScanningError.dependencyScanFailed
+      return []
+    }
+    defer { api.swiftscan_diagnostics_set_dispose(diagnosticSetRef) }
+    let diagnosticRefArray = Array(UnsafeBufferPointer(start: diagnosticSetRef.pointee.diagnostics,
+                                                       count: Int(diagnosticSetRef.pointee.count)))
+    
+    for diagnosticRefOrNull in diagnosticRefArray {
+      guard let diagnosticRef = diagnosticRefOrNull else {
+        throw DependencyScanningError.dependencyScanFailed
+      }
+      let message = try toSwiftString(api.swiftscan_diagnostic_get_message(diagnosticRef))
+      let severity = api.swiftscan_diagnostic_get_severity(diagnosticRef)
+      result.append(ScannerDiagnosticPayload(severity: severity.toDiagnosticBehavior(), message: message))
+    }
+    return result
+  }
+  
+  @_spi(Testing) public func resetScannerDiagnostics() throws {
+    api.swiftscan_scanner_diagnostics_reset(scanner)
+  }
 
   @_spi(Testing) public func canQuerySupportedArguments() -> Bool {
     return api.swiftscan_compiler_supported_arguments_query != nil &&
@@ -300,6 +357,18 @@ private extension swiftscan_functions_t {
     // Clang dependency captured PCM args
     self.swiftscan_clang_detail_get_captured_pcm_args =
       try loadOptional("swiftscan_clang_detail_get_captured_pcm_args")
+    
+    // Scanner diagnostic emission query
+    self.swiftscan_scanner_diagnostics_query =
+      try loadOptional("swiftscan_scanner_diagnostics_query")
+    self.swiftscan_scanner_diagnostics_reset =
+      try loadOptional("swiftscan_scanner_diagnostics_reset")
+    self.swiftscan_diagnostic_get_message =
+      try loadOptional("swiftscan_diagnostic_get_message")
+    self.swiftscan_diagnostic_get_severity =
+      try loadOptional("swiftscan_diagnostic_get_severity")
+    self.swiftscan_diagnostics_set_dispose =
+      try loadOptional("swiftscan_diagnostics_set_dispose")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
