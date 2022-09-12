@@ -118,25 +118,6 @@ public class InterModuleDependencyOracle {
       swiftScan.resetScannerCache()
     }
   }
-  
-  @_spi(Testing) public func supportsScannerDiagnostics() throws -> Bool {
-    guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to reset scanner cache with no scanner instance.")
-    }
-    return swiftScan.supportsScannerDiagnostics()
-  }
-  
-  @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
-    guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to reset scanner cache with no scanner instance.")
-    }
-    guard swiftScan.supportsScannerDiagnostics() else {
-      return nil
-    }
-    let diags = try swiftScan.queryScannerDiagnostics()
-    try swiftScan.resetScannerDiagnostics()
-    return diags.isEmpty ? nil : diags
-  }
 
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
 

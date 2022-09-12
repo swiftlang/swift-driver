@@ -1,4 +1,0 @@
-// swift-interface-format-version: 1.0
-// swift-module-flags: -module-name I
-import unknown_module
-public func funcI() { }
