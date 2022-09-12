@@ -217,7 +217,6 @@ extension Option {
   public static let dumpApiPath: Option = Option("-dump-api-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The path to output swift interface files for the compiled source files")
   public static let dumpAst: Option = Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)", group: .modes)
   public static let dumpClangDiagnostics: Option = Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr")
-  public static let dumpInterModuleDependencyGraph: Option = Option("-dump-inter-module-dependency-graph=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Emit the inter-module dependency graph of this target to output")
   public static let dumpInterfaceHash: Option = Option("-dump-interface-hash", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and dump interface token hash(es)", group: .modes)
   public static let dumpJit: Option = Option("-dump-jit", .joinedOrSeparate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump JIT contents")
   public static let dumpMigrationStatesDir: Option = Option("-dump-migration-states-dir", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Dump the input text, output text, and states for migration to <path>")
@@ -390,6 +389,7 @@ extension Option {
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
   public static let experimentalSpiOnlyImports: Option = Option("-experimental-spi-only-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable use of @_spiOnly imports")
+  public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
   public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let explicitSwiftModuleMap: Option = Option("-explicit-swift-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of explicit Swift modules")
@@ -549,7 +549,7 @@ extension Option {
   public static let printAst: Option = Option("-print-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and pretty print AST(s)", group: .modes)
   public static let printClangStats: Option = Option("-print-clang-stats", .flag, attributes: [.frontend, .noDriver], helpText: "Print Clang importer statistics")
   public static let printEducationalNotes: Option = Option("-print-educational-notes", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Include educational notes in printed diagnostic output, if available")
-  public static let printExplicitDependencyGraph: Option = Option("-print-explicit-dependency-graph", .flag, attributes: [.helpHidden], helpText: "Print the result of module dependency scanning after external module resolution to output")
+  public static let printExplicitDependencyGraph: Option = Option("-print-explicit-dependency-graph", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Print the result of module dependency scanning after external module resolution to output")
   public static let printInstCounts: Option = Option("-print-inst-counts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Before IRGen, count all the various SIL instructions. Must be used in conjunction with -print-stats.")
   public static let printLlvmInlineTree: Option = Option("-print-llvm-inline-tree", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print the LLVM inline tree.")
   public static let printModule: Option = Option("-print-module", .flag, attributes: [.noDriver], helpText: "Print module names in diagnostics")
@@ -933,7 +933,6 @@ extension Option {
       Option.dumpApiPath,
       Option.dumpAst,
       Option.dumpClangDiagnostics,
-      Option.dumpInterModuleDependencyGraph,
       Option.dumpInterfaceHash,
       Option.dumpJit,
       Option.dumpMigrationStatesDir,
@@ -1106,6 +1105,7 @@ extension Option {
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.experimentalSpiImports,
       Option.experimentalSpiOnlyImports,
+      Option.explicitDependencyGraphFormat,
       Option.explicitInterfaceModuleBuild,
       Option.driverExplicitModuleBuild,
       Option.explicitSwiftModuleMap,
