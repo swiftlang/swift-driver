@@ -1076,8 +1076,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       return
     }
     guard try dependencyOracle.supportsScannerDiagnostics() else {
-      XCTSkip("libSwiftScan does not support diagnostics query.")
-      return
+      throw XCTSkip("libSwiftScan does not support diagnostics query.")
     }
     
     try withTemporaryDirectory { path in
@@ -1237,6 +1236,98 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertTrue(dependencyGraph.modules.count ==
                       adjustedExpectedNumberOfDependencies)
       }
+    }
+  }
+
+  func testPrintingExplicitDependencyGraph() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrintingExplicitDependencyGraph.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+      let cHeadersPath: AbsolutePath = testInputsPath.appending(component: "ExplicitModuleBuilds").appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath = testInputsPath.appending(component: "ExplicitModuleBuilds").appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      let baseCommandLine = ["swiftc",
+                             "-target", "x86_64-apple-macosx11.0",
+                             "-I", cHeadersPath.nativePathString(escaped: true),
+                             "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                             main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      do {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-print-explicit-dependency-graph"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertTrue(diagnosticEngine.hasErrors)
+        XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
+                       "'-print-explicit-dependency-graph' cannot be specified if '-explicit-module-build' is not present")
+      }
+      do {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-explicit-dependency-graph-format=json"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertTrue(diagnosticEngine.hasErrors)
+        XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
+                       "'-explicit-dependency-graph-format=' cannot be specified if '-print-explicit-dependency-graph' is not present")
+      }
+      do {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=watercolor"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertTrue(diagnosticEngine.hasErrors)
+        XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
+                       "unsupported argument \'watercolor\' to option \'-explicit-dependency-graph-format=\'")
+      }
+      
+      let _ = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=json"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertFalse(diagnosticEngine.hasErrors)
+      }
+
+      let output = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=json"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertFalse(diagnosticEngine.hasErrors)
+      }
+      XCTAssertTrue(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
+
+      let output2 = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=dot"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertFalse(diagnosticEngine.hasErrors)
+      }
+      XCTAssertTrue(output2.contains("\"testPrintingExplicitDependencyGraph\" [shape=box, style=bold, color=navy"))
+
+      let output3 = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertFalse(diagnosticEngine.hasErrors)
+      }
+      XCTAssertTrue(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
     }
   }
 

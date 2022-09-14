@@ -634,6 +634,7 @@ public struct Driver {
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
+    Self.validateEmitDependencyGraphArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
@@ -2646,6 +2647,28 @@ extension Driver {
     }
   }
 
+  static func validateEmitDependencyGraphArgs(_ parsedOptions: inout ParsedOptions,
+                                              diagnosticEngine: DiagnosticsEngine) {
+    // '-print-explicit-dependency-graph' requires '-explicit-module-build'
+    if parsedOptions.hasArgument(.printExplicitDependencyGraph) &&
+        !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+      diagnosticEngine.emit(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
+                                                        Option.driverExplicitModuleBuild.spelling))
+    }
+    // '-explicit-dependency-graph-format=' requires '-print-explicit-dependency-graph'
+    if parsedOptions.hasArgument(.explicitDependencyGraphFormat) &&
+        !parsedOptions.hasArgument(.printExplicitDependencyGraph) {
+      diagnosticEngine.emit(Error.optionRequiresAnother(Option.explicitDependencyGraphFormat.spelling,
+                                                        Option.printExplicitDependencyGraph.spelling))
+    }
+    // '-explicit-dependency-graph-format=' only supports values 'json' and 'dot'
+    if let formatArg = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle {
+      if formatArg != "json" && formatArg != "dot" {
+        diagnosticEngine.emit(.error_unsupported_argument(argument: formatArg,
+                                                          option: .explicitDependencyGraphFormat))
+      }
+    }
+  }
 
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
