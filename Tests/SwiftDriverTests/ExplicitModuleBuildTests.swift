@@ -1294,7 +1294,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                          "-explicit-dependency-graph-format=json"],
                                 diagnosticsEngine: diagnosticEngine)
         let _ = try driver.planBuild()
-        XCTAssertFalse(diagnosticEngine.hasErrors)
       }
 
       let output = try withHijackedOutputStream {
@@ -1304,7 +1303,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                          "-explicit-dependency-graph-format=json"],
                                 diagnosticsEngine: diagnosticEngine)
         let _ = try driver.planBuild()
-        XCTAssertFalse(diagnosticEngine.hasErrors)
       }
       XCTAssertTrue(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
 
@@ -1315,7 +1313,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                          "-explicit-dependency-graph-format=dot"],
                                 diagnosticsEngine: diagnosticEngine)
         let _ = try driver.planBuild()
-        XCTAssertFalse(diagnosticEngine.hasErrors)
       }
       XCTAssertTrue(output2.contains("\"testPrintingExplicitDependencyGraph\" [shape=box, style=bold, color=navy"))
 
@@ -1325,7 +1322,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                          "-print-explicit-dependency-graph"],
                                 diagnosticsEngine: diagnosticEngine)
         let _ = try driver.planBuild()
-        XCTAssertFalse(diagnosticEngine.hasErrors)
       }
       XCTAssertTrue(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
     }
