@@ -298,6 +298,22 @@ final class SwiftDriverTests: XCTestCase {
     let driver4 = try Driver(args: ["swift", "-", "-working-directory" , "-wobble"])
     XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
   }
+  
+  func testDashE() throws {
+    let fs = localFileSystem
+    
+    let driver1 = try Driver(args: ["swift", "-e", "print(1)", "-eprint(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
+    XCTAssertEqual(driver1.inputFiles.count, 3)
+    let tempFilesForDriver1 = driver1.inputFiles.filter {
+      !["bar.swift", "quux.swift"].contains($0.file.basename)
+    }
+    XCTAssertEqual(tempFilesForDriver1.count, 1)
+    XCTAssertEqual(tempFilesForDriver1[0].file.basename, "main.swift")
+    let tempFileContentsForDriver1 = try fs.readFileContents(tempFilesForDriver1[0].file.absolutePath!)
+    XCTAssertTrue(tempFileContentsForDriver1.description.hasSuffix("\nprint(1)\nprint(2)\n"))
+    
+    XCTAssertThrowsError(try Driver(args: ["swift", "-e", "print(1)", "baz/main.swift"], fileSystem: fs))
+  }
 
   func testRecordedInputModificationDates() throws {
     guard let cwd = localFileSystem.currentWorkingDirectory else {

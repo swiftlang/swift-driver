@@ -61,7 +61,7 @@ extension OptionTable {
         parsedOptions.addInput(argument)
 
         // In interactive mode, synthesize a "--" argument for all args after the first input.
-        if driverKind == .interactive && index < arguments.endIndex {
+        if driverKind == .interactive && index < arguments.endIndex && !parsedOptions.lookupWithoutConsuming(.e).isEmpty {
           parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[index...])))
           break
         }

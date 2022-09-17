@@ -260,7 +260,7 @@ extension ParsedOptions {
   ///
   /// This operation does not consume any inputs.
   public var hasAnyInput: Bool {
-    return !lookupWithoutConsuming(.INPUT).isEmpty
+    return !lookupWithoutConsuming(.INPUT).isEmpty || !lookupWithoutConsuming(.e).isEmpty
   }
 
   /// Walk through all of the parsed options, modifying each one.
