@@ -302,17 +302,19 @@ final class SwiftDriverTests: XCTestCase {
   func testDashE() throws {
     let fs = localFileSystem
     
-    let driver1 = try Driver(args: ["swift", "-e", "print(1)", "-eprint(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
-    XCTAssertEqual(driver1.inputFiles.count, 3)
-    let tempFilesForDriver1 = driver1.inputFiles.filter {
-      !["bar.swift", "quux.swift"].contains($0.file.basename)
-    }
-    XCTAssertEqual(tempFilesForDriver1.count, 1)
-    XCTAssertEqual(tempFilesForDriver1[0].file.basename, "main.swift")
-    let tempFileContentsForDriver1 = try fs.readFileContents(tempFilesForDriver1[0].file.absolutePath!)
+    var driver1 = try Driver(args: ["swift", "-e", "print(1)", "-eprint(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
+    XCTAssertEqual(driver1.inputFiles.count, 1)
+    XCTAssertEqual(driver1.inputFiles[0].file.basename, "main.swift")
+    let tempFileContentsForDriver1 = try fs.readFileContents(XCTUnwrap(driver1.inputFiles[0].file.absolutePath))
     XCTAssertTrue(tempFileContentsForDriver1.description.hasSuffix("\nprint(1)\nprint(2)\n"))
     
-    XCTAssertThrowsError(try Driver(args: ["swift", "-e", "print(1)", "baz/main.swift"], fileSystem: fs))
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs[0].kind, .interpret)
+    XCTAssertEqual(plannedJobs[0].commandLine.drop(while: { $0 != .flag("--") }),
+                   [.flag("--"), .flag("foo/bar.swift"), .flag("baz/quux.swift")])
+    
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "baz/main.swift", "-e", "print(1)"], fileSystem: fs))
   }
 
   func testRecordedInputModificationDates() throws {
