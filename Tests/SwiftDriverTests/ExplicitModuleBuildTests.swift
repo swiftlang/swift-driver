@@ -1252,7 +1252,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
 
       let baseCommandLine = ["swiftc",
-                             "-target", "x86_64-apple-macosx11.0",
                              "-I", cHeadersPath.nativePathString(escaped: true),
                              "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                              main.nativePathString(escaped: true)] + sdkArgumentsForTesting
