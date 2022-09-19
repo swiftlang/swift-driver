@@ -562,7 +562,7 @@ public struct Driver {
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
-    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
@@ -1791,10 +1791,11 @@ extension Driver {
   /// Collect all of the input files from the parsed options, translating them into input files.
   private static func collectInputFiles(
     _ parsedOptions: inout ParsedOptions,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    fileSystem: FileSystem
   ) throws -> [TypedVirtualPath] {
     var swiftFiles = [String: String]() // [Basename: Path]
-    return try parsedOptions.allInputs.map { input in
+    var paths = try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
         return TypedVirtualPath(file: .standardInput, type: .swift)
@@ -1824,6 +1825,29 @@ extension Driver {
 
       return TypedVirtualPath(file: inputHandle, type: fileType)
     }
+    
+    if parsedOptions.hasArgument(.e) {
+      if let mainPath = swiftFiles["main.swift"] {
+        diagnosticsEngine.emit(.error_two_files_same_name(basename: "main.swift", firstPath: mainPath, secondPath: "-e"))
+        diagnosticsEngine.emit(.note_explain_two_files_same_name)
+        throw Diagnostics.fatalError
+      }
+      
+      try withTemporaryDirectory(dir: fileSystem.tempDirectory, removeTreeOnDeinit: false) { absPath in
+        let filePath = VirtualPath.absolute(absPath.appending(component: "main.swift"))
+        
+        try fileSystem.writeFileContents(filePath) { file in
+          file <<< ###"#sourceLocation(file: "-e", line: 1)\###n"###
+          for option in parsedOptions.arguments(for: .e) {
+            file <<< option.argument.asSingle <<< "\n"
+          }
+        }
+        
+        paths.append(TypedVirtualPath(file: filePath.intern(), type: .swift))
+      }
+    }
+    
+    return paths
   }
 
   /// Determine the primary compiler and linker output kinds.

@@ -298,6 +298,24 @@ final class SwiftDriverTests: XCTestCase {
     let driver4 = try Driver(args: ["swift", "-", "-working-directory" , "-wobble"])
     XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
   }
+  
+  func testDashE() throws {
+    let fs = localFileSystem
+    
+    var driver1 = try Driver(args: ["swift", "-e", "print(1)", "-eprint(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
+    XCTAssertEqual(driver1.inputFiles.count, 1)
+    XCTAssertEqual(driver1.inputFiles[0].file.basename, "main.swift")
+    let tempFileContentsForDriver1 = try fs.readFileContents(XCTUnwrap(driver1.inputFiles[0].file.absolutePath))
+    XCTAssertTrue(tempFileContentsForDriver1.description.hasSuffix("\nprint(1)\nprint(2)\n"))
+    
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs[0].kind, .interpret)
+    XCTAssertEqual(plannedJobs[0].commandLine.drop(while: { $0 != .flag("--") }),
+                   [.flag("--"), .flag("foo/bar.swift"), .flag("baz/quux.swift")])
+    
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "baz/main.swift", "-e", "print(1)"], fileSystem: fs))
+  }
 
   func testRecordedInputModificationDates() throws {
     guard let cwd = localFileSystem.currentWorkingDirectory else {
