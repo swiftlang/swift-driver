@@ -73,15 +73,20 @@ do {
   if case .subcommand(let subcommand) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.
-    let subcommandPath = Process.findExecutable(arguments[0])?.parentDirectory.appending(component: subcommand)
+    let subcommandPath = Process.findExecutable(CommandLine.arguments[0])?.parentDirectory.appending(component: subcommand)
                          ?? Process.findExecutable(subcommand)
 
-    if subcommandPath == nil || !localFileSystem.exists(subcommandPath!) {
+    guard let subcommandPath = subcommandPath,
+          localFileSystem.exists(subcommandPath) else {
       throw Driver.Error.unknownOrMissingSubcommand(subcommand)
     }
 
+    // Pass the full path to subcommand executable.
+    var arguments = arguments
+    arguments[0] = subcommandPath.pathString
+
     // Execute the subcommand.
-    try exec(path: subcommandPath?.pathString ?? "", args: arguments)
+    try exec(path: subcommandPath.pathString, args: arguments)
   }
 
   let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
