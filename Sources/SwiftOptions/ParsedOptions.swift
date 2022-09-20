@@ -134,8 +134,8 @@ extension ParsedOptions {
   }
 }
 
-extension ParsedOptions {
-  mutating func buildIndex() {
+public extension ParsedOptions {
+  internal mutating func buildIndex() {
     optionIndex.removeAll()
     for parsed in parsedOptions {
       optionIndex[parsed.option.canonical.spelling, default: []].append(parsed)
@@ -342,6 +342,24 @@ extension ParsedOptions {
     optionIndex.removeValue(forKey: option.spelling)
     if let group = option.group {
       groupIndex[group]?.removeAll { $0.option == option }
+    }
+  }
+  
+  /// Remove all arguments of a given group from parsed options.
+  public mutating func eraseAllArguments(in group: Option.Group) {
+    for parsedOption in parsedOptions {
+      if parsedOption.option.group == group {
+        eraseArgument(parsedOption.option)
+      }
+    }
+  }
+  
+  /// Remove all arguments with a .supplementaryOutput attribute
+  public mutating func eraseSupplementaryOutputs() {
+    for parsedOption in parsedOptions {
+      if parsedOption.option.attributes.contains(.supplementaryOutput) {
+        eraseArgument(parsedOption.option)
+      }
     }
   }
 
