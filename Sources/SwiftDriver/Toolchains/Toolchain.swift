@@ -191,11 +191,7 @@ extension Toolchain {
 
   /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
   private func envVarName(for toolName: String) -> String {
-    var lookupName = toolName
-#if os(Windows)
-    lookupName = lookupName.replacingOccurrences(of: ".exe", with: "")
-#endif
-    lookupName = lookupName.replacingOccurrences(of: "-", with: "_").uppercased()
+    let lookupName = toolName.replacingOccurrences(of: "-", with: "_").uppercased()
     return "SWIFT_DRIVER_\(lookupName)_EXEC"
   }
 
@@ -209,9 +205,9 @@ extension Toolchain {
 
   /// Looks for the executable in the `SWIFT_DRIVER_TOOLNAME_EXEC` environment variable, if found nothing,
   /// looks in the `executableDir`, `xcrunFind` or in the `searchPaths`.
-  /// - Parameter executable: executable to look for [i.e. `swift`].
+  /// - Parameter executable: executable to look for [i.e. `swift`]. Executable suffix (eg. `.exe`) should be omitted.
   func lookup(executable: String) throws -> AbsolutePath {
-    if let overrideString = envVar(forExecutable: executableName(executable)) {
+    if let overrideString = envVar(forExecutable: executable) {
       return try AbsolutePath(validating: overrideString)
     } else if let toolDir = toolDirectory,
               let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [toolDir]) {
@@ -221,7 +217,7 @@ extension Toolchain {
       return path
     } else if let path = try? xcrunFind(executable: executableName(executable)) {
       return path
-    } else if !["swift-frontend", "swift", "swift-frontend.exe", "swift.exe"].contains(executable),
+    } else if !["swift-frontend", "swift"].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
               parentDirectory != executableDir,
               let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [parentDirectory]) {
@@ -230,14 +226,14 @@ extension Toolchain {
       return path
     } else if let path = lookupExecutablePath(filename: executableName(executable), searchPaths: searchPaths) {
       return path
-    } else if executable == executableName("swift-frontend") {
+    } else if executable == "swift-frontend" {
       // Temporary shim: fall back to looking for "swift" before failing.
-      return try lookup(executable: executableName("swift"))
+      return try lookup(executable: "swift")
     } else if fallbackToExecutableDefaultPath {
       if self is WindowsToolchain {
         return try getToolPath(.swiftCompiler)
                 .parentDirectory
-                .appending(component: executable)
+                .appending(component: executableName(executable))
       } else {
         return AbsolutePath("/usr/bin/" + executable)
       }

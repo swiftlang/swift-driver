@@ -44,9 +44,9 @@ extension WindowsToolchain {
       let librarian: String
       switch parsedOptions.getLastArgument(.useLd)?.asSingle {
       case .none:
-        librarian = lto == nil ? "link.exe" : "lld-link.exe"
+        librarian = lto == nil ? "link" : "lld-link"
       case .some("lld"), .some("lld.exe"), .some("lld-link"), .some("lld-link.exe"):
-        librarian = "lld-link.exe"
+        librarian = "lld-link"
       case let .some(linker):
         librarian = linker
       }
