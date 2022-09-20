@@ -1795,7 +1795,7 @@ extension Driver {
     fileSystem: FileSystem
   ) throws -> [TypedVirtualPath] {
     var swiftFiles = [String: String]() // [Basename: Path]
-    var paths = try parsedOptions.allInputs.map { input in
+    var paths: [TypedVirtualPath] = try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
         return TypedVirtualPath(file: .standardInput, type: .swift)
