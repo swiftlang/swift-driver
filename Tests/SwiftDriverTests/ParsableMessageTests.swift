@@ -14,6 +14,7 @@ import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 import var Foundation.EXIT_SUCCESS
+import class Foundation.NSString
 
 @discardableResult
 internal func withHijackedErrorStream(
@@ -26,7 +27,7 @@ internal func withHijackedErrorStream(
     TSCBasic.stderrStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(file.path))
     try body()
     TSCBasic.stderrStream.flush()
-    output = try localFileSystem.readFileContents(file.path).description
+    output = try "\(localFileSystem.readFileContents(file.path))".replacingOccurrences(of: "\r\n", with: "\n")
   }
   // Restore the error stream to what it was
   TSCBasic.stderrStream = errorStream
