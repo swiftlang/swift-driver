@@ -6623,6 +6623,7 @@ final class SwiftDriverTests: XCTestCase {
     let jobs = try driver.planBuild()
     XCTAssertEqual(jobs.count, 1)
     let defaultSwiftFrontend = jobs.first!.tool.absolutePath!
+    let originalWorkingDirectory = localFileSystem.currentWorkingDirectory!
 
     try withTemporaryDirectory { toolsDirectory in
       let customSwiftFrontend = toolsDirectory.appending(component: executableName("swift-frontend"))
@@ -6630,6 +6631,8 @@ final class SwiftDriverTests: XCTestCase {
 
       try withTemporaryDirectory { tempDirectory in 
         try localFileSystem.changeCurrentWorkingDirectory(to: tempDirectory)
+        defer { try! localFileSystem.changeCurrentWorkingDirectory(to: originalWorkingDirectory) }
+ 
         let anotherSwiftFrontend = localFileSystem.currentWorkingDirectory!.appending(component: executableName("swift-frontend"))
         try localFileSystem.createSymbolicLink(anotherSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
 
