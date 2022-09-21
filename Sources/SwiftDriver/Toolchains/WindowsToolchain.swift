@@ -69,27 +69,27 @@ extension WindowsToolchain.ToolchainValidationError {
   private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftAPIDigester:
-      return try lookup(executable: "swift-api-digester.exe")
+      return try lookup(executable: "swift-api-digester")
     case .swiftCompiler:
-      return try lookup(executable: "swift-frontend.exe")
+      return try lookup(executable: "swift-frontend")
     case .staticLinker:
-      return try lookup(executable: "lld-link.exe")
+      return try lookup(executable: "lld-link")
     case .dynamicLinker:
-      return try lookup(executable: "clang.exe")
+      return try lookup(executable: "clang")
     case .clang:
-      return try lookup(executable: "clang.exe")
+      return try lookup(executable: "clang")
     case .clangxx:
-      return try lookup(executable: "clang++.exe")
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
-      return try lookup(executable: "swift-autolink-extract.exe")
+      return try lookup(executable: "swift-autolink-extract")
     case .lldb:
-      return try lookup(executable: "lldb.exe")
+      return try lookup(executable: "lldb")
     case .dsymutil:
-      return try lookup(executable: "llvm-dsymutil.exe")
+      return try lookup(executable: "llvm-dsymutil")
     case .dwarfdump:
-      return try lookup(executable: "llvm-dwarfdump.exe")
+      return try lookup(executable: "llvm-dwarfdump")
     case .swiftHelp:
-      return try lookup(executable: "swift-help.exe")
+      return try lookup(executable: "swift-help")
     }
   }
 

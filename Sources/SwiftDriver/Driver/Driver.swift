@@ -562,7 +562,7 @@ public struct Driver {
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
-    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
@@ -634,6 +634,7 @@ public struct Driver {
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
+    Self.validateEmitDependencyGraphArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
@@ -1247,7 +1248,7 @@ extension Driver {
   }
 
   /// Expand response files in the input arguments and return a new argument list.
-  @_spi(Testing) public static func expandResponseFiles(
+  public static func expandResponseFiles(
     _ args: [String],
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine
@@ -1790,10 +1791,11 @@ extension Driver {
   /// Collect all of the input files from the parsed options, translating them into input files.
   private static func collectInputFiles(
     _ parsedOptions: inout ParsedOptions,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    fileSystem: FileSystem
   ) throws -> [TypedVirtualPath] {
     var swiftFiles = [String: String]() // [Basename: Path]
-    return try parsedOptions.allInputs.map { input in
+    var paths: [TypedVirtualPath] = try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
         return TypedVirtualPath(file: .standardInput, type: .swift)
@@ -1823,6 +1825,29 @@ extension Driver {
 
       return TypedVirtualPath(file: inputHandle, type: fileType)
     }
+    
+    if parsedOptions.hasArgument(.e) {
+      if let mainPath = swiftFiles["main.swift"] {
+        diagnosticsEngine.emit(.error_two_files_same_name(basename: "main.swift", firstPath: mainPath, secondPath: "-e"))
+        diagnosticsEngine.emit(.note_explain_two_files_same_name)
+        throw Diagnostics.fatalError
+      }
+      
+      try withTemporaryDirectory(dir: fileSystem.tempDirectory, removeTreeOnDeinit: false) { absPath in
+        let filePath = VirtualPath.absolute(absPath.appending(component: "main.swift"))
+        
+        try fileSystem.writeFileContents(filePath) { file in
+          file <<< ###"#sourceLocation(file: "-e", line: 1)\###n"###
+          for option in parsedOptions.arguments(for: .e) {
+            file <<< option.argument.asSingle <<< "\n"
+          }
+        }
+        
+        paths.append(TypedVirtualPath(file: filePath.intern(), type: .swift))
+      }
+    }
+    
+    return paths
   }
 
   /// Determine the primary compiler and linker output kinds.
@@ -2646,6 +2671,28 @@ extension Driver {
     }
   }
 
+  static func validateEmitDependencyGraphArgs(_ parsedOptions: inout ParsedOptions,
+                                              diagnosticEngine: DiagnosticsEngine) {
+    // '-print-explicit-dependency-graph' requires '-explicit-module-build'
+    if parsedOptions.hasArgument(.printExplicitDependencyGraph) &&
+        !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+      diagnosticEngine.emit(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
+                                                        Option.driverExplicitModuleBuild.spelling))
+    }
+    // '-explicit-dependency-graph-format=' requires '-print-explicit-dependency-graph'
+    if parsedOptions.hasArgument(.explicitDependencyGraphFormat) &&
+        !parsedOptions.hasArgument(.printExplicitDependencyGraph) {
+      diagnosticEngine.emit(Error.optionRequiresAnother(Option.explicitDependencyGraphFormat.spelling,
+                                                        Option.printExplicitDependencyGraph.spelling))
+    }
+    // '-explicit-dependency-graph-format=' only supports values 'json' and 'dot'
+    if let formatArg = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle {
+      if formatArg != "json" && formatArg != "dot" {
+        diagnosticEngine.emit(.error_unsupported_argument(argument: formatArg,
+                                                          option: .explicitDependencyGraphFormat))
+      }
+    }
+  }
 
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,

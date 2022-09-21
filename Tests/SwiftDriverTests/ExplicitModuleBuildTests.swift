@@ -1059,6 +1059,78 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(args[0].hasSuffix(".resp"))
     }
   }
+  
+  func testDependencyScanningFailure() throws {
+    let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = InterModuleDependencyOracle()
+    let scanLibPath = try Driver.getScanLibPath(of: toolchain,
+                                                hostTriple: hostTriple,
+                                                env: ProcessEnv.vars)
+    guard try dependencyOracle
+      .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                     swiftScanLibPath: scanLibPath) else {
+      XCTFail("Dependency scanner library not found")
+      return
+    }
+    guard try dependencyOracle.supportsScannerDiagnostics() else {
+      throw XCTSkip("libSwiftScan does not support diagnostics query.")
+    }
+    
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import S;"
+      }
+      
+      let cHeadersPath: AbsolutePath =
+      testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-import-objc-header",
+                                     "-explicit-module-build",
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-disable-clang-target",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      if scannerCommand.first == "-frontend" {
+        scannerCommand.removeFirst()
+      }
+      let _ =
+          try! dependencyOracle.getDependencies(workingDirectory: path,
+                                                commandLine: scannerCommand)
+      let potentialDiags = try! dependencyOracle.getScannerDiagnostics()
+      XCTAssertEqual(potentialDiags?.count, 5)
+      let diags = try XCTUnwrap(potentialDiags)
+      let error = diags[0]
+      XCTAssertEqual(error.message, "Unable to find module dependency: 'unknown_module'")
+      XCTAssertEqual(error.severity, .error)
+      let noteI = diags[1]
+      XCTAssertTrue(noteI.message.starts(with: "a dependency of Swift module 'I':"))
+      XCTAssertEqual(noteI.severity, .note)
+      let noteW = diags[2]
+      XCTAssertTrue(noteW.message.starts(with: "a dependency of Swift module 'W':"))
+      XCTAssertEqual(noteW.severity, .note)
+      let noteS = diags[3]
+      XCTAssertTrue(noteS.message.starts(with: "a dependency of Swift module 'S':"))
+      XCTAssertEqual(noteS.severity, .note)
+      let noteTest = diags[4]
+      XCTAssertEqual(noteTest.message, "a dependency of main module 'testDependencyScanning'")
+      XCTAssertEqual(noteTest.severity, .note)
+    }
+  }
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
@@ -1164,6 +1236,93 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertTrue(dependencyGraph.modules.count ==
                       adjustedExpectedNumberOfDependencies)
       }
+    }
+  }
+
+  func testPrintingExplicitDependencyGraph() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrintingExplicitDependencyGraph.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+      let cHeadersPath: AbsolutePath = testInputsPath.appending(component: "ExplicitModuleBuilds").appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath = testInputsPath.appending(component: "ExplicitModuleBuilds").appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      let baseCommandLine = ["swiftc",
+                             "-I", cHeadersPath.nativePathString(escaped: true),
+                             "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                             main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      do {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-print-explicit-dependency-graph"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertTrue(diagnosticEngine.hasErrors)
+        XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
+                       "'-print-explicit-dependency-graph' cannot be specified if '-explicit-module-build' is not present")
+      }
+      do {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-explicit-dependency-graph-format=json"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertTrue(diagnosticEngine.hasErrors)
+        XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
+                       "'-explicit-dependency-graph-format=' cannot be specified if '-print-explicit-dependency-graph' is not present")
+      }
+      do {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=watercolor"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+        XCTAssertTrue(diagnosticEngine.hasErrors)
+        XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
+                       "unsupported argument \'watercolor\' to option \'-explicit-dependency-graph-format=\'")
+      }
+      
+      let _ = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=json"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+      }
+
+      let output = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=json"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+      }
+      XCTAssertTrue(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
+
+      let output2 = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph",
+                                                         "-explicit-dependency-graph-format=dot"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+      }
+      XCTAssertTrue(output2.contains("\"testPrintingExplicitDependencyGraph\" [shape=box, style=bold, color=navy"))
+
+      let output3 = try withHijackedOutputStream {
+        let diagnosticEngine = DiagnosticsEngine()
+        var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
+                                                         "-print-explicit-dependency-graph"],
+                                diagnosticsEngine: diagnosticEngine)
+        let _ = try driver.planBuild()
+      }
+      XCTAssertTrue(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
     }
   }
 

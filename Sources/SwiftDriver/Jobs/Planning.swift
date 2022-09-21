@@ -660,7 +660,12 @@ extension Driver {
     try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
 
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
-      try stdoutStream <<< dependencyGraph.toJSONString()
+      let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
+      if outputFormat == nil || outputFormat == "json" {
+        try stdoutStream <<< dependencyGraph.toJSONString()
+      } else if outputFormat == "dot" {
+        DOTModuleDependencyGraphSerializer(dependencyGraph).writeDOT(to: &stdoutStream)
+      }
       stdoutStream.flush()
     }
 

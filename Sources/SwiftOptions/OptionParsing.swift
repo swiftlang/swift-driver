@@ -45,6 +45,7 @@ extension OptionTable {
     }
 
     var parsedOptions = ParsedOptions()
+    var seenDashE = false
     var index = arguments.startIndex
     while index < arguments.endIndex {
       // Capture the next argument.
@@ -58,6 +59,12 @@ extension OptionTable {
 
       // If this is not a flag, record it as an input.
       if argument == "-" || argument.first! != "-" {
+        // If we've seen -e, this argument and all remaining ones are arguments to the -e script.
+        if driverKind == .interactive && seenDashE {
+          parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[(index-1)...])))
+          break
+        }
+        
         parsedOptions.addInput(argument)
 
         // In interactive mode, synthesize a "--" argument for all args after the first input.
@@ -89,6 +96,10 @@ extension OptionTable {
             index: index - 1, argument: argument, option: option,
             currentDriverKind: driverKind)
         }
+      }
+      
+      if option == .e {
+        seenDashE = true
       }
 
       // Translate the argument
