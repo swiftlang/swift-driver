@@ -233,7 +233,7 @@ extension Job : CustomStringConvertible {
       return "Scanning dependencies for module \(moduleName)"
 
     case .verifyModuleInterface:
-      return "Verifying emitted module interface for module \(moduleName)"
+      return join("Verifying emitted module interface", displayInputs.first?.file.basename)
 
     case .generateAPIBaseline:
       return "Generating API baseline file for module \(moduleName)"
