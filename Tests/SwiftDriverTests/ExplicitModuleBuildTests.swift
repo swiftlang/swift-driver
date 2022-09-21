@@ -163,7 +163,6 @@ private func pcmArgsEncodedRelativeModulePath(for moduleName: String, with pcmAr
 /// Test that for the given JSON module dependency graph, valid jobs are generated
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
-    #if os(macOS)
     do {
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-module-name", "testModuleDependencyBuildCommandGeneration",
@@ -222,7 +221,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
-    #endif
   }
 
   func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
@@ -312,7 +310,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {
-    #if os(macOS)
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -465,11 +462,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
-    #endif
   }
 
   func testImmediateModeExplicitModuleBuild() throws {
-    #if os(macOS)
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -598,7 +593,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
-    #endif
   }
 
   
@@ -894,9 +888,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
   
   func testExplicitModuleBuildEndToEnd() throws {
-    // The macOS-only restriction is temporary while Clang's dependency scanner
-    // is gaining the ability to perform name-based module lookup.
-    #if os(macOS)
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
@@ -924,7 +915,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
-    #endif
   }
 
   func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
