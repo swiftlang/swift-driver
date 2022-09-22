@@ -6636,7 +6636,7 @@ final class SwiftDriverTests: XCTestCase {
 #endif
     let SWIFT_FRONTEND_EXEC = "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"
 
-    // We need to override SWIFT_DRIVER_SWIFT_FRONTEND_EXEC to prevent it from interfering the tests.
+    // Reset the environment to ensure tool resolution is exactly run against PATH.
     var driver = try Driver(args: ["swiftc", "-print-target-info"], env: [PATH: ProcessEnv.path!])
     let jobs = try driver.planBuild()
     XCTAssertEqual(jobs.count, 1)
