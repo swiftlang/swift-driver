@@ -224,7 +224,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         // First, take the command line options provided in the dependency information
         let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
         moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
-
+        
         // Add the `-target` option as inherited from the dependent Swift module's PCM args
         pcmArgs.forEach { commandLine.appendFlags($0) }
 
@@ -242,6 +242,11 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                                 "-o", targetEncodedModulePath.description)
+
+        // Fixup "-o -Xcc -Xclang -Xcc '<replace-me>'"
+        if let outputIndex = commandLine.firstIndex(of: .flag("<replace-me>")) {
+          commandLine[outputIndex] = .path(VirtualPath.lookup(targetEncodedModulePath))
+        }
 
         // The only required input is the .modulemap for this module.
         // Command line options in the dependency scanner output will include the
@@ -269,8 +274,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                                           inputs: inout [TypedVirtualPath],
                                                           commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
-    commandLine.appendFlags("-disable-implicit-swift-modules", "-Xcc", "-Xclang", "-Xcc",
-                            "-fno-implicit-modules", "-Xcc", "-Xclang", "-Xcc", "-fno-implicit-module-maps")
+    commandLine.appendFlags("-disable-implicit-swift-modules",
+                            "-Xcc", "-Xclang", "-Xcc", "-fno-implicit-modules",
+                            "-Xcc", "-Xclang", "-Xcc", "-fno-implicit-module-maps")
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
     try addModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
@@ -298,11 +304,17 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.modulePath.path,
                          type: .pcm)
+      // If an existing dependency module path stub exists, replace it.
+      if let existingIndex = commandLine.firstIndex(of: .flag("-fmodule-file=" + moduleArtifactInfo.moduleName + "=<replace-me>")) {
+        commandLine[existingIndex] = .flag("-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
+      } else {
+        commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+                                "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
+      }
+      
       let clangModuleMapPath =
         TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
                          type: .clangModuleMap)
-      commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
-                              "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
       commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
                               "-fmodule-map-file=\(clangModuleMapPath.file.description)")
       inputs.append(clangModulePath)

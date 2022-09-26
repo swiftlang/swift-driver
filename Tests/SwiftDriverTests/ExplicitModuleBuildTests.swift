@@ -35,6 +35,7 @@ throws {
   var downstreamPCMArgs = pcmArgs
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
+      XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
       downstreamPCMArgs = swiftModuleDetails.extraPcmArgs
       let moduleInterfacePath =
         TypedVirtualPath(file: swiftModuleDetails.moduleInterfacePath!.path,
@@ -64,7 +65,6 @@ throws {
       XCTFail("Placeholder dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
-  XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
   XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
   XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-module-maps"))))
 
@@ -221,6 +221,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
     }
+  }
+
+  func testClangModuleOutputFixups() throws {
+      do {
+        var driver = try Driver(args: ["swiftc", "-explicit-module-build",
+                                       "-module-name", "testClangModuleOutputFixups",
+                                       "test.swift"])
+        let moduleDependencyGraph =
+        try JSONDecoder().decode(
+          InterModuleDependencyGraph.self,
+          from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
+        driver.explicitDependencyBuildPlanner =
+          try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
+                                             toolchain: driver.toolchain)
+        let modulePrebuildJobs = try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
+        let c_simdJob = try XCTUnwrap(modulePrebuildJobs.first(where: { $0.descriptionForLifecycle == "Compiling Clang module c_simd" }))
+        XCTAssertFalse(c_simdJob.commandLine.contains(.flag("<replace-me>")))
+      }
   }
 
   func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
@@ -492,7 +510,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let interpretJob = interpretJobs[0]
       XCTAssertTrue(interpretJob.requiresInPlaceExecution)
       XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-frontend", "-interpret"]))
-      XCTAssertTrue(interpretJob.commandLine.contains("-disable-implicit-swift-modules"))
+      //XCTAssertTrue(interpretJob.commandLine.contains("-disable-implicit-swift-modules"))
       XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-Xcc", "-Xclang", "-Xcc", "-fno-implicit-modules"]))
 
       // Figure out which Triples to use.

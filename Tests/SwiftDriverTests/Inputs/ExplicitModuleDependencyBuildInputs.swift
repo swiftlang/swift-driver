@@ -67,7 +67,9 @@ enum ModuleDependenciesInputs {
                 "-remove-preceeding-explicit-module-build-incompatible-options",
                 "-fno-implicit-modules",
                 "-emit-module",
-                "-fmodule-name=c_simd"
+                "-fmodule-name=c_simd",
+                "-o",
+                "<replace-me>"
               ]
             }
           }
