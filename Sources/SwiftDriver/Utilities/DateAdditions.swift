@@ -39,7 +39,7 @@ public struct TimePoint: Equatable, Comparable, Hashable {
 }
 
 extension TimePoint {
-  public static func seconds(_ value: Int) -> TimePoint {
+  public static func seconds(_ value: Int64) -> TimePoint {
     precondition(value >= 0,
                  "Duration value in seconds is \(value), but cannot be negative")
     return TimePoint(seconds: UInt64(value), nanoseconds: 0)
@@ -97,7 +97,7 @@ extension TimePoint{
     let result: UInt64 = (UInt64(ftTime.dwLowDateTime) << 0)
                        + (UInt64(ftTime.dwHighDateTime) << 32)
     // Windows ticks in 100 nanosecond intervals.
-    return .seconds(Int(result / 10_000_000))
+    return .seconds(Int64(result / 10_000_000))
     #else
     var tv = timeval()
     gettimeofday(&tv, nil)
