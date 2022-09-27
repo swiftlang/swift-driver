@@ -107,6 +107,7 @@ extension Option {
   public static let diagnosticsEditorMode: Option = Option("-diagnostics-editor-mode", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnostics will be used in editor")
   public static let digesterBreakageAllowlistPath: Option = Option("-digester-breakage-allowlist-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "The path to a list of permitted breaking changes the API digester should ignore")
   public static let digesterMode: Option = Option("-digester-mode", .separate, attributes: [.noInteractive], metaVar: "<api|abi>", helpText: "Whether the API digester should run in API or ABI mode (defaults to API checking)")
+  public static let directClangCc1ModuleBuild: Option = Option("-direct-clang-cc1-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build a PCM by using Clang frontend directly, bypassing the Clang driver")
   public static let disableAccessControl: Option = Option("-disable-access-control", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't respect access control restrictions")
   public static let disableActorDataRaceChecks: Option = Option("-disable-actor-data-race-checks", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable runtime checks for actor data races")
   public static let disableArcOpts: Option = Option("-disable-arc-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL ARC optimization passes.")
@@ -328,6 +329,8 @@ extension Option {
   public static let enableExperimentalFeature: Option = Option("-enable-experimental-feature", .separate, attributes: [.frontend], helpText: "Enable an experimental feature")
   public static let enableExperimentalFlowSensitiveConcurrentCaptures: Option = Option("-enable-experimental-flow-sensitive-concurrent-captures", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable flow-sensitive concurrent captures")
   public static let enableExperimentalForwardModeDifferentiation: Option = Option("-enable-experimental-forward-mode-differentiation", .flag, attributes: [.frontend], helpText: "Enable experimental forward mode differentiation")
+  public static let enableExperimentalImplicitSome: Option = Option("-enable-experimental-implicit-some", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental implicit some")
+  public static let enableExperimentalLayoutPrespecialization: Option = Option("-enable-experimental-layout-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental support for layout based pre-specializations")
   public static let enableExperimentalMoveOnly: Option = Option("-enable-experimental-move-only", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental move only")
   public static let enableExperimentalNamedOpaqueTypes: Option = Option("-enable-experimental-named-opaque-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for named opaque result types")
   public static let enableExperimentalOpaqueTypeErasure: Option = Option("-enable-experimental-opaque-type-erasure", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-erases opaque types that conform to @_typeEraser protocols")
@@ -826,6 +829,7 @@ extension Option {
       Option.diagnosticsEditorMode,
       Option.digesterBreakageAllowlistPath,
       Option.digesterMode,
+      Option.directClangCc1ModuleBuild,
       Option.disableAccessControl,
       Option.disableActorDataRaceChecks,
       Option.disableArcOpts,
@@ -1047,6 +1051,8 @@ extension Option {
       Option.enableExperimentalFeature,
       Option.enableExperimentalFlowSensitiveConcurrentCaptures,
       Option.enableExperimentalForwardModeDifferentiation,
+      Option.enableExperimentalImplicitSome,
+      Option.enableExperimentalLayoutPrespecialization,
       Option.enableExperimentalMoveOnly,
       Option.enableExperimentalNamedOpaqueTypes,
       Option.enableExperimentalOpaqueTypeErasure,

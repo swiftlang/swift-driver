@@ -56,17 +56,21 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// Does this compile support `.explicitInterfaceModuleBuild`
   private var supportsExplicitInterfaceBuild: Bool
+  /// Does this compile support `.directClangCC1ModuleBuild`
+  private var supportsDirectClangFrontendPCMBuild: Bool
 
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
               integratedDriver: Bool = true,
-              supportsExplicitInterfaceBuild: Bool = false) throws {
+              supportsExplicitInterfaceBuild: Bool = false,
+              supportsDirectClangFrontendPCMBuild: Bool = false) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.integratedDriver = integratedDriver
     self.mainModuleName = dependencyGraph.mainModuleName
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
+    self.supportsDirectClangFrontendPCMBuild = supportsDirectClangFrontendPCMBuild
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -242,6 +246,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                                 "-o", targetEncodedModulePath.description)
+        if (supportsDirectClangFrontendPCMBuild) {
+          commandLine.appendFlag("-direct-clang-cc1-module-build")
+        }
 
         // Fixup "-o -Xcc -Xclang -Xcc '<replace-me>'"
         if let outputIndex = commandLine.firstIndex(of: .flag("<replace-me>")) {

@@ -634,7 +634,9 @@ extension Driver {
                                          toolchain: toolchain,
                                          integratedDriver: integratedDriver,
                                          supportsExplicitInterfaceBuild:
-                                          isFrontendArgSupported(.explicitInterfaceModuleBuild))
+                                          isFrontendArgSupported(.explicitInterfaceModuleBuild),
+                                         supportsDirectClangFrontendPCMBuild:
+                                          isFrontendArgSupported(.directClangCc1ModuleBuild))
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
