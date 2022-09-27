@@ -511,7 +511,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(interpretJob.requiresInPlaceExecution)
       XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-frontend", "-interpret"]))
       //XCTAssertTrue(interpretJob.commandLine.contains("-disable-implicit-swift-modules"))
-      XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-Xcc", "-Xclang", "-Xcc", "-fno-implicit-modules"]))
+      XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-Xcc", "-fno-implicit-modules"]))
 
       // Figure out which Triples to use.
       let dependencyGraph = try driver.gatherModuleDependencies()

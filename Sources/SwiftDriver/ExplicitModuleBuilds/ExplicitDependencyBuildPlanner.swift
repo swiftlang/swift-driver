@@ -243,7 +243,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
                                 "-o", targetEncodedModulePath.description)
 
-        // Fixup "-o -Xcc -Xclang -Xcc '<replace-me>'"
+        // Fixup "-o -Xcc '<replace-me>'"
         if let outputIndex = commandLine.firstIndex(of: .flag("<replace-me>")) {
           commandLine[outputIndex] = .path(VirtualPath.lookup(targetEncodedModulePath))
         }
@@ -275,8 +275,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                                           commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules",
-                            "-Xcc", "-Xclang", "-Xcc", "-fno-implicit-modules",
-                            "-Xcc", "-Xclang", "-Xcc", "-fno-implicit-module-maps")
+                            "-Xcc", "-fno-implicit-modules",
+                            "-Xcc", "-fno-implicit-module-maps")
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
     try addModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
@@ -308,14 +308,14 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       if let existingIndex = commandLine.firstIndex(of: .flag("-fmodule-file=" + moduleArtifactInfo.moduleName + "=<replace-me>")) {
         commandLine[existingIndex] = .flag("-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
       } else {
-        commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+        commandLine.appendFlags("-Xcc",
                                 "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
       }
       
       let clangModuleMapPath =
         TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
                          type: .clangModuleMap)
-      commandLine.appendFlags("-Xcc", "-Xclang", "-Xcc",
+      commandLine.appendFlags("-Xcc",
                               "-fmodule-map-file=\(clangModuleMapPath.file.description)")
       inputs.append(clangModulePath)
       inputs.append(clangModuleMapPath)
