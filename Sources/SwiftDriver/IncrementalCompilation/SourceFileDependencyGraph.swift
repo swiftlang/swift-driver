@@ -12,11 +12,6 @@
 
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ByteString
-import class TSCUtility.BitstreamWriter
-import enum TSCUtility.BitcodeElement
-import enum TSCUtility.Bitstream
-import protocol TSCUtility.BitstreamVisitor
-import struct TSCUtility.Bitcode
 
 /*@_spi(Testing)*/ public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
