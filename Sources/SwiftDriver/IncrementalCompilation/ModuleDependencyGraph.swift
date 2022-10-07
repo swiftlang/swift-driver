@@ -14,11 +14,6 @@ import SwiftOptions
 
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ByteString
-import enum TSCUtility.BitcodeElement
-import enum TSCUtility.Bitstream
-import class TSCUtility.BitstreamWriter
-import protocol TSCUtility.BitstreamVisitor
-import struct TSCUtility.Bitcode
 import struct TSCUtility.Version
 import class Dispatch.DispatchQueue
 import struct Foundation.TimeInterval

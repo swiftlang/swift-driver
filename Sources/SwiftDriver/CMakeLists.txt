@@ -34,6 +34,15 @@ add_library(SwiftDriver
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
 
+  "IncrementalCompilation/Bitcode/Bitcode.swift"
+  "IncrementalCompilation/Bitcode/BitcodeElement.swift"
+  "IncrementalCompilation/Bitcode/Bits.swift"
+  "IncrementalCompilation/Bitcode/Bitstream.swift"
+  "IncrementalCompilation/Bitcode/BitstreamReader.swift"
+  "IncrementalCompilation/Bitcode/BitstreamVisitor.swift"
+  "IncrementalCompilation/Bitcode/BitstreamWriter.swift"
+  "IncrementalCompilation/Bitcode/BlockInfo.swift"
+
   "IncrementalCompilation/BuildRecord.swift"
   "IncrementalCompilation/BuildRecordInfo.swift"
   "IncrementalCompilation/DependencyGraphDotFileWriter.swift"
