@@ -14,7 +14,6 @@ import SwiftOptions
 
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.RelativePath
-import struct TSCUtility.Version
 
 extension DarwinToolchain {
   internal func findXcodeClangPath() throws -> AbsolutePath? {
