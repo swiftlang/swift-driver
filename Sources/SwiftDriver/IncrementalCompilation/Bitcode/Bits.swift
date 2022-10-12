@@ -12,7 +12,7 @@
 
 import struct TSCBasic.ByteString
 
-struct Bits: RandomAccessCollection {
+internal struct Bits: RandomAccessCollection {
   var buffer: ByteString
 
   var startIndex: Int { return 0 }
@@ -50,7 +50,7 @@ struct Bits: RandomAccessCollection {
 }
 
 extension Bits {
-  struct Cursor {
+  internal struct Cursor {
     enum Error: Swift.Error { case bufferOverflow }
 
     let buffer: Bits

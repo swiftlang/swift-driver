@@ -11,14 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 /// A top-level namespace for all bitstream-related structures.
-public enum Bitstream {}
+internal enum Bitstream {}
 
 extension Bitstream {
   /// An `Abbreviation` represents the encoding definition for a user-defined
   /// record. An `Abbreviation` is the primary form of compression available in
   /// a bitstream file.
-  public struct Abbreviation {
-    public enum Operand {
+  internal struct Abbreviation {
+    internal enum Operand {
       /// A literal value (emitted as a VBR8 field).
       case literal(UInt64)
 
@@ -91,7 +91,7 @@ extension Bitstream {
   ///            abbreviation defined by `BitstreamWriter`. Always use
   ///            `BitstreamWriter.defineBlockInfoAbbreviation(_:_:)`
   ///            to register abbreviations.
-  public struct AbbreviationID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
+  internal struct AbbreviationID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
     public var rawValue: UInt64
 
     public init(rawValue: UInt64) {
@@ -136,7 +136,7 @@ extension Bitstream {
   ///     static let diagnostics  = Self.firstApplicationID + 1
   /// }
   /// ```
-  public struct BlockID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
+  internal struct BlockID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
     public var rawValue: UInt8
 
     public init(rawValue: UInt8) {
@@ -166,7 +166,7 @@ extension Bitstream {
     /// a name is given to a block or record with `blockName` or
     /// `setRecordName`, debugging tools like `llvm-bcanalyzer` can be used to
     /// introspect the structure of blocks and records in the bitstream file.
-    public enum BlockInfoCode: UInt8 {
+    internal enum BlockInfoCode: UInt8 {
         /// Indicates which block ID is being described.
         case setBID = 1
         /// An optional element that records which bytes of the record are the

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct BlockInfo {
+internal struct BlockInfo {
   public var name: String = ""
   public var recordNames: [UInt64:String] = [:]
 }

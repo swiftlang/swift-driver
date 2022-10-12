@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public protocol BitstreamVisitor {
+internal protocol BitstreamVisitor {
   /// Customization point to validate a bitstream's signature or "magic number".
   func validate(signature: Bitcode.Signature) throws
   /// Called when a new block is encountered. Return `true` to enter the block

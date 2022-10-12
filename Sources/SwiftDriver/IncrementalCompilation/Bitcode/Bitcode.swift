@@ -12,14 +12,14 @@
 
 import struct TSCBasic.ByteString
 
-public struct Bitcode {
+internal struct Bitcode {
   public let signature: Bitcode.Signature
   public let elements: [BitcodeElement]
   public let blockInfo: [UInt64:BlockInfo]
 }
 
 extension Bitcode {
-  public struct Signature: Equatable {
+  internal struct Signature: Equatable {
     private var value: UInt32
 
     public init(value: UInt32) {
@@ -41,7 +41,7 @@ extension Bitcode {
 extension Bitcode {
   /// Traverse a bitstream using the specified `visitor`, which will receive
   /// callbacks when blocks and records are encountered.
-  public static func read<Visitor: BitstreamVisitor>(bytes: ByteString, using visitor: inout Visitor) throws {
+  internal static func read<Visitor: BitstreamVisitor>(bytes: ByteString, using visitor: inout Visitor) throws {
     precondition(bytes.count > 4)
     var reader = BitstreamReader(buffer: bytes)
     try visitor.validate(signature: reader.readSignature())
