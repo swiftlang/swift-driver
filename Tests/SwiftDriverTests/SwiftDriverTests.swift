@@ -5262,14 +5262,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(verifyJob.commandLine.contains(.flag("-check-api-availability-only")))
     }
 
-    // Don't verify modules with compatibility headers.
+    // Do verify modules with compatibility headers.
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
                                      "-enable-library-evolution", "-emit-objc-header-path", "foo-Swift.h"],
                               env: envVars)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.filter( { job in job.kind == .verifyModuleInterface}).count, 0)
+      XCTAssertEqual(plannedJobs.filter( { job in job.kind == .verifyModuleInterface}).count, 1)
     }
   }
 

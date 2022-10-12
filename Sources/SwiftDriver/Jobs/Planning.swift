@@ -512,13 +512,6 @@ extension Driver {
       emitModuleSeparately || compilerMode == .singleCompile ||
       parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                             negative: .noVerifyEmittedModuleInterface,
-                            default: false),
-
-      // Don't verify by default modules emitting a compatibility header. This is
-      // unsupported as the headers are merged after all archs are built. rdar://90864986
-      self.objcGeneratedHeaderPath == nil ||
-      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
-                            negative: .noVerifyEmittedModuleInterface,
                             default: false)
     else { return }
 
