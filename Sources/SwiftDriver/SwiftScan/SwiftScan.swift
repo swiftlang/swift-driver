@@ -17,7 +17,6 @@ import func Foundation.free
 
 import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
-import struct TSCUtility.Version
 import struct TSCBasic.Diagnostic
 
 public enum DependencyScanningError: Error, DiagnosticData {
