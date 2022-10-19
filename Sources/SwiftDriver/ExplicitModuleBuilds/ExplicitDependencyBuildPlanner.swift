@@ -16,10 +16,6 @@ import struct TSCBasic.AbsolutePath
 import struct Foundation.Data
 import class Foundation.JSONEncoder
 
-/// A map from a module identifier to a path to its .swiftmodule file.
-/// Deprecated in favour of the below `ExternalTargetModuleDetails`
-public typealias ExternalTargetModulePathMap = [ModuleDependencyId: AbsolutePath]
-
 /// Details about an external target, including the path to its .swiftmodule file
 /// and whether it is a framework.
 public struct ExternalTargetModuleDetails {
