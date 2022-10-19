@@ -74,9 +74,9 @@ public extension Driver {
     // FIXME: MSVC runtime flags
 
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalTargetPaths = externalTargetModuleDetailsMap?.mapValues({ $0.path }) {
+    if let externalTargetDetailsMap = externalTargetModuleDetailsMap {
       let dependencyPlaceholderMapFile =
-      try serializeExternalDependencyArtifacts(externalTargetPaths: externalTargetPaths)
+      try serializeExternalDependencyArtifacts(externalTargetDependencyDetails: externalTargetDetailsMap)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
@@ -87,12 +87,12 @@ public extension Driver {
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-   private func serializeExternalDependencyArtifacts(externalTargetPaths: ExternalTargetModulePathMap)
+   private func serializeExternalDependencyArtifacts(externalTargetDependencyDetails: ExternalTargetModuleDetailsMap)
    throws -> VirtualPath {
      var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
      // Explicit external targets
-     for (moduleId, binaryModulePath) in externalTargetPaths {
-       let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
+     for (moduleId, dependencyDetails) in externalTargetDependencyDetails {
+       let modPath = TextualVirtualPath(path: VirtualPath.absolute(dependencyDetails.path).intern())
        placeholderArtifacts.append(
            SwiftModuleArtifactInfo(name: moduleId.moduleName,
                                    modulePath: modPath))
@@ -102,7 +102,7 @@ public extension Driver {
      let contents = try encoder.encode(placeholderArtifacts)
      return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-external-modules.json"),
                                                                    contents)
-   }
+  }
 
   /// Returns false if the lib is available and ready to use
   private func initSwiftScanLib() throws -> Bool {
