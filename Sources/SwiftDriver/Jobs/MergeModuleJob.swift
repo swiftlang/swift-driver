@@ -62,6 +62,7 @@ extension Driver {
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
     try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
+    try commandLine.appendLast(.emitExtensionBlockSymbols, .omitExtensionBlockSymbols, from: &parsedOptions)
     try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
 
     // Propagate the disable flag for cross-module incremental builds
