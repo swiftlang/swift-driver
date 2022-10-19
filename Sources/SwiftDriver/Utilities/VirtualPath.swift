@@ -763,7 +763,7 @@ extension TSCBasic.FileSystem {
       // retrieve the mod time of the underlying file. This makes build systems
       // that regenerate lots of symlinks but do not otherwise alter the
       // contents of files - like Bazel - quite happy.
-      let path = resolveSymlinks(path)
+      let path = try resolveSymlinks(path)
       #if os(Windows)
       // The NT epoch is 1601, so we need to add a correction factor to bridge
       // between Foundation.Date's insistence on using the Mac epoch time of
