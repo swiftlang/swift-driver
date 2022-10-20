@@ -21,7 +21,7 @@ extension Driver {
 
     // Output serialized diagnostics for this job, if specifically requested
     var outputs: [TypedVirtualPath] = []
-    if let outputPath = outputFileMap?.existingOutput(inputFile: interfaceInput.fileHandle,
+    if let outputPath = try outputFileMap?.existingOutput(inputFile: interfaceInput.fileHandle,
                                                       outputType: .diagnostics) {
       outputs.append(TypedVirtualPath(file: outputPath, type: .diagnostics))
     }

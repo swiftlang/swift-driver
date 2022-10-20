@@ -323,7 +323,7 @@ extension ModuleDependencyGraph {
       // to preserve legacy behavior cancel whole thing
       info.diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
-          because: "malformed dependencies file '\(dependencySource.fileToRead(info: info)?.file.name ?? "none?!")'"))
+          because: "malformed dependencies file '\((try? dependencySource.fileToRead(info: info))?.file.name ?? "none?!")'"))
       return nil
     }
     let invalidatedNodes = Integrator.integrate(

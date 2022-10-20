@@ -70,7 +70,7 @@ extension DependencySource {
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
     internedStringTable: InternedStringTable
   ) -> SourceFileDependencyGraph? {
-    guard let fileToRead = fileToRead(info: info) else {return nil}
+    guard let fileToRead = try? fileToRead(info: info) else {return nil}
     do {
       info.reporter?.report("Reading dependencies from \(description)")
       return try SourceFileDependencyGraph.read(from: fileToRead,
@@ -89,10 +89,10 @@ extension DependencySource {
   /// - Returns: The corresponding swiftdeps file for a swift file, or the swiftmodule file for an incremental imports source.
   public func fileToRead(
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
-  ) -> TypedVirtualPath? {
+  ) throws -> TypedVirtualPath? {
     typedFile.type != .swift
     ? typedFile
-    : info.outputFileMap.getSwiftDeps(for: typedFile, diagnosticEngine: info.diagnosticEngine)
+    : try info.outputFileMap.getSwiftDeps(for: typedFile, diagnosticEngine: info.diagnosticEngine)
   }
 }
 
@@ -101,9 +101,9 @@ extension OutputFileMap {
   fileprivate func getSwiftDeps(
     for sourceFile: TypedVirtualPath,
     diagnosticEngine: DiagnosticsEngine
-  ) -> TypedVirtualPath? {
+  ) throws -> TypedVirtualPath? {
     assert(sourceFile.type == FileType.swift)
-    guard let swiftDepsHandle = existingOutput(inputFile: sourceFile.fileHandle,
+    guard let swiftDepsHandle = try existingOutput(inputFile: sourceFile.fileHandle,
                                              outputType: .swiftDeps)
     else {
       // The legacy driver fails silently here.

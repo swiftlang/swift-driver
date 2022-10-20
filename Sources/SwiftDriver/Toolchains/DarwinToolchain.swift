@@ -104,8 +104,8 @@ public final class DarwinToolchain: Toolchain {
   }
 
   /// Path to the StdLib inside the SDK.
-  public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
-    AbsolutePath("usr/lib/swift", relativeTo: sdk)
+  public func sdkStdlib(sdk: AbsolutePath) throws -> AbsolutePath {
+    try AbsolutePath(validating: "usr/lib/swift", relativeTo: sdk)
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -129,7 +129,7 @@ public final class DarwinToolchain: Toolchain {
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
         environment: env
       ).spm_chomp()
-      return AbsolutePath(result)
+      return try AbsolutePath(validating: result)
     }
 
     return nil

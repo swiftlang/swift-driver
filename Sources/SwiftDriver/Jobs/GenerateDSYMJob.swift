@@ -20,7 +20,7 @@ extension Driver {
     if let output = parsedOptions.getLastArgument(.o) {
       outputFile = try VirtualPath(path: output.asSingle)
     } else {
-      outputFile = outputFileForImage
+      outputFile = try outputFileForImage
     }
     let outputPath = try VirtualPath(path: outputFile.description.appendingFileTypeExtension(.dSYM))
 

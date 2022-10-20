@@ -28,8 +28,8 @@ extension Driver {
     }
   }
 
-  mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) -> TypedVirtualPath? {
-    if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .indexUnitOutputPath) {
+  mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) throws -> TypedVirtualPath? {
+    if let path = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .indexUnitOutputPath) {
       return TypedVirtualPath(file: path, type: outputType)
     }
     if topLevel {
@@ -42,8 +42,8 @@ extension Driver {
   }
 
   mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
-                                        isTopLevel: Bool) -> TypedVirtualPath {
-    if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
+                                        isTopLevel: Bool) throws -> TypedVirtualPath {
+    if let path = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
       return TypedVirtualPath(file: path, type: outputType)
     }
 
@@ -69,7 +69,7 @@ extension Driver {
       return TypedVirtualPath(file: VirtualPath.createUniqueTemporaryFile(.init(baseName.appendingFileTypeExtension(outputType))).intern(),
                               type: outputType)
     }
-    return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
+    return TypedVirtualPath(file: try useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
   }
 
   /// Is this compile job top-level
@@ -111,7 +111,7 @@ extension Driver {
                                  inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
-  -> ([TypedVirtualPath], [TypedVirtualPath]) {
+  throws -> ([TypedVirtualPath], [TypedVirtualPath]) {
     let useInputFileList: Bool
     if let allSourcesFileList = allSourcesFileList {
       useInputFileList = true
@@ -179,13 +179,13 @@ extension Driver {
       // add an output for the input.
       if let outputType = outputType,
         isPrimary || (!usesPrimaryFileInputs && isMultithreaded && outputType.isAfterLLVM) {
-        let output = computePrimaryOutput(for: input,
-                                          outputType: outputType,
-                                          isTopLevel: isTopLevel)
+        let output = try computePrimaryOutput(for: input,
+                                              outputType: outputType,
+                                              isTopLevel: isTopLevel)
         primaryOutputs.append(output)
         inputOutputMap[input] = [output]
 
-        if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
+        if let indexUnitOut = try computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
           indexUnitOutputDiffers = true
           primaryIndexUnitOutputs.append(indexUnitOut)
         } else {
@@ -198,13 +198,13 @@ extension Driver {
     if let outputType = outputType,
        !usesPrimaryFileInputs && !(isMultithreaded && outputType.isAfterLLVM) {
       let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: inputs[firstSwiftInput].type)
-      let output = computePrimaryOutput(for: input,
-                                        outputType: outputType,
-                                        isTopLevel: isTopLevel)
+      let output = try computePrimaryOutput(for: input,
+                                            outputType: outputType,
+                                            isTopLevel: isTopLevel)
       primaryOutputs.append(output)
       inputOutputMap[input] = [output]
 
-      if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
+      if let indexUnitOut = try computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
         indexUnitOutputDiffers = true
         primaryIndexUnitOutputs.append(indexUnitOut)
       } else {
@@ -245,12 +245,12 @@ extension Driver {
     }
 
     let (primaryOutputs, primaryIndexUnitOutputs) =
-      addCompileInputs(primaryInputs: primaryInputs,
-                       indexFilePath: indexFilePath,
-                       inputs: &inputs,
-                       inputOutputMap: &inputOutputMap,
-                       outputType: outputType,
-                       commandLine: &commandLine)
+      try addCompileInputs(primaryInputs: primaryInputs,
+                           indexFilePath: indexFilePath,
+                           inputs: &inputs,
+                           inputOutputMap: &inputOutputMap,
+                           outputType: outputType,
+                           commandLine: &commandLine)
     outputs += primaryOutputs
 
     // FIXME: optimization record arguments are added before supplementary outputs

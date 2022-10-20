@@ -27,16 +27,18 @@ extension Driver {
 
   /// Compute the output file for an image output.
   internal var outputFileForImage: VirtualPath {
-    return useWorkingDirectory(relativeOutputFileForImage)
+    get throws {
+      return try useWorkingDirectory(relativeOutputFileForImage)
+    }
   }
 
-  func useWorkingDirectory(_ relative: RelativePath) -> VirtualPath {
-    return Driver.useWorkingDirectory(relative, workingDirectory)
+  func useWorkingDirectory(_ relative: RelativePath) throws -> VirtualPath {
+    return try Driver.useWorkingDirectory(relative, workingDirectory)
   }
 
-  static func useWorkingDirectory(_ relative: RelativePath, _ workingDirectory: AbsolutePath?) -> VirtualPath {
+  static func useWorkingDirectory(_ relative: RelativePath, _ workingDirectory: AbsolutePath?) throws -> VirtualPath {
     if let wd = workingDirectory {
-      return .absolute(AbsolutePath(relative.pathString, relativeTo: wd))
+      return .absolute(try AbsolutePath(validating: relative.pathString, relativeTo: wd))
     }
     return .relative(relative)
   }
@@ -50,7 +52,7 @@ extension Driver {
     if let output = parsedOptions.getLastArgument(.o) {
       outputFile = try VirtualPath(path: output.asSingle)
     } else {
-      outputFile = outputFileForImage
+      outputFile = try outputFileForImage
     }
 
     // Defer to the toolchain for platform-specific linking

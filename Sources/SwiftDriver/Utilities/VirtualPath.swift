@@ -199,10 +199,10 @@ public enum VirtualPath: Hashable {
   /// Returns the virtual path with an additional suffix appended to base name.
   ///
   /// This should not be used with `.standardInput` or `.standardOutput`.
-  public func appendingToBaseName(_ suffix: String) -> VirtualPath {
+  public func appendingToBaseName(_ suffix: String) throws -> VirtualPath {
     switch self {
     case let .absolute(path):
-      return .absolute(AbsolutePath(path.pathString + suffix))
+      return .absolute(try AbsolutePath(validating: path.pathString + suffix))
     case let .relative(path):
       return .relative(RelativePath(path.pathString + suffix))
     case let .temporary(path):
@@ -642,10 +642,10 @@ extension VirtualPath: CustomDebugStringConvertible {
 extension VirtualPath {
   /// Replace the extension of the given path with a new one based on the
   /// specified file type.
-  public func replacingExtension(with fileType: FileType) -> VirtualPath {
+  public func replacingExtension(with fileType: FileType) throws -> VirtualPath {
     switch self {
     case let .absolute(path):
-      return .absolute(AbsolutePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+      return .absolute(try AbsolutePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .relative(path):
       return .relative(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporary(path):

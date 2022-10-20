@@ -22,7 +22,7 @@ extension Driver {
 
     commandLine.appendFlags("-target", targetTriple.triple)
 
-    let outputPath = moduleInput.file.replacingExtension(with: .object)
+    let outputPath = try moduleInput.file.replacingExtension(with: .object)
     commandLine.appendFlag("-o")
     commandLine.appendPath(outputPath)
 

@@ -22,7 +22,7 @@ extension DarwinToolchain {
       environment: env
     ).spm_chomp()
 
-    return result.isEmpty ? nil : AbsolutePath(result)
+    return result.isEmpty ? nil : try AbsolutePath(validating: result)
   }
 
   internal func findXcodeClangLibPath(_ additionalPath: String) throws -> AbsolutePath? {

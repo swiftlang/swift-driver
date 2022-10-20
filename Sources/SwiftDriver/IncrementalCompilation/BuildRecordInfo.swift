@@ -85,7 +85,7 @@ import class Dispatch.DispatchQueue
     recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) {
     // Cannot write a buildRecord without a path.
-    guard let buildRecordPath = Self.computeBuildRecordPath(
+    guard let buildRecordPath = try? Self.computeBuildRecordPath(
             outputFileMap: outputFileMap,
             incremental: incremental,
             compilerOutputType: compilerOutputType,
@@ -127,14 +127,14 @@ import class Dispatch.DispatchQueue
     compilerOutputType: FileType?,
     workingDirectory: AbsolutePath?,
     diagnosticEngine: DiagnosticsEngine
-  ) -> VirtualPath? {
+  ) throws -> VirtualPath? {
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     guard let ofm = outputFileMap else {
       return nil
     }
     guard let partialBuildRecordPath =
-            ofm.existingOutputForSingleInput(outputType: .swiftDeps)
+            try ofm.existingOutputForSingleInput(outputType: .swiftDeps)
     else {
       if incremental {
         diagnosticEngine.emit(.warning_incremental_requires_build_record_entry)

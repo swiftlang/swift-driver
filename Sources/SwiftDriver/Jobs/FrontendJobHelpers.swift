@@ -340,7 +340,7 @@ extension Driver {
       finalOutputPath: VirtualPath.Handle?,
       input: TypedVirtualPath?,
       flag: String
-    ) {
+    ) throws {
       // If there is no final output, there's nothing to do.
       guard let finalOutputPath = finalOutputPath else { return }
 
@@ -352,11 +352,11 @@ extension Driver {
       // use the final output.
       let outputPath: VirtualPath.Handle
       if let input = input {
-        if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
+        if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
           outputPath = outputFileMapPath
         } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput, compilerOutputType != nil {
           // Alongside primary output
-          outputPath = output.file.replacingExtension(with: outputType).intern()
+          outputPath = try output.file.replacingExtension(with: outputType).intern()
         } else {
           outputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
@@ -376,51 +376,51 @@ extension Driver {
     }
 
     /// Add all of the outputs needed for a given input.
-    func addAllOutputsFor(input: TypedVirtualPath?) {
+    func addAllOutputsFor(input: TypedVirtualPath?) throws {
       if !emitModuleSeparately {
         // Generate the module files with the main job.
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .swiftModule,
           finalOutputPath: moduleOutputInfo.output?.outputPath,
           input: input,
           flag: "-emit-module-path")
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .swiftDocumentation,
           finalOutputPath: moduleDocOutputPath,
           input: input,
           flag: "-emit-module-doc-path")
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .swiftSourceInfoFile,
           finalOutputPath: moduleSourceInfoPath,
           input: input,
           flag: "-emit-module-source-info-path")
       }
 
-      addOutputOfType(
+      try addOutputOfType(
         outputType: .dependencies,
         finalOutputPath: dependenciesFilePath,
         input: input,
         flag: "-emit-dependencies-path")
 
-      addOutputOfType(
+      try addOutputOfType(
         outputType: .swiftConstValues,
         finalOutputPath: constValuesFilePath,
         input: input,
         flag: "-emit-const-values-path")
 
-      addOutputOfType(
+      try addOutputOfType(
         outputType: .swiftDeps,
         finalOutputPath: referenceDependenciesPath,
         input: input,
         flag: "-emit-reference-dependencies-path")
 
-      addOutputOfType(
+      try addOutputOfType(
         outputType: self.optimizationRecordFileType ?? .yamlOptimizationRecord,
         finalOutputPath: optimizationRecordPath,
         input: input,
         flag: "-save-optimization-record-path")
 
-      addOutputOfType(
+      try addOutputOfType(
         outputType: .diagnostics,
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
@@ -429,40 +429,40 @@ extension Driver {
 
     if compilerMode.usesPrimaryFileInputs {
       for input in primaryInputs {
-        addAllOutputsFor(input: input)
+        try addAllOutputsFor(input: input)
       }
     } else {
-      addAllOutputsFor(input: nil)
+      try addAllOutputsFor(input: nil)
 
       if !emitModuleSeparately {
         // Outputs that only make sense when the whole module is processed
         // together.
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .objcHeader,
           finalOutputPath: objcGeneratedHeaderPath,
           input: nil,
           flag: "-emit-objc-header-path")
 
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .swiftInterface,
           finalOutputPath: swiftInterfacePath,
           input: nil,
           flag: "-emit-module-interface-path")
 
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .privateSwiftInterface,
           finalOutputPath: swiftPrivateInterfacePath,
           input: nil,
           flag: "-emit-private-module-interface-path")
 
-        addOutputOfType(
+        try addOutputOfType(
           outputType: .tbd,
           finalOutputPath: tbdPath,
           input: nil,
           flag: "-emit-tbd-path")
 
         if let abiDescriptorPath = abiDescriptorPath {
-          addOutputOfType(outputType: .jsonABIBaseline,
+          try addOutputOfType(outputType: .jsonABIBaseline,
                           finalOutputPath: abiDescriptorPath.fileHandle,
                           input: nil,
                           flag: "-emit-abi-descriptor-path")
@@ -478,11 +478,11 @@ extension Driver {
       assert(primaryInputs.count == 1, "Standard compile job had more than one primary input")
       let input = primaryInputs[0]
       let remapOutputPath: VirtualPath
-      if let outputFileMapPath = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .remap) {
+      if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .remap) {
         remapOutputPath = VirtualPath.lookup(outputFileMapPath)
       } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput {
         // Alongside primary output
-        remapOutputPath = output.file.replacingExtension(with: .remap)
+        remapOutputPath = try output.file.replacingExtension(with: .remap)
       } else {
         remapOutputPath =
           VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))

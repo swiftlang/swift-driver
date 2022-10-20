@@ -57,7 +57,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .parsed)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
+    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
 
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
