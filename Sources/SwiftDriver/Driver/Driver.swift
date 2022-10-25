@@ -395,8 +395,10 @@ public struct Driver {
     guard let moduleOutput = moduleOutputInfo.output else {
       return nil
     }
-    return TypedVirtualPath(file: VirtualPath.lookup(moduleOutput.outputPath)
-      .replacingExtension(with: .jsonABIBaseline).intern(), type: .jsonABIBaseline)
+    guard let path = try? VirtualPath.lookup(moduleOutput.outputPath).replacingExtension(with: .jsonABIBaseline) else {
+      return nil
+    }
+    return TypedVirtualPath(file: path.intern(), type: .jsonABIBaseline)
   }()
 
   public static func isOptionFound(_ opt: String, allOpts: Set<String>) -> Bool {
@@ -513,7 +515,7 @@ public struct Driver {
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
       let cwd = fileSystem.currentWorkingDirectory
-      return try cwd.map{ AbsolutePath(workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
+      return try cwd.map{ try AbsolutePath(validating: workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
     }
 
     // Apply the working directory to the parsed options.
@@ -823,7 +825,7 @@ public struct Driver {
     // with private Clang modules.
     if let swiftInterfacePath = self.swiftInterfacePath,
         givenPrivateInterfacePath == nil {
-      self.swiftPrivateInterfacePath = VirtualPath.lookup(swiftInterfacePath)
+      self.swiftPrivateInterfacePath = try VirtualPath.lookup(swiftInterfacePath)
         .replacingExtension(with: .privateSwiftInterface).intern()
     } else {
       self.swiftPrivateInterfacePath = givenPrivateInterfacePath
@@ -1167,7 +1169,10 @@ extension Driver {
   ) -> AbsolutePath? {
     let responseFile: AbsolutePath
     if let basePath = basePath {
-      responseFile = AbsolutePath(path, relativeTo: basePath)
+      guard let absolutePath = try? AbsolutePath(validating: path, relativeTo: basePath) else {
+          return nil
+      }
+      responseFile = absolutePath
     } else {
       guard let absolutePath = try? AbsolutePath(validating: path) else {
         return nil
@@ -1741,7 +1746,7 @@ extension Driver {
   /// Apply the given working directory to all paths in the parsed options.
   private static func applyWorkingDirectory(_ workingDirectory: AbsolutePath,
                                             to parsedOptions: inout ParsedOptions) throws {
-    parsedOptions.forEachModifying { parsedOption in
+    try parsedOptions.forEachModifying { parsedOption in
       // Only translate options whose arguments are paths.
       if !parsedOption.option.attributes.contains(.argumentIsPath) { return }
 
@@ -1754,12 +1759,12 @@ extension Driver {
         if arg == "-" {
           translatedArgument = parsedOption.argument
         } else {
-          translatedArgument = .single(AbsolutePath(arg, relativeTo: workingDirectory).pathString)
+          translatedArgument = .single(try AbsolutePath(validating: arg, relativeTo: workingDirectory).pathString)
         }
 
       case .multiple(let args):
-        translatedArgument = .multiple(args.map { arg in
-          AbsolutePath(arg, relativeTo: workingDirectory).pathString
+        translatedArgument = .multiple(try args.map { arg in
+          try AbsolutePath(validating: arg, relativeTo: workingDirectory).pathString
         })
       }
 
@@ -2400,7 +2405,7 @@ extension Driver {
 
     // Use working directory if specified
     if let moduleRelative = moduleOutputPath.relativePath {
-      moduleOutputPath = Driver.useWorkingDirectory(moduleRelative, workingDirectory)
+      moduleOutputPath = try Driver.useWorkingDirectory(moduleRelative, workingDirectory)
     }
 
     switch moduleOutputKind! {
@@ -2500,8 +2505,8 @@ extension Driver {
       // FIXME: TSC should provide a better utility for this.
       if let absPath = try? AbsolutePath(validating: sdkPath) {
         path = absPath
-      } else if let cwd = fileSystem.currentWorkingDirectory {
-        path = AbsolutePath(sdkPath, relativeTo: cwd)
+      } else if let cwd = fileSystem.currentWorkingDirectory, let absPath = try? AbsolutePath(validating: sdkPath, relativeTo: cwd) {
+        path = absPath
       } else {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
         return nil
@@ -2585,7 +2590,7 @@ extension Driver {
         return nil
     }
 
-    if let outputPath = outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+    if let outputPath = try outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
       return outputPath
     }
 
@@ -2689,9 +2694,11 @@ extension Driver {
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
        let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
       for profilingData in profileArgs {
-        if !fileSystem.exists(AbsolutePath(profilingData,
-                                           relativeTo: workingDirectory)) {
-          diagnosticEngine.emit(Error.missingProfilingData(profilingData))
+        if let path = try? AbsolutePath(validating: profilingData,
+                                          relativeTo: workingDirectory) {
+          if !fileSystem.exists(path) {
+            diagnosticEngine.emit(Error.missingProfilingData(profilingData))
+          }
         }
       }
     }
@@ -3065,7 +3072,7 @@ extension Driver {
     // If this is a single-file compile and there is an entry in the
     // output file map, use that.
     if compilerMode.isSingleCompilation,
-        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+        let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
             outputType: type) {
       return singleOutputPath
     }
@@ -3074,7 +3081,7 @@ extension Driver {
     // primary output type is a .swiftmodule and we are using the emit-module-separately
     // flow, then also consider single output paths specified in the output file-map.
     if compilerOutputType == .swiftModule && emitModuleSeparately,
-       let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+       let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
            outputType: type) {
       return singleOutputPath
     }
@@ -3082,7 +3089,7 @@ extension Driver {
     // Emit-module serialized diagnostics are always specified as a single-output
     // file
     if type == .emitModuleDiagnostics,
-       let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+       let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
            outputType: type) {
       return singleOutputPath
     }
@@ -3090,7 +3097,7 @@ extension Driver {
     // Emit-module discovered dependencies are always specified as a single-output
     // file
     if type == .emitModuleDependencies,
-       let path = outputFileMap?.existingOutputForSingleInput(outputType: type) {
+       let path = try outputFileMap?.existingOutputForSingleInput(outputType: type) {
       return path
     }
 
@@ -3113,7 +3120,7 @@ extension Driver {
     // synthesize a path from the master swift dependency path.  This is
     // important as we may otherwise emit this file at the location where the
     // driver was invoked, which is normally the root of the package.
-    if let path = outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {
+    if let path = try outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {
       return VirtualPath.lookup(path)
                   .parentDirectory
                   .appending(component: "\(moduleName).\(type.rawValue)")
@@ -3230,7 +3237,7 @@ extension Driver {
     // If this is a single-file compile and there is an entry in the
     // output file map, use that.
     if compilerMode.isSingleCompilation,
-        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+        let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
           outputType: type) {
       return singleOutputPath
     }
@@ -3249,7 +3256,7 @@ extension Driver {
         parentPath = VirtualPath.lookup(moduleOutputPath).parentDirectory
       }
 
-      return parentPath
+      return try parentPath
         .appending(component: VirtualPath.lookup(moduleOutputPath).basename)
         .replacingExtension(with: type)
         .intern()

@@ -636,7 +636,7 @@ extension Driver {
       if !localFileSystem.exists(moduleABIDir) {
         try localFileSystem.createDirectory(moduleABIDir, recursive: true)
       }
-      let abiFilePath = VirtualPath.absolute(moduleABIDir.appending(component:
+      let abiFilePath = try VirtualPath.absolute(moduleABIDir.appending(component:
         outputPath.path.file.basename)).replacingExtension(with: .jsonABIBaseline).intern()
       let abiPath = TypedVirtualPath(file: abiFilePath, type: .jsonABIBaseline)
       commandLine.appendPath(abiPath.file)
@@ -680,7 +680,7 @@ extension Driver {
     // Create directories for each Swift module
     try inputMap.forEach {
       assert(!$0.value.isEmpty)
-      let moduleDir = AbsolutePath("\($0.key).swiftmodule", relativeTo: prebuiltModuleDir)
+      let moduleDir = try AbsolutePath(validating: "\($0.key).swiftmodule", relativeTo: prebuiltModuleDir)
       if !localFileSystem.exists(moduleDir) {
         try localFileSystem.createDirectory(moduleDir)
       }
@@ -688,11 +688,11 @@ extension Driver {
 
     // Generate an outputMap from the inputMap for easy reference.
     let outputMap: [String: [PrebuiltModuleOutput]] =
-      Dictionary.init(uniqueKeysWithValues: inputMap.map { key, value in
-      let outputPaths: [PrebuiltModuleInput] = value.map {
-        let path = AbsolutePath("\($0.path.file.basenameWithoutExt).swiftmodule",
-                                relativeTo: AbsolutePath("\(key).swiftmodule",
-                                                         relativeTo: prebuiltModuleDir))
+      Dictionary.init(uniqueKeysWithValues: try inputMap.map { key, value in
+      let outputPaths: [PrebuiltModuleInput] = try value.map {
+        let path = try AbsolutePath(validating: "\($0.path.file.basenameWithoutExt).swiftmodule",
+                                    relativeTo: try AbsolutePath(validating: "\(key).swiftmodule",
+                                                                 relativeTo: prebuiltModuleDir))
         return PrebuiltModuleOutput(TypedVirtualPath(file: VirtualPath.absolute(path).intern(),
                                                      type: .swiftModule), $0.arch)
       }

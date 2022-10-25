@@ -253,7 +253,10 @@ extension IncrementalCompilationState {
         report(message, pathIfGiven?.file)
         return
       }
-      let output = outputFileMap.getOutput(inputFile: path.fileHandle, outputType: .object)
+      guard let output = try? outputFileMap.getOutput(inputFile: path.fileHandle, outputType: .object) else {
+        report(message, pathIfGiven?.file)
+        return
+      }
       let compiling = " {compile: \(VirtualPath.lookup(output).basename) <= \(input.basename)}"
       diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) \(compiling)"))
     }

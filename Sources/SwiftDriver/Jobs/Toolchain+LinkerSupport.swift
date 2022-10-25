@@ -142,7 +142,7 @@ extension DarwinToolchain {
       parsedOptions: &parsedOptions,
       targetInfo: targetInfo
     )
-    for path in rpaths.paths(runtimeLibraryPaths: runtimePaths) {
+    for path in try rpaths.paths(runtimeLibraryPaths: runtimePaths) {
       commandLine.appendFlag("-rpath")
       commandLine.appendPath(path)
     }
@@ -210,12 +210,12 @@ extension DarwinToolchain {
       }
     }
 
-    func paths(runtimeLibraryPaths: [VirtualPath]) -> [VirtualPath] {
+    func paths(runtimeLibraryPaths: [VirtualPath]) throws -> [VirtualPath] {
       switch self {
       case .toolchain:
         return runtimeLibraryPaths
       case .os:
-        return [.absolute(.init("/usr/lib/swift"))]
+        return [.absolute(try .init(validating: "/usr/lib/swift"))]
       case .none:
         return []
       }

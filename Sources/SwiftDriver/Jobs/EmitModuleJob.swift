@@ -18,7 +18,7 @@ extension Driver {
       commandLine: inout [Job.ArgTemplate],
       outputs: inout [TypedVirtualPath],
       isMergeModule: Bool
-  ) {
+  ) throws {
     // Add supplemental outputs.
     func addSupplementalOutput(path: VirtualPath.Handle?, flag: String, type: FileType) {
       guard let path = path else { return }
@@ -67,7 +67,7 @@ extension Driver {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
       if parsedOptions.getLastArgument(.emitDependenciesPath) == nil {
-        path = VirtualPath.lookup(moduleOutputInfo.output!.outputPath).replacingExtension(with: .dependencies).intern()
+        path = try VirtualPath.lookup(moduleOutputInfo.output!.outputPath).replacingExtension(with: .dependencies).intern()
       }
       addSupplementalOutput(path: path, flag: "-emit-dependencies-path", type: .dependencies)
     }
@@ -97,7 +97,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
+    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
 
     try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
     try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)

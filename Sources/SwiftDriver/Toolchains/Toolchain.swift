@@ -171,16 +171,18 @@ extension Toolchain {
 
   /// Returns the `executablePath`'s directory.
   public var executableDir: AbsolutePath {
-    // If the path is given via the initializer, use that.
-    if let givenDir = compilerExecutableDir {
-      return givenDir
+    get throws {
+      // If the path is given via the initializer, use that.
+      if let givenDir = compilerExecutableDir {
+        return givenDir
+      }
+      // If the path isn't given, we are running the driver as an executable,
+      // so assuming the compiler is adjacent to the driver.
+      guard let path = Bundle.main.executablePath else {
+        fatalError("Could not find executable path.")
+      }
+      return try AbsolutePath(validating: path).parentDirectory
     }
-    // If the path isn't given, we are running the driver as an executable,
-    // so assuming the compiler is adjacent to the driver.
-    guard let path = Bundle.main.executablePath else {
-      fatalError("Could not find executable path.")
-    }
-    return AbsolutePath(path).parentDirectory
   }
 
   /// Looks for `SWIFT_DRIVER_TOOLNAME_EXEC` in the `env` property.
@@ -214,13 +216,13 @@ extension Toolchain {
               let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [toolDir]) {
       // Looking for tools from the tools directory.
       return path
-    } else if let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [executableDir]) {
+    } else if let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [try executableDir]) {
       return path
     } else if let path = try? xcrunFind(executable: executableName(executable)) {
       return path
     } else if !["swift-frontend", "swift"].contains(executable),
               let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
-              parentDirectory != executableDir,
+              try parentDirectory != executableDir,
               let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [parentDirectory]) {
       // If the driver library's client and the frontend are in different directories,
       // try looking for tools next to the frontend.
@@ -236,7 +238,7 @@ extension Toolchain {
                 .parentDirectory
                 .appending(component: executableName(executable))
       } else {
-        return AbsolutePath("/usr/bin/" + executable)
+        return try AbsolutePath(validating: "/usr/bin/" + executable)
       }
     } else {
       throw ToolchainError.unableToFind(tool: executable)
@@ -253,7 +255,7 @@ extension Toolchain {
       args: xcrun, "--find", executable,
       environment: env
     ).spm_chomp()
-    return AbsolutePath(path)
+    return try AbsolutePath(validating: path)
   }
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,

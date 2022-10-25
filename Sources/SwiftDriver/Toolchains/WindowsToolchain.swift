@@ -101,8 +101,8 @@ extension WindowsToolchain.ToolchainValidationError {
     toolPaths.removeValue(forKey: tool)
   }
 
-  public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
-    AbsolutePath("usr/lib/swift", relativeTo: sdk)
+  public func sdkStdlib(sdk: AbsolutePath) throws -> AbsolutePath {
+    try AbsolutePath(validating: "usr/lib/swift", relativeTo: sdk)
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -116,7 +116,7 @@ extension WindowsToolchain.ToolchainValidationError {
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     // TODO(compnerd): replicate the SPM processing of the SDKInfo.plist
     if let SDKROOT = env["SDKROOT"] {
-      return AbsolutePath(SDKROOT)
+      return try AbsolutePath(validating: SDKROOT)
     }
     return nil
   }

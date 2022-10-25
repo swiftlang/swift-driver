@@ -35,9 +35,9 @@ public struct OutputFileMap: Hashable, Codable {
 
   /// For the given input file, retrieve or create an output file for the given
   /// file type.
-  public func getOutput(inputFile: VirtualPath.Handle, outputType: FileType) -> VirtualPath.Handle {
+  public func getOutput(inputFile: VirtualPath.Handle, outputType: FileType) throws -> VirtualPath.Handle {
     // If we already have an output file, retrieve it.
-    if let output = existingOutput(inputFile: inputFile, outputType: outputType) {
+    if let output = try existingOutput(inputFile: inputFile, outputType: outputType) {
       return output
     }
 
@@ -50,7 +50,7 @@ public struct OutputFileMap: Hashable, Codable {
     return VirtualPath.createUniqueTemporaryFile(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
   }
 
-  public func existingOutput(inputFile: VirtualPath.Handle, outputType: FileType) -> VirtualPath.Handle? {
+  public func existingOutput(inputFile: VirtualPath.Handle, outputType: FileType) throws -> VirtualPath.Handle? {
     if let path = entries[inputFile]?[outputType] {
       return path
     }
@@ -60,14 +60,14 @@ public struct OutputFileMap: Hashable, Codable {
       guard let path = entries[inputFile]?[.swiftModule] else {
         return nil
       }
-      return VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
+      return try VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
 
     case .jsonAPIBaseline, .jsonABIBaseline:
       // Infer paths for these entities using .swiftsourceinfo path.
       guard let path = entries[inputFile]?[.swiftSourceInfoFile] else {
         return nil
       }
-      return VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
+      return try VirtualPath.lookup(path).replacingExtension(with: outputType).intern()
 
     case .object:
       // We may generate .o files from bitcode .bc files, but the output file map
@@ -86,8 +86,8 @@ public struct OutputFileMap: Hashable, Codable {
     }
   }
 
-  public func existingOutputForSingleInput(outputType: FileType) -> VirtualPath.Handle? {
-    existingOutput(inputFile: Self.singleInputKey, outputType: outputType)
+  public func existingOutputForSingleInput(outputType: FileType) throws -> VirtualPath.Handle? {
+    try existingOutput(inputFile: Self.singleInputKey, outputType: outputType)
   }
 
   public func resolveRelativePaths(relativeTo absPath: AbsolutePath) -> OutputFileMap {

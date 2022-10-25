@@ -57,9 +57,9 @@ extension Driver {
     if let compilerOutputType = compilerOutputType {
       // If there is no baseInput (singleCompileMode), primary output computation
       // is not input-specific, therefore it does not matter which input is passed.
-      let output = computePrimaryOutput(for: baseInput ?? input,
-                                        outputType: compilerOutputType,
-                                        isTopLevel: isTopLevelOutput(type: compilerOutputType))
+      let output = try computePrimaryOutput(for: baseInput ?? input,
+                                            outputType: compilerOutputType,
+                                            isTopLevel: isTopLevelOutput(type: compilerOutputType))
       commandLine.appendFlag(.o)
       commandLine.appendPath(output.file)
       outputs.append(output)
