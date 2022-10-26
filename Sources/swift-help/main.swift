@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -47,7 +47,7 @@ enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
 }
 
 enum Subcommand: String, CaseIterable {
-  case build, package, run, test
+  case build, package, packageRegistry = "package-registry", run, test
 
   var description: String {
     switch self {
@@ -55,6 +55,8 @@ enum Subcommand: String, CaseIterable {
       return "Build Swift packages"
     case .package:
       return "Create and work on packages"
+    case .packageRegistry:
+      return "Interact with package registry and manage related configuration"
     case .run:
       return "Run a program from a package"
     case .test:
@@ -133,7 +135,7 @@ struct SwiftHelp: ParsableCommand {
     case .subcommand(let subcommand):
       // Try to find the subcommand adjacent to the help tool.
       // If we didn't find the tool there, let the OS search for it.
-      let execName = "swift-\(subcommand)"
+      let execName = "swift-\(subcommand.rawValue)"
       let subcommandPath = Process.findExecutable(
         CommandLine.arguments[0])?
         .parentDirectory
