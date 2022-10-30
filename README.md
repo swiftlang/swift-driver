@@ -64,6 +64,7 @@ all with CMake:
   ```
   cmake -B <llbuild-build-dir> -G Ninja <llbuild-source-dir> -DLLBUILD_SUPPORT_BINDINGS="Swift" -DCMAKE_OSX_ARCHITECTURES=x86_64
   ```
+* [swift-system](https://github.com/apple/swift-system)
 * [swift-argument-parser](https://github.com/apple/swift-argument-parser)
 * [Yams](https://github.com/jpsim/Yams)
 
