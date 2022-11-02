@@ -84,7 +84,7 @@ final class IntegrationTests: IntegrationTestCase {
       let buildPath = path.appending(component: "build")
       let args = [
         "swift", "build", "--package-path", packageDirectory.pathString,
-        "--build-path", buildPath.pathString
+        "--scratch-path", buildPath.pathString
       ]
       let extraEnv = [ "SWIFT_EXEC": compiler.pathString]
 

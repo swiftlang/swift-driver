@@ -72,7 +72,7 @@ def swiftpm_bin_path(swift_exec, swiftpm_args, env=None):
 def get_swiftpm_options(args):
   swiftpm_args = [
     '--package-path', args.package_path,
-    '--build-path', args.build_path,
+    '--scratch-path', args.build_path,
     '--configuration', args.configuration,
   ]
 
