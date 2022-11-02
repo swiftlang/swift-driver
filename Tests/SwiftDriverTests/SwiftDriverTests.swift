@@ -2104,6 +2104,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(lastJob.commandLine.contains(subsequence: [.flag("-fuse-ld=lld"),
         .flag("-Xlinker"), .flag("-z"), .flag("-Xlinker"), .flag("nostart-stop-gc")]))
     }
+
+    do {
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-freebsd"], env: env)
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let lastJob = plannedJobs.last!
+      XCTAssertTrue(lastJob.tool.name.contains("clang"))
+      XCTAssertTrue(lastJob.commandLine.contains(.flag("-fuse-ld=lld")))
+    }
   }
 
   func testWebAssemblyUnsupportedFeatures() throws {
