@@ -495,7 +495,8 @@ extension Driver {
   private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
   throws {
     // Turn this flag on by default with the env var or for public frameworks.
-    let onByDefault = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
+    let forceEnable = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil
+    let onByDefault = forceEnable ||
         parsedOptions.getLastArgument(.libraryLevel)?.asSingle == "api"
 
     guard
@@ -512,10 +513,17 @@ extension Driver {
       emitModuleSeparately || compilerMode == .singleCompile ||
       parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                             negative: .noVerifyEmittedModuleInterface,
-                            default: false)
+                            default: false),
+
+      // Don't verify by default modules emitting a compatibility header. This is
+      // unsupported as the headers are merged after all archs are built. rdar://90864986
+      self.objcGeneratedHeaderPath == nil ||
+      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                            negative: .noVerifyEmittedModuleInterface,
+                            default: forceEnable)
     else { return }
 
-    let optIn = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
+    let optIn = forceEnable ||
       parsedOptions.hasArgument(.verifyEmittedModuleInterface)
     func addVerifyJob(forPrivate: Bool) throws {
       let isNeeded =
