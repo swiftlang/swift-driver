@@ -247,9 +247,9 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadAndWriteBuildRecord() throws {
     let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
     let options = "abbbfbcaf36b93e58efaadd8271ff142"
-    let file2: AbsolutePath = AbsolutePath("/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift")
-    let main: AbsolutePath = AbsolutePath("/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift")
-    let gazorp: AbsolutePath = AbsolutePath("/Volumes/gazorp.swift")
+    let file2: AbsolutePath = try AbsolutePath(validating: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift")
+    let main: AbsolutePath = try AbsolutePath(validating: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift")
+    let gazorp: AbsolutePath = try AbsolutePath(validating: "/Volumes/gazorp.swift")
     let inputString =
       """
       version: "\(version)"

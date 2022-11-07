@@ -16,12 +16,12 @@ import TSCBasic
 #if os(macOS)
 internal func bundleRoot() -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return AbsolutePath(bundle.bundlePath).parentDirectory
+        return try! AbsolutePath(validating: bundle.bundlePath).parentDirectory
     }
     fatalError()
 }
 
-private let packageDirectory = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+private let packageDirectory = try! AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
 
 // The "default" here means lit.py will be invoked as an executable, while otherwise let's use
 // python 3 explicitly.
@@ -95,7 +95,7 @@ final class IntegrationTests: IntegrationTestCase {
         environment: ProcessEnv.vars.merging(extraEnv) { $1 }
       )
 
-      XCTAssertTrue(localFileSystem.isExecutableFile(AbsolutePath("debug/swift-driver", relativeTo: buildPath)), result)
+      try XCTAssertTrue(localFileSystem.isExecutableFile(AbsolutePath(validating: "debug/swift-driver", relativeTo: buildPath)), result)
     }
   #endif
   }
@@ -173,8 +173,8 @@ final class IntegrationTests: IntegrationTestCase {
       // you've cloned this package into a Swift compiler working directory,
       // that means it'll be the directory with build/, llvm/, swift/, and
       // swift-driver/ in it.
-      let litConfigDir = AbsolutePath(
-        litConfigPathString,
+      let litConfigDir = try AbsolutePath(
+        validating: litConfigPathString,
         relativeTo: swiftRootDir
       )
 

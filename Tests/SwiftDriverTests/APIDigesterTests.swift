@@ -112,7 +112,7 @@ class APIDigesterTests: XCTestCase {
                                        "-output-file-map", ofmPath.pathString,
                                       ])
         let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
-        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/path/to/baseline.abi.json")))]))
+        try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/path/to/baseline.abi.json")))]))
       }
     }
     do {
@@ -136,7 +136,7 @@ class APIDigesterTests: XCTestCase {
                                        "-output-file-map", ofmPath.pathString,
                                       ])
         let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
-        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/path/to/sourceinfo.abi.json")))]))
+        try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/path/to/sourceinfo.abi.json")))]))
       }
     }
   }
@@ -149,8 +149,8 @@ class APIDigesterTests: XCTestCase {
       XCTAssertTrue(digesterJob.commandLine.contains("-dump-sdk"))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init(validating: "/path/to/sdk")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init(validating: "/some/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("foo.api.json")))]))
 
@@ -165,8 +165,8 @@ class APIDigesterTests: XCTestCase {
       XCTAssertTrue(digesterJob.commandLine.contains("-dump-sdk"))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init(validating: "/path/to/sdk")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init(validating: "/some/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("foo.abi.json")))]))
 
@@ -238,10 +238,10 @@ class APIDigesterTests: XCTestCase {
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .compareAPIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-diagnose-sdk"))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-baseline-path", .path(.absolute(.init("/baseline/path")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-baseline-path", .path(.absolute(.init(validating: "/baseline/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init(validating: "/path/to/sdk")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init(validating: "/some/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-breakage-allowlist-path",
                                                                    .path(.relative(.init("allowlist/path")))]))
@@ -257,7 +257,7 @@ class APIDigesterTests: XCTestCase {
                                      "-digester-breakage-allowlist-path", "allowlist/path"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .compareABIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-diagnose-sdk"))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-input-paths", .path(.absolute(.init("/baseline/path")))]))
+      try XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-input-paths", .path(.absolute(.init(validating: "/baseline/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-breakage-allowlist-path",
                                                                    .path(.relative(.init("allowlist/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains("-abi"))

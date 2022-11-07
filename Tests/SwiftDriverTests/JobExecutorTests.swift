@@ -62,33 +62,39 @@ class JobCollectingDelegate: JobExecutionDelegate {
 
 extension DarwinToolchain {
   /// macOS SDK path, for testing only.
-  var sdk: Result<AbsolutePath, Swift.Error> {
-    Result {
+  var sdk: AbsolutePath {
+    get throws {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
         environment: env
       ).spm_chomp()
-      return AbsolutePath(result)
+      return try AbsolutePath(validating: result)
     }
   }
 
   /// macOS resource directory, for testing only.
-  var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
-    return Result {
-      try AbsolutePath("../../lib/swift/macosx", relativeTo: getToolPath(.swiftCompiler))
+  var resourcesDirectory: AbsolutePath {
+    get throws {
+      try AbsolutePath(validating: "../../lib/swift/macosx", relativeTo: getToolPath(.swiftCompiler))
     }
   }
 
-  var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { AbsolutePath("../clang/lib/darwin/libclang_rt.osx.a", relativeTo: $0) }
+  var clangRT: AbsolutePath {
+    get throws {
+      try AbsolutePath(validating: "../clang/lib/darwin/libclang_rt.osx.a", relativeTo: resourcesDirectory)
+    }
   }
 
-  var compatibility50: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { $0.appending(component: "libswiftCompatibility50.a") }
+  var compatibility50: AbsolutePath {
+    get throws {
+      try resourcesDirectory.appending(component: "libswiftCompatibility50.a")
+    }
   }
 
-  var compatibilityDynamicReplacements: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { $0.appending(component: "libswiftCompatibilityDynamicReplacements.a") }
+  var compatibilityDynamicReplacements: AbsolutePath {
+    get throws {
+      try resourcesDirectory.appending(component: "libswiftCompatibilityDynamicReplacements.a")
+    }
   }
 }
 
@@ -139,7 +145,7 @@ final class JobExecutorTests: XCTestCase {
           "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
-          .path(.absolute(try toolchain.sdk.get())),
+          .path(.absolute(try toolchain.sdk)),
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("foo.o"))),
         ],
@@ -161,7 +167,7 @@ final class JobExecutorTests: XCTestCase {
           "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
-          .path(.absolute(try toolchain.sdk.get())),
+          .path(.absolute(try toolchain.sdk)),
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("main.o"))),
         ],
@@ -177,11 +183,11 @@ final class JobExecutorTests: XCTestCase {
         commandLine: [
           .path(.temporary(RelativePath("foo.o"))),
           .path(.temporary(RelativePath("main.o"))),
-          .path(.absolute(try toolchain.clangRT.get())),
-          "--sysroot", .path(.absolute(try toolchain.sdk.get())),
+          .path(.absolute(try toolchain.clangRT)),
+          "--sysroot", .path(.absolute(try toolchain.sdk)),
           "-lobjc", "-lSystem", .flag("--target=\(hostTriple.triple)"),
-          "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
-          "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
+          "-L", .path(.absolute(try toolchain.resourcesDirectory)),
+          "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk))),
           "-rpath", "/usr/lib/swift", "-o",
           .path(.relative(RelativePath("main"))),
         ],
@@ -202,9 +208,9 @@ final class JobExecutorTests: XCTestCase {
       XCTAssertEqual(delegate.started.count, 3)
 
       let fooObject = try resolver.resolve(.path(.temporary(RelativePath("foo.o"))))
-      XCTAssertTrue(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be present in the temporary directory")
+      try XCTAssertTrue(localFileSystem.exists(AbsolutePath(validating: fooObject)), "expected foo.o to be present in the temporary directory")
       try resolver.removeTemporaryDirectory()
-      XCTAssertFalse(localFileSystem.exists(AbsolutePath(fooObject)), "expected foo.o to be removed from the temporary directory")
+      try XCTAssertFalse(localFileSystem.exists(AbsolutePath(validating: fooObject)), "expected foo.o to be removed from the temporary directory")
     }
 #endif
   }
@@ -233,7 +239,7 @@ final class JobExecutorTests: XCTestCase {
           "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
           "-sdk",
-          .path(.absolute(try toolchain.sdk.get())),
+          .path(.absolute(try toolchain.sdk)),
           "-module-name", "main",
           "-o", .path(.temporary(RelativePath("main.o"))),
         ],
@@ -248,10 +254,10 @@ final class JobExecutorTests: XCTestCase {
         tool: try toolchain.resolvedTool(.dynamicLinker),
         commandLine: [
           .path(.temporary(RelativePath("main.o"))),
-          "--sysroot", .path(.absolute(try toolchain.sdk.get())),
+          "--sysroot", .path(.absolute(try toolchain.sdk)),
           "-lobjc", "-lSystem", .flag("--target=\(hostTriple.triple)"),
-          "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
-          "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
+          "-L", .path(.absolute(try toolchain.resourcesDirectory)),
+          "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk))),
           "-o", .path(.absolute(exec)),
         ],
         inputs: [
@@ -288,10 +294,10 @@ final class JobExecutorTests: XCTestCase {
 #if os(Windows)
     throw XCTSkip("processId.getter returning `-1`")
 #else
-    let job = Job(
+    let job = try Job(
       moduleName: "main",
       kind: .compile,
-      tool: ResolvedTool(path: AbsolutePath("/usr/bin/swift"), supportsResponseFiles: false),
+      tool: ResolvedTool(path: AbsolutePath(validating: "/usr/bin/swift"), supportsResponseFiles: false),
       commandLine: [.flag("something")],
       inputs: [],
       primaryInputs: [],
@@ -329,7 +335,7 @@ final class JobExecutorTests: XCTestCase {
 
     env[envVarName] = dummyPath
     let overriddenSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
-    XCTAssertEqual(overriddenSwiftPath, AbsolutePath(dummyPath))
+    try XCTAssertEqual(overriddenSwiftPath, AbsolutePath(validating: dummyPath))
 
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
@@ -339,7 +345,7 @@ final class JobExecutorTests: XCTestCase {
 
     env[envVarName] = dummyPath
     let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
-    XCTAssertEqual(unixOverriddenSwiftPath, AbsolutePath(dummyPath))
+    try XCTAssertEqual(unixOverriddenSwiftPath, AbsolutePath(validating: dummyPath))
   }
 
   func testInputModifiedDuringSingleJobBuild() throws {
@@ -375,13 +381,13 @@ final class JobExecutorTests: XCTestCase {
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
                                            env: [:])
-    let job = Job(moduleName: "Module",
+    let job = try Job(moduleName: "Module",
                   kind: .compile,
                   tool: ResolvedTool(
-                    path: AbsolutePath("/path/to/the tool"),
+                    path: AbsolutePath(validating: "/path/to/the tool"),
                     supportsResponseFiles: false),
-                  commandLine: [.path(.absolute(.init("/with space"))),
-                                .path(.absolute(.init("/withoutspace")))],
+                  commandLine: [.path(.absolute(.init(validating: "/with space"))),
+                                .path(.absolute(.init(validating: "/withoutspace")))],
                   inputs: [], primaryInputs: [], outputs: [])
 #if os(Windows)
     XCTAssertEqual(try executor.description(of: job, forceResponseFiles: false),
@@ -462,7 +468,7 @@ final class JobExecutorTests: XCTestCase {
   private func getHostToolchainSdkArg(_ executor: SwiftDriverExecutor) throws -> [String] {
     #if os(macOS)
     let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
-    return try ["-sdk", toolchain.sdk.get().pathString]
+    return try ["-sdk", toolchain.sdk.pathString]
     #elseif os(Windows)
     let toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
     if let path = try toolchain.defaultSDKPath(nil) {
@@ -505,10 +511,10 @@ final class JobExecutorTests: XCTestCase {
         try driver.run(jobs: jobs)
         XCTAssertTrue(localFileSystem.exists(outputPath))
         // -save-temps wasn't passed, so ensure the temporary file was removed.
-        XCTAssertFalse(
-          localFileSystem.exists(.init(try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+        try XCTAssertFalse(
+          localFileSystem.exists(.init(validating: try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
         )
-        XCTAssertFalse(localFileSystem.exists(.init(try executor.resolver.resolve(.path(compileOutput)))))
+        try XCTAssertFalse(localFileSystem.exists(.init(validating: try executor.resolver.resolve(.path(compileOutput)))))
       }
     }
 
@@ -543,10 +549,10 @@ final class JobExecutorTests: XCTestCase {
         try driver.run(jobs: jobs)
         XCTAssertTrue(localFileSystem.exists(outputPath))
         // -save-temps was passed, so ensure the temporary file was not removed.
-        XCTAssertTrue(
-          localFileSystem.exists(.init(try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+        try XCTAssertTrue(
+          localFileSystem.exists(.init(validating: executor.resolver.resolve(.path(driver.allSourcesFileList!))))
         )
-        XCTAssertTrue(localFileSystem.exists(.init(try executor.resolver.resolve(.path(compileOutput)))))
+        try XCTAssertTrue(localFileSystem.exists(.init(validating: executor.resolver.resolve(.path(compileOutput)))))
       }
     }
 
@@ -580,8 +586,8 @@ final class JobExecutorTests: XCTestCase {
         }
         try? driver.run(jobs: jobs)
         // A job crashed, so ensure any temporary files written so far are preserved.
-        XCTAssertTrue(
-          localFileSystem.exists(.init(try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+        try XCTAssertTrue(
+          localFileSystem.exists(.init(validating: executor.resolver.resolve(.path(driver.allSourcesFileList!))))
         )
       }
     }
