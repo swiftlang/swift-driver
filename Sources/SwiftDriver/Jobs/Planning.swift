@@ -647,7 +647,8 @@ extension Driver {
     }
 
     // Re-scan Clang modules at all the targets they will be built against.
-    try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
+    // This is currently disabled because we are investigating it being unnecessary
+    // try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
 
     // Set dependency modules' paths to be saved in the module cache.
     try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
@@ -676,28 +677,31 @@ extension Driver {
                                                             moduleCachePath: moduleCachePath)
     }
 
-    // For Swift module dependencies, set the output path to include
-    // the module's context hash
-    try resolveSwiftDependencyModuleFileNames(dependencyGraph: &dependencyGraph)
+    // Set the output path to include the module's context hash
+    try resolveDependencyModuleFileNamesWithContextHash(dependencyGraph: &dependencyGraph)
   }
 
   /// For Swift module dependencies, set the output path to include the module's context hash
-  private mutating func resolveSwiftDependencyModuleFileNames(dependencyGraph: inout InterModuleDependencyGraph)
+  private mutating func resolveDependencyModuleFileNamesWithContextHash(dependencyGraph: inout InterModuleDependencyGraph)
   throws {
     for (moduleId, moduleInfo) in dependencyGraph.modules {
       // Output path on the main module is determined by the invocation arguments.
       guard moduleId.moduleName != dependencyGraph.mainModuleName else {
         continue
       }
-      guard case .swift(let swiftDetails) = moduleInfo.details else {
-        continue
-      }
-      guard let contextHash = swiftDetails.contextHash else {
-        throw Driver.Error.missingContextHashOnSwiftDependency(moduleId.moduleName)
-      }
+
       let plainPath = VirtualPath.lookup(dependencyGraph.modules[moduleId]!.modulePath.path)
-      let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
-      dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+      if case .swift(let swiftDetails) = moduleInfo.details {
+        guard let contextHash = swiftDetails.contextHash else {
+          throw Driver.Error.missingContextHashOnSwiftDependency(moduleId.moduleName)
+        }
+        let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
+        dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+      } else if case .clang(let clangDetails) = moduleInfo.details {
+        let contextHash = clangDetails.contextHash
+        let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
+        dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+      }
     }
   }
 
