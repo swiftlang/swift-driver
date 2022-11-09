@@ -230,18 +230,14 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                               commandLine: &commandLine)
 
         let moduleMapPath = moduleDetails.moduleMapPath.path
-        // Encode the target triple pcm args into the output `.pcm` filename
-        let targetEncodedModulePath =
-          try targetEncodedClangModuleFilePath(for: moduleInfo,
-                                               hashParts: getPCMHashParts(pcmArgs: pcmArgs,
-                                                                          contextHash: moduleDetails.contextHash))
-        outputs.append(TypedVirtualPath(file: targetEncodedModulePath, type: .pcm))
+        let modulePCMPath = moduleInfo.modulePath
+        outputs.append(TypedVirtualPath(file: modulePCMPath.path, type: .pcm))
         commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
-                                "-o", targetEncodedModulePath.description)
+                                "-o", modulePCMPath.path.description)
 
         // Fixup "-o -Xcc '<replace-me>'"
         if let outputIndex = commandLine.firstIndex(of: .flag("<replace-me>")) {
-          commandLine[outputIndex] = .path(VirtualPath.lookup(targetEncodedModulePath))
+          commandLine[outputIndex] = .path(VirtualPath.lookup(modulePCMPath.path))
         }
 
         // The only required input is the .modulemap for this module.
@@ -300,21 +296,23 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.modulePath.path,
                          type: .pcm)
-      // If an existing dependency module path stub exists, replace it.
-      if let existingIndex = commandLine.firstIndex(of: .flag("-fmodule-file=" + moduleArtifactInfo.moduleName + "=<replace-me>")) {
-        commandLine[existingIndex] = .flag("-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
-      } else {
-        commandLine.appendFlags("-Xcc",
-                                "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
-      }
-      
       let clangModuleMapPath =
         TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
                          type: .clangModuleMap)
-      commandLine.appendFlags("-Xcc",
-                              "-fmodule-map-file=\(clangModuleMapPath.file.description)")
       inputs.append(clangModulePath)
       inputs.append(clangModuleMapPath)
+
+      // If an existing dependency module path stub exists, replace it.
+      if let existingIndex = commandLine.firstIndex(of: .flag("-fmodule-file=" + moduleArtifactInfo.moduleName + "=<replace-me>")) {
+        commandLine[existingIndex] = .flag("-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
+      } else if case .swift(_) = moduleId {
+        commandLine.appendFlags("-Xcc",
+                                "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
+      }
+      if case .swift(_) = moduleId {
+        commandLine.appendFlags("-Xcc",
+                                "-fmodule-map-file=\(clangModuleMapPath.file.description)")
+      }
     }
   }
 
@@ -346,14 +344,10 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
           let dependencyClangModuleDetails =
             try dependencyGraph.clangModuleDetails(of: dependencyId)
-          let clangModulePath =
-            try targetEncodedClangModuleFilePath(for: dependencyInfo,
-                                                 hashParts: getPCMHashParts(pcmArgs: pcmArgs,
-                                                                            contextHash: dependencyClangModuleDetails.contextHash))
           // Accumulate the required information about this dependency
           clangDependencyArtifacts.append(
             ClangModuleArtifactInfo(name: dependencyId.moduleName,
-                                    modulePath: TextualVirtualPath(path: clangModulePath),
+                                    modulePath: TextualVirtualPath(path: dependencyInfo.modulePath.path),
                                     moduleMapPath: dependencyClangModuleDetails.moduleMapPath))
         case .swiftPrebuiltExternal:
           let prebuiltModuleDetails = try dependencyGraph.swiftPrebuiltDetails(of: dependencyId)
@@ -432,41 +426,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     // inter-module planning.
     results.append(mainModuleName!)
     return results
-  }
-}
-
-/// Utility methods for encoding PCM's target triple into its name.
-extension ExplicitDependencyBuildPlanner {
-  /// Compute a full path to the resulting .pcm file for a given Clang module, with the
-  /// target triple encoded in the name.
-  public mutating func targetEncodedClangModuleFilePath(for moduleInfo: ModuleInfo,
-                                                        hashParts: [String]) throws -> VirtualPath.Handle {
-    let plainModulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
-    let targetEncodedBaseName =
-      try targetEncodedClangModuleName(for: plainModulePath.basenameWithoutExt,
-                                       hashParts: hashParts)
-    let modifiedModulePath =
-      moduleInfo.modulePath.path.description
-        .replacingOccurrences(of: plainModulePath.basenameWithoutExt,
-                              with: targetEncodedBaseName)
-    return try VirtualPath.intern(path: modifiedModulePath)
-  }
-
-  /// Compute the name of a given Clang module, along with a hash of extra PCM build arguments it
-  /// is to be constructed with.
-  @_spi(Testing) public mutating func targetEncodedClangModuleName(for moduleName: String,
-                                                          hashParts: [String])
-  throws -> String {
-    let hashInput = hashParts.sorted().joined()
-    // Hash based on "moduleName + hashInput"
-    let cacheQuery = moduleName + hashInput
-    if let previouslyHashsedName = hashedModuleNameCache[cacheQuery] {
-      return previouslyHashsedName
-    }
-    let hashedArguments = SHA256().hash(hashInput).hexadecimalRepresentation
-    let resultingName = moduleName + "-" + hashedArguments
-    hashedModuleNameCache[cacheQuery] = resultingName
-    return resultingName
   }
 }
 
