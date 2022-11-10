@@ -687,6 +687,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleAliasingWithExplicitBuild() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
       let srcBar = path.appending(component: "bar.swift")
       let moduleBarPath = path.appending(component: "Bar.swiftmodule").nativePathString(escaped: true)
       try localFileSystem.writeFileContents(srcBar) {
@@ -704,6 +706,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       path.nativePathString(escaped: true),
                                       "-emit-module",
                                       "-emit-module-path", moduleBarPath,
+                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                       srcBar.nativePathString(escaped: true),
                                       "-I", stdLibPath.nativePathString(escaped: true),
                                       "-I", shimsPath.nativePathString(escaped: true),
@@ -737,8 +740,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-working-directory",
                                       path.nativePathString(escaped: true),
                                       "-emit-module",
-                                      "-emit-module-path",
-                                      moduleFooPath,
+                                      "-emit-module-path", moduleFooPath,
+                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                       "-module-alias",
                                       "Car=Bar",
                                       srcFoo.nativePathString(escaped: true),
@@ -756,6 +759,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testExplicitModuleBuildEndToEnd() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
       let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import C;"
@@ -773,7 +778,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build",
+                                     "-explicit-module-build", "-v",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
