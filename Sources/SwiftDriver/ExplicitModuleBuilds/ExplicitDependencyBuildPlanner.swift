@@ -232,9 +232,19 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         let moduleMapPath = moduleDetails.moduleMapPath.path
         let modulePCMPath = moduleInfo.modulePath
         outputs.append(TypedVirtualPath(file: modulePCMPath.path, type: .pcm))
-        commandLine.appendFlags("-emit-pcm", "-module-name", moduleId.moduleName,
-                                "-o", modulePCMPath.path.description)
+        
+        // TODO: Remove this once toolchain is updated
+        // If the dependency scanner did not append its own "-o", add it here.
+        // This is temporary and is meant to handle both: the scanner that
+        // appends '-o' and one that doesn't, until we have a toolchain snapshot with the scanner
+        // that appends '-o' always.
+        let outputFlagIndeces = commandLine.enumerated().compactMap { $1 == .flag("-o") ? $0 : nil }
+        // One '-o' is expected as an `-Xcc` flag.
+        if outputFlagIndeces.count <= 1 {
+          commandLine.appendFlags("-o", modulePCMPath.path.description)
+        }
 
+        // TODO: Remove this once toolchain is updated
         // Fixup "-o -Xcc '<replace-me>'"
         if let outputIndex = commandLine.firstIndex(of: .flag("<replace-me>")) {
           commandLine[outputIndex] = .path(VirtualPath.lookup(modulePCMPath.path))

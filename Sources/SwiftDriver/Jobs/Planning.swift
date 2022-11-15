@@ -697,10 +697,14 @@ extension Driver {
         }
         let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
         dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
-      } else if case .clang(let clangDetails) = moduleInfo.details {
-        let contextHash = clangDetails.contextHash
-        let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
-        dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+      }
+      // TODO: Remove this once toolchain is updated
+      else if case .clang(let clangDetails) = moduleInfo.details {
+        if !moduleInfo.modulePath.path.description.contains(clangDetails.contextHash) {
+          let contextHash = clangDetails.contextHash
+          let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
+          dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+        }
       }
     }
   }
@@ -711,17 +715,28 @@ extension Driver {
   throws {
     for (moduleId, moduleInfo) in dependencyGraph.modules {
       // Output path on the main module is determined by the invocation arguments.
-      if case .swift(let name) = moduleId,
-         name == dependencyGraph.mainModuleName {
-        continue
+      if case .swift(let name) = moduleId {
+        if name == dependencyGraph.mainModuleName {
+          continue
+        }
+        let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
+        // Use VirtualPath to get the OS-specific path separators right.
+        let modulePathInCache =
+        try VirtualPath(path: moduleCachePath)
+          .appending(component: modulePath.basename)
+        dependencyGraph.modules[moduleId]!.modulePath =
+        TextualVirtualPath(path: modulePathInCache.intern())
       }
-      let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
-      // Use VirtualPath to get the OS-specific path separators right.
-      let modulePathInCache =
-      try VirtualPath(path: moduleCachePath)
-        .appending(component: modulePath.basename)
-      dependencyGraph.modules[moduleId]!.modulePath =
-      TextualVirtualPath(path: modulePathInCache.intern())
+      // TODO: Remove this once toolchain is updated
+      else if case .clang(_) = moduleId {
+        let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
+        // Use VirtualPath to get the OS-specific path separators right.
+        let modulePathInCache =
+        try VirtualPath(path: moduleCachePath)
+          .appending(component: modulePath.basename)
+        dependencyGraph.modules[moduleId]!.modulePath =
+        TextualVirtualPath(path: modulePathInCache.intern())
+      }
     }
   }
 
