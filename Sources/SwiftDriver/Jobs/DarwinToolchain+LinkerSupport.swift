@@ -214,9 +214,14 @@ extension DarwinToolchain {
       commandLine.appendPath(VirtualPath.lookup(sdkPath))
     }
 
+    // -link-objc-runtime also implies -fobjc-link-runtime
+    if parsedOptions.hasFlag(positive: .linkObjcRuntime,
+                             negative: .noLinkObjcRuntime,
+                             default: false) {
+      commandLine.appendFlag("-fobjc-link-runtime")
+    }
+
     commandLine.appendFlags(
-      "-fobjc-link-runtime",
-      "-lobjc",
       "-lSystem"
     )
 
