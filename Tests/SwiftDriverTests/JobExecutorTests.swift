@@ -179,7 +179,7 @@ final class JobExecutorTests: XCTestCase {
           .path(.temporary(RelativePath("main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
           "--sysroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", .flag("--target=\(hostTriple.triple)"),
+          "-lobjc", .flag("--target=\(hostTriple.triple)"),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-rpath", "/usr/lib/swift", "-o",
@@ -249,7 +249,7 @@ final class JobExecutorTests: XCTestCase {
         commandLine: [
           .path(.temporary(RelativePath("main.o"))),
           "--sysroot", .path(.absolute(try toolchain.sdk.get())),
-          "-lobjc", "-lSystem", .flag("--target=\(hostTriple.triple)"),
+          "-lobjc", .flag("--target=\(hostTriple.triple)"),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
           "-o", .path(.absolute(exec)),
