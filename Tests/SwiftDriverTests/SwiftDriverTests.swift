@@ -1653,6 +1653,8 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
+      // Handling of '-lobjc' is now in the Clang linker driver.
+      XCTAssertFalse(cmd.contains(.flag("-lobjc")))
     }
 
     do {
@@ -1726,6 +1728,39 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    do {
+      // -fobjc-link-runtime default
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+      let cmd = linkJob.commandLine
+      XCTAssertFalse(cmd.contains(.flag("-fobjc-link-runtime")))
+    }
+
+    do {
+      // -fobjc-link-runtime enable
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15", "-link-objc-runtime"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-fobjc-link-runtime")))
+    }
+
+    do {
+      // -fobjc-link-runtime disable override
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15", "-link-objc-runtime", "-no-link-objc-runtime"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(3, plannedJobs.count)
+      let linkJob = plannedJobs[2]
+      XCTAssertEqual(linkJob.kind, .link)
+      let cmd = linkJob.commandLine
+      XCTAssertFalse(cmd.contains(.flag("-fobjc-link-runtime")))
     }
 
     do {
