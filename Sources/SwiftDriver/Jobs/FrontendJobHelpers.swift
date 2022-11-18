@@ -163,6 +163,7 @@ extension Driver {
     try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
     try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
+    try commandLine.appendLast(.remarkLoadingModule, from: &parsedOptions)
     try commandLine.appendLast(.RpassEQ, from: &parsedOptions)
     try commandLine.appendLast(.RpassMissedEQ, from: &parsedOptions)
     try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)
