@@ -22,7 +22,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   ///
   /// Ensure that a round-trip fails when the minor version number changes
   func testSerializedVersionChangeDetection() throws {
-    let mockPath = try VirtualPath.absolute(AbsolutePath(validating: "/module-dependency-graph"))
+    let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let graph = Self.mockGraphCreator.mockUpAGraph()
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
@@ -55,7 +55,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   }
 
   func roundTrip(_ originalGraph: ModuleDependencyGraph) throws {
-    let mockPath = try VirtualPath.absolute(AbsolutePath(validating: "/module-dependency-graph"))
+    let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
 

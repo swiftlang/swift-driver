@@ -188,7 +188,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
     let invalidateOutOfDate = { (modulesRequiringRebuild: inout Set<ModuleDependencyId>) in
       reporter?.reportExplicitDependencyWillBeReBuilt(moduleId.moduleNameForDiagnostic, reason: "Out-of-date")
       modulesRequiringRebuild.insert(moduleId)
-      try invalidatePath(&modulesRequiringRebuild)
+      invalidatePath(&modulesRequiringRebuild)
     }
 
     // Visit the module's dependencies
@@ -202,10 +202,10 @@ extension IncrementalCompilationState.FirstWaveComputer {
     }
 
     if modulesRequiringRebuild.contains(moduleId) {
-      try invalidatePath(&modulesRequiringRebuild)
+      invalidatePath(&modulesRequiringRebuild)
     } else if try !IncrementalCompilationState.IncrementalDependencyAndInputSetup.verifyModuleDependencyUpToDate(moduleID: moduleId, moduleInfo: moduleInfo,
                                                                                                                  fileSystem: fileSystem, reporter: reporter) {
-      try invalidateOutOfDate(&modulesRequiringRebuild)
+      invalidateOutOfDate(&modulesRequiringRebuild)
     } else {
       // Only if this module is known to be up-to-date with respect to its inputs
       // and dependencies do we mark it as visited. We may need to re-visit

@@ -83,7 +83,8 @@ do {
   // append the SDK version number so all modules will built into
   // the SDK-versioned sub-directory.
   if outputDir.basename == "prebuilt-modules" {
-    outputDir = try AbsolutePath(validating: collector.versionString, relativeTo: outputDir)
+    outputDir = try AbsolutePath(validating: collector.versionString,
+                                 relativeTo: outputDir)
   }
   if !localFileSystem.exists(outputDir) {
     try localFileSystem.createDirectory(outputDir, recursive: true)
@@ -100,10 +101,10 @@ do {
   } else {
     swiftcPath = try AbsolutePath(validating: "Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
                                   relativeTo: sdkPath.parentDirectory
-                                                 .parentDirectory
-                                                 .parentDirectory
-                                                 .parentDirectory
-                                                 .parentDirectory)
+                                                     .parentDirectory
+                                                     .parentDirectory
+                                                     .parentDirectory
+                                                     .parentDirectory)
   }
   if !localFileSystem.exists(swiftcPath) {
     diagnosticsEngine.emit(error: "cannot find swift compiler: \(swiftcPath.pathString)")

@@ -36,7 +36,7 @@ private func rebase(_ arcs: String..., at base: AbsolutePath) -> String {
 }
 
 private var testInputsPath: AbsolutePath = {
-  var root: AbsolutePath = AbsolutePath(#file)
+  var root: AbsolutePath = try! AbsolutePath(validating: #file)
   while root.basename != "Tests" {
     root = root.parentDirectory
   }
@@ -50,10 +50,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       self.ld = try withTemporaryDirectory(removeTreeOnDeinit: false) {
         let ld = $0.appending(component: executableName("ld64.lld"))
-
         try localFileSystem.writeFileContents(ld, bytes: "")
-        try localFileSystem.chmod(.executable, path: AbsolutePath(ld.nativePathString(escaped: false)))
-
+        try localFileSystem.chmod(.executable, path: AbsolutePath(validating: ld.nativePathString(escaped: false)))
         return ld
       }
     } catch {
@@ -201,7 +199,7 @@ final class SwiftDriverTests: XCTestCase {
   func testJoinedPathOptions() throws {
     var driver = try Driver(args: ["swiftc", "-c", "-I=/some/dir", "-F=other/relative/dir", "foo.swift"])
     let jobs = try driver.planBuild()
-    XCTAssertTrue(jobs[0].commandLine.contains(.joinedOptionAndPath("-I=", .absolute(.init("/some/dir")))))
+    try XCTAssertTrue(jobs[0].commandLine.contains(.joinedOptionAndPath("-I=", .absolute(.init(validating: "/some/dir")))))
     XCTAssertTrue(jobs[0].commandLine.contains(.joinedOptionAndPath("-F=", .relative(.init("other/relative/dir")))))
   }
 
@@ -213,9 +211,9 @@ final class SwiftDriverTests: XCTestCase {
     let jobs = try driver.planBuild()
     XCTAssertEqual(jobs[0].kind, .compile)
     // The relative ordering of -F and -Fsystem options should be preserved.
-    XCTAssertTrue(jobs[0].commandLine.contains(subsequence: [.flag("-F"), .path(.absolute(.init("/path/to/frameworks"))),
-                                                             .flag("-Fsystem"), .path(.absolute(.init("/path/to/systemframeworks"))),
-                                                             .flag("-F"), .path(.absolute(.init("/path/to/more/frameworks")))]))
+    try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: [.flag("-F"), .path(.absolute(.init(validating: "/path/to/frameworks"))),
+                                                             .flag("-Fsystem"), .path(.absolute(.init(validating: "/path/to/systemframeworks"))),
+                                                             .flag("-F"), .path(.absolute(.init(validating: "/path/to/more/frameworks")))]))
   }
 
   func testBatchModeDiagnostics() throws {
@@ -282,15 +280,15 @@ final class SwiftDriverTests: XCTestCase {
     let driver1 = try Driver(args: ["swiftc", "a.swift", "/tmp/b.swift"])
     XCTAssertEqual(driver1.inputFiles,
                    [ TypedVirtualPath(file: VirtualPath.relative(RelativePath("a.swift")).intern(), type: .swift),
-                     TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath("/tmp/b.swift")).intern(), type: .swift) ])
+                     TypedVirtualPath(file: VirtualPath.absolute(try AbsolutePath(validating: "/tmp/b.swift")).intern(), type: .swift) ])
 
     let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "wobble")
     let tempDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "tmp")
 
     let driver2 = try Driver(args: ["swiftc", "a.swift", "-working-directory", workingDirectory.pathString, rebase("b.swift", at: tempDirectory)])
     XCTAssertEqual(driver2.inputFiles,
-                   [ TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath(rebase("a.swift", at: workingDirectory))).intern(), type: .swift),
-                     TypedVirtualPath(file: VirtualPath.absolute(AbsolutePath(rebase("b.swift", at: tempDirectory))).intern(), type: .swift) ])
+                   [ TypedVirtualPath(file: VirtualPath.absolute(try AbsolutePath(validating: rebase("a.swift", at: workingDirectory))).intern(), type: .swift),
+                     TypedVirtualPath(file: VirtualPath.absolute(try AbsolutePath(validating: rebase("b.swift", at: tempDirectory))).intern(), type: .swift) ])
 
     let driver3 = try Driver(args: ["swift", "-"])
     XCTAssertEqual(driver3.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
@@ -796,8 +794,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(plannedJobs[0].kind == .emitModule)
         XCTAssertTrue(plannedJobs[1].kind == .compile)
         XCTAssertTrue(plannedJobs[2].kind == .link)
-        XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia")))]))
-        XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia")))]))
+        try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia")))]))
+        try XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia")))]))
       }
 
       // WMO
@@ -810,8 +808,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(plannedJobs[0].kind == .compile)
         XCTAssertTrue(plannedJobs[1].kind == .emitModule)
         XCTAssertTrue(plannedJobs[2].kind == .link)
-        XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia")))]))
-        XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia")))]))
+        try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia")))]))
+        try XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-serialize-diagnostics-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia")))]))
       }
     }
   }
@@ -840,8 +838,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(plannedJobs[0].kind == .emitModule)
         XCTAssertTrue(plannedJobs[1].kind == .compile)
         XCTAssertTrue(plannedJobs[2].kind == .link)
-        XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d")))]))
-        XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d")))]))
+        try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d")))]))
+        try XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d")))]))
       }
 
       // WMO
@@ -854,15 +852,15 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(plannedJobs[0].kind == .compile)
         XCTAssertTrue(plannedJobs[1].kind == .emitModule)
         XCTAssertTrue(plannedJobs[2].kind == .link)
-        XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d")))]))
-        XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d")))]))
+        try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d")))]))
+        try XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: ["-emit-dependencies-path", .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d")))]))
       }
     }
   }
 
   func testOutputFileMapLoading() throws {
     let objroot: AbsolutePath =
-        AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+      try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
     let contents = ByteString("""
     {
@@ -894,7 +892,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testFindingObjectPathFromllvmBCPath() throws {
     let objroot: AbsolutePath =
-        AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+      try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
     let contents = ByteString(
       """
@@ -925,7 +923,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testOutputFileMapLoadingDocAndSourceinfo() throws {
     let objroot: AbsolutePath =
-        AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+      try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
     let contents = ByteString(
       """
@@ -999,10 +997,10 @@ final class SwiftDriverTests: XCTestCase {
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         var jobs = try driver.planBuild()
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
-        XCTAssertTrue(jobs[1].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/main.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
-        XCTAssertTrue(jobs[1].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/main.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/second.o")))]))
+        try XCTAssertTrue(jobs[1].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/main.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/second.o")))]))
+        try XCTAssertTrue(jobs[1].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/main.o")))]))
 
         // b) with filelists
         driver = try Driver(args: [
@@ -1011,14 +1009,14 @@ final class SwiftDriverTests: XCTestCase {
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
-        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
-                       [.absolute(.init("/tmp/build1/second.o"))])
-        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
-                       [.absolute(.init("/tmp/build2/second.o"))])
-        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[1]),
-                       [.absolute(.init("/tmp/build1/main.o"))])
-        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[1]),
-                       [.absolute(.init("/tmp/build2/main.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
+                       [.absolute(.init(validating: "/tmp/build1/second.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+                       [.absolute(.init(validating: "/tmp/build2/second.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[1]),
+                       [.absolute(.init(validating: "/tmp/build1/main.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[1]),
+                       [.absolute(.init(validating: "/tmp/build2/main.o"))])
 
 
         // 2. Batch mode (two primary files)
@@ -1029,10 +1027,10 @@ final class SwiftDriverTests: XCTestCase {
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/main.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/main.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/second.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/main.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/second.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/main.o")))]))
 
         // b) with filelists
         driver = try Driver(args: [
@@ -1042,10 +1040,10 @@ final class SwiftDriverTests: XCTestCase {
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
-        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
-                       [.absolute(.init("/tmp/build1/second.o")), .absolute(.init("/tmp/build1/main.o"))])
-        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
-                       [.absolute(.init("/tmp/build2/second.o")), .absolute(.init("/tmp/build2/main.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
+                       [.absolute(.init(validating: "/tmp/build1/second.o")), .absolute(.init(validating: "/tmp/build1/main.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+                       [.absolute(.init(validating: "/tmp/build2/second.o")), .absolute(.init(validating: "/tmp/build2/main.o"))])
 
         // 3. Multi-threaded WMO
         // a) without filelists
@@ -1055,10 +1053,10 @@ final class SwiftDriverTests: XCTestCase {
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/main.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/main.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/second.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/second.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/main.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/main.o")))]))
 
         // b) with filelists
         driver = try Driver(args: [
@@ -1068,10 +1066,10 @@ final class SwiftDriverTests: XCTestCase {
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
-        XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
-                       [.absolute(.init("/tmp/build1/second.o")), .absolute(.init("/tmp/build1/main.o"))])
-        XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
-                       [.absolute(.init("/tmp/build2/second.o")), .absolute(.init("/tmp/build2/main.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
+                       [.absolute(.init(validating: "/tmp/build1/second.o")), .absolute(.init(validating: "/tmp/build1/main.o"))])
+        try XCTAssertEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+                       [.absolute(.init(validating: "/tmp/build2/second.o")), .absolute(.init(validating: "/tmp/build2/main.o"))])
 
         // 4. Index-file (single primary)
         driver = try Driver(args: [
@@ -1082,8 +1080,8 @@ final class SwiftDriverTests: XCTestCase {
           "-index-unit-output-path", "/tmp/build2/second.o"
         ])
         jobs = try driver.planBuild()
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/tmp/build1/second.o")))]))
-        XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init("/tmp/build2/second.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-o", .path(.absolute(.init(validating: "/tmp/build1/second.o")))]))
+        try XCTAssertTrue(jobs[0].commandLine.contains(subsequence: ["-index-unit-output-path", .path(.absolute(.init(validating: "/tmp/build2/second.o")))]))
       }
     }
   }
@@ -1194,14 +1192,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift",
                                                                                            "bar.swift"]))
-      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init("/tmp/foo.build/foo.swiftconstvalues")))]))
-      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init("/tmp/foo.build/bar.swiftconstvalues")))]))
+      try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init(validating: "/tmp/foo.build/foo.swiftconstvalues")))]))
+      try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init(validating: "/tmp/foo.build/bar.swiftconstvalues")))]))
       XCTAssertEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
       XCTAssertEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
-      XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init("/tmp/foo.build/baz.swiftconstvalues")))]))
+      try XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(.init(validating: "/tmp/foo.build/baz.swiftconstvalues")))]))
       XCTAssertEqual(plannedJobs[2].kind, .link)
     }
 
@@ -1244,8 +1242,8 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
-      XCTAssertEqual(plannedJobs[0].outputs.first(where: { $0.type == .swiftConstValues })?.file,
-                     .absolute(.init("/tmp/foo.build/foo.master.swiftconstvalues")))
+      try XCTAssertEqual(plannedJobs[0].outputs.first(where: { $0.type == .swiftConstValues })?.file,
+                         .absolute(.init(validating: "/tmp/foo.build/foo.master.swiftconstvalues")))
       XCTAssertEqual(plannedJobs[1].kind, .link)
     }
   }
@@ -1268,7 +1266,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[0].kind == .emitModule)
-      XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-serialize-diagnostics-path"), .path(.absolute(.init("/build/Foo-test.dia")))]))
+      try XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/build/Foo-test.dia")))]))
     }
   }
 
@@ -1772,7 +1770,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
       XCTAssertTrue(cmd.contains(.flag("-w")))
       XCTAssertTrue(cmd.contains(.flag("-L")))
-      XCTAssertTrue(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+      try XCTAssertTrue(cmd.contains(.path(.absolute(AbsolutePath(validating: "/tmp")))))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -1896,7 +1894,7 @@ final class SwiftDriverTests: XCTestCase {
       // linker, so be consistent with this
       XCTAssertFalse(cmd.contains(.flag("-w")))
       XCTAssertFalse(cmd.contains(.flag("-L")))
-      XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+      try XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath(validating: "/tmp")))))
 
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
@@ -1926,7 +1924,7 @@ final class SwiftDriverTests: XCTestCase {
       // linker, so be consistent with this
       XCTAssertFalse(cmd.contains(.flag("-w")))
       XCTAssertFalse(cmd.contains(.flag("-L")))
-      XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath("/tmp")))))
+      try XCTAssertFalse(cmd.contains(.path(.absolute(AbsolutePath(validating: "/tmp")))))
 
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
@@ -2221,7 +2219,7 @@ final class SwiftDriverTests: XCTestCase {
         let linkJob = plannedJobs[3]
         let cmd = linkJob.commandLine
         XCTAssertTrue(cmd.contains(subsequence: ["-target", "wasm32-unknown-wasi"]))
-        XCTAssertTrue(cmd.contains(subsequence: ["--sysroot", .path(.absolute(.init("/sdk/path")))]))
+        try XCTAssertTrue(cmd.contains(subsequence: ["--sysroot", .path(.absolute(.init(validating: "/sdk/path")))]))
         XCTAssertTrue(cmd.contains(.path(.absolute(path.appending(components: "wasi", "wasm32", "swiftrt.o")))))
         XCTAssertTrue(commandContainsTemporaryPath(cmd, "foo.o"))
         XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
@@ -2315,7 +2313,7 @@ final class SwiftDriverTests: XCTestCase {
     let result = try process.waitUntilExit()
     guard result.exitStatus == .terminated(code: EXIT_SUCCESS) else { return nil }
     guard let path = String(bytes: try result.output.get(), encoding: .utf8) else { return nil }
-    return path.isEmpty ? nil : AbsolutePath(path.spm_chomp())
+    return try path.isEmpty ? nil : AbsolutePath(validating: path.spm_chomp())
 #endif
   }
 
@@ -2834,7 +2832,7 @@ final class SwiftDriverTests: XCTestCase {
         // Make sure the supplementary output map has an entry for the Swift file
         // under indexing and its indexData entry is the primary output file
         let entry = map.entries[VirtualPath.relative(RelativePath("foo5.swift")).intern()]!
-        XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(AbsolutePath("/tmp/t.o")))
+        XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(try AbsolutePath(validating: "/tmp/t.o")))
         return
       default:
         break
@@ -2982,9 +2980,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[1].file, "bar.o"))
         XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[2].file, "wibble.o"))
         XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
-
         let emitModuleJob = try plannedJobs.findJob(.emitModule)
-        XCTAssertEqual(emitModuleJob.outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
+        XCTAssertEqual(emitModuleJob.outputs[3].file, VirtualPath.absolute(try AbsolutePath(validating: "/tmp/salty/Test.swiftinterface")))        
         XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
 
         XCTAssertEqual(plannedJobs[2].kind, .link)
@@ -3012,7 +3009,7 @@ final class SwiftDriverTests: XCTestCase {
     let moduleJob = try plannedJobs.findJob(.emitModule)
     XCTAssertTrue(moduleJob.commandLine.contains("-module-alias"))
     XCTAssertTrue(moduleJob.commandLine.contains("Car=Bar"))
-    XCTAssertEqual(moduleJob.outputs[0].file, .absolute(AbsolutePath("/tmp/dir/Foo.swiftmodule")))
+    XCTAssertEqual(moduleJob.outputs[0].file, .absolute(try AbsolutePath(validating: "/tmp/dir/Foo.swiftmodule")))
 
     XCTAssertEqual(driver.moduleOutputInfo.name, "Foo")
     XCTAssertNotNil(driver.moduleOutputInfo.aliases)
@@ -3157,7 +3154,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[2].outputs[0].file, .relative(RelativePath("Test.swiftmodule")))
       XCTAssertEqual(plannedJobs[2].outputs[1].file, .relative(RelativePath("Test.swiftdoc")))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath("/foo/bar/Test.swiftsourceinfo")))
+      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(try AbsolutePath(validating: "/foo/bar/Test.swiftsourceinfo")))
       if driver.targetTriple.isDarwin {
         XCTAssertEqual(plannedJobs[2].outputs[3].file, .relative(RelativePath("Test.abi.json")))
       }
@@ -3172,11 +3169,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
+      try XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(AbsolutePath(validating: rebase("Test.swiftmodule", at: root))))
+      try XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(AbsolutePath(validating: rebase("Test.swiftdoc", at: root))))
+      try XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(AbsolutePath(validating: rebase("Test.swiftsourceinfo", at: root))))
       if driver.targetTriple.isDarwin {
-        XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+        try XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(AbsolutePath(validating: rebase("Test.abi.json", at: root))))
       }
     }
 
@@ -3220,7 +3217,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "input.swiftmodule"))
       XCTAssertEqual(plannedJobs[1].kind, .mergeModule)
       XCTAssertTrue(matchTemporary(plannedJobs[1].inputs[0].file, "input.swiftmodule"))
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(AbsolutePath("/tmp/test.swiftmodule")))
+      XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(try AbsolutePath(validating: "/tmp/test.swiftmodule")))
     }
   }
 
@@ -3239,11 +3236,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-parse-as-library")))
       XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(try AbsolutePath(validating: rebase("Test.swiftmodule", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(try AbsolutePath(validating: rebase("Test.swiftdoc", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(try AbsolutePath(validating: rebase("Test.swiftsourceinfo", at: root))))
       if driver.targetTriple.isDarwin {
-        XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+          XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(try AbsolutePath(validating: rebase("Test.abi.json", at: root))))
       }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -3261,11 +3258,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root))))
-      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root))))
-      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(try AbsolutePath(validating: rebase("Test.swiftmodule", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[1].file, .absolute(try AbsolutePath(validating: rebase("Test.swiftdoc", at: root))))
+      XCTAssertEqual(plannedJobs[0].outputs[2].file, .absolute(try AbsolutePath(validating: rebase("Test.swiftsourceinfo", at: root))))
       if driver.targetTriple.isDarwin {
-        XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(AbsolutePath(rebase("Test.abi.json", at: root))))
+          XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(try AbsolutePath(validating: rebase("Test.abi.json", at: root))))
       }
     }
 
@@ -3321,11 +3318,11 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = try plannedJobs.findJob(.emitModule)
       XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
       XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
+      XCTAssertEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftmodule", at: root)))}).count)
+      XCTAssertEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftdoc", at: root)))}).count)
+      XCTAssertEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftsourceinfo", at: root)))}).count)
       if abiFileCount == 1 {
-        XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+          XCTAssertEqual(abiFileCount, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.abi.json", at: root)))}).count)
       }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -3344,11 +3341,11 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = plannedJobs[0]
       XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
       XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
-      XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
+      XCTAssertEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftmodule", at: root)))}).count)
+      XCTAssertEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftdoc", at: root)))}).count)
+      XCTAssertEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftsourceinfo", at: root)))}).count)
       if abiFileCount == 1 {
-        XCTAssertEqual(abiFileCount, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+          XCTAssertEqual(abiFileCount, try emitModuleJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.abi.json", at: root)))}).count)
       }
     }
 
@@ -3369,11 +3366,11 @@ final class SwiftDriverTests: XCTestCase {
       let compileJob = try plannedJobs.findJob(.compile)
       XCTAssertEqual(compileJob.outputs.count, 4 + abiFileCount)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
-      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
-      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftdoc", at: root)))}).count)
-      XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftsourceinfo", at: root)))}).count)
+      XCTAssertEqual(1, try compileJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftmodule", at: root)))}).count)
+      XCTAssertEqual(1, try compileJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftdoc", at: root)))}).count)
+      XCTAssertEqual(1, try compileJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.swiftsourceinfo", at: root)))}).count)
       if abiFileCount == 1 {
-        XCTAssertEqual(abiFileCount, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.abi.json", at: root)))}).count)
+          XCTAssertEqual(abiFileCount, try compileJob.outputs.filter({$0.file == .absolute(try AbsolutePath(validating: rebase("Test.abi.json", at: root)))}).count)
       }
     }
 
@@ -4221,8 +4218,7 @@ final class SwiftDriverTests: XCTestCase {
           0x02
       ]
       try localFileSystem.writeFileContents(ld, bytes: contents)
-      try localFileSystem.chmod(.executable, path: AbsolutePath(ld.pathString))
-
+      try localFileSystem.chmod(.executable, path: try AbsolutePath(validating: ld.pathString))
       // Drop SWIFT_DRIVER_CLANG_EXEC from the environment so it doesn't
       // interfere with tool lookup.
       var env = ProcessEnv.vars
@@ -4682,8 +4678,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertTrue(
-        job.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
-                                               .path(.absolute(.init("/some/path/to/the.trace.json")))])
+        try job.commandLine.contains(subsequence: ["-emit-loaded-module-trace-path",
+                                                   .path(.absolute(.init(validating: "/some/path/to/the.trace.json")))])
       )
     }
   }
@@ -4876,9 +4872,9 @@ final class SwiftDriverTests: XCTestCase {
 
     var driver = try Driver(args: ["swiftc", "foo.swift", "-sdk", "/"])
     let plannedJobs = try driver.planBuild()
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/")))]))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-sdk", .path(.absolute(try .init(validating: "/")))]))
     if !driver.targetTriple.isDarwin {
-      XCTAssertFalse(plannedJobs[2].commandLine.contains(subsequence: ["-L", .path(.absolute(.init("/usr/lib/swift")))]))
+      XCTAssertFalse(plannedJobs[2].commandLine.contains(subsequence: ["-L", .path(.absolute(try .init(validating: "/usr/lib/swift")))]))
     }
   }
 
@@ -5247,7 +5243,7 @@ final class SwiftDriverTests: XCTestCase {
     try withTemporaryDirectory { path in
       let input = path.appending(component: "ImmediateTest.swift")
       try localFileSystem.writeFileContents(input, bytes: "print(\"Hello, World\")")
-      let binDir = bundleRoot()
+      let binDir = try bundleRoot()
       let driver = binDir.appending(component: "swift-driver")
       let args = [driver.description, "--driver-mode=swift", "-v", input.description]
       // Immediate mode takes over the process with `exec` so we need to create
@@ -6311,7 +6307,7 @@ final class SwiftDriverTests: XCTestCase {
     // FIXME: On Linux, we might not have any Clang in the path. We need a
     // better override.
     var env = ProcessEnv.vars
-    let swiftHelp: AbsolutePath = AbsolutePath("/usr/bin/nonexistent-swift-help")
+    let swiftHelp: AbsolutePath = try AbsolutePath(validating: "/usr/bin/nonexistent-swift-help")
     env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = swiftHelp.pathString
     env["SWIFT_DRIVER_CLANG_EXEC"] = "/usr/bin/clang"
     var driver = try Driver(
@@ -6541,7 +6537,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(configs.count, 0)
     }
     do {
-      let configs = Driver.parseAdopterConfigs(AbsolutePath("/abc/c/a.json"))
+      let configs = Driver.parseAdopterConfigs(try AbsolutePath(validating: "/abc/c/a.json"))
       XCTAssertEqual(configs.count, 0)
     }
   }
@@ -7209,7 +7205,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertTrue(frontend.commandLine.contains(subsequence: [
         .flag("-windows-sdk-root"),
-        .path(.absolute(.init("/SDK")))
+        .path(.absolute(try .init(validating: "/SDK")))
       ]))
     }
 
@@ -7233,7 +7229,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertTrue(frontend.commandLine.contains(subsequence: [
         .flag("-windows-sdk-root"),
-        .path(.absolute(.init("/SDK")))
+        .path(.absolute(try .init(validating: "/SDK")))
       ]))
       XCTAssertTrue(frontend.commandLine.contains(subsequence: [
         .flag("-windows-sdk-version"),
@@ -7249,7 +7245,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertTrue(frontend.commandLine.contains(subsequence: [
         .flag("-visualc-tools-root"),
-        .path(.absolute(.init("/MSVC/14.34.31933"))),
+        .path(.absolute(try .init(validating: "/MSVC/14.34.31933"))),
       ]))
     }
 
@@ -7277,7 +7273,7 @@ final class SwiftDriverTests: XCTestCase {
       ]))
       XCTAssertTrue(frontend.commandLine.contains(subsequence: [
         .flag("-visualc-tools-root"),
-        .path(.absolute(.init("/MSVC"))),
+        .path(.absolute(try .init(validating: "/MSVC"))),
       ]))
     }
   }
