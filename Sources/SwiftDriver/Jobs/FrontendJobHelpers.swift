@@ -138,7 +138,7 @@ extension Driver {
       if let value = parsedOptions.getLastArgument(rootArg)?.asSingle,
           isFrontendArgSupported(rootArg) {
         commandLine.appendFlag(rootArg.spelling)
-        commandLine.appendPath(.init(value))
+        commandLine.appendPath(try .init(validating: value))
       }
 
       if let value = parsedOptions.getLastArgument(versionArg)?.asSingle,

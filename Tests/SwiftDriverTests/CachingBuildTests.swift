@@ -16,13 +16,15 @@ import TSCBasic
 import XCTest
 import TestUtilities
 
-private var testInputsPath: AbsolutePath = {
-  var root: AbsolutePath = AbsolutePath(#file)
-  while root.basename != "Tests" {
-    root = root.parentDirectory
+private var testInputsPath: AbsolutePath {
+  get throws {
+    var root: AbsolutePath = try AbsolutePath(validating: #file)
+    while root.basename != "Tests" {
+      root = root.parentDirectory
+    }
+    return root.parentDirectory.appending(component: "TestInputs")
   }
-  return root.parentDirectory.appending(component: "TestInputs")
-}()
+}
 
 private func checkCachingBuildJob(job: Job,
                                   moduleId: ModuleDependencyId,
@@ -151,14 +153,14 @@ final class CachingBuildTests: XCTestCase {
         $0 <<< "import G;"
       }
       let casPath = path.appending(component: "cas")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")      
       let cHeadersPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "CHeaders")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
-      let swiftModuleInterfacesPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-apple-macosx11.0",
@@ -282,11 +284,11 @@ final class CachingBuildTests: XCTestCase {
       }
 
       let swiftModuleInterfacesPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "Swift")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
       let cHeadersPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "CHeaders")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
       let casPath = path.appending(component: "cas")
       let swiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swiftinterface")
       let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
@@ -431,11 +433,11 @@ final class CachingBuildTests: XCTestCase {
       }
 
       let cHeadersPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "CHeaders")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
       let swiftModuleInterfacesPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "Swift")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
@@ -550,11 +552,11 @@ final class CachingBuildTests: XCTestCase {
       }
 
       let cHeadersPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "CHeaders")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
       let swiftModuleInterfacesPath: AbsolutePath =
-          testInputsPath.appending(component: "ExplicitModuleBuilds")
-                        .appending(component: "Swift")
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
       let casPath = path.appending(component: "cas")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
