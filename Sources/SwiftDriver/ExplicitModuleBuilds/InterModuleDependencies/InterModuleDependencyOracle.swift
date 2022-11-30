@@ -30,7 +30,17 @@ import Dispatch
 /// An abstraction of a cache and query-engine of inter-module dependencies
 public class InterModuleDependencyOracle {
   /// Allow external clients to instantiate the oracle
-  public init() {}
+  /// - Parameter scannerRequiresPlaceholderModules: Configures this driver's/oracle's scanner invocations to
+  /// specify external module dependencies to be treated as placeholders. This is required in contexts
+  /// where the dependency scanning action is invoked for a module which depends on another module
+  /// that is part of the same build but has not yet been built. Treating it as a placeholder
+  /// will allow the scanning action to not fail when it fails to detect this dependency on
+  /// the filesystem. For example, SwiftPM plans all targets belonging to a package before *any* of them
+  /// are built. So this setting is meant to be used there. In contexts where planning a module
+  /// necessarily means all of its dependencies have already been built this is not necessary.
+  public init(scannerRequiresPlaceholderModules: Bool = false) {
+    self.scannerRequiresPlaceholderModules = scannerRequiresPlaceholderModules
+  }
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
                                              moduleAliases: [String: String]? = nil,
@@ -145,5 +155,7 @@ public class InterModuleDependencyOracle {
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
   private var swiftScanLibInstance: SwiftScan? = nil
+
+  internal let scannerRequiresPlaceholderModules: Bool
 }
 
