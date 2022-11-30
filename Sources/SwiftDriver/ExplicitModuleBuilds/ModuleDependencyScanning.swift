@@ -74,7 +74,8 @@ public extension Driver {
     // FIXME: MSVC runtime flags
 
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalTargetDetailsMap = externalTargetModuleDetailsMap {
+    if let externalTargetDetailsMap = externalTargetModuleDetailsMap,
+       interModuleDependencyOracle.scannerRequiresPlaceholderModules {
       let dependencyPlaceholderMapFile =
       try serializeExternalDependencyArtifacts(externalTargetDependencyDetails: externalTargetDetailsMap)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
