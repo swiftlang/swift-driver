@@ -1267,6 +1267,10 @@ extension Driver {
   public mutating func run(
     jobs: [Job]
   ) throws {
+    if parsedOptions.hasArgument(.v) {
+      try printVersion(outputStream: &stderrStream)
+    }
+
     let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
 
     // If we're only supposed to print the jobs, do so now.
