@@ -597,6 +597,8 @@ public struct TextualVirtualPath: Codable, Hashable {
       preconditionFailure("Path does not have a round-trippable textual representation")
     }
   }
+
+  internal var description: String { VirtualPath.lookup(path).description }
 }
 
 extension VirtualPath: CustomStringConvertible {

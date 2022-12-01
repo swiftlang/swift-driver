@@ -36,7 +36,7 @@ extension IncrementalCompilationState {
     fileprivate let moduleDependencyGraph: ModuleDependencyGraph
     
     fileprivate let reporter: Reporter?
-    
+
     init(skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
          _ moduleDependencyGraph: ModuleDependencyGraph,
          _ driver: inout Driver) {

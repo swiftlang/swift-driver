@@ -138,7 +138,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       .map {TypedVirtualPath(file: $0, type: .swift)}
      return Self(options, outputFileMap,
                 BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
-                nil, nil, inputFiles, fileSystem,
+                nil, nil, nil, inputFiles, fileSystem,
                 diagnosticsEngine)
   }
 }
