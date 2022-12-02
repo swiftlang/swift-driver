@@ -76,14 +76,6 @@ final class IncrementalCompilationTests: XCTestCase {
     ]
     + inputPathsAndContents.map {$0.0.pathString} .sorted()
   }
-  var explicitBuildArgs: [String] {
-    ["-explicit-module-build",
-     // Disable implicit imports to keep tests simpler
-     "-Xfrontend", "-disable-implicit-concurrency-module-import",
-     "-Xfrontend", "-disable-implicit-string-processing-module-import",
-     "-I", explicitCDependenciesPath.nativePathString(escaped: true),
-     "-I", explicitSwiftDependenciesPath.nativePathString(escaped: true)]
-  }
 
   override func setUp() {
     self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
@@ -247,150 +239,6 @@ extension IncrementalCompilationTests {
 fileprivate extension Driver {
   func postCompileOutputs() throws -> [TypedVirtualPath] {
     try XCTUnwrap(incrementalCompilationState).jobsAfterCompiles.flatMap {$0.outputs}
-  }
-}
-
-// MARK: - Explicit Module Build incremental tests
-extension IncrementalCompilationTests {
-  private var testExplicitDependencyInputsPath: AbsolutePath {
-    var root: AbsolutePath = try! AbsolutePath(validating: #file)
-    while root.basename != "Tests" {
-      root = root.parentDirectory
-    }
-    return root.parentDirectory.appending(component: "TestInputs")
-  }
-
-  private var explicitCDependenciesPath: AbsolutePath {
-    testExplicitDependencyInputsPath.appending(component: "ExplicitModuleBuilds")
-      .appending(component: "CHeaders")
-  }
-  private var explicitSwiftDependenciesPath: AbsolutePath {
-    testExplicitDependencyInputsPath.appending(component: "ExplicitModuleBuilds")
-      .appending(component: "Swift")
-  }
-
-  func testExplicitIncrementalSimpleBuild() throws {
-    try buildInitialState(explicitModuleBuild: true)
-    try checkNullBuild(explicitModuleBuild: true)
-  }
-
-  // Simple re-use of a prior inter-module dependency graph on a null build
-  func testExplicitIncrementalSimpleBuildCheckDiagnostics() throws {
-    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
-    try checkNullBuild(checkDiagnostics: true, explicitModuleBuild: true)
-  }
-
-  // Source files have changed but the inter-module dependency graph still up-to-date
-  func testExplicitIncrementalBuildCheckGraphReuseOnChange() throws {
-    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
-    try checkReactionToTouchingAll(checkDiagnostics: true, explicitModuleBuild: true)
-  }
-
-  // Adding an import invalidates prior inter-module dependency graph.
-  func testExplicitIncrementalBuildNewImport() throws {
-    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
-    // Introduce a new import. This will cause a re-scan and a re-build of 'other.swift'
-    replace(contentsOf: "other", with: "import E;let bar = foo")
-    try doABuild(
-      "add import to 'other'",
-      checkDiagnostics: true,
-      extraArguments: explicitBuildArgs,
-      whenAutolinking: autolinkLifecycleExpectedDiags
-    ) {
-      readGraph
-      enablingCrossModule
-      readInterModuleGraph
-      // Ensure a re-scan was performed
-      explicitMustReScanDueToChangedImports
-      maySkip("main")
-      schedulingChangedInitialQueuing("other")
-      skipping("main")
-      findingBatchingCompiling("other")
-      reading(deps: "other")
-      fingerprintsChanged("other")
-      fingerprintsMissingOfTopLevelName(name: "bar", "other")
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
-      compilingExplicitSwiftDependency("E")
-      skipped("main")
-      schedLinking
-    }
-  }
-
-  // A dependency has changed one of its inputs
-  func testExplicitIncrementalBuildChangedDependency() throws {
-    // Add an import of 'E' to make sure followup changes has consistent inputs
-    replace(contentsOf: "other", with: "import E;let bar = foo")
-    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
-
-    // Just update the time-stamp of one of the module dependencies and use a value
-    // it is defined in.
-    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
-    replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
-
-    // Changing a dependency will mean that we both re-run the dependency scan,
-    // and also ensure that all source-files are re-built with a non-cascading build
-    // since the source files themselves have not changed.
-    try doABuild(
-      "update dependency (E) interface timestamp",
-      checkDiagnostics: true,
-      extraArguments: explicitBuildArgs,
-      whenAutolinking: autolinkLifecycleExpectedDiags
-    ) {
-      readGraph
-      enablingCrossModule
-      readInterModuleGraph
-      // Ensure the above 'touch' is detected and causes a re-scan
-      explicitDependencyModuleOlderThanInput("E")
-      explicitMustReScanDueToChangedDependencyInput
-      noFingerprintInSwiftModule("E.swiftinterface")
-      dependencyNewerThanNode("E.swiftinterface")
-      dependencyNewerThanNode("E.swiftinterface") // FIXME: Why do we see this twice?
-      maySkip("main")
-      schedulingChanged("other")
-      invalidatedExternally("main", "other")
-      queuingInitial("main", "other")
-      notSchedulingDependentsUnknownChanges("other")
-      findingBatchingCompiling("main", "other")
-      compilingExplicitSwiftDependency("E")
-      // TODO: We can do better with being more-selective on which dependencies get re-built
-      // But for now ensure all modules are built.
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
-    }
-  }
-}
-
-extension IncrementalCompilationTests {
-  // A dependency has changed one of its inputs
-  func testIncrementalImplicitBuildChangedDependency() throws {
-    let extraAruments = ["-I", explicitCDependenciesPath.nativePathString(escaped: true),
-                         "-I", explicitSwiftDependenciesPath.nativePathString(escaped: true)]
-    replace(contentsOf: "other", with: "import E;let bar = foo")
-    try buildInitialState(checkDiagnostics: false, extraArguments: extraAruments)
-    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
-    replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
-
-    // Changing a dependency will mean that we both re-run the dependency scan,
-    // and also ensure that all source-files are re-built with a non-cascading build
-    // since the source files themselves have not changed.
-    try doABuild(
-      "update dependency (E) interface timestamp",
-      checkDiagnostics: false,
-      extraArguments: extraAruments,
-      whenAutolinking: autolinkLifecycleExpectedDiags
-    ) {
-      readGraph
-      enablingCrossModule
-      schedulingNoncascading("main", "other")
-      missing("main")
-      missing("other")
-      queuingInitial("main", "other")
-      notSchedulingDependentsDoNotNeedCascading("main", "other")
-      findingBatchingCompiling("main", "other")
-    }
   }
 }
 
@@ -768,10 +616,14 @@ extension IncrementalCompilationTests {
   @discardableResult
   private func buildInitialState(
     checkDiagnostics: Bool = false,
-    extraArguments: [String] = [],
-    explicitModuleBuild: Bool = false
+    extraArguments: [String] = []
   ) throws -> Driver {
-    @DiagsBuilder var implicitBuildInitialRemarks: [Diagnostic.Message] {
+    try doABuild(
+      "initial",
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
       // Leave off the part after the colon because it varies on Linux:
       // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
       // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
@@ -783,20 +635,6 @@ extension IncrementalCompilationTests {
       reading(deps: "main", "other")
       schedLinking
     }
-    @DiagsBuilder var explicitBuildInitialRemarks: [Diagnostic.Message] {
-      implicitBuildInitialRemarks
-      explicitDidNotReadInterModuleGraph
-      explicitMustReScanCouldNotReadGraph
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
-    }
-
-    return try doABuild("initial",
-                        checkDiagnostics: checkDiagnostics,
-                        extraArguments: explicitModuleBuild ? explicitBuildArgs + extraArguments : extraArguments,
-                        whenAutolinking: autolinkLifecycleExpectedDiags
-    ) { explicitModuleBuild ? explicitBuildInitialRemarks : implicitBuildInitialRemarks }
   }
 
   /// Try a build with no changes.
@@ -807,29 +645,21 @@ extension IncrementalCompilationTests {
   @discardableResult
   private func checkNullBuild(
     checkDiagnostics: Bool = false,
-    extraArguments: [String] = [],
-    explicitModuleBuild: Bool = false
+    extraArguments: [String] = []
   ) throws -> Driver {
-    @DiagsBuilder var implicitBuildNullRemarks: [Diagnostic.Message] {
-      enablingCrossModule
-      readGraph
-      maySkip("main", "other")
-      skipping("main", "other")
-      skipped("main", "other")
-      skippingLinking
-    }
-    @DiagsBuilder var explicitBuildNullRemarks: [Diagnostic.Message] {
-      implicitBuildNullRemarks
-      readInterModuleGraph
-      interModuleDependencyGraphUpToDate
-    }
-
-    return try doABuild(
+    try doABuild(
       "as is",
       checkDiagnostics: checkDiagnostics,
-      extraArguments: explicitModuleBuild ? explicitBuildArgs + extraArguments : extraArguments,
+      extraArguments: extraArguments,
       whenAutolinking: []
-    ) { explicitModuleBuild ? explicitBuildNullRemarks : implicitBuildNullRemarks }
+    ) {
+        enablingCrossModule
+        readGraph
+        maySkip("main", "other")
+        skipping("main", "other")
+        skipped("main", "other")
+        skippingLinking
+    }
   }
 
   /// Check reaction to touching a non-propagating input.
@@ -869,10 +699,16 @@ extension IncrementalCompilationTests {
   ///   - extraArguments: Additional command-line arguments
   private func checkReactionToTouchingAll(
     checkDiagnostics: Bool = false,
-    extraArguments: [String] = [],
-    explicitModuleBuild: Bool = false
-  ) throws {
-    @DiagsBuilder var implicitBuildRemarks: [Diagnostic.Message] {
+    extraArguments: [String] = []
+ ) throws {
+    touch("main")
+    touch("other")
+    try doABuild(
+      "touch both; non-propagating",
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
       readGraph
       enablingCrossModule
       schedulingChangedInitialQueuing("main", "other")
@@ -883,25 +719,6 @@ extension IncrementalCompilationTests {
       fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
     }
-    @DiagsBuilder var explicitBuildRemarks: [Diagnostic.Message] {
-      implicitBuildRemarks
-      readInterModuleGraph
-      interModuleDependencyGraphUpToDate
-      // TODO: We can do better, but for now make sure the jobs are still run
-      // even if the graph is up-to-date
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
-    }
-
-    touch("main")
-    touch("other")
-    try doABuild(
-      "touch both; non-propagating",
-      checkDiagnostics: checkDiagnostics,
-      extraArguments: explicitModuleBuild ? explicitBuildArgs + extraArguments : extraArguments,
-      whenAutolinking: autolinkLifecycleExpectedDiags
-    ) { explicitModuleBuild ? explicitBuildRemarks : implicitBuildRemarks }
   }
 
   /// Check reaction to changing a top-level declaration.
@@ -1343,15 +1160,10 @@ extension IncrementalCompilationTests {
 // MARK: - Incremental test perturbation helpers
 extension IncrementalCompilationTests {
   private func touch(_ name: String) {
-    print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
-    let (path, _) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
-    touch(path)
-  }
-
-  private func touch(_ path: AbsolutePath) {
     Thread.sleep(forTimeInterval: 1)
-    let existingContents = try! localFileSystem.readFileContents(path)
-    try! localFileSystem.writeFileContents(path) { $0 <<< existingContents }
+    print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
+    let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
+    try! localFileSystem.writeFileContents(path) { $0 <<< contents }
   }
 
   /// Set modification time of a file
@@ -1625,48 +1437,6 @@ extension IncrementalCompilationTests: DiagVerifiable {}
 
 extension DiagVerifiable {
 
-  // MARK: - explicit builds
-  @DiagsBuilder var explicitDidNotReadInterModuleGraph: [Diagnostic.Message] {
-    "Incremental compilation: Incremental compilation did not attempt to read inter-module dependency graph."
-  }
-  @DiagsBuilder var explicitMustReScanCouldNotReadGraph: [Diagnostic.Message] {
-    "Incremental compilation: Incremental build must re-run dependency scan: Could not read inter-module dependency graph at"
-  }
-  @DiagsBuilder var readInterModuleGraph: [Diagnostic.Message] {
-    "Incremental compilation: Read inter-module dependency graph"
-  }
-  @DiagsBuilder var interModuleDependencyGraphUpToDate: [Diagnostic.Message] {
-    "Incremental compilation: Confirmed prior inter-module dependency graph is up-to-date at"
-  }
-  @DiagsBuilder var explicitMustReScanDueToChangedImports: [Diagnostic.Message] {
-    "Incremental compilation: Incremental build must re-run dependency scan: Target import set has changed."
-  }
-  @DiagsBuilder var explicitMustReScanDueToChangedDependencyInput: [Diagnostic.Message] {
-    "Incremental compilation: Incremental build must re-run dependency scan: Not all dependencies are up-to-date."
-  }
-  @DiagsBuilder func explicitDependencyModuleOlderThanInput(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    "Dependency module \(dependencyModuleName) is older than input file"
-  }
-  @DiagsBuilder func startCompilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    "Starting Compiling Clang module \(dependencyModuleName)"
-  }
-  @DiagsBuilder func finishCompilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    "Finished Compiling Clang module \(dependencyModuleName)"
-  }
-  @DiagsBuilder func startCompilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    "Starting Compiling Swift module \(dependencyModuleName)"
-  }
-  @DiagsBuilder func finishCompilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    "Finished Compiling Swift module \(dependencyModuleName)"
-  }
-  @DiagsBuilder func compilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    startCompilingExplicitClangDependency(dependencyModuleName)
-    finishCompilingExplicitClangDependency(dependencyModuleName)
-  }
-  @DiagsBuilder func compilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
-    startCompilingExplicitSwiftDependency(dependencyModuleName)
-    finishCompilingExplicitSwiftDependency(dependencyModuleName)
-  }
 
   // MARK: - misc
   @DiagsBuilder var enablingCrossModule: [Diagnostic.Message] {
@@ -1769,13 +1539,6 @@ extension DiagVerifiable {
     "Incremental compilation: Failed to read some dependencies source; compiling everything  {compile: \(input).o <= \(input).swift}"
   }
 
-  @DiagsBuilder func noFingerprintInSwiftModule(_ dependencyFile: String) -> [Diagnostic.Message] {
-    "No fingerprint in swiftmodule: Invalidating all nodes in newer: \(dependencyFile)"
-  }
-  @DiagsBuilder func dependencyNewerThanNode(_ dependencyFile: String) -> [Diagnostic.Message] {
-    "Newer: \(dependencyFile) -> SwiftDriver.ModuleDependencyGraph.Node"
-  }
-
   // MARK: - tracing
   @DiagsBuilder func trace(@TraceBuilder _ steps: () -> String) -> [Diagnostic.Message] {
     steps()
@@ -1796,15 +1559,6 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func schedulingChanged(_ inputs: String...) -> [Diagnostic.Message] {
     schedulingChanged(inputs)
-  }
-
-  @DiagsBuilder func schedulingNoncascading(_ inputs: [String]) -> [Diagnostic.Message] {
-    for input in inputs {
-      "Incremental compilation: Scheduling noncascading build  {compile: \(input).o <= \(input).swift}"
-    }
-  }
-  @DiagsBuilder func schedulingNoncascading(_ inputs: String...) -> [Diagnostic.Message] {
-    schedulingNoncascading(inputs)
   }
 
   @DiagsBuilder func schedulingInvalidated(_ inputs: [String]) -> [Diagnostic.Message] {
@@ -1837,15 +1591,6 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func notSchedulingDependentsUnknownChanges(_ inputs: String...) -> [Diagnostic.Message] {
     notSchedulingDependentsUnknownChanges(inputs)
-  }
-
-  @DiagsBuilder func notSchedulingDependentsDoNotNeedCascading(_ inputs: [String]) -> [Diagnostic.Message] {
-    for input in inputs {
-      "Incremental compilation: not scheduling dependents of \(input).swift: does not need cascading build"
-    }
-  }
-  @DiagsBuilder func notSchedulingDependentsDoNotNeedCascading(_ inputs: String...) -> [Diagnostic.Message] {
-    notSchedulingDependentsDoNotNeedCascading(inputs)
   }
 
   @DiagsBuilder func missing(_ input: String) -> [Diagnostic.Message] {

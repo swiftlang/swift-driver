@@ -10,9 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-import class Foundation.JSONDecoder
-
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
@@ -49,7 +46,6 @@ import class Dispatch.DispatchQueue
   @_spi(Testing) public let timeBeforeFirstJob: TimePoint
   let diagnosticEngine: DiagnosticsEngine
   let compilationInputModificationDates: [TypedVirtualPath: TimePoint]
-  private var explicitModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   private var finishedJobResults = [JobResult]()
   // A confinement queue that protects concurrent access to the
@@ -74,6 +70,7 @@ import class Dispatch.DispatchQueue
     self.diagnosticEngine = diagnosticEngine
     self.compilationInputModificationDates = compilationInputModificationDates
   }
+
 
   convenience init?(
     actualSwiftVersion: String,
@@ -196,13 +193,6 @@ import class Dispatch.DispatchQueue
     try? fileSystem.removeFileTree(absPath)
   }
 
-  func removeInterModuleDependencyGraph() {
-    guard let absPath = interModuleDependencyGraphPath.absolutePath else {
-      return
-    }
-    try? fileSystem.removeFileTree(absPath)
-  }
-
   /// Before writing to the dependencies file path, preserve any previous file
   /// that may have been there. No error handling -- this is just a nicety, it
   /// doesn't matter if it fails.
@@ -213,8 +203,9 @@ import class Dispatch.DispatchQueue
   }
 
 
-  // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
+// TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
   func populateOutOfDateBuildRecord(
+    inputFiles: [TypedVirtualPath],
     reporter: IncrementalCompilationState.Reporter?
   ) -> BuildRecord? {
     let contents: String
@@ -254,29 +245,6 @@ import class Dispatch.DispatchQueue
     return outOfDateBuildRecord
   }
 
-  func readOutOfDateInterModuleDependencyGraph(
-    buildRecord: BuildRecord?,
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> InterModuleDependencyGraph? {
-    // If a valid build record could not be produced, do not bother here
-    guard buildRecord != nil else {
-      reporter?.report("Incremental compilation did not attempt to read inter-module dependency graph.")
-      return nil
-    }
-
-    let decodedGraph: InterModuleDependencyGraph
-    do {
-      let contents = try fileSystem.readFileContents(interModuleDependencyGraphPath).cString
-      decodedGraph = try JSONDecoder().decode(InterModuleDependencyGraph.self,
-                                              from: Data(contents.utf8))
-    } catch {
-      return nil
-    }
-    reporter?.report("Read inter-module dependency graph", interModuleDependencyGraphPath)
-
-    return decodedGraph
-  }
-
   func jobFinished(job: Job, result: ProcessResult) {
     self.confinementQueue.sync {
       finishedJobResults.append(JobResult(job, result))
@@ -293,15 +261,6 @@ import class Dispatch.DispatchQueue
     return buildRecordPath
       .parentDirectory
       .appending(component: filename + ".priors")
-  }
-
-  /// A build-record-relative path to the location of a serialized copy of the
-  /// driver's inter-module dependency graph.
-  var interModuleDependencyGraphPath: VirtualPath {
-    let filename = buildRecordPath.basenameWithoutExt
-    return buildRecordPath
-      .parentDirectory
-      .appending(component: filename + ".moduledeps")
   }
 
   /// Directory to emit dot files into
