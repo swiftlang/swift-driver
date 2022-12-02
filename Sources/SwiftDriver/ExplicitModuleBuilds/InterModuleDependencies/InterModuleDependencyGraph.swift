@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.JSONEncoder
-import struct Foundation.Data
 
 /// A map from a module identifier to its info
 public typealias ModuleInfoMap = [ModuleDependencyId: ModuleInfo]
@@ -276,7 +275,7 @@ public struct InterModuleDependencyGraph: Codable {
 }
 
 internal extension InterModuleDependencyGraph {
-  func toJSONData() throws -> Data {
+  func toJSONString() throws -> String {
     let encoder = JSONEncoder()
 #if os(Linux) || os(Android)
     encoder.outputFormatting = [.prettyPrinted]
@@ -285,11 +284,8 @@ internal extension InterModuleDependencyGraph {
       encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
     }
 #endif
-    return try encoder.encode(self)
-  }
-
-  func toJSONString() throws -> String {
-    return try String(data: toJSONData(), encoding: .utf8)!
+    let data = try encoder.encode(self)
+    return String(data: data, encoding: .utf8)!
   }
 }
 

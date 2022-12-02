@@ -46,15 +46,13 @@ public final class IncrementalCompilationState {
   
   public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
-  internal let upToDateInterModuleDependencyGraph: InterModuleDependencyGraph?
 
   // MARK: - Creating IncrementalCompilationState
   /// Return nil if not compiling incrementally
   internal init(
     driver: inout Driver,
     jobsInPhases: JobsInPhases,
-    initialState: InitialStateForPlanning,
-    interModuleDependencyGraph: InterModuleDependencyGraph?
+    initialState: InitialStateForPlanning
   ) throws {
     let reporter = initialState.incrementalOptions.contains(.showIncremental)
       ? Reporter(diagnosticEngine: driver.diagnosticEngine,
@@ -69,7 +67,6 @@ public final class IncrementalCompilationState {
                             driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
 
     self.info = initialState.graph.info
-    self.upToDateInterModuleDependencyGraph = interModuleDependencyGraph
     self.protectedState = ProtectedState(
       skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
       initialState.graph,

@@ -13,6 +13,7 @@
 import SwiftOptions
 
 import struct Foundation.Data
+import class Foundation.JSONEncoder
 import class Foundation.JSONDecoder
 
 import protocol TSCBasic.FileSystem

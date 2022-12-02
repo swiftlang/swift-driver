@@ -103,21 +103,16 @@ extension Driver {
     let initialIncrementalState =
       try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
 
-    // For an explicit build, compute the inter-module dependency graph
-    let interModuleDependencyGraph = try computeInterModuleDependencyGraph(with: initialIncrementalState)
-
     // Compute the set of all jobs required to build this module
-    let jobsInPhases = try computeJobsForPhasedStandardBuild(with: interModuleDependencyGraph)
+    let jobsInPhases = try computeJobsForPhasedStandardBuild()
 
     // Determine the state for incremental compilation
     let incrementalCompilationState: IncrementalCompilationState?
     // If no initial state was computed, we will not be performing an incremental build
     if let initialState = initialIncrementalState {
       incrementalCompilationState =
-        try IncrementalCompilationState(driver: &self,
-                                        jobsInPhases: jobsInPhases,
-                                        initialState: initialState,
-                                        interModuleDependencyGraph: interModuleDependencyGraph)
+        try IncrementalCompilationState(driver: &self, jobsInPhases: jobsInPhases,
+                                        initialState: initialState)
     } else {
       incrementalCompilationState = nil
     }
@@ -133,27 +128,9 @@ extension Driver {
     )
   }
 
-  /// If performing an explicit module build, compute an inter-module dependency graph.
-  /// If performing an incremental build, and the initial incremental state contains a valid
-  /// graph already, it is safe to re-use without repeating the scan.
-  private mutating func computeInterModuleDependencyGraph(with initialIncrementalState:
-                                                          IncrementalCompilationState.InitialStateForPlanning?)
-  throws -> InterModuleDependencyGraph? {
-    let interModuleDependencyGraph: InterModuleDependencyGraph?
-    if parsedOptions.contains(.driverExplicitModuleBuild) {
-      interModuleDependencyGraph =
-        try initialIncrementalState?.maybeInterModuleDependencyGraph ??
-            gatherModuleDependencies()
-    } else {
-      interModuleDependencyGraph = nil
-    }
-    return interModuleDependencyGraph
-  }
-
   /// Construct a build plan consisting of *all* jobs required for building the current module (non-incrementally).
   /// At build time, incremental state will be used to distinguish which of these jobs must run.
-  mutating private func computeJobsForPhasedStandardBuild(with dependencyGraph: InterModuleDependencyGraph?)
-  throws -> JobsInPhases {
+  mutating private func computeJobsForPhasedStandardBuild() throws -> JobsInPhases {
     // Centralize job accumulation here.
     // For incremental compilation, must separate jobs happening before,
     // during, and after compilation.
@@ -174,8 +151,7 @@ extension Driver {
       jobsAfterCompiles.append(j)
     }
 
-    try addPrecompileModuleDependenciesJobs(dependencyGraph: dependencyGraph,
-                                            addJob: addJobBeforeCompiles)
+    try addPrecompileModuleDependenciesJobs(addJob: addJobBeforeCompiles)
     try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
@@ -191,17 +167,10 @@ extension Driver {
                         afterCompiles: jobsAfterCompiles)
   }
 
-  private mutating func addPrecompileModuleDependenciesJobs(
-    dependencyGraph: InterModuleDependencyGraph?,
-    addJob: (Job) -> Void)
-  throws {
+  private mutating func addPrecompileModuleDependenciesJobs(addJob: (Job) -> Void) throws {
     // If asked, add jobs to precompile module dependencies
     guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
-    guard let resolvedDependencyGraph = dependencyGraph else {
-      fatalError("Attempting to plan explicit dependency build without a dependency graph")
-    }
-    let modulePrebuildJobs =
-        try generateExplicitModuleDependenciesJobs(dependencyGraph: resolvedDependencyGraph)
+    let modulePrebuildJobs = try generateExplicitModuleDependenciesJobs()
     modulePrebuildJobs.forEach(addJob)
   }
 
@@ -648,8 +617,10 @@ extension Driver {
   /// of jobs required to build all dependencies.
   /// Preprocess the graph by resolving placeholder dependencies, if any are present and
   /// by re-scanning all Clang modules against all possible targets they will be built against.
-  public mutating func generateExplicitModuleDependenciesJobs(dependencyGraph: InterModuleDependencyGraph)
-  throws -> [Job] {
+  public mutating func generateExplicitModuleDependenciesJobs() throws -> [Job] {
+    // Run the dependency scanner and update the dependency oracle with the results
+    let dependencyGraph = try gatherModuleDependencies()
+
     // Plan build jobs for all direct and transitive module dependencies of the current target
     explicitDependencyBuildPlanner =
       try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
@@ -660,7 +631,117 @@ extension Driver {
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
+
+  @_spi(Testing) public mutating func gatherModuleDependencies()
+  throws -> InterModuleDependencyGraph {
+    var dependencyGraph = try performDependencyScan()
+
+    if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
+      try stdoutStream <<< dependencyGraph.toJSONString()
+      stdoutStream.flush()
+    }
+
+    if let externalTargetDetails = externalTargetModuleDetailsMap {
+      // Resolve external dependencies in the dependency graph, if any.
+      try dependencyGraph.resolveExternalDependencies(for: externalTargetDetails)
+    }
+
+    // Re-scan Clang modules at all the targets they will be built against.
+    // This is currently disabled because we are investigating it being unnecessary
+    // try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
+
+    // Set dependency modules' paths to be saved in the module cache.
+    try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
+
+    if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
+      let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
+      if outputFormat == nil || outputFormat == "json" {
+        try stdoutStream <<< dependencyGraph.toJSONString()
+      } else if outputFormat == "dot" {
+        DOTModuleDependencyGraphSerializer(dependencyGraph).writeDOT(to: &stdoutStream)
+      }
+      stdoutStream.flush()
+    }
+
+    return dependencyGraph
+  }
+
+  /// Update the given inter-module dependency graph to set module paths to be within the module cache,
+  /// if one is present, and for Swift modules to use the context hash in the file name.
+  private mutating func resolveDependencyModulePaths(dependencyGraph: inout InterModuleDependencyGraph)
+  throws {
+    // If a module cache path is specified, update all module dependencies
+    // to be output into it.
+    if let moduleCachePath = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
+      try resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: &dependencyGraph,
+                                                            moduleCachePath: moduleCachePath)
+    }
+
+    // Set the output path to include the module's context hash
+    try resolveDependencyModuleFileNamesWithContextHash(dependencyGraph: &dependencyGraph)
+  }
+
+  /// For Swift module dependencies, set the output path to include the module's context hash
+  private mutating func resolveDependencyModuleFileNamesWithContextHash(dependencyGraph: inout InterModuleDependencyGraph)
+  throws {
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      // Output path on the main module is determined by the invocation arguments.
+      guard moduleId.moduleName != dependencyGraph.mainModuleName else {
+        continue
+      }
+
+      let plainPath = VirtualPath.lookup(dependencyGraph.modules[moduleId]!.modulePath.path)
+      if case .swift(let swiftDetails) = moduleInfo.details {
+        guard let contextHash = swiftDetails.contextHash else {
+          throw Driver.Error.missingContextHashOnSwiftDependency(moduleId.moduleName)
+        }
+        let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
+        dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+      }
+      // TODO: Remove this once toolchain is updated
+      else if case .clang(let clangDetails) = moduleInfo.details {
+        if !moduleInfo.modulePath.path.description.contains(clangDetails.contextHash) {
+          let contextHash = clangDetails.contextHash
+          let updatedPath = plainPath.parentDirectory.appending(component: "\(plainPath.basenameWithoutExt)-\(contextHash).\(plainPath.extension!)")
+          dependencyGraph.modules[moduleId]!.modulePath = TextualVirtualPath(path: updatedPath.intern())
+        }
+      }
+    }
+  }
+
+  /// Resolve all paths to dependency binary module files to be relative to the module cache path.
+  private mutating func resolveDependencyModulePathsRelativeToModuleCache(dependencyGraph: inout InterModuleDependencyGraph,
+                                                                          moduleCachePath: String)
+  throws {
+    for (moduleId, moduleInfo) in dependencyGraph.modules {
+      // Output path on the main module is determined by the invocation arguments.
+      if case .swift(let name) = moduleId {
+        if name == dependencyGraph.mainModuleName {
+          continue
+        }
+        let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
+        // Use VirtualPath to get the OS-specific path separators right.
+        let modulePathInCache =
+        try VirtualPath(path: moduleCachePath)
+          .appending(component: modulePath.basename)
+        dependencyGraph.modules[moduleId]!.modulePath =
+        TextualVirtualPath(path: modulePathInCache.intern())
+      }
+      // TODO: Remove this once toolchain is updated
+      else if case .clang(_) = moduleId {
+        let modulePath = VirtualPath.lookup(moduleInfo.modulePath.path)
+        // Use VirtualPath to get the OS-specific path separators right.
+        let modulePathInCache =
+        try VirtualPath(path: moduleCachePath)
+          .appending(component: modulePath.basename)
+        dependencyGraph.modules[moduleId]!.modulePath =
+        TextualVirtualPath(path: modulePathInCache.intern())
+      }
+    }
+  }
+
 }
+
 
 /// MARK: Planning
 extension Driver {
@@ -739,12 +820,7 @@ extension Driver {
 
     case .immediate:
       var jobs: [Job] = []
-      // Run the dependency scanner if this is an explicit module build
-      let moduleDependencyGraph =
-        try parsedOptions.contains(.driverExplicitModuleBuild) ?
-          gatherModuleDependencies() : nil
-      try addPrecompileModuleDependenciesJobs(dependencyGraph: moduleDependencyGraph,
-                                              addJob: { jobs.append($0) })
+      try addPrecompileModuleDependenciesJobs(addJob: { jobs.append($0) })
       jobs.append(try interpretJob(inputs: inputFiles))
       return (jobs, nil)
 

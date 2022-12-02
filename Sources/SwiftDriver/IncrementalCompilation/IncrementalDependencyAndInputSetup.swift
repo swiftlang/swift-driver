@@ -47,13 +47,9 @@ extension IncrementalCompilationState {
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     let maybeBuildRecord =
-      buildRecordInfo.populateOutOfDateBuildRecord(reporter: reporter)
-    let priorInterModuleDependencyGraph =
-      options.contains(.explicitModuleBuild) ?
-        try readAndValidatePriorInterModuleDependencyGraph(driver: &driver,
-                                                           buildRecordInfo: buildRecordInfo,
-                                                           maybeBuildRecord: maybeBuildRecord,
-                                                           reporter: reporter) : nil
+      buildRecordInfo.populateOutOfDateBuildRecord(
+        inputFiles: driver.inputFiles,
+        reporter: reporter)
 
     guard
       let initialState =
@@ -61,16 +57,12 @@ extension IncrementalCompilationState {
         .IncrementalDependencyAndInputSetup(
           options, outputFileMap,
           buildRecordInfo, maybeBuildRecord,
-          priorInterModuleDependencyGraph,
           reporter, driver.inputFiles,
           driver.fileSystem,
           driver.diagnosticEngine
         ).computeInitialStateForPlanning()
     else {
       Self.removeDependencyGraphFile(driver)
-      if options.contains(.explicitModuleBuild) {
-        Self.removeInterModuleDependencyGraphFile(driver)
-      }
       return nil
     }
 
@@ -100,126 +92,7 @@ extension IncrementalCompilationState {
       options.formUnion(.enableCrossModuleIncrementalBuild)
       options.formUnion(.readPriorsFromModuleDependencyGraph)
     }
-    if driver.parsedOptions.contains(.driverExplicitModuleBuild) {
-      options.formUnion(.explicitModuleBuild)
-    }
     return options
-  }
-}
-
-/// Validate if a prior inter-module dependency graph is still valid
-extension IncrementalCompilationState {
-  static func readAndValidatePriorInterModuleDependencyGraph(driver: inout Driver,
-                                                             buildRecordInfo: BuildRecordInfo,
-                                                             maybeBuildRecord: BuildRecord?,
-                                                             reporter: IncrementalCompilationState.Reporter?)
-  throws -> InterModuleDependencyGraph? {
-    // Attempt to read a serialized inter-module dependency graph from a prior build
-    guard let priorInterModuleDependencyGraph =
-        buildRecordInfo.readOutOfDateInterModuleDependencyGraph(buildRecord: maybeBuildRecord,
-                                                                reporter: reporter),
-          let priorImports = priorInterModuleDependencyGraph.mainModule.directDependencies?.map({ $0.moduleName }) else {
-      reporter?.reportExplicitBuildMustReScan("Could not read inter-module dependency graph at \(buildRecordInfo.interModuleDependencyGraphPath)")
-      return nil
-    }
-
-    // Verify that import sets match
-    let currentImports = try driver.performImportPrescan().imports
-    guard Set(priorImports) == Set(currentImports) else {
-      reporter?.reportExplicitBuildMustReScan("Target import set has changed.")
-      return nil
-    }
-
-    // Verify that each dependnecy is up-to-date with respect to its inputs
-    guard try verifyInterModuleDependenciesUpToDate(in: priorInterModuleDependencyGraph,
-                                                    buildRecordInfo: buildRecordInfo,
-                                                    reporter: reporter) else {
-      reporter?.reportExplicitBuildMustReScan("Not all dependencies are up-to-date.")
-      return nil
-    }
-
-    reporter?.report("Confirmed prior inter-module dependency graph is up-to-date at: \(buildRecordInfo.interModuleDependencyGraphPath)")
-    return priorInterModuleDependencyGraph
-  }
-
-  /// For each direct and transitive module dependency, check if any of the inputs are newer than the output
-  static func verifyInterModuleDependenciesUpToDate(in graph: InterModuleDependencyGraph,
-                                                    buildRecordInfo: BuildRecordInfo,
-                                                    reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
-    // Verify that the specified input exists and is older than the specified output
-    let verifyInputOlderThanOutputModTime: (String, VirtualPath, VirtualPath, TimePoint) -> Bool =
-    { moduleName, inputPath, outputPath, outputModTime in
-      guard let inputModTime =
-              try? buildRecordInfo.fileSystem.lastModificationTime(for: inputPath) else {
-        reporter?.report("Unable to 'stat' \(inputPath.description)")
-        return false
-      }
-      if inputModTime > outputModTime {
-        reporter?.reportExplicitDependencyOutOfDate(moduleName,
-                                                    outputPath: outputPath.description,
-                                                    updatedInputPath: inputPath.description)
-        return false
-      }
-      return true
-    }
-
-    for module in graph.modules {
-      switch module.value.details {
-      case .swift(let swiftDetails):
-        if module.key.moduleName == graph.mainModuleName {
-          continue
-        }
-        guard let outputModTime = try? buildRecordInfo.fileSystem.lastModificationTime(for: VirtualPath.lookup(module.value.modulePath.path)) else {
-          reporter?.report("Unable to 'stat' \(module.value.modulePath.description)")
-          return false
-        }
-        if let moduleInterfacePath = swiftDetails.moduleInterfacePath {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                VirtualPath.lookup(moduleInterfacePath.path),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-        if let bridgingHeaderPath = swiftDetails.bridgingHeaderPath {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                VirtualPath.lookup(bridgingHeaderPath.path),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-        for bridgingSourceFile in swiftDetails.bridgingSourceFiles ?? [] {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                VirtualPath.lookup(bridgingSourceFile.path),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-      case .clang(_):
-        guard let outputModTime = try? buildRecordInfo.fileSystem.lastModificationTime(for: VirtualPath.lookup(module.value.modulePath.path)) else {
-          reporter?.report("Unable to 'stat' \(module.value.modulePath.description)")
-          return false
-        }
-        for inputSourceFile in module.value.sourceFiles ?? [] {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                try VirtualPath(path: inputSourceFile),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-      case .swiftPrebuiltExternal(_):
-        // TODO: We have to give-up here until we have a way to verify the timestamp of the binary module.
-        reporter?.report("Unable to verify binary module dependency: \(module.value.modulePath.description)")
-        return false;
-      case .swiftPlaceholder(_):
-        // TODO: This should never ever happen. Hard error?
-        return false;
-      }
-    }
-    return true
   }
 }
 
@@ -238,8 +111,6 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let inputFiles: [TypedVirtualPath]
     @_spi(Testing) public let fileSystem: FileSystem
     @_spi(Testing) public let sourceFiles: SourceFiles
-    /// Opional inter-module dependency graph for Explicitly-Built module dependencies
-    @_spi(Testing) public let maybeInterModuleDependencyGraph: InterModuleDependencyGraph?
     
     /// The state managing incremental compilation gets mutated every time a compilation job completes.
     /// This queue ensures that the access and mutation of that state is thread-safe.
@@ -259,9 +130,6 @@ extension IncrementalCompilationState {
     @_spi(Testing) public var readPriorsFromModuleDependencyGraph: Bool {
       maybeBuildRecord != nil && options.contains(.readPriorsFromModuleDependencyGraph)
     }
-    @_spi(Testing) public var explicitModuleBuild: Bool {
-      options.contains(.explicitModuleBuild)
-    }
     @_spi(Testing) public var alwaysRebuildDependents: Bool {
       options.contains(.alwaysRebuildDependents)
     }
@@ -280,7 +148,6 @@ extension IncrementalCompilationState {
       _ outputFileMap: OutputFileMap,
       _ buildRecordInfo: BuildRecordInfo,
       _ buildRecord: BuildRecord?,
-      _ interModuleDependencyGraph: InterModuleDependencyGraph?,
       _ reporter: IncrementalCompilationState.Reporter?,
       _ inputFiles: [TypedVirtualPath],
       _ fileSystem: FileSystem,
@@ -289,7 +156,6 @@ extension IncrementalCompilationState {
       self.outputFileMap = outputFileMap
       self.buildRecordInfo = buildRecordInfo
       self.maybeBuildRecord = buildRecord
-      self.maybeInterModuleDependencyGraph = interModuleDependencyGraph
       self.reporter = reporter
       self.options = options
       self.inputFiles = inputFiles
@@ -321,7 +187,8 @@ extension IncrementalCompilationState {
         return nil
       }
 
-      guard let (graph, inputsInvalidatedByExternals) =
+      guard
+        let (graph, inputsInvalidatedByExternals) =
           computeGraphAndInputsInvalidatedByExternals()
       else {
         return nil
@@ -330,7 +197,6 @@ extension IncrementalCompilationState {
       return InitialStateForPlanning(
         graph: graph, buildRecordInfo: buildRecordInfo,
         maybeBuildRecord: maybeBuildRecord,
-        maybeInterModuleDependencyGraph: maybeInterModuleDependencyGraph,
         inputsInvalidatedByExternals: inputsInvalidatedByExternals,
         incrementalOptions: options, buildStartTime: buildStartTime,
         buildEndTime: buildEndTime)
@@ -345,7 +211,7 @@ extension IncrementalCompilationState {
     }
   }
 }
-
+  
 
 // MARK: - building/reading the ModuleDependencyGraph & scheduling externals for 1st wave
 extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {

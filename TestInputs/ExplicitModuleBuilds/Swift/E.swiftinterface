@@ -2,4 +2,3 @@
 // swift-module-flags: -module-name E
 import Swift
 public func funcE()
-public let modlueEValue = 42
