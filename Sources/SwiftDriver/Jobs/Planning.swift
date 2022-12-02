@@ -197,11 +197,10 @@ extension Driver {
   throws {
     // If asked, add jobs to precompile module dependencies
     guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
-    guard let resolvedDependencyGraph = dependencyGraph else {
+    guard let dependencyGraph else {
       fatalError("Attempting to plan explicit dependency build without a dependency graph")
     }
-    let modulePrebuildJobs =
-        try generateExplicitModuleDependenciesJobs(dependencyGraph: resolvedDependencyGraph)
+    let modulePrebuildJobs = try generateExplicitModuleDependenciesJobs(dependencyGraph: dependencyGraph)
     modulePrebuildJobs.forEach(addJob)
   }
 
