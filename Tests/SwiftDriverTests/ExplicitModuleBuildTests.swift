@@ -1032,6 +1032,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-I", stdlibPath.nativePathString(escaped: true),
                                      "-I", shimsPath.nativePathString(escaped: true),
+                                     "/tmp/Foo.o",
                                      "-import-objc-header",
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
@@ -1049,6 +1050,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
       XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
+      XCTAssertFalse(scannerCommand.contains("Foo.o"))
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
