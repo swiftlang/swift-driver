@@ -235,22 +235,6 @@ public struct Driver {
   /// Only present when the driver will be writing the record.
   /// Only used for reading when compiling incrementally.
   @_spi(Testing) public let buildRecordInfo: BuildRecordInfo?
-
-  /// A build-record-relative path to the location of a serialized copy of the
-  /// driver's dependency graph.
-  ///
-  /// FIXME: This is a little ridiculous. We could probably just replace the
-  /// build record outright with a serialized format.
-  var driverDependencyGraphPath: VirtualPath? {
-    guard let recordInfo = self.buildRecordInfo else {
-      return nil
-    }
-    let filename = recordInfo.buildRecordPath.basenameWithoutExt
-    return recordInfo
-      .buildRecordPath
-      .parentDirectory
-      .appending(component: filename + ".priors")
-  }
   
   /// Whether to consider incremental compilation.
   let shouldAttemptIncrementalCompilation: Bool
@@ -1450,6 +1434,15 @@ extension Driver {
           /// Ensure that a bogus dependency graph is not used next time.
           buildRecordInfo?.removeBuildRecord()
           return
+      }
+      do {
+        try incrementalCompilationState.writeInterModuleDependencyGraph(buildRecordInfo)
+      }
+      catch {
+        diagnosticEngine.emit(
+          .warning("next compile must run a full dependency scan; could not write inter-module dependency graph: \(error.localizedDescription)"))
+        buildRecordInfo?.removeInterModuleDependencyGraph()
+        return
       }
     }
     buildRecordInfo?.writeBuildRecord(
