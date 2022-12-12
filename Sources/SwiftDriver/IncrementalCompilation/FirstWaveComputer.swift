@@ -27,6 +27,7 @@ extension IncrementalCompilationState {
     let fileSystem: FileSystem
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
+    let rebuildExplicitModuleDependencies: Bool
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -49,6 +50,8 @@ extension IncrementalCompilationState {
       self.showJobLifecycle = driver.showJobLifecycle
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
+      self.rebuildExplicitModuleDependencies =
+        initialState.maybeUpToDatePriorInterModuleDependencyGraph != nil ? false : true
       self.reporter = reporter
     }
 
@@ -122,6 +125,11 @@ extension IncrementalCompilationState.FirstWaveComputer {
         : compileGroups[input]
     }
 
+    // If module dependencies are known to be up-to-date, do not rebuild them
+    let mandatoryBeforeCompilesJobs = self.rebuildExplicitModuleDependencies ?
+      jobsInPhases.beforeCompiles :
+      jobsInPhases.beforeCompiles.filter { $0.kind != .generatePCM && $0.kind != .compileModuleFromInterface }
+
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
       showJobLifecycle: showJobLifecycle)
@@ -130,7 +138,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
     // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
     // have any dependencies on them.
     let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
-    let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
+    let mandatoryJobsInOrder = skipAllJobs ? [] : mandatoryBeforeCompilesJobs + batchedCompilationJobs
     return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
   }

@@ -142,7 +142,7 @@ extension Driver {
     let interModuleDependencyGraph: InterModuleDependencyGraph?
     if parsedOptions.contains(.driverExplicitModuleBuild) {
       interModuleDependencyGraph =
-        try initialIncrementalState?.maybeInterModuleDependencyGraph ??
+        try initialIncrementalState?.maybeUpToDatePriorInterModuleDependencyGraph ??
             gatherModuleDependencies()
     } else {
       interModuleDependencyGraph = nil

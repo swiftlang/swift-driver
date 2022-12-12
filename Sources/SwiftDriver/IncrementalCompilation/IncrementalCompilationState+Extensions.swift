@@ -53,7 +53,7 @@ extension IncrementalCompilationState {
     /// Record about existence and time of the last compile.
     let maybeBuildRecord: BuildRecord?
     /// Record about the compiled module's module dependencies from the last compile.
-    let maybeInterModuleDependencyGraph: InterModuleDependencyGraph?
+    let maybeUpToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
     /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.

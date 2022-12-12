@@ -887,11 +887,6 @@ extension IncrementalCompilationTests {
       implicitBuildRemarks
       readInterModuleGraph
       interModuleDependencyGraphUpToDate
-      // TODO: We can do better, but for now make sure the jobs are still run
-      // even if the graph is up-to-date
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
     }
 
     touch("main")
