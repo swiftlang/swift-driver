@@ -330,7 +330,7 @@ extension IncrementalCompilationState {
       return InitialStateForPlanning(
         graph: graph, buildRecordInfo: buildRecordInfo,
         maybeBuildRecord: maybeBuildRecord,
-        maybeInterModuleDependencyGraph: maybeInterModuleDependencyGraph,
+        maybeUpToDatePriorInterModuleDependencyGraph: maybeInterModuleDependencyGraph,
         inputsInvalidatedByExternals: inputsInvalidatedByExternals,
         incrementalOptions: options, buildStartTime: buildStartTime,
         buildEndTime: buildEndTime)
