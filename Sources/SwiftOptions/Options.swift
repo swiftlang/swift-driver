@@ -20,6 +20,7 @@ extension Option {
   public static let accessNotesPathEQ: Option = Option("-access-notes-path=", .joined, alias: Option.accessNotesPath, attributes: [.frontend, .argumentIsPath])
   public static let accessNotesPath: Option = Option("-access-notes-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Specify YAML file to override attributes on Swift declarations in this module")
   public static let aliasModuleNamesInModuleInterface: Option = Option("-alias-module-names-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, disambiguate modules using distinct alias names")
+  public static let allowableClient: Option = Option("-allowable-client", .separate, attributes: [.frontend], metaVar: "<vers>", helpText: "Module names that are allowed to import this module")
   public static let analyzeRequirementMachine: Option = Option("-analyze-requirement-machine", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print out requirement machine statistics at the end of the compilation job")
   public static let apiDiffDataDir: Option = Option("-api-diff-data-dir", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Load platform and version specific API migration data files from <path>. Ignored if -api-diff-data-file is specified.")
   public static let apiDiffDataFile: Option = Option("-api-diff-data-file", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "API migration data is from <path>")
@@ -126,6 +127,7 @@ extension Option {
   public static let disableClangTarget: Option = Option("-disable-clang-target", .flag, attributes: [], helpText: "Disable a separately specified target triple for Clang instance to use")
   public static let disableClangimporterSourceImport: Option = Option("-disable-clangimporter-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable ClangImporter and forward all requests straight the DWARF importer.")
   public static let disableCrossModuleOptimization: Option = Option("-disable-cmo", .flag, attributes: [.helpHidden, .frontend], helpText: "Disable cross-module optimization")
+  public static let disableCollocateMetadataFunctions: Option = Option("-disable-collocate-metadata-functions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable collocate metadata functions")
   public static let disableConcreteTypeMetadataMangledNameAccessors: Option = Option("-disable-concrete-type-metadata-mangled-name-accessors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable concrete type metadata access by mangled name")
   public static let disableConformanceAvailabilityErrors: Option = Option("-disable-conformance-availability-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose conformance availability violations as warnings")
   public static let disableConstraintSolverPerformanceHacks: Option = Option("-disable-constraint-solver-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable all the hacks in the constraint solver")
@@ -222,6 +224,7 @@ extension Option {
   public static let dumpClangDiagnostics: Option = Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr")
   public static let dumpInterfaceHash: Option = Option("-dump-interface-hash", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and dump interface token hash(es)", group: .modes)
   public static let dumpJit: Option = Option("-dump-jit", .joinedOrSeparate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump JIT contents")
+  public static let dumpMacroExpansions: Option = Option("-dump-macro-expansions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the results of each macro expansion")
   public static let dumpMigrationStatesDir: Option = Option("-dump-migration-states-dir", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Dump the input text, output text, and states for migration to <path>")
   public static let dumpParse: Option = Option("-dump-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s) and dump AST(s)", group: .modes)
   public static let dumpPcm: Option = Option("-dump-pcm", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Dump debugging information about a precompiled Clang module", group: .modes)
@@ -241,6 +244,7 @@ extension Option {
   public static let emitAssembly: Option = Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit assembly file(s) (-S)", group: .modes)
   public static let emitAst: Option = Option("-emit-ast", .flag, alias: Option.dumpAst, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild])
   public static let emitBc: Option = Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit LLVM BC file(s)", group: .modes)
+  public static let emitClangHeaderNonmodularIncludes: Option = Option("-emit-clang-header-nonmodular-includes", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Augment emitted Objective-C header with textual imports for every included modular import")
   public static let emitClangHeaderPath: Option = Option("-emit-clang-header-path", .separate, alias: Option.emitObjcHeaderPath, attributes: [.frontend, .noDriver, .noInteractive, .argumentIsPath, .supplementaryOutput], helpText: "Emit an Objective-C and C++ header file to <path>")
   public static let emitConstValuesPath: Option = Option("-emit-const-values-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit the extracted compile-time known values to <path>")
   public static let emitConstValues: Option = Option("-emit-const-values", .flag, attributes: [.noInteractive, .supplementaryOutput])
@@ -307,9 +311,11 @@ extension Option {
   public static let enableActorDataRaceChecks: Option = Option("-enable-actor-data-race-checks", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit runtime checks for actor data races")
   public static let enableAnonymousContextMangledNames: Option = Option("-enable-anonymous-context-mangled-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of mangled names in anonymous context descriptors")
   public static let enableAstVerifier: Option = Option("-enable-ast-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Run the AST verifier during compilation. NOTE: This lets the user override the default behavior on whether or not the ASTVerifier is run. The default behavior is to run the verifier when asserts are enabled and not run it when asserts are disabled. NOTE: Can not be used if disable-ast-verifier is used as well")
+  public static let enableAutolinkingRuntimeCompatibilityBytecodeLayouts: Option = Option("-enable-autolinking-runtime-compatibility-bytecode-layouts", .flag, attributes: [.frontend], helpText: "Enable autolinking for the bytecode layouts runtime compatibility library")
   public static let enableBareSlashRegex: Option = Option("-enable-bare-slash-regex", .flag, attributes: [.frontend], helpText: "Enable the use of forward slash regular-expression literal syntax")
   public static let enableBatchMode: Option = Option("-enable-batch-mode", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Enable combining frontend jobs into batches")
   public static let enableBridgingPch: Option = Option("-enable-bridging-pch", .flag, attributes: [.helpHidden], helpText: "Enable automatic generation of bridging PCH files")
+  public static let enableCollocateMetadataFunctions: Option = Option("-enable-collocate-metadata-functions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable collocate metadata functions")
   public static let enableConformanceAvailabilityErrors: Option = Option("-enable-conformance-availability-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose conformance availability violations as errors")
   public static let copyPropagationStateEQ: Option = Option("-enable-copy-propagation=", .joined, attributes: [.frontend, .noDriver], metaVar: "true|requested-passes-only|false", helpText: "Whether to enable copy propagation")
   public static let enableCopyPropagation: Option = Option("-enable-copy-propagation", .flag, attributes: [.frontend, .noDriver], helpText: "Run SIL copy propagation with lexical lifetimes to shorten object lifetimes while preserving variable lifetimes.")
@@ -331,7 +337,6 @@ extension Option {
   public static let enableExperimentalFeature: Option = Option("-enable-experimental-feature", .separate, attributes: [.frontend], helpText: "Enable an experimental feature")
   public static let enableExperimentalFlowSensitiveConcurrentCaptures: Option = Option("-enable-experimental-flow-sensitive-concurrent-captures", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable flow-sensitive concurrent captures")
   public static let enableExperimentalForwardModeDifferentiation: Option = Option("-enable-experimental-forward-mode-differentiation", .flag, attributes: [.frontend], helpText: "Enable experimental forward mode differentiation")
-  public static let enableExperimentalImplicitSome: Option = Option("-enable-experimental-implicit-some", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental implicit some")
   public static let enableExperimentalMoveOnly: Option = Option("-enable-experimental-move-only", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental move only")
   public static let enableExperimentalNamedOpaqueTypes: Option = Option("-enable-experimental-named-opaque-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for named opaque result types")
   public static let enableExperimentalOpaqueTypeErasure: Option = Option("-enable-experimental-opaque-type-erasure", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-erases opaque types that conform to @_typeEraser protocols")
@@ -400,7 +405,7 @@ extension Option {
   public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let explicitSwiftModuleMap: Option = Option("-explicit-swift-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of explicit Swift modules")
   public static let externalPassPipelineFilename: Option = Option("-external-pass-pipeline-filename", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<pass_pipeline_file>", helpText: "Use the pass pipeline defined by <pass_pipeline_file>")
-  public static let e: Option = Option("-e", .joinedOrSeparate, attributes: [], helpText: "Executes a line of code provided on the command line")
+  public static let e: Option = Option("-e", .separate, attributes: [], helpText: "Executes a line of code provided on the command line")
   public static let FEQ: Option = Option("-F=", .joined, alias: Option.F, attributes: [.frontend, .argumentIsPath])
   public static let fileCompilationDir: Option = Option("-file-compilation-dir", .separate, attributes: [.frontend], metaVar: "<path>", helpText: "The compilation directory to embed in the debug info. Coverage mapping is not supported yet.")
   public static let filePrefixMap: Option = Option("-file-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in debug, coverage, and index info")
@@ -749,6 +754,7 @@ extension Option {
       Option.accessNotesPathEQ,
       Option.accessNotesPath,
       Option.aliasModuleNamesInModuleInterface,
+      Option.allowableClient,
       Option.analyzeRequirementMachine,
       Option.apiDiffDataDir,
       Option.apiDiffDataFile,
@@ -855,6 +861,7 @@ extension Option {
       Option.disableClangTarget,
       Option.disableClangimporterSourceImport,
       Option.disableCrossModuleOptimization,
+      Option.disableCollocateMetadataFunctions,
       Option.disableConcreteTypeMetadataMangledNameAccessors,
       Option.disableConformanceAvailabilityErrors,
       Option.disableConstraintSolverPerformanceHacks,
@@ -951,6 +958,7 @@ extension Option {
       Option.dumpClangDiagnostics,
       Option.dumpInterfaceHash,
       Option.dumpJit,
+      Option.dumpMacroExpansions,
       Option.dumpMigrationStatesDir,
       Option.dumpParse,
       Option.dumpPcm,
@@ -970,6 +978,7 @@ extension Option {
       Option.emitAssembly,
       Option.emitAst,
       Option.emitBc,
+      Option.emitClangHeaderNonmodularIncludes,
       Option.emitClangHeaderPath,
       Option.emitConstValuesPath,
       Option.emitConstValues,
@@ -1036,9 +1045,11 @@ extension Option {
       Option.enableActorDataRaceChecks,
       Option.enableAnonymousContextMangledNames,
       Option.enableAstVerifier,
+      Option.enableAutolinkingRuntimeCompatibilityBytecodeLayouts,
       Option.enableBareSlashRegex,
       Option.enableBatchMode,
       Option.enableBridgingPch,
+      Option.enableCollocateMetadataFunctions,
       Option.enableConformanceAvailabilityErrors,
       Option.copyPropagationStateEQ,
       Option.enableCopyPropagation,
@@ -1060,7 +1071,6 @@ extension Option {
       Option.enableExperimentalFeature,
       Option.enableExperimentalFlowSensitiveConcurrentCaptures,
       Option.enableExperimentalForwardModeDifferentiation,
-      Option.enableExperimentalImplicitSome,
       Option.enableExperimentalMoveOnly,
       Option.enableExperimentalNamedOpaqueTypes,
       Option.enableExperimentalOpaqueTypeErasure,

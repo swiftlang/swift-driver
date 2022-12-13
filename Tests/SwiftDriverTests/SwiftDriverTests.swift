@@ -302,7 +302,7 @@ final class SwiftDriverTests: XCTestCase {
   func testDashE() throws {
     let fs = localFileSystem
     
-    var driver1 = try Driver(args: ["swift", "-e", "print(1)", "-eprint(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
+    var driver1 = try Driver(args: ["swift", "-e", "print(1)", "-e", "print(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
     XCTAssertEqual(driver1.inputFiles.count, 1)
     XCTAssertEqual(driver1.inputFiles[0].file.basename, "main.swift")
     let tempFileContentsForDriver1 = try fs.readFileContents(XCTUnwrap(driver1.inputFiles[0].file.absolutePath))
@@ -315,6 +315,13 @@ final class SwiftDriverTests: XCTestCase {
                    [.flag("--"), .flag("foo/bar.swift"), .flag("baz/quux.swift")])
     
     XCTAssertThrowsError(try Driver(args: ["swiftc", "baz/main.swift", "-e", "print(1)"], fileSystem: fs))
+  }
+
+  func testDashEJoined() throws {
+    let fs = localFileSystem
+    XCTAssertThrowsError(try Driver(args: ["swift", "-eprint(1)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)) { error in
+      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-eprint(1)"))
+    }
   }
 
   func testRecordedInputModificationDates() throws {
