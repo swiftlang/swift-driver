@@ -141,7 +141,7 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
   public init(compiledModulePath: TextualVirtualPath,
               moduleDocPath: TextualVirtualPath? = nil,
               moduleSourceInfoPath: TextualVirtualPath? = nil,
-              isFramework: Bool = false) throws {
+              isFramework: Bool) throws {
     self.compiledModulePath = compiledModulePath
     self.moduleDocPath = moduleDocPath
     self.moduleSourceInfoPath = moduleSourceInfoPath

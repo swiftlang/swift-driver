@@ -234,6 +234,10 @@ internal final class SwiftScan {
     return resultGraphMap
   }
 
+  @_spi(Testing) public var hasBinarySwiftModuleIsFramework : Bool {
+    api.swiftscan_swift_binary_detail_get_is_framework != nil
+  }
+
   @_spi(Testing) public var canLoadStoreScannerCache : Bool {
     api.swiftscan_scanner_cache_load != nil &&
     api.swiftscan_scanner_cache_serialize != nil &&
@@ -369,6 +373,10 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_diagnostic_get_severity")
     self.swiftscan_diagnostics_set_dispose =
       try loadOptional("swiftscan_diagnostics_set_dispose")
+
+    // isFramework on binary module dependencies
+    self.swiftscan_swift_binary_detail_get_is_framework =
+      try loadOptional("swiftscan_swift_binary_detail_get_is_framework")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
