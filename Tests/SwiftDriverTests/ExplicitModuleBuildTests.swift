@@ -789,6 +789,92 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testBinaryFrameworkDependencyScan() throws {
+    try withTemporaryDirectory { path in
+      let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+      let moduleCachePath = path.appending(component: "ModuleCache")
+
+      // Setup module to be used as dependency
+      try localFileSystem.createDirectory(moduleCachePath)
+      let frameworksPath = path.appending(component: "Frameworks")
+      let frameworkModuleDir = frameworksPath.appending(component: "Foo.framework")
+                                             .appending(component: "Modules")
+                                             .appending(component: "Foo.swiftmodule")
+      let frameworkModulePath =
+          frameworkModuleDir.appending(component: hostTriple.archName + ".swiftmodule")
+      try localFileSystem.createDirectory(frameworkModuleDir, recursive: true)
+      let fooSourcePath = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(fooSourcePath) {
+        $0 <<< "public func foo() {}"
+      }
+
+      // Setup our main test module
+      let mainSourcePath = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(mainSourcePath) {
+        $0 <<< "import Foo"
+      }
+
+      // 1. Build Foo module
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driverFoo = try Driver(args: ["swiftc",
+                                        "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                        "-module-name", "Foo",
+                                        "-emit-module",
+                                        "-emit-module-path",
+                                        frameworkModulePath.nativePathString(escaped: true),
+                                        "-working-directory",
+                                        path.nativePathString(escaped: true),
+                                        fooSourcePath.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                 env: ProcessEnv.vars)
+      let jobs = try driverFoo.planBuild()
+      try driverFoo.run(jobs: jobs)
+      XCTAssertFalse(driverFoo.diagnosticEngine.hasErrors)
+
+      // 2. Run a dependency scan to find the just-built module
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try Driver.getScanLibPath(of: toolchain,
+                                                  hostTriple: hostTriple,
+                                                  env: ProcessEnv.vars)
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      guard try dependencyOracle.supportsBinaryFrameworkDependencies() else {
+        throw XCTSkip("libSwiftScan does not support framework binary dependency reporting.")
+      }
+
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", stdLibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-F", frameworksPath.nativePathString(escaped: true),
+                                     "-import-objc-header",
+                                     "-explicit-module-build",
+                                     "-module-name", "main",
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     mainSourcePath.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      if scannerCommand.first == "-frontend" {
+        scannerCommand.removeFirst()
+      }
+      let dependencyGraph =
+          try! dependencyOracle.getDependencies(workingDirectory: path,
+                                                commandLine: scannerCommand)
+
+      let fooDependencyInfo = try XCTUnwrap(dependencyGraph.modules[.swiftPrebuiltExternal("Foo")])
+      guard case .swiftPrebuiltExternal(let fooDetails) = fooDependencyInfo.details else {
+        XCTFail("Foo dependency module does not have Swift details field")
+        return
+      }
+
+      // Ensure the dependency has been reported as a framework
+      XCTAssertTrue(fooDetails.isFramework)
+    }
+  }
+
   func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
     let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
                                                             .parentDirectory // bin

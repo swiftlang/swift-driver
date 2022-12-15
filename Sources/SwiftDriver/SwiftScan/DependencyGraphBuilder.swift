@@ -200,9 +200,18 @@ private extension SwiftScan {
     let moduleSourceInfoPath =
       try getOptionalPathDetail(from: moduleDetailsRef,
                                 using: api.swiftscan_swift_binary_detail_get_module_source_info_path)
+
+    let isFramework: Bool
+    if hasBinarySwiftModuleIsFramework {
+      isFramework = api.swiftscan_swift_binary_detail_get_is_framework(moduleDetailsRef)
+    } else {
+      isFramework = false
+    }
+
     return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
                                                   moduleDocPath: moduleDocPath,
-                                                  moduleSourceInfoPath: moduleSourceInfoPath)
+                                                  moduleSourceInfoPath: moduleSourceInfoPath,
+                                                  isFramework: isFramework)
   }
 
   /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
