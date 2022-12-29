@@ -148,14 +148,14 @@ extension IncrementalCompilationState.ProtectedState {
       .flatMap {$0.allJobs()}
   }
 
-  @_spi(Testing) public func writeGraph(to path: VirtualPath,
+  func writeGraph(to path: VirtualPath,
                   on fs: FileSystem,
-                  compilerVersion: String,
+                  buildRecord: BuildRecordInfo,
                   mockSerializedGraphVersion: Version? = nil
   ) throws {
     accessSafetyPrecondition()
     try moduleDependencyGraph.write(to: path, on: fs,
-                                    compilerVersion: compilerVersion,
+                                    buildRecord: buildRecord,
                                     mockSerializedGraphVersion: mockSerializedGraphVersion)
   }
 }

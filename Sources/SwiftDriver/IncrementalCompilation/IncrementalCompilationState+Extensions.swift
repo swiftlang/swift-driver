@@ -414,7 +414,7 @@ extension IncrementalCompilationState {
       try $0.writeGraph(
         to: recordInfo.dependencyGraphPath,
         on: info.fileSystem,
-        compilerVersion: recordInfo.actualSwiftVersion)
+        buildRecord: recordInfo)
     }
   }
   

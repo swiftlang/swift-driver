@@ -27,11 +27,17 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
     let graph = Self.mockGraphCreator.mockUpAGraph()
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
     let alteredVersion = currentVersion.withAlteredMinor
+    let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
+    let diagnosticsEngine = DiagnosticsEngine()
+    let info = BuildRecordInfo.mock(
+      diagnosticEngine: diagnosticsEngine,
+      outputFileMap: outputFileMap,
+      compilerVersion: "Swift 99")
     try graph.blockingConcurrentAccessOrMutation {
       try graph.write(
         to: mockPath,
         on: fs,
-        compilerVersion: "Swift 99",
+        buildRecord: info,
         mockSerializedGraphVersion: alteredVersion)
     }
  
@@ -56,11 +62,16 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   func roundTrip(_ originalGraph: ModuleDependencyGraph) throws {
     let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
     let fs = InMemoryFileSystem()
+    let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
+    let diagnosticsEngine = DiagnosticsEngine()
+    let buildRecord = BuildRecordInfo.mock(
+      diagnosticEngine: diagnosticsEngine,
+      outputFileMap: outputFileMap,
+      compilerVersion: "Swift 99")
     try originalGraph.blockingConcurrentMutation {
-      try originalGraph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
+      try originalGraph.write(to: mockPath, on: fs, buildRecord: buildRecord)
     }
 
-    let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
     let deserializedGraph =  try info.blockingConcurrentAccessOrMutation {
       try ModuleDependencyGraph.read(from: mockPath,

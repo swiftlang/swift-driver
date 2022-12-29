@@ -553,11 +553,11 @@ extension IncrementalCompilationTests {
         from: .absolute(priorsPath),
         info: info)
       let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
-      let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
+      let buildRecord = try XCTUnwrap(driver.buildRecordInfo)
       let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
       try priorsWithOldVersion?.write(to: .absolute(priorsPath),
                                 on: localFileSystem,
-                                compilerVersion: compilerVersion,
+                                buildRecord: buildRecord,
                                 mockSerializedGraphVersion: incrementedVersion)
       return priorsModTime
     }

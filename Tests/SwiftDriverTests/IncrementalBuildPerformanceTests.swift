@@ -79,14 +79,14 @@ class IncrementalBuildPerformanceTests: XCTestCase {
         measure {
           _ = ModuleDependencyGraph.Serializer.serialize(
             g,
-            "mock compiler version",
+            info.buildRecordInfo,
             ModuleDependencyGraph.serializedGraphVersion)
         }
       case .readingPriors:
         readSwiftDeps(for: inputs, into: g)
         let data = ModuleDependencyGraph.Serializer.serialize(
           g,
-          "mock compiler version",
+          info.buildRecordInfo,
           ModuleDependencyGraph.serializedGraphVersion)
         measure {
           try? XCTAssertNoThrow(ModuleDependencyGraph.deserialize(data, info: info))

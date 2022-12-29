@@ -1016,11 +1016,11 @@ extension ModuleDependencyGraph {
   @_spi(Testing) public func write(
     to path: VirtualPath,
     on fileSystem: FileSystem,
-    compilerVersion: String,
+    buildRecord: BuildRecordInfo,
     mockSerializedGraphVersion: Version? = nil
   ) throws {
     let data = ModuleDependencyGraph.Serializer.serialize(
-      self, compilerVersion,
+      self, buildRecord,
       mockSerializedGraphVersion ?? Self.serializedGraphVersion)
 
     do {
@@ -1035,7 +1035,7 @@ extension ModuleDependencyGraph {
 
   @_spi(Testing) public final class Serializer: InternedStringTableHolder {
     public let internedStringTable: InternedStringTable
-    let compilerVersion: String
+    let buildRecord: BuildRecordInfo
     let serializedGraphVersion: Version
     let stream = BitstreamWriter()
     private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
@@ -1043,10 +1043,10 @@ extension ModuleDependencyGraph {
     private var lastNodeID: Int = 0
 
     private init(internedStringTable: InternedStringTable,
-                 compilerVersion: String,
+                 buildRecord: BuildRecordInfo,
                  serializedGraphVersion: Version) {
       self.internedStringTable = internedStringTable
-      self.compilerVersion = compilerVersion
+      self.buildRecord = buildRecord
       self.serializedGraphVersion = serializedGraphVersion
     }
 
@@ -1096,7 +1096,7 @@ extension ModuleDependencyGraph {
         $0.append(serializedGraphVersion.minorForWriting)
         $0.append(min(UInt(internedStringTable.count), UInt(UInt32.max)))
       },
-      blob: self.compilerVersion)
+      blob: self.buildRecord.actualSwiftVersion)
     }
 
     private func lookupIdentifierCode(for string: InternedString?) -> UInt32 {
@@ -1183,13 +1183,13 @@ extension ModuleDependencyGraph {
 
     public static func serialize(
       _ graph: ModuleDependencyGraph,
-      _ compilerVersion: String,
+      _ buildRecord: BuildRecordInfo,
       _ serializedGraphVersion: Version
     ) -> ByteString {
       graph.accessSafetyPrecondition()
       let serializer = Serializer(
         internedStringTable: graph.internedStringTable,
-        compilerVersion: compilerVersion,
+        buildRecord: buildRecord,
         serializedGraphVersion: serializedGraphVersion)
       serializer.emitSignature()
       serializer.writeBlockInfoBlock()

@@ -110,14 +110,15 @@ fileprivate extension DependencyKey {
 
 extension BuildRecordInfo {
   static func mock(
-    _ diagnosticEngine: DiagnosticsEngine,
-    _ outputFileMap: OutputFileMap
-    ) -> Self {
+    diagnosticEngine: DiagnosticsEngine,
+    outputFileMap: OutputFileMap,
+    compilerVersion: String
+  ) -> Self {
     self.init(
       buildRecordPath: try! VirtualPath(path: "no-build-record"),
       fileSystem: localFileSystem,
       currentArgsHash: "",
-      actualSwiftVersion: "for-testing",
+      actualSwiftVersion: compilerVersion,
       timeBeforeFirstJob: .now(),
       diagnosticEngine: diagnosticEngine,
       compilationInputModificationDates: [:])
@@ -131,15 +132,18 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     fileSystem: FileSystem = localFileSystem,
     diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine()
   ) -> Self {
-    let diagnosticsEngine = DiagnosticsEngine()
     // Must set input files in order to avoid graph deserialization from culling
     let inputFiles = outputFileMap.entries.keys
       .filter {VirtualPath.lookup($0).extension == FileType.swift.rawValue }
       .map {TypedVirtualPath(file: $0, type: .swift)}
-     return Self(options, outputFileMap,
-                BuildRecordInfo.mock(diagnosticsEngine, outputFileMap),
+    let buildRecord = BuildRecordInfo.mock(
+      diagnosticEngine: diagnosticEngine,
+      outputFileMap: outputFileMap,
+      compilerVersion: "for-testing")
+    return Self(options, outputFileMap,
+                buildRecord,
                 nil, nil, nil, inputFiles, fileSystem,
-                diagnosticsEngine)
+                diagnosticEngine)
   }
 }
 
