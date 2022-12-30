@@ -22,7 +22,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   ///
   /// Ensure that a round-trip fails when the minor version number changes
   func testSerializedVersionChangeDetection() throws {
-    let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
+    let mockPath = try VirtualPath.absolute(AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let graph = Self.mockGraphCreator.mockUpAGraph()
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
@@ -37,7 +37,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       try graph.write(
         to: mockPath,
         on: fs,
-        buildRecord: info,
+        buildRecord: graph.buildRecord,
         mockSerializedGraphVersion: alteredVersion)
     }
  
@@ -60,7 +60,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   }
 
   func roundTrip(_ originalGraph: ModuleDependencyGraph) throws {
-    let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
+    let mockPath = try VirtualPath.absolute(AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
     let diagnosticsEngine = DiagnosticsEngine()
@@ -69,13 +69,14 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       outputFileMap: outputFileMap,
       compilerVersion: "Swift 99")
     try originalGraph.blockingConcurrentMutation {
-      try originalGraph.write(to: mockPath, on: fs, buildRecord: buildRecord)
+      try originalGraph.write(
+        to: mockPath, on: fs,
+        buildRecord: originalGraph.buildRecord)
     }
 
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
-    let deserializedGraph =  try info.blockingConcurrentAccessOrMutation {
-      try ModuleDependencyGraph.read(from: mockPath,
-                                     info: info)!
+    let deserializedGraph = try info.blockingConcurrentAccessOrMutation {
+      try XCTUnwrap(ModuleDependencyGraph.read(from: mockPath, info: info))
     }
  
     let descsToCompare = [originalGraph, deserializedGraph].map {
