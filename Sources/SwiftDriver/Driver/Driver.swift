@@ -1424,30 +1424,69 @@ extension Driver {
     // In case the write fails, don't crash the build.
     // A mitigation to rdar://76359678.
     // If the write fails, import incrementality is lost, but it is not a fatal error.
-    if let incrementalCompilationState = self.incrementalCompilationState {
+    guard
+      let buildRecordInfo = self.buildRecordInfo,
+      let absPath = buildRecordInfo.buildRecordPath.absolutePath
+    else {
+      return
+    }
+
+    let buildRecord = buildRecordInfo.buildRecord(
+      jobs, self.incrementalCompilationState?.blockingConcurrentMutationToProtectedState{
+        $0.skippedCompilationInputs
+      })
+
+    if
+      let incrementalCompilationState = self.incrementalCompilationState,
+      incrementalCompilationState.info.isCrossModuleIncrementalBuildEnabled
+    {
       do {
-        try incrementalCompilationState.writeDependencyGraph(buildRecordInfo)
-      }
-      catch {
+        try incrementalCompilationState.writeDependencyGraph(to: buildRecordInfo.dependencyGraphPath, buildRecord)
+      } catch {
         diagnosticEngine.emit(
           .warning("next compile won't be incremental; could not write dependency graph: \(error.localizedDescription)"))
-          /// Ensure that a bogus dependency graph is not used next time.
-          buildRecordInfo?.removeBuildRecord()
-          return
+        /// Ensure that a bogus dependency graph is not used next time.
+        buildRecordInfo.removeBuildRecord()
+        buildRecordInfo.removeInterModuleDependencyGraph()
+        return
       }
       do {
         try incrementalCompilationState.writeInterModuleDependencyGraph(buildRecordInfo)
-      }
-      catch {
+      } catch {
         diagnosticEngine.emit(
           .warning("next compile must run a full dependency scan; could not write inter-module dependency graph: \(error.localizedDescription)"))
-        buildRecordInfo?.removeInterModuleDependencyGraph()
+        buildRecordInfo.removeBuildRecord()
+        buildRecordInfo.removeInterModuleDependencyGraph()
         return
       }
+    } else {
+      // FIXME: This is all legacy code. Once the cross module incremental build
+      // becomes the default:
+      //
+      // 1) Delete this branch
+      // 2) Delete the parts of the incremental build that talk about anything
+      //    derived from `buildRecordPath`
+      // 3) Delete the Yams dependency.
+
+      // Before writing to the dependencies file path, preserve any previous file
+      // that may have been there. No error handling -- this is just a nicety, it
+      // doesn't matter if it fails.
+      // Added for the sake of compatibility with the legacy driver.
+      try? fileSystem.move(
+        from: absPath, to: absPath.appending(component: absPath.basename + "~"))
+      
+      guard let contents = buildRecord.encode(diagnosticEngine: diagnosticEngine) else {
+        diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
+        return
+      }
+
+      do {
+        try fileSystem.writeFileContents(absPath,
+                                         bytes: ByteString(encodingAsUTF8: contents))
+      } catch {
+        diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
+      }
     }
-    buildRecordInfo?.writeBuildRecord(
-      jobs,
-      incrementalCompilationState?.blockingConcurrentMutationToProtectedState{$0.skippedCompilationInputs})
   }
 
   private func printBindings(_ job: Job) {

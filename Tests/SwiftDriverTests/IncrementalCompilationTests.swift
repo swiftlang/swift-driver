@@ -507,35 +507,6 @@ extension IncrementalCompilationTests {
     try checkReactionToTouchingSymlinkTargets(checkDiagnostics: true)
   }
 
-  /// Ensure that a saved prior module dependency graph is rejected if not from the previous build
-  func testObsoletePriors() throws {
-#if _runtime(_ObjC)
-    let before = Date().advanced(by: -2.0)
-    let driver = try buildInitialState(checkDiagnostics: true)
-    let path = try XCTUnwrap(driver.buildRecordInfo?.dependencyGraphPath)
-    try setModTime(of: path, to: before) // Make priors too old
-    let inputs = ["main", "other"]
-    try doABuild("null with old priors",
-                 checkDiagnostics: true,
-                 extraArguments: [],
-                 whenAutolinking: []) {
-      savedGraphNotFromPriorBuild
-      enablingCrossModule
-      maySkip(inputs)
-      queuingInitial(inputs)
-      findingBatchingCompiling(inputs)
-      for (input, name) in [("main", "foo"), ("other", "bar")] {
-        reading(deps: input)
-        newDefinitionOfSourceFile(.interface, input)
-        newDefinitionOfSourceFile(.implementation, input)
-        newDefinitionOfTopLevelName(.interface, name: name, input: input)
-        newDefinitionOfTopLevelName(.implementation, name: name, input: input)
-      }
-      schedLinking
-    }
-    #endif
-  }
-
   /// Ensure that the driver can detect and then recover from a priors version mismatch
   func testPriorsVersionDetectionAndRecovery() throws {
 #if _runtime(_ObjC)
@@ -549,16 +520,15 @@ extension IncrementalCompilationTests {
       .mock(outputFileMap: outputFileMap)
     let priorsModTime = try info.blockingConcurrentAccessOrMutation {
       () -> Date in
-      let priorsWithOldVersion = try ModuleDependencyGraph.read(
+      let priorsWithOldVersion = try XCTUnwrap(ModuleDependencyGraph.read(
         from: .absolute(priorsPath),
-        info: info)
+        info: info))
       let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
-      let buildRecord = try XCTUnwrap(driver.buildRecordInfo)
       let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
-      try priorsWithOldVersion?.write(to: .absolute(priorsPath),
-                                on: localFileSystem,
-                                buildRecord: buildRecord,
-                                mockSerializedGraphVersion: incrementedVersion)
+      try priorsWithOldVersion.write(to: .absolute(priorsPath),
+                                     on: localFileSystem,
+                                     buildRecord: priorsWithOldVersion.buildRecord,
+                                     mockSerializedGraphVersion: incrementedVersion)
       return priorsModTime
     }
     try setModTime(of: .absolute(priorsPath), to: priorsModTime)
@@ -609,7 +579,6 @@ fileprivate enum RemovalTestOption: String, CaseIterable, Comparable, Hashable, 
   case
   removeInputFromInvocation,
   removeSwiftDepsOfRemovedInput,
-  simulatePriorsNotRemovedWhenInputWasRemoved,
   removedFileDependsOnChangedFile
 
   private static let byInt  = [Int: Self](uniqueKeysWithValues: allCases.enumerated().map{($0, $1)})
@@ -661,30 +630,23 @@ extension IncrementalCompilationTests {
 
     let removeInputFromInvocation = options.contains(.removeInputFromInvocation)
     let removeSwiftDepsOfRemovedInput = options.contains(.removeSwiftDepsOfRemovedInput)
-    let simulatePriorsNotRemovedWhenInputWasRemoved = options.contains(.simulatePriorsNotRemovedWhenInputWasRemoved)
     let removedFileDependsOnChangedFileAndMainWasChanged = options.contains(.removedFileDependsOnChangedFile)
 
-    do {
-      let wrapperFn = options.contains(.simulatePriorsNotRemovedWhenInputWasRemoved)
-      ? preservingPriorsDo
-      : {_ = try $0()}
-      try wrapperFn {
-        try self.checkNonincrementalAfterRemoving(
-          removedInput: newInput,
-          defining: topLevelName,
-          removeInputFromInvocation: removeInputFromInvocation,
-          removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput)
-      }
-    }
+    _ = try self.checkNonincrementalAfterRemoving(
+      removedInput: newInput,
+      defining: topLevelName,
+      removeInputFromInvocation: removeInputFromInvocation,
+      removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput)
+
     if removedFileDependsOnChangedFileAndMainWasChanged {
       replace(contentsOf: "main", with: "let foo = \"hello\"")
     }
+    
     try checkRestorationOfIncrementalityAfterRemoval(
       removedInput: newInput,
       defining: topLevelName,
       removeInputFromInvocation: removeInputFromInvocation,
       removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput,
-      priorsAreStaleFromBeforeInputWasRemoved: simulatePriorsNotRemovedWhenInputWasRemoved,
       removedFileDependsOnChangedFileAndMainWasChanged: removedFileDependsOnChangedFileAndMainWasChanged)
   }
 }
@@ -709,9 +671,9 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       enablingCrossModule
+      readGraph
       differentArgsPassed
       disablingIncrementalDifferentArgsPassed
-      createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       schedLinking
@@ -728,9 +690,9 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       enablingCrossModule
+      readGraph
       differentArgsPassed
       disablingIncrementalDifferentArgsPassed
-      createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       schedLinking
@@ -747,9 +709,9 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       enablingCrossModule
+      readGraph
       differentArgsPassed
       disablingIncrementalDifferentArgsPassed
-      createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       schedLinking
@@ -776,9 +738,6 @@ extension IncrementalCompilationTests {
       // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
       // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
       enablingCrossModule
-      cannotReadBuildRecord
-      disablingIncrementalCannotReadBuildRecord
-      createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       schedLinking
@@ -786,7 +745,6 @@ extension IncrementalCompilationTests {
     @DiagsBuilder var explicitBuildInitialRemarks: [Diagnostic.Message] {
       implicitBuildInitialRemarks
       explicitDidNotReadInterModuleGraph
-      explicitMustReScanCouldNotReadGraph
       compilingExplicitClangDependency("SwiftShims")
       compilingExplicitSwiftDependency("Swift")
       compilingExplicitSwiftDependency("SwiftOnoneSupport")
@@ -1081,8 +1039,12 @@ extension IncrementalCompilationTests {
         readGraphAndSkipAll("main", "other", removedInput)
       case (true, _):
         // Give up on incremental if an input is removed:
+        readGraph
         disabledForRemoval(removedInput)
+        enablingCrossModule
+        reading(deps: "main", "other")
         findingBatchingCompiling("main", "other")
+        schedulingPostCompileJobs
         linking
       case (false, true):
         // Missing swiftdeps; compile it, read swiftdeps, link
@@ -1101,11 +1063,7 @@ extension IncrementalCompilationTests {
       }
     }
 
-    if removeInputFromInvocation {
-      driver.verifyNoGraph()
-      verifyNoPriors()
-    }
-    else {
+    if !removeInputFromInvocation {
       try driver.withModuleDependencyGraph { graph in
         graph.verifyGraph()
         XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
@@ -1128,13 +1086,11 @@ extension IncrementalCompilationTests {
     defining topLevelName: String,
     removeInputFromInvocation: Bool,
     removeSwiftDepsOfRemovedInput: Bool,
-    priorsAreStaleFromBeforeInputWasRemoved: Bool,
     removedFileDependsOnChangedFileAndMainWasChanged: Bool
   ) throws {
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
     let extraArguments = removeInputFromInvocation
       ? [] : [inputPath(basename: removedInput).pathString]
-    let havePriors = !removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved
     let mainChanged = removedFileDependsOnChangedFileAndMainWasChanged
     let changedInputs = mainChanged ? ["main"] : []
     let unchangedInputs = inputs.filter {!changedInputs.contains($0)}
@@ -1149,37 +1105,26 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      if havePriors {
-        readGraph
-      }
+      readGraph
       enablingCrossModule
 
-      if changedInputs.isEmpty && havePriors {
+      if changedInputs.isEmpty {
         skippingAll(inputs)
-      }
-      else {
-        let swiftDepsReadAfterFirstWave = havePriors ? changedInputs : inputs
-        let omittedFromFirstWave = havePriors ? unchangedInputs : []
+      } else {
+        let swiftDepsReadAfterFirstWave = changedInputs
+        let omittedFromFirstWave = unchangedInputs
         respondToChangedInputs(
           changedInputs: changedInputs,
           unchangedInputs: unchangedInputs,
           swiftDepsReadAfterFirstWave: swiftDepsReadAfterFirstWave,
           omittedFromFirstWave: omittedFromFirstWave)
-        if !havePriors {
-          addDefsWithoutGraph
-        }
-        else {
-          // At this point in the result builder:
-          // (!removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved) && removedFileDependsOnChangedFileAndMainWasChanged
-
-          integrateChangedMainWithPriors(
-            removedInput: removedInput,
-            defining: topLevelName,
-            affectedInputs: affectedInputs,
-            affectedInputsInBuild: affectedInputsInBuild,
-            affectedInputsInInvocationOrder: affectedInputsInInvocationOrder,
-            removeInputFromInvocation: removeInputFromInvocation)
-        }
+        integrateChangedMainWithPriors(
+          removedInput: removedInput,
+          defining: topLevelName,
+          affectedInputs: affectedInputs,
+          affectedInputsInBuild: affectedInputsInBuild,
+          affectedInputsInInvocationOrder: affectedInputsInInvocationOrder,
+          removeInputFromInvocation: removeInputFromInvocation)
         schedLinking
       }
     }
@@ -1261,19 +1206,9 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags) {
         couldNotReadPriors
         enablingCrossModule
-        maySkip("main", "other")
-        queuingInitial("main", "other")
         findingBatchingCompiling("main", "other")
         reading(deps: "main")
-        newDefinitionOfSourceFile(.interface, "main")
-        newDefinitionOfSourceFile(.implementation, "main")
-        newDefinitionOfTopLevelName(.interface, name: "foo", input: "main")
-        newDefinitionOfTopLevelName(.implementation, name: "foo", input: "main")
         reading(deps: "other")
-        newDefinitionOfSourceFile(.interface, "other")
-        newDefinitionOfSourceFile(.implementation, "other")
-        newDefinitionOfTopLevelName(.interface, name: "bar", input: "other")
-        newDefinitionOfTopLevelName(.implementation, name: "bar", input: "other")
         schedLinking
     }
   }
@@ -1396,47 +1331,16 @@ extension IncrementalCompilationTests {
   private func writePriors( _ contents: ByteString) {
     try! localFileSystem.writeFileContents(priorsPath, bytes: contents)
   }
-
-  /// Save and restore priors across a call to the argument, ensuring that the restored priors have a valid modTime
-  private func preservingPriorsDo(_ fn: () throws -> Driver ) throws {
-    let contents = try XCTUnwrap(readPriors())
-    _ = try fn()
-    writePriors(contents)
-    let buildRecordContents = try localFileSystem.readFileContents(masterSwiftDepsPath).cString
-    guard let buildRecord = BuildRecord(contents: buildRecordContents, failedToReadOutOfDateMap: {
-      maybeWhy in
-      XCTFail("could not read build record")
-    })
-    else {
-      XCTFail()
-      return
-    }
-    let goodModTime = { start, end in
-      start + TimePoint(seconds: (end - start).seconds / 2, nanoseconds: .zero)
-    }(buildRecord.buildStartTime, buildRecord.buildEndTime)
-
-    let goodModDate = Date(timeIntervalSinceReferenceDate: TimeInterval(goodModTime.seconds))
-    try setModTime(of: .absolute(priorsPath), to: goodModDate)
-  }
-
-  private func verifyNoPriors() {
-    XCTAssertNil(readPriors().map {"\($0.count) bytes"}, "Should not have found priors")
-  }
 }
 
 // MARK: - Graph inspection
 extension Driver {
   /// Expose the protected ``ModuleDependencyGraph`` to a function and also prevent concurrent access or modification
-  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void ) throws {
-    let incrementalCompilationState: IncrementalCompilationState
-    do {
-      incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState)
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void) throws {
+    let incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState, "no graph")
+    try incrementalCompilationState.blockingConcurrentAccessOrMutationToProtectedState {
+      try $0.testWithModuleDependencyGraph(fn)
     }
-    catch {
-      XCTFail("no graph")
-      throw error
-    }
-    try incrementalCompilationState.blockingConcurrentAccessOrMutationToProtectedState {try $0.testWithModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)
@@ -1549,8 +1453,7 @@ extension IncrementalCompilationTests {
     }
   }
 
-  private func doABuildWithoutExpectations( arguments: [String]
-  ) throws -> Driver {
+  private func doABuildWithoutExpectations(arguments: [String]) throws -> Driver {
     // If not checking, print out the diagnostics
     let diagnosticEngine = DiagnosticsEngine(handlers: [
       {print($0, to: &stderrStream); stderrStream.flush()}
@@ -1672,10 +1575,6 @@ extension DiagVerifiable {
   }
   @DiagsBuilder var disabledForWMO: [Diagnostic.Message] {
     "Incremental compilation has been disabled: it is not compatible with whole module optimization"
-  }
-  @DiagsBuilder var savedGraphNotFromPriorBuild: [Diagnostic.Message] {
-      .warning(
-      "Will not do cross-module incremental builds, priors saved at ")
   }
   // MARK: - build record
   @DiagsBuilder var cannotReadBuildRecord: [Diagnostic.Message] {

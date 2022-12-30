@@ -76,17 +76,16 @@ extension IncrementalCompilationState.FirstWaveComputer {
   throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
              mandatoryJobsInOrder: [Job])
   {
-    precondition(sourceFiles.disappeared.isEmpty, "unimplemented")
-
     let compileGroups =
       Dictionary(uniqueKeysWithValues:
                   jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
-    guard let buildRecord = maybeBuildRecord else {
+    let buildRecord = self.moduleDependencyGraph.buildRecord
+    guard !buildRecord.inputInfos.isEmpty else {
       func everythingIsMandatory()
         throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
                    mandatoryJobsInOrder: [Job])
       {
-        let mandatoryCompileGroupsInOrder = sourceFiles.currentInOrder.compactMap {
+        let mandatoryCompileGroupsInOrder = self.inputFiles.swiftSourceFiles.compactMap {
           input -> CompileJobGroup? in
           compileGroups[input.typedFile]
         }
@@ -166,7 +165,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       }
     }
 
-    let inputsMissingFromGraph = sourceFiles.currentInOrder.filter { sourceFile in
+    let inputsMissingFromGraph = self.inputFiles.swiftSourceFiles.filter { sourceFile in
       !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)
     }
 
