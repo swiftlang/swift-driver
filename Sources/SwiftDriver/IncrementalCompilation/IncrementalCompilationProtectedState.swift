@@ -150,7 +150,7 @@ extension IncrementalCompilationState.ProtectedState {
 
   func writeGraph(to path: VirtualPath,
                   on fs: FileSystem,
-                  buildRecord: BuildRecordInfo,
+                  buildRecord: BuildRecord,
                   mockSerializedGraphVersion: Version? = nil
   ) throws {
     accessSafetyPrecondition()

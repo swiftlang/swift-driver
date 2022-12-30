@@ -142,7 +142,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       compilerVersion: "for-testing")
     return Self(options, outputFileMap,
                 buildRecord,
-                nil, nil, nil, inputFiles, fileSystem,
+                nil, inputFiles, fileSystem,
                 diagnosticEngine)
   }
 }
@@ -176,19 +176,18 @@ struct MockModuleDependencyGraphCreator {
   }
 
   func mockUpAGraph() -> ModuleDependencyGraph {
-    .createForBuildingFromSwiftDeps(info)
+    .createForBuildingFromSwiftDeps(info.buildRecordInfo.buildRecord([], []), info)
   }
 }
 
 
 extension OutputFileMap {
   static func mock(maxIndex: Int) -> Self {
-    OutputFileMap( entries: (0...maxIndex) .reduce(into: [:]) {
+    OutputFileMap(entries: (0...maxIndex) .reduce(into: [:]) {
       entries, index in
       let inputHandle = SwiftSourceFile(mock: index).fileHandle
       let swiftDepsHandle = SwiftSourceFile(mock: index).fileHandle
       entries[inputHandle] = [.swiftDeps: swiftDepsHandle]
-    }
-    )
+    })
   }
 }

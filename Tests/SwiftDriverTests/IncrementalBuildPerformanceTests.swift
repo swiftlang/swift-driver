@@ -38,7 +38,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
       throw XCTSkip()
 #else
 
-    let packageRootPath = AbsolutePath(#file)
+    let packageRootPath = try AbsolutePath(validating: #file)
       .parentDirectory
       .parentDirectory
       .parentDirectory
@@ -69,7 +69,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(options: [], outputFileMap: outputFileMap)
     
-    let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info)
+    let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info.buildRecordInfo.buildRecord([], []), info)
     g.blockingConcurrentAccessOrMutation {
       switch whatToMeasure {
       case .readingSwiftDeps:
@@ -79,14 +79,14 @@ class IncrementalBuildPerformanceTests: XCTestCase {
         measure {
           _ = ModuleDependencyGraph.Serializer.serialize(
             g,
-            info.buildRecordInfo,
+            g.buildRecord,
             ModuleDependencyGraph.serializedGraphVersion)
         }
       case .readingPriors:
         readSwiftDeps(for: inputs, into: g)
         let data = ModuleDependencyGraph.Serializer.serialize(
           g,
-          info.buildRecordInfo,
+          g.buildRecord,
           ModuleDependencyGraph.serializedGraphVersion)
         measure {
           try? XCTAssertNoThrow(ModuleDependencyGraph.deserialize(data, info: info))
