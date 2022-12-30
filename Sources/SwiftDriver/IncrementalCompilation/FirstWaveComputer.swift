@@ -21,9 +21,7 @@ extension IncrementalCompilationState {
     let jobsInPhases: JobsInPhases
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     let inputFiles: [TypedVirtualPath]
-    let sourceFiles: SourceFiles
     let buildRecordInfo: BuildRecordInfo
-    let maybeBuildRecord: BuildRecord?
     let fileSystem: FileSystem
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
@@ -41,11 +39,7 @@ extension IncrementalCompilationState {
       self.jobsInPhases = jobsInPhases
       self.inputsInvalidatedByExternals = initialState.inputsInvalidatedByExternals
       self.inputFiles = driver.inputFiles
-      self.sourceFiles = SourceFiles(
-        inputFiles: inputFiles,
-        buildRecord: initialState.maybeBuildRecord)
       self.buildRecordInfo = initialState.buildRecordInfo
-      self.maybeBuildRecord = initialState.maybeBuildRecord
       self.fileSystem = driver.fileSystem
       self.showJobLifecycle = driver.showJobLifecycle
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(

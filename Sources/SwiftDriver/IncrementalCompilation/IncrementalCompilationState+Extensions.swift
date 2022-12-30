@@ -50,18 +50,12 @@ extension IncrementalCompilationState {
     let graph: ModuleDependencyGraph
     /// Information about the last known compilation, incl. the location of build artifacts such as the dependency graph.
     let buildRecordInfo: BuildRecordInfo
-    /// Record about existence and time of the last compile.
-    let maybeBuildRecord: BuildRecord?
     /// Record about the compiled module's module dependencies from the last compile.
     let maybeUpToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
     /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
     let incrementalOptions: IncrementalCompilationState.Options
-    /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
-    let buildStartTime: TimePoint
-    /// The last time this compilation finished. Used to compare against output file mod dates
-    let buildEndTime: TimePoint
   }
 }
 
