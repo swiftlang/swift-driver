@@ -1512,7 +1512,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                      "-module-cache-path", moduleCachePath
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: true)
 
@@ -1558,7 +1558,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
 
@@ -1596,7 +1596,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
 
@@ -1612,7 +1612,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
 
@@ -1632,7 +1632,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
-      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, _) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
       let F = findJob(jobs, "F", "arm64-apple-macos")!
@@ -1674,7 +1674,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPath,
                                      "-module-cache-path", moduleCachePath
                                     ])
-      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, _) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                      into: path,
                                                                      exhaustive: true,
                                                                      currentABIDir: path.appending(component: "ABI"),
@@ -1702,7 +1702,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-sdk", mockSDKPathStr,
                                      "-module-cache-path", moduleCachePath
                                     ])
-      let (jobs, _) = try driver.generatePrebuitModuleGenerationJobs(with: interfaceMap,
+      let (jobs, _) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                      into: path,
                                                                      exhaustive: true)
       let compileJobs = jobs.filter {$0.kind == .compile}
