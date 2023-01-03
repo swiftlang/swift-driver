@@ -792,7 +792,7 @@ extension Driver {
     // of mac native so those macabi-only modules cannot be found by the scanner.
     // We have to handle those modules separately without any dependency info.
     try unhandledModules.forEach { moduleName in
-      diagnosticEngine.emit(warning: "handle \(moduleName) as dangling jobs")
+      diagnosticEngine.emit(warning: "handle \(moduleName) has dangling jobs")
       try forEachInputOutputPair(moduleName) { input, output in
         danglingJobs.append(contentsOf: try generateSingleModuleBuildingJob(moduleName,
           prebuiltModuleDir, input, output, [], currentABIDir, baselineABIDir))
