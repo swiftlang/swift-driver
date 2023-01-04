@@ -90,7 +90,12 @@ do {
   let swiftcPathRaw = ProcessEnv.vars["SWIFT_EXEC"]
   var swiftcPath: AbsolutePath
   if let swiftcPathRaw = swiftcPathRaw {
-    swiftcPath = try VirtualPath(path: swiftcPathRaw).absolutePath!
+    let virtualPath = try VirtualPath(path: swiftcPathRaw)
+    guard let absolutePath = virtualPath.absolutePath else {
+      diagnosticsEngine.emit(error: "value of SWIFT_EXEC is not a valid absolute path: \(swiftcPathRaw)")
+      exit(1)
+    }
+    swiftcPath = absolutePath
   } else {
     swiftcPath = AbsolutePath("Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
                               relativeTo: sdkPath.parentDirectory
