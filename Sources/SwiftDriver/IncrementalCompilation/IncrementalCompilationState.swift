@@ -64,9 +64,12 @@ public final class IncrementalCompilationState {
     reporter?.reportOnIncrementalImports(
       initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild))
 
-    let firstWave =
-      try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
-                            driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
+    let firstWave = try FirstWaveComputer(
+      initialState: initialState,
+      jobsInPhases: jobsInPhases,
+      driver: driver,
+      reporter: reporter)
+      .compute(batchJobFormer: &driver)
 
     self.info = initialState.graph.info
     self.upToDateInterModuleDependencyGraph = interModuleDependencyGraph

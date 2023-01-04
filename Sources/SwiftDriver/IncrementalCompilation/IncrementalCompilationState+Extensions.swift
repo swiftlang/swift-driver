@@ -50,18 +50,12 @@ extension IncrementalCompilationState {
     let graph: ModuleDependencyGraph
     /// Information about the last known compilation, incl. the location of build artifacts such as the dependency graph.
     let buildRecordInfo: BuildRecordInfo
-    /// Record about existence and time of the last compile.
-    let maybeBuildRecord: BuildRecord?
     /// Record about the compiled module's module dependencies from the last compile.
     let maybeUpToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
     /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
     let incrementalOptions: IncrementalCompilationState.Options
-    /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
-    let buildStartTime: TimePoint
-    /// The last time this compilation finished. Used to compare against output file mod dates
-    let buildEndTime: TimePoint
   }
 }
 
@@ -399,22 +393,16 @@ extension IncrementalCompilationState {
     }
   }
 
-  func writeDependencyGraph(_ buildRecordInfo: BuildRecordInfo?) throws {
-    // If the cross-module build is not enabled, the status quo dictates we
-    // not emit this file.
-    guard info.isCrossModuleIncrementalBuildEnabled else {
-      return
-    }
-    guard
-      let recordInfo = buildRecordInfo
-    else {
-      throw WriteDependencyGraphError.noBuildRecordInfo
-    }
-    try blockingConcurrentMutationToProtectedState {
+  func writeDependencyGraph(
+    to path: VirtualPath,
+    _ buildRecord: BuildRecord
+  ) throws {
+    precondition(info.isCrossModuleIncrementalBuildEnabled)
+    try blockingConcurrentAccessOrMutationToProtectedState {
       try $0.writeGraph(
-        to: recordInfo.dependencyGraphPath,
+        to: path,
         on: info.fileSystem,
-        compilerVersion: recordInfo.actualSwiftVersion)
+        buildRecord: buildRecord)
     }
   }
   
@@ -494,7 +482,12 @@ extension OutputFileMap {
 // MARK: SourceFiles
 
 /// Handy information about the source files in the current invocation
-@_spi(Testing) public struct SourceFiles {
+///
+/// Usages of this structure are deprecated and should be removed on sight. For
+/// large driver jobs, it is extremely expensive both in terms of memory and
+/// compilation latency to instantiate as it rematerializes the entire input set
+/// multiple times.
+struct SourceFiles {
   /// The current (.swift) files in same order as the invocation
   let currentInOrder: [SwiftSourceFile]
 
@@ -507,10 +500,10 @@ extension OutputFileMap {
   /// The files that were in the previous but not in the current invocation
   let disappeared: [SwiftSourceFile]
 
-  init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord?) {
+  init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord) {
     self.currentInOrder = inputFiles.swiftSourceFiles
     self.currentSet = Set(currentInOrder)
-    guard let buildRecord = buildRecord else {
+    guard !buildRecord.inputInfos.isEmpty else {
       self.previousSet = Set()
       self.disappeared = []
       return

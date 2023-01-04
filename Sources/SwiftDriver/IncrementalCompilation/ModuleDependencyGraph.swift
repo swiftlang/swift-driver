@@ -23,6 +23,11 @@ import struct Foundation.TimeInterval
 /// Holds all the dependency relationships in this module, and declarations in other modules that
 /// are depended-upon.
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph: InternedStringTableHolder {
+  /// The build record information associated with this module dependency graph.
+  ///
+  /// This data reflects the result of the _prior_ compilation. Consult
+  /// ``BuildRecordInfo`` for data from the in-flight compilation session.
+  @_spi(Testing) public let buildRecord: BuildRecord
 
   /// Supports finding nodes in two ways.
   @_spi(Testing) public var nodeFinder: NodeFinder
@@ -53,14 +58,17 @@ import struct Foundation.TimeInterval
   /// are serialized, so must all the mods to this table be.
   @_spi(Testing) public let internedStringTable: InternedStringTable
 
-  private init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-               _ phase: Phase,
-              _ internedStringTable: InternedStringTable,
-              _ nodeFinder: NodeFinder,
-              _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
+  private init(
+    _ buildRecord: BuildRecord,
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    _ phase: Phase,
+    _ internedStringTable: InternedStringTable,
+    _ nodeFinder: NodeFinder,
+    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
   ) {
+    self.buildRecord = buildRecord
     self.currencyCache = ExternalDependencyCurrencyCache(
-      info.fileSystem, buildStartTime: info.buildStartTime)
+      info.fileSystem, buildStartTime: buildRecord.buildStartTime)
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
       ? DependencyGraphDotFileWriter(info)
@@ -72,23 +80,27 @@ import struct Foundation.TimeInterval
     self.fingerprintedExternalDependencies = fingerprintedExternalDependencies
   }
 
-  private convenience init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-              _ phase: Phase
+  private convenience init(
+    _ buildRecord: BuildRecord,
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    _ phase: Phase
   ) {
     assert(phase != .updatingFromAPrior,
            "If updating from prior, should be supplying more ingredients")
-    self.init(info, phase, InternedStringTable(info.incrementalCompilationQueue),
+    self.init(buildRecord, info, phase, InternedStringTable(info.incrementalCompilationQueue),
               NodeFinder(),
               Set())
   }
   
   public static func createFromPrior(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
     _ internedStringTable: InternedStringTable,
     _ nodeFinder: NodeFinder,
     _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
   ) -> Self {
-    self.init(info,
+    self.init(buildRecord,
+              info,
               .updatingFromAPrior,
               internedStringTable,
               nodeFinder,
@@ -96,19 +108,22 @@ import struct Foundation.TimeInterval
   }
   
   public static func createForBuildingFromSwiftDeps(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> Self {
-    self.init(info, .buildingFromSwiftDeps)
+    self.init(buildRecord, info, .buildingFromSwiftDeps)
   }
   public static func createForBuildingAfterEachCompilation(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> Self {
-    self.init(info, .buildingAfterEachCompilation)
+    self.init(buildRecord, info, .buildingAfterEachCompilation)
   }
   public static func createForSimulatingCleanBuild(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> Self {
-    self.init(info, .updatingAfterCompilation)
+    self.init(buildRecord, info, .updatingAfterCompilation)
   }
 }
 
@@ -166,10 +181,10 @@ extension ModuleDependencyGraph {
     input: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
     // do not try to read swiftdeps of a new input
-    if info.sourceFiles.isANewInput(input) {
+    guard self.buildRecord.inputInfos[input.typedFile.file] != nil else {
       return TransitivelyInvalidatedSwiftSourceFileSet()
     }
-    return collectInputsRequiringCompilationAfterProcessing(input: input)
+    return self.collectInputsRequiringCompilationAfterProcessing(input: input)
   }
 }
 
@@ -618,7 +633,8 @@ extension ModuleDependencyGraph {
   /// - Minor number 1: Don't serialize the `inputDependencySourceMap`
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
   /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 3, 0)
+  /// - Minor number 4: Absorb the data in the ``BuildRecord`` into the module dependency graph.
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 4, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
@@ -628,6 +644,8 @@ extension ModuleDependencyGraph {
     case useIDNode          = 4
     case externalDepNode    = 5
     case identifierNode     = 6
+    case buildRecord        = 7
+    case inputInfo          = 8
 
     /// The human-readable name of this record.
     ///
@@ -648,6 +666,10 @@ extension ModuleDependencyGraph {
         return "EXTERNAL_DEP_NODE"
       case .identifierNode:
         return "IDENTIFIER_NODE"
+      case .buildRecord:
+        return "BUILD_RECORD"
+      case .inputInfo:
+        return "INPUT_INFO"
       }
     }
   }
@@ -658,6 +680,7 @@ extension ModuleDependencyGraph {
     case malformedMetadataRecord
     case mismatchedSerializedGraphVersion(expected: Version, read: Version)
     case unexpectedMetadataRecord
+    case unexpectedBuildRecord
     case malformedFingerprintRecord
     case malformedIdentifierRecord
     case malformedModuleDepGraphNodeRecord
@@ -665,17 +688,16 @@ extension ModuleDependencyGraph {
     case malforedUseIDRecord
     case malformedMapRecord
     case malformedExternalDepNodeRecord
+    case malformedBuildRecord
+    case malformedInputInfo
     case unknownRecord
     case unexpectedSubblock
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
-    case timeTravellingPriors(priorsModTime: TimePoint,
-                              buildStartTime: TimePoint)
     
     fileprivate init(forMalformed kind: RecordID) {
       switch kind {
-        
       case .metadata:
         self = .malformedMetadataRecord
       case .moduleDepGraphNode:
@@ -688,6 +710,10 @@ extension ModuleDependencyGraph {
         self = .malformedExternalDepNodeRecord
       case .identifierNode:
         self = .malformedIdentifierRecord
+      case .buildRecord:
+        self = .malformedBuildRecord
+      case .inputInfo:
+        self = .malformedInputInfo
       }
     }
   }
@@ -724,6 +750,11 @@ extension ModuleDependencyGraph {
       var majorVersion: UInt64?
       var minorVersion: UInt64?
       var compilerVersionString: String?
+      var argsHash: String?
+      var buildStartTime: TimePoint = .distantPast
+      var buildEndTime: TimePoint = .distantFuture
+      var inputInfos: [VirtualPath: InputInfo] = [:]
+      var expectedInputInfos: Int = 0
 
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
@@ -753,7 +784,15 @@ extension ModuleDependencyGraph {
 
       func finalizeGraph() -> ModuleDependencyGraph {
         mutationSafetyPrecondition()
-        let graph = ModuleDependencyGraph.createFromPrior(info,
+        let record = BuildRecord(
+          argsHash: self.argsHash!,
+          swiftVersion: self.compilerVersionString!,
+          buildStartTime: self.buildStartTime,
+          buildEndTime: self.buildEndTime,
+          inputInfos: self.inputInfos)
+        assert(self.inputInfos.count == self.expectedInputInfos)
+        let graph = ModuleDependencyGraph.createFromPrior(record,
+                                                          info,
                                                           internedStringTable,
                                                           nodeFinder,
                                                           fingerprintedExternalDependencies)
@@ -855,18 +894,57 @@ extension ModuleDependencyGraph {
           guard self.majorVersion == nil, self.minorVersion == nil, self.compilerVersionString == nil else {
             throw ReadError.unexpectedMetadataRecord
           }
-          guard record.fields.count == 3,
-                case .blob(let compilerVersionBlob) = record.payload
-          else { throw malformedError }
+          guard
+            record.fields.count == 3,
+            case .blob(let compilerVersionBlob) = record.payload
+          else {
+            throw malformedError
+          }
 
           self.majorVersion = record.fields[0]
           self.minorVersion = record.fields[1]
           let stringCount = record.fields[2]
           internedStringTable.reserveCapacity(Int(stringCount))
           self.compilerVersionString = String(decoding: compilerVersionBlob, as: UTF8.self)
-        case .moduleDepGraphNode:
-           guard record.fields.count == 6
+        case .buildRecord:
+          guard self.argsHash == nil, self.buildStartTime == .distantPast, self.buildEndTime == .distantFuture else {
+            throw ReadError.unexpectedBuildRecord
+          }
+          guard
+            record.fields.count == 7,
+            case .blob(let argHashBlob) = record.payload
           else {
+            throw malformedError
+          }
+          self.buildStartTime = TimePoint(
+            lower: UInt32(record.fields[0]),
+            upper: UInt32(record.fields[1]),
+            nanoseconds: UInt32(record.fields[2]))
+          self.buildEndTime = TimePoint(
+            lower: UInt32(record.fields[3]),
+            upper: UInt32(record.fields[4]),
+            nanoseconds: UInt32(record.fields[5]))
+          self.expectedInputInfos = Int(record.fields[6])
+          self.argsHash = String(decoding: argHashBlob, as: UTF8.self)
+        case .inputInfo:
+          guard
+            record.fields.count == 5,
+            let path = try nonemptyInternedString(field: 4)
+          else {
+            throw malformedError
+          }
+          let modTime = TimePoint(
+            lower: UInt32(record.fields[0]),
+            upper: UInt32(record.fields[1]),
+            nanoseconds: UInt32(record.fields[2]))
+          let status = try InputInfo.Status(code: UInt32(record.fields[3]))
+          let pathString = path.lookup(in: internedStringTable)
+          let pathHandle = try VirtualPath.intern(path: pathString)
+          self.inputInfos[VirtualPath.lookup(pathHandle)] = InputInfo(
+            status: status,
+            previousModTime: modTime)
+        case .moduleDepGraphNode:
+          guard record.fields.count == 6 else {
             throw malformedError
           }
           let key = try dependencyKey(kindCodeField: 0,
@@ -958,35 +1036,7 @@ extension ModuleDependencyGraph {
     guard try info.fileSystem.exists(path) else {
       return nil
     }
-    try ensurePriorsCreatedDuringPriorBuild(at: path, info: info)
     return try info.fileSystem.readFileContents(path)
-  }
-
-  /// Check that the file containing the saved `ModuleDependencyGraph` was created during the
-  /// previous build, and thus reflects the final state of that graph for the previous build.
-  ///
-  /// This check ensures that any differences in imported `swiftmodule`s will be accurately detected.
-  /// In the normal course of events, a stale priors file should not exist.
-  /// However, in the case of unforeseen circumstances, stale priors might be possible.
-  /// For the cost of one stat on the priors file, we get to cover that case, and prevent potential future problems.
-  /// Ideally, the priors would be merged into the build record. Until that happens, do this check.
-  /// - Parameters:
-  ///   - path: the path of the priors file
-  ///   - info: holds file file system, etc, for the check
-  /// - Returns: nothing, but throws ``ModuleDependencyGraph/ReadError/timeTravellingPriors``
-  /// if the file was not created at the right time.
-  fileprivate static func ensurePriorsCreatedDuringPriorBuild(
-    at path: VirtualPath,
-    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) throws {
-    let buildStartTime = info.buildStartTime
-    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path) else {
-      return
-    }
-
-    guard priorsModTime >= buildStartTime else {
-      throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
-                                           buildStartTime: buildStartTime)
-    }
   }
 }
 
@@ -1016,11 +1066,11 @@ extension ModuleDependencyGraph {
   @_spi(Testing) public func write(
     to path: VirtualPath,
     on fileSystem: FileSystem,
-    compilerVersion: String,
+    buildRecord: BuildRecord,
     mockSerializedGraphVersion: Version? = nil
   ) throws {
     let data = ModuleDependencyGraph.Serializer.serialize(
-      self, compilerVersion,
+      self, buildRecord,
       mockSerializedGraphVersion ?? Self.serializedGraphVersion)
 
     do {
@@ -1035,7 +1085,7 @@ extension ModuleDependencyGraph {
 
   @_spi(Testing) public final class Serializer: InternedStringTableHolder {
     public let internedStringTable: InternedStringTable
-    let compilerVersion: String
+    let buildRecord: BuildRecord
     let serializedGraphVersion: Version
     let stream = BitstreamWriter()
     private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
@@ -1043,10 +1093,10 @@ extension ModuleDependencyGraph {
     private var lastNodeID: Int = 0
 
     private init(internedStringTable: InternedStringTable,
-                 compilerVersion: String,
+                 buildRecord: BuildRecord,
                  serializedGraphVersion: Version) {
       self.internedStringTable = internedStringTable
-      self.compilerVersion = compilerVersion
+      self.buildRecord = buildRecord
       self.serializedGraphVersion = serializedGraphVersion
     }
 
@@ -1086,6 +1136,8 @@ extension ModuleDependencyGraph {
         self.emitRecordID(.useIDNode)
         self.emitRecordID(.externalDepNode)
         self.emitRecordID(.identifierNode)
+        self.emitRecordID(.buildRecord)
+        self.emitRecordID(.inputInfo)
       }
     }
 
@@ -1096,7 +1148,33 @@ extension ModuleDependencyGraph {
         $0.append(serializedGraphVersion.minorForWriting)
         $0.append(min(UInt(internedStringTable.count), UInt(UInt32.max)))
       },
-      blob: self.compilerVersion)
+      blob: self.buildRecord.swiftVersion)
+    }
+
+    private func writeBuildRecord() {
+      self.stream.writeRecord(self.abbreviations[.buildRecord]!, {
+        $0.append(RecordID.buildRecord)
+        $0.append(self.buildRecord.buildStartTime)
+        $0.append(self.buildRecord.buildEndTime)
+        $0.append(UInt32(self.buildRecord.inputInfos.count))
+      },
+      blob: self.buildRecord.argsHash)
+
+      let sortedInputInfo = self.buildRecord.inputInfos.sorted {
+        $0.key.name < $1.key.name
+      }
+
+      for (input, inputInfo) in sortedInputInfo {
+        let inputID = input.name.intern(in: self.internedStringTable)
+        let pathID = self.lookupIdentifierCode(for: inputID)
+
+        self.stream.writeRecord(self.abbreviations[.inputInfo]!) {
+          $0.append(RecordID.inputInfo)
+          $0.append(inputInfo.previousModTime)
+          $0.append(inputInfo.status.code)
+          $0.append(pathID)
+        }
+      }
     }
 
     private func lookupIdentifierCode(for string: InternedString?) -> UInt32 {
@@ -1111,6 +1189,14 @@ extension ModuleDependencyGraph {
     private func populateCaches(from graph: ModuleDependencyGraph) {
       graph.nodeFinder.forEachNode { node in
         self.cacheNodeID(for: node)
+      }
+
+      let sortedInputInfo = self.buildRecord.inputInfos.sorted {
+        $0.key.name < $1.key.name
+      }
+
+      for (input, _) in sortedInputInfo {
+        _ = input.name.intern(in: self.internedStringTable)
       }
 
       for str in internedStringTable.strings {
@@ -1142,6 +1228,38 @@ extension ModuleDependencyGraph {
         .fixed(bitWidth: 32),
         // Frontend version
         .blob,
+      ])
+      self.abbreviate(.buildRecord, [
+        .literal(RecordID.buildRecord.rawValue),
+        // Build start time seconds - lower bits
+        .fixed(bitWidth: 32),
+        // Build start time seconds - upper bits
+        .fixed(bitWidth: 32),
+        // Build start time nanoseconds
+        .fixed(bitWidth: 32),
+        // Build end time seconds - lower bits
+        .fixed(bitWidth: 32),
+        // Build end time seconds - upper bits
+        .fixed(bitWidth: 32),
+        // Build end time nanoseconds
+        .fixed(bitWidth: 32),
+        // Expected input count
+        .fixed(bitWidth: 32),
+        // Argument hash
+        .blob,
+      ])
+      self.abbreviate(.inputInfo, [
+        .literal(RecordID.inputInfo.rawValue),
+        // Known modification time seconds - lower bits
+        .fixed(bitWidth: 32),
+        // Known modification time seconds - upper bits
+        .fixed(bitWidth: 32),
+        // Known modification time nanoseconds
+        .fixed(bitWidth: 32),
+        // Input status
+        .fixed(bitWidth: 3),
+        // path ID
+        .vbr(chunkBitWidth: 13),
       ])
       self.abbreviate(.moduleDepGraphNode,
         [Bitstream.Abbreviation.Operand.literal(RecordID.moduleDepGraphNode.rawValue)] +
@@ -1183,13 +1301,13 @@ extension ModuleDependencyGraph {
 
     public static func serialize(
       _ graph: ModuleDependencyGraph,
-      _ compilerVersion: String,
+      _ buildRecord: BuildRecord,
       _ serializedGraphVersion: Version
     ) -> ByteString {
       graph.accessSafetyPrecondition()
       let serializer = Serializer(
         internedStringTable: graph.internedStringTable,
-        compilerVersion: compilerVersion,
+        buildRecord: buildRecord,
         serializedGraphVersion: serializedGraphVersion)
       serializer.emitSignature()
       serializer.writeBlockInfoBlock()
@@ -1200,7 +1318,9 @@ extension ModuleDependencyGraph {
         serializer.writeMetadata()
 
         serializer.populateCaches(from: graph)
-        
+
+        serializer.writeBuildRecord()
+
         func write(key: DependencyKey, to buffer: inout BitstreamWriter.RecordBuffer) {
           buffer.append(key.designator.code)
           buffer.append(key.aspect.code)
@@ -1363,5 +1483,61 @@ fileprivate extension Version {
     let r = UInt32(Int64(minor))
     assert(Int(r) == Int(minor))
     return r
+  }
+}
+
+fileprivate extension BitstreamWriter.RecordBuffer {
+  mutating func append(_ time: TimePoint) {
+    func split(_ value: UInt64) -> (UInt32, UInt32) {
+      let lowerHalf = UInt32((value & 0x0000_0000_FFFF_FFFF))
+      let upperHalf = UInt32((value & 0xFFFF_FFFF_0000_0000) >> 32)
+      return (lowerHalf, upperHalf)
+    }
+    let (lower, upper) = split(time.seconds.littleEndian)
+    self.append(lower)
+    self.append(upper)
+    let nanos = time.nanoseconds.littleEndian
+    self.append(nanos)
+  }
+}
+
+fileprivate extension TimePoint {
+  init(
+    lower: UInt32,
+    upper: UInt32,
+    nanoseconds: UInt32
+  ) {
+    let seconds = UInt64(lower) | (UInt64(upper) << 32)
+    self.init(seconds: seconds, nanoseconds: nanoseconds)
+  }
+}
+
+fileprivate extension InputInfo.Status {
+  init(code: UInt32) throws {
+    switch code {
+    case 0:
+      self = .upToDate
+    case 1:
+      self = .needsNonCascadingBuild
+    case 2:
+      self = .needsCascadingBuild
+    case 3:
+      self = .newlyAdded
+    default:
+      throw ModuleDependencyGraph.ReadError.unknownKind
+    }
+  }
+
+  var code: UInt32 {
+    switch self {
+    case .upToDate:
+      return 0
+    case .needsNonCascadingBuild:
+      return 1
+    case .needsCascadingBuild:
+      return 2
+    case .newlyAdded:
+      return 3
+    }
   }
 }

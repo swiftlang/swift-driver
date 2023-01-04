@@ -156,15 +156,8 @@ import class Dispatch.DispatchQueue
   ///   - skippedInputs: All primary inputs that were not compiled because the
   ///                    incremental build plan determined they could be
   ///                    skipped.
-  func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>?) {
-    guard let absPath = buildRecordPath.absolutePath else {
-      diagnosticEngine.emit(
-        .warning_could_not_write_build_record_not_absolutePath(buildRecordPath))
-      return
-    }
-    preservePreviousBuildRecord(absPath)
-
-    let buildRecord = self.confinementQueue.sync {
+  @_spi(Testing) public func buildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>?) -> BuildRecord {
+    return self.confinementQueue.sync {
       BuildRecord(
         jobs: jobs,
         finishedJobResults: finishedJobResults,
@@ -174,18 +167,6 @@ import class Dispatch.DispatchQueue
         argsHash: currentArgsHash,
         timeBeforeFirstJob: timeBeforeFirstJob,
         timeAfterLastJob: .now())
-    }
-
-    guard let contents = buildRecord.encode(currentArgsHash: currentArgsHash,
-                                            diagnosticEngine: diagnosticEngine)
-    else {
-      return
-    }
-    do {
-      try fileSystem.writeFileContents(absPath,
-                                       bytes: ByteString(encodingAsUTF8: contents))
-    } catch {
-      diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
     }
   }
 
@@ -203,67 +184,9 @@ import class Dispatch.DispatchQueue
     try? fileSystem.removeFileTree(absPath)
   }
 
-  /// Before writing to the dependencies file path, preserve any previous file
-  /// that may have been there. No error handling -- this is just a nicety, it
-  /// doesn't matter if it fails.
-  /// Added for the sake of compatibility with the legacy driver.
-  private func preservePreviousBuildRecord(_ oldPath: AbsolutePath) {
-    let newPath = oldPath.withTilde()
-    try? fileSystem.move(from: oldPath, to: newPath)
-  }
-
-
-  // TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
-  func populateOutOfDateBuildRecord(
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> BuildRecord? {
-    let contents: String
-    do {
-      contents = try fileSystem.readFileContents(buildRecordPath).cString
-     } catch {
-      reporter?.report("Incremental compilation could not read build record at ", buildRecordPath)
-      reporter?.reportDisablingIncrementalBuild("could not read build record")
-      return nil
-    }
-    func failedToReadOutOfDateMap(_ reason: String? = nil) {
-      let why = "malformed build record file\(reason.map {" " + $0} ?? "")"
-      reporter?.report(
-        "Incremental compilation has been disabled due to \(why)", buildRecordPath)
-      reporter?.reportDisablingIncrementalBuild(why)
-    }
-    guard let outOfDateBuildRecord = BuildRecord(contents: contents,
-                                                 failedToReadOutOfDateMap: failedToReadOutOfDateMap)
-    else {
-      return nil
-    }
-    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion
-    else {
-      let why = "compiler version mismatch. Compiling with: \(actualSwiftVersion). Previously compiled with: \(outOfDateBuildRecord.swiftVersion)"
-      // mimic legacy
-      reporter?.reportIncrementalCompilationHasBeenDisabled("due to a " + why)
-      reporter?.reportDisablingIncrementalBuild(why)
-      return nil
-    }
-    guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true else {
-      let why = "different arguments were passed to the compiler"
-      // mimic legacy
-      reporter?.reportIncrementalCompilationHasBeenDisabled("because " + why)
-      reporter?.reportDisablingIncrementalBuild(why)
-      return nil
-    }
-    return outOfDateBuildRecord
-  }
-
   func readOutOfDateInterModuleDependencyGraph(
-    buildRecord: BuildRecord?,
     reporter: IncrementalCompilationState.Reporter?
   ) -> InterModuleDependencyGraph? {
-    // If a valid build record could not be produced, do not bother here
-    guard buildRecord != nil else {
-      reporter?.report("Incremental compilation did not attempt to read inter-module dependency graph.")
-      return nil
-    }
-
     let decodedGraph: InterModuleDependencyGraph
     do {
       let contents = try fileSystem.readFileContents(interModuleDependencyGraphPath).cString
@@ -307,11 +230,5 @@ import class Dispatch.DispatchQueue
   /// Directory to emit dot files into
   var dotFileDirectory: VirtualPath {
     buildRecordPath.parentDirectory
-  }
-}
-
-fileprivate extension AbsolutePath {
-  func withTilde() -> Self {
-    parentDirectory.appending(component: basename + "~")
   }
 }

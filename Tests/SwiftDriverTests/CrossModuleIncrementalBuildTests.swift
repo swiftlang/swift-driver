@@ -19,13 +19,14 @@ import TestUtilities
 class CrossModuleIncrementalBuildTests: XCTestCase {
   func makeOutputFileMap(
     in workingDirectory: AbsolutePath,
+    module: String,
     for files: [AbsolutePath],
     outputTransform transform: (String) -> String = { $0 }
   ) -> String {
     """
     {
       "": {
-        "swift-dependencies": "\(workingDirectory.appending(component: "module.swiftdeps").nativePathString(escaped: true))"
+        "swift-dependencies": "\(workingDirectory.appending(component: "\(module).swiftdeps").nativePathString(escaped: true))"
       }
     """.appending(files.map { file in
       """
@@ -53,7 +54,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let ofm = path.appending(component: "ofm.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, for: [ magic ]) {
+        $0 <<< self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
           $0 + "-some_suffix"
         }
       }
@@ -75,7 +76,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       }
 
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, for: [ magic ]) {
+        $0 <<< self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
           $0 + "-some_other_suffix"
         }
       }
@@ -102,7 +103,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
         let ofm = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofm) {
-          $0 <<< self.makeOutputFileMap(in: path, for: [ magic ])
+          $0 <<< self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ])
         }
 
         var driver = try Driver(args: [
@@ -127,7 +128,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let ofm = path.appending(component: "ofm2.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, for: [ main ])
+        $0 <<< self.makeOutputFileMap(in: path, module: "theModule", for: [ main ])
       }
 
       var driver = try Driver(args: [

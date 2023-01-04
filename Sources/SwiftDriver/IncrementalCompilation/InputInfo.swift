@@ -115,21 +115,3 @@ fileprivate extension ProcessResult {
     return false
   }
 }
-
-// MARK: - reading
-public extension InputInfo {
-  init?(tag: String, previousModTime: TimePoint,
-        failedToReadOutOfDateMap: (String) -> Void
-  ) {
-    guard let status = Status(identifier: tag) else {
-      failedToReadOutOfDateMap("no previous build state in build record")
-      return nil
-    }
-    self.init(status: status, previousModTime: previousModTime)
-  }
-}
-
-// MARK: - writing
-extension InputInfo {
-  var tag: String { status.identifier }
-}

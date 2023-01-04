@@ -21,7 +21,7 @@ import struct TSCBasic.Diagnostic
 public struct BuildRecord {
   public let swiftVersion: String
   /// When testing, the argsHash may be missing from the build record
-  public let argsHash: String?
+  public let argsHash: String
   /// Next compile, will compare an input mod time against the start time of the previous build
   public let buildStartTime: TimePoint
   /// Next compile, will compare an output mod time against the end time of the previous build
@@ -29,7 +29,7 @@ public struct BuildRecord {
   /// The date is the modification time of the main input file the last time the driver ran
   public let inputInfos: [VirtualPath: InputInfo]
 
-  public init(argsHash: String?,
+  public init(argsHash: String,
               swiftVersion: String,
               buildStartTime: TimePoint,
               buildEndTime: TimePoint,
@@ -41,7 +41,7 @@ public struct BuildRecord {
     self.inputInfos = inputInfos
   }
 
-  private enum SectionName: String, CaseIterable {
+  public enum SectionName: String, CaseIterable {
     case swiftVersion = "version"
     case argsHash = "options"
     // Implement this for a smoother transition
@@ -60,12 +60,42 @@ public struct BuildRecord {
 
 // MARK: - Reading the old map and deciding whether to use it
 public extension BuildRecord {
-  init?(contents: String, failedToReadOutOfDateMap: (String?) -> Void) {
+  enum Error: Swift.Error {
+    case malformedYAML
+    case invalidKey
+    case missingTimeStamp
+    case missingInputSequenceNode
+    case missingInputEntryNode
+    case missingPriorBuildState
+    case unexpectedKey(String)
+    case malformed(SectionName)
+
+    var reason: String {
+      switch self {
+      case .malformedYAML:
+        return ""
+      case .invalidKey:
+        return ""
+      case .missingTimeStamp:
+        return "could not read time value in build record"
+      case .missingInputSequenceNode:
+        return "no sequence node for input entry in build record"
+      case .missingInputEntryNode:
+        return "no input entry in build record"
+      case .missingPriorBuildState:
+        return "no previous build state in build record"
+      case .unexpectedKey(let key):
+        return "Unexpected key '\(key)'"
+      case .malformed(let section):
+        return "Malformed value for key '\(section.serializedName)'"
+      }
+    }
+  }
+  init(contents: String) throws {
     guard let sections = try? Parser(yaml: contents, resolver: .basic, encoding: .utf8)
             .singleRoot()?.mapping
     else {
-      failedToReadOutOfDateMap(nil)
-      return nil
+      throw Error.malformedYAML
     }
     var argsHash: String?
     var swiftVersion: String?
@@ -75,60 +105,42 @@ public extension BuildRecord {
     var inputInfos: [VirtualPath: InputInfo]?
     for (key, value) in sections {
       guard let k = key.string else {
-        failedToReadOutOfDateMap(nil)
-        return nil
+        throw Error.invalidKey
       }
       switch k {
       case SectionName.swiftVersion.serializedName:
         // There's a test that uses "" for an illegal value
         guard let s = value.string, s != "" else {
-          failedToReadOutOfDateMap("Malformed value for key '\(k)'")
-          return nil
+          break
         }
         swiftVersion = s
       case SectionName.argsHash.serializedName:
         guard let s = value.string, s != "" else {
-          failedToReadOutOfDateMap("no name node in build record")
-          return nil
+          break
         }
         argsHash = s
       case SectionName.buildStartTime.serializedName,
            SectionName.legacyBuildStartTime.serializedName:
-        guard let d = Self.decodeDate(value,
-                                      forInputInfo: false,
-                                      failedToReadOutOfDateMap)
-        else {
-          return nil
-        }
-        buildStartTime = d
+        buildStartTime = try Self.decodeDate(value, forInputInfo: false)
       case SectionName.buildEndTime.serializedName:
-        guard let d = Self.decodeDate(value,
-                                      forInputInfo: false,
-                                      failedToReadOutOfDateMap)
-        else {
-          return nil
-        }
-        buildEndTime = d
+        buildEndTime = try Self.decodeDate(value, forInputInfo: false)
       case SectionName.inputInfos.serializedName:
-        guard let ii = Self.decodeInputInfos(value, failedToReadOutOfDateMap) else {
-          return nil
-        }
-        inputInfos = ii
+        inputInfos = try Self.decodeInputInfos(value)
       default:
-        failedToReadOutOfDateMap("Unexpected key '\(k)'")
-        return nil
+        throw Error.unexpectedKey(k)
       }
     }
     // The legacy driver allows argHash to be absent to ease testing.
     // Mimic the legacy driver for testing ease: If no `argsHash` section,
     // record still matches.
     guard let sv = swiftVersion else {
-      failedToReadOutOfDateMap("Malformed value for key '\(SectionName.swiftVersion.serializedName)'")
-      return nil
+      throw Error.malformed(.swiftVersion)
     }
     guard let iis = inputInfos else {
-      failedToReadOutOfDateMap("Malformed value for key '\(SectionName.inputInfos.serializedName)'")
-      return nil
+      throw Error.malformed(.inputInfos)
+    }
+    guard let argsHash = argsHash else {
+      throw Error.malformed(.argsHash)
     }
     self.init(argsHash: argsHash,
               swiftVersion: sv,
@@ -139,55 +151,40 @@ public extension BuildRecord {
 
   private static func decodeDate(
     _ node: Yams.Node,
-    forInputInfo: Bool,
-    _ failedToReadOutOfDateMap: (String) -> Void
-  ) -> TimePoint? {
+    forInputInfo: Bool
+  ) throws -> TimePoint {
     guard let vals = node.sequence else {
-      failedToReadOutOfDateMap(
-        forInputInfo
-          ? "no sequence node for input entry in build record"
-          : "could not read time value in build record")
-      return nil
+      if forInputInfo {
+        throw Error.missingInputSequenceNode
+      } else {
+        throw Error.missingTimeStamp
+      }
     }
     guard vals.count == 2,
           let secs = vals[0].int,
           let ns = vals[1].int
     else {
-      failedToReadOutOfDateMap("could not read time value in build record")
-      return nil
+      throw Error.missingTimeStamp
     }
     return TimePoint(seconds: UInt64(secs), nanoseconds: UInt32(ns))
   }
 
   private static func decodeInputInfos(
-    _ node: Yams.Node,
-    _ failedToReadOutOfDateMap: (String) -> Void
-  ) -> [VirtualPath: InputInfo]? {
+    _ node: Yams.Node
+  ) throws -> [VirtualPath: InputInfo] {
     guard let map = node.mapping else {
-      failedToReadOutOfDateMap(
-        "Malformed value for key '\(SectionName.inputInfos.serializedName)'")
-      return nil
+      throw BuildRecord.Error.malformed(.inputInfos)
     }
     var infos = [VirtualPath: InputInfo]()
     for (keyNode, valueNode) in map {
       guard let pathString = keyNode.string,
             let path = try? VirtualPath(path: pathString)
       else {
-        failedToReadOutOfDateMap("no input entry in build record")
-        return nil
+        throw BuildRecord.Error.missingInputEntryNode
       }
-      guard let previousModTime = decodeDate(valueNode,
-                                             forInputInfo: true,
-                                             failedToReadOutOfDateMap)
-      else {
-        return nil
-      }
-      guard let inputInfo = InputInfo(tag: valueNode.tag.description,
-                                      previousModTime: previousModTime,
-                                      failedToReadOutOfDateMap: failedToReadOutOfDateMap)
-      else {
-        return nil
-      }
+      let previousModTime = try decodeDate(valueNode, forInputInfo: true)
+      let inputInfo = try InputInfo(
+        tag: valueNode.tag.description, previousModTime: previousModTime)
       infos[path] = inputInfo
     }
     return infos
@@ -202,7 +199,7 @@ extension BuildRecord {
        skippedInputs: Set<TypedVirtualPath>?,
        compilationInputModificationDates: [TypedVirtualPath: TimePoint],
        actualSwiftVersion: String,
-       argsHash: String!,
+       argsHash: String,
        timeBeforeFirstJob: TimePoint,
        timeAfterLastJob: TimePoint
   ) {
@@ -227,9 +224,7 @@ extension BuildRecord {
   }
 
   /// Pass in `currentArgsHash` to ensure it is non-nil
-  /*@_spi(Testing)*/ public func encode(currentArgsHash: String,
-                                        diagnosticEngine: DiagnosticsEngine
-  ) -> String? {
+  public func encode(diagnosticEngine: DiagnosticsEngine) -> String? {
       let pathsAndInfos = inputInfos.map {
         input, inputInfo -> (String, InputInfo) in
         return (input.name, inputInfo)
@@ -241,7 +236,7 @@ extension BuildRecord {
       )
     let fieldNodes = [
       (SectionName.swiftVersion,    Yams.Node(swiftVersion,    .implicit, .doubleQuoted)),
-      (SectionName.argsHash,        Yams.Node(currentArgsHash, .implicit, .doubleQuoted)),
+      (SectionName.argsHash,        Yams.Node(argsHash, .implicit, .doubleQuoted)),
       (SectionName.buildStartTime,  Self.encode(buildStartTime)),
       (SectionName.buildEndTime,    Self.encode(buildEndTime)),
       (SectionName.inputInfos,      inputInfosNode )
@@ -286,4 +281,23 @@ extension Diagnostic.Message {
   ) -> Diagnostic.Message {
     .warning("next compile won't be incremental; could not write build record to \(path)")
   }
+}
+
+
+// MARK: - reading
+extension InputInfo {
+  fileprivate init(
+    tag: String,
+    previousModTime: TimePoint
+  ) throws {
+    guard let status = Status(identifier: tag) else {
+      throw BuildRecord.Error.missingPriorBuildState
+    }
+    self.init(status: status, previousModTime: previousModTime)
+  }
+}
+
+// MARK: - writing
+extension InputInfo {
+  fileprivate var tag: String { status.identifier }
 }

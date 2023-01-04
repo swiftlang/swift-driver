@@ -20,9 +20,7 @@ import TestUtilities
 /// Testing the machinery for incremental compilation with nonincremental test cases.
 final class NonincrementalCompilationTests: XCTestCase {
   func testBuildRecordReading() throws {
-    let buildRecord = try XCTUnwrap(
-      BuildRecord(contents: Inputs.buildRecord,
-                                  failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
+    let buildRecord = try BuildRecord(contents: Inputs.buildRecord)
     XCTAssertEqual(buildRecord.swiftVersion,
                    "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
     XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
@@ -45,37 +43,10 @@ final class NonincrementalCompilationTests: XCTestCase {
                        ])
   }
 
-  func testBuildRecordWithoutOptionsReading() throws {
-    let buildRecord = try XCTUnwrap(
-      BuildRecord(
-        contents: Inputs.buildRecordWithoutOptions,
-        failedToReadOutOfDateMap: {XCTFail($0 ?? "Failed to read map")}))
-    XCTAssertEqual(buildRecord.swiftVersion,
-                   "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(buildRecord.argsHash, nil)
-
-    XCTAssertEqual(buildRecord.buildStartTime,
-                   TimePoint(seconds: 1570318779, nanoseconds: 32358000))
-    XCTAssertEqual(buildRecord.buildEndTime,
-                   TimePoint(seconds: 1570318779, nanoseconds: 32358010))
-    try XCTAssertEqual(buildRecord.inputInfos,
-                       [
-                        VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
-                          InputInfo(status: .needsCascadingBuild,
-                                    previousModTime: TimePoint(seconds: 1570318778, nanoseconds: 0)),
-                        VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"):
-                          InputInfo(status: .upToDate,
-                                    previousModTime: TimePoint(seconds: 1570083660, nanoseconds: 0)),
-                        VirtualPath(path: "/Volumes/gazorp.swift"):
-                          InputInfo(status: .needsNonCascadingBuild,
-                                    previousModTime: .zero)
-                       ])
-  }
-
   func testReadBinarySourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
                                                          for: "main.swiftdeps"))
-    let typedFile = TypedVirtualPath( file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps)
+    let typedFile = TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps)
     try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
       let graph = try XCTUnwrap(
         try SourceFileDependencyGraph(
@@ -247,9 +218,9 @@ final class NonincrementalCompilationTests: XCTestCase {
   func testReadAndWriteBuildRecord() throws {
     let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
     let options = "abbbfbcaf36b93e58efaadd8271ff142"
-    let file2: AbsolutePath = AbsolutePath("/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift")
-    let main: AbsolutePath = AbsolutePath("/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift")
-    let gazorp: AbsolutePath = AbsolutePath("/Volumes/gazorp.swift")
+    let file2 = try AbsolutePath(validating: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift")
+    let main = try AbsolutePath(validating: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift")
+    let gazorp = try AbsolutePath(validating: "/Volumes/gazorp.swift")
     let inputString =
       """
       version: "\(version)"
@@ -262,7 +233,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         "\(gazorp.nativePathString(escaped: true))": !private [0, 0]
 
       """
-    let buildRecord = try XCTUnwrap (BuildRecord(contents: inputString, failedToReadOutOfDateMap: {_ in}))
+    let buildRecord = try BuildRecord(contents: inputString)
     XCTAssertEqual(buildRecord.swiftVersion, version)
     XCTAssertEqual(buildRecord.argsHash, options)
     XCTAssertEqual(buildRecord.inputInfos.count, 3)
@@ -284,8 +255,7 @@ final class NonincrementalCompilationTests: XCTestCase {
     XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)]).previousModTime,
                    TimePoint(seconds: 1570083660, nanoseconds: 0))
 
-    let outputString = try XCTUnwrap (buildRecord.encode(currentArgsHash: options,
-                                                         diagnosticEngine: DiagnosticsEngine()))
+    let outputString = try XCTUnwrap (buildRecord.encode(diagnosticEngine: DiagnosticsEngine()))
     XCTAssertEqual(inputString, outputString)
   }
   /// The date conversions are not exact
