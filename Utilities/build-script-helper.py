@@ -601,7 +601,11 @@ def get_build_target(swiftc_path, args):
                                                    stderr=subprocess.PIPE,
                                                    universal_newlines=True).strip()
         args.target_info = json.loads(target_info_json)
-        return args.target_info['target']['unversionedTriple']
+        triple = args.target_info['target']['triple']
+        # Windows also wants unversionedTriple, but does not use this.
+        if platform.system() == 'Darwin':
+          triple = args.target_info['target']['unversionedTriple']
+        return triple
     except Exception as e:
         error(str(e))
 
