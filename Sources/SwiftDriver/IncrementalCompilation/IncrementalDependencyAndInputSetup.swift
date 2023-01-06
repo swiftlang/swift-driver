@@ -278,7 +278,7 @@ extension IncrementalCompilationState {
     }
 
     func computeInitialStateForPlanning(driver: inout Driver) throws -> InitialStateForPlanning? {
-      guard var priors = computeGraphAndInputsInvalidatedByExternals() else {
+      guard let priors = computeGraphAndInputsInvalidatedByExternals() else {
         return nil
       }
 
