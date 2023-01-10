@@ -13,7 +13,7 @@
 import SwiftOptions
 import struct Foundation.Data
 import class Foundation.JSONDecoder
-
+import struct TSCBasic.Diagnostic
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RelativePath
@@ -58,25 +58,17 @@ extension Toolchain {
 
 extension Driver {
   static func computeSupportedCompilerArgs(of toolchain: Toolchain, hostTriple: Triple,
-                                               parsedOptions: inout ParsedOptions,
-                                               diagnosticsEngine: DiagnosticsEngine,
-                                               fileSystem: FileSystem,
-                                               executor: DriverExecutor, env: [String: String])
+                                           parsedOptions: inout ParsedOptions,
+                                           diagnosticsEngine: DiagnosticsEngine,
+                                           fileSystem: FileSystem,
+                                           executor: DriverExecutor, env: [String: String])
   throws -> Set<String> {
-    // TODO: Once we are sure libSwiftScan is deployed across supported platforms and architectures
-    // we should deploy it here.
-//    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
-//                                                   hostTriple: hostTriple,
-//                                                   env: env)
-//
-//    if fileSystem.exists(swiftScanLibPath) {
-//      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
-//      if libSwiftScanInstance.canQuerySupportedArguments() {
-//        return try libSwiftScanInstance.querySupportedArguments()
-//      }
-//    }
+    if let supportedArgs = try querySupportedCompilerArgsInProcess(of: toolchain, hostTriple: hostTriple,
+                                                                   fileSystem: fileSystem, env: env) {
+      return supportedArgs
+    }
 
-    // Invoke `swift-frontend -emit-supported-features`
+    // Fallback: Invoke `swift-frontend -emit-supported-features` and decode the output
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
@@ -89,6 +81,23 @@ extension Driver {
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)
+  }
+
+  static func querySupportedCompilerArgsInProcess(of toolchain: Toolchain,
+                                                     hostTriple: Triple,
+                                                     fileSystem: FileSystem,
+                                                     env: [String: String])
+  throws -> Set<String>? {
+    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
+                                                   hostTriple: hostTriple,
+                                                   env: env)
+    if fileSystem.exists(swiftScanLibPath) {
+      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+      if libSwiftScanInstance.canQuerySupportedArguments() {
+        return try libSwiftScanInstance.querySupportedArguments()
+      }
+    }
+    return nil
   }
 
   static func computeSupportedCompilerFeatures(of toolchain: Toolchain,
