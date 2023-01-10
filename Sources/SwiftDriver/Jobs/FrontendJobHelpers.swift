@@ -74,10 +74,8 @@ extension Driver {
 
     // Pass down -clang-target.
     // If not specified otherwise, we should use the same triple as -target
-    // TODO: enable -clang-target for implicit module build as well.
     if !parsedOptions.hasArgument(.disableClangTarget) &&
-        isFrontendArgSupported(.clangTarget) &&
-        parsedOptions.contains(.driverExplicitModuleBuild) {
+        isFrontendArgSupported(.clangTarget) {
       let clangTriple = parsedOptions.getLastArgument(.clangTarget)?.asSingle ?? targetTriple.triple
       commandLine.appendFlag(.clangTarget)
       commandLine.appendFlag(clangTriple)
