@@ -15,6 +15,7 @@ if platform.system() == 'Darwin':
     shared_lib_ext = '.dylib'
 else:
     shared_lib_ext = '.so'
+static_lib_ext = '.a'
 macos_deployment_target = '10.15'
 
 def error(message):
@@ -317,45 +318,45 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
   # shared libraries into the toolchain lib
   package_subpath = args.configuration
   for lib in ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution']:
-    install_library(args, build_dir, package_subpath, lib,
+    install_library(args, build_dir, package_subpath, lib, shared_lib_ext,
                     universal_lib_dir, toolchain_lib_dir, 'swift-driver', targets)
 
   # Install the swift-tools-support core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-tools-support-core')
   for lib in ['libTSCBasic', 'libTSCLibc', 'libTSCUtility']:
-    install_library(args, build_dir, package_subpath, lib,
+    install_library(args, build_dir, package_subpath, lib, shared_lib_ext,
                     universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core', targets)
 
   # Install the swift-system shared library into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-system')
-  install_library(args, build_dir, package_subpath, 'libSystemPackage',
+  install_library(args, build_dir, package_subpath, 'libSystemPackage', shared_lib_ext,
                   universal_lib_dir, toolchain_lib_dir, 'swift-system', targets)
 
   # Install the swift-argument-parser shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-argument-parser')
-  for lib in ['libArgumentParser', 'libArgumentParserToolInfo']:
-      install_library(args, build_dir, package_subpath, lib,
+  for (lib, ext) in [('libArgumentParser', shared_lib_ext), ('libArgumentParserToolInfo', static_lib_ext)]:
+      install_library(args, build_dir, package_subpath, lib, ext,
                       universal_lib_dir, toolchain_lib_dir,'swift-argument-parser', targets)
 
   # Install the llbuild core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'llbuild')
   for lib in ['libllbuildSwift', 'libllbuild']:
-    install_library(args, build_dir, package_subpath, lib,
+    install_library(args, build_dir, package_subpath, lib, shared_lib_ext,
                     universal_lib_dir, toolchain_lib_dir,'llbuild', targets)
 
 # Create a universal shared-library file and install it into the toolchain lib
-def install_library(args, build_dir, package_subpath, lib_name,
+def install_library(args, build_dir, package_subpath, lib_name, lib_ext,
                     universal_lib_dir, toolchain_lib_dir, package_name, targets):
-  shared_lib_file = lib_name + shared_lib_ext
-  output_dylib_path = os.path.join(universal_lib_dir, shared_lib_file)
+  lib_file = lib_name + lib_ext
+  output_dylib_path = os.path.join(universal_lib_dir, lib_file)
   lipo_cmd = ['lipo']
   for target in targets:
     input_lib_path = os.path.join(build_dir, target,
-                                  package_subpath, 'lib', shared_lib_file)
+                                  package_subpath, 'lib', lib_file)
     lipo_cmd.append(input_lib_path)
   lipo_cmd.extend(['-create', '-output', output_dylib_path])
   subprocess.check_call(lipo_cmd)
-  install_binary(shared_lib_file, universal_lib_dir, toolchain_lib_dir, args.verbose)
+  install_binary(lib_file, universal_lib_dir, toolchain_lib_dir, args.verbose)
 
 # Install binary .swiftmodule files for the driver and its dependencies into the toolchain lib
 def install_binary_swift_modules(args, build_dir, toolchain_lib_dir, targets):
