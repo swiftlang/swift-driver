@@ -57,14 +57,15 @@ extension Toolchain {
 }
 
 extension Driver {
-  static func computeSupportedCompilerArgs(of toolchain: Toolchain, hostTriple: Triple,
+
+  static func computeSupportedCompilerArgs(of toolchain: Toolchain,
                                            parsedOptions: inout ParsedOptions,
                                            diagnosticsEngine: DiagnosticsEngine,
                                            fileSystem: FileSystem,
-                                           executor: DriverExecutor, env: [String: String])
+                                           executor: DriverExecutor)
   throws -> Set<String> {
-    if let supportedArgs = try querySupportedCompilerArgsInProcess(of: toolchain, hostTriple: hostTriple,
-                                                                   fileSystem: fileSystem, env: env) {
+    if let supportedArgs =
+        try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
       return supportedArgs
     }
 
@@ -84,14 +85,11 @@ extension Driver {
   }
 
   static func querySupportedCompilerArgsInProcess(of toolchain: Toolchain,
-                                                     hostTriple: Triple,
-                                                     fileSystem: FileSystem,
-                                                     env: [String: String])
+                                                  fileSystem: FileSystem)
   throws -> Set<String>? {
-    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
-                                                   hostTriple: hostTriple,
-                                                   env: env)
-    if fileSystem.exists(swiftScanLibPath) {
+    let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
+    if let swiftScanLibPath = optionalSwiftScanLibPath,
+       fileSystem.exists(swiftScanLibPath) {
       let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
       if libSwiftScanInstance.canQuerySupportedArguments() {
         return try libSwiftScanInstance.querySupportedArguments()

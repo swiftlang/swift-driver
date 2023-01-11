@@ -317,10 +317,7 @@ internal final class SwiftScan {
 @_spi(Testing) public extension Driver {
   func querySupportedArgumentsForTest() throws -> Set<String>? {
     // If a capable libSwiftScan is found, manually ensure we can get the supported arguments
-    let scanLibPath = try Self.getScanLibPath(of: toolchain,
-                                              hostTriple: hostTriple,
-                                              env: env)
-    if fileSystem.exists(scanLibPath) {
+    if let scanLibPath = try toolchain.lookupSwiftScanLib() {
       let libSwiftScanInstance = try SwiftScan(dylib: scanLibPath)
       if libSwiftScanInstance.canQuerySupportedArguments() {
         return try libSwiftScanInstance.querySupportedArguments()

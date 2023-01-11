@@ -245,6 +245,45 @@ extension Toolchain {
     }
   }
 
+  /// Looks for the executable in the `SWIFT_DRIVER_SWIFTSCAN_LIB` environment variable, if found nothing,
+  /// looks in the `lib` relative to the compiler executable.
+  /// TODO: If the driver needs to lookup other shared libraries, this is simple to generalize
+  @_spi(Testing) public func lookupSwiftScanLib() throws -> AbsolutePath? {
+#if os(Windows)
+    // no matter if we are in a build tree or an installed tree, the layout is
+    // always: `bin/_InternalSwiftScan.dll`
+    return try getToolPath(.swiftCompiler).parentDirectory // bin
+                                          .appending(component: "_InternalSwiftScan.dll")
+#else
+    let libraryName = sharedLibraryName("lib_InternalSwiftScan")
+    if let overrideString = env["SWIFT_DRIVER_SWIFTSCAN_LIB"],
+       let path = try? AbsolutePath(validating: overrideString) {
+      return path
+    } else {
+      let compilerPath = try getToolPath(.swiftCompiler)
+      let toolchainRootPath = compilerPath.parentDirectory // bin
+                                          .parentDirectory // toolchain root
+
+      let searchPaths = [toolchainRootPath.appending(component: "lib")
+                                          .appending(component: "swift")
+                                          .appending(component: compilerHostSupportLibraryOSComponent),
+                         toolchainRootPath.appending(component: "lib")
+                                          .appending(component: "swift")
+                                          .appending(component: "host"),
+                         // In case we are using a compiler from the build dir, we should also try
+                         // this path.
+                         toolchainRootPath.appending(component: "lib")]
+      for libraryPath in searchPaths.map({ $0.appending(component: libraryName) }) {
+        if fileSystem.isFile(libraryPath) {
+          return libraryPath
+        }
+      }
+    }
+
+    return nil
+#endif
+  }
+
   private func xcrunFind(executable: String) throws -> AbsolutePath {
     let xcrun = "xcrun"
     guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {
