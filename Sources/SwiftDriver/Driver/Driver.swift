@@ -650,11 +650,11 @@ public struct Driver {
                                                                                outputFileMap: outputFileMap)
 
     self.supportedFrontendFlags =
-      try Self.computeSupportedCompilerArgs(of: self.toolchain, hostTriple: self.hostTriple,
-                                                parsedOptions: &self.parsedOptions,
-                                                diagnosticsEngine: diagnosticEngine,
-                                                fileSystem: fileSystem, executor: executor,
-                                                env: env)
+      try Self.computeSupportedCompilerArgs(of: self.toolchain,
+                                            parsedOptions: &self.parsedOptions,
+                                            diagnosticsEngine: diagnosticEngine,
+                                            fileSystem: fileSystem,
+                                            executor: executor)
     let supportedFrontendFlagsLocal = self.supportedFrontendFlags
     self.savedUnknownDriverFlagsForSwiftFrontend = try self.parsedOptions.saveUnknownFlags {
       Driver.isOptionFound($0, allOpts: supportedFrontendFlagsLocal)
