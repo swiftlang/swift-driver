@@ -3622,7 +3622,7 @@ final class SwiftDriverTests: XCTestCase {
     #endif
   }
 
-  func testEnableClangTargetForImplicitModule() throws {
+  func testDisableClangTargetForImplicitModule() throws {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
@@ -3632,7 +3632,7 @@ final class SwiftDriverTests: XCTestCase {
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
-    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-clang-target")))
+    XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-clang-target")))
   }
 
   func testPCHasCompileInput() throws {
