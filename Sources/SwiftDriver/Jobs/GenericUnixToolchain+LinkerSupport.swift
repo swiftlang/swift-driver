@@ -291,6 +291,10 @@ extension GenericUnixToolchain {
         }
       }
 
+      // Use compiler-rt for Swift's numeric conversion symbols
+      commandLine.appendFlag("-rtlib=compiler-rt")
+      commandLine.appendFlag("-lunwind")
+
       // Run clang++ in verbose mode if "-v" is set
       try commandLine.appendLast(.v, from: &parsedOptions)
 

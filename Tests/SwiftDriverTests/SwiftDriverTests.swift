@@ -1993,6 +1993,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
       XCTAssertTrue(commandContainsTemporaryResponsePath(cmd, "Test.autolink"))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.so"))
+      XCTAssertTrue(cmd.contains(.flag("-rtlib=compiler-rt")))
 
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-static")))
