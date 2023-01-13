@@ -221,7 +221,7 @@ public extension Driver {
     // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
     // scanning.
     var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
-    let scanLibPath = try toolchain.lookupSwiftScanLib()
+    let scanLibPath = try Self.getScanLibPath(of: toolchain, hostTriple: hostTriple, env: env)
     if try interModuleDependencyOracle
         .verifyOrCreateScannerInstance(fileSystem: fileSystem,
                                        swiftScanLibPath: scanLibPath) == false {
@@ -490,9 +490,46 @@ public extension Driver {
                                                      useResponseFiles: useResponseFiles)
     return args
   }
+}
+
+@_spi(Testing) public extension Driver {
+  static func getScanLibPath(of toolchain: Toolchain, hostTriple: Triple,
+                             env: [String: String]) throws -> AbsolutePath {
+    if hostTriple.isWindows {
+      // no matter if we are in a build tree or an installed tree, the layout is
+      // always: `bin/_InternalSwiftScan.dll`
+      return try getRootPath(of: toolchain, env: env)
+                    .appending(component: "bin")
+                    .appending(component: "_InternalSwiftScan.dll")
+    }
+
+    let sharedLibExt: String
+    if hostTriple.isMacOSX {
+      sharedLibExt = ".dylib"
+    } else {
+      sharedLibExt = ".so"
+    }
+    let libScanner = "lib_InternalSwiftScan\(sharedLibExt)"
+    // We first look into position in toolchain
+    let libPath
+     = try getRootPath(of: toolchain, env: env).appending(component: "lib")
+      .appending(component: "swift")
+      .appending(component: hostTriple.osNameUnversioned)
+      .appending(component: libScanner)
+    if localFileSystem.exists(libPath) {
+        return libPath
+    }
+    // In case we are using a compiler from the build dir, we should also try
+    // this path.
+    return try getRootPath(of: toolchain, env: env).appending(component: "lib")
+      .appending(component: libScanner)
+  }
 
   static func getRootPath(of toolchain: Toolchain, env: [String: String])
   throws -> AbsolutePath {
+    if let overrideString = env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] {
+      return try AbsolutePath(validating: overrideString)
+    }
     return try toolchain.getToolPath(.swiftCompiler)
       .parentDirectory // bin
       .parentDirectory // toolchain root

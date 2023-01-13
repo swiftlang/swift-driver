@@ -57,15 +57,14 @@ extension Toolchain {
 }
 
 extension Driver {
-
-  static func computeSupportedCompilerArgs(of toolchain: Toolchain,
+  static func computeSupportedCompilerArgs(of toolchain: Toolchain, hostTriple: Triple,
                                            parsedOptions: inout ParsedOptions,
                                            diagnosticsEngine: DiagnosticsEngine,
                                            fileSystem: FileSystem,
-                                           executor: DriverExecutor)
+                                           executor: DriverExecutor, env: [String: String])
   throws -> Set<String> {
-    if let supportedArgs =
-        try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
+    if let supportedArgs = try querySupportedCompilerArgsInProcess(of: toolchain, hostTriple: hostTriple,
+                                                                   fileSystem: fileSystem, env: env) {
       return supportedArgs
     }
 
@@ -85,9 +84,13 @@ extension Driver {
   }
 
   static func querySupportedCompilerArgsInProcess(of toolchain: Toolchain,
-                                                  fileSystem: FileSystem)
+                                                     hostTriple: Triple,
+                                                     fileSystem: FileSystem,
+                                                     env: [String: String])
   throws -> Set<String>? {
-    let swiftScanLibPath = try toolchain.lookupSwiftScanLib()
+    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
+                                                   hostTriple: hostTriple,
+                                                   env: env)
     if fileSystem.exists(swiftScanLibPath) {
       let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
       if libSwiftScanInstance.canQuerySupportedArguments() {
