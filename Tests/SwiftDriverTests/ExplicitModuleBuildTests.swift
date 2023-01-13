@@ -339,6 +339,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             dependencyGraph: dependencyGraph)
           }
+          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
+                                            dependencyGraph: dependencyGraph)
+          }
           else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
@@ -439,6 +443,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
           else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
           }
           else {
@@ -977,10 +985,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let expectedImports2 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency"]
       // Dependnig on how recent the platform we are running on, the _StringProcessing module may or may not be present.
       let expectedImports3 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency", "_StringProcessing"]
+      // Dependnig on how recent the platform we are running on, the _SwiftConcurrencyShims module may or may not be present.
+      let expectedImports4 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency", "_StringProcessing", "_SwiftConcurrencyShims"]
       XCTAssertTrue(
         Set(imports.imports) == Set(expectedImports) ||
         Set(imports.imports) == Set(expectedImports2) ||
-        Set(imports.imports) == Set(expectedImports3))
+        Set(imports.imports) == Set(expectedImports3) ||
+        Set(imports.imports) == Set(expectedImports4))
     }
   }
 
@@ -1168,11 +1179,16 @@ final class ExplicitModuleBuildTests: XCTestCase {
         let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
           $0.moduleName == "_Concurrency"
         }
+        let hasConcurrencyShimsModule = dependencyGraph.modules.keys.contains {
+          $0.moduleName == "_SwiftConcurrencyShims"
+        }
         let hasStringProcessingModule = dependencyGraph.modules.keys.contains {
           $0.moduleName == "_StringProcessing"
         }
         let adjustedExpectedNumberOfDependencies =
-            expectedNumberOfDependencies + (hasConcurrencyModule ? 1 : 0) +
+            expectedNumberOfDependencies +
+            (hasConcurrencyModule ? 1 : 0) +
+            (hasConcurrencyShimsModule ? 1 : 0) +
             (hasStringProcessingModule ? 1 : 0)
 
         if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
