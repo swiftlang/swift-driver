@@ -20,3 +20,27 @@ internal func executableName(_ name: String) -> String {
   return name
 #endif
 }
+
+@_spi(Testing) public func sharedLibraryName(_ name: String) -> String {
+#if canImport(Darwin)
+  let ext = ".dylib"
+#elseif os(Windows)
+  let ext = ".dll"
+#else
+  let ext = ".so"
+#endif
+  return name + ext
+}
+
+// FIXME: This can be subtly wrong, we should rather
+// try to get the client to provide this info or move to a better
+// path convention for where we keep compiler support libraries
+internal var compilerHostSupportLibraryOSComponent : String {
+#if canImport(Darwin)
+  return "macosx"
+#elseif os(Windows)
+  return "windows"
+#else
+  return "linux"
+#endif
+}
