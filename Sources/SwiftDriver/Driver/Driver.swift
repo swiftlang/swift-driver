@@ -68,10 +68,10 @@ public struct Driver {
         return "invalid driver name: \(driverName)"
       case .invalidInput(let input):
         return "invalid input: \(input)"
-      case .noInputFiles:
-        return "no input files"
       case .invalidArgumentValue(let option, let value):
         return "invalid value '\(value)' in '\(option)'"
+      case .noInputFiles:
+        return "no input files"
       case .relativeFrontendPath(let path):
         // TODO: where is this error thrown
         return "relative frontend path: \(path)"
