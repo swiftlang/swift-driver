@@ -87,6 +87,7 @@ extension DriverExecutor {
                              capturingJSONOutputAs outputType: T.Type,
                              forceResponseFiles: Bool,
                              recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> T {
+    //print(">>> EXEC: \(try self.description(of: job, forceResponseFiles: false))")
     let result = try execute(job: job,
                              forceResponseFiles: forceResponseFiles,
                              recordedInputModificationDates: recordedInputModificationDates)
