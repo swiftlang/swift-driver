@@ -981,11 +981,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let expectedImports3 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency", "_StringProcessing"]
       // Dependnig on how recent the platform we are running on, the _SwiftConcurrencyShims module may or may not be present.
       let expectedImports4 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency", "_StringProcessing", "_SwiftConcurrencyShims"]
+      let expectedImports5 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency", "_SwiftConcurrencyShims"]
       XCTAssertTrue(
         Set(imports.imports) == Set(expectedImports) ||
         Set(imports.imports) == Set(expectedImports2) ||
         Set(imports.imports) == Set(expectedImports3) ||
-        Set(imports.imports) == Set(expectedImports4))
+        Set(imports.imports) == Set(expectedImports4) ||
+        Set(imports.imports) == Set(expectedImports5))
     }
   }
 
