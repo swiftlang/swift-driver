@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import protocol TSCBasic.FileSystem
+import class Foundation.JSONDecoder
+
 /// Swift versions are major.minor.
 struct SwiftVersion {
   var major: Int
@@ -171,5 +174,69 @@ extension Toolchain {
       outputs: [.init(file: .standardOutput, type: .jsonTargetInfo)],
       requiresInPlaceExecution: requiresInPlaceExecution
     )
+  }
+}
+
+extension Driver {
+  static func queryTargetInfoInProcess(of toolchain: Toolchain,
+                                       fileSystem: FileSystem,
+                                       invocationCommand: [String]) throws -> FrontendTargetInfo? {
+    let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
+    if let swiftScanLibPath = optionalSwiftScanLibPath,
+       fileSystem.exists(swiftScanLibPath) {
+      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+      if libSwiftScanInstance.canQueryTargetInfo() {
+        let targetInfoData = try libSwiftScanInstance.queryTargetInfoJSON(invocationCommand: invocationCommand)
+        return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)
+      }
+    }
+    return nil
+  }
+
+  static func computeTargetInfo(target: Triple?,
+                                targetVariant: Triple?,
+                                sdkPath: VirtualPath? = nil,
+                                resourceDirPath: VirtualPath? = nil,
+                                runtimeCompatibilityVersion: String? = nil,
+                                requiresInPlaceExecution: Bool = false,
+                                useStaticResourceDir: Bool = false,
+                                swiftCompilerPrefixArgs: [String],
+                                toolchain: Toolchain,
+                                fileSystem: FileSystem,
+                                executor: DriverExecutor) throws -> FrontendTargetInfo {
+    let frontendTargetInfoJob =
+      try toolchain.printTargetInfoJob(target: target, targetVariant: targetVariant,
+                                       sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+                                       runtimeCompatibilityVersion: runtimeCompatibilityVersion,
+                                       requiresInPlaceExecution: requiresInPlaceExecution,
+                                       useStaticResourceDir: useStaticResourceDir,
+                                       swiftCompilerPrefixArgs: swiftCompilerPrefixArgs)
+    var command = try Self.itemizedJobCommand(of: frontendTargetInfoJob,
+                                              useResponseFiles: .disabled,
+                                              using: executor.resolver)
+    Self.sanitizeCommandForLibScanInvocation(&command)
+    if let targetInfo =
+        try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
+                                          invocationCommand: command) {
+      return targetInfo
+    }
+
+    // Fallback: Invoke `swift-frontend -print-target-info` and decode the output
+    return try executor.execute(
+      job: frontendTargetInfoJob,
+      capturingJSONOutputAs: FrontendTargetInfo.self,
+      forceResponseFiles: false,
+      recordedInputModificationDates: [:])
+  }
+
+  /// This method exists for testing purposes only
+  @_spi(Testing) public func verifyBeingAbleToQueryTargetInfoInProcess(invocationCommand: [String]) throws -> Bool {
+    guard let targetInfo = try Self.queryTargetInfoInProcess(of: toolchain,
+                                                             fileSystem: fileSystem,
+                                                             invocationCommand: invocationCommand) else {
+      return false
+    }
+    print("libSwiftScan Compiler: \(targetInfo.compilerVersion)")
+    return true
   }
 }

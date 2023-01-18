@@ -207,6 +207,10 @@ typedef struct {
   void
   (*swiftscan_scan_invocation_dispose)(swiftscan_scan_invocation_t);
 
+  //=== Target Info Functions-------- ---------------------------------------===//
+  swiftscan_string_ref_t
+  (*swiftscan_compiler_target_info_query)(swiftscan_scan_invocation_t);
+
   //=== Functionality Query Functions ---------------------------------------===//
   swiftscan_string_set_t *
   (*swiftscan_compiler_supported_arguments_query)(void);

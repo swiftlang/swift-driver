@@ -528,6 +528,7 @@ public struct Driver {
     self.hostTriple =
       try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
                                  toolchain: self.toolchain, executor: self.executor,
+                                 fileSystem: fileSystem,
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
@@ -2896,6 +2897,7 @@ extension Driver {
     diagnosticsEngine: DiagnosticsEngine,
     toolchain: Toolchain,
     executor: DriverExecutor,
+    fileSystem: FileSystem,
     swiftCompilerPrefixArgs: [String]) throws -> Triple {
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
