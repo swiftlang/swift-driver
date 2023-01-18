@@ -65,7 +65,6 @@ extension SwiftVersion: Codable {
 }
 
 /// Describes information about the target as provided by the Swift frontend.
-@dynamicMemberLookup
 public struct FrontendTargetInfo: Codable {
   struct CompatibilityLibrary: Codable {
     enum Filter: String, Codable {
@@ -116,9 +115,10 @@ public struct FrontendTargetInfo: Codable {
 
 // Make members of `FrontendTargetInfo.Paths` accessible on `FrontendTargetInfo`.
 extension FrontendTargetInfo {
-  @_spi(Testing) public subscript<T>(dynamicMember dynamicMember: KeyPath<FrontendTargetInfo.Paths, T>) -> T {
-    self.paths[keyPath: dynamicMember]
-  }
+  public var sdkPath: TextualVirtualPath? { paths.sdkPath }
+  public var runtimeLibraryPaths: [TextualVirtualPath] { paths.runtimeLibraryPaths }
+  public var runtimeLibraryImportPaths: [TextualVirtualPath] { paths.runtimeLibraryImportPaths }
+  public var runtimeResourcePath: TextualVirtualPath { paths.runtimeResourcePath }
 }
 
 extension Toolchain {
