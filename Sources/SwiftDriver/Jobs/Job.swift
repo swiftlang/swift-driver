@@ -173,86 +173,86 @@ extension Job : CustomStringConvertible {
 
     switch kind {
     case .compile:
-        return join("Compiling \(moduleName)", displayInputs.first?.file.basename)
+        return join("Compile \(moduleName)", displayInputs.first?.file.basename)
 
     case .mergeModule:
-        return "Merging module \(moduleName)"
+        return "Merge module \(moduleName)"
 
     case .link:
-        return "Linking \(moduleName)"
+        return "Link \(moduleName)"
 
     case .generateDSYM:
-        return "Generating dSYM for module \(moduleName)"
+        return "Generate dSYM for module \(moduleName)"
 
     case .autolinkExtract:
-        return "Extracting autolink information for module \(moduleName)"
+        return "Extract autolink information for module \(moduleName)"
 
     case .emitModule:
-        return "Emitting module for \(moduleName)"
+        return "Emit module for \(moduleName)"
 
     case .compileModuleFromInterface:
-        return "Compiling Swift module \(moduleName)"
+        return "Compile Swift module \(moduleName)"
 
     case .generatePCH:
-        return join("Compiling bridging header", displayInputs.first?.file.basename)
+        return join("Compile bridging header", displayInputs.first?.file.basename)
 
     case .moduleWrap:
-      return "Wrapping Swift module \(moduleName)"
+      return "Wrap Swift module \(moduleName)"
 
     case .generatePCM:
-        return "Compiling Clang module \(moduleName)"
+        return "Compile Clang module \(moduleName)"
 
     case .dumpPCM:
         return join("Dump information about Clang module", displayInputs.first?.file.name)
 
     case .interpret:
-        return join("Interpreting", displayInputs.first?.file.name)
+        return join("Interpret", displayInputs.first?.file.name)
 
     case .repl:
-        return "Executing Swift REPL"
+        return "Execute Swift REPL"
 
     case .verifyDebugInfo:
-        return "Verifying debug information for module \(moduleName)"
+        return "Verify debug information for module \(moduleName)"
 
     case .printTargetInfo:
-        return "Gathering target information for module \(moduleName)"
+        return "Gather target information for module \(moduleName)"
 
     case .versionRequest:
-        return "Getting Swift version information"
+        return "Get Swift version information"
 
     case .help:
         return "Swift help"
 
     case .backend:
-      return join("Embedding bitcode for \(moduleName)", displayInputs.first?.file.basename)
+      return join("Embed bitcode for \(moduleName)", displayInputs.first?.file.basename)
 
     case .emitSupportedFeatures:
-      return "Emitting supported Swift compiler features"
+      return "Emit supported Swift compiler features"
 
     case .scanDependencies:
-      return "Scanning dependencies for module \(moduleName)"
+      return "Scan dependencies for module \(moduleName)"
 
     case .verifyModuleInterface:
-      return join("Verifying emitted module interface", displayInputs.first?.file.basename)
+      return join("Verify emitted module interface", displayInputs.first?.file.basename)
 
     case .generateAPIBaseline:
-      return "Generating API baseline file for module \(moduleName)"
+      return "Generate API baseline file for module \(moduleName)"
 
     case .generateABIBaseline:
-      return "Generating ABI baseline file for module \(moduleName)"
+      return "Generate ABI baseline file for module \(moduleName)"
 
     case .compareAPIBaseline:
-      return "Comparing API of \(moduleName) to baseline"
+      return "Compare API of \(moduleName) to baseline"
 
     case .compareABIBaseline:
-      return "Comparing ABI of \(moduleName) to baseline"
+      return "Compare ABI of \(moduleName) to baseline"
     }
   }
 
   public var descriptionForLifecycle: String {
     switch kind {
     case .compile:
-      return "Compiling \(inputsGeneratingCode.map {$0.file.basename}.joined(separator: ", "))"
+      return "Compile \(inputsGeneratingCode.map {$0.file.basename}.joined(separator: ", "))"
     default:
       return description
     }

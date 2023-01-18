@@ -25,7 +25,7 @@ struct CompiledSourceCollector {
 
   private func getCompiledBasenames(from d: Diagnostic) -> [String] {
     let dd = d.description
-    guard let startOfSources = dd.range(of: "Starting Compiling ")?.upperBound
+    guard let startOfSources = dd.range(of: "Starting Compile ")?.upperBound
     else {
       return []
     }
