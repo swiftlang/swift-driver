@@ -4786,9 +4786,12 @@ final class SwiftDriverTests: XCTestCase {
       let driver = try Driver(args: ["swift"] + targetInfoArgs)
       let swiftScanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       if localFileSystem.exists(swiftScanLibPath) {
+        print("- testPrintTargetInfo - libSwiftScan:\(swiftScanLibPath.pathString)")
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
+          print("- testPrintTargetInfo - libSwiftScan can query target info")
           XCTAssertTrue(try driver.verifyBeingAbleToQueryTargetInfoInProcess(invocationCommand: targetInfoArgs))
+          print("- testPrintTargetInfo - libSwiftScan test complete")
         }
       }
     }

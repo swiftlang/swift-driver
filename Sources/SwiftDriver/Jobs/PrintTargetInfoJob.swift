@@ -181,12 +181,17 @@ extension Driver {
   static func queryTargetInfoInProcess(of toolchain: Toolchain,
                                        fileSystem: FileSystem,
                                        invocationCommand: [String]) throws -> FrontendTargetInfo? {
+    print("- testPrintTargetInfo - Driver - query target info in-process")
     let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
     if let swiftScanLibPath = optionalSwiftScanLibPath,
        fileSystem.exists(swiftScanLibPath) {
+      print("- testPrintTargetInfo - Driver - libSwiftScan\(swiftScanLibPath.pathString)")
       let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
       if libSwiftScanInstance.canQueryTargetInfo() {
+        print("- testPrintTargetInfo - Driver - libSwiftScan can query target info")
         let targetInfoData = try libSwiftScanInstance.queryTargetInfoJSON(invocationCommand: invocationCommand)
+        print("- testPrintTargetInfo - Driver - target info data:")
+        print(targetInfoData)
         return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)
       }
     }
@@ -231,9 +236,11 @@ extension Driver {
 
   /// This method exists for testing purposes only
   @_spi(Testing) public func verifyBeingAbleToQueryTargetInfoInProcess(invocationCommand: [String]) throws -> Bool {
+    print("- testPrintTargetInfo - Driver - verifying")
     guard let targetInfo = try Self.queryTargetInfoInProcess(of: toolchain,
                                                              fileSystem: fileSystem,
                                                              invocationCommand: invocationCommand) else {
+      print("- testPrintTargetInfo - Driver - did not work")
       return false
     }
     print("libSwiftScan Compiler: \(targetInfo.compilerVersion)")
