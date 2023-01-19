@@ -271,6 +271,10 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_diagnostic_get_severity != nil &&
            api.swiftscan_diagnostics_set_dispose != nil
   }
+
+  @_spi(Testing) public func supportsStringDispose() -> Bool {
+    return api.swiftscan_string_dispose != nil
+  }
   
   @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
@@ -328,7 +332,9 @@ internal extension swiftscan_diagnostic_severity_t {
                                              Int32(invocationCommand.count),
                                              invocationStringArray)
     }
-    let targetInfoString = try toSwiftString(api.swiftscan_compiler_target_info_query(invocation))
+    let targetInfoStringRef = api.swiftscan_compiler_target_info_query(invocation)
+    defer { api.swiftscan_string_dispose(targetInfoStringRef) }
+    let targetInfoString = try toSwiftString(targetInfoStringRef)
     let targetInfoData = Data(targetInfoString.utf8)
     return targetInfoData
   }
@@ -395,6 +401,8 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_diagnostic_get_severity")
     self.swiftscan_diagnostics_set_dispose =
       try loadOptional("swiftscan_diagnostics_set_dispose")
+    self.swiftscan_string_dispose =
+      try loadOptional("swiftscan_string_dispose")
 
     // isFramework on binary module dependencies
     self.swiftscan_swift_binary_detail_get_is_framework =

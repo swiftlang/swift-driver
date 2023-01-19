@@ -187,7 +187,8 @@ extension Driver {
        fileSystem.exists(swiftScanLibPath) {
       print("- testPrintTargetInfo - Driver - libSwiftScan\(swiftScanLibPath.pathString)")
       let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
-      if libSwiftScanInstance.canQueryTargetInfo() {
+      if libSwiftScanInstance.canQueryTargetInfo(),
+         libSwiftScanInstance.supportsStringDispose() {
         print("- testPrintTargetInfo - Driver - libSwiftScan can query target info")
         let targetInfoData = try libSwiftScanInstance.queryTargetInfoJSON(invocationCommand: invocationCommand)
         print("- testPrintTargetInfo - Driver - target info data:")

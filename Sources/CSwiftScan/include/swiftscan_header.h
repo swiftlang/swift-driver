@@ -193,6 +193,8 @@ typedef struct {
 
   //=== Cleanup Functions ---------------------------------------------------===//
   void
+  (*swiftscan_string_dispose)(swiftscan_string_ref_t);
+  void
   (*swiftscan_string_set_dispose)(swiftscan_string_set_t *);
   void
   (*swiftscan_dependency_graph_dispose)(swiftscan_dependency_graph_t);
