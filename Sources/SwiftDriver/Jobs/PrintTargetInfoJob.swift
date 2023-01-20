@@ -188,9 +188,11 @@ extension Driver {
        fileSystem.exists(swiftScanLibPath) {
       let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
       if libSwiftScanInstance.canQueryTargetInfo() {
-        let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+        let cwd = try workingDirectory ?? fileSystem.currentWorkingDirectory ?? fileSystem.tempDirectory
+        let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
         let targetInfoData =
           try libSwiftScanInstance.queryTargetInfoJSON(workingDirectory: cwd,
+                                                       compilerExecutablePath: compilerExecutablePath,
                                                        invocationCommand: invocationCommand)
         do {
           return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)

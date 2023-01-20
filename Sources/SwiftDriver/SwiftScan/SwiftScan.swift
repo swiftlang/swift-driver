@@ -319,11 +319,12 @@ internal extension swiftscan_diagnostic_severity_t {
   }
 
   @_spi(Testing) public func canQueryTargetInfo() -> Bool {
-    return api.swiftscan_compiler_target_info_query != nil &&
+    return api.swiftscan_compiler_target_info_query_v2 != nil &&
            api.swiftscan_string_set_dispose != nil
   }
 
   func queryTargetInfoJSON(workingDirectory: AbsolutePath,
+                           compilerExecutablePath: AbsolutePath,
                            invocationCommand: [String]) throws -> Data {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
@@ -337,11 +338,13 @@ internal extension swiftscan_diagnostic_severity_t {
                                              Int32(invocationCommand.count),
                                              invocationStringArray)
     }
-    let targetInfoStringRef = api.swiftscan_compiler_target_info_query(invocation)
-    let targetInfoString = try toSwiftString(targetInfoStringRef)
-    if supportsStringDispose() {
-      api.swiftscan_string_dispose(targetInfoStringRef)
+
+    let targetInfoString: String = try compilerExecutablePath.description.withCString { cstring in
+      let targetInfoStringRef = api.swiftscan_compiler_target_info_query_v2(invocation, cstring)
+      defer { api.swiftscan_string_dispose(targetInfoStringRef) }
+      return try toSwiftString(targetInfoStringRef)
     }
+
     let targetInfoData = Data(targetInfoString.utf8)
     return targetInfoData
   }
@@ -382,8 +385,8 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_compiler_supported_features_query")
 
     // Target Info query
-    self.swiftscan_compiler_target_info_query =
-      try loadOptional("swiftscan_compiler_target_info_query")
+    self.swiftscan_compiler_target_info_query_v2 =
+      try loadOptional("swiftscan_compiler_target_info_query_v2")
 
     // Dependency scanner serialization/deserialization features
     self.swiftscan_scanner_cache_serialize =

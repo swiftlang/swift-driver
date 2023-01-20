@@ -211,7 +211,8 @@ typedef struct {
 
   //=== Target Info Functions-------- ---------------------------------------===//
   swiftscan_string_ref_t
-  (*swiftscan_compiler_target_info_query)(swiftscan_scan_invocation_t);
+  (*swiftscan_compiler_target_info_query_v2)(swiftscan_scan_invocation_t,
+                                             const char *);
 
   //=== Functionality Query Functions ---------------------------------------===//
   swiftscan_string_set_t *

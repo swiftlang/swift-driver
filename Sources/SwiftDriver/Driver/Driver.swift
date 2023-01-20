@@ -2906,18 +2906,11 @@ extension Driver {
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
-    return try executor.execute(
-      job: toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                        swiftCompilerPrefixArgs:
-                                          frontendOverride.prefixArgsForTargetInfo),
-      capturingJSONOutputAs: FrontendTargetInfo.self,
-      forceResponseFiles: false,
-      recordedInputModificationDates: [:]).target.triple
-//    return try Self.computeTargetInfo(target: nil, targetVariant: nil,
-//                                      swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
-//                                      toolchain: toolchain, fileSystem: fileSystem,
-//                                      workingDirectory: workingDirectory,
-//                                      executor: executor).target.triple
+    return try Self.computeTargetInfo(target: nil, targetVariant: nil,
+                                      swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                      toolchain: toolchain, fileSystem: fileSystem,
+                                      workingDirectory: workingDirectory,
+                                      executor: executor).target.triple
   }
 
   static func computeToolchain(
@@ -2972,28 +2965,16 @@ extension Driver {
 
     // Query the frontend for target information.
     do {
-      var info: FrontendTargetInfo = try executor.execute(
-        job: toolchain.printTargetInfoJob(
-          target: explicitTarget, targetVariant: explicitTargetVariant,
-          sdkPath: sdkPath, resourceDirPath: resourceDirPath,
-          runtimeCompatibilityVersion:
-            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
-          useStaticResourceDir: useStaticResourceDir,
-          swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo
-        ),
-        capturingJSONOutputAs: FrontendTargetInfo.self,
-        forceResponseFiles: false,
-        recordedInputModificationDates: [:])
-//      var info: FrontendTargetInfo =
-//        try Self.computeTargetInfo(target: explicitTarget, targetVariant: explicitTargetVariant,
-//                                   sdkPath: sdkPath, resourceDirPath: resourceDirPath,
-//                                   runtimeCompatibilityVersion:
-//                                     parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
-//                                   useStaticResourceDir: useStaticResourceDir,
-//                                   swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
-//                                   toolchain: toolchain, fileSystem: fileSystem,
-//                                   workingDirectory: workingDirectory,
-//                                   executor: executor)
+      var info: FrontendTargetInfo =
+        try Self.computeTargetInfo(target: explicitTarget, targetVariant: explicitTargetVariant,
+                                   sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+                                   runtimeCompatibilityVersion:
+                                     parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+                                   useStaticResourceDir: useStaticResourceDir,
+                                   swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                   toolchain: toolchain, fileSystem: fileSystem,
+                                   workingDirectory: workingDirectory,
+                                   executor: executor)
 
       // Parse the runtime compatibility version. If present, it will override
       // what is reported by the frontend.
