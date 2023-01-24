@@ -23,25 +23,32 @@ import func TSCBasic.topologicalSort
       // Replace the occurrence of a Swift module to-be-built from source-file
       // to an info that describes a pre-built binary module.
       let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
-      guard let currentInfo = modules[swiftModuleId] else {
-        // If the build system specifies a certain target to be an external dependency,
-        // but the dependency graph does not contain a corresponding module, it may be possible
-        // that this is a faux-dependency. For example, a SwiftPM package manifest specifies
-        // a dependency on a target that is not actually used.
-        continue
+      let prebuiltModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
+      if let currentInfo = modules[swiftModuleId],
+         externalModuleId.moduleName != mainModuleName {
+        let newExternalModuleDetails =
+        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                               isFramework: externalModuleDetails.isFramework)
+        let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                 sourceFiles: [],
+                                 directDependencies: currentInfo.directDependencies,
+                                 details: .swiftPrebuiltExternal(newExternalModuleDetails))
+        Self.replaceModule(originalId: swiftModuleId, replacementId: prebuiltModuleId,
+                           replacementInfo: newInfo, in: &modules)
+      } else if let currentPrebuiltInfo = modules[prebuiltModuleId] {
+        // Just update the isFramework bit on this prebuilt module dependency
+        let newExternalModuleDetails =
+        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                               isFramework: externalModuleDetails.isFramework)
+        let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                 sourceFiles: [],
+                                 directDependencies: currentPrebuiltInfo.directDependencies,
+                                 details: .swiftPrebuiltExternal(newExternalModuleDetails))
+        Self.replaceModule(originalId: prebuiltModuleId, replacementId: prebuiltModuleId,
+                           replacementInfo: newInfo, in: &modules)
       }
-      
-      let newModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
-      let newExternalModuleDetails =
-      try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                              TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                             isFramework: externalModuleDetails.isFramework)
-      let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                               sourceFiles: [],
-                               directDependencies: currentInfo.directDependencies,
-                               details: .swiftPrebuiltExternal(newExternalModuleDetails))
-      Self.replaceModule(originalId: swiftModuleId, replacementId: newModuleId,
-                         replacementInfo: newInfo, in: &modules)
     }
   }
 }
