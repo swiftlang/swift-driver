@@ -14,8 +14,6 @@
 import TSCBasic
 import XCTest
 
-import struct TSCUtility.Version
-
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
   func haveAnyNodesBeenTraversed(inMock i: Int) -> Bool {

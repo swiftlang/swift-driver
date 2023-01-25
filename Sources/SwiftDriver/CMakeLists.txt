@@ -123,7 +123,7 @@ add_library(SwiftDriver
   Utilities/Triple+Platforms.swift
   Utilities/Triple.swift
   Utilities/TypedVirtualPath.swift
-  Utilities/VersionExtensions.swift
+  Utilities/Version.swift
   Utilities/VirtualPath.swift)
 
 target_link_libraries(SwiftDriver PUBLIC
