@@ -14,7 +14,6 @@ import class TSCBasic.LocalFileOutputByteStream
 import class TSCBasic.TerminalController
 import struct TSCBasic.RelativePath
 import var TSCBasic.stderrStream
-import enum TSCUtility.Diagnostics
 
 /// Whether we should produce color diagnostics by default.
 fileprivate func shouldColorDiagnostics() -> Bool {
@@ -474,7 +473,7 @@ extension Driver {
     if parsedOptions.hasArgument(.updateCode) {
       guard compilerMode == .standardCompile else {
         diagnosticEngine.emit(.error_update_code_not_supported(in: compilerMode))
-        throw Diagnostics.fatalError
+        throw ErrorDiagnostics.emitted
       }
       assert(primaryInputs.count == 1, "Standard compile job had more than one primary input")
       let input = primaryInputs[0]
