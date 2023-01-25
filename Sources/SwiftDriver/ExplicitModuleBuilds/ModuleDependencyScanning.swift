@@ -236,7 +236,7 @@ public extension Driver {
     return fallbackToFrontend
   }
 
-  private func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {
+  static func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {
     // Remove the tool executable to only leave the arguments. When passing the
     // command line into libSwiftScan, the library is itself the tool and only
     // needs to parse the remaining arguments.
@@ -257,10 +257,10 @@ public extension Driver {
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-      var command = try itemizedJobCommand(of: preScanJob,
-                                           useResponseFiles: .disabled,
-                                           using: executor.resolver)
-      sanitizeCommandForLibScanInvocation(&command)
+      var command = try Self.itemizedJobCommand(of: preScanJob,
+                                                useResponseFiles: .disabled,
+                                                using: executor.resolver)
+      Self.sanitizeCommandForLibScanInvocation(&command)
       imports =
         try interModuleDependencyOracle.getImports(workingDirectory: cwd,
                                                    moduleAliases: moduleOutputInfo.aliases,
@@ -293,10 +293,10 @@ public extension Driver {
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-      var command = try itemizedJobCommand(of: scannerJob,
-                                           useResponseFiles: .disabled,
-                                           using: executor.resolver)
-      sanitizeCommandForLibScanInvocation(&command)
+      var command = try Self.itemizedJobCommand(of: scannerJob,
+                                                useResponseFiles: .disabled,
+                                                using: executor.resolver)
+      Self.sanitizeCommandForLibScanInvocation(&command)
       dependencyGraph =
         try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
                                                         moduleAliases: moduleOutputInfo.aliases,
@@ -339,10 +339,10 @@ public extension Driver {
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-      var command = try itemizedJobCommand(of: batchScanningJob,
-                                           useResponseFiles: .disabled,
-                                           using: executor.resolver)
-      sanitizeCommandForLibScanInvocation(&command)
+      var command = try Self.itemizedJobCommand(of: batchScanningJob,
+                                                useResponseFiles: .disabled,
+                                                using: executor.resolver)
+      Self.sanitizeCommandForLibScanInvocation(&command)
       moduleVersionedGraphMap =
         try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
                                                              moduleAliases: moduleOutputInfo.aliases,
@@ -485,8 +485,8 @@ public extension Driver {
                                                                   contents)
   }
 
-  fileprivate func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
-                                      using resolver: ArgsResolver) throws -> [String] {
+  static func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
+                                 using resolver: ArgsResolver) throws -> [String] {
     let (args, _) = try resolver.resolveArgumentList(for: job,
                                                      useResponseFiles: useResponseFiles)
     return args

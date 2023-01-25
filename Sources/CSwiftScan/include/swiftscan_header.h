@@ -193,6 +193,8 @@ typedef struct {
 
   //=== Cleanup Functions ---------------------------------------------------===//
   void
+  (*swiftscan_string_dispose)(swiftscan_string_ref_t);
+  void
   (*swiftscan_string_set_dispose)(swiftscan_string_set_t *);
   void
   (*swiftscan_dependency_graph_dispose)(swiftscan_dependency_graph_t);
@@ -206,6 +208,11 @@ typedef struct {
   (*swiftscan_batch_scan_result_dispose)(swiftscan_batch_scan_result_t *);
   void
   (*swiftscan_scan_invocation_dispose)(swiftscan_scan_invocation_t);
+
+  //=== Target Info Functions-------- ---------------------------------------===//
+  swiftscan_string_ref_t
+  (*swiftscan_compiler_target_info_query_v2)(swiftscan_scan_invocation_t,
+                                             const char *);
 
   //=== Functionality Query Functions ---------------------------------------===//
   swiftscan_string_set_t *

@@ -137,7 +137,7 @@ public struct Driver {
   public let integratedDriver: Bool
 
   /// The file system which we should interact with.
-  let fileSystem: FileSystem
+  @_spi(Testing) public let fileSystem: FileSystem
 
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
@@ -522,12 +522,15 @@ public struct Driver {
           compilerMode: self.compilerMode, env: env,
           executor: self.executor, fileSystem: fileSystem,
           useStaticResourceDir: self.useStaticResourceDir,
+          workingDirectory: self.workingDirectory,
           compilerExecutableDir: compilerExecutableDir)
 
     // Compute the host machine's triple
     self.hostTriple =
       try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
                                  toolchain: self.toolchain, executor: self.executor,
+                                 fileSystem: fileSystem,
+                                 workingDirectory: self.workingDirectory,
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
@@ -2896,18 +2899,18 @@ extension Driver {
     diagnosticsEngine: DiagnosticsEngine,
     toolchain: Toolchain,
     executor: DriverExecutor,
+    fileSystem: FileSystem,
+    workingDirectory: AbsolutePath?,
     swiftCompilerPrefixArgs: [String]) throws -> Triple {
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
-    return try executor.execute(
-      job: toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                        swiftCompilerPrefixArgs:
-                                          frontendOverride.prefixArgsForTargetInfo),
-      capturingJSONOutputAs: FrontendTargetInfo.self,
-      forceResponseFiles: false,
-      recordedInputModificationDates: [:]).target.triple
+    return try Self.computeTargetInfo(target: nil, targetVariant: nil,
+                                      swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                      toolchain: toolchain, fileSystem: fileSystem,
+                                      workingDirectory: workingDirectory,
+                                      executor: executor).target.triple
   }
 
   static func computeToolchain(
@@ -2918,6 +2921,7 @@ extension Driver {
     executor: DriverExecutor,
     fileSystem: FileSystem,
     useStaticResourceDir: Bool,
+    workingDirectory: AbsolutePath?,
     compilerExecutableDir: AbsolutePath?
   ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
@@ -2961,18 +2965,16 @@ extension Driver {
 
     // Query the frontend for target information.
     do {
-      var info: FrontendTargetInfo = try executor.execute(
-        job: toolchain.printTargetInfoJob(
-          target: explicitTarget, targetVariant: explicitTargetVariant,
-          sdkPath: sdkPath, resourceDirPath: resourceDirPath,
-          runtimeCompatibilityVersion:
-            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
-          useStaticResourceDir: useStaticResourceDir,
-          swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo
-        ),
-        capturingJSONOutputAs: FrontendTargetInfo.self,
-        forceResponseFiles: false,
-        recordedInputModificationDates: [:])
+      var info: FrontendTargetInfo =
+        try Self.computeTargetInfo(target: explicitTarget, targetVariant: explicitTargetVariant,
+                                   sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+                                   runtimeCompatibilityVersion:
+                                     parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+                                   useStaticResourceDir: useStaticResourceDir,
+                                   swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                   toolchain: toolchain, fileSystem: fileSystem,
+                                   workingDirectory: workingDirectory,
+                                   executor: executor)
 
       // Parse the runtime compatibility version. If present, it will override
       // what is reported by the frontend.

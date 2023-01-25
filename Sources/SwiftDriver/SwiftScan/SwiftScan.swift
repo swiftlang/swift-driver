@@ -14,6 +14,8 @@
 
 import func Foundation.strdup
 import func Foundation.free
+import class Foundation.JSONDecoder
+import struct Foundation.Data
 
 import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
@@ -80,7 +82,7 @@ internal extension swiftscan_diagnostic_severity_t {
 }
 
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
-internal final class SwiftScan {
+@_spi(Testing) public final class SwiftScan {
   /// The path to the libSwiftScan dylib.
   let path: AbsolutePath
 
@@ -269,6 +271,10 @@ internal final class SwiftScan {
            api.swiftscan_diagnostic_get_severity != nil &&
            api.swiftscan_diagnostics_set_dispose != nil
   }
+
+  @_spi(Testing) public func supportsStringDispose() -> Bool {
+    return api.swiftscan_string_dispose != nil
+  }
   
   @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
@@ -311,6 +317,37 @@ internal final class SwiftScan {
       throw DependencyScanningError.argumentQueryFailed
     }
   }
+
+  @_spi(Testing) public func canQueryTargetInfo() -> Bool {
+    return api.swiftscan_compiler_target_info_query_v2 != nil &&
+           api.swiftscan_string_set_dispose != nil
+  }
+
+  func queryTargetInfoJSON(workingDirectory: AbsolutePath,
+                           compilerExecutablePath: AbsolutePath,
+                           invocationCommand: [String]) throws -> Data {
+    // Create and configure the scanner invocation
+    let invocation = api.swiftscan_scan_invocation_create()
+    defer { api.swiftscan_scan_invocation_dispose(invocation) }
+    api.swiftscan_scan_invocation_set_working_directory(invocation,
+                                                        workingDirectory
+                                                          .description
+                                                          .cString(using: String.Encoding.utf8))
+    withArrayOfCStrings(invocationCommand) { invocationStringArray in
+      api.swiftscan_scan_invocation_set_argv(invocation,
+                                             Int32(invocationCommand.count),
+                                             invocationStringArray)
+    }
+
+    let targetInfoString: String = try compilerExecutablePath.description.withCString { cstring in
+      let targetInfoStringRef = api.swiftscan_compiler_target_info_query_v2(invocation, cstring)
+      defer { api.swiftscan_string_dispose(targetInfoStringRef) }
+      return try toSwiftString(targetInfoStringRef)
+    }
+
+    let targetInfoData = Data(targetInfoString.utf8)
+    return targetInfoData
+  }
 }
 
 // Used for testing purposes only
@@ -347,6 +384,10 @@ private extension swiftscan_functions_t {
     self.swiftscan_compiler_supported_features_query =
       try loadOptional("swiftscan_compiler_supported_features_query")
 
+    // Target Info query
+    self.swiftscan_compiler_target_info_query_v2 =
+      try loadOptional("swiftscan_compiler_target_info_query_v2")
+
     // Dependency scanner serialization/deserialization features
     self.swiftscan_scanner_cache_serialize =
       try loadOptional("swiftscan_scanner_cache_serialize")
@@ -370,6 +411,8 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_diagnostic_get_severity")
     self.swiftscan_diagnostics_set_dispose =
       try loadOptional("swiftscan_diagnostics_set_dispose")
+    self.swiftscan_string_dispose =
+      try loadOptional("swiftscan_string_dispose")
 
     // isFramework on binary module dependencies
     self.swiftscan_swift_binary_detail_get_is_framework =
