@@ -27,7 +27,6 @@ import var TSCBasic.localFileSystem
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
 
 /// The Swift driver.
 public struct Driver {
@@ -2573,7 +2572,7 @@ extension Driver {
       diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.pathString))
       return false
     }
-    guard let sdkVersion = try? Version(versionString: sdkInfo.versionString, usesLenientParsing: true) else {
+    guard let sdkVersion = try? Version(string: sdkInfo.versionString, lenient: true) else {
       diagnosticsEngine.emit(.warning_fail_parse_sdk_ver(sdkInfo.versionString, sdkPath.pathString))
       return false
     }

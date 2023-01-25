@@ -21,7 +21,6 @@ import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 import var TSCBasic.localFileSystem
-import struct TSCUtility.Version
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
@@ -297,12 +296,12 @@ public final class DarwinToolchain: Toolchain {
         let mappingDict = try keyedContainer.decode([String: String].self, forKey: .macOSToCatalystMapping)
         self.macOSToCatalystMapping = [:]
         try mappingDict.forEach { key, value in
-          guard let newKey = try? Version(versionString: key, usesLenientParsing: true) else {
+          guard let newKey = try? Version(string: key, lenient: true) else {
             throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
                                                    in: keyedContainer,
                                                    debugDescription: "Malformed version string")
           }
-          guard let newValue = try? Version(versionString: value, usesLenientParsing: true) else {
+          guard let newValue = try? Version(string: value, lenient: true) else {
             throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
                                                    in: keyedContainer,
                                                    debugDescription: "Malformed version string")
@@ -323,7 +322,7 @@ public final class DarwinToolchain: Toolchain {
       let canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
       self.platformKind = SDKPlatformKind.allCases.first { canonicalName.hasPrefix($0.rawValue) } ?? SDKPlatformKind.unknown
       self.canonicalName = canonicalName
-      guard let version = try? Version(versionString: versionString, usesLenientParsing: true) else {
+      guard let version = try? Version(string: versionString, lenient: true) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
                                                debugDescription: "Malformed version string")
@@ -342,7 +341,7 @@ public final class DarwinToolchain: Toolchain {
         // For the Mac Catalyst environment, we have a macOS SDK with a macOS
         // SDK version. Map that to the corresponding iOS version number to pass
         // down to the linker.
-        return versionMap.macOSToCatalystMapping[version.withoutBuildNumbers] ?? Version(0, 0, 0)
+        return versionMap.macOSToCatalystMapping[version] ?? Version(0, 0, 0)
       }
       return version
     }
@@ -416,7 +415,7 @@ extension Diagnostic.Message {
 
 private extension Version {
   var sdkVersionString: String {
-    if patch == 0 && prereleaseIdentifiers.isEmpty && buildMetadataIdentifiers.isEmpty {
+    if patch == 0 && prerelease.isEmpty && metadata.isEmpty {
       return "\(major).\(minor)"
     }
     return self.description

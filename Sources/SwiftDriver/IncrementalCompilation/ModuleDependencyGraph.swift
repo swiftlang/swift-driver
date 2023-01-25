@@ -14,7 +14,6 @@ import SwiftOptions
 
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ByteString
-import struct TSCUtility.Version
 import class Dispatch.DispatchQueue
 import struct Foundation.TimeInterval
 
