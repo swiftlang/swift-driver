@@ -400,15 +400,15 @@ enum ModuleDependenciesInputs {
   static var simpleDependencyGraphInput: String {
     """
     {
-      "mainModuleName": "main",
+      "mainModuleName": "simpleTestModule",
       "modules": [
         {
-          "swift": "main"
+          "swift": "simpleTestModule"
         },
         {
-          "modulePath": "main.swiftmodule",
+          "modulePath": "simpleTestModule.swiftmodule",
           "sourceFiles": [
-            "/main/main.swift"
+            "/main/simpleTestModule.swift"
           ],
           "directDependencies": [
             {
@@ -445,6 +445,23 @@ enum ModuleDependenciesInputs {
                 "-Xcc",
                 "-fapinotes-swift-version=5"
               ],
+            }
+          }
+        },
+        {
+          "swiftPrebuiltExternal" : "K"
+        },
+        {
+          "modulePath" : "/tmp/K.swiftmodule",
+          "directDependencies" : [
+            {
+              "swift": "A"
+            },
+          ],
+          "details" : {
+            "swiftPrebuiltExternal": {
+              "compiledModulePath": "/tmp/K.swiftmodule",
+              "isFramework": false
             }
           }
         },

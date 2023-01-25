@@ -205,9 +205,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
     do {
       let externalDetails: ExternalTargetModuleDetailsMap =
             [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/A.swiftmodule"),
-                                                      isFramework: true)]
+                                                                      isFramework: true),
+             .swiftPrebuiltExternal("K"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/K.swiftmodule"),
+                                                                       isFramework: true),
+             .swiftPrebuiltExternal("simpleTestModule"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/simpleTestModule.swiftmodule"),
+                                                                                     isFramework: true)]
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
-                                     "-module-name", "testModuleDependencyBuildCommandGenerationWithExternalFramework",
+                                     "-module-name", "simpleTestModule",
                                      "test.swift"])
       var moduleDependencyGraph =
             try JSONDecoder().decode(
@@ -215,6 +219,17 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.simpleDependencyGraphInput.data(using: .utf8)!)
       // Key part of this test, using the external info to generate dependency pre-build jobs
       try moduleDependencyGraph.resolveExternalDependencies(for: externalDetails)
+
+      // Ensure the main module was not overriden by an external dependency
+      XCTAssertNotNil(moduleDependencyGraph.modules[.swift("simpleTestModule")])
+
+      // Ensure the "K" module's framework status got resolved via `externalDetails`
+      guard case .swiftPrebuiltExternal(let kPrebuiltDetails) = moduleDependencyGraph.modules[.swiftPrebuiltExternal("K")]?.details else {
+        XCTFail("Expected prebuilt module details for module \"K\"")
+        return
+      }
+      XCTAssertTrue(kPrebuiltDetails.isFramework)
+
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
                                            toolchain: driver.toolchain)
