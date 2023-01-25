@@ -230,7 +230,7 @@ fileprivate class ABICheckingDelegate: JobExecutionDelegate {
   }
 }
 
-public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
+public class PrebuiltModuleGenerationDelegate: JobExecutionDelegate {
 
   fileprivate let compileDelegate: ModuleCompileDelegate
   fileprivate let abiCheckDelegate: ABICheckingDelegate
@@ -241,7 +241,7 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     } else if ABICheckingDelegate.canHandle(job: job) {
       return abiCheckDelegate
     } else {
-      fatalError("cannot handle job in PrebuitModuleGenerationDelegate")
+      fatalError("cannot handle job in PrebuiltModuleGenerationDelegate")
     }
   }
 
@@ -660,7 +660,7 @@ extension Driver {
     return allJobs
   }
 
-  public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
+  public mutating func generatePrebuiltModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
                                                            into prebuiltModuleDir: AbsolutePath,
                                                            exhaustive: Bool,
                                                            dotGraphPath: AbsolutePath? = nil,

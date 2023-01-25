@@ -154,7 +154,7 @@ do {
                             diagnosticsEngine: diagnosticsEngine,
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
-    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap,
+    let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: inputMap,
       into: outputDir, exhaustive: !coreMode, dotGraphPath: getArgumentAsPath("-dot-graph-path"),
       currentABIDir: currentABIDir, baselineABIDir: baselineABIDir)
     if verbose {
@@ -166,7 +166,7 @@ do {
     if skipExecution {
       exit(0)
     }
-    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logDir)
+    let delegate = PrebuiltModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logDir)
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
