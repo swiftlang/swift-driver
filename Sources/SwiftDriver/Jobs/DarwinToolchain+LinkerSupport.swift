@@ -221,10 +221,6 @@ extension DarwinToolchain {
       commandLine.appendFlag("-fobjc-link-runtime")
     }
 
-    commandLine.appendFlags(
-      "-lSystem"
-    )
-
     let targetTriple = targetInfo.target.triple
     commandLine.appendFlag("--target=\(targetTriple.triple)")
     if let variantTriple = targetInfo.targetVariant?.triple {
