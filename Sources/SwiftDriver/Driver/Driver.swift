@@ -595,7 +595,8 @@ public struct Driver {
       if let digesterMode = DigesterMode(rawValue: modeArg) {
         mode = digesterMode
       } else {
-        diagnosticsEngine.emit(Error.invalidArgumentValue(Option.digesterMode.spelling, modeArg))
+        diagnosticsEngine.emit(.error(Error.invalidArgumentValue(Option.digesterMode.spelling, modeArg)),
+                               location: nil)
       }
     }
     self.digesterMode = mode
@@ -662,7 +663,8 @@ public struct Driver {
       Driver.isOptionFound($0, allOpts: supportedFrontendFlagsLocal)
     }
     self.savedUnknownDriverFlagsForSwiftFrontend.forEach {
-      diagnosticsEngine.emit(warning: "save unknown driver flag \($0) as additional swift-frontend flag")
+      diagnosticsEngine.emit(.warning("save unknown driver flag \($0) as additional swift-frontend flag"),
+                             location: nil)
     }
     self.supportedFrontendFeatures = try Self.computeSupportedCompilerFeatures(of: self.toolchain, env: env)
 
@@ -951,7 +953,8 @@ extension Driver {
         shouldComplain = self.inputFiles.filter { $0.type.isPartOfSwiftCompilation }.count > 1 && .singleCompile != compilerMode
       }
       if shouldComplain {
-        diagnosticEngine.emit(Error.cannotSpecify_OForMultipleOutputs)
+        diagnosticEngine.emit(.error(Error.cannotSpecify_OForMultipleOutputs),
+                              location: nil)
       }
     }
   }
@@ -2660,7 +2663,8 @@ extension Driver {
                                          diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
-      diagnosticEngine.emit(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+      diagnosticEngine.emit(.error(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)),
+                            location: nil)
     }
   }
 
@@ -2671,25 +2675,30 @@ extension Driver {
                                    diagnosticEngine: DiagnosticsEngine) {
     if moduleOutputInfo.output?.isTopLevel != true {
       for arg in parsedOptions.arguments(for: .emitDigesterBaseline, .emitDigesterBaselinePath, .compareToBaselinePath) {
-        diagnosticEngine.emit(Error.baselineGenerationRequiresTopLevelModule(arg.option.spelling))
+        diagnosticEngine.emit(.error(Error.baselineGenerationRequiresTopLevelModule(arg.option.spelling)),
+                              location: nil)
       }
     }
 
     if parsedOptions.hasArgument(.serializeBreakingChangesPath) && !parsedOptions.hasArgument(.compareToBaselinePath) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.serializeBreakingChangesPath.spelling,
-                                                        Option.compareToBaselinePath.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.serializeBreakingChangesPath.spelling,
+                                                               Option.compareToBaselinePath.spelling)),
+                            location: nil)
     }
     if parsedOptions.hasArgument(.digesterBreakageAllowlistPath) && !parsedOptions.hasArgument(.compareToBaselinePath) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.digesterBreakageAllowlistPath.spelling,
-                                                        Option.compareToBaselinePath.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.digesterBreakageAllowlistPath.spelling,
+                                                               Option.compareToBaselinePath.spelling)),
+                            location: nil)
     }
     if digesterMode == .abi && !parsedOptions.hasArgument(.enableLibraryEvolution) {
-      diagnosticEngine.emit(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
-                                                        Option.enableLibraryEvolution.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
+                                                               Option.enableLibraryEvolution.spelling)),
+                            location: nil)
     }
     if digesterMode == .abi && swiftInterfacePath == nil {
-      diagnosticEngine.emit(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
-                                                        Option.emitModuleInterface.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
+                                                               Option.emitModuleInterface.spelling)),
+                            location: nil)
     }
   }
 
@@ -2698,14 +2707,16 @@ extension Driver {
     // '-print-explicit-dependency-graph' requires '-explicit-module-build'
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) &&
         !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
-                                                        Option.driverExplicitModuleBuild.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
+                                                               Option.driverExplicitModuleBuild.spelling)),
+                            location: nil)
     }
     // '-explicit-dependency-graph-format=' requires '-print-explicit-dependency-graph'
     if parsedOptions.hasArgument(.explicitDependencyGraphFormat) &&
         !parsedOptions.hasArgument(.printExplicitDependencyGraph) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.explicitDependencyGraphFormat.spelling,
-                                                        Option.printExplicitDependencyGraph.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.explicitDependencyGraphFormat.spelling,
+                                                               Option.printExplicitDependencyGraph.spelling)),
+                            location: nil)
     }
     // '-explicit-dependency-graph-format=' only supports values 'json' and 'dot'
     if let formatArg = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle {
@@ -2722,7 +2733,8 @@ extension Driver {
                                     diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.profileGenerate) &&
         parsedOptions.hasArgument(.profileUse) {
-      diagnosticEngine.emit(Error.conflictingOptions(.profileGenerate, .profileUse))
+      diagnosticEngine.emit(.error(Error.conflictingOptions(.profileGenerate, .profileUse)),
+                            location: nil)
     }
 
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
@@ -2731,7 +2743,8 @@ extension Driver {
         if let path = try? AbsolutePath(validating: profilingData,
                                           relativeTo: workingDirectory) {
           if !fileSystem.exists(path) {
-            diagnosticEngine.emit(Error.missingProfilingData(profilingData))
+            diagnosticEngine.emit(.error(Error.missingProfilingData(profilingData)),
+                                  location: nil)
           }
         }
       }
@@ -2742,7 +2755,8 @@ extension Driver {
                                           diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.contains(.parseableOutput) &&
         parsedOptions.contains(.useFrontendParseableOutput) {
-      diagnosticEngine.emit(Error.conflictingOptions(.parseableOutput, .useFrontendParseableOutput))
+      diagnosticEngine.emit(.error(Error.conflictingOptions(.parseableOutput, .useFrontendParseableOutput)),
+                            location: nil)
     }
   }
 
@@ -2752,9 +2766,11 @@ extension Driver {
       if arg.contains("=") {
         diagnosticEngine.emit(.warning_cannot_assign_to_compilation_condition(name: arg))
       } else if arg.hasPrefix("-D") {
-        diagnosticEngine.emit(Error.conditionalCompilationFlagHasRedundantPrefix(arg))
+        diagnosticEngine.emit(.error(Error.conditionalCompilationFlagHasRedundantPrefix(arg)),
+                              location: nil)
       } else if !arg.sd_isSwiftIdentifier {
-        diagnosticEngine.emit(Error.conditionalCompilationFlagIsNotValidIdentifier(arg))
+        diagnosticEngine.emit(.error(Error.conditionalCompilationFlagIsNotValidIdentifier(arg)),
+                              location: nil)
       }
     }
   }
