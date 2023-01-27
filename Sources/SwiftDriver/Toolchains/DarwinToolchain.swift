@@ -126,7 +126,7 @@ public final class DarwinToolchain: Toolchain {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
         environment: env
-      ).spm_chomp()
+      ).trimmingCharacters(in: .whitespacesAndNewlines)
       return try AbsolutePath(validating: result)
     }
 

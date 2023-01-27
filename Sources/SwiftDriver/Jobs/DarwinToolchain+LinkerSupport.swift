@@ -20,7 +20,7 @@ extension DarwinToolchain {
     let result = try executor.checkNonZeroExit(
       args: "xcrun", "-toolchain", "default", "-f", "clang",
       environment: env
-    ).spm_chomp()
+    ).trimmingCharacters(in: .whitespacesAndNewlines)
 
     return result.isEmpty ? nil : try AbsolutePath(validating: result)
   }
