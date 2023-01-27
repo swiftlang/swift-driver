@@ -371,7 +371,7 @@ public final class DarwinToolchain: Toolchain {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo,
-    driver: Driver
+    driver: inout Driver
   ) throws {
     guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
@@ -400,6 +400,26 @@ public final class DarwinToolchain: Toolchain {
         .appending(component: "lib").appending(component: "swift")
         .appending(component: "macosx").appending(component: "prebuilt-modules")
         .appending(component: sdkInfo.versionString))
+    }
+
+    // Pass down -clang-target.
+    // If not specified otherwise, we should use the same triple as -target
+    if !driver.parsedOptions.hasArgument(.disableClangTarget) &&
+        driver.isFrontendArgSupported(.clangTarget) &&
+        driver.parsedOptions.contains(.driverExplicitModuleBuild) {
+      // The common target triple for all Clang dependencies of this compilation,
+      // both direct and transitive is computed as:
+      // 1. An explicitly-specified `-clang-target` argument to this driver invocation
+      // 2. (On Darwin) The target triple of the selected SDK
+      let clangTargetTriple: String
+      if let explicitClangTripleArg = driver.parsedOptions.getLastArgument(.clangTarget)?.asSingle {
+        clangTargetTriple = explicitClangTripleArg
+      } else {
+        clangTargetTriple = frontendTargetInfo.target.unversionedTriple.triple + sdkInfo.versionString
+      }
+
+      commandLine.appendFlag(.clangTarget)
+      commandLine.appendFlag(clangTargetTriple)
     }
   }
 }
