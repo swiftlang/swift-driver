@@ -293,7 +293,7 @@ extension Toolchain {
     let path = try executor.checkNonZeroExit(
       args: xcrun, "--find", executable,
       environment: env
-    ).spm_chomp()
+    ).trimmingCharacters(in: .whitespacesAndNewlines)
     return try AbsolutePath(validating: path)
   }
 
