@@ -339,14 +339,15 @@ internal extension swiftscan_diagnostic_severity_t {
                                              invocationStringArray)
     }
 
-    let targetInfoString: String = try compilerExecutablePath.description.withCString { cstring in
-      let targetInfoStringRef = api.swiftscan_compiler_target_info_query_v2(invocation, cstring)
-      defer { api.swiftscan_string_dispose(targetInfoStringRef) }
-      return try toSwiftString(targetInfoStringRef)
+    return try compilerExecutablePath.description.withCString {
+      let info = api.swiftscan_compiler_target_info_query_v2(invocation, $0)
+      defer { api.swiftscan_string_dispose(info) }
+      guard let data = info.data else {
+        throw DependencyScanningError.invalidStringPtr
+      }
+      return Data(buffer: UnsafeBufferPointer(start: data.bindMemory(to: CChar.self, capacity: info.length),
+                                              count: info.length))
     }
-
-    let targetInfoData = Data(targetInfoString.utf8)
-    return targetInfoData
   }
 }
 
