@@ -115,15 +115,13 @@ extension WebAssemblyToolchain {
         commandLine.appendPath(path)
       }
 
-      // Link the standard library.
-      let linkFilePath: VirtualPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-        .appending(
-          components: targetTriple.platformName() ?? "",
-          "static-executable-args.lnk"
-        )
-
+      // Link the standard library and dependencies.
+      let linkFilePath: VirtualPath =
+          VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+              .appending(components: targetTriple.platformName() ?? "",
+                                     "static-executable-args.lnk")
       guard try fileSystem.exists(linkFilePath) else {
-        fatalError("\(linkFilePath) not found")
+        throw Error.missingExternalDependency(linkFilePath.name)
       }
       commandLine.append(.responseFilePath(linkFilePath))
 
@@ -133,7 +131,7 @@ extension WebAssemblyToolchain {
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
       guard sanitizers.isEmpty else {
-        fatalError("WebAssembly does not support sanitizers, but a runtime library was found")
+        throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
       }
 
       guard !parsedOptions.hasArgument(.profileGenerate) else {
