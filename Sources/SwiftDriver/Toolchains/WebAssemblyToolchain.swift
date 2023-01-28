@@ -24,6 +24,7 @@ public final class WebAssemblyToolchain: Toolchain {
     case dynamicLibrariesUnsupportedForTarget(String)
     case sanitizersUnsupportedForTarget(String)
     case profilingUnsupportedForTarget(String)
+    case missingExternalDependency(String)
 
     public var description: String {
       switch self {
@@ -35,6 +36,8 @@ public final class WebAssemblyToolchain: Toolchain {
         return "sanitizers are unsupported for target '\(triple)'"
       case .profilingUnsupportedForTarget(let triple):
         return "profiling is unsupported for target '\(triple)'"
+      case .missingExternalDependency(let dependency):
+        return "missing external dependency '\(dependency)'"
       }
     }
   }
