@@ -148,6 +148,11 @@ do {
     if let mcp = getArgument(mcpFlag) {
       args.append(mcpFlag)
       args.append(mcp)
+      // Create module cache dir if absent.
+      let mcpPath = try VirtualPath(path: mcp).absolutePath!
+      if !localFileSystem.exists(mcpPath) {
+        try localFileSystem.createDirectory(mcpPath, recursive: true)
+      }
     }
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
