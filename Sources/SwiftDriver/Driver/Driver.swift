@@ -26,23 +26,7 @@ import struct TSCBasic.RelativePath
 import var TSCBasic.localFileSystem
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
-
-extension Driver {
-  /// Stub Error for terminating the process.
-  public enum ErrorDiagnostics: Swift.Error {
-    case emitted
-  }
-}
-
-extension Driver.ErrorDiagnostics: CustomStringConvertible {
-  public var description: String {
-    switch self {
-    case .emitted:
-      return "errors were encountered"
-    }
-  }
-}
-
+import enum TSCUtility.Diagnostics
 
 /// The Swift driver.
 public struct Driver {
@@ -1858,7 +1842,7 @@ extension Driver {
         if let originalPath = swiftFiles[basename] {
           diagnosticsEngine.emit(.error_two_files_same_name(basename: basename, firstPath: originalPath, secondPath: input))
           diagnosticsEngine.emit(.note_explain_two_files_same_name)
-          throw ErrorDiagnostics.emitted
+          throw Diagnostics.fatalError
         } else {
           swiftFiles[basename] = input
         }
@@ -1871,7 +1855,7 @@ extension Driver {
       if let mainPath = swiftFiles["main.swift"] {
         diagnosticsEngine.emit(.error_two_files_same_name(basename: "main.swift", firstPath: mainPath, secondPath: "-e"))
         diagnosticsEngine.emit(.note_explain_two_files_same_name)
-        throw ErrorDiagnostics.emitted
+        throw Diagnostics.fatalError
       }
       
       try withTemporaryDirectory(dir: fileSystem.tempDirectory, removeTreeOnDeinit: false) { absPath in
@@ -2910,7 +2894,7 @@ extension Triple {
       return WindowsToolchain.self
     default:
       diagnosticsEngine.emit(.error_unknown_target(triple))
-      throw Driver.ErrorDiagnostics.emitted
+      throw Diagnostics.fatalError
     }
   }
 }

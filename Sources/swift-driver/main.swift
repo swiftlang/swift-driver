@@ -32,6 +32,7 @@ import class TSCBasic.Process
 import class TSCBasic.ProcessSet
 import protocol TSCBasic.DiagnosticData
 import var TSCBasic.localFileSystem
+import enum TSCUtility.Diagnostics
 
 let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
@@ -99,9 +100,7 @@ do {
   
   // FIXME: The following check should be at the end of Driver.init, but current
   // usage of the DiagnosticVerifier in tests makes this difficult.
-  guard !driver.diagnosticEngine.hasErrors else {
-    throw Driver.ErrorDiagnostics.emitted
-  }
+  guard !driver.diagnosticEngine.hasErrors else { throw Diagnostics.fatalError }
 
   let jobs = try driver.planBuild()
   try driver.run(jobs: jobs)
@@ -109,12 +108,11 @@ do {
   if driver.diagnosticEngine.hasErrors {
     exit(getExitCode(EXIT_FAILURE))
   }
-
   exit(getExitCode(0))
+} catch Diagnostics.fatalError {
+  exit(getExitCode(EXIT_FAILURE))
 } catch let diagnosticData as DiagnosticData {
   diagnosticsEngine.emit(.error(diagnosticData))
-  exit(getExitCode(EXIT_FAILURE))
-} catch Driver.ErrorDiagnostics.emitted {
   exit(getExitCode(EXIT_FAILURE))
 } catch {
   print("error: \(error)")
