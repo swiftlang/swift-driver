@@ -248,7 +248,7 @@ def install_swiftdriver(args, build_dir, prefix, targets) :
 
   # Binary Swift Modules:
   # swift-driver: SwiftDriver.swiftmodule, SwiftOptions.swiftmodule
-  # swift-tools-support-core: TSCUtility.swiftmodule, TSCLibc.swiftmodule, TSCBasic.swiftmodule
+  # swift-tools-support-core: TSCUtility.swiftmodule, TSCBasic.swiftmodule
   # swift-argument-parser: ArgumentParser.swiftmodule (disabled until needed)
   # swift-system: SystemPackage.swiftmodule
   install_binary_swift_modules(args, build_dir, install_lib, targets)
@@ -303,7 +303,7 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
 
   # Fixup the TSC and llbuild rpaths
   driver_libs = [os.path.join('lib', d) for d in ['libSwiftDriver', 'libSwiftOptions', 'libSwiftDriverExecution']]
-  tsc_libs = [os.path.join('dependencies', 'swift-tools-support-core', 'lib', d) for d in ['libTSCBasic', 'libTSCLibc', 'libTSCUtility']]
+  tsc_libs = [os.path.join('dependencies', 'swift-tools-support-core', 'lib', d) for d in ['libTSCBasic', 'libTSCUtility']]
   for lib in driver_libs + tsc_libs:
     for target in targets:
       lib_path = os.path.join(build_dir, target,
@@ -323,7 +323,7 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
 
   # Install the swift-tools-support core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-tools-support-core')
-  for lib in ['libTSCBasic', 'libTSCLibc', 'libTSCUtility']:
+  for lib in ['libTSCBasic', 'libTSCUtility']:
     install_library(args, build_dir, package_subpath, lib, shared_lib_ext,
                     universal_lib_dir, toolchain_lib_dir, 'swift-tools-support-core', targets)
 
@@ -371,7 +371,7 @@ def install_binary_swift_modules(args, build_dir, toolchain_lib_dir, targets):
   # swift-tools-support-core
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-tools-support-core',
                                  product_subpath)
-  for module in ['TSCUtility', 'TSCLibc', 'TSCBasic']:
+  for module in ['TSCUtility', 'TSCBasic']:
     install_module(args, build_dir, package_subpath, toolchain_lib_dir, module, targets)
 
   # swift-argument-parser
