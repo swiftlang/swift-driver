@@ -365,8 +365,8 @@ extension ModuleDependencyGraph {
     for invalidatedInput in collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes) {
       guard info.isPartOfBuild(invalidatedInput)
       else {
-        info.diagnosticEngine.emit(.warning("Failed to find source file '\(invalidatedInput.typedFile.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental."),
-                                   location: nil)
+        info.diagnosticEngine.emit(
+          warning: "Failed to find source file '\(invalidatedInput.typedFile.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental.")
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)

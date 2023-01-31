@@ -421,8 +421,7 @@ public struct SDKPrebuiltModuleInputsCollector {
     return map.filter {
       // Remove modules without associated .swiftinterface files and diagnose.
       if $0.value.isEmpty {
-        diagEngine.emit(.warning("\($0.key) has no associated .swiftinterface files"),
-                        location: nil)
+        diagEngine.emit(warning: "\($0.key) has no associated .swiftinterface files")
         return false
       }
       return true
@@ -458,7 +457,7 @@ public struct SDKPrebuiltModuleInputsCollector {
           hasInterface.append(currentFile)
         }
         if currentFile.extension == "swiftmodule" {
-          diagEngine.emit(.warning("found \(currentFile)"), location: nil)
+          diagEngine.emit(warning: "found \(currentFile)")
           hasModule.append(currentFile)
         }
       }
@@ -722,8 +721,7 @@ extension Driver {
       var results: [TypedVirtualPath] = []
       modules.forEach { module in
         guard let allOutputs = outputMap[module] else {
-          diagnosticEngine.emit(.error("cannot find output paths for \(module)"),
-                                location: nil)
+          diagnosticEngine.emit(error: "cannot find output paths for \(module)")
           return
         }
         let allPaths = allOutputs.filter { output in
@@ -774,8 +772,7 @@ extension Driver {
         // contain this dependency.
         dependencies.forEach({ newModule in
           if !openModules.contains(newModule) {
-            diagnosticEngine.emit(.note("\(newModule) is discovered."),
-                                  location: nil)
+            diagnosticEngine.emit(note: "\(newModule) is discovered.")
             openModules.append(newModule)
           }
         })
@@ -795,8 +792,7 @@ extension Driver {
     // of mac native so those macabi-only modules cannot be found by the scanner.
     // We have to handle those modules separately without any dependency info.
     try unhandledModules.forEach { moduleName in
-      diagnosticEngine.emit(.warning("handle \(moduleName) has dangling jobs"),
-                            location: nil)
+      diagnosticEngine.emit(warning: "handle \(moduleName) has dangling jobs")
       try forEachInputOutputPair(moduleName) { input, output in
         danglingJobs.append(contentsOf: try generateSingleModuleBuildingJob(moduleName,
           prebuiltModuleDir, input, output, [], currentABIDir, baselineABIDir))
