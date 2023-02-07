@@ -176,9 +176,18 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         commandLine.appendFlag(.explicitInterfaceModuleBuild)
       }
 
-      // Set the output path
-      commandLine.appendFlag(.o)
-      commandLine.appendPath(VirtualPath.lookup(moduleInfo.modulePath.path))
+      // FIXME: This is a temporary measure meant to be deleted once supported toolchains'
+      // scanners always output commands with '-o'.
+      //
+      // If the dependency scanner did not append its own "-o", add it here.
+      // This is temporary and is meant to handle both: the scanner that
+      // appends '-o' and one that doesn't, until we have a toolchain snapshot with the scanner
+      // that appends '-o' always.
+      let outputFlagIndeces = commandLine.enumerated().compactMap { $1 == .flag("-o") ? $0 : nil }
+      if outputFlagIndeces.isEmpty {
+        commandLine.appendFlag(.o)
+        commandLine.appendPath(VirtualPath.lookup(moduleInfo.modulePath.path))
+      }
 
       jobs.append(Job(
         moduleName: moduleId.moduleName,
