@@ -134,6 +134,7 @@ extension Option {
   public static let disableCrossImportOverlays: Option = Option("-disable-cross-import-overlays", .flag, attributes: [.frontend, .noDriver], helpText: "Do not automatically import declared cross-import overlays.")
   public static let disableDebuggerShadowCopies: Option = Option("-disable-debugger-shadow-copies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable debugger shadow copies of local variables.This option is only useful for testing the compiler.")
   public static let disableDeserializationRecovery: Option = Option("-disable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't attempt to recover from missing xrefs (etc) in swiftmodules")
+  public static let disableDeserializationSafety: Option = Option("-disable-deserialization-safety", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't avoid reading potentially unsafe decls in swiftmodules")
   public static let disableDiagnosticPasses: Option = Option("-disable-diagnostic-passes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run diagnostic passes")
   public static let disableEmitGenericClassRoTList: Option = Option("-disable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of a section with references to class_ro_t of generic class patterns")
   public static let disableExperimentalClangImporterDiagnostics: Option = Option("-disable-experimental-clang-importer-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable experimental diagnostics when importing C, C++, and Objective-C libraries")
@@ -174,6 +175,7 @@ extension Option {
   public static let disableReadonlyStaticObjects: Option = Option("-disable-readonly-static-objects", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid allocating static objects in a read-only data section")
   public static let disableReflectionMetadata: Option = Option("-disable-reflection-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of reflection metadata for nominal types")
   public static let disableReflectionNames: Option = Option("-disable-reflection-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of names of stored properties and enum cases inreflection metadata")
+  public static let disableRelativeProtocolWitnessTables: Option = Option("-disable-relative-protocol-witness-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable relative protocol witness tables")
   public static let disableRemoveDeprecatedCheck: Option = Option("-disable-remove-deprecated-check", .flag, attributes: [.noDriver], helpText: "Skip diagnosing removal of deprecated symbols")
   public static let disableRemoveDeprecatedCheck_: Option = Option("--disable-remove-deprecated-check", .flag, alias: Option.disableRemoveDeprecatedCheck, attributes: [.noDriver], helpText: "Skip diagnosing removal of deprecated symbols")
   public static let disableRequirementMachineConcreteContraction: Option = Option("-disable-requirement-machine-concrete-contraction", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable preprocessing pass to eliminate conformance requirements on generic parameters which are made concrete")
@@ -322,6 +324,7 @@ extension Option {
   public static let enableCrossImportOverlays: Option = Option("-enable-cross-import-overlays", .flag, attributes: [.frontend, .noDriver], helpText: "Automatically import declared cross-import overlays.")
   public static let EnbaleDefaultCMO: Option = Option("-enable-default-cmo", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform conservative cross-module optimization")
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
+  public static let enableDeserializationSafety: Option = Option("-enable-deserialization-safety", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid reading potentially unsafe decls in swiftmodules")
   public static let enableDestroyHoisting: Option = Option("-enable-destroy-hoisting=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "true|false", helpText: "Whether to enable destroy hoisting")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
   public static let enableEmitGenericClassRoTList: Option = Option("-enable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of a section with references to class_ro_t of generic class patterns")
@@ -367,6 +370,7 @@ extension Option {
   public static let enableOperatorDesignatedTypes: Option = Option("-enable-operator-designated-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable operator designated types")
   public static let enableOssaModules: Option = Option("-enable-ossa-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always serialize SIL in ossa form. If this flag is not passed in, when optimizing ownership will be lowered before serializing SIL")
   public static let enablePrivateImports: Option = Option("-enable-private-imports", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal and private API to be accessed")
+  public static let enableRelativeProtocolWitnessTables: Option = Option("-enable-relative-protocol-witness-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable relative protocol witness tables")
   public static let enableRequirementMachineOpaqueArchetypes: Option = Option("-enable-requirement-machine-opaque-archetypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable more correct opaque archetype support, which is off by default because it might fail to produce a convergent rewrite system")
   public static let enableResilience: Option = Option("-enable-resilience", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Deprecated, use -enable-library-evolution instead")
   public static let enableRoundTripDebugTypes: Option = Option("-enable-round-trip-debug-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enables verification of debug info mangling")
@@ -541,6 +545,7 @@ extension Option {
   public static let O: Option = Option("-O", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations", group: .O)
   public static let o: Option = Option("-o", .joinedOrSeparate, attributes: [.frontend, .noInteractive, .autolinkExtract, .moduleWrap, .indent, .argumentIsPath], metaVar: "<file>", helpText: "Write output to <file>")
   public static let packageDescriptionVersion: Option = Option("-package-description-version", .separate, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<vers>", helpText: "The version number to be applied on the input for the PackageDescription availability kind")
+  public static let packageName: Option = Option("-package-name", .separate, attributes: [.frontend], helpText: "Name of the package the module belongs to")
   public static let parseAsLibrary: Option = Option("-parse-as-library", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file(s) as libraries, not scripts")
   public static let parseSil: Option = Option("-parse-sil", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file as SIL code, not Swift source")
   public static let parseStdlib: Option = Option("-parse-stdlib", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Parse the input file(s) as the Swift standard library")
@@ -868,6 +873,7 @@ extension Option {
       Option.disableCrossImportOverlays,
       Option.disableDebuggerShadowCopies,
       Option.disableDeserializationRecovery,
+      Option.disableDeserializationSafety,
       Option.disableDiagnosticPasses,
       Option.disableEmitGenericClassRoTList,
       Option.disableExperimentalClangImporterDiagnostics,
@@ -908,6 +914,7 @@ extension Option {
       Option.disableReadonlyStaticObjects,
       Option.disableReflectionMetadata,
       Option.disableReflectionNames,
+      Option.disableRelativeProtocolWitnessTables,
       Option.disableRemoveDeprecatedCheck,
       Option.disableRemoveDeprecatedCheck_,
       Option.disableRequirementMachineConcreteContraction,
@@ -1056,6 +1063,7 @@ extension Option {
       Option.enableCrossImportOverlays,
       Option.EnbaleDefaultCMO,
       Option.enableDeserializationRecovery,
+      Option.enableDeserializationSafety,
       Option.enableDestroyHoisting,
       Option.enableDynamicReplacementChaining,
       Option.enableEmitGenericClassRoTList,
@@ -1101,6 +1109,7 @@ extension Option {
       Option.enableOperatorDesignatedTypes,
       Option.enableOssaModules,
       Option.enablePrivateImports,
+      Option.enableRelativeProtocolWitnessTables,
       Option.enableRequirementMachineOpaqueArchetypes,
       Option.enableResilience,
       Option.enableRoundTripDebugTypes,
@@ -1275,6 +1284,7 @@ extension Option {
       Option.O,
       Option.o,
       Option.packageDescriptionVersion,
+      Option.packageName,
       Option.parseAsLibrary,
       Option.parseSil,
       Option.parseStdlib,

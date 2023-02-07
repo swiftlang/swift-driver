@@ -19,14 +19,14 @@ final class SwiftDriverTests: XCTestCase {
       // Parse each kind of option
       let results = try options.parse([
         "input1", "-color-diagnostics", "-Ifoo", "-I", "bar spaces",
-        "-I=wibble", "input2", "-module-name", "main",
+        "-I=wibble", "input2", "-module-name", "main", "-package-name", "mypkg",
         "-sanitize=a,b,c", "--", "-foo", "-bar"], for: .batch)
 #if os(Windows)
       XCTAssertEqual(results.description,
-                     #"input1 -color-diagnostics -I foo -I "bar spaces" -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar"#)
+                     #"input1 -color-diagnostics -I foo -I "bar spaces" -I=wibble input2 -module-name main -package-name mypkg -sanitize=a,b,c -- -foo -bar"#)
 #else
       XCTAssertEqual(results.description,
-                     "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
+                     "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -package-name mypkg -sanitize=a,b,c -- -foo -bar")
 #endif
     }
 
@@ -62,6 +62,14 @@ final class SwiftDriverTests: XCTestCase {
 
     XCTAssertThrowsError(try options.parse(["-module-name"], for: .batch)) { error in
       XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-module-name"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-package-name"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-package-name"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-package-name"], for: .interactive)) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-package-name"))
     }
 
     XCTAssertThrowsError(try options.parse(["-o"], for: .interactive)) { error in

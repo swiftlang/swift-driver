@@ -311,6 +311,10 @@ extension Driver {
       commandLine.appendFlags("-module-name", moduleOutputInfo.name)
     }
 
+    if let packageName = packageName {
+      commandLine.appendFlags("-package-name", packageName)
+    }
+
     // Enable frontend Parseable-output, if needed.
     if parsedOptions.contains(.useFrontendParseableOutput) {
       commandLine.appendFlag("-frontend-parseable-output")

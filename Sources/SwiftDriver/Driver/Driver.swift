@@ -243,8 +243,11 @@ public struct Driver {
   /// The debug information to produce.
   @_spi(Testing) public let debugInfo: DebugInfo
 
-  // The information about the module to produce.
+  /// The information about the module to produce.
   @_spi(Testing) public let moduleOutputInfo: ModuleOutputInfo
+
+  /// Name of the package containing a target module or file.
+  @_spi(Testing) public let packageName: String?
 
   /// Info needed to write and maybe read the build record.
   /// Only present when the driver will be writing the record.
@@ -636,6 +639,13 @@ public struct Driver {
 
     // Compute debug information output.
     self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+
+    // Validate package name; if package name is nil, it will be checked
+    // in the frontend during type check on `package` symbols
+    self.packageName = parsedOptions.getLastArgument(.packageName)?.asSingle
+    if let packageName = packageName, !packageName.sd_isSwiftIdentifier {
+      diagnosticsEngine.emit(.error_bad_package_name(packageName))
+    }
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     self.moduleOutputInfo = try Self.computeModuleInfo(
