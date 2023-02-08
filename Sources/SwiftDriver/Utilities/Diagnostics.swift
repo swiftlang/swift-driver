@@ -115,6 +115,13 @@ extension Diagnostic.Message {
     return .error("bad module alias \"\(arg)\"")
   }
 
+  static func error_bad_package_name(_ packageName: String) -> Diagnostic.Message {
+    if packageName.isEmpty {
+      return .error("package name is empty; pass a non-empty string or remove \'-package-name\'")
+    }
+    return .error("package name \"\(packageName)\" is not a valid identifier")
+  }
+
   static var error_hermetic_seal_cannot_have_library_evolution: Diagnostic.Message {
     .error("Cannot use -experimental-hermetic-seal-at-link with -enable-library-evolution")
   }

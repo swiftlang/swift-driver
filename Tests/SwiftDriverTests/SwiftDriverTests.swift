@@ -689,6 +689,29 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "foo-bar.swift")
   }
 
+  func testPackageNameFlag() throws {
+    // -package-name mypkg (valid string)
+    try assertNoDriverDiagnostics(args: "swiftc", "file.swift", "bar.swift", "-module-name", "MyModule", "-package-name", "mypkg", "-emit-module", "-emit-module-path", "../../path/to/MyModule.swiftmodule") { driver in
+      XCTAssertEqual(driver.packageName, "mypkg")
+      XCTAssertEqual(driver.moduleOutputInfo.output, .topLevel(try VirtualPath.intern(path: "../../path/to/MyModule.swiftmodule")))
+    }
+
+    // -package-name is not passed
+    try assertNoDriverDiagnostics(args: "swiftc", "file.swift") { driver in
+      XCTAssertNil(driver.packageName)
+      XCTAssertEqual(driver.moduleOutputInfo.name, "file")
+    }
+  }
+
+  func testPackageNameDiags() throws {
+    try assertDriverDiagnostics(args: ["swiftc", "file.swift", "-package-name", ""]) {
+      $1.expect(.error("package name is empty; pass a non-empty string or remove \'-package-name\'"))
+    }
+    try assertDriverDiagnostics(args: ["swiftc", "file.swift", "-module-name", "Foo", "-package-name", "123a!@#$"]) {
+      $1.expect(.error("package name \"123a!@#$\" is not a valid identifier"))
+    }
+  }
+
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
