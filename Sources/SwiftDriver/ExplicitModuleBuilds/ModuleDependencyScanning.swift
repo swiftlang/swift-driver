@@ -63,7 +63,7 @@ extension Diagnostic.Message {
     // try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
 
     // Set dependency modules' paths to be saved in the module cache.
-    try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
+    // try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
 
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
       let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
