@@ -237,6 +237,19 @@ extension Driver {
       commandLine.appendFlag(.emptyAbiDescriptor)
     }
 
+    if isFrontendArgSupported(.emitMacroExpansionFiles) {
+      try commandLine.appendLast(.emitMacroExpansionFiles, from: &parsedOptions)
+    }
+
+    if isFrontendArgSupported(.pluginPath) {
+      try commandLine.appendAll(.pluginPath, from: &parsedOptions)
+
+      let defaultPluginPath = try toolchain.executableDir.parentDirectory
+        .appending(components: "lib", "swift", "host", "plugins")
+      commandLine.appendFlag(.pluginPath)
+      commandLine.appendPath(defaultPluginPath)
+    }
+
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
     if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,

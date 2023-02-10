@@ -146,6 +146,7 @@ extension Option {
   public static let disableImplicitConcurrencyModuleImport: Option = Option("-disable-implicit-concurrency-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Concurrency module.")
   public static let disableImplicitStringProcessingModuleImport: Option = Option("-disable-implicit-string-processing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _StringProcessing module.")
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules implicitly by the compiler")
+  public static let disableImportPtrauthFieldFunctionPointers: Option = Option("-disable-import-ptrauth-field-function-pointers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable import of custom ptrauth qualified field function pointers")
   public static let disableIncrementalImports: Option = Option("-disable-incremental-imports", .flag, attributes: [.frontend], helpText: "Disable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
   public static let disableInferPublicConcurrentValue: Option = Option("-disable-infer-public-sendable", .flag, attributes: [.frontend, .noDriver], helpText: "Disable inference of Sendable conformances for public structs and enums")
@@ -265,6 +266,7 @@ extension Option {
   public static let emitLoadedModuleTracePathEQ: Option = Option("-emit-loaded-module-trace-path=", .joined, alias: Option.emitLoadedModuleTracePath, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput])
   public static let emitLoadedModuleTracePath: Option = Option("-emit-loaded-module-trace-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit the loaded module trace JSON to <path>")
   public static let emitLoadedModuleTrace: Option = Option("-emit-loaded-module-trace", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit a JSON file containing information about what modules were loaded")
+  public static let emitMacroExpansionFiles: Option = Option("-emit-macro-expansion-files", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Specify when to emit macro expansion file: 'none', 'debug', or 'diagnostics'")
   public static let emitMigratedFilePath: Option = Option("-emit-migrated-file-path", .separate, attributes: [.frontend, .noDriver, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<path>", helpText: "Emit the migrated source file to <path>")
   public static let emitModuleDependenciesPath: Option = Option("-emit-module-dependencies-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a discovered dependencies file for the emit-module task to <path>")
   public static let emitModuleDocPath: Option = Option("-emit-module-doc-path", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Output module documentation file <path>")
@@ -349,6 +351,7 @@ extension Option {
   public static let enableExperimentalStringProcessing: Option = Option("-enable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental string processing")
   public static let enableExplicitExistentialTypes: Option = Option("-enable-explicit-existential-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for explicit existential types")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
+  public static let enableImportPtrauthFieldFunctionPointers: Option = Option("-enable-import-ptrauth-field-function-pointers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable import of custom ptrauth qualified field function pointers")
   public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let enableInferPublicConcurrentValue: Option = Option("-enable-infer-public-sendable", .flag, attributes: [.frontend, .noDriver], helpText: "Enable inference of Sendable conformances for public structs and enums")
   public static let enableInvalidEphemeralnessAsError: Option = Option("-enable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as errors")
@@ -408,6 +411,7 @@ extension Option {
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
   public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let explicitSwiftModuleMap: Option = Option("-explicit-swift-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of explicit Swift modules")
+  public static let exportAs: Option = Option("-export-as", .separate, attributes: [.frontend], helpText: "Module name to use when referenced in clients module interfaces")
   public static let externalPassPipelineFilename: Option = Option("-external-pass-pipeline-filename", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<pass_pipeline_file>", helpText: "Use the pass pipeline defined by <pass_pipeline_file>")
   public static let e: Option = Option("-e", .separate, attributes: [], helpText: "Executes a line of code provided on the command line")
   public static let FEQ: Option = Option("-F=", .joined, alias: Option.F, attributes: [.frontend, .argumentIsPath])
@@ -557,6 +561,7 @@ extension Option {
   public static let placeholderDependencyModuleMap: Option = Option("-placeholder-dependency-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of external Swift module dependencies")
   public static let playgroundHighPerformance: Option = Option("-playground-high-performance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Omit instrumentation that has a high runtime performance impact")
   public static let playground: Option = Option("-playground", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Apply the playground semantics and transformation")
+  public static let pluginPath: Option = Option("-plugin-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to the plugin search path")
   public static let prebuiltModuleCachePathEQ: Option = Option("-prebuilt-module-cache-path=", .joined, alias: Option.prebuiltModuleCachePath, attributes: [.helpHidden, .frontend, .noDriver])
   public static let prebuiltModuleCachePath: Option = Option("-prebuilt-module-cache-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Directory of prebuilt modules for loading module interfaces")
   public static let prefixSerializedDebuggingOptions: Option = Option("-prefix-serialized-debugging-options", .flag, attributes: [.frontend], helpText: "Apply debug prefix mappings to serialized debug info in Swiftmodule files")
@@ -659,6 +664,7 @@ extension Option {
   public static let suppressStaticExclusivitySwap: Option = Option("-suppress-static-exclusivity-swap", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Suppress static violations of exclusive access with swap()")
   public static let suppressWarnings: Option = Option("-suppress-warnings", .flag, attributes: [.frontend], helpText: "Suppress all warnings")
   public static let swiftAsyncFramePointerEQ: Option = Option("-swift-async-frame-pointer=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "One of 'auto', 'always' or 'never'")
+  public static let swiftModuleFile: Option = Option("-swift-module-file=", .joined, attributes: [.frontend, .noDriver], metaVar: "<name>=<path>", helpText: "Specify Swift module input explicitly built from textual interface")
   public static let swiftOnly: Option = Option("-swift-only", .flag, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftOnly_: Option = Option("--swift-only", .flag, alias: Option.swiftOnly, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftVersion: Option = Option("-swift-version", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Interpret input according to a specific Swift language version number")
@@ -885,6 +891,7 @@ extension Option {
       Option.disableImplicitConcurrencyModuleImport,
       Option.disableImplicitStringProcessingModuleImport,
       Option.disableImplicitSwiftModules,
+      Option.disableImportPtrauthFieldFunctionPointers,
       Option.disableIncrementalImports,
       Option.disableIncrementalLlvmCodegeneration,
       Option.disableInferPublicConcurrentValue,
@@ -1004,6 +1011,7 @@ extension Option {
       Option.emitLoadedModuleTracePathEQ,
       Option.emitLoadedModuleTracePath,
       Option.emitLoadedModuleTrace,
+      Option.emitMacroExpansionFiles,
       Option.emitMigratedFilePath,
       Option.emitModuleDependenciesPath,
       Option.emitModuleDocPath,
@@ -1088,6 +1096,7 @@ extension Option {
       Option.enableExperimentalStringProcessing,
       Option.enableExplicitExistentialTypes,
       Option.enableImplicitDynamic,
+      Option.enableImportPtrauthFieldFunctionPointers,
       Option.enableIncrementalImports,
       Option.enableInferPublicConcurrentValue,
       Option.enableInvalidEphemeralnessAsError,
@@ -1147,6 +1156,7 @@ extension Option {
       Option.explicitInterfaceModuleBuild,
       Option.driverExplicitModuleBuild,
       Option.explicitSwiftModuleMap,
+      Option.exportAs,
       Option.externalPassPipelineFilename,
       Option.e,
       Option.FEQ,
@@ -1296,6 +1306,7 @@ extension Option {
       Option.placeholderDependencyModuleMap,
       Option.playgroundHighPerformance,
       Option.playground,
+      Option.pluginPath,
       Option.prebuiltModuleCachePathEQ,
       Option.prebuiltModuleCachePath,
       Option.prefixSerializedDebuggingOptions,
@@ -1398,6 +1409,7 @@ extension Option {
       Option.suppressStaticExclusivitySwap,
       Option.suppressWarnings,
       Option.swiftAsyncFramePointerEQ,
+      Option.swiftModuleFile,
       Option.swiftOnly,
       Option.swiftOnly_,
       Option.swiftVersion,

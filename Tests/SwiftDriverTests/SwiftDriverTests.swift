@@ -6633,6 +6633,19 @@ final class SwiftDriverTests: XCTestCase {
 #endif
   }
 
+  func testPluginPaths() throws {
+    var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift"])
+    guard driver.isFrontendArgSupported(.pluginPath) else {
+      return
+    }
+
+    let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(jobs.count, 1)
+    let job = jobs.first!
+    XCTAssertTrue(job.commandLine.contains(.flag("-plugin-path")))
+    XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins")))))
+  }
+
   func testRegistrarLookup() throws {
 #if os(Windows)
     let SDKROOT: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "SDKROOT")
