@@ -325,6 +325,30 @@ extension Toolchain {
       supportsResponseFiles: tool.supportsResponseFiles(in: self)
     )
   }
+
+  /// Maps an optimization level swiftc arg to a corresponding flag for the Clang linker driver invocation
+  internal func mapOptimizationLevelToClangArg(from parsedOptions: inout ParsedOptions) -> String? {
+    guard let opt = parsedOptions.getLast(in: .O) else {
+      return nil
+    }
+    let clangArg: String?
+    switch opt.option {
+    case .Oplayground:
+      fallthrough
+    case .Onone:
+      clangArg = "-O0"
+    case .O:
+      fallthrough
+    case .Ounchecked:
+      clangArg = "-O3"
+    case .Osize:
+      clangArg = "-Os"
+    default:
+      clangArg = nil
+      assert(false, "Unhandled Optimization Mode: \(opt.description)")
+    }
+    return clangArg
+  }
 }
 
 @_spi(Testing) public enum ToolchainError: Swift.Error {

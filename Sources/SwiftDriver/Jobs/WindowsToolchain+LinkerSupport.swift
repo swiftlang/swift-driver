@@ -172,6 +172,11 @@ extension WindowsToolchain {
       commandLine.appendFlag("-stdlib=\(stdlib.asSingle)")
     }
 
+    // Pass down an optimization level
+    if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+      commandLine.appendFlag(optArg)
+    }
+
     // FIXME(compnerd) render asan/ubsan runtime link for executables
 
     if parsedOptions.contains(.profileGenerate) {
