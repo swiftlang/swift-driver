@@ -191,6 +191,11 @@ extension DarwinToolchain {
       commandLine.appendFlag("-fapplication-extension")
     }
 
+    // Pass down an optimization level
+    if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+      commandLine.appendFlag(optArg)
+    }
+
     // Linking sanitizers will add rpaths, which might negatively interact when
     // other rpaths are involved, so we should make sure we add the rpaths after
     // all user-specified rpaths.

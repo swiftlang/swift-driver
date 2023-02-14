@@ -1666,7 +1666,7 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // macOS target
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15", "-use-ld=foo"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-apple-macosx10.15", "-Onone", "-use-ld=foo"], env: env)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
@@ -1685,6 +1685,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-shared")))
       // Handling of '-lobjc' is now in the Clang linker driver.
       XCTAssertFalse(cmd.contains(.flag("-lobjc")))
+      XCTAssertTrue(cmd.contains(.flag("-O0")))
     }
 
     do {
@@ -1952,12 +1953,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkJob1?.commandLine.contains(.flag("-flto=thin")))
       #endif
 
-      var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
+      var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-O", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
       let plannedJobs2 = try driver2.planBuild()
       XCTAssertFalse(plannedJobs2.contains(where: { $0.kind == .autolinkExtract }))
       let linkJob2 = plannedJobs2.first(where: { $0.kind == .link })
       XCTAssertTrue(linkJob2?.tool.name.contains("clang"))
       XCTAssertTrue(linkJob2?.commandLine.contains(.flag("-flto=thin")))
+      XCTAssertTrue(linkJob2?.commandLine.contains(.flag("-O3")))
 
       var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
       let plannedJobs3 = try driver3.planBuild()
@@ -1972,7 +1974,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: commonArgs + ["-emit-executable", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-Onone", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(5, plannedJobs.count)
       XCTAssertEqual(plannedJobs.map(\.kind), [.emitModule, .compile, .compile, .link, .generateDSYM])
@@ -1985,6 +1987,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "foo.o"))
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
       XCTAssertTrue(cmd.contains(.joinedOptionAndPath("-Wl,-add_ast_path,", .relative(.init("Test.swiftmodule")))))
+      XCTAssertTrue(cmd.contains(.flag("-O0")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -2057,7 +2060,7 @@ final class SwiftDriverTests: XCTestCase {
     #if os(Linux)
     do {
       // executable linking linux static stdlib
-      var driver = try Driver(args: commonArgs + ["-emit-executable", "-static-stdlib", "-target", "x86_64-unknown-linux"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-Osize", "-static-stdlib", "-target", "x86_64-unknown-linux"], env: env)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -2077,6 +2080,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
       XCTAssertTrue(cmd.contains(.flag("--start-group")))
       XCTAssertTrue(cmd.contains(.flag("--end-group")))
+      XCTAssertTrue(cmd.contains(.flag("-Os")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
       XCTAssertFalse(cmd.contains(.flag("-static")))
@@ -2119,7 +2123,7 @@ final class SwiftDriverTests: XCTestCase {
         try localFileSystem.writeFileContents(
           path.appending(components: "wasi", "static-executable-args.lnk")) { $0 <<< "garbage" }
         // WASM executable linking
-        var driver = try Driver(args: commonArgs + ["-emit-executable",
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-Ounchecked",
                                                     "-target", "wasm32-unknown-wasi",
                                                     "-resource-dir", path.pathString,
                                                     "-sdk", "/sdk/path"], env: env)
@@ -2144,6 +2148,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
         XCTAssertTrue(commandContainsTemporaryResponsePath(cmd, "Test.autolink"))
         XCTAssertTrue(cmd.contains(.responseFilePath(.absolute(path.appending(components: "wasi", "static-executable-args.lnk")))))
+        XCTAssertTrue(cmd.contains(.flag("-O3")))
         XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
         XCTAssertFalse(cmd.contains(.flag("-dylib")))

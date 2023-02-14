@@ -125,6 +125,11 @@ extension WebAssemblyToolchain {
       }
       commandLine.append(.responseFilePath(linkFilePath))
 
+      // Pass down an optimization level
+      if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+        commandLine.appendFlag(optArg)
+      }
+
       // Explicitly pass the target to the linker
       commandLine.appendFlag("--target=\(targetTriple.triple)")
 
