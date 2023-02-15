@@ -206,3 +206,14 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
 * Integration
   * [x] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/main/utils/build-script) to build `swift-driver`.
   * [x] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/main/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
+
+### Build all Swift interfaces from an SDK
+Based on libSwiftDriver, `swift-build-sdk-interfaces`  is a tool to batch build all Swift textual interfaces (`.swiftinterface`) from an SDK into binary modules (`.swiftmodule`). As an example, the following command finds all Swift textual interface from the MacOSX SDK, builds all of them into binary modules, and outputs module-specific error logs into the given directory.
+
+`
+$SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk SWIFT_EXEC=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc swift-build-sdk-interfaces -o /tmp/outputs -v -log-path /tmp/logs`
+
+* *SDKROOT*: an env var to specify the SDK to work on
+* *SWIFT_EXEC*: teach `swift-build-sdk-interfaces` about where to find the Swift compiler to use
+* *-O*: the output directory for all binary modules built from textual interfaces
+* *-log-path*: where to dump log files when fatal error happens
