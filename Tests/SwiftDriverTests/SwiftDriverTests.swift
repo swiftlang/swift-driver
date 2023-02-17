@@ -757,6 +757,18 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-o", "+++.out"]).moduleOutputInfo.name, "main")
     XCTAssertEqual(try Driver(args: ["swift"]).moduleOutputInfo.name, "REPL")
     XCTAssertEqual(try Driver(args: ["swiftc", "foo.swift", "-emit-library", "-o", "libBaz.dylib"]).moduleOutputInfo.name, "Baz")
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "", "file.foo.swift"]
+    ) {
+      $1.expect(.error("module name \"\" is not a valid identifier"))
+    }
+
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "123", "file.foo.swift"]
+    ) {
+      $1.expect(.error("module name \"123\" is not a valid identifier"))
+    }
   }
 
   func testEmitModuleSeparatelyDiagnosticPath() throws {

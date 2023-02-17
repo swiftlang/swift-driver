@@ -2321,32 +2321,6 @@ extension Driver {
     return ""
   }
 
-  /// Whether we are going to be building an executable.
-  ///
-  /// FIXME: Why "maybe"? Why isn't this all known in advance as captured in
-  /// linkerOutputType?
-  private static func maybeBuildingExecutable(
-    _ parsedOptions: inout ParsedOptions,
-    linkerOutputType: LinkOutputType?
-  ) -> Bool {
-    switch linkerOutputType {
-    case .executable:
-      return true
-
-    case .dynamicLibrary, .staticLibrary:
-      return false
-
-    default:
-      break
-    }
-
-    if parsedOptions.hasArgument(.parseAsLibrary, .parseStdlib) {
-      return false
-    }
-
-    return parsedOptions.allInputs.count == 1
-  }
-
   /// Determine how the module will be emitted and the name of the module.
   private static func computeModuleInfo(
     _ parsedOptions: inout ParsedOptions,
@@ -2419,10 +2393,9 @@ extension Driver {
 
     func fallbackOrDiagnose(_ error: Diagnostic.Message) {
       moduleNameIsFallback = true
-      if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
+      if compilerOutputType == nil || !parsedOptions.hasArgument(.moduleName) {
         moduleName = "main"
-      }
-      else {
+      } else {
         diagnosticsEngine.emit(error)
         moduleName = "__bad__"
       }
