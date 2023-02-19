@@ -340,7 +340,7 @@ def install_libraries(args, build_dir, universal_lib_dir, toolchain_lib_dir, tar
 
   # Install the llbuild core shared libraries into the toolchain lib
   package_subpath = os.path.join(args.configuration, 'dependencies', 'llbuild')
-  for lib in ['libllbuildSwift', 'libllbuild']:
+  for lib in ['libllbuildSwift']:
     install_library(args, build_dir, package_subpath, lib, shared_lib_ext,
                     universal_lib_dir, toolchain_lib_dir,'llbuild', targets)
 
