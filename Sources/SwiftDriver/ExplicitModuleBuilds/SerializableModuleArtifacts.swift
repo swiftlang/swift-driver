@@ -45,14 +45,32 @@
   /// The module's name
   public let moduleName: String
   /// The path for the module's .pcm file
-  public let modulePath: TextualVirtualPath
+  public let clangModulePath: TextualVirtualPath
   /// The path for this module's .modulemap file
-  public let moduleMapPath: TextualVirtualPath
+  public let clangModuleMapPath: TextualVirtualPath
+  /// A flag to indicate whether this module is a framework
+  public let isFramework: Bool
 
   init(name: String, modulePath: TextualVirtualPath, moduleMapPath: TextualVirtualPath) {
     self.moduleName = name
-    self.modulePath = modulePath
-    self.moduleMapPath = moduleMapPath
+    self.clangModulePath = modulePath
+    self.clangModuleMapPath = moduleMapPath
+    self.isFramework = false
+  }
+}
+
+enum ModuleDependencyArtifactInfo: Codable {
+  case clang(ClangModuleArtifactInfo)
+  case swift(SwiftModuleArtifactInfo)
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    switch self {
+      case .swift(let swiftInfo):
+        try container.encode(swiftInfo)
+      case .clang(let clangInfo):
+        try container.encode(clangInfo)
+    }
   }
 }
 

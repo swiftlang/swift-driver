@@ -162,31 +162,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add precompiled module candidates, if present
       if let compiledCandidateList = moduleDetails.compiledModuleCandidates {
         for compiledCandidate in compiledCandidateList {
-          commandLine.appendFlag("-candidate-module-file")
-          let compiledCandidatePath = compiledCandidate
-          commandLine.appendPath(VirtualPath.lookup(compiledCandidatePath.path))
-          inputs.append(TypedVirtualPath(file: compiledCandidatePath.path,
+          inputs.append(TypedVirtualPath(file: compiledCandidate.path,
                                          type: .swiftModule))
         }
-      }
-
-      if supportsExplicitInterfaceBuild {
-        // Ensure the compiler flags specified in the interface are ignored
-        // because they are already captured in the dependency scanner output
-        commandLine.appendFlag(.explicitInterfaceModuleBuild)
-      }
-
-      // FIXME: This is a temporary measure meant to be deleted once supported toolchains'
-      // scanners always output commands with '-o'.
-      //
-      // If the dependency scanner did not append its own "-o", add it here.
-      // This is temporary and is meant to handle both: the scanner that
-      // appends '-o' and one that doesn't, until we have a toolchain snapshot with the scanner
-      // that appends '-o' always.
-      let outputFlagIndeces = commandLine.enumerated().compactMap { $1 == .flag("-o") ? $0 : nil }
-      if outputFlagIndeces.isEmpty {
-        commandLine.appendFlag(.o)
-        commandLine.appendPath(VirtualPath.lookup(moduleInfo.modulePath.path))
       }
 
       jobs.append(Job(
@@ -241,23 +219,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         let moduleMapPath = moduleDetails.moduleMapPath.path
         let modulePCMPath = moduleInfo.modulePath
         outputs.append(TypedVirtualPath(file: modulePCMPath.path, type: .pcm))
-        
-        // TODO: Remove this once toolchain is updated
-        // If the dependency scanner did not append its own "-o", add it here.
-        // This is temporary and is meant to handle both: the scanner that
-        // appends '-o' and one that doesn't, until we have a toolchain snapshot with the scanner
-        // that appends '-o' always.
-        let outputFlagIndeces = commandLine.enumerated().compactMap { $1 == .flag("-o") ? $0 : nil }
-        // One '-o' is expected as an `-Xcc` flag.
-        if outputFlagIndeces.count <= 1 {
-          commandLine.appendFlags("-o", modulePCMPath.path.description)
-        }
-
-        // TODO: Remove this once toolchain is updated
-        // Fixup "-o -Xcc '<replace-me>'"
-        if let outputIndex = commandLine.firstIndex(of: .flag("<replace-me>")) {
-          commandLine[outputIndex] = .path(VirtualPath.lookup(modulePCMPath.path))
-        }
 
         // The only required input is the .modulemap for this module.
         // Command line options in the dependency scanner output will include the
@@ -285,53 +246,42 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                                           inputs: inout [TypedVirtualPath],
                                                           commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
-    commandLine.appendFlags("-disable-implicit-swift-modules",
-                            "-Xcc", "-fno-implicit-modules",
-                            "-Xcc", "-fno-implicit-module-maps")
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
     try addModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
 
-    // Swift Module dependencies are passed encoded in a JSON file as described by
+    // Each individual module binary is still an "input" to ensure the build system gets the
+    // order correctly.
+    for dependencyModule in swiftDependencyArtifacts {
+      inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
+                                     type: .swiftModule))
+    }
+
+    // Clang module dependencies are specified on the command line explicitly
+    for moduleArtifactInfo in clangDependencyArtifacts {
+      let clangModulePath =
+        TypedVirtualPath(file: moduleArtifactInfo.clangModulePath.path,
+                         type: .pcm)
+      let clangModuleMapPath =
+        TypedVirtualPath(file: moduleArtifactInfo.clangModuleMapPath.path,
+                         type: .clangModuleMap)
+      inputs.append(clangModulePath)
+      inputs.append(clangModuleMapPath)
+    }
+
+    // Swift Main Module dependencies are passed encoded in a JSON file as described by
     // SwiftModuleArtifactInfo
-    if !swiftDependencyArtifacts.isEmpty {
+    if moduleId.moduleName == mainModuleName {
       let dependencyFile =
-        try serializeModuleDependencies(for: moduleId, dependencyArtifacts: swiftDependencyArtifacts)
+        try serializeModuleDependencies(for: moduleId,
+                                        swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                        clangDependencyArtifacts: clangDependencyArtifacts)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendPath(dependencyFile)
       inputs.append(TypedVirtualPath(file: dependencyFile.intern(),
                                      type: .jsonSwiftArtifacts))
-      // Each individual module binary is still an "input" to ensure the build system gets the
-      // order correctly.
-      for dependencyModule in swiftDependencyArtifacts {
-        inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
-                                       type: .swiftModule))
-      }
-    }
-    // Clang module dependencies are specified on the command line explicitly
-    for moduleArtifactInfo in clangDependencyArtifacts {
-      let clangModulePath =
-        TypedVirtualPath(file: moduleArtifactInfo.modulePath.path,
-                         type: .pcm)
-      let clangModuleMapPath =
-        TypedVirtualPath(file: moduleArtifactInfo.moduleMapPath.path,
-                         type: .clangModuleMap)
-      inputs.append(clangModulePath)
-      inputs.append(clangModuleMapPath)
-
-      // If an existing dependency module path stub exists, replace it.
-      if let existingIndex = commandLine.firstIndex(of: .flag("-fmodule-file=" + moduleArtifactInfo.moduleName + "=<replace-me>")) {
-        commandLine[existingIndex] = .flag("-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
-      } else if case .swift(_) = moduleId {
-        commandLine.appendFlags("-Xcc",
-                                "-fmodule-file=\(moduleArtifactInfo.moduleName)=\(clangModulePath.file.description)")
-      }
-      if case .swift(_) = moduleId {
-        commandLine.appendFlags("-Xcc",
-                                "-fmodule-map-file=\(clangModuleMapPath.file.description)")
-      }
     }
   }
 
@@ -410,6 +360,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   public mutating func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
                                                      commandLine: inout [Job.ArgTemplate]) throws {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+    commandLine.appendFlags("-disable-implicit-swift-modules",
+                            "-Xcc", "-fno-implicit-modules",
+                            "-Xcc", "-fno-implicit-module-maps")
     try resolveExplicitModuleDependencies(moduleId: mainModuleId,
                                           pcmArgs:
                                             try dependencyGraph.swiftModulePCMArgs(of: mainModuleId),
@@ -419,11 +372,15 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// Store the output file artifacts for a given module in a JSON file, return the file's path.
   private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
-                                           dependencyArtifacts: [SwiftModuleArtifactInfo]
+                                           swiftDependencyArtifacts: [SwiftModuleArtifactInfo],
+                                           clangDependencyArtifacts: [ClangModuleArtifactInfo]
   ) throws -> VirtualPath {
+    let allDependencyArtifacts: [ModuleDependencyArtifactInfo] =
+      swiftDependencyArtifacts.map {ModuleDependencyArtifactInfo.swift($0)} +
+      clangDependencyArtifacts.map {ModuleDependencyArtifactInfo.clang($0)}
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
-    let contents = try encoder.encode(dependencyArtifacts)
+    let contents = try encoder.encode(allDependencyArtifacts)
     return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
   }
 

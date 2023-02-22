@@ -77,7 +77,7 @@ struct CompileJobGroup {
   let compileGroups: [CompileJobGroup]
   let afterCompiles: [Job]
 
-  var allJobs: [Job] {
+  @_spi(Testing) public var allJobs: [Job] {
     var r = beforeCompiles
     compileGroups.forEach { r.append(contentsOf: $0.allJobs()) }
     r.append(contentsOf: afterCompiles)
@@ -152,7 +152,7 @@ extension Driver {
 
   /// Construct a build plan consisting of *all* jobs required for building the current module (non-incrementally).
   /// At build time, incremental state will be used to distinguish which of these jobs must run.
-  mutating private func computeJobsForPhasedStandardBuild(with dependencyGraph: InterModuleDependencyGraph?)
+  @_spi(Testing) public mutating func computeJobsForPhasedStandardBuild(with dependencyGraph: InterModuleDependencyGraph?)
   throws -> JobsInPhases {
     // Centralize job accumulation here.
     // For incremental compilation, must separate jobs happening before,
