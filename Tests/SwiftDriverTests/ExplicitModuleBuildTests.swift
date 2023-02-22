@@ -269,6 +269,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+          cHeadersPath.appending(component: "Bridging.h")
       let swiftModuleInterfacesPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "Swift")
@@ -278,6 +280,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
@@ -338,6 +341,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
                                             dependencyGraph: dependencyGraph)
           }
+          else if relativeOutputPathFileName.starts(with: "F-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
+                                            dependencyGraph: dependencyGraph)
+          }
           else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             dependencyGraph: dependencyGraph)
@@ -357,7 +364,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
             case .temporary(_):
               let baseName = "testExplicitModuleBuildJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
-                            matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
+                            matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink") ||
+                            matchTemporary(outputFilePath, basename: "Bridging-", fileExtension: "pch"))
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }

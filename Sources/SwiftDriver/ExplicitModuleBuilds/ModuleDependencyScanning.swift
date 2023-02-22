@@ -107,7 +107,7 @@ public extension Driver {
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
-                                 bridgingHeaderHandling: .ignored,
+                                 bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
