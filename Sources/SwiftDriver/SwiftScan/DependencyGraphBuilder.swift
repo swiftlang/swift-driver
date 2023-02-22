@@ -165,6 +165,9 @@ private extension SwiftScan {
     let bridgingSourceFiles =
       try getOptionalPathArrayDetail(from: moduleDetailsRef,
                                      using: api.swiftscan_swift_textual_detail_get_bridging_source_files)
+    let bridgingHeaderDependencies =
+      try getOptionalStringArrayDetail(from: moduleDetailsRef,
+                                       using: api.swiftscan_swift_textual_detail_get_bridging_module_dependencies)
     let commandLine =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_command_line)
@@ -181,6 +184,7 @@ private extension SwiftScan {
                               compiledModuleCandidates: compiledModuleCandidates,
                               bridgingHeaderPath: bridgingHeaderPath,
                               bridgingSourceFiles: bridgingSourceFiles,
+                              bridgingHeaderDependencies: bridgingHeaderDependencies?.map { .clang($0) },
                               commandLine: commandLine,
                               contextHash: contextHash,
                               extraPcmArgs: extraPcmArgs,

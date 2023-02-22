@@ -22,7 +22,7 @@ extension Driver {
     commandLine.appendFlag("-frontend")
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .parsed)
+      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .parsed, isGeneratePCH: true)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 

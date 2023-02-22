@@ -97,6 +97,9 @@ public struct SwiftModuleDetails: Codable {
   /// The source files referenced by the bridging header.
   public var bridgingSourceFiles: [TextualVirtualPath]? = []
 
+  /// Modules that the bridging header specifically depends on
+  public var bridgingHeaderDependencies: [ModuleDependencyId]? = []
+
   /// Options to the compile command
   public var commandLine: [String]? = []
 

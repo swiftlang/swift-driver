@@ -53,7 +53,8 @@ extension Driver {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
-    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed
+    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed,
+    isGeneratePCH: Bool = false
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
@@ -87,7 +88,11 @@ extension Driver {
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
     if (parsedOptions.contains(.driverExplicitModuleBuild) &&
           moduleDependencyGraphUse == .computed) {
-      try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      if isGeneratePCH {
+        try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      } else {
+        try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      }
     }
 
     if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
@@ -577,6 +582,16 @@ extension Driver {
       fatalError("No dependency planner in Explicit Module Build mode.")
     }
     try dependencyPlanner.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
+  }
+
+  /// Adds all dependencies required for an explicit module build of the bridging header
+  /// to inputs and command line arguments of a compile job.
+  func addExplicitPCHBuildArguments(inputs: inout [TypedVirtualPath],
+                                    commandLine: inout [Job.ArgTemplate]) throws {
+    guard var dependencyPlanner = explicitDependencyBuildPlanner else {
+      fatalError("No dependency planner in Explicit Module Build mode.")
+    }
+    try dependencyPlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
