@@ -51,10 +51,6 @@ extension Diagnostic.Message {
     .warning("inferring simulator environment for target '\(originalTriple.triple)'; use '-target \(inferredTriple.triple)' instead")
   }
 
-  static func warning_darwin_link_objc_deprecated() -> Diagnostic.Message {
-    .warning("-link-objc-runtime is no longer supported on Apple platforms")
-  }
-
   static func error_argument_not_allowed_with(arg: String, other: String) -> Diagnostic.Message {
     .error("argument '\(arg)' is not allowed with '\(other)'")
   }
