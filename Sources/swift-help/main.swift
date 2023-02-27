@@ -47,7 +47,7 @@ enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
 }
 
 enum Subcommand: String, CaseIterable {
-  case build, package, packageRegistry = "package-registry", packageCollection = "package-collection", run, test
+  case build, package, run, test
 
   var description: String {
     switch self {
@@ -55,10 +55,6 @@ enum Subcommand: String, CaseIterable {
       return "Build Swift packages"
     case .package:
       return "Create and work on packages"
-    case .packageRegistry:
-      return "Interact with package registry and manage related configuration"
-    case .packageCollection:
-      return "Interact with package collections"
     case .run:
       return "Run a program from a package"
     case .test:
