@@ -6663,6 +6663,39 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins")))))
   }
 
+  func testClangModuleValidateOnce() throws {
+    let flagTest = try Driver(args: ["swiftc", "-typecheck", "foo.swift"])
+    guard flagTest.isFrontendArgSupported(.clangBuildSessionFile),
+          flagTest.isFrontendArgSupported(.validateClangModulesOnce) else {
+      return
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let job = jobs.first!
+      XCTAssertFalse(job.commandLine.contains(.flag("-validate-clang-modules-once")))
+      XCTAssertFalse(job.commandLine.contains(.flag("-clang-build-session-file")))
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swiftc", "-validate-clang-modules-once",
+                                         "foo.swift"]) {
+        $1.expect(.error("'-validate-clang-modules-once' cannot be specified if '-clang-build-session-file' is not present"))
+      }
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-validate-clang-modules-once",
+                                     "-clang-build-session-file", "testClangModuleValidateOnce.session",
+                                     "foo.swift"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let job = jobs.first!
+      XCTAssertTrue(job.commandLine.contains(.flag("-validate-clang-modules-once")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-clang-build-session-file")))
+    }
+  }
+
   func testRegistrarLookup() throws {
 #if os(Windows)
     let SDKROOT: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "SDKROOT")
