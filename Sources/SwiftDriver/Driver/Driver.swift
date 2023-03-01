@@ -626,6 +626,7 @@ public struct Driver {
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
     Self.validateEmitDependencyGraphArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateValidateClangModulesOnceOptions(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
@@ -2697,6 +2698,17 @@ extension Driver {
     if digesterMode == .abi && swiftInterfacePath == nil {
       diagnosticEngine.emit(.error(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
                                                                Option.emitModuleInterface.spelling)),
+                            location: nil)
+    }
+  }
+
+  static func validateValidateClangModulesOnceOptions(_ parsedOptions: inout ParsedOptions,
+                                                      diagnosticEngine: DiagnosticsEngine) {
+    // '-validate-clang-modules-once' requires '-clang-build-session-file'
+    if parsedOptions.hasArgument(.validateClangModulesOnce) &&
+        !parsedOptions.hasArgument(.clangBuildSessionFile) {
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.validateClangModulesOnce.spelling,
+                                                               Option.clangBuildSessionFile.spelling)),
                             location: nil)
     }
   }

@@ -263,6 +263,14 @@ extension Driver {
       commandLine.appendFlag(ver)
     }
 
+    // Pass down -validate-clang-modules-once if we are working with a compiler that
+    // supports it.
+    if isFrontendArgSupported(.validateClangModulesOnce),
+       isFrontendArgSupported(.clangBuildSessionFile) {
+      try commandLine.appendLast(.validateClangModulesOnce, from: &parsedOptions)
+      try commandLine.appendLast(.clangBuildSessionFile, from: &parsedOptions)
+    }
+
     if let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
