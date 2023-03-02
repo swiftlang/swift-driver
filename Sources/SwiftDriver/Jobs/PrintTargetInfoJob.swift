@@ -13,6 +13,7 @@
 import protocol TSCBasic.FileSystem
 import class Foundation.JSONDecoder
 import struct TSCBasic.AbsolutePath
+import class TSCBasic.DiagnosticsEngine
 
 /// Swift versions are major.minor.
 struct SwiftVersion {
@@ -232,6 +233,7 @@ extension Driver {
                                 toolchain: Toolchain,
                                 fileSystem: FileSystem,
                                 workingDirectory: AbsolutePath?,
+                                diagnosticsEngine: DiagnosticsEngine,
                                 executor: DriverExecutor) throws -> FrontendTargetInfo {
     let frontendTargetInfoJob =
       try toolchain.printTargetInfoJob(target: target, targetVariant: targetVariant,
@@ -244,11 +246,16 @@ extension Driver {
                                               useResponseFiles: .disabled,
                                               using: executor.resolver)
     Self.sanitizeCommandForLibScanInvocation(&command)
-    if let targetInfo =
-        try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
-                                          workingDirectory: workingDirectory,
-                                          invocationCommand: command) {
-      return targetInfo
+
+    do {
+      if let targetInfo =
+          try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
+                                            workingDirectory: workingDirectory,
+                                            invocationCommand: command) {
+        return targetInfo
+      }
+    } catch {
+      diagnosticsEngine.emit(.warning_inprocess_target_info_query_failed(error.localizedDescription))
     }
 
     // Fallback: Invoke `swift-frontend -print-target-info` and decode the output
