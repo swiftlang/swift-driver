@@ -2936,6 +2936,7 @@ extension Driver {
                                       swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
                                       toolchain: toolchain, fileSystem: fileSystem,
                                       workingDirectory: workingDirectory,
+                                      diagnosticsEngine: diagnosticsEngine,
                                       executor: executor).target.triple
   }
 
@@ -3000,6 +3001,7 @@ extension Driver {
                                    swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
                                    toolchain: toolchain, fileSystem: fileSystem,
                                    workingDirectory: workingDirectory,
+                                   diagnosticsEngine: diagnosticsEngine,
                                    executor: executor)
 
       // Parse the runtime compatibility version. If present, it will override

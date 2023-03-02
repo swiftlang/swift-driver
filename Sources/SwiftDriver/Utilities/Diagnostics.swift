@@ -51,6 +51,14 @@ extension Diagnostic.Message {
     .warning("inferring simulator environment for target '\(originalTriple.triple)'; use '-target \(inferredTriple.triple)' instead")
   }
 
+  static func warning_inprocess_target_info_query_failed(_ error: String) -> Diagnostic.Message {
+    .warning("In-process target-info query failed (\(error)). Using fallback mechanism.")
+  }
+
+  static func warning_inprocess_supported_features_query_failed(_ error: String) -> Diagnostic.Message {
+    .warning("In-process supported-compiler-features query failed (\(error)). Using fallback mechanism.")
+  }
+
   static func error_argument_not_allowed_with(arg: String, other: String) -> Diagnostic.Message {
     .error("argument '\(arg)' is not allowed with '\(other)'")
   }
