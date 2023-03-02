@@ -64,9 +64,13 @@ extension Driver {
                                            fileSystem: FileSystem,
                                            executor: DriverExecutor)
   throws -> Set<String> {
-    if let supportedArgs =
-        try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
-      return supportedArgs
+    do {
+      if let supportedArgs =
+          try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
+        return supportedArgs
+      }
+    } catch {
+      diagnosticsEngine.emit(.warning_inprocess_supported_features_query_failed(error.localizedDescription))
     }
 
     // Fallback: Invoke `swift-frontend -emit-supported-features` and decode the output
