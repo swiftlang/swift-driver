@@ -253,6 +253,11 @@ extension Driver {
         .appending(components: "lib", "swift", "host", "plugins")
       commandLine.appendFlag(.pluginPath)
       commandLine.appendPath(defaultPluginPath)
+
+      let localPluginPath = try toolchain.executableDir.parentDirectory
+        .appending(components: "local", "lib", "swift", "host", "plugins")
+      commandLine.appendFlag(.pluginPath)
+      commandLine.appendPath(localPluginPath)
     }
 
     // Pass down -user-module-version if we are working with a compiler that

@@ -6661,6 +6661,7 @@ final class SwiftDriverTests: XCTestCase {
     let job = jobs.first!
     XCTAssertTrue(job.commandLine.contains(.flag("-plugin-path")))
     XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins")))))
+    XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "local", "lib", "swift", "host", "plugins")))))
   }
 
   func testClangModuleValidateOnce() throws {
