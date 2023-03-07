@@ -13,6 +13,7 @@
 import class TSCBasic.LocalFileOutputByteStream
 import class TSCBasic.TerminalController
 import struct TSCBasic.RelativePath
+import struct TSCBasic.AbsolutePath
 import var TSCBasic.stderrStream
 
 /// Whether we should produce color diagnostics by default.
@@ -140,6 +141,11 @@ extension Driver {
     try commandLine.appendAll(.I, from: &parsedOptions)
     try commandLine.appendAll(.F, .Fsystem, from: &parsedOptions)
     try commandLine.appendAll(.vfsoverlay, from: &parsedOptions)
+
+    if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
+        commandLine.appendFlag(.Xcc)
+        commandLine.appendFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
+    }
 
     try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
     try commandLine.appendLast(.autolinkForceLoad, from: &parsedOptions)
