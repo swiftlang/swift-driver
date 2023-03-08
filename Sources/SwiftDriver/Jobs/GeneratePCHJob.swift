@@ -53,7 +53,8 @@ extension Driver {
 
     commandLine.appendFlag(.emitPch)
 
-    if parsedOptions.hasArgument(.pchOutputDir) {
+    if parsedOptions.hasArgument(.pchOutputDir) &&
+       !parsedOptions.contains(.driverExplicitModuleBuild) {
       try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
     } else {
       commandLine.appendFlag(.o)

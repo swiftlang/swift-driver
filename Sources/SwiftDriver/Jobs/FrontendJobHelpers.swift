@@ -323,7 +323,12 @@ extension Driver {
       commandLine.appendFlag(.importObjcHeader)
       if bridgingHeaderHandling == .precompiled,
           let pch = bridgingPrecompiledHeader {
-        if parsedOptions.contains(.pchOutputDir) {
+        // For explicit module build, we directly pass the compiled pch as
+        // `-import-objc-header`, rather than rely on swift-frontend to locate
+        // the pch in the pchOutputDir and can start an implicit build in case
+        // of a lookup failure.
+        if parsedOptions.contains(.pchOutputDir) &&
+           !parsedOptions.contains(.driverExplicitModuleBuild) {
           commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
           if !compilerMode.isSingleCompilation {
