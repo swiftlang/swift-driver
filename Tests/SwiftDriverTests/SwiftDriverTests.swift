@@ -6043,24 +6043,24 @@ final class SwiftDriverTests: XCTestCase {
 
   func testCXXInteropOptions() throws {
     do {
-      var driver = try Driver(args: ["swiftc", "-enable-experimental-cxx-interop", "foo.swift"])
+      var driver = try Driver(args: ["swiftc", "-cxx-interoperability-mode=swift-5.9", "foo.swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
       let compileJob = plannedJobs[0]
       let linkJob = plannedJobs[1]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-experimental-cxx-interop")))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-cxx-interoperability-mode=swift-5.9")))
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
       }
     }
     do {
-      var driver = try Driver(args: ["swiftc", "-enable-experimental-cxx-interop",
+      var driver = try Driver(args: ["swiftc", "-cxx-interoperability-mode=swift-5.9",
                                      "-experimental-cxx-stdlib", "libc++", "foo.swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
       let compileJob = plannedJobs[0]
       let linkJob = plannedJobs[1]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-enable-experimental-cxx-interop")))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-cxx-interoperability-mode=swift-5.9")))
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-stdlib=libc++")))
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
@@ -6640,7 +6640,7 @@ final class SwiftDriverTests: XCTestCase {
 #else
       VirtualPath.resetTemporaryFileStore()
       var driver = try Driver(args: [
-        "swiftc", "-enable-experimental-cxx-interop", "-emit-library", "-o", "library.dll", "library.obj"
+        "swiftc", "-cxx-interoperability-mode=swift-5.9", "-emit-library", "-o", "library.dll", "library.obj"
       ])
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 1)

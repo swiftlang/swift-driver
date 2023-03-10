@@ -124,6 +124,7 @@ extension Driver {
 
     // Add flags for C++ interop
     try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
+    try commandLine.appendLast(.cxxInteroperabilityMode, from: &parsedOptions)
     if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
       commandLine.appendFlag("-Xcc")
       commandLine.appendFlag("-stdlib=\(stdlibVariant)")
