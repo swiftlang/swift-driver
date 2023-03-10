@@ -418,6 +418,9 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
     base_swift_flags.append('-Onone')
     base_swift_flags.append('-DDEBUG')
 
+  if args.enable_asan:
+    base_swift_flags.append('-sanitize=address')
+
   # Ensure we are not sharing the module cache with concurrent builds in CI
   base_swift_flags.append('-module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache')))
 
@@ -641,6 +644,7 @@ def main():
     parser.add_argument('--no-local-deps', action='store_true', help='use normal remote dependencies when building')
     parser.add_argument('--verbose', '-v', action='store_true', help='enable verbose output')
     parser.add_argument('--local_compiler_build', action='store_true', help='driver is being built for use with a local compiler build')
+    parser.add_argument('--enable-asan', action='store_true', help='driver is being built with ASAN support')
 
   subparsers = parser.add_subparsers(title='subcommands', dest='action', metavar='action')
   clean_parser = subparsers.add_parser('clean', help='clean the package')
