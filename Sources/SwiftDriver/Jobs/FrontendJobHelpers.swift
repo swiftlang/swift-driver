@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import SwiftOptions
+
 import class TSCBasic.LocalFileOutputByteStream
 import class TSCBasic.TerminalController
 import struct TSCBasic.RelativePath
@@ -136,6 +138,23 @@ extension Driver {
     if let sdkPath = frontendTargetInfo.sdkPath?.path {
       commandLine.appendFlag(.sdk)
       commandLine.append(.path(VirtualPath.lookup(sdkPath)))
+    }
+
+    for args: (Option, Option) in [
+          (.visualcToolsRoot, .visualcToolsVersion),
+          (.windowsSdkRoot, .windowsSdkVersion)
+        ] {
+      let (rootArg, versionArg) = args
+      if let value = parsedOptions.getLastArgument(rootArg)?.asSingle,
+          isFrontendArgSupported(rootArg) {
+        commandLine.appendFlag(rootArg.spelling)
+        commandLine.appendPath(.init(value))
+      }
+
+      if let value = parsedOptions.getLastArgument(versionArg)?.asSingle,
+          isFrontendArgSupported(versionArg) {
+        commandLine.appendFlags(versionArg.spelling, value)
+      }
     }
 
     try commandLine.appendAll(.I, from: &parsedOptions)
