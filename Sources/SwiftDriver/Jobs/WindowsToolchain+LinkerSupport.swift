@@ -62,8 +62,13 @@ extension WindowsToolchain {
       return try resolvedTool(.staticLinker(lto), pathOverride: lookup(executable: librarian))
     }
 
-    let clangTool: Tool =
-      parsedOptions.hasArgument(.enableExperimentalCxxInterop) ? .clangxx : .clang
+    var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+    if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
+      if cxxInteropMode.asSingle == "swift-5.9" {
+        cxxCompatEnabled = true
+      }
+    }
+    let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
     var clang = try getToolPath(clangTool)
 
     let targetTriple = targetInfo.target.triple

@@ -234,7 +234,13 @@ extension DarwinToolchain {
     }
 
     // On Darwin, we only support libc++.
-    if parsedOptions.contains(.enableExperimentalCxxInterop) {
+    var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+    if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
+      if cxxInteropMode.asSingle == "swift-5.9" {
+        cxxCompatEnabled = true
+      }
+    }
+    if cxxCompatEnabled {
       commandLine.appendFlag("-lc++")
     }
 
