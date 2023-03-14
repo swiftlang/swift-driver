@@ -357,6 +357,7 @@ extension Option {
   public static let enableExplicitExistentialTypes: Option = Option("-enable-explicit-existential-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for explicit existential types")
   public static let enableImplicitBacktracingModuleImport: Option = Option("-enable-implicit-backtracing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the implicit import of the _Backtracing module.")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
+  public static let enableImportObjcForwardDeclarations: Option = Option("-enable-import-objc-forward-declarations", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Attempt to import Objective-C forward declarations")
   public static let enableImportPtrauthFieldFunctionPointers: Option = Option("-enable-import-ptrauth-field-function-pointers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable import of custom ptrauth qualified field function pointers")
   public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let enableInferPublicConcurrentValue: Option = Option("-enable-infer-public-sendable", .flag, attributes: [.frontend, .noDriver], helpText: "Enable inference of Sendable conformances for public structs and enums")
@@ -738,6 +739,8 @@ extension Option {
   public static let version_: Option = Option("--version", .flag, alias: Option.version, attributes: [.frontend], helpText: "Print version information and exit")
   public static let vfsoverlayEQ: Option = Option("-vfsoverlay=", .joined, alias: Option.vfsoverlay)
   public static let vfsoverlay: Option = Option("-vfsoverlay", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to VFS overlay file")
+  public static let visualcToolsRoot: Option = Option("-visualc-tools-root", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<root>", helpText: "VisualC++ Tools Root")
+  public static let visualcToolsVersion: Option = Option("-visualc-tools-version", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<version>", helpText: "VisualC++ ToolSet Version")
   public static let v: Option = Option("-v", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Show commands to run and use verbose output")
   public static let warnConcurrency: Option = Option("-warn-concurrency", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Warn about code that is unsafe according to the Swift Concurrency model and will become ill-formed in a future language version")
   public static let warnImplicitOverrides: Option = Option("-warn-implicit-overrides", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Warn about implicit overrides of protocol members")
@@ -754,6 +757,8 @@ extension Option {
   public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors")
   public static let weakLinkAtTarget: Option = Option("-weak-link-at-target", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Weakly link symbols for declarations that were introduced at the deployment target. Symbols introduced before the deployment target are still strongly linked.")
   public static let wholeModuleOptimization: Option = Option("-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Optimize input files together instead of individually")
+  public static let windowsSdkRoot: Option = Option("-windows-sdk-root", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<root>", helpText: "Windows SDK Root")
+  public static let windowsSdkVersion: Option = Option("-windows-sdk-version", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<version>", helpText: "Windows SDK Version")
   public static let wmo: Option = Option("-wmo", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let workingDirectoryEQ: Option = Option("-working-directory=", .joined, alias: Option.workingDirectory)
   public static let workingDirectory: Option = Option("-working-directory", .separate, metaVar: "<path>", helpText: "Resolve file paths relative to the specified directory")
@@ -1114,6 +1119,7 @@ extension Option {
       Option.enableExplicitExistentialTypes,
       Option.enableImplicitBacktracingModuleImport,
       Option.enableImplicitDynamic,
+      Option.enableImportObjcForwardDeclarations,
       Option.enableImportPtrauthFieldFunctionPointers,
       Option.enableIncrementalImports,
       Option.enableInferPublicConcurrentValue,
@@ -1495,6 +1501,8 @@ extension Option {
       Option.version_,
       Option.vfsoverlayEQ,
       Option.vfsoverlay,
+      Option.visualcToolsRoot,
+      Option.visualcToolsVersion,
       Option.v,
       Option.warnConcurrency,
       Option.warnImplicitOverrides,
@@ -1511,6 +1519,8 @@ extension Option {
       Option.warningsAsErrors,
       Option.weakLinkAtTarget,
       Option.wholeModuleOptimization,
+      Option.windowsSdkRoot,
+      Option.windowsSdkVersion,
       Option.wmo,
       Option.workingDirectoryEQ,
       Option.workingDirectory,
