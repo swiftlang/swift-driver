@@ -6844,6 +6844,99 @@ final class SwiftDriverTests: XCTestCase {
       }
     }  
   }
+
+  func testWindowsOptions() throws {
+    let driver =
+        try Driver(args: ["swiftc", "-windows-sdk-version", "10.0.17763.0", #file])
+    guard [
+            .visualcToolsRoot,
+            .visualcToolsVersion,
+            .windowsSdkRoot,
+            .windowsSdkVersion
+          ].map(driver.isFrontendArgSupported).reduce(true, { $0 && $1 }) else {
+      return
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-root", "/SDK", #file
+      ])
+      let frontend = try driver.planBuild().first!
+
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-windows-sdk-root"),
+        .path(.absolute(.init("/SDK")))
+      ]))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-version", "10.0.17763.0", #file
+      ])
+      let frontend = try driver.planBuild().first!
+
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-windows-sdk-version"),
+        .flag("10.0.17763.0")
+      ]))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-version", "10.0.17763.0", "-windows-sdk-root", "/SDK", #file
+      ])
+      let frontend = try driver.planBuild().first!
+
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-windows-sdk-root"),
+        .path(.absolute(.init("/SDK")))
+      ]))
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-windows-sdk-version"),
+        .flag("10.0.17763.0")
+      ]))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-root", "/MSVC/14.34.31933", #file
+      ])
+      let frontend = try driver.planBuild().first!
+
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-visualc-tools-root"),
+        .path(.absolute(.init("/MSVC/14.34.31933"))),
+      ]))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-version", "14.34.31933", #file
+      ])
+      let frontend = try driver.planBuild().first!
+
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-visualc-tools-version"),
+        .flag("14.34.31933")
+      ]))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-root", "/MSVC", "-visualc-tools-version", "14.34.31933", #file
+      ])
+      let frontend = try driver.planBuild().first!
+
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-visualc-tools-version"),
+        .flag("14.34.31933")
+      ]))
+      XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+        .flag("-visualc-tools-root"),
+        .path(.absolute(.init("/MSVC"))),
+      ]))
+    }
+  }
 }
 
 func assertString(
