@@ -374,6 +374,138 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  /// Test generation of explicit module build jobs for dependency modules when the driver
+  /// is invoked with -explicit-module-build and -pch-output-dir
+  func testExplicitModuleBuildPCHOutputJobs() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testExplicitModuleBuildPCHOutputJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+
+      let cHeadersPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+          cHeadersPath.appending(component: "Bridging.h")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let pchOutputDir: AbsolutePath = path
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-apple-macosx11.0",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     "-pch-output-dir", pchOutputDir.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+
+      let jobs = try driver.planBuild()
+      // Figure out which Triples to use.
+      let dependencyGraph = try driver.gatherModuleDependencies()
+      let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildPCHOutputJobs"))
+      guard case .swift(_) = mainModuleInfo.details else {
+        XCTFail("Main module does not have Swift details field")
+        return
+      }
+
+      for job in jobs {
+        XCTAssertEqual(job.outputs.count, 1)
+        let outputFilePath = job.outputs[0].file
+
+        // Swift dependencies
+        if outputFilePath.extension != nil,
+           outputFilePath.extension! == FileType.swiftModule.rawValue {
+          if pathMatchesSwiftModule(path: outputFilePath, "A") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("A"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("E"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("G"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_Concurrency"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_StringProcessing"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
+                                            dependencyGraph: dependencyGraph)
+          }
+        // Clang Dependencies
+        } else if let outputExtension = outputFilePath.extension,
+                  outputExtension == FileType.pcm.rawValue {
+          let relativeOutputPathFileName = outputFilePath.basename
+          if relativeOutputPathFileName.starts(with: "A-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "B-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "C-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "G-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "F-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else {
+            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        // Bridging header
+        } else if let outputExtension = outputFilePath.extension,
+                  outputExtension == FileType.pch.rawValue {
+          switch (outputFilePath) {
+            case .absolute:
+              // pch output is a computed absolute path.
+              XCTAssertFalse(job.commandLine.contains("-pch-output-dir"))
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        } else {
+          // Check we don't use `-pch-output-dir` anymore during main module job.
+          XCTAssertFalse(job.commandLine.contains("-pch-output-dir"))
+          switch (outputFilePath) {
+            case .relative(RelativePath("testExplicitModuleBuildPCHOutputJobs")):
+              XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .temporary(_):
+              let baseName = "testExplicitModuleBuildPCHOutputJobs"
+              XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+                            matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        }
+      }
+    }
+  }
+
   func testImmediateModeExplicitModuleBuild() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
