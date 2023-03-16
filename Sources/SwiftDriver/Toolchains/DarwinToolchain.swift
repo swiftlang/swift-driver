@@ -373,6 +373,32 @@ public final class DarwinToolchain: Toolchain {
     frontendTargetInfo: FrontendTargetInfo,
     driver: inout Driver
   ) throws {
+    // Pass -external-plugin-path if the current toolchain is not a Xcode
+    // default toolchain.
+    if
+      driver.isFrontendArgSupported(.externalPluginPath),
+      let xcodeDir = try self.findCurrentSelectedXcodeDir(),
+      try !self.executableDir.isDescendant(of: xcodeDir),
+      let xcodeExecutableDir = try self.findXcodeExecutableDir()
+    {
+      let xcodePluginServerPath = xcodeExecutableDir
+        .appending(component: "swift-plugin-server")
+
+      if fileSystem.isExecutableFile(xcodePluginServerPath) {
+        let xcodeToolchainUsrPath = xcodeExecutableDir.parentDirectory
+
+        let xcodePluginPath = xcodeToolchainUsrPath
+          .appending(components: "lib", "swift", "host", "plugins")
+        commandLine.appendFlag(.externalPluginPath)
+        commandLine.appendFlag(xcodePluginPath.pathString + "#" + xcodePluginServerPath.pathString)
+
+        let xcodeLocalPluginPath = xcodeToolchainUsrPath
+          .appending(components: "local", "lib", "swift", "host", "plugins")
+        commandLine.appendFlag(.externalPluginPath)
+        commandLine.appendFlag(xcodeLocalPluginPath.pathString + "#" + xcodePluginServerPath.pathString)
+      }
+    }
+
     guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
 
@@ -439,5 +465,40 @@ private extension Version {
       return "\(major).\(minor)"
     }
     return self.description
+  }
+}
+
+extension DarwinToolchain {
+  func findXcodeExecutableDir() throws -> AbsolutePath? {
+#if os(macOS)
+    let result = try executor.checkNonZeroExit(
+      args: "xcrun", "-toolchain", "default", "-f", "swiftc",
+      environment: env
+    ).trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !result.isEmpty else {
+      return nil
+    }
+    return try AbsolutePath(validating: result)
+      .parentDirectory // swiftc
+#else
+    return nil
+#endif
+  }
+
+  func findCurrentSelectedXcodeDir() throws -> AbsolutePath? {
+#if os(macOS)
+    let result = try executor.checkNonZeroExit(
+      args: "xcode-select", "-p",
+      environment: env
+    ).trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !result.isEmpty else {
+      return nil
+    }
+    return try AbsolutePath(validating: result)
+#else
+    return nil
+#endif
   }
 }
