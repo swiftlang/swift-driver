@@ -296,6 +296,10 @@ extension Driver {
       try commandLine.appendLast(.clangBuildSessionFile, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.enableBuiltinModule) {
+      try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
+    }
+
     if let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
