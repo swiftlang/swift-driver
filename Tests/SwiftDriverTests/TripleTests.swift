@@ -32,6 +32,18 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(Triple("x86_64-apple-macosx10.13").osVersion, "10.13.0")
     XCTAssertEqual(Triple("x86_64-apple-macosx1x.13").osVersion, "0.13.0")
     XCTAssertEqual(Triple("x86_64-apple-macosx10.13.5-abi").osVersion, "10.13.5")
+
+    XCTAssertEqual(Triple("arm64-unknown-none").arch, .aarch64)
+    XCTAssertEqual(Triple("arm64-unknown-none").vendor, nil)
+    XCTAssertEqual(Triple("arm64-unknown-none").os, .noneOS)
+    XCTAssertEqual(Triple("arm64-unknown-none").environment, nil)
+    XCTAssertEqual(Triple("arm64-unknown-none").objectFormat, .elf)
+
+    XCTAssertEqual(Triple("arm64-apple-none-macho").arch, .aarch64)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").vendor, .apple)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").os, .noneOS)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").environment, nil)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").objectFormat, .macho)
   }
 
   func testBasicParsing() {
@@ -185,6 +197,12 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.environment, nil)
 
     T = Triple("arm-none-none-eabi")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.vendor, nil)
+    XCTAssertEqual(T.os, .noneOS)
+    XCTAssertEqual(T.environment, Triple.Environment.eabi)
+
+    T = Triple("arm-none-unknown-eabi")
     XCTAssertEqual(T.arch, Triple.Arch.arm)
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, nil)
@@ -723,7 +741,7 @@ final class TripleTests: XCTestCase {
     assertNormalizesEqual("i686-linux",
               "i686-unknown-linux") // i686-pc-linux-gnu
     assertNormalizesEqual("arm-none-eabi",
-              "arm-none-unknown-eabi") // arm-none-eabi
+              "arm-unknown-none-eabi") // arm-none-eabi
     assertNormalizesEqual("wasm32-wasi",
               "wasm32-unknown-wasi") // wasm32-unknown-wasi
     assertNormalizesEqual("wasm64-wasi",

@@ -1109,6 +1109,7 @@ extension Triple {
     case hurd
     case wasi
     case emscripten
+    case noneOS // 'OS' suffix purely to avoid name clash with Optional.none
 
     var name: String {
       return rawValue
@@ -1188,6 +1189,8 @@ extension Triple {
         return .wasi
       case _ where os.hasPrefix("emscripten"):
         return .emscripten
+      case _ where os.hasPrefix("none"):
+        return .noneOS
       default:
         return nil
       }
