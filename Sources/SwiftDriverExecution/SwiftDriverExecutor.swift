@@ -1,4 +1,4 @@
-//===--- MultiJobExecutor.swift - Builtin DriverExecutor implementation ---===//
+//===- SwiftDriverExecutor.swift - Builtin DriverExecutor implementation --===//
 //
 // This source file is part of the Swift.org open source project
 //
