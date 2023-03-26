@@ -458,6 +458,31 @@ public struct Driver {
     }
   }
 
+  @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsEngine: DiagnosticsEngine,
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    try self.init(
+      args: args,
+      env: env,
+      diagnosticsOutput: .engine(diagnosticsEngine),
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerExecutableDir: compilerExecutableDir,
+      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
   /// Create the driver with the given arguments.
   ///
   /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
