@@ -93,7 +93,7 @@ do {
                                          fileSystem: localFileSystem,
                                          env: ProcessEnv.vars)
   var driver = try Driver(args: arguments,
-                          diagnosticsEngine: diagnosticsEngine,
+                          diagnosticsOutput: .engine(diagnosticsEngine),
                           executor: executor,
                           integratedDriver: false)
   

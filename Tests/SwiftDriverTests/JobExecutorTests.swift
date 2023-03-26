@@ -494,7 +494,7 @@ final class JobExecutorTests: XCTestCase {
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
-                                diagnosticsEngine: diags,
+                                diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
         let jobs = try driver.planBuild()
@@ -532,7 +532,7 @@ final class JobExecutorTests: XCTestCase {
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
-                                diagnosticsEngine: diags,
+                                diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
         let jobs = try driver.planBuild()
@@ -570,7 +570,7 @@ final class JobExecutorTests: XCTestCase {
                                        "-Xfrontend", "-debug-crash-immediately",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 env: ProcessEnv.vars,
-                                diagnosticsEngine: diags,
+                                diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
         let jobs = try driver.planBuild()

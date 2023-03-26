@@ -31,7 +31,7 @@ extension Driver {
                                        env: env)
     try self.init(args: args,
                   env: env,
-                  diagnosticsEngine: diagnosticsEngine,
+                  diagnosticsOutput: .engine(diagnosticsEngine),
                   fileSystem: fileSystem,
                   executor: executor,
                   integratedDriver: integratedDriver)
