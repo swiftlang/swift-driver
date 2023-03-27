@@ -78,7 +78,7 @@ public func getSingleFrontendInvocationFromDriverArguments(argList: [String],
                                   fileSystem: localFileSystem,
                                   env: ProcessEnv.vars)
     var driver = try Driver(args: parsedOptions.commandLine,
-                            diagnosticsEngine: diagnosticsEngine,
+                            diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor)
     if diagnosticsEngine.hasErrors {
       return true

@@ -143,6 +143,12 @@ public struct Driver {
     }
   }
 
+  /// Specific implementation of a diagnostics output type that can be used when initializing a new `Driver`.
+  public enum DiagnosticsOutput {
+    case engine(DiagnosticsEngine)
+    case handler(DiagnosticsEngine.DiagnosticsHandler)
+  }
+
   /// The set of environment variables that are visible to the driver and
   /// processes it launches. This is a hook for testing; in actual use
   /// it should be identical to the real environment.
@@ -452,13 +458,38 @@ public struct Driver {
     }
   }
 
+  @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsEngine: DiagnosticsEngine,
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    try self.init(
+      args: args,
+      env: env,
+      diagnosticsOutput: .engine(diagnosticsEngine),
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerExecutableDir: compilerExecutableDir,
+      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
   /// Create the driver with the given arguments.
   ///
   /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
   ///   at the beginning.
   /// - Parameter env: The environment variables to use. This is a hook for testing;
   ///   in production, you should use the default argument, which copies the current environment.
-  /// - Parameter diagnosticsEngine: The diagnostic engine used by the driver to emit errors
+  /// - Parameter diagnosticsOutput: The diagnostics output implementation used by the driver to emit errors
   ///   and warnings.
   /// - Parameter fileSystem: The filesystem used by the driver to find resources/SDKs,
   ///   expand response files, etc. By default this is the local filesystem.
@@ -476,7 +507,7 @@ public struct Driver {
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
-    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
     integratedDriver: Bool = true,
@@ -488,7 +519,15 @@ public struct Driver {
     self.fileSystem = fileSystem
     self.integratedDriver = integratedDriver
 
+    let diagnosticsEngine: DiagnosticsEngine
+    switch diagnosticsOutput {
+    case .engine(let engine):
+      diagnosticsEngine = engine
+    case .handler(let handler):
+      diagnosticsEngine = DiagnosticsEngine(handlers: [handler])
+    }
     self.diagnosticEngine = diagnosticsEngine
+
     self.executor = executor
     self.externalTargetModuleDetailsMap = externalTargetModuleDetailsMap
 

@@ -156,7 +156,7 @@ do {
     }
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
-                            diagnosticsEngine: diagnosticsEngine,
+                            diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
     let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: inputMap,
