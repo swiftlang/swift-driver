@@ -117,6 +117,7 @@ struct SwiftHelp: ParsableCommand {
       print("  \(plainBold)swift repl\(plain)\(padding)    Experiment with Swift code interactively")
     }
 
+    print("\n  Use \(plainBold)`swift --version`\(plain) for Swift version information.")
     print("\n  Use \(plainBold)`swift --help`\(plain) for descriptions of available options and flags.")
     print("\n  Use \(plainBold)`swift help <subcommand>`\(plain) for more information about a subcommand.")
     print()
