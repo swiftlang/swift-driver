@@ -74,17 +74,6 @@ extension Driver {
       break
     }
 
-    // Pass down -clang-target.
-    // If not specified otherwise, we should use the same triple as -target
-    // TODO: enable -clang-target for implicit module build as well.
-    if !parsedOptions.hasArgument(.disableClangTarget) &&
-        isFrontendArgSupported(.clangTarget) &&
-        parsedOptions.contains(.driverExplicitModuleBuild) {
-      let clangTriple = parsedOptions.getLastArgument(.clangTarget)?.asSingle ?? targetTriple.triple
-      commandLine.appendFlag(.clangTarget)
-      commandLine.appendFlag(clangTriple)
-    }
-
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
@@ -387,7 +376,7 @@ extension Driver {
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
-                                                           driver: self)
+                                                           driver: &self)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],

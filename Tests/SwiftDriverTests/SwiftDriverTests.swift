@@ -3626,20 +3626,24 @@ final class SwiftDriverTests: XCTestCase {
 
   func testClangTargetForExplicitModule() throws {
     #if os(macOS)
+    let sdkRoot = testInputsPath.appending(component: "SDKChecks").appending(component: "iPhoneOS.sdk")
+
     // Check -clang-target is on by default when explicit module is on.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "Foo.swift")
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import Swift"
       }
-      var driver = try Driver(args: ["swiftc", "-explicit-module-build", "-target",
-                                     "x86_64-apple-macosx10.14", main.pathString])
+      var driver = try Driver(args: ["swiftc", "-explicit-module-build",
+                                     "-target", "arm64-apple-ios14.0",
+                                     "-sdk", sdkRoot.pathString,
+                                     main.pathString])
       guard driver.isFrontendArgSupported(.clangTarget) else {
         throw XCTSkip("Skipping: compiler does not support '-clang-target'")
       }
       let plannedJobs = try driver.planBuild()
       XCTAssertTrue(plannedJobs.contains { job in
-        job.commandLine.contains(.flag("-clang-target"))
+        job.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("arm64-apple-ios13.0")])
       })
     }
     // Check -disable-clang-target works
@@ -3649,8 +3653,10 @@ final class SwiftDriverTests: XCTestCase {
         $0 <<< "import Swift"
       }
       var driver = try Driver(args: ["swiftc", "-disable-clang-target",
-                                     "-explicit-module-build", "-target",
-                                     "x86_64-apple-macosx10.14", main.pathString])
+                                     "-explicit-module-build",
+                                     "-target", "arm64-apple-ios14.0",
+                                     "-sdk", sdkRoot.pathString,
+                                     main.pathString])
       guard driver.isFrontendArgSupported(.clangTarget) else {
         throw XCTSkip("Skipping: compiler does not support '-clang-target'")
       }
@@ -3663,16 +3669,20 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDisableClangTargetForImplicitModule() throws {
+#if os(macOS)
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
+    let sdkRoot = testInputsPath.appending(component: "SDKChecks").appending(component: "iPhoneOS.sdk")
     var driver = try Driver(args: ["swiftc", "-target",
-                                   "x86_64-apple-macosx10.14", "foo.swift"],
+                                   "arm64-apple-ios12.0", "foo.swift",
+                                   "-sdk", sdkRoot.pathString],
                             env: envVars)
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 2)
-    XCTAssert(plannedJobs[0].commandLine.contains(.flag("-target")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-target")))
     XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-clang-target")))
+#endif
   }
 
   func testPCHasCompileInput() throws {
