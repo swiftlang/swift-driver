@@ -2936,7 +2936,7 @@ extension Triple {
       return DarwinToolchain.self
     case .linux:
       return GenericUnixToolchain.self
-    case .freeBSD, .haiku, .openbsd:
+    case .freeBSD, .haiku, .openbsd, .noneOS:
       return GenericUnixToolchain.self
     case .wasi:
       return WebAssemblyToolchain.self

@@ -314,6 +314,8 @@ extension Triple {
       return "haiku"
     case .wasi:
       return "wasi"
+    case .noneOS:
+      return nil
 
     // Explicitly spell out the remaining cases to force a compile error when
     // Triple updates
