@@ -100,7 +100,7 @@ internal extension swiftscan_diagnostic_severity_t {
     #if os(Windows)
     self.dylib = try Loader.load(path.pathString, mode: [])
     #else
-    self.dylib = try Loader.load(path.pathString, mode: [.lazy, .local, .first])
+    self.dylib = try Loader.load(path.pathString, mode: [.lazy, .local])
     #endif
     self.api = try swiftscan_functions_t(self.dylib)
     guard let scanner = api.swiftscan_scanner_create() else {
@@ -111,9 +111,11 @@ internal extension swiftscan_diagnostic_severity_t {
 
   deinit {
     api.swiftscan_scanner_dispose(self.scanner)
-    // FIXME: is it safe to dlclose() swiftscan? If so, do that here.
-    // For now, let the handle leak.
-    dylib.leak()
+    do {
+      try Loader.unload(self.dylib)
+    } catch {
+      self.dylib.leak()
+    }
   }
 
   func preScanImports(workingDirectory: AbsolutePath,
