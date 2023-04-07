@@ -2451,6 +2451,34 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // address sanitizer on a dylib
+      var driver = try Driver(args: commonArgs + ["-sanitize=address", "-emit-library"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
+    }
+
+    do {
+      // *no* address sanitizer on a static lib
+      var driver = try Driver(args: commonArgs + ["-sanitize=address", "-emit-library", "-static"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertFalse(linkCmd.contains(.flag("-fsanitize=address")))
+    }
+
+    do {
       // thread sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=thread"])
       let plannedJobs = try driver.planBuild()
