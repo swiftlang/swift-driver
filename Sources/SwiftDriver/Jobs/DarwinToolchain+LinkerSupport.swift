@@ -199,7 +199,7 @@ extension DarwinToolchain {
     // Linking sanitizers will add rpaths, which might negatively interact when
     // other rpaths are involved, so we should make sure we add the rpaths after
     // all user-specified rpaths.
-    if linkerOutputType == .executable && !sanitizers.isEmpty {
+    if linkerOutputType != .staticLibrary && !sanitizers.isEmpty {
       let sanitizerNames = sanitizers
         .map { $0.rawValue }
         .sorted() // Sort so we get a stable, testable order
