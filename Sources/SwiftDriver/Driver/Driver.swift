@@ -432,6 +432,24 @@ public struct Driver {
     return supportedFrontendFeatures.contains(feature.rawValue)
   }
 
+  @_spi(Testing)
+  public static func findBlocklists(RelativeTo execDir: AbsolutePath) throws ->  [AbsolutePath] {
+    // Expect to find all blocklists in such dir:
+    // .../XcodeDefault.xctoolchain/usr/local/lib/swift/blocklists
+    var results: [AbsolutePath] = []
+    let blockListDir = execDir.parentDirectory
+      .appending(components: "local", "lib", "swift", "blocklists")
+    if (localFileSystem.exists(blockListDir)) {
+      try localFileSystem.getDirectoryContents(blockListDir).forEach {
+        let currentFile = AbsolutePath(blockListDir, try VirtualPath(path: $0).relativePath!)
+        if currentFile.extension == "yml" || currentFile.extension == "yaml" {
+          results.append(currentFile)
+        }
+      }
+    }
+    return results
+  }
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     stdErrQueue.sync {
