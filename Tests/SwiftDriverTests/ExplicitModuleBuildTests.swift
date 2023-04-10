@@ -996,7 +996,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", stdLibPath.nativePathString(escaped: true),
                                      "-I", shimsPath.nativePathString(escaped: true),
                                      "-F", frameworksPath.nativePathString(escaped: true),
-                                     "-import-objc-header",
                                      "-explicit-module-build",
                                      "-module-name", "main",
                                      "-working-directory", path.nativePathString(escaped: true),
@@ -1193,7 +1192,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-I", stdlibPath.nativePathString(escaped: true),
                                      "-I", shimsPath.nativePathString(escaped: true),
-                                     "-import-objc-header",
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target",
@@ -1265,7 +1263,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", stdlibPath.nativePathString(escaped: true),
                                      "-I", shimsPath.nativePathString(escaped: true),
                                      "/tmp/Foo.o",
-                                     "-import-objc-header",
                                      "-explicit-module-build",
                                      "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target",
@@ -1303,7 +1300,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       DispatchQueue.concurrentPerform(iterations: 20) { index in
         // Give the main modules different names
         let iterationCommand = scannerCommand + ["-module-name",
-                                                 "testDependencyScanning\(index)"]
+                                                 "testDependencyScanning\(index)",
+                                                 // FIXME: We need to differentiate the scanning action hash,
+                                                 // though the module-name above should be sufficient.
+                                                 "-I/tmp/foo/bar/\(index)"]
         let dependencyGraph =
           try! dependencyOracle.getDependencies(workingDirectory: path,
                                                 commandLine: iterationCommand)
@@ -1458,7 +1458,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                        "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                        "-I", stdlibPath.nativePathString(escaped: true),
                                        "-I", shimsPath.nativePathString(escaped: true),
-                                       "-import-objc-header",
                                        "-explicit-module-build",
                                        "-working-directory", path.nativePathString(escaped: true),
                                        "-disable-clang-target",
