@@ -47,11 +47,9 @@ public class InterModuleDependencyOracle {
                                              commandLine: [String])
   throws -> InterModuleDependencyGraph {
     precondition(hasScannerInstance)
-    return try queue.sync {
-      return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
-                                                        moduleAliases: moduleAliases,
-                                                       invocationCommand: commandLine)
-    }
+    return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
+                                                      moduleAliases: moduleAliases,
+                                                      invocationCommand: commandLine)
   }
 
   @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
@@ -60,12 +58,10 @@ public class InterModuleDependencyOracle {
                                                   batchInfos: [BatchScanModuleInfo])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     precondition(hasScannerInstance)
-    return try queue.sync {
-      return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
-                                                             moduleAliases: moduleAliases,
-                                                            invocationCommand: commandLine,
-                                                            batchInfos: batchInfos)
-    }
+    return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
+                                                           moduleAliases: moduleAliases,
+                                                           invocationCommand: commandLine,
+                                                           batchInfos: batchInfos)
   }
 
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
@@ -73,11 +69,9 @@ public class InterModuleDependencyOracle {
                                              commandLine: [String])
   throws -> InterModuleDependencyImports {
     precondition(hasScannerInstance)
-    return try queue.sync {
-      return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
-                                                      moduleAliases: moduleAliases,
-                                                      invocationCommand: commandLine)
-    }
+    return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
+                                                    moduleAliases: moduleAliases,
+                                                    invocationCommand: commandLine)
   }
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
