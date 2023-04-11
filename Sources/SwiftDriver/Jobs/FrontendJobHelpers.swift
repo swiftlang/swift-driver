@@ -269,6 +269,13 @@ extension Driver {
       commandLine.appendPath(localPluginPath)
     }
 
+    if isFrontendArgSupported(.blockListFile) {
+      try Driver.findBlocklists(RelativeTo: try toolchain.executableDir).forEach {
+        commandLine.appendFlag(.blockListFile)
+        commandLine.appendPath($0)
+      }
+    }
+
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
     if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,
