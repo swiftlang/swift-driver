@@ -232,6 +232,13 @@ int makeOptions_main() {
       "// See https://swift.org/LICENSE.txt for license information\n"
       "// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors\n"
       "//\n"
+      "//===----------------------------------------------------------------------===//\n"
+      "//\n"
+      "// NOTE: Generated file, do not edit!\n"
+      "//\n"
+      "// This file is generated from 'apple/swift:include/swift/Option/Options.td'.\n"
+      "// Please see README.md#rebuilding-optionsswift for details\n"
+      "//\n"
       "//===----------------------------------------------------------------------===//\n\n";
   out << "extension Option {\n";
   forEachOption([&](const RawOption &option) {
