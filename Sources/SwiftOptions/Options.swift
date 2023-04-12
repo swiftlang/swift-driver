@@ -9,6 +9,13 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+//
+// NOTE: Generated file, do not edit!
+//
+// This file is generated from 'apple/swift:include/swift/Option/Options.td'.
+// Please see README.md#rebuilding-optionsswift for details
+//
+//===----------------------------------------------------------------------===//
 
 extension Option {
   public static let INPUT: Option = Option("<input>", .input, attributes: [.argumentIsPath])
