@@ -6688,6 +6688,18 @@ final class SwiftDriverTests: XCTestCase {
 #endif
   }
 
+  func testGccToolchainFlags() throws {
+      VirtualPath.resetTemporaryFileStore()
+      var driver = try Driver(args: [
+        "swiftc", "-gcc-toolchain", "foo/as/blarpy", "test.swift"
+      ])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 2)
+      let (compileJob, linkJob) = (jobs[0], jobs[1])
+      compileJob.commandLine.contains(.flag("--gcc-toolchain=foo/as/blarpy"))
+      linkJob.commandLine.contains(.flag("--gcc-toolchain=foo/as/blarpy"))
+  }
+
   func testPluginPaths() throws {
     var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift"])
     guard driver.isFrontendArgSupported(.pluginPath) else {

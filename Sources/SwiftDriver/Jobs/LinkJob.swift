@@ -55,6 +55,11 @@ extension Driver {
       outputFile = try outputFileForImage
     }
 
+    if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
+        commandLine.appendFlag(.XclangLinker)
+        commandLine.appendFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
+    }
+
     // Defer to the toolchain for platform-specific linking
     let linkTool = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,

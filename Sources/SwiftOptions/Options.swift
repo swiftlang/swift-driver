@@ -447,6 +447,7 @@ extension Option {
   public static let Fsystem: Option = Option("-Fsystem", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to system framework search path")
   public static let functionSections: Option = Option("-function-sections", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit functions to separate sections.")
   public static let F: Option = Option("-F", .joinedOrSeparate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to framework search path")
+  public static let gccToolchain: Option = Option("-gcc-toolchain", .separate, attributes: [.helpHidden, .argumentIsPath], metaVar: "<path>", helpText: "Specify a directory where the clang importer and clang linker can find headers and libraries")
   public static let gdwarfTypes: Option = Option("-gdwarf-types", .flag, attributes: [.frontend], helpText: "Emit full DWARF type info.", group: .g)
   public static let generateEmptyBaseline: Option = Option("-generate-empty-baseline", .flag, attributes: [.noDriver], helpText: "Generate an empty baseline")
   public static let generateEmptyBaseline_: Option = Option("--generate-empty-baseline", .flag, alias: Option.generateEmptyBaseline, attributes: [.noDriver], helpText: "Generate an empty baseline")
@@ -1219,6 +1220,7 @@ extension Option {
       Option.Fsystem,
       Option.functionSections,
       Option.F,
+      Option.gccToolchain,
       Option.gdwarfTypes,
       Option.generateEmptyBaseline,
       Option.generateEmptyBaseline_,
