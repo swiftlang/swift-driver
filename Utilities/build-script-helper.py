@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import sys
 import errno
-import re
 
 if platform.system() == 'Darwin':
     shared_lib_ext = '.dylib'
@@ -80,7 +79,8 @@ def get_swiftpm_options(args):
   if args.verbose:
     swiftpm_args += ['--verbose']
 
-  if platform.system() == 'Darwin':
+  build_os = args.build_target.split('-')[2]
+  if build_os.startswith('macosx'):
     swiftpm_args += [
       # Relative library rpath for swift; will only be used when /usr/lib/swift
       # is not available.
@@ -99,8 +99,7 @@ def get_swiftpm_options(args):
     if args.cross_compile_hosts:
       swiftpm_args += ['--destination', args.cross_compile_config]
 
-    if 'ANDROID_DATA' in os.environ or (args.cross_compile_hosts and re.match(
-        'android-', args.cross_compile_hosts[0])):
+    if '-android' in args.build_target:
       swiftpm_args += [
         '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/android',
         # SwiftPM will otherwise try to compile against GNU strerror_r on
@@ -110,7 +109,7 @@ def get_swiftpm_options(args):
     else:
       # Library rpath for swift, dispatch, Foundation, etc. when installing
       swiftpm_args += [
-        '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/linux',
+        '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/' + build_os,
       ]
 
   if args.action == 'install':
@@ -158,15 +157,14 @@ def handle_invocation(args):
   swiftpm_args = get_swiftpm_options(args)
   toolchain_bin = os.path.join(args.toolchain, 'bin')
   swift_exec = os.path.join(toolchain_bin, 'swift')
-  swiftc_exec = os.path.join(toolchain_bin, 'swiftc')
 
   # Platform-specific targets for which we must build swift-driver
   if args.cross_compile_hosts:
     targets = args.cross_compile_hosts
-  elif platform.system() == 'Darwin':
-    targets = [get_build_target(swiftc_exec, args) + macos_deployment_target]
+  elif '-apple-macosx' in args.build_target:
+    targets = [args.build_target + macos_deployment_target]
   else:
-    targets = [get_build_target(swiftc_exec, args)]
+    targets = [args.build_target]
 
   env = os.environ
   # Use local dependencies (i.e. checked out next to swift-driver).
@@ -182,7 +180,7 @@ def handle_invocation(args):
   env['SWIFT_EXEC'] = '%sc' % (swift_exec)
 
   if args.action == 'build':
-    if args.cross_compile_hosts and not re.match('-macosx', args.cross_compile_hosts[0]):
+    if args.cross_compile_hosts and not '-macosx' in args.cross_compile_hosts[0]:
       swiftpm('build', swift_exec, swiftpm_args, env)
     else:
       build_using_cmake(args, toolchain_bin, args.build_path, targets)
@@ -205,7 +203,7 @@ def handle_invocation(args):
       env['SWIFT_DRIVER_LIT_DIR'] = args.lit_test_dir
     swiftpm('test', swift_exec, test_args, env)
   elif args.action == 'install':
-    if platform.system() == 'Darwin':
+    if '-apple-macosx' in args.build_target:
       build_using_cmake(args, toolchain_bin, args.build_path, targets)
       install(args, args.build_path, targets)
     else:
@@ -428,7 +426,7 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
     base_cmake_flags = []
     swift_flags = base_swift_flags.copy()
     swift_flags.append('-target %s' % target)
-    if platform.system() == 'Darwin':
+    if '-apple-macosx' in args.build_target:
       base_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
       base_cmake_flags.append('-DCMAKE_OSX_ARCHITECTURES=%s' % target.split('-')[0])
 
@@ -480,7 +478,7 @@ def build_llbuild_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_f
     llbuild_cmake_flags.append('-DSQLite3_INCLUDE_DIR=%s/usr/include' % args.sysroot)
     # FIXME: This may be particularly hacky but CMake finds a different version of libsqlite3
     # on some machines. This is also Darwin-specific...
-    if platform.system() == 'Darwin':
+    if '-apple-macosx' in args.build_target:
       llbuild_cmake_flags.append('-DSQLite3_LIBRARY=%s/usr/lib/libsqlite3.tbd' % args.sysroot)
   llbuild_swift_flags = swift_flags[:]
 
@@ -520,7 +518,7 @@ def build_yams_using_cmake(args, target, swiftc_exec, build_dir, base_cmake_flag
       '-DCMAKE_C_COMPILER:=clang',
       '-DBUILD_SHARED_LIBS=OFF']
 
-  if platform.system() == 'Darwin':
+  if '-apple-macosx' in args.build_target:
     yams_cmake_flags.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % macos_deployment_target)
     yams_cmake_flags.append('-DCMAKE_C_FLAGS=-target %s' % target)
   else:
@@ -598,16 +596,20 @@ def cmake_build(args, swiftc_exec, cmake_args, swift_flags, source_path,
   if args.verbose:
     print(stdout)
 
-def get_build_target(swiftc_path, args):
+def get_build_target(swiftc_path, args, cross_compile=False):
     """Returns the target-triple of the current machine."""
     try:
-        target_info_json = subprocess.check_output([swiftc_path, '-print-target-info'],
+        command = [swiftc_path, '-print-target-info']
+        if cross_compile:
+            cross_compile_json = json.load(open(args.cross_compile_config))
+            command += ['-target', cross_compile_json["target"]]
+        target_info_json = subprocess.check_output(command,
                                                    stderr=subprocess.PIPE,
                                                    universal_newlines=True).strip()
         args.target_info = json.loads(target_info_json)
         triple = args.target_info['target']['triple']
         # Windows also wants unversionedTriple, but does not use this.
-        if platform.system() == 'Darwin':
+        if '-apple-macosx' in args.target_info["target"]["unversionedTriple"]:
           triple = args.target_info['target']['unversionedTriple']
         return triple
     except Exception as e:
@@ -666,18 +668,18 @@ def main():
   args.build_path = os.path.abspath(args.build_path)
   args.toolchain = os.path.abspath(args.toolchain)
 
-  if platform.system() == 'Darwin':
+  swift_exec = os.path.join(os.path.join(args.toolchain, 'bin'), 'swiftc')
+  args.build_target = get_build_target(swift_exec, args, cross_compile=(True if args.cross_compile_config else False))
+  if '-apple-macosx' in args.build_target:
     args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], verbose=args.verbose)
   else:
     args.sysroot = None
 
-  swift_exec = os.path.join(os.path.join(args.toolchain, 'bin'), 'swiftc')
-  build_target = get_build_target(swift_exec, args)
-  if (build_target == 'x86_64-apple-macosx' and 'macosx-arm64' in args.cross_compile_hosts):
-      args.cross_compile_hosts = [build_target + macos_deployment_target, 'arm64-apple-macosx%s' % macos_deployment_target]
-  elif (build_target == 'arm64-apple-macosx' and 'macosx-x86_64' in args.cross_compile_hosts):
-      args.cross_compile_hosts = [build_target + macos_deployment_target, 'x86_64-apple-macosx%s' % macos_deployment_target]
-  elif args.cross_compile_hosts and re.match('android-', args.cross_compile_hosts[0]):
+  if (args.build_target == 'x86_64-apple-macosx' and 'macosx-arm64' in args.cross_compile_hosts):
+      args.cross_compile_hosts = [args.build_target + macos_deployment_target, 'arm64-apple-macosx%s' % macos_deployment_target]
+  elif (args.build_target == 'arm64-apple-macosx' and 'macosx-x86_64' in args.cross_compile_hosts):
+      args.cross_compile_hosts = [args.build_target + macos_deployment_target, 'x86_64-apple-macosx%s' % macos_deployment_target]
+  elif args.cross_compile_hosts and 'android-' in args.cross_compile_hosts[0]:
       print('Cross-compiling for %s' % args.cross_compile_hosts[0])
   elif args.cross_compile_hosts:
       error("cannot cross-compile for %s" % cross_compile_hosts)
