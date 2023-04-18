@@ -126,10 +126,6 @@ final class IntegrationTests: IntegrationTestCase {
     try runLitTests(suite: "test", "Driver")
   }
 
-  func testLitDriverDependenciesTests() throws {
-    try runLitTests(suite: "test", "Driver", "Dependencies")
-  }
-
   func testLitDriverValidationTests() throws {
     guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("Not all Driver validation-tests supported")
