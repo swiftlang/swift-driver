@@ -102,26 +102,18 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     guard let mainModuleDependencies = reachabilityMap[mainModuleId] else {
       fatalError("Expected reachability information for the main module.")
     }
-    // A collection of PCM Args that Clang modules must be built against
-    var clangPCMSetMap: [ModuleDependencyId : Set<[String]>] = [:]
     let swiftDependenciesJobs =
-      try generateSwiftDependenciesBuildJobs(for: mainModuleDependencies,
-                                             clangPCMSetMap: &clangPCMSetMap)
-    // Also take into account the PCMArgs of the main module
-    try updateClangPCMArgSetMap(for: mainModuleId, clangPCMSetMap: &clangPCMSetMap)
+      try generateSwiftDependenciesBuildJobs(for: mainModuleDependencies)
 
     // Generate build jobs for all Clang modules
     let clangDependenciesJobs =
-      try generateClangDependenciesBuildJobs(for: mainModuleDependencies,
-                                             using: clangPCMSetMap)
+      try generateClangDependenciesBuildJobs(for: mainModuleDependencies)
 
     return swiftDependenciesJobs + clangDependenciesJobs
   }
 
   /// Generate a build job for each Swift module in the set of supplied `dependencies`
-  private mutating func generateSwiftDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
-                                                           clangPCMSetMap:
-                                                            inout [ModuleDependencyId : Set<[String]>])
+  private mutating func generateSwiftDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>)
   throws -> [Job] {
     var jobs: [Job] = []
     let swiftDependencies = dependencies.filter {
@@ -143,12 +135,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       moduleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
 
       // Resolve all dependency module inputs for this Swift module
-      try resolveExplicitModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
+      try resolveExplicitModuleDependencies(moduleId: moduleId,
                                             inputs: &inputs,
                                             commandLine: &commandLine)
-
-      // Update the clangPCMSetMap for each Clang dependency of this module
-      try updateClangPCMArgSetMap(for: moduleId, clangPCMSetMap: &clangPCMSetMap)
 
       // Build the .swiftinterfaces file using a list of command line options specified in the
       // `details` field.
@@ -182,9 +171,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// Generate a build job for each Clang module in the set of supplied `dependencies`. Once per each required
   /// PCMArgSet as queried from the supplied `clangPCMSetMap`
-  private mutating func generateClangDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>,
-                                                           using clangPCMSetMap:
-                                                            [ModuleDependencyId : Set<[String]>])
+  private mutating func generateClangDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>)
   throws -> [Job] {
     var jobs: [Job] = []
     let clangDependencies = dependencies.filter {
@@ -194,61 +181,52 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       return false
     }
     for moduleId in clangDependencies {
-      guard let pcmArgSet = clangPCMSetMap[moduleId] else {
-        fatalError("Expected PCM Argument Set for module: \(moduleId.moduleName)")
-      }
       let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
       // Generate a distinct job for each required set of PCM Arguments for this module
-      for pcmArgs in pcmArgSet {
-        var inputs: [TypedVirtualPath] = []
-        var outputs: [TypedVirtualPath] = []
-        var commandLine: [Job.ArgTemplate] = []
+      var inputs: [TypedVirtualPath] = []
+      var outputs: [TypedVirtualPath] = []
+      var commandLine: [Job.ArgTemplate] = []
 
-        // First, take the command line options provided in the dependency information
-        let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
-        moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
-        
-        // Add the `-target` option as inherited from the dependent Swift module's PCM args
-        pcmArgs.forEach { commandLine.appendFlags($0) }
+      // First, take the command line options provided in the dependency information
+      let moduleDetails = try dependencyGraph.clangModuleDetails(of: moduleId)
+      moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
 
-        // Resolve all dependency module inputs for this Clang module
-        try resolveExplicitModuleDependencies(moduleId: moduleId, pcmArgs: pcmArgs,
-                                              inputs: &inputs,
-                                              commandLine: &commandLine)
+      // Resolve all dependency module inputs for this Clang module
+      try resolveExplicitModuleDependencies(moduleId: moduleId, inputs: &inputs,
+                                            commandLine: &commandLine)
 
-        let moduleMapPath = moduleDetails.moduleMapPath.path
-        let modulePCMPath = moduleInfo.modulePath
-        outputs.append(TypedVirtualPath(file: modulePCMPath.path, type: .pcm))
+      let moduleMapPath = moduleDetails.moduleMapPath.path
+      let modulePCMPath = moduleInfo.modulePath
+      outputs.append(TypedVirtualPath(file: modulePCMPath.path, type: .pcm))
 
-        // The only required input is the .modulemap for this module.
-        // Command line options in the dependency scanner output will include the
-        // required modulemap, so here we must only add it to the list of inputs.
-        inputs.append(TypedVirtualPath(file: moduleMapPath,
-                                       type: .clangModuleMap))
+      // The only required input is the .modulemap for this module.
+      // Command line options in the dependency scanner output will include the
+      // required modulemap, so here we must only add it to the list of inputs.
+      inputs.append(TypedVirtualPath(file: moduleMapPath,
+                                     type: .clangModuleMap))
 
-        jobs.append(Job(
-          moduleName: moduleId.moduleName,
-          kind: .generatePCM,
-          tool: try toolchain.resolvedTool(.swiftCompiler),
-          commandLine: commandLine,
-          inputs: inputs,
-          primaryInputs: [],
-          outputs: outputs
-        ))
-      }
+      jobs.append(Job(
+        moduleName: moduleId.moduleName,
+        kind: .generatePCM,
+        tool: try toolchain.resolvedTool(.swiftCompiler),
+        commandLine: commandLine,
+        inputs: inputs,
+        primaryInputs: [],
+        outputs: outputs
+      ))
     }
     return jobs
   }
 
   /// For the specified module, update the given command line flags and inputs
   /// to use explicitly-built module dependencies.
-  private mutating func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId, pcmArgs: [String],
+  private mutating func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId,
                                                           inputs: inout [TypedVirtualPath],
                                                           commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
-    try addModuleDependencies(of: moduleId, pcmArgs: pcmArgs,
+    try addModuleDependencies(of: moduleId,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
 
@@ -286,7 +264,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   }
 
   private mutating func addModuleDependency(of moduleId: ModuleDependencyId,
-                                            dependencyId: ModuleDependencyId, pcmArgs: [String],
+                                            dependencyId: ModuleDependencyId,
                                             clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                             swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
@@ -332,7 +310,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// Add a specific module dependency as an input and a corresponding command
   /// line flag.
-  private mutating func addModuleDependencies(of moduleId: ModuleDependencyId, pcmArgs: [String],
+  private mutating func addModuleDependencies(of moduleId: ModuleDependencyId,
                                               clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
                                               swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
   ) throws {
@@ -340,7 +318,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
     }
     for dependencyId in moduleDependencies {
-      try addModuleDependency(of: moduleId, dependencyId: dependencyId, pcmArgs: pcmArgs,
+      try addModuleDependency(of: moduleId, dependencyId: dependencyId,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
     }
@@ -374,8 +352,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                             "-Xcc", "-fno-implicit-modules",
                             "-Xcc", "-fno-implicit-module-maps")
     try resolveExplicitModuleDependencies(moduleId: mainModuleId,
-                                          pcmArgs:
-                                            try dependencyGraph.swiftModulePCMArgs(of: mainModuleId),
                                           inputs: &inputs,
                                           commandLine: &commandLine)
   }
@@ -405,10 +381,10 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         continue
       }
       addedDependencies.insert(bridgingHeaderDepID)
-      try addModuleDependency(of: mainModuleId, dependencyId: bridgingHeaderDepID, pcmArgs: [],
+      try addModuleDependency(of: mainModuleId, dependencyId: bridgingHeaderDepID,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
-      try addModuleDependencies(of: bridgingHeaderDepID, pcmArgs: [],
+      try addModuleDependencies(of: bridgingHeaderDepID,
                                 clangDependencyArtifacts: &clangDependencyArtifacts,
                                 swiftDependencyArtifacts: &swiftDependencyArtifacts)
       let depInfo = try dependencyGraph.moduleInfo(of: bridgingHeaderDepID)
