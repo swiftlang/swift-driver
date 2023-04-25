@@ -2948,18 +2948,25 @@ extension Driver {
 }
 
 extension Triple {
-  func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
+  @_spi(Testing) public func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
     switch os {
     case .darwin, .macosx, .ios, .tvos, .watchos:
       return DarwinToolchain.self
     case .linux:
       return GenericUnixToolchain.self
-    case .freeBSD, .haiku, .openbsd, .noneOS:
+    case .freeBSD, .haiku, .openbsd:
       return GenericUnixToolchain.self
     case .wasi:
       return WebAssemblyToolchain.self
     case .win32:
       return WindowsToolchain.self
+    case .noneOS:
+        switch self.vendor {
+        case .apple:
+            return DarwinToolchain.self
+        default:
+            return GenericUnixToolchain.self
+        }
     default:
       diagnosticsEngine.emit(.error_unknown_target(triple))
       throw Driver.ErrorDiagnostics.emitted

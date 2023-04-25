@@ -12,6 +12,7 @@
 import XCTest
 
 @_spi(Testing) import SwiftDriver
+import class TSCBasic.DiagnosticsEngine
 
 final class TripleTests: XCTestCase {
   func testBasics() throws {
@@ -1277,6 +1278,130 @@ final class TripleTests: XCTestCase {
                                 iOSVersion: nil,
                                 watchOSVersion: .init(60, 0, 0),
                                 shouldHaveJetPacks: true)
+  }
+  
+  func testToolchainSelection() {
+    let diagnostics = DiagnosticsEngine()
+    struct None { }
+    
+    func assertToolchain<T>(
+      _ rawTriple: String,
+      _ expectedToolchain: T.Type?,
+      file: StaticString = #filePath,
+      line: UInt = #line
+    ) {
+      do {
+        let triple = Triple(rawTriple)
+        let actual = try triple.toolchainType(diagnostics)
+        if None.self is T.Type {
+          XCTFail(
+            "Expected None but found \(actual) for triple \(rawTriple).",
+            file: file,
+            line: line)
+        } else {
+          XCTAssertTrue(
+            actual is T.Type,
+            "Expected \(T.self) but found \(actual) for triple \(rawTriple).",
+            file: file,
+            line: line)
+        }
+      } catch {
+        if None.self is T.Type {
+          // Good
+        } else {
+          XCTFail(
+            "Expected \(T.self) but found None for triple \(rawTriple).",
+            file: file,
+            line: line)
+        }
+      }
+    }
+
+    assertToolchain("i386-apple-darwin", DarwinToolchain.self)
+    assertToolchain("i386-pc-hurd-gnu", None.self)
+    assertToolchain("x86_64-pc-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("x86_64-pc-linux-musl", GenericUnixToolchain.self)
+    assertToolchain("powerpc-bgp-linux", GenericUnixToolchain.self)
+    assertToolchain("powerpc-bgp-cnk", None.self)
+    assertToolchain("ppc-bgp-linux", GenericUnixToolchain.self)
+    assertToolchain("ppc32-bgp-linux", GenericUnixToolchain.self)
+    assertToolchain("powerpc64-bgq-linux", GenericUnixToolchain.self)
+    assertToolchain("ppc64-bgq-linux", GenericUnixToolchain.self)
+    assertToolchain("powerpc-ibm-aix", None.self)
+    assertToolchain("powerpc64-ibm-aix", None.self)
+    assertToolchain("powerpc-dunno-notsure", None.self)
+    assertToolchain("arm-none-none-eabi", GenericUnixToolchain.self)
+    assertToolchain("arm-none-unknown-eabi", None.self)
+    assertToolchain("arm-none-linux-musleabi", GenericUnixToolchain.self)
+    assertToolchain("armv6hl-none-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("armv7hl-none-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("amdil-unknown-unknown", None.self)
+    assertToolchain("amdil64-unknown-unknown", None.self)
+    assertToolchain("hsail-unknown-unknown", None.self)
+    assertToolchain("hsail64-unknown-unknown", None.self)
+    assertToolchain("sparcel-unknown-unknown", None.self)
+    assertToolchain("spir-unknown-unknown", None.self)
+    assertToolchain("spir64-unknown-unknown", None.self)
+    assertToolchain("x86_64-unknown-ananas", None.self)
+    assertToolchain("x86_64-unknown-cloudabi", None.self)
+    assertToolchain("x86_64-unknown-fuchsia", None.self)
+    assertToolchain("x86_64-unknown-hermit", None.self)
+    assertToolchain("wasm32-unknown-unknown", None.self)
+    assertToolchain("wasm32-unknown-wasi", WebAssemblyToolchain.self)
+    assertToolchain("wasm64-unknown-unknown", None.self)
+    assertToolchain("wasm64-unknown-wasi", WebAssemblyToolchain.self)
+    assertToolchain("avr-unknown-unknown", None.self)
+    assertToolchain("avr", None.self)
+    assertToolchain("lanai-unknown-unknown", None.self)
+    assertToolchain("lanai", None.self)
+    assertToolchain("amdgcn-mesa-mesa3d", None.self)
+    assertToolchain("amdgcn-amd-amdhsa", None.self)
+    assertToolchain("amdgcn-amd-amdpal", None.self)
+    assertToolchain("riscv32-unknown-unknown", None.self)
+    assertToolchain("riscv64-unknown-linux", GenericUnixToolchain.self)
+    assertToolchain("riscv64-unknown-freebsd", GenericUnixToolchain.self)
+    assertToolchain("armv7hl-suse-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("i586-pc-haiku", GenericUnixToolchain.self)
+    assertToolchain("x86_64-unknown-haiku", GenericUnixToolchain.self)
+    assertToolchain("mips-mti-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mipsel-img-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips64-mti-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips64el-img-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips64el-img-linux-gnuabin32", GenericUnixToolchain.self)
+    assertToolchain("mips64el", None.self)
+    assertToolchain("mips64", None.self)
+    assertToolchain("mips64-unknown-linux-gnuabi64", GenericUnixToolchain.self)
+    assertToolchain("mips64-unknown-linux-gnuabin32", GenericUnixToolchain.self)
+    assertToolchain("mipsn32", None.self)
+    assertToolchain("mipsn32r6", None.self)
+    assertToolchain("mipsel-unknown-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mipsel", None.self)
+    assertToolchain("mips-unknown-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips", None.self)
+    assertToolchain("mipsr6el", None.self)
+    assertToolchain("mipsisa32r6el", None.self)
+    assertToolchain("mipsisa32r6-unknown-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mipsr6", None.self)
+    assertToolchain("mipsisa32r6", None.self)
+    assertToolchain("arm-oe-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("aarch64-oe-linux", GenericUnixToolchain.self)
+    assertToolchain("x86_64-apple-tvos13.0-simulator", DarwinToolchain.self)
+    assertToolchain("arm64_32-apple-ios", DarwinToolchain.self)
+    assertToolchain("armv7s-apple-ios", DarwinToolchain.self)
+    assertToolchain("armv7em-unknown-none-macho", GenericUnixToolchain.self)
+    assertToolchain("armv7em-apple-none-macho", DarwinToolchain.self)
+    assertToolchain("armv7em-apple-none", DarwinToolchain.self)
+    assertToolchain("xscale-none-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("thumbv7-pc-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("thumbv3-pc-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("i686-pc-windows-msvc", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-msvc", WindowsToolchain.self)
+    assertToolchain("i686-pc-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-pc-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-pc-windows-cygnus", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-cygnus", WindowsToolchain.self)
   }
 }
 
