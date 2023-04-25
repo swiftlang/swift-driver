@@ -124,14 +124,14 @@ extension FrontendTargetInfo {
 }
 
 extension Toolchain {
-  @_spi(Testing) public func printTargetInfoJob(target: Triple?,
-                                                targetVariant: Triple?,
-                                                sdkPath: VirtualPath? = nil,
-                                                resourceDirPath: VirtualPath? = nil,
-                                                runtimeCompatibilityVersion: String? = nil,
-                                                requiresInPlaceExecution: Bool = false,
-                                                useStaticResourceDir: Bool = false,
-                                                swiftCompilerPrefixArgs: [String]) throws -> Job {
+  func printTargetInfoJob(target: Triple?,
+                          targetVariant: Triple?,
+                          sdkPath: VirtualPath? = nil,
+                          resourceDirPath: VirtualPath? = nil,
+                          runtimeCompatibilityVersion: String? = nil,
+                          requiresInPlaceExecution: Bool = false,
+                          useStaticResourceDir: Bool = false,
+                          swiftCompilerPrefixArgs: [String]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     commandLine.append(contentsOf: [.flag("-frontend"),
                                     .flag("-print-target-info")])

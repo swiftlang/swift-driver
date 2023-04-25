@@ -45,20 +45,11 @@ extension Driver {
 
 
   public func verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: AbsolutePath?,
-                                                        invocationCommand: [String],
-                                                        expectedSDKPath: String) throws -> Bool {
-    guard let targetInfo = try Self.queryTargetInfoInProcess(of: toolchain,
-                                                             fileSystem: fileSystem,
-                                                             workingDirectory: workingDirectory,
-                                                             invocationCommand: invocationCommand) else {
-      return false
-    }
-
-    guard let sdkPath = targetInfo.sdkPath else {
-      return false
-    }
-
-    if sdkPath.path.description != expectedSDKPath {
+                                                                       invocationCommand: [String]) throws -> Bool {
+    guard try Self.queryTargetInfoInProcess(of: toolchain,
+                                            fileSystem: fileSystem,
+                                            workingDirectory: workingDirectory,
+                                            invocationCommand: invocationCommand) != nil else {
       return false
     }
     return true

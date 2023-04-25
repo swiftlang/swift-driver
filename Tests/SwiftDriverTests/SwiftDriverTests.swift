@@ -4861,42 +4861,17 @@ final class SwiftDriverTests: XCTestCase {
 
     // In-process query
     do {
-      let targetInfoArgs = ["-print-target-info", "-sdk", "/bar", "-resource-dir", "baz"]
+      let targetInfoArgs = ["-print-target-info", "-sdk", "bar", "-resource-dir", "baz"]
       let driver = try Driver(args: ["swift"] + targetInfoArgs)
-      let printTargetInfoJob = try driver.toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                                                       sdkPath: .absolute(driver.absoluteSDKPath!),
-                                                                       swiftCompilerPrefixArgs: [])
-      var printTargetInfoCommand = try Driver.itemizedJobCommand(of: printTargetInfoJob, useResponseFiles: .disabled, using: ArgsResolver(fileSystem: InMemoryFileSystem()))
-      Driver.sanitizeCommandForLibScanInvocation(&printTargetInfoCommand)
       let swiftScanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
           XCTAssertTrue(try driver.verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: localFileSystem.currentWorkingDirectory,
-                                                                             invocationCommand: printTargetInfoCommand,
-                                                                             expectedSDKPath: "/bar"))
+                                                                             invocationCommand: targetInfoArgs))
         }
       }
-    }
 
-    // Ensure that quoted paths are always escaped on the in-process query commands
-    do {
-      let targetInfoArgs = ["-print-target-info", "-sdk", "/tmp/foo bar", "-resource-dir", "baz"]
-      let driver = try Driver(args: ["swift"] + targetInfoArgs)
-      let printTargetInfoJob = try driver.toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                                                       sdkPath: .absolute(driver.absoluteSDKPath!),
-                                                                       swiftCompilerPrefixArgs: [])
-      var printTargetInfoCommand = try Driver.itemizedJobCommand(of: printTargetInfoJob, useResponseFiles: .disabled, using: ArgsResolver(fileSystem: InMemoryFileSystem()))
-      Driver.sanitizeCommandForLibScanInvocation(&printTargetInfoCommand)
-      let swiftScanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
-      if localFileSystem.exists(swiftScanLibPath) {
-        let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
-        if libSwiftScanInstance.canQueryTargetInfo() {
-          XCTAssertTrue(try driver.verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: localFileSystem.currentWorkingDirectory,
-                                                                             invocationCommand: printTargetInfoCommand,
-                                                                             expectedSDKPath: "/tmp/foo bar"))
-        }
-      }
     }
 
     do {

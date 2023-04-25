@@ -416,8 +416,7 @@ public extension Driver {
   static func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
                                  using resolver: ArgsResolver) throws -> [String] {
     let (args, _) = try resolver.resolveArgumentList(for: job,
-                                                     useResponseFiles: useResponseFiles,
-                                                     quotePaths: true)
+                                                     useResponseFiles: useResponseFiles)
     return args
   }
 
