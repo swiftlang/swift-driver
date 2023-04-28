@@ -116,7 +116,7 @@ public final class ArgsResolver {
   private func unsafeResolve(path: VirtualPath, quotePaths: Bool) throws -> String {
     // If there was a path mapping, use it.
     if let actualPath = pathMapping[path] {
-      return quotePaths ? "'\(actualPath)'" : actualPath
+      return quotePaths ? quoteArgument(actualPath) : actualPath
     }
 
     // Return the path from the temporary directory if this is a temporary file.
@@ -146,7 +146,7 @@ public final class ArgsResolver {
     // Otherwise, return the path.
     let result = path.name
     pathMapping[path] = result
-    return quotePaths ? "'\(result)'" : result
+    return quotePaths ? quoteArgument(result) : result
   }
 
   private func createFileList(path: VirtualPath, contents: [VirtualPath]) throws {
