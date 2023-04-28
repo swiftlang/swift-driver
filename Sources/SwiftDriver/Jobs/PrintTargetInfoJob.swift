@@ -247,6 +247,10 @@ extension Driver {
                                               using: executor.resolver)
     Self.sanitizeCommandForLibScanInvocation(&command)
 
+    // FIXME: Disable libSwiftScan target info query on Windows
+    // while we investigate failures caused by quoting input paths here
+    // https://github.com/apple/swift-driver/issues/1341
+#if !os(Windows)
     do {
       if let targetInfo =
           try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
@@ -257,6 +261,7 @@ extension Driver {
     } catch {
       diagnosticsEngine.emit(.warning_inprocess_target_info_query_failed(error.localizedDescription))
     }
+#endif
 
     // Fallback: Invoke `swift-frontend -print-target-info` and decode the output
     return try executor.execute(
