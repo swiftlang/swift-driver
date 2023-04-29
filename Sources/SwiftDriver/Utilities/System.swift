@@ -16,6 +16,45 @@ import Darwin
 import Glibc
 #endif
 
+func argumentNeedsQuoting(_ argument: String) -> Bool {
+  if argument.isEmpty { return false }
+  let chars: Set<Character> = Set("\t \"&'()*<>\\`^|\n")
+  return argument.firstIndex(where: { chars.contains($0) }) != argument.endIndex
+}
+
+func quoteArgument(_ argument: String) -> String {
+#if os(Windows)
+  var unquoted: Substring = argument[...]
+  var quoted: String = "\""
+  while !unquoted.isEmpty {
+    guard let firstNonBS = unquoted.firstIndex(where: { $0 != "\\" }) else {
+      // The rest of the string is backslashes. Escape all of them and exit.
+      (0 ..< (2 * unquoted.count)).forEach { _ in quoted += "\\" }
+      break
+    }
+
+    let bsCount = unquoted.distance(from: unquoted.startIndex, to: firstNonBS)
+    if unquoted[firstNonBS] == "\"" {
+      // This is an embedded quote. Escape all preceding backslashes, then
+      // add one additional backslash to escape the quote.
+      (0 ..< (2 * bsCount + 1)).forEach { _ in quoted += "\\" }
+      quoted += "\""
+    } else {
+      // This is just a normal character. Don't escape any of the preceding
+      // backslashes, just append them as they are and then append the
+      // character.
+      (0 ..< bsCount).forEach { _ in quoted += "\\" }
+      quoted += "\(unquoted[firstNonBS])"
+    }
+
+    unquoted = unquoted.dropFirst(bsCount + 1)
+  }
+  return quoted + "\""
+#else
+  return "'" + argument + "'"
+#endif
+}
+
 #if canImport(Darwin) || os(Linux) || os(Android) || os(OpenBSD)
 // Adapted from llvm::sys::commandLineFitsWithinSystemLimits.
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
@@ -49,45 +88,10 @@ func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
 #elseif os(Windows)
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   func flattenWindowsCommandLine(_ arguments: [String]) -> String {
-    func argNeedsQuoting(_ argument: String) -> Bool {
-      if argument.isEmpty { return false }
-      let chars: Set<Character> = Set("\t \"&'()*<>\\`^|\n")
-      return argument.firstIndex(where: { chars.contains($0) }) != argument.endIndex
-    }
-
-    func quote(_ argument: String) -> String {
-      var unquoted: Substring = argument[...]
-      var quoted: String = "\""
-      while !unquoted.isEmpty {
-        guard let firstNonBS = unquoted.firstIndex(where: { $0 != "\\" }) else {
-          // The rest of the string is backslashes. Escape all of them and exit.
-          (0 ..< (2 * unquoted.count)).forEach { _ in quoted += "\\" }
-          break
-        }
-
-        let bsCount = unquoted.distance(from: unquoted.startIndex, to: firstNonBS)
-        if unquoted[firstNonBS] == "\"" {
-          // This is an embedded quote. Escape all preceding backslashes, then
-          // add one additional backslash to escape the quote.
-          (0 ..< (2 * bsCount + 1)).forEach { _ in quoted += "\\" }
-          quoted += "\""
-        } else {
-          // This is just a normal character. Don't escape any of the preceding
-          // backslashes, just append them as they are and then append the
-          // character.
-          (0 ..< bsCount).forEach { _ in quoted += "\\" }
-          quoted += "\(unquoted[firstNonBS])"
-        }
-
-        unquoted = unquoted.dropFirst(bsCount + 1)
-      }
-      return quoted + "\""
-    }
-
     var quoted: String = ""
     for arg in arguments {
-      if argNeedsQuoting(arg) {
-        quoted += quote(arg)
+      if argumentNeedsQuoting(arg) {
+        quoted += quoteArgument(arg)
       } else {
         quoted += arg
       }
