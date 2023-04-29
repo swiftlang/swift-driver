@@ -64,6 +64,7 @@ enum SwiftFlags {
   SwiftAPIDigesterOption = (1 << 17),
   NewDriverOnlyOption = (1 << 18),
   ModuleInterfaceOptionIgnorable = (1 << 19),
+  ModuleInterfaceOptionIgnorablePrivate = (1 << 20),
 };
 
 static std::set<std::string> swiftKeywords = { "internal", "static" };
