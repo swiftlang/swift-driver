@@ -131,7 +131,6 @@ target_link_libraries(SwiftDriver PUBLIC
   TSCUtility
   SwiftOptions)
 target_link_libraries(SwiftDriver PRIVATE
-  CYaml
   Yams
   CSwiftScan)
 
