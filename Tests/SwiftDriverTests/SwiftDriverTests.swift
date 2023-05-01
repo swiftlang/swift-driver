@@ -2875,6 +2875,15 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testWMOWithJustObjectInputs() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "foo.o", "bar.o"
+    ])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs.first?.kind, .link)
+  }
+
   func testModuleAliasingWithImplicitBuild() throws {
     var driver = try Driver(args: [
       "swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Car=Bar",

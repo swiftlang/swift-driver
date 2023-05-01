@@ -328,11 +328,11 @@ extension Driver {
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     emitModuleTrace: Bool
   ) throws -> Job? {
-    guard case .singleCompile = compilerMode
+    guard case .singleCompile = compilerMode,
+          inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation })
     else { return nil }
 
-    if parsedOptions.hasArgument(.embedBitcode),
-       inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
+    if parsedOptions.hasArgument(.embedBitcode) {
       let compile = try compileJob(primaryInputs: [],
                                    outputType: .llvmBitcode,
                                    addJobOutputs: addJobOutputs,
