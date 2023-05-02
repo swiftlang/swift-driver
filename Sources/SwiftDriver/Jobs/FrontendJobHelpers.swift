@@ -585,10 +585,7 @@ extension Driver {
         // To match the legacy driver behavior, make sure we add the first input file
         // to the output file map if compiling without primary inputs (WMO), even
         // if there aren't any corresponding outputs.
-        guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type == .swift })?.fileHandle  else {
-          fatalError("Formulating swift-frontend invocation without any input .swift files")
-        }
-        entries[firstSourceInputHandle] = [:]
+        entries[inputFiles[0].fileHandle] = [:]
       }
 
       for flaggedPair in flaggedInputOutputPairs {
