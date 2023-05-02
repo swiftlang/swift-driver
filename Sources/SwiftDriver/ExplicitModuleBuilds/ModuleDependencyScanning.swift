@@ -415,9 +415,11 @@ public extension Driver {
 
   static func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
                                  using resolver: ArgsResolver) throws -> [String] {
+    // FIXME: this is to walkaround rdar://108769167
+    let quotePaths = job.kind != .scanDependencies
     let (args, _) = try resolver.resolveArgumentList(for: job,
                                                      useResponseFiles: useResponseFiles,
-                                                     quotePaths: true)
+                                                     quotePaths: quotePaths)
     return args
   }
 
