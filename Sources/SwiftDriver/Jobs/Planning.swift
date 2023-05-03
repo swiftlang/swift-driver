@@ -329,10 +329,11 @@ extension Driver {
     emitModuleTrace: Bool
   ) throws -> Job? {
     guard case .singleCompile = compilerMode,
-          inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation })
+          inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation })
     else { return nil }
 
-    if parsedOptions.hasArgument(.embedBitcode) {
+    if parsedOptions.hasArgument(.embedBitcode),
+       inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
       let compile = try compileJob(primaryInputs: [],
                                    outputType: .llvmBitcode,
                                    addJobOutputs: addJobOutputs,
