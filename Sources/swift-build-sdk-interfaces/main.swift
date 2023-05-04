@@ -132,11 +132,10 @@ do {
   let allModules = coreMode ? ["Foundation"] : Array(inputMap.keys)
   try withTemporaryFile(suffix: ".swift") {
     let tempPath = $0.path
-    try localFileSystem.writeFileContents(tempPath, body: {
-      for module in allModules {
-        $0 <<< "import " <<< module <<< "\n"
-      }
-    })
+    let importString = allModules.map { "import \($0)" }.joined(separator: "\n")
+    try localFileSystem
+      .writeFileContents(tempPath,
+                         bytes: .init(importString.utf8))
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                            processSet: processSet,
                                            fileSystem: localFileSystem,
@@ -166,7 +165,7 @@ do {
       currentABIDir: currentABIDir, baselineABIDir: baselineABIDir)
     if verbose {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
+        stderrStream.send("job count: \(jobs.count + danglingJobs.count)\n")
         stderrStream.flush()
       }
     }
