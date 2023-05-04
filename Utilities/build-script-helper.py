@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-from distutils import file_util
 import os
 import json
 import platform
