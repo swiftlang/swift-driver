@@ -415,12 +415,11 @@ public extension Driver {
 
   static func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
                                  using resolver: ArgsResolver) throws -> [String] {
-    // FIXME: this is to walkaround rdar://108769167
-    let quotePaths = job.kind != .scanDependencies
-    let (args, _) = try resolver.resolveArgumentList(for: job,
-                                                     useResponseFiles: useResponseFiles,
-                                                     quotePaths: quotePaths)
-    return args
+    // Because the command-line passed to libSwiftScan does not go through the shell
+    // we must ensure that we generate a shell-escaped string for all arguments/flags that may
+    // potentially need it.
+    return try resolver.resolveArgumentList(for: job,
+                                            useResponseFiles: useResponseFiles).0.map { $0.spm_shellEscaped() }
   }
 
   static func getRootPath(of toolchain: Toolchain, env: [String: String])

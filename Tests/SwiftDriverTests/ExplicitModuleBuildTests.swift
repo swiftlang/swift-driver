@@ -1558,6 +1558,28 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testDependencyScanCommandLineEscape() throws {
+#if os(Windows)
+  let quoteCharacter: Character = "\""
+#else
+  let quoteCharacter: Character = "'"
+#endif
+    let swiftInputWithSpace = "/tmp/input example/test.swift"
+    let swiftInputWithoutSpace = "/tmp/baz.swift"
+    let clangInputWithSpace = "/tmp/input example/bar.o"
+    var driver = try Driver(args: ["swiftc", "-explicit-module-build",
+                                   "-module-name", "testDependencyScanning",
+                                   swiftInputWithSpace, swiftInputWithoutSpace,
+                                   "-Xcc", clangInputWithSpace])
+    let scanJob = try driver.dependencyScanningJob()
+    let scanJobCommand = try Driver.itemizedJobCommand(of: scanJob,
+                                                       useResponseFiles: .disabled,
+                                                       using: ArgsResolver(fileSystem: InMemoryFileSystem()))
+    XCTAssertTrue(scanJobCommand.contains(String(quoteCharacter) + swiftInputWithSpace + String(quoteCharacter)))
+    XCTAssertTrue(scanJobCommand.contains(String(quoteCharacter) + clangInputWithSpace + String(quoteCharacter)))
+    XCTAssertTrue(scanJobCommand.contains(swiftInputWithoutSpace))
+  }
+
   func testExplicitSwiftModuleMap() throws {
     let jsonExample : String = """
     [
