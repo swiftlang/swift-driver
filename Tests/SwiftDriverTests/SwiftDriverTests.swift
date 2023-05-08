@@ -6776,6 +6776,7 @@ final class SwiftDriverTests: XCTestCase {
 
     try withTemporaryDirectory { tmpDir in
       var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift"],
+                              integratedDriver: false,
                               compilerExecutableDir: tmpDir)
       guard driver.isFrontendArgSupported(.externalPluginPath) else {
         return
@@ -6815,6 +6816,27 @@ final class SwiftDriverTests: XCTestCase {
       default:
         XCTFail("invalid arg type after '-external-plugin-path'")
       }
+    }
+  }
+
+  func testExternalPluginPathsDisabled() throws {
+#if !os(macOS)
+    throw XCTSkip("Supported only in macOS")
+#endif
+
+    try withTemporaryDirectory { tmpDir in
+      var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift"],
+                              integratedDriver: true,
+                              compilerExecutableDir: tmpDir)
+      guard driver.isFrontendArgSupported(.externalPluginPath) else {
+        return
+      }
+
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+
+      XCTAssertFalse(job.commandLine.contains(.flag("-external-plugin-path")))
     }
   }
 
