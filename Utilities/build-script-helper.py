@@ -66,7 +66,7 @@ def swiftpm_bin_path(swift_exec, swiftpm_args, env=None):
   swiftpm_args = [arg for arg in swiftpm_args if arg != '-v' and arg != '--verbose']
   cmd = [swift_exec, 'build', '--show-bin-path'] + swiftpm_args
   print(' '.join(cmd))
-  return subprocess.check_output(cmd, env=env).strip().decode("UTF-8")
+  return subprocess.check_output(cmd, env=env, encoding='utf-8').strip()
 
 def get_swiftpm_options(args):
   swiftpm_args = [
@@ -585,7 +585,8 @@ def cmake_build(args, swiftc_exec, cmake_args, swift_flags, source_path,
   ninjaProcess = subprocess.Popen(ninja_cmd, cwd=build_dir,
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE,
-                                  env = os.environ)
+                                  env = os.environ,
+                                  encoding='utf-8')
   stdout, stderr = ninjaProcess.communicate()
   if ninjaProcess.returncode != 0:
     print(stdout)
