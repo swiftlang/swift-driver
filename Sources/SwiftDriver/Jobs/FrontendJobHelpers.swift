@@ -269,10 +269,6 @@ extension Driver {
       commandLine.appendPath(localPluginPath)
     }
 
-    if isFrontendArgSupported(.externalPluginPath) {
-      try commandLine.appendAll(.externalPluginPath, from: &parsedOptions)
-    }
-
     // Pass down -user-module-version if we are working with a compiler that
     // supports it.
     if let ver = parsedOptions.getLastArgument(.userModuleVersion)?.asSingle,
