@@ -275,10 +275,6 @@ extension Driver {
       commandLine.appendPath(localPluginPath)
     }
 
-    if isFrontendArgSupported(.externalPluginPath) {
-      try commandLine.appendAll(.externalPluginPath, from: &parsedOptions)
-    }
-
     if isFrontendArgSupported(.blockListFile) {
       try Driver.findBlocklists(RelativeTo: try toolchain.executableDir).forEach {
         commandLine.appendFlag(.blockListFile)
