@@ -376,7 +376,6 @@ public final class DarwinToolchain: Toolchain {
     // Pass -external-plugin-path if the current toolchain is not a Xcode
     // default toolchain.
     if
-      !driver.integratedDriver,
       driver.isFrontendArgSupported(.externalPluginPath),
       let xcodeDir = try self.findCurrentSelectedXcodeDir(),
       try !self.executableDir.isDescendant(of: xcodeDir),
