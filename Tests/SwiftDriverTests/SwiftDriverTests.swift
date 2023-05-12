@@ -2262,10 +2262,12 @@ final class SwiftDriverTests: XCTestCase {
       let path5_0iOS = path.appending(components: "iphoneos", "libswiftCompatibility50.a")
       let path5_1iOS = path.appending(components: "iphoneos", "libswiftCompatibility51.a")
       let pathDynamicReplacementsiOS = path.appending(components: "iphoneos", "libswiftCompatibilityDynamicReplacements.a")
+      let pathCompatibilityPacksMac = path.appending(components: "macosx", "libswiftCompatibilityPacks.a")
 
       for compatibilityLibPath in [path5_0Mac, path5_1Mac,
                                    pathDynamicReplacementsMac, path5_0iOS,
-                                   path5_1iOS, pathDynamicReplacementsiOS] {
+                                   path5_1iOS, pathDynamicReplacementsiOS,
+                                   pathCompatibilityPacksMac] {
         try localFileSystem.writeFileContents(compatibilityLibPath) { $0 <<< "Empty" }
       }
       let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test", "-resource-dir", path.pathString]
@@ -2282,6 +2284,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathCompatibilityPacksMac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.path(.absolute(pathCompatibilityPacksMac))]))
       }
 
       do {
@@ -2296,6 +2301,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
         XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathCompatibilityPacksMac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.path(.absolute(pathCompatibilityPacksMac))]))
       }
 
       do {
@@ -2310,6 +2318,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
         XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
         XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathCompatibilityPacksMac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.path(.absolute(pathCompatibilityPacksMac))]))
       }
 
       do {
@@ -2324,6 +2335,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_0Mac))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(path5_1Mac))]))
         XCTAssertTrue(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathDynamicReplacementsMac))]))
+
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-force_load"), .path(.absolute(pathCompatibilityPacksMac))]))
+        XCTAssertTrue(cmd.contains(subsequence: [.path(.absolute(pathCompatibilityPacksMac))]))
       }
 
       do {

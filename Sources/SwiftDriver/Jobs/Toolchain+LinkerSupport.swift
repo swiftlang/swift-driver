@@ -100,11 +100,13 @@ extension DarwinToolchain {
 
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
-    func addArgsForBackDeployLib(_ libName: String) throws {
+    func addArgsForBackDeployLib(_ libName: String, forceLoad: Bool) throws {
       let backDeployLibPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(components: targetTriple.platformName() ?? "", libName)
       if try fileSystem.exists(backDeployLibPath) {
-        commandLine.append(.flag("-force_load"))
+        if forceLoad {
+          commandLine.append(.flag("-force_load"))
+        }
         commandLine.appendPath(backDeployLibPath)
       }
     }
@@ -121,7 +123,9 @@ extension DarwinToolchain {
       }
 
       if shouldLink {
-        try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a")
+        // Old frontends don't set forceLoad at all; assume it's true in that case
+        try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a",
+                                    forceLoad: compatibilityLib.forceLoad ?? true)
       }
     }
 
