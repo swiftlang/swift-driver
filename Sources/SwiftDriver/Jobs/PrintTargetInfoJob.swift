@@ -77,6 +77,7 @@ public struct FrontendTargetInfo: Codable {
 
     let libraryName: String
     let filter: Filter
+    let forceLoad: Bool?
   }
 
   struct Target: Codable {
