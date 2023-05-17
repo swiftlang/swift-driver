@@ -1613,6 +1613,53 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertEqual(moduleMap[1].sourceInfoPath!.path.description, "B.swiftsourceinfo")
     XCTAssertEqual(moduleMap[1].isFramework, false)
   }
+
+
+  func testTraceDependency() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testTraceDependency.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+
+      let cHeadersPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-v",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-explain-module-dependency", "A",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
+                                                                   $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
+
+      for diag in driver.diagnosticEngine.diagnostics {
+        print(diag.behavior)
+        print(diag.message)
+      }
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+                                                                   $0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)"})
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+                                                                   $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"})
+    }
+  }
+
 // We only care about prebuilt modules in macOS.
 #if os(macOS)
   func testPrebuiltModuleGenerationJobs() throws {

@@ -124,7 +124,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     }
     for moduleId in swiftDependencies {
       let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
-      let pcmArgs = try dependencyGraph.swiftModulePCMArgs(of: moduleId)
       var inputs: [TypedVirtualPath] = []
       let outputs: [TypedVirtualPath] = [
         TypedVirtualPath(file: moduleInfo.modulePath.path, type: .swiftModule)
@@ -485,6 +484,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   func swiftModulePCMArgs(of moduleId: ModuleDependencyId) throws -> [String] {
     let moduleDetails = try swiftModuleDetails(of: moduleId)
     return moduleDetails.extraPcmArgs
+  }
+}
+
+internal extension ExplicitDependencyBuildPlanner {
+  func explainDependency(_ dependencyModuleName: String) throws -> [[ModuleDependencyId]]? {
+    return try dependencyGraph.explainDependency(dependencyModuleName: dependencyModuleName)
   }
 }
 
