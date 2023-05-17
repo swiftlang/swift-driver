@@ -487,6 +487,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   }
 }
 
+internal extension ExplicitDependencyBuildPlanner {
+  func explainDependency(_ dependencyModuleName: String) throws -> [[ModuleDependencyId]]? {
+    return try dependencyGraph.explainDependency(dependencyModuleName: dependencyModuleName)
+  }
+}
+
 // InterModuleDependencyGraph printing, useful for debugging
 internal extension InterModuleDependencyGraph {
   func prettyPrintString() throws -> String {

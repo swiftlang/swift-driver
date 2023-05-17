@@ -140,7 +140,8 @@ extension Driver {
                                                           IncrementalCompilationState.InitialStateForPlanning?)
   throws -> InterModuleDependencyGraph? {
     let interModuleDependencyGraph: InterModuleDependencyGraph?
-    if parsedOptions.contains(.driverExplicitModuleBuild) {
+    if parsedOptions.contains(.driverExplicitModuleBuild) ||
+       parsedOptions.contains(.explainModuleDependency) {
       interModuleDependencyGraph =
         try initialIncrementalState?.maybeUpToDatePriorInterModuleDependencyGraph ??
             gatherModuleDependencies()
@@ -195,13 +196,15 @@ extension Driver {
     dependencyGraph: InterModuleDependencyGraph?,
     addJob: (Job) -> Void)
   throws {
-    // If asked, add jobs to precompile module dependencies
-    guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
     guard let resolvedDependencyGraph = dependencyGraph else {
-      fatalError("Attempting to plan explicit dependency build without a dependency graph")
+      return
     }
     let modulePrebuildJobs =
         try generateExplicitModuleDependenciesJobs(dependencyGraph: resolvedDependencyGraph)
+    // If asked, add jobs to precompile module dependencies. Otherwise exit.
+    // We may have a dependency graph but not be required to add pre-compile jobs to the build plan,
+    // for example when `-explain-dependency` is being used.
+    guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
     modulePrebuildJobs.forEach(addJob)
   }
 
