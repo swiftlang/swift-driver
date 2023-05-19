@@ -122,6 +122,8 @@ typedef struct {
   (*swiftscan_swift_textual_detail_get_context_hash)(swiftscan_module_details_t);
   bool
   (*swiftscan_swift_textual_detail_get_is_framework)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_swift_textual_detail_get_swift_overlay_dependencies)(swiftscan_module_details_t);
 
   //=== Swift Binary Module Details query APIs ------------------------------===//
   swiftscan_string_ref_t

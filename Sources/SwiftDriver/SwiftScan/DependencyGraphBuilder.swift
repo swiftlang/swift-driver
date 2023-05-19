@@ -123,7 +123,8 @@ private extension SwiftScan {
     guard let moduleDetailsRef = api.swiftscan_module_info_get_details(moduleInfoRef) else {
       throw DependencyScanningError.missingField("modules[\(moduleId)].details")
     }
-    let details = try constructModuleDetails(from: moduleDetailsRef)
+    let details = try constructModuleDetails(from: moduleDetailsRef,
+                                             moduleAliases: moduleAliases)
 
     return (moduleId, ModuleInfo(modulePath: modulePath, sourceFiles: sourceFiles,
                                  directDependencies: directDependencies,
@@ -133,12 +134,14 @@ private extension SwiftScan {
   /// From a reference to a binary-format module info details object info returned by libSwiftScan,
   /// construct an instance of an `ModuleInfo`.Details as used by the driver.
   /// The object returned by libSwiftScan is a union so ensure to execute dependency-specific queries.
-  func constructModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
+  func constructModuleDetails(from moduleDetailsRef: swiftscan_module_details_t,
+                              moduleAliases: [String: String]?)
   throws -> ModuleInfo.Details {
     let moduleKind = api.swiftscan_module_detail_get_kind(moduleDetailsRef)
     switch moduleKind {
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_TEXTUAL:
-        return .swift(try constructSwiftTextualModuleDetails(from: moduleDetailsRef))
+        return .swift(try constructSwiftTextualModuleDetails(from: moduleDetailsRef,
+                                                             moduleAliases: moduleAliases))
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_BINARY:
         return .swiftPrebuiltExternal(try constructSwiftBinaryModuleDetails(from: moduleDetailsRef))
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_PLACEHOLDER:
@@ -151,7 +154,8 @@ private extension SwiftScan {
   }
 
   /// Construct a `SwiftModuleDetails` from a `swiftscan_module_details_t` reference
-  func constructSwiftTextualModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
+  func constructSwiftTextualModuleDetails(from moduleDetailsRef: swiftscan_module_details_t,
+                                          moduleAliases: [String: String]?)
   throws -> SwiftModuleDetails {
     let moduleInterfacePath =
       try getOptionalPathDetail(from: moduleDetailsRef,
@@ -168,6 +172,15 @@ private extension SwiftScan {
     let bridgingHeaderDependencies =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_bridging_module_dependencies)
+    let bridgingHeader: BridgingHeader?
+    if let resolvedBridgingHeaderPath = bridgingHeaderPath {
+      bridgingHeader = BridgingHeader(path: resolvedBridgingHeaderPath,
+                                      sourceFiles: bridgingSourceFiles ?? [],
+                                      moduleDependencies: bridgingHeaderDependencies ?? [])
+    } else {
+      bridgingHeader = nil
+    }
+
     let commandLine =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_command_line)
@@ -180,15 +193,25 @@ private extension SwiftScan {
                           using: api.swiftscan_swift_textual_detail_get_context_hash)
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
 
+    // Decode all dependencies of this module
+    let swiftOverlayDependencies: [ModuleDependencyId]?
+    if supportsSeparateSwiftOverlayDependencies(),
+       let encodedOverlayDepsRef = api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies(moduleDetailsRef) {
+      let encodedOverlayDependencies = try toSwiftStringArray(encodedOverlayDepsRef.pointee)
+      swiftOverlayDependencies =
+        try encodedOverlayDependencies.map { try decodeModuleNameAndKind(from: $0, moduleAliases: moduleAliases) }
+    } else {
+      swiftOverlayDependencies = nil
+    }
+
     return SwiftModuleDetails(moduleInterfacePath: moduleInterfacePath,
                               compiledModuleCandidates: compiledModuleCandidates,
-                              bridgingHeaderPath: bridgingHeaderPath,
-                              bridgingSourceFiles: bridgingSourceFiles,
-                              bridgingHeaderDependencies: bridgingHeaderDependencies?.map { .clang($0) },
+                              bridgingHeader: bridgingHeader,
                               commandLine: commandLine,
                               contextHash: contextHash,
                               extraPcmArgs: extraPcmArgs,
-                              isFramework: isFramework)
+                              isFramework: isFramework,
+                              swiftOverlayDependencies: swiftOverlayDependencies)
   }
 
   /// Construct a `SwiftPrebuiltExternalModuleDetails` from a `swiftscan_module_details_t` reference
