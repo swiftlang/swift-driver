@@ -7,14 +7,14 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS("12.0")
+    macOSPlatform = .macOS(.v12)
 }
 
 let package = Package(
   name: "swift-driver",
   platforms: [
     macOSPlatform,
-    .iOS("15.0"),
+    .iOS(.v15),
   ],
   products: [
     .executable(
