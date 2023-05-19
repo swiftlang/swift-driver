@@ -328,7 +328,8 @@ extension Driver {
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     emitModuleTrace: Bool
   ) throws -> Job? {
-    guard case .singleCompile = compilerMode
+    guard case .singleCompile = compilerMode,
+          inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation })
     else { return nil }
 
     if parsedOptions.hasArgument(.embedBitcode),
