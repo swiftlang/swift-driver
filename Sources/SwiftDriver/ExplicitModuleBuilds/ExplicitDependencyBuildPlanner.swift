@@ -124,7 +124,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     }
     for moduleId in swiftDependencies {
       let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
-      let pcmArgs = try dependencyGraph.swiftModulePCMArgs(of: moduleId)
       var inputs: [TypedVirtualPath] = []
       let outputs: [TypedVirtualPath] = [
         TypedVirtualPath(file: moduleInfo.modulePath.path, type: .swiftModule)
