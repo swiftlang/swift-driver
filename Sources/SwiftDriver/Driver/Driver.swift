@@ -13,7 +13,6 @@ import SwiftOptions
 
 import class Dispatch.DispatchQueue
 
-import TSCBasic // <<<
 import class TSCBasic.DiagnosticsEngine
 import enum TSCBasic.ProcessEnv
 import protocol TSCBasic.DiagnosticData
@@ -475,23 +474,23 @@ public struct Driver {
     stdErrQueue.sync {
       let stream = stderrStream
       if !(diagnostic.location is UnknownLocation) {
-          stream <<< diagnostic.location.description <<< ": "
+          stream.send("\(diagnostic.location.description): ")
       }
 
       switch diagnostic.message.behavior {
       case .error:
-        stream <<< "error: "
+        stream.send("error: ")
       case .warning:
-        stream <<< "warning: "
+        stream.send("warning: ")
       case .note:
-        stream <<< "note: "
+        stream.send("note: ")
       case .remark:
-        stream <<< "remark: "
+        stream.send("remark: ")
       case .ignored:
           break
       }
 
-      stream <<< diagnostic.localizedDescription <<< "\n"
+      stream("\(diagnostic.localizedDescription)\n")
       stream.flush()
     }
   }
@@ -1430,7 +1429,7 @@ extension Driver {
 
     if parsedOptions.contains(.driverPrintOutputFileMap) {
       if let outputFileMap = self.outputFileMap {
-        stderrStream <<< outputFileMap.description
+        stderrStream.send(outputFileMap.description)
         stderrStream.flush()
       } else {
         diagnosticEngine.emit(.error_no_output_file_map_specified)
@@ -1517,7 +1516,7 @@ extension Driver {
       if parsedOptions.contains(.v) {
         let arguments: [String] = try executor.resolver.resolveArgumentList(for: inPlaceJob,
                                                                             useResponseFiles: forceResponseFiles ? .forced : .heuristic)
-        stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+        stdoutStream("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
         stdoutStream.flush()
       }
       try executor.execute(job: inPlaceJob,
@@ -1643,14 +1642,13 @@ extension Driver {
     stdoutStream <<< #"# ""# <<< targetTriple.triple
     stdoutStream <<< #"" - ""# <<< job.tool.basename
     stdoutStream <<< #"", inputs: ["#
-    stdoutStream <<< job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream.send(job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", "))
 
-    stdoutStream <<< "], output: {"
+    stdoutStream.send("], output: {")
 
-    stdoutStream <<< job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream.send(job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", "))
 
-    stdoutStream <<< "}"
-    stdoutStream <<< "\n"
+    stdoutStream.send("}\n")
     stdoutStream.flush()
   }
 
