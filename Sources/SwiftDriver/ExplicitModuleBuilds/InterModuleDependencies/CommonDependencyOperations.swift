@@ -75,8 +75,21 @@ extension InterModuleDependencyGraph {
       }
     // Traverse the set of modules in reverse topological order, assimilating transitive closures
     for moduleId in topologicalIdList.reversed() {
-      for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+      let moduleInfo = try moduleInfo(of: moduleId)
+      for dependencyId in moduleInfo.directDependencies! {
         transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+      }
+      // For Swift dependencies, their corresponding Swift Overlay dependencies
+      // and bridging header dependencies are equivalent to direct dependencies.
+      if case .swift(let swiftModuleDetails) = moduleInfo.details {
+        let swiftOverlayDependencies = swiftModuleDetails.swiftOverlayDependencies ?? []
+        for dependencyId in swiftOverlayDependencies {
+          transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+        }
+        let bridgingHeaderDependencies = swiftModuleDetails.bridgingHeaderDependencies ?? []
+        for dependencyId in bridgingHeaderDependencies {
+          transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+        }
       }
     }
     // For ease of use down-the-line, remove the node's self from its set of reachable nodes

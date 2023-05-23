@@ -79,7 +79,9 @@ extension ModuleDependencyId: Codable {
 /// Bridging header
 public struct BridgingHeader: Codable {
   var path: TextualVirtualPath
+  /// The source files referenced by the bridging header.
   var sourceFiles: [TextualVirtualPath]
+  /// Modules that the bridging header specifically depends on
   var moduleDependencies: [String]
 }
 
@@ -92,13 +94,16 @@ public struct SwiftModuleDetails: Codable {
   public var compiledModuleCandidates: [TextualVirtualPath]?
 
   /// The bridging header, if any.
-  public var bridgingHeaderPath: TextualVirtualPath?
-
-  /// The source files referenced by the bridging header.
-  public var bridgingSourceFiles: [TextualVirtualPath]? = []
-
-  /// Modules that the bridging header specifically depends on
-  public var bridgingHeaderDependencies: [ModuleDependencyId]? = []
+  public var bridgingHeader: BridgingHeader?
+  public var bridgingHeaderPath: TextualVirtualPath? {
+    bridgingHeader?.path
+  }
+  public var bridgingSourceFiles: [TextualVirtualPath]? {
+    bridgingHeader?.sourceFiles
+  }
+  public var bridgingHeaderDependencies: [ModuleDependencyId]? {
+    bridgingHeader?.moduleDependencies.map { .clang($0) }
+  }
 
   /// Options to the compile command
   public var commandLine: [String]? = []
@@ -115,6 +120,9 @@ public struct SwiftModuleDetails: Codable {
 
   /// A flag to indicate whether or not this module is a framework.
   public var isFramework: Bool?
+
+  /// A set of Swift Overlays of Clang Module Dependencies
+  var swiftOverlayDependencies: [ModuleDependencyId]?
 }
 
 /// Details specific to Swift placeholder dependencies.
