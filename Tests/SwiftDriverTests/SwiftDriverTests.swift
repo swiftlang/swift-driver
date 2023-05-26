@@ -6433,6 +6433,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testExtractPackageName() throws {
+    try withTemporaryFile { file in
+      try localFileSystem.writeFileContents(file.path) {
+        $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0" <<< "\n"
+        $0 <<< "// swift-module-flags-ignorable: -library-level api"
+        $0 <<< "// swift-module-flags-ignorable-private: -package-name myPkg"
+      }
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      let idx = flags.firstIndex(of: "-package-name")
+      XCTAssertNotNil(idx)
+      XCTAssert(idx! + 1 < flags.count)
+      XCTAssertEqual(flags[idx! + 1], "myPkg")
+    }
+  }
+
   func testExtractLibraryLevel() throws {
     try withTemporaryFile { file in
       try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -library-level api" }

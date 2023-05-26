@@ -23,10 +23,27 @@ import struct TSCBasic.RelativePath
 import var TSCBasic.localFileSystem
 import var TSCBasic.stderrStream
 
-func getModuleFlags(_ path: VirtualPath, _ ignorable: Bool) throws -> [String] {
+enum InterfaceFlagKind {
+  case regular, ignorable, ignorablePrivate
+
+  var string: String {
+    switch self {
+    case .regular:
+      return "swift-module-flags"
+    case .ignorable:
+      return "swift-module-flags-ignorable"
+    case .ignorablePrivate:
+      return "swift-module-flags-ignorable-private"
+    }
+  }
+}
+
+func getModuleFlags(_ path: VirtualPath,
+                    _ flagKind: InterfaceFlagKind) throws -> [String] {
   let data = try localFileSystem.readFileContents(path).cString
   let myStrings = data.components(separatedBy: .newlines)
-  let prefix = ignorable ? "// swift-module-flags-ignorable: " : "// swift-module-flags: "
+
+  let prefix = "// " + flagKind.string + ": "
   if let argLine = myStrings.first(where: { $0.hasPrefix(prefix) }) {
     return argLine.dropFirst(prefix.count).components(separatedBy: " ")
   }
@@ -35,8 +52,9 @@ func getModuleFlags(_ path: VirtualPath, _ ignorable: Bool) throws -> [String] {
 
 @_spi(Testing) public func getAllModuleFlags(_ path: VirtualPath) throws -> [String] {
   var allFlags: [String] = []
-  allFlags.append(contentsOf: try getModuleFlags(path, true))
-  allFlags.append(contentsOf: try getModuleFlags(path, false))
+  allFlags.append(contentsOf: try getModuleFlags(path, .regular))
+  allFlags.append(contentsOf: try getModuleFlags(path, .ignorable))
+  allFlags.append(contentsOf: try getModuleFlags(path, .ignorablePrivate))
   return allFlags;
 }
 
