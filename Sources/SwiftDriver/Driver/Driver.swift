@@ -641,11 +641,12 @@ public struct Driver {
     // Compute debug information output.
     self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
 
-    // Validate package name; if package name is nil, it will be checked
-    // in the frontend during type check on `package` symbols
+    // Error if package-name is passed but the input is empty; if
+    // package-name is not passed but `package` decls exist, error
+    // will occur during the frontend type check.
     self.packageName = parsedOptions.getLastArgument(.packageName)?.asSingle
-    if let packageName = packageName, !packageName.sd_isSwiftIdentifier {
-      diagnosticsEngine.emit(.error_bad_package_name(packageName))
+    if let packageName = packageName, packageName.isEmpty {
+      diagnosticsEngine.emit(.error_empty_package_name)
     }
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
