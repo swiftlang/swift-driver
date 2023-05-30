@@ -18,7 +18,7 @@ import struct TSCBasic.AbsolutePath
 extension GenericUnixToolchain {
   private func defaultLinker(for targetTriple: Triple) -> String? {
     if targetTriple.os == .openbsd || targetTriple.os == .freeBSD ||
-        targetTriple.environment == .android {
+        targetTriple.environment == .android || targetTriple.os == .linux {
       return "lld"
     }
 

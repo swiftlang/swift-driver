@@ -2026,6 +2026,7 @@ final class SwiftDriverTests: XCTestCase {
       let linkJob = plannedJobs[3]
       XCTAssertEqual(linkJob.kind, .link)
       let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-fuse-ld=lld")))
       XCTAssertTrue(cmd.contains(.flag("-o")))
       XCTAssertTrue(cmd.contains(.flag("-shared")))
       XCTAssertTrue(commandContainsTemporaryPath(cmd, "foo.o"))
