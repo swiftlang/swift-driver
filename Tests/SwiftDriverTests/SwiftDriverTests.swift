@@ -690,25 +690,26 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPackageNameFlag() throws {
-    // -package-name mypkg (valid string)
-    try assertNoDriverDiagnostics(args: "swiftc", "file.swift", "bar.swift", "-module-name", "MyModule", "-package-name", "mypkg", "-emit-module", "-emit-module-path", "../../path/to/MyModule.swiftmodule") { driver in
-      XCTAssertEqual(driver.packageName, "mypkg")
+    // -package-name com.perf.my-pkg (valid string)
+    try assertNoDriverDiagnostics(args: "swiftc", "file.swift", "bar.swift", "-module-name", "MyModule", "-package-name", "com.perf.my-pkg", "-emit-module", "-emit-module-path", "../../path/to/MyModule.swiftmodule") { driver in
+      XCTAssertEqual(driver.packageName, "com.perf.my-pkg")
       XCTAssertEqual(driver.moduleOutputInfo.output, .topLevel(try VirtualPath.intern(path: "../../path/to/MyModule.swiftmodule")))
     }
 
-    // -package-name is not passed
+    // -package-name is not passed and file doesn't contain `package` decls; should pass
     try assertNoDriverDiagnostics(args: "swiftc", "file.swift") { driver in
       XCTAssertNil(driver.packageName)
       XCTAssertEqual(driver.moduleOutputInfo.name, "file")
     }
-  }
 
-  func testPackageNameDiags() throws {
-    try assertDriverDiagnostics(args: ["swiftc", "file.swift", "-package-name", ""]) {
-      $1.expect(.error("package name is empty; pass a non-empty string or remove \'-package-name\'"))
+    // -package-name 123a!@#$ (valid string)
+    try assertNoDriverDiagnostics(args: "swiftc", "file.swift", "-module-name", "Foo", "-package-name", "123a!@#$") { driver in
+      XCTAssertEqual(driver.packageName, "123a!@#$")
     }
-    try assertDriverDiagnostics(args: ["swiftc", "file.swift", "-module-name", "Foo", "-package-name", "123a!@#$"]) {
-      $1.expect(.error("package name \"123a!@#$\" is not a valid identifier"))
+
+    // -package-name input is an empty string
+    try assertDriverDiagnostics(args: "swiftc", "file.swift", "-package-name", "") {
+      $1.expect(.error("package-name is empty"))
     }
   }
 
