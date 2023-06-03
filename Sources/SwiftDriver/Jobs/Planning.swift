@@ -13,7 +13,6 @@
 import SwiftOptions
 import class Foundation.JSONDecoder
 
-import TSCBasic // <<<
 import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic

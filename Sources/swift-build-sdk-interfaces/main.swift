@@ -131,10 +131,11 @@ do {
   let allModules = coreMode ? ["Foundation"] : Array(inputMap.keys)
   try withTemporaryFile(suffix: ".swift") {
     let tempPath = $0.path
-    let importString = allModules.map { "import \($0)" }.joined(separator: "\n")
-    try localFileSystem
-      .writeFileContents(tempPath,
-                         bytes: .init(importString.utf8))
+    try localFileSystem.writeFileContents(tempPath, body: {
+      for module in allModules {
+        $0.send("import \(module)\n")
+      }
+    })
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                            processSet: processSet,
                                            fileSystem: localFileSystem,

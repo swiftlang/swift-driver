@@ -12,7 +12,6 @@
 
 import class Foundation.NSLock
 
-import TSCBasic // <<<
 import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
@@ -152,7 +151,7 @@ public final class ArgsResolver {
     if let absPath = path.absolutePath {
       try fileSystem.writeFileContents(absPath) { out in
         for path in contents {
-          try! out <<< unsafeResolve(path: path) <<< "\n"
+          try! out.send("\(unsafeResolve(path: path))\n")
         }
       }
     }

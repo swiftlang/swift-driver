@@ -407,9 +407,8 @@ final class ParsableMessageTests: XCTestCase {
         let errorOutput = try withHijackedErrorStream {
           let main = path.appending(component: "main.swift")
           let output = path.appending(component: "main.o")
-          try localFileSystem.writeFileContents(main) {
-            $0 <<< "nonexistentPrint(\"hello, compilation error!\")"
-          }
+          try localFileSystem.writeFileContents(main, bytes: "nonexistentPrint(\"hello, compilation error!\")")
+
           let diags = DiagnosticsEngine()
           let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
           var driver = try Driver(args: ["swiftc", main.pathString,
@@ -432,9 +431,8 @@ final class ParsableMessageTests: XCTestCase {
         let errorOutput = try withHijackedErrorStream {
           let main = path.appending(component: "main.swift")
           let output = path.appending(component: "main.o")
-          try localFileSystem.writeFileContents(main) {
-            $0 <<< "print(\"hello, world!\")"
-          }
+          try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
+
           let diags = DiagnosticsEngine()
           let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
           var driver = try Driver(args: ["swiftc", main.pathString,

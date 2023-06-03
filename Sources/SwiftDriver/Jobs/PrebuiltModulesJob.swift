@@ -13,7 +13,6 @@ import SwiftOptions
 import class Foundation.JSONEncoder
 import class Foundation.JSONSerialization
 
-import TSCBasic // <<<
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.WritableByteStream
 import struct TSCBasic.AbsolutePath
@@ -127,7 +126,7 @@ fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ logPath: Absol
   }
   let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : errKind.rawValue).txt"
   try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
-    $0 <<< content
+    $0.send(content)
   }
 }
 
@@ -136,8 +135,8 @@ func printJobInfo(_ job: Job, _ start: Bool, _ verbose: Bool) {
     return
   }
   Driver.stdErrQueue.sync {
-    stderrStream <<< (start ? "started: " : "finished: ")
-    stderrStream <<< getLastInputPath(job).pathString <<< "\n"
+    stderrStream.send(start ? "started: " : "finished: ")
+    stderrStream.send("\(getLastInputPath(job).pathString)\n")
     stderrStream.flush()
   }
 }
@@ -185,8 +184,8 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
         failingModules.insert(job.moduleName)
         let result: String = try! result.utf8stderrOutput()
         Driver.stdErrQueue.sync {
-          stderrStream <<< "failed: " <<< commandMap[pid]! <<< "\n"
-          stderrStream <<< result <<< "\n"
+          stderrStream.send("failed: \(commandMap[pid]!)\n")
+          stderrStream.send("\(result)\n")
           stderrStream.flush()
         }
       }
@@ -203,7 +202,7 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
       try logOutput(job, result, logPath, false)
     } catch {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "Failed to generate log file"
+        stderrStream.send("Failed to generate log file")
         stderrStream.flush()
       }
     }
@@ -241,7 +240,7 @@ fileprivate class ABICheckingDelegate: JobExecutionDelegate {
       try logOutput(job, result, logPath, false)
     } catch {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "Failed to generate log file"
+        stderrStream.send("Failed to generate log file")
         stderrStream.flush()
       }
     }
@@ -529,15 +528,15 @@ extension InterModuleDependencyGraph {
     func dumpModuleName(_ stream: WritableByteStream, _ dep: ModuleDependencyId) {
       switch dep {
       case .swift(let name):
-        stream <<< "\"\(name).swiftmodule\""
+        stream.send("\"\(name).swiftmodule\"")
       case .clang(let name):
-        stream <<< "\"\(name).pcm\""
+        stream.send("\"\(name).pcm\"")
       default:
         break
       }
     }
-    try localFileSystem.writeFileContents(path) {Stream in
-      Stream <<< "digraph {\n"
+    try localFileSystem.writeFileContents(path) { Stream in
+      Stream.send("digraph {\n")
       for key in modules.keys {
         switch key {
         case .swift(let name):
@@ -554,15 +553,15 @@ extension InterModuleDependencyGraph {
               return
             }
             dumpModuleName(Stream, key)
-            Stream <<< " -> "
+            Stream.send(" -> ")
             dumpModuleName(Stream, dep)
-            Stream <<< ";\n"
+            Stream.send(";\n")
           }
         default:
           break
         }
       }
-      Stream <<< "}\n"
+      Stream.send("}\n")
     }
   }
 }

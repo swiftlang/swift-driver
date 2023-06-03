@@ -95,13 +95,13 @@ class APIDigesterTests: XCTestCase {
       try withTemporaryDirectory { path in
         let ofmPath = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofmPath) {
-          $0 <<< """
+          $0.send("""
           {
             "": {
               "abi-baseline-json": "/path/to/baseline.abi.json"
             }
           }
-          """
+          """)
         }
         var driver = try Driver(args: ["swiftc", "-wmo", "-emit-module",
                                        "-emit-module-interface", "-enable-library-evolution",
@@ -119,13 +119,13 @@ class APIDigesterTests: XCTestCase {
       try withTemporaryDirectory { path in
         let ofmPath = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofmPath) {
-          $0 <<< """
+          $0.send("""
           {
             "": {
               "swiftsourceinfo": "/path/to/sourceinfo"
             }
           }
-          """
+          """)
         }
         var driver = try Driver(args: ["swiftc", "-wmo", "-emit-module",
                                        "-emit-module-interface", "-enable-library-evolution",
@@ -183,13 +183,13 @@ class APIDigesterTests: XCTestCase {
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         import C
         import E
         import G
 
         public struct MyStruct {}
-        """
+        """)
       }
 
       let packageRootPath = URL(fileURLWithPath: #file).pathComponents
@@ -274,11 +274,11 @@ class APIDigesterTests: XCTestCase {
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         public struct MyStruct {
           public var a: Int
         }
-        """
+        """)
       }
       var driver = try Driver(args: ["swiftc",
                                      "-working-directory", path.pathString,
@@ -295,11 +295,11 @@ class APIDigesterTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         public struct MyStruct {
           public var a: Bool
         }
-        """
+        """)
       }
       var driver2 = try Driver(args: ["swiftc",
                                       "-working-directory", path.pathString,
@@ -335,16 +335,16 @@ class APIDigesterTests: XCTestCase {
       let source = path.appending(component: "foo.swift")
       let allowlist = path.appending(component: "allowlist.txt")
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         @frozen public struct MyStruct {
           var a: Int
           var b: String
           var c: Int
         }
-        """
+        """)
       }
       try localFileSystem.writeFileContents(allowlist) {
-        $0 <<< "ABI breakage: var MyStruct.c has declared type change from Swift.Int to Swift.String"
+        $0.send("ABI breakage: var MyStruct.c has declared type change from Swift.Int to Swift.String")
       }
       var driver = try Driver(args: ["swiftc",
                                      "-working-directory", path.pathString,
@@ -364,13 +364,13 @@ class APIDigesterTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         @frozen public struct MyStruct {
           var b: String
           var a: Int
           var c: String
         }
-        """
+        """)
       }
       var driver2 = try Driver(args: ["swiftc",
                                       "-working-directory", path.pathString,

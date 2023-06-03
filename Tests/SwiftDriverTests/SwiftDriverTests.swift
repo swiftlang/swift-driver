@@ -51,7 +51,7 @@ final class SwiftDriverTests: XCTestCase {
       self.ld = try withTemporaryDirectory(removeTreeOnDeinit: false) {
         let ld = $0.appending(component: executableName("ld64.lld"))
 
-        try localFileSystem.writeFileContents(ld) { $0 <<< "" }
+        try localFileSystem.writeFileContents(ld, bytes: "")
         try localFileSystem.chmod(.executable, path: AbsolutePath(ld.nativePathString(escaped: false)))
 
         return ld
@@ -333,8 +333,8 @@ final class SwiftDriverTests: XCTestCase {
       let main = path.appending(component: "main.swift")
       let util = path.appending(component: "util.swift")
       let utilRelative = util.relative(to: cwd)
-      try localFileSystem.writeFileContents(main) { $0 <<< "print(hi)" }
-      try localFileSystem.writeFileContents(util) { $0 <<< "let hi = \"hi\"" }
+      try localFileSystem.writeFileContents(main, bytes: "print(hi)")
+      try localFileSystem.writeFileContents(util, bytes: "let hi = \"hi\"")
 
       let mainMDate = try localFileSystem.lastModificationTime(for: .absolute(main))
       let utilMDate = try localFileSystem.lastModificationTime(for: .absolute(util))
@@ -774,7 +774,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testEmitModuleSeparatelyDiagnosticPath() throws {
     try withTemporaryFile { fileMapFile in
-      let outputMapContents = """
+      let outputMapContents: ByteString = """
       {
         "": {
           "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
@@ -785,7 +785,7 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
       """
-      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
 
       // Plain (batch/single-file) compile
       do {
@@ -818,7 +818,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testEmitModuleSeparatelyDependenciesPath() throws {
     try withTemporaryFile { fileMapFile in
-      let outputMapContents = """
+      let outputMapContents: ByteString = """
       {
         "": {
           "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d",
@@ -829,7 +829,7 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
       """
-      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
 
       // Plain (batch/single-file) compile
       do {
@@ -864,7 +864,7 @@ final class SwiftDriverTests: XCTestCase {
     let objroot: AbsolutePath =
         AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
-    let contents = """
+    let contents = ByteString("""
     {
       "": {
         "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
@@ -876,11 +876,11 @@ final class SwiftDriverTests: XCTestCase {
         "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
       }
     }
-    """
+    """.utf8)
 
     try withTemporaryFile { file in
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        try localFileSystem.writeFileContents(file.path, bytes: contents)
         let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
 
         let object = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
@@ -896,23 +896,25 @@ final class SwiftDriverTests: XCTestCase {
     let objroot: AbsolutePath =
         AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
-    let contents = """
-    {
-      "": {
-        "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
-      },
-      "/tmp/foo/Sources/foo/foo.swift": {
-        "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
-        "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
-        "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
-        "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))",
-        "llvm-bc": "\(objroot.appending(components: "foo.swift.bc").nativePathString(escaped: true))"
+    let contents = ByteString(
+      """
+      {
+        "": {
+          "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
+        },
+        "/tmp/foo/Sources/foo/foo.swift": {
+          "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+          "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+          "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+          "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))",
+          "llvm-bc": "\(objroot.appending(components: "foo.swift.bc").nativePathString(escaped: true))"
+        }
       }
-    }
-    """
+      """.utf8
+    )
     try withTemporaryFile { file in
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        try localFileSystem.writeFileContents(file.path, bytes: contents)
         let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
 
         let obj = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"), outputType: .object)
@@ -925,23 +927,25 @@ final class SwiftDriverTests: XCTestCase {
     let objroot: AbsolutePath =
         AbsolutePath("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
-    let contents = """
-    {
-      "": {
-        "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
-      },
-      "/tmp/foo/Sources/foo/foo.swift": {
-        "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
-        "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
-        "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
-        "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
+    let contents = ByteString(
+      """
+      {
+        "": {
+          "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
+        },
+        "/tmp/foo/Sources/foo/foo.swift": {
+          "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+          "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+          "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+          "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
+        }
       }
-    }
-    """
+      """.utf8
+    )
 
     try withTemporaryFile { file in
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        try localFileSystem.writeFileContents(file.path, bytes: contents)
         let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
 
         let doc = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .swiftDocumentation)
@@ -954,18 +958,20 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testIndexUnitOutputPath() throws {
-    let contents = """
-    {
-      "/tmp/main.swift": {
-        "object": "/tmp/build1/main.o",
-        "index-unit-output-path": "/tmp/build2/main.o",
-      },
-      "/tmp/second.swift": {
-        "object": "/tmp/build1/second.o",
-        "index-unit-output-path": "/tmp/build2/second.o",
+    let contents = ByteString(
+      """
+      {
+        "/tmp/main.swift": {
+          "object": "/tmp/build1/main.o",
+          "index-unit-output-path": "/tmp/build2/main.o",
+        },
+        "/tmp/second.swift": {
+          "object": "/tmp/build1/second.o",
+          "index-unit-output-path": "/tmp/build2/second.o",
+        }
       }
-    }
-    """
+      """.utf8
+    )
 
     func getFileListElements(for filelistOpt: String, job: Job) -> [VirtualPath] {
       let optIndex = job.commandLine.firstIndex(of: .flag(filelistOpt))!
@@ -983,7 +989,7 @@ final class SwiftDriverTests: XCTestCase {
 
     try withTemporaryFile { file in
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        try localFileSystem.writeFileContents(file.path, bytes: contents)
 
         // 1. Incremental mode (single primary file)
         // a) without filelists
@@ -1162,7 +1168,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try withTemporaryFile { fileMapFile in // Batch with output-file-map
-      let outputMapContents = """
+      let outputMapContents: ByteString = """
         {
           "foo.swift": {
             "object": "/tmp/foo.build/foo.swift.o",
@@ -1178,7 +1184,7 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                      "-enable-batch-mode","-driver-batch-size-limit", "2",
                                      "-module-name", "Foo", "-emit-const-values",
@@ -1211,7 +1217,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try withTemporaryFile { fileMapFile in // WMO with output-file-map
-      let outputMapContents = """
+      let outputMapContents: ByteString = """
         {
           "": {
             "const-values": "/tmp/foo.build/foo.master.swiftconstvalues"
@@ -1230,7 +1236,7 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path) { $0 <<< outputMapContents }
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                      "-whole-module-optimization",
                                      "-module-name", "Foo", "-emit-const-values",
@@ -1247,15 +1253,14 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitModuleSepratelyEmittingDiagnosticsWithOutputFileMap() throws {
     try withTemporaryDirectory { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")
-      try localFileSystem.writeFileContents(outputFileMap) {
-        $0 <<< """
+      try localFileSystem.writeFileContents(outputFileMap, bytes: """
         {
           "": {
             "emit-module-diagnostics": "/build/Foo-test.dia"
           }
         }
         """
-      }
+      )
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
                                       "-serialize-diagnostics", "-experimental-emit-module-separately",
                                       "-output-file-map", outputFileMap.description])
@@ -1368,8 +1373,8 @@ final class SwiftDriverTests: XCTestCase {
 
     try withTemporaryDirectory(dir: cwd, removeTreeOnDeinit: true) { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")
-      try localFileSystem.writeFileContents(outputFileMap) {
-        $0 <<< """
+      try localFileSystem.writeFileContents(outputFileMap, bytes:
+        """
         {
           "": {
             "swift-dependencies": "build/master.swiftdeps"
@@ -1384,7 +1389,7 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      }
+      )
       let outputFileMapRelative = outputFileMap.relative(to: cwd).pathString
       // FIXME: Needs a better way to check that outputFileMap correctly loaded
       XCTAssertNoThrow(try Driver(args: [
@@ -1400,16 +1405,18 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
-      try localFileSystem.writeFileContents(fooPath) {
 #if os(Windows)
-        $0 <<< "hello\nbye\n\"bye to you\"\n@\(barPath.nativePathString(escaped: true))"
+      try localFileSystem.writeFileContents(fooPath, bytes:
+        .init("hello\nbye\n\"bye to you\"\n@\(barPath.nativePathString(escaped: true))".utf8)
+      )
 #else
-        $0 <<< "hello\nbye\nbye\\ to\\ you\n@\(barPath.nativePathString(escaped: true))"
+      try localFileSystem.writeFileContents(fooPath, bytes:
+        .init("hello\nbye\nbye\\ to\\ you\n@\(barPath.nativePathString(escaped: true))".utf8)
+      )
 #endif
-      }
-      try localFileSystem.writeFileContents(barPath) {
-        $0 <<< "from\nbar\n@\(fooPath.nativePathString(escaped: true))"
-      }
+      try localFileSystem.writeFileContents(barPath, bytes:
+        .init("from\nbar\n@\(fooPath.nativePathString(escaped: true))".utf8)
+      )
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
       XCTAssertEqual(diags.diagnostics.count, 1)
@@ -1428,16 +1435,13 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
-      try localFileSystem.writeFileContents(fooPath) {
 #if os(Windows)
-        $0 <<< "hello\nbye\n\"bye to you\"\n@bar.rsp"
+      try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\n\"bye to you\"\n@bar.rsp")
 #else
-        $0 <<< "hello\nbye\nbye\\ to\\ you\n@bar.rsp"
+      try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\nbye\\ to\\ you\n@bar.rsp")
 #endif
-      }
-      try localFileSystem.writeFileContents(barPath) {
-        $0 <<< "from\nbar\n@foo.rsp"
-      }
+      try localFileSystem.writeFileContents(barPath, bytes: "from\nbar\n@foo.rsp")
+
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@foo.rsp", "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
       XCTAssertEqual(diags.diagnostics.count, 1)
@@ -1459,16 +1463,13 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(components: "subdir", "foo.rsp")
       let barPath = path.appending(components: "subdir", "bar.rsp")
-      try localFileSystem.writeFileContents(fooPath) {
 #if os(Windows)
-        $0 <<< "hello\nbye\n\"bye to you\"\n@subdir/bar.rsp"
+      try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\n\"bye to you\"\n@subdir/bar.rsp")
 #else
-        $0 <<< "hello\nbye\nbye\\ to\\ you\n@subdir/bar.rsp"
+      try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\nbye\\ to\\ you\n@subdir/bar.rsp")
 #endif
-      }
-      try localFileSystem.writeFileContents(barPath) {
-        $0 <<< "from\nbar\n@subdir/foo.rsp"
-      }
+      try localFileSystem.writeFileContents(barPath, bytes: "from\nbar\n@subdir/foo.rsp")
+
       let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@subdir/foo.rsp", "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
       XCTAssertEqual(diags.diagnostics.count, 1)
@@ -1485,35 +1486,38 @@ final class SwiftDriverTests: XCTestCase {
       let escapingPath = path.appending(component: "escaping.rsp")
 
 #if os(Windows)
-      try localFileSystem.writeFileContents(fooPath) {
-        $0 <<< "a\\b c\\\\d e\\\\\"f g\" h\\\"i j\\\\\\\"k \"lmn\" o pqr \"st \\\"u\" \\v"
-           <<< "\n@\(barPath.nativePathString(escaped: true))"
-      }
-      try localFileSystem.writeFileContents(barPath) {
-        $0 <<< #"""
+      try localFileSystem.writeFileContents(fooPath, bytes:
+        """
+        a\\b c\\\\d e\\\\\"f g\" h\\\"i j\\\\\\\"k \"lmn\" o pqr \"st \\\"u\" \\v"
+        @\(barPath.nativePathString(escaped: true))
+        """
+      )
+      try localFileSystem.writeFileContents(barPath, bytes:
+       #"""
         -Xswiftc -use-ld=lld
         -Xcc -IS:\Library\sqlite-3.36.0\usr\include
         -Xlinker -LS:\Library\sqlite-3.36.0\usr\lib
         """#
-      }
+      )
       let args = try Driver.expandResponseFiles(["@\(fooPath.pathString)"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["a\\b", "c\\\\d", "e\\f g", "h\"i", "j\\\"k", "lmn", "o", "pqr", "st \"u", "\\v", "-Xswiftc", "-use-ld=lld", "-Xcc", "-IS:\\Library\\sqlite-3.36.0\\usr\\include", "-Xlinker", "-LS:\\Library\\sqlite-3.36.0\\usr\\lib"])
 #else
-      try localFileSystem.writeFileContents(fooPath) {
-        $0 <<< #"""
-        Command1 --kkc
-        //This is a comment
-        // this is another comment
-        but this is \\\\\a command
-        @\#(barPath.nativePathString(escaped: true))
-        @NotAFile
-        -flag="quoted string with a \"quote\" inside" -another-flag
-        """#
-        <<< "\nthis  line\thas        lots \t  of    whitespace"
-      }
+      try localFileSystem.writeFileContents(fooPath, bytes:
+        .init((#"""
+          Command1 --kkc
+          //This is a comment
+          // this is another comment
+          but this is \\\\\a command
+          @\#(barPath.nativePathString(escaped: true))
+          @NotAFile
+          -flag="quoted string with a \"quote\" inside" -another-flag
+          """#
+          + "\nthis  line\thas        lots \t  of    whitespace").utf8
+        )
+      )
 
-      try localFileSystem.writeFileContents(barPath) {
-        $0 <<< #"""
+      try localFileSystem.writeFileContents(barPath, bytes:
+        #"""
         swift
         "rocks!"
         compiler
@@ -1524,11 +1528,11 @@ final class SwiftDriverTests: XCTestCase {
         cd Unquoted\ Dir
         // Bye!
         """#
-      }
+      )
 
-      try localFileSystem.writeFileContents(escapingPath) {
-        $0 <<< "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
-      }
+      try localFileSystem.writeFileContents(escapingPath, bytes:
+        "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
+      )
       let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
       let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], fileSystem: localFileSystem, diagnosticsEngine: diags)
@@ -2331,7 +2335,7 @@ final class SwiftDriverTests: XCTestCase {
                                    pathDynamicReplacementsMac, path5_0iOS,
                                    path5_1iOS, pathDynamicReplacementsiOS,
                                    pathCompatibilityPacksMac] {
-        try localFileSystem.writeFileContents(compatibilityLibPath) { $0 <<< "Empty" }
+        try localFileSystem.writeFileContents(compatibilityLibPath, bytes: "Empty")
       }
       let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test", "-resource-dir", path.pathString]
 
@@ -2950,17 +2954,19 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testWholeModuleOptimizationOutputFileMap() throws {
-    let contents = """
-    {
-      "": {
-        "swiftinterface": "/tmp/salty/Test.swiftinterface"
+    let contents = ByteString(
+      """
+      {
+        "": {
+          "swiftinterface": "/tmp/salty/Test.swiftinterface"
+        }
       }
-    }
-    """
+      """.utf8
+    )
 
     try withTemporaryFile { file in
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path) { $0 <<< contents }
+        try localFileSystem.writeFileContents(file.path, bytes: contents)
         var driver1 = try Driver(args: [
           "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
           "-num-threads", "4", "-output-file-map", file.path.pathString, "-emit-module-interface"
@@ -3789,9 +3795,7 @@ final class SwiftDriverTests: XCTestCase {
     // Check -clang-target is on by default when explicit module is on.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "Foo.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import Swift"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import Swift")
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-target", "arm64-apple-macos10.14",
                                      "-sdk", sdkRoot.pathString,
@@ -3827,9 +3831,7 @@ final class SwiftDriverTests: XCTestCase {
     // Check -disable-clang-target works
     try withTemporaryDirectory { path in
       let main = path.appending(component: "Foo.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import Swift"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import Swift")
       var driver = try Driver(args: ["swiftc", "-disable-clang-target",
                                      "-explicit-module-build",
                                      "-target", "arm64-apple-macos10.14",
@@ -4206,7 +4208,7 @@ final class SwiftDriverTests: XCTestCase {
     try withTemporaryDirectory { tmpDir in
       let ld = tmpDir.appending(component: executableName("clang"))
       // tiny PE binary from: https://archive.is/w01DO
-      let contents: [UInt8] = [
+      let contents: ByteString = [
           0x4d, 0x5a, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x4c, 0x01, 0x01, 0x00,
           0x6a, 0x2a, 0x58, 0xc3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
           0x04, 0x00, 0x03, 0x01, 0x0b, 0x01, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00,
@@ -4217,7 +4219,7 @@ final class SwiftDriverTests: XCTestCase {
           0x68, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
           0x02
       ]
-      try localFileSystem.writeFileContents(ld) { $0 <<< contents }
+      try localFileSystem.writeFileContents(ld, bytes: contents)
       try localFileSystem.chmod(.executable, path: AbsolutePath(ld.pathString))
 
       // Drop SWIFT_DRIVER_CLANG_EXEC from the environment so it doesn't
@@ -4243,8 +4245,8 @@ final class SwiftDriverTests: XCTestCase {
 
     try withTemporaryDirectory { tmpDir in
       let sdk1 = tmpDir.appending(component: "MacOSX10.15.sdk")
-      try localFileSystem.writeFileContents(sdk1.appending(component: "SDKSettings.json")) {
-        $0 <<< """
+      try localFileSystem.writeFileContents(sdk1.appending(component: "SDKSettings.json"), bytes:
+        """
         {
           "Version":"10.15",
           "CanonicalName": "macosx10.15",
@@ -4260,11 +4262,11 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      }
+      )
 
       let sdk2 = tmpDir.appending(component: "MacOSX10.15.4.sdk")
-      try localFileSystem.writeFileContents(sdk2.appending(component: "SDKSettings.json")) {
-        $0 <<< """
+      try localFileSystem.writeFileContents(sdk2.appending(component: "SDKSettings.json"), bytes:
+        """
         {
           "Version":"10.15.4",
           "CanonicalName": "macosx10.15.4",
@@ -4294,7 +4296,7 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      }
+      )
 
       do {
         var driver = try Driver(args: ["swiftc",
@@ -5198,20 +5200,20 @@ final class SwiftDriverTests: XCTestCase {
       let libSwift: AbsolutePath = path.appending(components: "Inputs", "lib.swift")
       let outputFileMap = path.appending(component: "output_file_map.json")
 
-      let fileMap = """
-{
-    \"\(dummyInput.nativePathString(escaped: true))\": {
-        \"object\": \"\(basicOutputFileMapObj.nativePathString(escaped: true))\"
-    },
-    \"\(mainSwift.nativePathString(escaped: true))\": {
-        \"object\": \"\(mainObj.nativePathString(escaped: true))\"
-    },
-    \"\(libSwift.nativePathString(escaped: true))\": {
-        \"object\": \"\(libObj.nativePathString(escaped: true))\"
-    }
-}
-"""
-      try localFileSystem.writeFileContents(outputFileMap) { $0 <<< fileMap }
+      let fileMap = ByteString("""
+        {
+            \"\(dummyInput.nativePathString(escaped: true))\": {
+                \"object\": \"\(basicOutputFileMapObj.nativePathString(escaped: true))\"
+            },
+            \"\(mainSwift.nativePathString(escaped: true))\": {
+                \"object\": \"\(mainObj.nativePathString(escaped: true))\"
+            },
+            \"\(libSwift.nativePathString(escaped: true))\": {
+                \"object\": \"\(libObj.nativePathString(escaped: true))\"
+            }
+        }
+        """.utf8)
+      try localFileSystem.writeFileContents(outputFileMap, bytes: fileMap)
 
       var driver = try Driver(args: ["swiftc", "-driver-print-output-file-map",
                                      "-target", "x86_64-apple-macosx10.9",
@@ -5241,7 +5243,7 @@ final class SwiftDriverTests: XCTestCase {
 #if os(macOS)
     try withTemporaryDirectory { path in
       let input = path.appending(component: "ImmediateTest.swift")
-      try localFileSystem.writeFileContents(input) { $0 <<< "print(\"Hello, World\")" }
+      try localFileSystem.writeFileContents(input, bytes: "print(\"Hello, World\")")
       let binDir = bundleRoot()
       let driver = binDir.appending(component: "swift-driver")
       let args = [driver.description, "--driver-mode=swift", "-v", input.description]
@@ -6500,25 +6502,27 @@ final class SwiftDriverTests: XCTestCase {
 
   func testIsIosMacInterface() throws {
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -target x86_64-apple-ios15.0-macabi" }
+      try localFileSystem.writeFileContents(file.path, bytes: "// swift-module-flags: -target x86_64-apple-ios15.0-macabi")
       XCTAssertTrue(try isIosMacInterface(VirtualPath.absolute(file.path)))
     }
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0" }
+      try localFileSystem.writeFileContents(file.path, bytes: "// swift-module-flags: -target arm64e-apple-macos12.0")
       XCTAssertFalse(try isIosMacInterface(VirtualPath.absolute(file.path)))
     }
   }
 
   func testAdopterConfigFile() throws {
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) {
-        $0 <<< "["
-        $0 <<< "  {"
-        $0 <<< "  \"key\": \"SkipFeature1\","
-        $0 <<< "  \"moduleNames\": [\"foo\", \"bar\"]"
-        $0 <<< "  }"
-        $0 <<< "]"
-      }
+      try localFileSystem.writeFileContents(file.path, bytes:
+        #"""
+        [
+          {
+            "key": "SkipFeature1",
+            "moduleNames": ["foo", "bar"]
+          }
+        ]
+        """#
+      )
       let configs = Driver.parseAdopterConfigs(file.path)
       XCTAssertEqual(configs.count, 1)
       XCTAssertEqual(configs[0].key, "SkipFeature1")
@@ -6529,9 +6533,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(Driver.getAllConfiguredModules(withKey: "SkipFeature2", configs).isEmpty)
     }
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) {
-        $0 <<< "][ malformed }{"
-      }
+      try localFileSystem.writeFileContents(file.path, bytes: "][ malformed }{")
       let configs = Driver.parseAdopterConfigs(file.path)
       XCTAssertEqual(configs.count, 0)
     }
@@ -6543,11 +6545,13 @@ final class SwiftDriverTests: XCTestCase {
 
   func testExtractPackageName() throws {
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) {
-        $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0" <<< "\n"
-        $0 <<< "// swift-module-flags-ignorable: -library-level api"
-        $0 <<< "// swift-module-flags-ignorable-private: -package-name myPkg"
-      }
+      try localFileSystem.writeFileContents(file.path, bytes:
+        """
+        // swift-module-flags: -target arm64e-apple-macos12.0
+        // swift-module-flags-ignorable: -library-level api\
+        // swift-module-flags-ignorable-private: -package-name myPkg
+        """
+      )
       let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
       let idx = flags.firstIndex(of: "-package-name")
       XCTAssertNotNil(idx)
@@ -6558,22 +6562,24 @@ final class SwiftDriverTests: XCTestCase {
 
   func testExtractLibraryLevel() throws {
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) { $0 <<< "// swift-module-flags: -library-level api" }
+      try localFileSystem.writeFileContents(file.path, bytes: "// swift-module-flags: -library-level api")
       let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
       XCTAssertEqual(try getLibraryLevel(flags), .api)
     }
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) {
-        $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0" <<< "\n"
-        $0 <<< "// swift-module-flags-ignorable: -library-level spi"
-      }
+      try localFileSystem.writeFileContents(file.path, bytes:
+        """
+        // swift-module-flags: -target arm64e-apple-macos12.0
+        // swift-module-flags-ignorable: -library-level spi
+        """
+      )
       let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
       XCTAssertEqual(try getLibraryLevel(flags), .spi)
     }
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path) {
-        $0 <<< "// swift-module-flags: -target arm64e-apple-macos12.0"
-      }
+      try localFileSystem.writeFileContents(file.path, bytes: 
+        "// swift-module-flags: -target arm64e-apple-macos12.0"
+      )
       let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
       XCTAssertEqual(try getLibraryLevel(flags), .unspecified)
     }
@@ -6826,10 +6832,12 @@ final class SwiftDriverTests: XCTestCase {
                                  derivedData: tmpDir,
                                  to: ofm)
 
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "// no errors here"
-        $0 <<< "func foo() {}"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+       """
+       // no errors here
+       func foo() {}
+       """
+      )
       /// return true if no error
       func doBuild() throws -> Bool {
         let sdkArguments = try XCTUnwrap(try Driver.sdkArgumentsForTesting())
@@ -6854,10 +6862,12 @@ final class SwiftDriverTests: XCTestCase {
         ]
       XCTAssert(outputs.allSatisfy(localFileSystem.exists))
 
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "#error(\"Yipes!\")"
-        $0 <<< "func foo() {}"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        #error(\"Yipes!\")
+        func foo() {}
+        """
+      )
       XCTAssertFalse(try doBuild())
       XCTAssert(outputs.allSatisfy {!localFileSystem.exists($0)})
     }

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic // <<<
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
@@ -49,7 +48,7 @@ extension Diagnostic.Message {
     var dependencyGraph = try performDependencyScan()
 
     if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
-      try stdoutStream <<< dependencyGraph.toJSONString()
+      try stdoutStream.send(dependencyGraph.toJSONString())
       stdoutStream.flush()
     }
 
@@ -68,7 +67,7 @@ extension Diagnostic.Message {
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
       let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
       if outputFormat == nil || outputFormat == "json" {
-        try stdoutStream <<< dependencyGraph.toJSONString()
+        try stdoutStream.send(dependencyGraph.toJSONString())
       } else if outputFormat == "dot" {
         DOTModuleDependencyGraphSerializer(dependencyGraph).writeDOT(to: &stdoutStream)
       }
@@ -224,7 +223,7 @@ public extension Driver {
     if parsedOptions.contains(.v) {
       let arguments: [String] = try executor.resolver.resolveArgumentList(for: scannerJob,
                                                                           useResponseFiles: .disabled)
-      stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+      stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
       stdoutStream.flush()
     }
 

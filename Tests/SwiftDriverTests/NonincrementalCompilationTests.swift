@@ -276,13 +276,10 @@ final class NonincrementalCompilationTests: XCTestCase {
     }
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "let foo = 1"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
       let other = path.appending(component: "other.swift")
-      try localFileSystem.writeFileContents(other) {
-        $0 <<< "let bar = 2"
-      }
+      try localFileSystem.writeFileContents(other, bytes: "let bar = 2")
+      
       try assertDriverDiagnostics(args: [
         "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
         main.pathString, other.pathString
