@@ -59,7 +59,7 @@ extension Bits {
     init(buffer: Bits) {
       self.buffer = buffer
     }
-    
+
     init(buffer: ByteString) {
       self.init(buffer: Bits(buffer: buffer))
     }

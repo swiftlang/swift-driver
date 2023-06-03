@@ -1,5 +1,5 @@
 // Created by David Ungar on 7/28/21.
-// 
+//
 
 import XCTest
 @_spi(Testing) import SwiftDriver
@@ -65,10 +65,10 @@ class IncrementalBuildPerformanceTests: XCTestCase {
   ///    - limit: the maximum number of swiftdeps files to process.
   func test(swiftDepsDirectory: String, atMost limit: Int = .max, _ whatToMeasure: WhatToMeasure) throws {
     let (outputFileMap, inputs) = try createOFMAndInputs(swiftDepsDirectory, atMost: limit)
-    
+
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(options: [], outputFileMap: outputFileMap)
-    
+
     let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info.buildRecordInfo.buildRecord([], []), info)
     g.blockingConcurrentAccessOrMutation {
       switch whatToMeasure {
@@ -138,7 +138,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
       invalidatedInputs.formUnion(g.collectInputsRequiringCompilation(byCompiling: primaryInput)!)
     }
     .subtracting(inputs) // have already compiled these
-    
+
     XCTAssertEqual(result.count, 0, "Should be no invalid inputs left")
   }
 }

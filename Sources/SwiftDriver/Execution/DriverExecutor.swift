@@ -26,7 +26,7 @@ public protocol DriverExecutor {
   func execute(job: Job,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> ProcessResult
-  
+
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
   func execute(workload: DriverExecutorWorkload,
@@ -90,7 +90,7 @@ extension DriverExecutor {
     let result = try execute(job: job,
                              forceResponseFiles: forceResponseFiles,
                              recordedInputModificationDates: recordedInputModificationDates)
-    
+
     if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
       let returnCode = Self.computeReturnCode(exitStatus: result.exitStatus)
       throw JobExecutionError.jobFailedWithNonzeroExitCode(returnCode, try result.utf8stderrOutput())
@@ -141,7 +141,7 @@ extension DriverExecutor {
 public protocol JobExecutionDelegate {
   /// Called when a job starts executing.
   func jobStarted(job: Job, arguments: [String], pid: Int)
-  
+
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
 

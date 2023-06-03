@@ -150,7 +150,7 @@ final class IntegrationTests: IntegrationTestCase {
     }
     try self.runLitTests(suite: "test", "stdlib")
   }
-  
+
   func testLitSymbolGraphFrontendTest() throws {
     try runLitTests(suite: "test", "SymbolGraph", "EmitWhileBuilding.swift")
   }

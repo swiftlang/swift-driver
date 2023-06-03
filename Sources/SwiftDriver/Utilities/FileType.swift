@@ -80,7 +80,7 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// Serialized diagnostics produced by module-generation
   case emitModuleDiagnostics = "emit-module.dia"
-  
+
   /// Serialized diagnostics produced by module-generation
   case emitModuleDependencies = "emit-module.d"
 

@@ -33,7 +33,7 @@
 ///
 /// Next, identify the kinds of records needed in the format and assign them
 /// unique, stable identifiers. For example:
-/// 
+///
 /// ```
 /// enum DiagnosticRecordID: UInt8 {
 ///     case version        = 1
@@ -525,7 +525,7 @@ extension BitstreamWriter {
             self.write(0 as UInt8, width: 8)
         }
     }
-    
+
 
     /// Writes the blockinfo block and allows emitting abbreviations
     /// and records in it.

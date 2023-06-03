@@ -63,27 +63,27 @@ extension ModuleDependencyGraph.Tracer {
     self.currentPathIfTracing = graph.info.reporter != nil ? [] : nil
     self.diagnosticEngine = diagnosticEngine
   }
-  
+
   private mutating func collectPreviouslyUntracedDependents() {
     for n in startingPoints {
       collectNextPreviouslyUntracedDependent(of: n)
     }
   }
-  
+
   private mutating func collectNextPreviouslyUntracedDependent(
     of definition: ModuleDependencyGraph.Node
   ) {
     guard definition.isUntraced else { return }
     definition.setTraced()
-    
+
     tracedUses.append(definition)
-    
+
     // If this node is merely used, but not defined anywhere, nothing else
     // can possibly depend upon it
     if case .unknown = definition.definitionLocation { return }
-    
+
     let pathLengthAfterArrival = traceArrival(at: definition);
-    
+
     // If this use also provides something, follow it
     for use in graph.nodeFinder.uses(of: definition) {
       collectNextPreviouslyUntracedDependent(of: use)
@@ -92,7 +92,7 @@ extension ModuleDependencyGraph.Tracer {
   }
 
 
-  
+
   private mutating func traceArrival(at visitedNode: ModuleDependencyGraph.Node
   ) -> Int {
     guard var currentPath = currentPathIfTracing else {

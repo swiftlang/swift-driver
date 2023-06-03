@@ -106,7 +106,7 @@ final class NonincrementalCompilationTests: XCTestCase {
       XCTAssertEqual(graph.minorVersion, 0)
       XCTAssertEqual(graph.compilerVersionString, "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
       graph.verify()
-      
+
       // Check that a node chosen at random appears as expected.
       var foundNode = false
       graph.forEachNode { node in
@@ -123,7 +123,7 @@ final class NonincrementalCompilationTests: XCTestCase {
         }
       }
       XCTAssertTrue(foundNode)
-      
+
       // Check that an edge chosen at random appears as expected.
       var foundEdge = false
       graph.forEachArc { defNode, useNode in
@@ -133,13 +133,13 @@ final class NonincrementalCompilationTests: XCTestCase {
                     .potentialMember(context: useContext)):
             XCTAssertFalse(foundEdge)
             foundEdge = true
-            
+
             XCTAssertEqual(defName.lookup(in: internedStringTable), "/Users/owenvoorhees/Desktop/hello.swiftdeps")
             XCTAssertEqual(defNode.fingerprint?.lookup(in: internedStringTable), "38b457b424090ac2e595be0e5f7e3b5b")
-            
+
             XCTAssertEqual(useContext.lookup(in: internedStringTable), "5hello1AC")
             XCTAssertEqual(useNode.fingerprint?.lookup(in: internedStringTable), "b83bbc0b4b0432dbfabff6556a3a901f")
-            
+
           default:
             XCTFail()
           }
@@ -162,7 +162,7 @@ final class NonincrementalCompilationTests: XCTestCase {
       XCTAssertEqual(graph.minorVersion, 0)
       XCTAssertEqual(graph.compilerVersionString, "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
       graph.verify()
-      
+
       // Check that a node chosen at random appears as expected.
       var foundNode = false
       graph.forEachNode { node in

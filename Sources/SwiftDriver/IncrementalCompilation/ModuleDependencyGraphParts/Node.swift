@@ -12,7 +12,7 @@
 
 // MARK: - ModuleDependencyGraph.Node
 extension ModuleDependencyGraph {
-  
+
   /// A node in the per-module (i.e. the driver) dependency graph
   /// Each node represents a `Decl` from the frontend.
   /// If a file references a `Decl` we haven't seen yet, the node's `dependencySource` will be nil,
@@ -44,7 +44,7 @@ extension ModuleDependencyGraph {
     /// will be set to `.unknown`.
     /// A node's definition location can move from file to file when the driver reads the result of a
     /// compilation.
- 
+
     @_spi(Testing) public let definitionLocation: DefinitionLocation
     /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
     /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
@@ -126,7 +126,7 @@ extension ModuleDependencyGraph.Node {
     verifyNodesithoutDefinitionLocationHasNoFingerprints()
     key.verify()
   }
-  
+
   public func verifyNodesithoutDefinitionLocationHasNoFingerprints() {
     if case .unknown = definitionLocation, fingerprint != nil {
       fatalError(#function)
@@ -142,7 +142,7 @@ extension ModuleDependencyGraph {
   /// always known. For example, it may be in a `swiftdeps` file yet to be read.
   public enum DefinitionLocation: Equatable, Hashable, Comparable {
     case unknown, known(DependencySource)
-    
+
     public static func <(lhs: Self, rhs: Self) -> Bool {
       switch (lhs, rhs) {
         case (.unknown, .unknown): return false
@@ -151,7 +151,7 @@ extension ModuleDependencyGraph {
         case let (.known(lh), .known(rh)): return lh < rh
       }
     }
-    
+
     /// A string explaining where the definition is.
     public var locationString: String {
       switch self {
@@ -159,7 +159,7 @@ extension ModuleDependencyGraph {
         case let .known(dependencySource): return "in \(dependencySource.description)"
       }
     }
-    
+
     /// The file holding the definition.
     public var internedFileNameIfAny: InternedString? {
       switch self {

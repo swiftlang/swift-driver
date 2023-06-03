@@ -279,12 +279,12 @@ extension IncrementalCompilationState {
     public func report(_ message: String) {
       diagnosticEngine.emit(.remark_incremental_compilation(because: message))
     }
-    
+
     /// Entry point for ``ExternalIntegrand``
     func report(_ message: String, _ integrand: ModuleDependencyGraph.ExternalIntegrand) {
       report(message, integrand.externalDependency)
     }
-    
+
     func report(_ message: String, _ fed: FingerprintedExternalDependency) {
       report(message, fed.externalDependency)
     }
@@ -405,7 +405,7 @@ extension IncrementalCompilationState {
         buildRecord: buildRecord)
     }
   }
-  
+
   @_spi(Testing) public static func removeDependencyGraphFile(_ driver: Driver) {
     if let path = driver.buildRecordInfo?.dependencyGraphPath {
       try? driver.fileSystem.removeFileTree(path)

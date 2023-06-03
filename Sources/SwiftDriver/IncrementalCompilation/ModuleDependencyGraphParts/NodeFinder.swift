@@ -18,11 +18,11 @@ extension ModuleDependencyGraph {
   /// Isolate in a sub-structure in order to facilitate invariant maintenance
   public struct NodeFinder {
     @_spi(Testing) public typealias Graph = ModuleDependencyGraph
-    
+
     /// Maps definition locations and DependencyKeys to Nodes
     fileprivate typealias NodeMap = TwoDMap<DefinitionLocation, DependencyKey, Node>
     fileprivate var nodeMap = NodeMap()
-    
+
     /// Since dependency keys use baseNames, they are coarser than individual
     /// decls. So two decls might map to the same key. Given a use, which is
     /// denoted by a node, the code needs to find the files to recompile. So, the
@@ -32,7 +32,7 @@ extension ModuleDependencyGraph {
     /// (In a given file, only one node exists with a given key, but in the future
     /// that would need to change if/when we can recompile a smaller unit than a
     /// source file.)
-    
+
     /// Tracks def-use relationships by DependencyKey.
     @_spi(Testing) public private(set) var usesByDef = Multidictionary<DependencyKey, Node>()
   }
@@ -41,7 +41,7 @@ extension ModuleDependencyGraph {
 
 extension ModuleDependencyGraph.NodeFinder {
   public typealias DefinitionLocation = ModuleDependencyGraph.DefinitionLocation
-  
+
   @_spi(Testing) public func findNode(_ mapKey: (DefinitionLocation, DependencyKey)) -> Graph.Node? {
     nodeMap[mapKey]
   }
@@ -49,7 +49,7 @@ extension ModuleDependencyGraph.NodeFinder {
     n.key.correspondingImplementation
       .flatMap {findNode((n.definitionLocation, $0))}
   }
-  
+
   @_spi(Testing) public func findNodes(for definitionLocation: DefinitionLocation)
   -> [DependencyKey: Graph.Node]? {
     nodeMap[definitionLocation]
@@ -97,7 +97,7 @@ extension ModuleDependencyGraph.NodeFinder {
       return k
     }
   }
-  
+
   func defsUsing(_ n: Graph.Node) -> Set<DependencyKey> {
     usesByDef.keysContainingValue(n)
   }
@@ -112,13 +112,13 @@ fileprivate extension ModuleDependencyGraph.Node {
 // MARK: - inserting
 
 extension ModuleDependencyGraph.NodeFinder {
-  
+
   /// Add `node` to the structure, return the old node if any at those coordinates.
   @discardableResult
   mutating func insert(_ n: Graph.Node) -> Graph.Node? {
     nodeMap.updateValue(n, forKey: n.mapKey)
   }
-  
+
   /// record def-use, return if is new use
   mutating func record(def: DependencyKey, use: Graph.Node) -> Bool {
     assert(verifyOKTODependUponSomeKey(use))
@@ -133,12 +133,12 @@ extension ModuleDependencyGraph.NodeFinder {
     removeUsings(of: nodeToErase)
     removeMapping(of: nodeToErase)
   }
-  
+
   private mutating func removeUsings(of nodeToNotUse: Graph.Node) {
     usesByDef.removeOccurrences(of: nodeToNotUse)
     assert(defsUsing(nodeToNotUse).isEmpty)
   }
-  
+
   private mutating func removeMapping(of nodeToNotMap: Graph.Node) {
     let old = nodeMap.removeValue(forKey: nodeToNotMap.mapKey)
     assert(old == nodeToNotMap, "Should have been there")
@@ -180,7 +180,7 @@ extension ModuleDependencyGraph.NodeFinder {
     verifyUsesByDef()
     return true
   }
-  
+
   private func verifyNodeMap() {
     var nodes = [Set<Graph.Node>(), Set<Graph.Node>()]
     nodeMap.verify {
@@ -191,7 +191,7 @@ extension ModuleDependencyGraph.NodeFinder {
       v.verify()
     }
   }
-  
+
   private func verifyUsesByDef() {
     usesByDef.forEach { someKey, nodesDependingUponKey in
       for nodeDependingUponKey in nodesDependingUponKey {
@@ -206,11 +206,11 @@ extension ModuleDependencyGraph.NodeFinder {
     verifyNodeCanBeFoundFromItsKey(n)
     return true
   }
-  
+
   private func verifyNodeCanBeFoundFromItsKey(_ n: Graph.Node) {
     precondition(findNode(n.mapKey) == n)
   }
-  
+
   @discardableResult
   private func verifyDependentNodeHasKnownDefinitionLocation(_ use: Graph.Node) -> Bool {
     guard case .unknown = use.definitionLocation else { return true }

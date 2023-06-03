@@ -19,7 +19,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0 <<< "public func foo()" }
-      
+
       // Expected success scenarios:
       do {
         let testCommand = inputFile.description
@@ -67,7 +67,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
         XCTAssertFalse(resultingFrontendArgs.contains("-emit-module-path"))
         XCTAssertFalse(resultingFrontendArgs.contains("-emit-tbd-path"))
       }
-      
+
       // Expected failure scenarios:
       do {
         let testCommand = "-v" // No inputs

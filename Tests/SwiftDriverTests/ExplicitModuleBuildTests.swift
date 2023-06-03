@@ -612,7 +612,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
-  
+
   func testModuleAliasingPrebuiltWithScanDeps() throws {
     try withTemporaryDirectory { path in
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
@@ -623,7 +623,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(srcBar) {
         $0 <<< "public class KlassBar {}"
       }
-      
+
       // Create Bar.swiftmodule
       var driver = try Driver(args: ["swiftc",
                                      "-explicit-module-build",
@@ -647,7 +647,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
       XCTAssertTrue(FileManager.default.fileExists(atPath: moduleBarPath))
-      
+
       // Foo imports Car which is mapped to the real module Bar via
       // `-module-alias Car=Bar`; it allows Car (alias) to be referenced
       // in source files, while its contents are compiled as Bar (real
@@ -657,7 +657,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         $0 <<< "import Car\n"
         $0 <<< "func run() -> Car.KlassBar? { return nil }"
       }
-      
+
       // Module alias with the fallback scanner (frontend scanner)
       var driverA = try Driver(args: ["swiftc",
                                       "-nonlib-dependency-scanner",
@@ -670,7 +670,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-I", stdLibPath.nativePathString(escaped: true),
                                       "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
-      
+
       // Resulting graph should contain the real module name Bar
       let dependencyGraphA = try driverA.gatherModuleDependencies()
       XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
@@ -697,7 +697,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-I", stdLibPath.nativePathString(escaped: true),
                                       "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
-      
+
       // Resulting graph should contain the real module name Bar
       let dependencyGraphB = try driverB.gatherModuleDependencies()
       XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
@@ -714,7 +714,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       })
     }
   }
-  
+
   func testModuleAliasingInterfaceWithScanDeps() throws {
     try withTemporaryDirectory { path in
       let swiftModuleInterfacesPath: AbsolutePath =
@@ -746,7 +746,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       guard driverA.isFrontendArgSupported(.moduleAlias) else {
         throw XCTSkip("Skipping: compiler does not support '-module-alias'")
       }
-      
+
       // Resulting graph should contain the real module name Bar
       let dependencyGraphA = try driverA.gatherModuleDependencies()
       XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
@@ -772,7 +772,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                       "-I", stdLibPath.nativePathString(escaped: true),
                                       "-I", shimsPath.nativePathString(escaped: true),
                                      ] + sdkArgumentsForTesting)
-      
+
       // Resulting graph should contain the real module name Bar
       let dependencyGraphB = try driverB.gatherModuleDependencies()
       XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
@@ -789,7 +789,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       })
     }
   }
-  
+
   func testModuleAliasingWithImportPrescan() throws {
     let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
 
@@ -826,13 +826,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
         try! dependencyOracle.getImports(workingDirectory: path,
                                          moduleAliases: ["Car": "Bar"],
                                          commandLine: scannerCommand)
-      
+
       XCTAssertTrue(deps.imports.contains("Bar"))
       XCTAssertFalse(deps.imports.contains("Car"))
       XCTAssertTrue(deps.imports.contains("Jet"))
     }
   }
-  
+
   func testModuleAliasingWithExplicitBuild() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
@@ -843,7 +843,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(srcBar) {
         $0 <<< "public class KlassBar {}"
       }
-      
+
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
@@ -869,7 +869,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try driver1.run(jobs: jobs1)
       XCTAssertFalse(driver1.diagnosticEngine.hasErrors)
       XCTAssertTrue(FileManager.default.fileExists(atPath: moduleBarPath))
-      
+
       let srcFoo = path.appending(component: "foo.swift")
       let moduleFooPath = path.appending(component: "Foo.swiftmodule").nativePathString(escaped: true)
 
@@ -904,7 +904,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(FileManager.default.fileExists(atPath: moduleFooPath))
     }
   }
-  
+
   func testExplicitModuleBuildEndToEnd() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
@@ -1156,10 +1156,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertFalse(args[0].hasSuffix(".resp"))
     }
   }
-  
+
   func testDependencyScanningFailure() throws {
     let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
-    
+
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
@@ -1173,13 +1173,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
     guard try dependencyOracle.supportsScannerDiagnostics() else {
       throw XCTSkip("libSwiftScan does not support diagnostics query.")
     }
-    
+
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
       try localFileSystem.writeFileContents(main) {
         $0 <<< "import S;"
       }
-      
+
       let cHeadersPath: AbsolutePath =
       testInputsPath.appending(component: "ExplicitModuleBuilds")
         .appending(component: "CHeaders")
@@ -1240,7 +1240,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTFail("Dependency scanner library not found")
       return
     }
-    
+
     // Create a simple test case.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
@@ -1386,7 +1386,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertEqual(diagnosticEngine.diagnostics.first?.message.data.description,
                        "unsupported argument \'watercolor\' to option \'-explicit-dependency-graph-format=\'")
       }
-      
+
       let _ = try withHijackedOutputStream {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try Driver(args: baseCommandLine + ["-explicit-module-build",
@@ -1472,7 +1472,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try dependencyOracle.getDependencies(workingDirectory: path,
                                                 commandLine: scannerCommand)
         let serializer = DOTModuleDependencyGraphSerializer(dependencyGraph)
-        
+
         let outputFile = path.appending(component: "dependency_graph.dot")
         var outputStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(outputFile))
         serializer.writeDOT(to: &outputStream)

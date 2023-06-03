@@ -267,7 +267,7 @@ internal extension swiftscan_diagnostic_severity_t {
   @_spi(Testing) public func supportsSeparateSwiftOverlayDependencies() -> Bool {
     return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
   }
-  
+
   @_spi(Testing) public func supportsScannerDiagnostics() -> Bool {
     return api.swiftscan_scanner_diagnostics_query != nil &&
            api.swiftscan_scanner_diagnostics_reset != nil &&
@@ -279,7 +279,7 @@ internal extension swiftscan_diagnostic_severity_t {
   @_spi(Testing) public func supportsStringDispose() -> Bool {
     return api.swiftscan_string_dispose != nil
   }
-  
+
   @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
     let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
@@ -291,7 +291,7 @@ internal extension swiftscan_diagnostic_severity_t {
     defer { api.swiftscan_diagnostics_set_dispose(diagnosticSetRef) }
     let diagnosticRefArray = Array(UnsafeBufferPointer(start: diagnosticSetRef.pointee.diagnostics,
                                                        count: Int(diagnosticSetRef.pointee.count)))
-    
+
     for diagnosticRefOrNull in diagnosticRefArray {
       guard let diagnosticRef = diagnosticRefOrNull else {
         throw DependencyScanningError.dependencyScanFailed
@@ -302,7 +302,7 @@ internal extension swiftscan_diagnostic_severity_t {
     }
     return result
   }
-  
+
   @_spi(Testing) public func resetScannerDiagnostics() throws {
     api.swiftscan_scanner_diagnostics_reset(scanner)
   }
@@ -404,7 +404,7 @@ private extension swiftscan_functions_t {
     // Clang dependency captured PCM args
     self.swiftscan_clang_detail_get_captured_pcm_args =
       try loadOptional("swiftscan_clang_detail_get_captured_pcm_args")
-    
+
     // Scanner diagnostic emission query
     self.swiftscan_scanner_diagnostics_query =
       try loadOptional("swiftscan_scanner_diagnostics_query")

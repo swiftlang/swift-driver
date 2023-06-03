@@ -98,7 +98,7 @@ typedef struct {
   (*swiftscan_module_info_get_direct_dependencies)(swiftscan_dependency_info_t);
   swiftscan_module_details_t
   (*swiftscan_module_info_get_details)(swiftscan_dependency_info_t);
-  
+
   //=== Dependency Module Info Details Functions ----------------------------===//
   swiftscan_dependency_info_kind_t
   (*swiftscan_module_detail_get_kind)(swiftscan_module_details_t);
@@ -222,7 +222,7 @@ typedef struct {
   swiftscan_string_set_t *
   (*swiftscan_compiler_supported_features_query)(void);
 
-  //=== Scanner Functions ---------------------------------------------------===//  
+  //=== Scanner Functions ---------------------------------------------------===//
   swiftscan_scanner_t (*swiftscan_scanner_create)(void);
   void (*swiftscan_scanner_dispose)(swiftscan_scanner_t);
   swiftscan_dependency_graph_t
@@ -233,7 +233,7 @@ typedef struct {
                                         swiftscan_scan_invocation_t);
   swiftscan_import_set_t
   (*swiftscan_import_set_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
-  
+
   //=== Scanner Diagnostics -------------------------------------------------===//
   swiftscan_diagnostic_set_t*
   (*swiftscan_scanner_diagnostics_query)(swiftscan_scanner_t);

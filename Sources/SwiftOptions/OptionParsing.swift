@@ -64,7 +64,7 @@ extension OptionTable {
           parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[(index-1)...])))
           break
         }
-        
+
         parsedOptions.addInput(argument)
 
         // In interactive mode, synthesize a "--" argument for all args after the first input.
@@ -97,7 +97,7 @@ extension OptionTable {
             currentDriverKind: driverKind)
         }
       }
-      
+
       if option == .e {
         seenDashE = true
       }

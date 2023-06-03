@@ -20,20 +20,20 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public let typedFile: TypedVirtualPath
   /// Keep this for effiencient lookups into the ``ModuleDependencyGraph``
   public let internedFileName: InternedString
-  
+
   init(typedFile: TypedVirtualPath, internedFileName: InternedString) {
     assert( typedFile.type == .swift ||
             typedFile.type == .swiftModule)
     self.typedFile = typedFile
     self.internedFileName = internedFileName
   }
-  
+
   public init(_ swiftSourceFile: SwiftSourceFile, _ t: InternedStringTable) {
     let typedFile = swiftSourceFile.typedFile
     self.init(typedFile: typedFile,
               internedFileName: typedFile.file.name.intern(in: t))
   }
-  
+
   init?(ifAppropriateFor file: VirtualPath.Handle,
         internedString: InternedString) {
     let ext = VirtualPath.lookup(file).extension
@@ -53,7 +53,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public var description: String {
     typedFile.file.externalDependencyPathDescription
   }
-  
+
   public func hash(into hasher: inout Hasher) {
     hasher.combine(internedFileName)
   }

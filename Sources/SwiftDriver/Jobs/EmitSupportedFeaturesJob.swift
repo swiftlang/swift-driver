@@ -41,7 +41,7 @@ extension Toolchain {
                                                              "".data(using: .utf8)!)
     commandLine.appendPath(dummyInputPath)
     inputs.append(TypedVirtualPath(file: dummyInputPath.intern(), type: .swift))
-    
+
     return Job(
       moduleName: "",
       kind: .emitSupportedFeatures,

@@ -19,7 +19,7 @@ import SwiftOptions
 /// Try adding a more specific function in an extension in the same module
 class SpecificFuncAdditionInExtensionWithinModuleTest: XCTestCase {
   func testSpecificFuncAdditionInExtensionWithinModule() throws {
-    
+
     // MARK: - Define the module
     let main = Source(named: "main", containing: """
       // Define a struct with a general method and call it

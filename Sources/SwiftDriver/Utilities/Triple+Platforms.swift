@@ -336,13 +336,13 @@ extension Triple {
   ///
   /// - SeeAlso: `Triple.supports(_:)`
   public struct FeatureAvailability {
-    
+
     public enum Availability {
       case unavailable
       case available(since: Version)
       case availableInAllVersions
     }
-    
+
     public let macOS: Availability
     public let iOS: Availability
     public let tvOS: Availability
@@ -389,7 +389,7 @@ extension Triple {
     guard let darwinPlatform = darwinPlatform else {
       return feature.nonDarwin
     }
-    
+
     switch feature[darwinPlatform] {
     case .unavailable:
       return false

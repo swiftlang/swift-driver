@@ -210,7 +210,7 @@ public extension Driver {
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
-    
+
     if parsedOptions.contains(.v) {
       let arguments: [String] = try executor.resolver.resolveArgumentList(for: scannerJob,
                                                                           useResponseFiles: .disabled)
