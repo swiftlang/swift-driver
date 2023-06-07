@@ -6773,6 +6773,18 @@ final class SwiftDriverTests: XCTestCase {
 #endif
   }
 
+  func testEmitClangHeaderPath() throws {
+      VirtualPath.resetTemporaryFileStore()
+      var driver = try Driver(args: [
+        "swiftc", "-emit-clang-header-path", "path/to/header", "-typecheck", "test.swift"
+      ])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 2)
+      let job = jobs.first!
+      XCTAssertTrue(job.commandLine.contains(.flag("-emit-objc-header-path")))
+      XCTAssertTrue(job.commandLine.contains(.path(.relative(RelativePath("path/to/header")))))
+  }
+
   func testGccToolchainFlags() throws {
       VirtualPath.resetTemporaryFileStore()
       var driver = try Driver(args: [
