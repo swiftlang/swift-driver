@@ -4753,6 +4753,9 @@ final class SwiftDriverTests: XCTestCase {
     var driver = try Driver(args: ["swiftc", "foo.swift", "-sdk", "/"])
     let plannedJobs = try driver.planBuild()
     XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/")))]))
+    if !driver.targetTriple.isDarwin {
+      XCTAssertFalse(plannedJobs[2].commandLine.contains(subsequence: ["-L", .path(.absolute(.init("/usr/lib/swift")))]))
+    }
   }
 
   func testDumpASTOverride() throws {
