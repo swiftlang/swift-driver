@@ -132,6 +132,8 @@ typedef struct {
   (*swiftscan_swift_binary_detail_get_module_doc_path)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_swift_binary_detail_get_module_source_info_path)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_swift_binary_detail_get_header_dependencies)(swiftscan_module_details_t);
   bool
   (*swiftscan_swift_binary_detail_get_is_framework)(swiftscan_module_details_t);
 

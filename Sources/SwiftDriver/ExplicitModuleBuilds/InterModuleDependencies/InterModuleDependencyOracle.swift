@@ -132,16 +132,23 @@ public class InterModuleDependencyOracle {
   
   @_spi(Testing) public func supportsScannerDiagnostics() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to reset scanner cache with no scanner instance.")
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
     }
-    return swiftScan.supportsScannerDiagnostics()
+    return swiftScan.supportsScannerDiagnostics
+  }
+
+  @_spi(Testing) public func supportsBinaryModuleHeaderDependencies() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsBinaryModuleHeaderDependencies
   }
   
   @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    guard swiftScan.supportsScannerDiagnostics() else {
+    guard swiftScan.supportsScannerDiagnostics else {
       return nil
     }
     let diags = try swiftScan.queryScannerDiagnostics()
