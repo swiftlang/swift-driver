@@ -250,6 +250,27 @@ internal extension swiftscan_diagnostic_severity_t {
     api.swiftscan_clang_detail_get_captured_pcm_args != nil
   }
 
+  @_spi(Testing) public var supportsBinaryModuleHeaderDependencies : Bool {
+    return api.swiftscan_swift_binary_detail_get_header_dependencies != nil
+  }
+
+  @_spi(Testing) public var supportsStringDispose : Bool {
+    return api.swiftscan_string_dispose != nil
+  }
+
+
+  @_spi(Testing) public var supportsSeparateSwiftOverlayDependencies : Bool {
+    return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
+  }
+
+  @_spi(Testing) public var supportsScannerDiagnostics : Bool {
+    return api.swiftscan_scanner_diagnostics_query != nil &&
+           api.swiftscan_scanner_diagnostics_reset != nil &&
+           api.swiftscan_diagnostic_get_message != nil &&
+           api.swiftscan_diagnostic_get_severity != nil &&
+           api.swiftscan_diagnostics_set_dispose != nil
+  }
+
   func serializeScannerCache(to path: AbsolutePath) {
     api.swiftscan_scanner_cache_serialize(scanner,
                                           path.description.cString(using: String.Encoding.utf8))
@@ -264,22 +285,6 @@ internal extension swiftscan_diagnostic_severity_t {
     api.swiftscan_scanner_cache_reset(scanner)
   }
 
-  @_spi(Testing) public func supportsSeparateSwiftOverlayDependencies() -> Bool {
-    return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
-  }
-  
-  @_spi(Testing) public func supportsScannerDiagnostics() -> Bool {
-    return api.swiftscan_scanner_diagnostics_query != nil &&
-           api.swiftscan_scanner_diagnostics_reset != nil &&
-           api.swiftscan_diagnostic_get_message != nil &&
-           api.swiftscan_diagnostic_get_severity != nil &&
-           api.swiftscan_diagnostics_set_dispose != nil
-  }
-
-  @_spi(Testing) public func supportsStringDispose() -> Bool {
-    return api.swiftscan_string_dispose != nil
-  }
-  
   @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
     let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
@@ -426,6 +431,10 @@ private extension swiftscan_functions_t {
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
       try loadOptional("swiftscan_swift_textual_detail_get_swift_overlay_dependencies")
+
+    // Header dependencies of binary modules
+    self.swiftscan_swift_binary_detail_get_header_dependencies =
+      try loadOptional("swiftscan_swift_binary_detail_get_header_dependencies")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {

@@ -234,6 +234,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     for dependencyModule in swiftDependencyArtifacts {
       inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
                                      type: .swiftModule))
+
+      for headerDep in dependencyModule.prebuiltHeaderDependencyPaths ?? [] {
+        commandLine.appendFlags(["-Xcc", "-include-pch", "-Xcc"])
+        commandLine.appendPath(VirtualPath.lookup(headerDep.path))
+        inputs.append(TypedVirtualPath(file: headerDep.path, type: .pch))
+      }
     }
 
     // Clang module dependencies are specified on the command line explicitly
@@ -301,6 +307,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         swiftDependencyArtifacts.append(
           SwiftModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
+                                  headerDependencies: prebuiltModuleDetails.headerDependencyPaths,
                                   isFramework: isFramework))
       case .swiftPlaceholder:
         fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
