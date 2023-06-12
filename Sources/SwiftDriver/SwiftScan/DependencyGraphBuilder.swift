@@ -195,7 +195,7 @@ private extension SwiftScan {
 
     // Decode all dependencies of this module
     let swiftOverlayDependencies: [ModuleDependencyId]?
-    if supportsSeparateSwiftOverlayDependencies(),
+    if supportsSeparateSwiftOverlayDependencies,
        let encodedOverlayDepsRef = api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies(moduleDetailsRef) {
       let encodedOverlayDependencies = try toSwiftStringArray(encodedOverlayDepsRef.pointee)
       swiftOverlayDependencies =
@@ -228,6 +228,14 @@ private extension SwiftScan {
       try getOptionalPathDetail(from: moduleDetailsRef,
                                 using: api.swiftscan_swift_binary_detail_get_module_source_info_path)
 
+    let headerDependencies: [TextualVirtualPath]?
+    if supportsBinaryModuleHeaderDependencies {
+      headerDependencies = try getOptionalPathArrayDetail(from: moduleDetailsRef,
+                                                          using: api.swiftscan_swift_binary_detail_get_header_dependencies)
+    } else {
+      headerDependencies = nil
+    }
+
     let isFramework: Bool
     if hasBinarySwiftModuleIsFramework {
       isFramework = api.swiftscan_swift_binary_detail_get_is_framework(moduleDetailsRef)
@@ -238,6 +246,7 @@ private extension SwiftScan {
     return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
                                                   moduleDocPath: moduleDocPath,
                                                   moduleSourceInfoPath: moduleSourceInfoPath,
+                                                  headerDependencies: headerDependencies,
                                                   isFramework: isFramework)
   }
 

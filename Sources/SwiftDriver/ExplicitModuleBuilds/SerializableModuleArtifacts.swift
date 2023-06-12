@@ -24,15 +24,19 @@
   public let docPath: TextualVirtualPath?
   /// The path for the module's .swiftsourceinfo file
   public let sourceInfoPath: TextualVirtualPath?
+  /// Header dependencies of this module
+  public let prebuiltHeaderDependencyPaths: [TextualVirtualPath]?
   /// A flag to indicate whether this module is a framework
   public let isFramework: Bool
 
   init(name: String, modulePath: TextualVirtualPath, docPath: TextualVirtualPath? = nil,
-       sourceInfoPath: TextualVirtualPath? = nil, isFramework: Bool = false) {
+       sourceInfoPath: TextualVirtualPath? = nil, headerDependencies: [TextualVirtualPath]? = nil,
+       isFramework: Bool = false) {
     self.moduleName = name
     self.modulePath = modulePath
     self.docPath = docPath
     self.sourceInfoPath = sourceInfoPath
+    self.prebuiltHeaderDependencyPaths = headerDependencies
     self.isFramework = isFramework
   }
 }

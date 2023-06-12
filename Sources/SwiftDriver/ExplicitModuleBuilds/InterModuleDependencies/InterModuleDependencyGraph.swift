@@ -146,16 +146,21 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
   /// The path to the .swiftSourceInfo file.
   public var moduleSourceInfoPath: TextualVirtualPath?
 
+  /// The paths to the binary module's header dependencies
+  public var headerDependencyPaths: [TextualVirtualPath]?
+
   /// A flag to indicate whether or not this module is a framework.
   public var isFramework: Bool?
 
   public init(compiledModulePath: TextualVirtualPath,
               moduleDocPath: TextualVirtualPath? = nil,
               moduleSourceInfoPath: TextualVirtualPath? = nil,
+              headerDependencies: [TextualVirtualPath]? = nil,
               isFramework: Bool) throws {
     self.compiledModulePath = compiledModulePath
     self.moduleDocPath = moduleDocPath
     self.moduleSourceInfoPath = moduleSourceInfoPath
+    self.headerDependencyPaths = headerDependencies
     self.isFramework = isFramework
   }
 }
