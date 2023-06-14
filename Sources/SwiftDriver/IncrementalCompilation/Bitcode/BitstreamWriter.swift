@@ -92,7 +92,7 @@
 ///
 /// The higher-level APIs will automatically ensure that `BitstreamWriter.data`
 /// is valid. Once serialization has completed, simply emit this data to a file.
-public final class BitstreamWriter {
+internal final class BitstreamWriter {
     /// The buffer of data being written to.
     private(set) public var data: [UInt8]
 
@@ -161,7 +161,7 @@ public final class BitstreamWriter {
 
 extension BitstreamWriter {
     /// Writes the provided UInt32 to the data stream directly.
-    public func write(_ int: UInt32) {
+    internal func write(_ int: UInt32) {
         let index = data.count
 
         // Add 4 bytes of zeroes to be overwritten.
@@ -179,7 +179,7 @@ extension BitstreamWriter {
     ///   - int: The integer containing the bits you'd like to write
     ///   - width: The number of low-bits of the integer you're writing to the
     ///            buffer
-    public func writeVBR<IntType>(_ int: IntType, width: UInt8)
+    internal func writeVBR<IntType>(_ int: IntType, width: UInt8)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
         let threshold = UInt64(1) << (UInt64(width) - 1)
@@ -201,7 +201,7 @@ extension BitstreamWriter {
     ///   - int: The integer containing the bits you'd like to write
     ///   - width: The number of low-bits of the integer you're writing to the
     ///            buffer
-    public func write<IntType>(_ int: IntType, width: UInt8)
+    internal func write<IntType>(_ int: IntType, width: UInt8)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
         precondition(width > 0, "cannot emit 0 bits")
@@ -247,7 +247,7 @@ extension BitstreamWriter {
         currentBit = (currentBit + width) & 31
     }
 
-    public func alignIfNeeded() {
+    internal func alignIfNeeded() {
         guard currentBit > 0 else { return }
         write(currentValue)
         assert(bufferOffset % 4 == 0, "buffer must be 32-bit aligned")
@@ -256,12 +256,12 @@ extension BitstreamWriter {
     }
 
     /// Writes a Bool as a 1-bit integer value.
-    public func write(_ bool: Bool) {
+    internal func write(_ bool: Bool) {
         write(bool ? 1 as UInt : 0, width: 1)
     }
 
     /// Writes the provided BitCode Abbrev operand to the stream.
-    public func write(_ abbrevOp: Bitstream.Abbreviation.Operand) {
+    internal func write(_ abbrevOp: Bitstream.Abbreviation.Operand) {
         write(abbrevOp.isLiteral) // the Literal bit.
         switch abbrevOp {
         case .literal(let value):
@@ -290,19 +290,19 @@ extension BitstreamWriter {
     }
 
     /// Writes the specified abbreviaion value to the stream, as a 32-bit quantity.
-    public func writeCode(_ code: Bitstream.AbbreviationID) {
+    internal func writeCode(_ code: Bitstream.AbbreviationID) {
         writeCode(code.rawValue)
     }
 
     /// Writes the specified Code value to the stream, as a 32-bit quantity.
-    public func writeCode<IntType>(_ code: IntType)
+    internal func writeCode<IntType>(_ code: IntType)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
         write(code, width: codeBitWidth)
     }
 
     /// Writes an ASCII character to the stream, as an 8-bit ascii value.
-    public func writeASCII(_ character: Character) {
+    internal func writeASCII(_ character: Character) {
         precondition(character.unicodeScalars.count == 1, "character is not ASCII")
         let c = UInt8(ascii: character.unicodeScalars.first!)
         write(c, width: 8)
@@ -314,7 +314,7 @@ extension BitstreamWriter {
 extension BitstreamWriter {
     /// Defines an abbreviation and returns the unique identifier for that
     /// abbreviation.
-    public func defineAbbreviation(_ abbrev: Bitstream.Abbreviation) -> Bitstream.AbbreviationID {
+    internal func defineAbbreviation(_ abbrev: Bitstream.Abbreviation) -> Bitstream.AbbreviationID {
         encodeAbbreviation(abbrev)
         currentAbbreviations.append(abbrev)
         let rawValue = UInt64(currentAbbreviations.count - 1) +
@@ -335,7 +335,7 @@ extension BitstreamWriter {
 // MARK: Writing Records
 
 extension BitstreamWriter {
-    public struct RecordBuffer {
+    internal struct RecordBuffer {
         private(set) var values = [UInt32]()
 
         fileprivate init() {
@@ -378,7 +378,7 @@ extension BitstreamWriter {
     }
 
     /// Writes an unabbreviated record to the stream.
-    public func writeRecord<CodeType>(_ code: CodeType, _ composeRecord: (inout RecordBuffer) -> Void)
+    internal func writeRecord<CodeType>(_ code: CodeType, _ composeRecord: (inout RecordBuffer) -> Void)
         where CodeType: RawRepresentable, CodeType.RawValue == UInt8
     {
         writeCode(.unabbreviatedRecord)
@@ -394,7 +394,7 @@ extension BitstreamWriter {
     /// Writes a record with the provided abbreviation ID and record contents.
     /// Optionally, emits the provided blob if the abbreviation referenced
     /// by that ID requires it.
-    public func writeRecord(
+    internal func writeRecord(
         _ abbrevID: Bitstream.AbbreviationID,
         _ composeRecord: (inout RecordBuffer) -> Void,
         blob: String? = nil
@@ -463,7 +463,7 @@ extension BitstreamWriter {
                     "0123456789._", (0 as UInt)...))
 
     /// Writes a char6-encoded value.
-    public func writeChar6<IntType>(_ value: IntType)
+    internal func writeChar6<IntType>(_ value: IntType)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
         guard (0..<64).contains(value) else {
@@ -474,7 +474,7 @@ extension BitstreamWriter {
     }
 
     /// Writes a value with the provided abbreviation encoding.
-    public func writeAbbrevField(_ op: Bitstream.Abbreviation.Operand, value: UInt32) {
+    internal func writeAbbrevField(_ op: Bitstream.Abbreviation.Operand, value: UInt32) {
         switch op {
         case .literal(let literalValue):
             // Do not write anything
@@ -494,7 +494,7 @@ extension BitstreamWriter {
 
     /// Writes a block, beginning with the provided block code and the
     /// abbreviation width
-    public func writeBlock(
+    internal func writeBlock(
         _ blockID: Bitstream.BlockID,
         newAbbrevWidth: UInt8? = nil,
         emitRecords: () -> Void
@@ -504,7 +504,7 @@ extension BitstreamWriter {
         endBlock()
     }
 
-    public func writeBlob<S>(_ bytes: S, includeSize: Bool = true)
+    internal func writeBlob<S>(_ bytes: S, includeSize: Bool = true)
         where S: Collection, S.Element == UInt8
     {
         if includeSize {
@@ -529,7 +529,7 @@ extension BitstreamWriter {
 
     /// Writes the blockinfo block and allows emitting abbreviations
     /// and records in it.
-    public func writeBlockInfoBlock(emitRecords: () -> Void) {
+    internal func writeBlockInfoBlock(emitRecords: () -> Void) {
         writeBlock(.blockInfo, newAbbrevWidth: 2) {
             currentBlockID = nil
             blockInfoRecords = [:]
@@ -547,7 +547,7 @@ extension BitstreamWriter {
     ///   - blockID: The ID of the block to emit.
     ///   - abbreviationBitWidth: The width of the largest abbreviation ID in this block.
     ///   - defineSubBlock: A closure that is called to define the contents of the new block.
-    public func withSubBlock(
+    internal func withSubBlock(
         _ blockID: Bitstream.BlockID,
         abbreviationBitWidth: UInt8? = nil,
         defineSubBlock: () -> Void
@@ -568,7 +568,7 @@ extension BitstreamWriter {
     /// - Parameters:
     ///   - blockID: The ID of the block to emit.
     ///   - abbreviationBitWidth: The width of the largest abbreviation ID in this block.
-    public func enterSubblock(
+    internal func enterSubblock(
         _ blockID: Bitstream.BlockID,
         abbreviationBitWidth: UInt8? = nil
     ) {
@@ -601,7 +601,7 @@ extension BitstreamWriter {
     }
 
     /// Marks the end of a new block record.
-    public func endBlock() {
+    internal func endBlock() {
         guard let block = blockScope.popLast() else {
             fatalError("endBlock() called with no block registered")
         }
@@ -623,7 +623,7 @@ extension BitstreamWriter {
 
     /// Defines an abbreviation within the blockinfo block for the provided
     /// block ID.
-    public func defineBlockInfoAbbreviation(
+    internal func defineBlockInfoAbbreviation(
         _ blockID: Bitstream.BlockID,
         _ abbrev: Bitstream.Abbreviation
     ) -> Bitstream.AbbreviationID {

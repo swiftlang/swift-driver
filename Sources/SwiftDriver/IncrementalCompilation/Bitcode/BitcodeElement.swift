@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-public enum BitcodeElement {
-  public struct Block {
+internal enum BitcodeElement {
+  internal struct Block {
     public var id: UInt64
     public var elements: [BitcodeElement]
   }
@@ -21,8 +21,8 @@ public enum BitcodeElement {
   /// - Warning: A `Record` element's fields and payload only live as long as
   ///            the `visit` function that provides them is called. To persist
   ///            a record, always make a copy of it.
-  public struct Record {
-    public enum Payload {
+  internal struct Record {
+    internal enum Payload {
       case none
       case array([UInt64])
       case char6String(String)
@@ -39,7 +39,7 @@ public enum BitcodeElement {
 }
 
 extension BitcodeElement.Record.Payload: CustomStringConvertible {
-  public var description: String {
+  internal var description: String {
     switch self {
     case .none:
       return "none"
