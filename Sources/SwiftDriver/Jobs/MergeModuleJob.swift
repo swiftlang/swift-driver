@@ -30,7 +30,7 @@ extension Driver {
                                                       .list(inputsFromOutputs.map { $0.file }))
       commandLine.appendPath(fileList)
       inputs.append(contentsOf: inputsFromOutputs)
-      
+
       for input in providedInputs {
         assert(input.type == .swiftModule)
         commandLine.append(.path(input.file))

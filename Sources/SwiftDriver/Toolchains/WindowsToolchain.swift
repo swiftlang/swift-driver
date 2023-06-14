@@ -126,7 +126,7 @@ extension WindowsToolchain.ToolchainValidationError {
   }
 
   public var globalDebugPathRemapping: String? { nil }
-    
+
   public func runtimeLibraryName(for sanitizer: Sanitizer, targetTriple: Triple,
                                  isShared: Bool) throws -> String {
     // TODO(compnerd) handle shared linking

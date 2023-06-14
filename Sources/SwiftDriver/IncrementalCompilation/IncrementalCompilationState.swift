@@ -32,7 +32,7 @@ import SwiftOptions
 /// The public API surface of this class is thread safe, but not re-entrant.
 /// FIXME: This should be an actor.
 public final class IncrementalCompilationState {
-    
+
   /// State needed for incremental compilation that can change during a run and must be protected from
   /// concurrent mutation and access. Concurrent accesses are OK.
   private var protectedState: ProtectedState
@@ -43,7 +43,7 @@ public final class IncrementalCompilationState {
 
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
-  
+
   public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
   internal let upToDateInterModuleDependencyGraph: InterModuleDependencyGraph?
@@ -60,7 +60,7 @@ public final class IncrementalCompilationState {
       ? Reporter(diagnosticEngine: driver.diagnosticEngine,
                  outputFileMap: driver.outputFileMap)
       : nil
-    
+
     reporter?.reportOnIncrementalImports(
       initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild))
 
@@ -80,14 +80,14 @@ public final class IncrementalCompilationState {
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
   }
-  
+
   /// Allow concurrent access to while preventing mutation of ``IncrementalCompilationState/protectedState``
   public func blockingConcurrentMutationToProtectedState<R>(
     _ fn: (ProtectedState) throws -> R
   ) rethrows -> R {
     try blockingConcurrentMutation {try fn(protectedState)}
   }
-  
+
   /// Block any other threads from doing anything to  or observing `protectedState`.
   public func blockingConcurrentAccessOrMutationToProtectedState<R>(
     _ fn: (inout ProtectedState) throws -> R

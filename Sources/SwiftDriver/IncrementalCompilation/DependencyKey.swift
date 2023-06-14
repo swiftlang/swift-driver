@@ -27,13 +27,13 @@ import Dispatch
       self.fileName = fileName
       self.fileNameString = fileName.lookup(in: t)
   }
-  
+
   static var dummy: Self {
     MockIncrementalCompilationSynchronizer.withInternedStringTable { t in
       return Self(fileName: ".".intern(in: t), t)
     }
   }
-  
+
   public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
     lhs.fileName == rhs.fileName
   }
@@ -381,16 +381,16 @@ public func isInIncreasingOrder(_ lhs: DependencyKey.Designator,
     let (.nominal(ln), .nominal(rn)),
     let (.potentialMember(ln), .potentialMember(rn)):
     return f(ln) < f(rn)
-    
+
   case let (.externalDepend(ld), .externalDepend(rd)):
     return ld < rd
-    
+
   case let (.member(lc, ln), .member(rc, rn)):
     return lc == rc ? f(ln) < f(rn) : f(lc) < f(rc)
-    
+
   default: break
   }
-  
+
   /// Preserves the ordering that obtained before interned strings were introduced.
   func kindOrdering(_ d: DependencyKey.Designator) -> Int {
     switch d {

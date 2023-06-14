@@ -102,7 +102,7 @@ public enum VirtualPath: Hashable {
     guard case .relative(let relativePath) = self else { return nil }
     return relativePath
   }
-  
+
   /// If the path is some kind of temporary file, returns the `RelativePath`
   /// representing its name.
   public var temporaryFileName: RelativePath? {

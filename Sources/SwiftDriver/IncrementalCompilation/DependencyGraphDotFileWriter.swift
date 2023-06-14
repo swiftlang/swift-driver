@@ -29,7 +29,7 @@ public struct DependencyGraphDotFileWriter {
     let basename = file.file.basename
     write(sfdg, basename: basename, internedStringTable: internedStringTable)
   }
-  
+
   mutating func write(_ mdg: ModuleDependencyGraph) {
     write(mdg, basename: Self.moduleDependencyGraphBasename,
           internedStringTable: mdg.internedStringTable)

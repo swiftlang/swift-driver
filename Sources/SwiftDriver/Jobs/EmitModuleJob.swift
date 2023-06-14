@@ -40,7 +40,7 @@ extension Driver {
     }
 
     addSupplementalOutput(path: emitModuleSerializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .emitModuleDiagnostics)
-    
+
     addSupplementalOutput(path: emitModuleDependenciesFilePath, flag: "-emit-dependencies-path", type: .emitModuleDependencies)
 
     // Skip files created by other jobs when emitting a module and building at the same time
@@ -55,11 +55,11 @@ extension Driver {
     // are risking collisions in output filenames.
     //
     // In cases where other compile jobs exist, they will produce dependency outputs already.
-    // There are currently no cases where this is the only job because even an `-emit-module` 
+    // There are currently no cases where this is the only job because even an `-emit-module`
     // driver invocation currently still involves partial compilation jobs.
     // When partial compilation jobs are removed for the `compilerOutputType == .swiftModule`
     // case, this will need to be changed here.
-    // 
+    //
     if emitModuleSeparately {
       return
     }
@@ -161,7 +161,7 @@ extension Driver {
       return false
     }
   }
-  
+
   static func canDoCrossModuleOptimization(parsedOptions: inout ParsedOptions) -> Bool {
     if !parsedOptions.hasArgument(.enableLibraryEvolution),
        !parsedOptions.hasArgument(.disableCrossModuleOptimization),

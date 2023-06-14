@@ -69,7 +69,7 @@ extension DependencySource {
   var interfaceHashForMockDependencySource: String {
     file.name
   }
-  
+
   fileprivate  var sourceFileProvidesNameForMocking: InternedString {
     // Only when mocking are these two guaranteed to be the same
     internedFileName

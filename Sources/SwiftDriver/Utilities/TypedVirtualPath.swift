@@ -20,7 +20,7 @@ public struct TypedVirtualPath: Hashable, Codable {
   public var file: VirtualPath {
     return VirtualPath.lookup(self.fileHandle)
   }
-  
+
   public init(file: VirtualPath.Handle, type: FileType) {
     self.fileHandle = file
     self.type = type

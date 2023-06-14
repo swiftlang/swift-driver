@@ -51,7 +51,7 @@ import struct Foundation.TimeInterval
   let creationPhase: Phase
 
   fileprivate var currencyCache: ExternalDependencyCurrencyCache
-  
+
   /// To speed all the node insertions and lookups, intern all the strings.
   /// Put them here because it matches the concurrency constraints; just as modifications to this graph
   /// are serialized, so must all the mods to this table be.
@@ -90,7 +90,7 @@ import struct Foundation.TimeInterval
               NodeFinder(),
               Set())
   }
-  
+
   public static func createFromPrior(
     _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
@@ -105,7 +105,7 @@ import struct Foundation.TimeInterval
               nodeFinder,
               fingerprintedExternalDependencies)
   }
-  
+
   public static func createForBuildingFromSwiftDeps(
     _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
@@ -263,7 +263,7 @@ extension ModuleDependencyGraph {
 
 // MARK: - Scheduling either wave
 extension ModuleDependencyGraph {
-  
+
   /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
   ///
   /// - Parameter nodes: A set of graph nodes for changed declarations.
@@ -450,13 +450,13 @@ extension ModuleDependencyGraph {
     return integrateIncrementalImport(of: integrand.externalDependency, whyIntegrate)
            ?? indiscriminatelyFindNodesInvalidated(by: integrand, .couldNotRead)
   }
-  
+
   /// In order to report what happened in a sensible order, reify the reason for indiscriminately invalidating.
   private enum WhyIndiscriminatelyInvalidate: CustomStringConvertible {
     case incrementalImportsIsDisabled
     case missingFingerprint
     case couldNotRead
-    
+
     var description: String {
       switch self {
       case .incrementalImportsIsDisabled: return "Incremental imports are disabled"
@@ -694,7 +694,7 @@ extension ModuleDependencyGraph {
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
-    
+
     fileprivate init(forMalformed kind: RecordID) {
       switch kind {
       case .metadata:
@@ -765,9 +765,9 @@ extension ModuleDependencyGraph {
       /// `Array` supports the deserialization of the def-use links by mapping index to node.
       /// The optionality of the contents lets the ``ModuleDependencyGraph/isForRemovedInput`` check to be cached.
       public private(set) var potentiallyUsedNodes: [Node?] = []
-      
+
       private var nodeFinder = NodeFinder()
-      
+
       var incrementalCompilationQueue: DispatchQueue {
         info.incrementalCompilationQueue
       }
@@ -776,7 +776,7 @@ extension ModuleDependencyGraph {
         self.info = info
         self.internedStringTable = InternedStringTable(info.incrementalCompilationQueue)
       }
-      
+
       private var fileSystem: FileSystem {
         info.fileSystem
       }
@@ -831,7 +831,7 @@ extension ModuleDependencyGraph {
         assert(oldNode == nil,
                "Integrated the same node twice: \(oldNode!), \(newNode)")
       }
-      
+
       /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
       ///
       /// If the priors were read from an invocation containing a subsequently removed input,
@@ -847,14 +847,14 @@ extension ModuleDependencyGraph {
         }
         return !info.isPartOfBuild(SwiftSourceFile(dependencySource.typedFile))
       }
-      
+
       mutating func visit(record: BitcodeElement.Record) throws {
         guard let kind = RecordID(rawValue: record.id) else {
           throw ReadError.unknownRecord
         }
-        
+
         var malformedError: ReadError {.init(forMalformed: kind)}
-        
+
         func stringIndex(field i: Int) throws -> Int {
           let u = record.fields[i]
           guard u < UInt64(internedStringTable.count) else {
@@ -1004,7 +1004,7 @@ extension ModuleDependencyGraph {
         }
       }
     }
-    
+
     var visitor = Visitor(info)
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
@@ -1216,7 +1216,7 @@ extension ModuleDependencyGraph {
         // dependency name
         .vbr(chunkBitWidth: 13),
       ]
-      
+
       self.abbreviate(.metadata, [
         .literal(RecordID.metadata.rawValue),
         // Major version

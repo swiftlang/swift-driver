@@ -963,12 +963,12 @@ extension ModuleDependencyGraph {
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
-    
+
     return collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes)
       .map { $0.mockID }
   }
 
-  
+
   func getInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
@@ -981,7 +981,7 @@ extension ModuleDependencyGraph {
       let dependencySource = DependencySource(input, internedStringTable)
       let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
-      
+
       let sfdg = SourceFileDependencyGraphMocker.mock(
         includePrivateDeps: includePrivateDeps,
         hadCompilationError: hadCompilationError,
@@ -989,7 +989,7 @@ extension ModuleDependencyGraph {
         interfaceHash: interfaceHash,
         dependencyDescriptions,
         in: internedStringTable)
-      
+
       return Integrator.integrate(from: sfdg,
                                   dependencySource: DependencySource(input, internedStringTable),
                                   into: self)
@@ -1301,7 +1301,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     }()
     dh.add(def.sequenceNumber)
   }
-  
+
   private mutating func fixupDependencies() {
     for (useSequenceNumber, depHolder) in dependencyAccumulator.enumerated() {
       if let depHolder = depHolder {
@@ -1473,7 +1473,7 @@ fileprivate extension DependencyKey.Designator {
     }
     let context = contextAndName.context?.intern(in: t)
     let    name = contextAndName.name?   .intern(in: t)
-    
+
     switch kind {
     case .topLevel:
       mustBeAbsent(context)

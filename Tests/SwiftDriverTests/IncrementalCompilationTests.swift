@@ -532,7 +532,7 @@ extension IncrementalCompilationTests {
       return priorsModTime
     }
     try setModTime(of: .absolute(priorsPath), to: priorsModTime)
-    
+
     try checkReactionToObsoletePriors()
     try checkNullBuild(checkDiagnostics: true)
 #endif
@@ -641,7 +641,7 @@ extension IncrementalCompilationTests {
     if removedFileDependsOnChangedFileAndMainWasChanged {
       replace(contentsOf: "main", with: "let foo = \"hello\"")
     }
-    
+
     try checkRestorationOfIncrementalityAfterRemoval(
       removedInput: newInput,
       defining: topLevelName,
@@ -1141,7 +1141,7 @@ extension IncrementalCompilationTests {
       }
     }
   }
-  
+
   @DiagsBuilder private func respondToChangedInputs(
     changedInputs: [String],
     unchangedInputs: [String],
@@ -1156,7 +1156,7 @@ extension IncrementalCompilationTests {
     findingBatchingCompiling(swiftDepsReadAfterFirstWave)
     reading(deps: swiftDepsReadAfterFirstWave)
   }
-  
+
   @DiagsBuilder private var addDefsWithoutGraph: [Diagnostic.Message] {
     for (input, name) in [("main", "foo"), ("other", "bar")] {
       newDefinitionOfSourceFile(.interface,      input)
@@ -1165,7 +1165,7 @@ extension IncrementalCompilationTests {
       newDefinitionOfTopLevelName(.implementation, name: name, input: input)
     }
   }
-  
+
   @DiagsBuilder private func integrateChangedMainWithPriors(
     removedInput: String,
     defining topLevelName: String,
@@ -1177,7 +1177,7 @@ extension IncrementalCompilationTests {
   {
     fingerprintsChanged("main")
     fingerprintsMissingOfTopLevelName(name: "foo", "main")
-    
+
     for input in affectedInputs {
       trace {
         TraceStep(.interface, sourceFileProvide: "main")
@@ -1190,7 +1190,7 @@ extension IncrementalCompilationTests {
     findingBatchingCompiling(affectedInputsInInvocationOrder)
     reading(deps: "other")
     fingerprintsMissingOfTopLevelName(name: "bar", "other")
-    
+
     let readingAnotherDeps = !removeInputFromInvocation // if removed, won't read it
     if readingAnotherDeps {
       reading(deps: removedInput)
@@ -1614,7 +1614,7 @@ extension DiagVerifiable {
   @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {
     reading(deps: inputs)
   }
-  
+
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Fingerprint changed for existing \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
@@ -1623,7 +1623,7 @@ extension DiagVerifiable {
       fingerprintChanged(aspect, input)
     }
   }
-  
+
    @DiagsBuilder func fingerprintsMissingOfTopLevelName(name: String, _ input: String) -> [Diagnostic.Message] {
     for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
       "Incremental compilation: Fingerprint missing for existing \(aspect) of top-level name '\(name)' in \(input).swift"

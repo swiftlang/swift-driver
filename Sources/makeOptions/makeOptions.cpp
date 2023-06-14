@@ -161,7 +161,7 @@ static std::string stringOrNilLeftTrimmed(const char *text) {
 
   while (*text == ' ' && *text)
     ++text;
-  
+
   return "\"" + std::string(text) + "\"";
 }
 
@@ -198,7 +198,7 @@ int makeOptions_main() {
     std::cerr << "error: swift/Options/Options.inc unavailable at compile time\n";
     return 1;
   }
-    
+
   // Form the groups & record the ID mappings.
   unsigned rawOptionIdx = 0;
   for (const auto &rawOption : rawOptions) {
@@ -209,7 +209,7 @@ int makeOptions_main() {
         idName.erase(idName.begin() + groupSuffixStart, idName.end());
         idName = swiftify(idName);
       }
-      
+
       groupIndexByID[rawOption.id] = groups.size();
       groups.push_back({idName, rawOption.spelling, rawOption.helpText});
       ++rawOptionIdx;

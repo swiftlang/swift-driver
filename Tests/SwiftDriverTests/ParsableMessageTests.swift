@@ -163,7 +163,7 @@ final class ParsableMessageTests: XCTestCase {
         let workdir: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "WorkDir")
         let errorOutput = try withHijackedErrorStream {
           let resolver = try ArgsResolver(fileSystem: localFileSystem)
-          
+
           var driver = try Driver(args: ["swiftc", "-o", "test.o",
                                          "main.swift", "test1.swift", "test2.swift",
                                          "-enable-batch-mode", "-driver-batch-count", "1",
@@ -176,19 +176,19 @@ final class ParsableMessageTests: XCTestCase {
                                                    showJobLifecycle: false,
                                                    argsResolver: resolver,
                                                    diagnosticEngine: DiagnosticsEngine())
-          
+
           // Emit the began messages and examine the output
           toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
         }
-        
-        
+
+
         // There were 3 messages emitted
         XCTAssertEqual(errorOutput.components(separatedBy:
           """
             "kind" : "began",
             "name" : "compile",
           """).count - 1, 3)
-        
+
 #if os(Windows)
         let mainPath: String = workdir.appending(component: "main.swift").nativePathString(escaped: true)
         let test1Path: String = workdir.appending(component: "test1.swift").nativePathString(escaped: true)
@@ -198,7 +198,7 @@ final class ParsableMessageTests: XCTestCase {
         let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
         let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
 #endif
-        
+
         /// One per primary
         XCTAssertTrue(errorOutput.contains(
           """
@@ -230,7 +230,7 @@ final class ParsableMessageTests: XCTestCase {
               \"\(test2Path)\"
             ],
           """))
-        
+
         /// Real PID appeared in every message
         XCTAssertEqual(errorOutput.components(separatedBy:
           """
@@ -267,7 +267,7 @@ final class ParsableMessageTests: XCTestCase {
           // First emit the began messages
           toolDelegate!.jobStarted(job: compileJob!, arguments: args!, pid: 42)
         }
-        
+
         // Now hijack the error stream and emit finished messages
         let errorOutput = try withHijackedErrorStream {
           let resultSuccess = ProcessResult(arguments: args!,
@@ -356,7 +356,7 @@ final class ParsableMessageTests: XCTestCase {
             \"signal\" : 9
           """
 #endif
-        
+
         // Now hijack the error stream and emit finished messages
         let errorOutput = try withHijackedErrorStream {
           let resultSignalled = ProcessResult(arguments: args!,
@@ -425,7 +425,7 @@ final class ParsableMessageTests: XCTestCase {
       }
     }
   }
-  
+
   func testFrontendMessages() throws {
     do {
       try withTemporaryDirectory { path in
@@ -465,7 +465,7 @@ final class ParsableMessageTests: XCTestCase {
           """))
       }
     }
-    
+
     do {
       try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-parseable-output",
                                          "-use-frontend-parseable-output"]) {

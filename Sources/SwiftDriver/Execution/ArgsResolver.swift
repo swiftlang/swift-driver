@@ -198,7 +198,7 @@ public final class ArgsResolver {
     guard useResponseFiles != .disabled else {
       return false
     }
-    
+
     let forceResponseFiles = useResponseFiles == .forced
     if forceResponseFiles ||
       (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {

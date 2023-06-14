@@ -1292,11 +1292,11 @@ final class TripleTests: XCTestCase {
                                 watchOSVersion: .init(60, 0, 0),
                                 shouldHaveJetPacks: true)
   }
-  
+
   func testToolchainSelection() {
     let diagnostics = DiagnosticsEngine()
     struct None { }
-    
+
     func assertToolchain<T>(
       _ rawTriple: String,
       _ expectedToolchain: T.Type?,

@@ -25,7 +25,7 @@ extension IncrementalCompilationSynchronizer {
   func accessSafetyPrecondition() {
     incrementalCompilationQueue.accessSafetyPrecondition()
   }
-  
+
   @_spi(Testing) public func blockingConcurrentAccessOrMutation<T>( _ fn: () throws -> T ) rethrows -> T {
     try incrementalCompilationQueue.blockingConcurrentAccessOrMutation(fn)
   }
@@ -44,7 +44,7 @@ extension DispatchQueue {
   fileprivate func accessSafetyPrecondition() {
     dispatchPrecondition(condition: .onQueue(self))
   }
-  
+
   /// Block any concurrent access or muitation so that the argument may access or mutate the protected state.
   @_spi(Testing) public func blockingConcurrentAccessOrMutation<T>( _ fn: () throws -> T ) rethrows -> T {
     try sync(flags: .barrier, execute: fn)
@@ -58,17 +58,17 @@ extension DispatchQueue {
 /// A fixture for tests and dot file creation, etc., that require synchronization and  an ``InternedStringTable``
 public struct MockIncrementalCompilationSynchronizer: IncrementalCompilationSynchronizer {
   public let incrementalCompilationQueue: DispatchQueue
-  
+
   init() {
     self.incrementalCompilationQueue = DispatchQueue(label: "testing")
   }
-  
+
   func withInternedStringTable<R>(_ fn: (InternedStringTable) throws -> R) rethrows -> R {
     try blockingConcurrentAccessOrMutation {
       try fn(InternedStringTable(incrementalCompilationQueue))
     }
   }
-  
+
   public static func withInternedStringTable<R>(_ fn: (InternedStringTable) throws -> R) rethrows -> R {
     try Self().withInternedStringTable(fn)
   }

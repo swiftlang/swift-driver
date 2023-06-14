@@ -380,7 +380,7 @@ def install_binary_swift_modules(args, build_dir, toolchain_lib_dir, targets):
   package_subpath = os.path.join(args.configuration, 'dependencies', 'swift-system',
                                  product_subpath)
   install_module(args, build_dir, package_subpath, toolchain_lib_dir, 'SystemPackage', targets)
-  
+
 
 # Install the modulemaps and headers of the driver's C module dependencies into the toolchain
 # include directory

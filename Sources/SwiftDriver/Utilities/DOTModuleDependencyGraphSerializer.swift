@@ -18,7 +18,7 @@ import TSCBasic
   public init(_ interModuleDependencyGraph: InterModuleDependencyGraph) {
     self.graph = interModuleDependencyGraph
   }
-  
+
   func label(for moduleId: ModuleDependencyId) -> String {
     let label: String
     switch moduleId {
@@ -37,12 +37,12 @@ import TSCBasic
   func quoteName(_ name: String) -> String {
     return "\"" + name.replacingOccurrences(of: "\"", with: "\\\"") + "\""
   }
-  
+
   func outputNode(for moduleId: ModuleDependencyId) -> String {
     let nodeName = quoteName(label(for: moduleId))
     let output: String
     let font = "fontname=\"Helvetica Bold\""
-    
+
     if moduleId == .swift(graph.mainModuleName) {
       output = "  \(nodeName) [shape=box, style=bold, color=navy, \(font)];\n"
     } else {

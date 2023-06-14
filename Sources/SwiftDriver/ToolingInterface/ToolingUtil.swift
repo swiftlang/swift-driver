@@ -37,16 +37,16 @@ public func getSingleFrontendInvocationFromDriverArguments(argList: [String],
                                                            forceNoOutputs: Bool = false) -> Bool {
   var args: [String] = []
   args.append(contentsOf: argList)
-  
+
   // When creating a CompilerInvocation, ensure that the driver creates a single
   // frontend command.
   args.append("-whole-module-optimization")
-  
+
   // Explicitly disable batch mode to avoid a spurious warning when combining
   // -enable-batch-mode with -whole-module-optimization.  This is an
   // implementation detail.
   args.append("-disable-batch-mode");
-  
+
   // Prevent having a separate job for emit-module, we would like
   // to just have one job
   args.append("-no-emit-module-separately-wmo")
@@ -54,10 +54,10 @@ public func getSingleFrontendInvocationFromDriverArguments(argList: [String],
   // Avoid using filelists
   args.append("-driver-filelist-threshold");
   args.append(String(Int.max));
-  
+
   let diagnosticsEngine = DiagnosticsEngine()
   defer { emittedDiagnostics = diagnosticsEngine.diagnostics }
-  
+
   do {
     args = try ["swiftc"] + Driver.expandResponseFiles(args,
                                                        fileSystem: localFileSystem,
@@ -71,7 +71,7 @@ public func getSingleFrontendInvocationFromDriverArguments(argList: [String],
       parsedOptions.eraseSupplementaryOutputs()
       parsedOptions.addOption(.typecheck, argument: .none)
     }
-    
+
     // Instantiate the driver, setting up the toolchain in the process, etc.
     let resolver = try ArgsResolver(fileSystem: localFileSystem)
     let executor = SimpleExecutor(resolver: resolver,
@@ -83,8 +83,8 @@ public func getSingleFrontendInvocationFromDriverArguments(argList: [String],
     if diagnosticsEngine.hasErrors {
       return true
     }
-    
-    
+
+
     let buildPlan = try driver.planBuild()
     if diagnosticsEngine.hasErrors {
       return true

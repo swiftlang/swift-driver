@@ -58,7 +58,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           $0 + "-some_suffix"
         }
       }
-      
+
       let driverArgs = [
         "swiftc",
         "-incremental",

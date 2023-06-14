@@ -129,14 +129,14 @@ public class InterModuleDependencyOracle {
     }
     return swiftScan.hasBinarySwiftModuleIsFramework
   }
-  
+
   @_spi(Testing) public func supportsScannerDiagnostics() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
     return swiftScan.supportsScannerDiagnostics()
   }
-  
+
   @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")

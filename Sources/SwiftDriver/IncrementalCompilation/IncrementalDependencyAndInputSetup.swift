@@ -228,7 +228,7 @@ extension IncrementalCompilationState {
     /// The state managing incremental compilation gets mutated every time a compilation job completes.
     /// This queue ensures that the access and mutation of that state is thread-safe.
     @_spi(Testing) public let incrementalCompilationQueue: DispatchQueue
-    
+
     @_spi(Testing) public let diagnosticEngine: DiagnosticsEngine
 
     /// Options, someday
@@ -302,7 +302,7 @@ extension IncrementalCompilationState {
         inputsInvalidatedByExternals: priors.fileSet,
         incrementalOptions: options)
     }
-    
+
     /// Is this source file part of this build?
     ///
     /// - Parameter sourceFile: the Swift source-code file in question

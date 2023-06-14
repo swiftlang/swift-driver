@@ -197,7 +197,7 @@ public final class DarwinToolchain: Toolchain {
                                       diagnosticsEngine: diagnosticsEngine)
     #endif
     // Validating apple platforms deployment targets.
-    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple, 
+    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple,
                                  compilerOutputType: compilerOutputType)
     if let targetVariantTriple = targetVariantTriple,
        !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
@@ -247,7 +247,7 @@ public final class DarwinToolchain: Toolchain {
       }
     }
   }
-    
+
   func validateLinkObjcRuntimeARCLiteLib(_ parsedOptions: inout ParsedOptions,
                                            targetTriple: Triple,
                                            diagnosticsEngine: DiagnosticsEngine) {

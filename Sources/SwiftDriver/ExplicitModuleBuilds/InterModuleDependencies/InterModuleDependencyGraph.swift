@@ -306,7 +306,7 @@ internal extension InterModuleDependencyGraph {
 
 public struct InterModuleDependencyImports: Codable {
   public var imports: [String]
-  
+
   public init(imports: [String], moduleAliases: [String: String]? = nil) {
     var realImports = [String]()
     if let aliases = moduleAliases {

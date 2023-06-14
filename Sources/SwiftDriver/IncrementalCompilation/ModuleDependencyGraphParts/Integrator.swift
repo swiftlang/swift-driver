@@ -49,7 +49,7 @@ extension ModuleDependencyGraph {
       .findNodes(for: .known(dependencySource))
         ?? [:]
     }
-    
+
     var reporter: IncrementalCompilationState.Reporter? {
       destination.info.reporter
     }

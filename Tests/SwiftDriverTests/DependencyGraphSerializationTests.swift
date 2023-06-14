@@ -40,7 +40,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         buildRecord: graph.buildRecord,
         mockSerializedGraphVersion: alteredVersion)
     }
- 
+
     do {
       let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
       let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
@@ -78,7 +78,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
     let deserializedGraph = try info.blockingConcurrentAccessOrMutation {
       try XCTUnwrap(ModuleDependencyGraph.read(from: mockPath, info: info))
     }
- 
+
     let descsToCompare = [originalGraph, deserializedGraph].map {
       graph -> (nodes: Set<String>, uses: [String: Set<String>], feds: Set<String>) in
       var nodes = Set<String>()
@@ -108,7 +108,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         case reload(index: Int, nodes: [MockDependencyKind: [String]], fingerprint: String? = nil)
       }
     }
-    
+
     let fixtures: [GraphFixture] = [
       GraphFixture(commands: []),
       GraphFixture(commands: [

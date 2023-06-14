@@ -16,7 +16,7 @@ import struct TSCBasic.ByteString
 /*@_spi(Testing)*/ public struct SourceFileDependencyGraph {
   public static let sourceFileProvidesInterfaceSequenceNumber: Int = 0
   public static let sourceFileProvidesImplementationSequenceNumber: Int = 1
-  
+
   public var majorVersion: UInt64
   public var minorVersion: UInt64
   public var compilerVersionString: String
@@ -27,17 +27,17 @@ import struct TSCBasic.ByteString
     (interface: allNodes[SourceFileDependencyGraph.sourceFileProvidesInterfaceSequenceNumber],
      implementation: allNodes[SourceFileDependencyGraph.sourceFileProvidesImplementationSequenceNumber])
   }
-  
+
   public func forEachNode(_ visit: (Node) -> Void) {
     allNodes.forEach(visit)
   }
-  
+
   public func forEachDefDependedUpon(by node: Node, _ doIt: (Node) -> Void) {
     for sequenceNumber in node.defsIDependUpon {
       doIt(allNodes[sequenceNumber])
     }
   }
-  
+
   public func forEachArc(_ doIt: (Node, Node) -> Void) {
     forEachNode { useNode in
       forEachDefDependedUpon(by: useNode) { defNode in
@@ -64,7 +64,7 @@ extension SourceFileDependencyGraph {
     public let sequenceNumber: Int
     public let defsIDependUpon: [Int]
     public let definitionVsUse: DefinitionVsUse
-    
+
     /*@_spi(Testing)*/ public init(
       key: DependencyKey,
       fingerprint: InternedString?,
@@ -77,10 +77,10 @@ extension SourceFileDependencyGraph {
       self.defsIDependUpon = defsIDependUpon
       self.definitionVsUse = definitionVsUse
     }
-    
+
     public func verify() {
       key.verify()
-      
+
       if case .sourceFileProvide = key.designator {
         switch key.aspect {
         case .interface:
@@ -113,7 +113,7 @@ extension SourceFileDependencyGraph {
     case dependsOnDefinitionNode
     case identifierNode
   }
-  
+
   fileprivate enum ReadError: Error {
     case badMagic
     case swiftModuleHasNoDependencies
@@ -142,7 +142,7 @@ extension SourceFileDependencyGraph {
   ) throws -> Self? {
     try self.init(contentsOf: typedFile, on: fileSystem, internedStringTable: internedStringTable)
   }
-  
+
   /*@_spi(Testing)*/ public init(nodesForTesting: [Node],
                                  internedStringTable: InternedStringTable) {
     majorVersion = 0
@@ -195,7 +195,7 @@ extension SourceFileDependencyGraph {
 
       private var nextSequenceNumber = 0
       private var identifiers: [InternedString] // The empty string is hardcoded as identifiers[0]
-      
+
       func validate(signature: Bitcode.Signature) throws {
         if extractFromSwiftModule {
           guard signature == .init(value: 0x0EA89CE2) else { throw ReadError.swiftModuleHasNoDependencies }
@@ -338,7 +338,7 @@ fileprivate extension DependencyKey.Designator {
                   name: name.intern(in: internedStringTable),
                   internedStringTable: internedStringTable)
   }
-    
+
   init(kindCode: UInt64,
        context: InternedString,
        name: InternedString,
@@ -378,7 +378,7 @@ fileprivate extension DependencyKey.Designator {
 /// The reports are either for definitions or uses. The old terminology (pre-fine-grained) was `provides` vs `depends`.
 public enum DefinitionVsUse {
   case definition, use
-  
+
   static func deserializing(_ field: UInt64) -> Self {
     field != 0 ? .definition : .use
   }

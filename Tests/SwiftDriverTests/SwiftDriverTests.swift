@@ -298,22 +298,22 @@ final class SwiftDriverTests: XCTestCase {
     let driver4 = try Driver(args: ["swift", "-", "-working-directory" , "-wobble"])
     XCTAssertEqual(driver4.inputFiles, [ TypedVirtualPath(file: .standardInput, type: .swift )])
   }
-  
+
   func testDashE() throws {
     let fs = localFileSystem
-    
+
     var driver1 = try Driver(args: ["swift", "-e", "print(1)", "-e", "print(2)", "foo/bar.swift", "baz/quux.swift"], fileSystem: fs)
     XCTAssertEqual(driver1.inputFiles.count, 1)
     XCTAssertEqual(driver1.inputFiles[0].file.basename, "main.swift")
     let tempFileContentsForDriver1 = try fs.readFileContents(XCTUnwrap(driver1.inputFiles[0].file.absolutePath))
     XCTAssertTrue(tempFileContentsForDriver1.description.hasSuffix("\nprint(1)\nprint(2)\n"))
-    
+
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 1)
     XCTAssertEqual(plannedJobs[0].kind, .interpret)
     XCTAssertEqual(plannedJobs[0].commandLine.drop(while: { $0 != .flag("--") }),
                    [.flag("--"), .flag("foo/bar.swift"), .flag("baz/quux.swift")])
-    
+
     XCTAssertThrowsError(try Driver(args: ["swiftc", "baz/main.swift", "-e", "print(1)"], fileSystem: fs))
   }
 
@@ -815,7 +815,7 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
   }
-  
+
   func testEmitModuleSeparatelyDependenciesPath() throws {
     try withTemporaryFile { fileMapFile in
       let outputMapContents = """
@@ -1260,7 +1260,7 @@ final class SwiftDriverTests: XCTestCase {
                                       "-serialize-diagnostics", "-experimental-emit-module-separately",
                                       "-output-file-map", outputFileMap.description])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      
+
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertTrue(plannedJobs[0].kind == .emitModule)
       XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-serialize-diagnostics-path"), .path(.absolute(.init("/build/Foo-test.dia")))]))
@@ -2836,7 +2836,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
       XCTAssertTrue(plannedJobs[2].commandLine.contains(.flag("-emit-abi-descriptor-path")))
     }
-    
+
   }
 
   func testWMOWithNonSourceInput() throws {
@@ -3223,7 +3223,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", root.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
                                env: envVars)
-      
+
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
@@ -3686,7 +3686,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(currentJob.commandLine.contains(.flag("-target")))
     XCTAssert(currentJob.commandLine.contains(.flag("armv7-apple-ios13.0")))
   }
-    
+
   func testValidDeprecatedTargetWatchOS() throws {
     var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7k-apple-watchos10.0", "foo.swift"])
     let plannedJobs = try driver.planBuild()
@@ -3849,7 +3849,7 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target", 
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-emit-module", "-c", "-target",
                                            "armv7s-apple-ios12.0", "foo.swift"])) { error in
       guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .iOS(.device), version: Triple.Version(11, 0, 0), archName: "armv7s") = error else {
         XCTFail("Unexpected error: \(error)")
@@ -6705,7 +6705,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobA.commandLine.contains("-unlikely-flag-for-testing"))
     }
   }
-  
+
   func testCleaningUpOldCompilationOutputs() throws {
 #if !os(macOS)
     throw XCTSkip("sdkArguments does not work on Linux")
@@ -6718,7 +6718,7 @@ final class SwiftDriverTests: XCTestCase {
                                  inputPaths: [main],
                                  derivedData: tmpDir,
                                  to: ofm)
-      
+
       try localFileSystem.writeFileContents(main) {
         $0 <<< "// no errors here"
         $0 <<< "func foo() {}"
@@ -6746,7 +6746,7 @@ final class SwiftDriverTests: XCTestCase {
         tmpDir.appending(component: "main.swiftdeps")
         ]
       XCTAssert(outputs.allSatisfy(localFileSystem.exists))
-      
+
       try localFileSystem.writeFileContents(main) {
         $0 <<< "#error(\"Yipes!\")"
         $0 <<< "func foo() {}"
@@ -6960,10 +6960,10 @@ final class SwiftDriverTests: XCTestCase {
       let customSwiftScan = toolsDirectory.appending(component: sharedLibraryName("lib_InternalSwiftScan"))
       try localFileSystem.createSymbolicLink(customSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
 
-      try withTemporaryDirectory { tempDirectory in 
+      try withTemporaryDirectory { tempDirectory in
         try localFileSystem.changeCurrentWorkingDirectory(to: tempDirectory)
         defer { try! localFileSystem.changeCurrentWorkingDirectory(to: originalWorkingDirectory) }
- 
+
         let anotherSwiftFrontend = localFileSystem.currentWorkingDirectory!.appending(component: executableName("swift-frontend"))
         try localFileSystem.createSymbolicLink(anotherSwiftFrontend, pointingAt: defaultSwiftFrontend, relative: false)
 
@@ -6996,7 +6996,7 @@ final class SwiftDriverTests: XCTestCase {
           XCTAssertEqual(jobs.first!.tool.name, anotherSwiftFrontend.pathString)
         }
       }
-    }  
+    }
   }
 
   func testWindowsOptions() throws {

@@ -24,13 +24,13 @@ internal class SimpleExecutor: DriverExecutor {
   let resolver: ArgsResolver
   let fileSystem: FileSystem
   let env: [String: String]
-  
+
   init(resolver: ArgsResolver, fileSystem: FileSystem, env: [String: String]) {
     self.resolver = resolver
     self.fileSystem = fileSystem
     self.env = env
   }
-  
+
   func execute(job: Job,
                forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
@@ -41,17 +41,17 @@ internal class SimpleExecutor: DriverExecutor {
     let process = try Process.launchProcess(arguments: arguments, env: childEnv)
     return try process.waitUntilExit()
   }
-  
+
   func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
                numParallelJobs: Int, forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
     fatalError("Unsupported operation on current executor")
   }
-  
+
   func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
     try Process.checkNonZeroExit(arguments: args, environment: environment)
   }
-  
+
   func description(of job: Job, forceResponseFiles: Bool) throws -> String {
     let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
     let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, useResponseFiles: useResponseFiles)

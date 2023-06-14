@@ -158,11 +158,11 @@ extension Diagnostic.Message {
   static func warning_option_overrides_another(overridingOption: Option, overridenOption: Option) -> Diagnostic.Message {
     .warning("ignoring '\(overridenOption.spelling)' because '\(overridingOption.spelling)' was also specified")
   }
-  
+
   static func error_expected_one_frontend_job() -> Diagnostic.Message {
     .error("unable to handle compilation, expected exactly one frontend job")
   }
-  
+
   static func error_expected_frontend_command() -> Diagnostic.Message {
     .error("expected a swift frontend command")
   }
