@@ -26,9 +26,14 @@ extension Toolchain {
     for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws -> VirtualPath {
+    var platform = targetInfo.target.triple.platformName(conflatingDarwin: true)!
+    // compiler-rt moved these Android sanitizers into `lib/linux/` a couple
+    // years ago, llvm/llvm-project@a68ccba, so look for them there instead.
+    if platform == "android" {
+      platform = "linux"
+    }
     return VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-      .appending(components: "clang", "lib",
-                 targetInfo.target.triple.platformName(conflatingDarwin: true)!)
+      .appending(components: "clang", "lib", platform)
   }
 
   func runtimeLibraryPaths(
