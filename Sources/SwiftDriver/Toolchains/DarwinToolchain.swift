@@ -421,6 +421,30 @@ public final class DarwinToolchain: Toolchain {
       commandLine.appendFlag(.clangTarget)
       commandLine.appendFlag(clangTargetTriple)
     }
+
+    if driver.isFrontendArgSupported(.externalPluginPath) {
+      // Default paths for compiler plugins found within an SDK (accessed via
+      // that SDK's plugin server).
+      let sdkPathRoot = VirtualPath.lookup(sdkPath).appending(components: "usr")
+      commandLine.appendFlag(.externalPluginPath)
+      commandLine.appendFlag("\(sdkPathRoot.pluginPath.name)#\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())")
+
+      commandLine.appendFlag(.externalPluginPath)
+      commandLine.appendFlag("\(sdkPathRoot.localPluginPath.name)#\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())")
+
+      // Default paths for compiler plugins within the platform (accessed via that
+      // platform's plugin server).
+      let platformPathRoot = VirtualPath.lookup(sdkPath)
+        .parentDirectory
+        .parentDirectory
+        .parentDirectory
+        .appending(components: "Developer", "usr")
+      commandLine.appendFlag(.externalPluginPath)
+      commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())")
+
+      commandLine.appendFlag(.externalPluginPath)
+      commandLine.appendFlag("\(platformPathRoot.localPluginPath.name)#\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())")
+    }
   }
 }
 
@@ -439,5 +463,25 @@ private extension Version {
       return "\(major).\(minor)"
     }
     return self.description
+  }
+}
+
+extension VirtualPath {
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to `swift-plugin-server`.
+  fileprivate var pluginServerPath: VirtualPath {
+    self.appending(components: "bin", "swift-plugin-server")
+  }
+
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to the plugins.
+  var pluginPath: VirtualPath {
+    self.appending(components: "lib", "swift", "host", "plugins")
+  }
+
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to the plugins.
+  var localPluginPath: VirtualPath {
+    self.appending(component: "local").pluginPath
   }
 }

@@ -27,26 +27,6 @@ fileprivate func shouldColorDiagnostics() -> Bool {
   return TerminalController.isTTY(stderrStream)
 }
 
-extension VirtualPath {
-  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
-  // path to `swift-plugin-server`.
-  fileprivate var pluginServerPath: VirtualPath {
-    self.appending(components: "usr", "swift-plugin-server")
-  }
-
-  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
-  // path to the plugins.
-  fileprivate var pluginPath: VirtualPath {
-    self.appending(components: "lib", "swift", "host", "plugins")
-  }
-
-  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
-  // path to the plugins.
-  fileprivate var localPluginPath: VirtualPath {
-    self.appending(component: "local").pluginPath
-  }
-}
-
 extension Driver {
   /// How the bridging header should be handled.
   enum BridgingHeaderHandling {
@@ -283,48 +263,9 @@ extension Driver {
 
     // Emit user-provided plugin paths, in order.
     if isFrontendArgSupported(.externalPluginPath) {
-      try commandLine.appendAll(.pluginPath, .externalPluginPath, from: &parsedOptions)
+      try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, from: &parsedOptions)
     } else if isFrontendArgSupported(.pluginPath) {
-      try commandLine.appendAll(.pluginPath, from: &parsedOptions)
-    }
-
-    if isFrontendArgSupported(.externalPluginPath), let sdkPath = frontendTargetInfo.sdkPath?.path {
-      // Default paths for compiler plugins found within an SDK (accessed via
-      // that SDK's plugin server).
-      let sdkPathRoot = VirtualPath.lookup(sdkPath).appending(components: "usr")
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())#\(sdkPathRoot.pluginPath.name)")
-
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())#\(sdkPathRoot.localPluginPath.name)")
-
-      // Default paths for compiler plugins within the platform (accessed via that
-      // platform's plugin server).
-      let platformPathRoot = VirtualPath.lookup(sdkPath)
-        .parentDirectory
-        .parentDirectory
-        .parentDirectory
-        .appending(components: "Developer", "usr")
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())#\(platformPathRoot.pluginPath.name)")
-
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())#\(platformPathRoot.localPluginPath.name)")
-    }
-
-    if isFrontendArgSupported(.pluginPath) {
-      // Default paths for compiler plugins found within the toolchain
-      // (loaded as shared libraries).
-      let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
-      commandLine.appendFlag(.pluginPath)
-      commandLine.appendPath(pluginPathRoot.pluginPath)
-
-      commandLine.appendFlag(.pluginPath)
-      commandLine.appendPath(pluginPathRoot.localPluginPath)
-    }
-
-    if isFrontendArgSupported(.externalPluginPath) {
-      try commandLine.appendAll(.externalPluginPath, from: &parsedOptions)
+      try commandLine.appendAll(.pluginPath, .loadPluginLibrary, from: &parsedOptions)
     }
 
     if isFrontendArgSupported(.blockListFile) {
@@ -442,6 +383,18 @@ extension Driver {
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: &self)
+
+    // Platform-agnostic options that need to happen after platform-specific ones.
+    if isFrontendArgSupported(.pluginPath) {
+      // Default paths for compiler plugins found within the toolchain
+      // (loaded as shared libraries).
+      let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
+      commandLine.appendFlag(.pluginPath)
+      commandLine.appendPath(pluginPathRoot.pluginPath)
+
+      commandLine.appendFlag(.pluginPath)
+      commandLine.appendPath(pluginPathRoot.localPluginPath)
+    }
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
