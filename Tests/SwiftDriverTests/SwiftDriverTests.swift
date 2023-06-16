@@ -6940,6 +6940,13 @@ final class SwiftDriverTests: XCTestCase {
 #endif
   }
 
+  func testFindingBlockLists() throws {
+    let execDir = testInputsPath.appending(components: "Dummy.xctoolchain", "usr", "bin")
+    let list = try Driver.findBlocklists(RelativeTo: execDir)
+    XCTAssertEqual(list.count, 2)
+    XCTAssertTrue(list.allSatisfy { $0.extension! == "yml" || $0.extension! == "yaml"})
+  }
+
   func testToolSearching() throws {
 #if os(Windows)
     let PATH = "Path"
