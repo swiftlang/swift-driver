@@ -255,22 +255,11 @@ extension Driver {
       try commandLine.appendLast(.emitMacroExpansionFiles, from: &parsedOptions)
     }
 
-    if isFrontendArgSupported(.pluginPath) {
-      try commandLine.appendAll(.pluginPath, from: &parsedOptions)
-
-      let defaultPluginPath = try toolchain.executableDir.parentDirectory
-        .appending(components: "lib", "swift", "host", "plugins")
-      commandLine.appendFlag(.pluginPath)
-      commandLine.appendPath(defaultPluginPath)
-
-      let localPluginPath = try toolchain.executableDir.parentDirectory
-        .appending(components: "local", "lib", "swift", "host", "plugins")
-      commandLine.appendFlag(.pluginPath)
-      commandLine.appendPath(localPluginPath)
-    }
-
+    // Emit user-provided plugin paths, in order.
     if isFrontendArgSupported(.externalPluginPath) {
-      try commandLine.appendAll(.externalPluginPath, from: &parsedOptions)
+      try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, from: &parsedOptions)
+    } else if isFrontendArgSupported(.pluginPath) {
+      try commandLine.appendAll(.pluginPath, .loadPluginLibrary, from: &parsedOptions)
     }
 
     // Pass down -user-module-version if we are working with a compiler that
@@ -381,6 +370,18 @@ extension Driver {
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: &self)
+
+    // Platform-agnostic options that need to happen after platform-specific ones.
+    if isFrontendArgSupported(.pluginPath) {
+      // Default paths for compiler plugins found within the toolchain
+      // (loaded as shared libraries).
+      let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
+      commandLine.appendFlag(.pluginPath)
+      commandLine.appendPath(pluginPathRoot.pluginPath)
+
+      commandLine.appendFlag(.pluginPath)
+      commandLine.appendPath(pluginPathRoot.localPluginPath)
+    }
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],

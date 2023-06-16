@@ -6757,14 +6757,64 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPluginPaths() throws {
-    var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift"])
-    guard driver.isFrontendArgSupported(.pluginPath) else {
+    let sdkRoot = testInputsPath.appending(component: "SDKChecks").appending(component: "iPhoneOS.sdk")
+    var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "PluginB#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC"])
+    guard driver.isFrontendArgSupported(.pluginPath) && driver.isFrontendArgSupported(.externalPluginPath) else {
       return
     }
 
     let jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 1)
     let job = jobs.first!
+
+    // Check that the we have the plugin paths we expect, in the order we expect.
+    let pluginAIndex = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("PluginA"))))
+    XCTAssertNotNil(pluginAIndex)
+
+    let pluginBIndex = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("PluginB#Bexe"))))
+    XCTAssertNotNil(pluginBIndex)
+    XCTAssertLessThan(pluginAIndex!, pluginBIndex!)
+
+    let pluginB2Index = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("PluginB2"))))
+    XCTAssertNotNil(pluginB2Index)
+    XCTAssertLessThan(pluginBIndex!, pluginB2Index!)
+
+    let pluginCIndex = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("PluginC"))))
+    XCTAssertNotNil(pluginCIndex)
+    XCTAssertLessThan(pluginB2Index!, pluginCIndex!)
+
+    #if os(macOS)
+    XCTAssertTrue(job.commandLine.contains(.flag("-external-plugin-path")))
+    let sdkServerPath = sdkRoot.appending(components: "usr", "bin", "swift-plugin-server").pathString
+    let sdkPluginPath = sdkRoot.appending(components: "usr", "lib", "swift", "host", "plugins").pathString
+
+    let sdkPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(sdkPluginPath)#\(sdkServerPath)"))
+    XCTAssertNotNil(sdkPluginPathIndex)
+    XCTAssertLessThan(pluginCIndex!, sdkPluginPathIndex!)
+
+    let sdkLocalPluginPath = sdkRoot.appending(components: "usr", "local", "lib", "swift", "host", "plugins").pathString
+    let sdkLocalPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(sdkLocalPluginPath)#\(sdkServerPath)"))
+    XCTAssertNotNil(sdkLocalPluginPathIndex)
+    XCTAssertLessThan(sdkPluginPathIndex!, sdkLocalPluginPathIndex!)
+
+    let platformPath = sdkRoot.parentDirectory.parentDirectory.parentDirectory.appending(components: "Developer", "usr")
+    let platformServerPath = platformPath.appending(components: "bin", "swift-plugin-server").pathString
+
+    let platformPluginPath = platformPath.appending(components: "lib", "swift", "host", "plugins")
+    let platformPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformPluginPath)#\(platformServerPath)"))
+    XCTAssertNotNil(platformPluginPathIndex)
+    XCTAssertLessThan(sdkLocalPluginPathIndex!, platformPluginPathIndex!)
+
+    let platformLocalPluginPath = platformPath.appending(components: "local", "lib", "swift", "host", "plugins")
+    let platformLocalPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformLocalPluginPath)#\(platformServerPath)"))
+    XCTAssertNotNil(platformLocalPluginPathIndex)
+    XCTAssertLessThan(platformPluginPathIndex!, platformLocalPluginPathIndex!)
+
+    let toolchainPluginPathIndex = job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins"))))
+    XCTAssertNotNil(toolchainPluginPathIndex)
+    XCTAssertLessThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+    #endif
+
     XCTAssertTrue(job.commandLine.contains(.flag("-plugin-path")))
     XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins")))))
     XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "local", "lib", "swift", "host", "plugins")))))
