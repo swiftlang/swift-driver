@@ -51,7 +51,8 @@ extension Toolchain {
       result.append(path)
     }
 
-    if let sdkPath = sdkPath.map(VirtualPath.lookup) {
+    // Only Darwin places libraries directly in /sdk/usr/lib/swift/.
+    if triple.isDarwin, let sdkPath = sdkPath.map(VirtualPath.lookup) {
       // If we added the secondary resource dir, we also need the iOSSupport directory.
       if secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
