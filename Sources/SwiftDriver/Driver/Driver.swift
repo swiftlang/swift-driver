@@ -660,7 +660,9 @@ public struct Driver {
 
     self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
-    (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+    (self.compilerOutputType, self.linkerOutputType) = 
+      Self.determinePrimaryOutputs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple, 
+                                   driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
@@ -1994,6 +1996,7 @@ extension Driver {
   /// Determine the primary compiler and linker output kinds.
   private static func determinePrimaryOutputs(
     _ parsedOptions: inout ParsedOptions,
+    targetTriple: Triple,
     driverKind: DriverKind,
     diagnosticsEngine: DiagnosticsEngine
   ) -> (FileType?, LinkOutputType?) {
@@ -2005,7 +2008,7 @@ extension Driver {
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
       case .emitExecutable:
-        if parsedOptions.contains(.static) {
+        if parsedOptions.contains(.static) && targetTriple.environment != .musl {
           diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
         }
         linkerOutputType = .executable
