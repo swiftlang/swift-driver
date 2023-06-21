@@ -700,14 +700,14 @@ extension Triple {
         arch = nil
       }
 
-      let cannonicalArchName = cannonicalARMArchName(from: archName)
+      let canonicalArchName = canonicalARMArchName(from: archName)
 
-      if cannonicalArchName.isEmpty {
+      if canonicalArchName.isEmpty {
         return nil
       }
 
       // Thumb only exists in v4+
-      if ISA == .thumb && (cannonicalArchName.hasPrefix("v2") || cannonicalArchName.hasPrefix("v3")) {
+      if ISA == .thumb && (canonicalArchName.hasPrefix("v2") || canonicalArchName.hasPrefix("v3")) {
           return nil
       }
 
@@ -729,7 +729,7 @@ extension Triple {
     // (iwmmxt|xscale)(eb)? is also permitted. If the former, return
     // "v.+", if the latter, return unmodified string, minus 'eb'.
     // If invalid, return empty string.
-    fileprivate static func cannonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
+    fileprivate static func canonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
       var name = Substring(arch)
 
       func dropPrefix(_ prefix: String) {
@@ -925,7 +925,7 @@ extension Triple {
         return .mips(.r6)
       }
 
-      let armSubArch = Triple.Arch.cannonicalARMArchName(from: component)
+      let armSubArch = Triple.Arch.canonicalARMArchName(from: component)
 
       if armSubArch.isEmpty {
         switch component {
