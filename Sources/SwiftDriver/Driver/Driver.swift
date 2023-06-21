@@ -2008,7 +2008,7 @@ extension Driver {
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
       case .emitExecutable:
-        if parsedOptions.contains(.static) && targetTriple.environment != .musl {
+        if parsedOptions.contains(.static) && !targetTriple.supportsStaticExecutables {
           diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
         }
         linkerOutputType = .executable
