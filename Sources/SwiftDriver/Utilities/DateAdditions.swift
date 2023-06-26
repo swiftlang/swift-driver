@@ -14,8 +14,10 @@
 import WinSDK
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 /// Represents a time point value with nanosecond precision.

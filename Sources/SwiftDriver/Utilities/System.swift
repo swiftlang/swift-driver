@@ -14,6 +14,8 @@
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 func argumentNeedsQuoting(_ argument: String) -> Bool {

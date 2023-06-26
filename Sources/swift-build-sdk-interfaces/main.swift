@@ -15,8 +15,10 @@ import SwiftDriver
 import CRT
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 import TSCBasic // <<<

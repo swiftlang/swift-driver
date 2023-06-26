@@ -17,8 +17,10 @@ import var Foundation.NSLocalizedDescriptionKey
 import WinSDK
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 internal enum Loader {
@@ -130,7 +132,7 @@ extension Loader.Flags {
       Loader.Flags(rawValue: 0)
     }
 
-#if os(Linux)
+#if os(Linux) && canImport(Glibc)
     public static var deepBind: Loader.Flags {
       Loader.Flags(rawValue: RTLD_DEEPBIND)
     }
