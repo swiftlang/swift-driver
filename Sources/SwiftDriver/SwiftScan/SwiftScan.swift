@@ -263,6 +263,10 @@ internal extension swiftscan_diagnostic_severity_t {
   func resetScannerCache() {
     api.swiftscan_scanner_cache_reset(scanner)
   }
+
+  @_spi(Testing) public func supportsSeparateSwiftOverlayDependencies() -> Bool {
+    return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
+  }
   
   @_spi(Testing) public func supportsScannerDiagnostics() -> Bool {
     return api.swiftscan_scanner_diagnostics_query != nil &&
@@ -418,6 +422,10 @@ private extension swiftscan_functions_t {
     // isFramework on binary module dependencies
     self.swiftscan_swift_binary_detail_get_is_framework =
       try loadOptional("swiftscan_swift_binary_detail_get_is_framework")
+
+    // Swift Overlay Dependencies
+    self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
+      try loadOptional("swiftscan_swift_textual_detail_get_swift_overlay_dependencies")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {

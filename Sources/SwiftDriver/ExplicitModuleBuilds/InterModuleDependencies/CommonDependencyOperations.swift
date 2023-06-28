@@ -75,8 +75,21 @@ extension InterModuleDependencyGraph {
       }
     // Traverse the set of modules in reverse topological order, assimilating transitive closures
     for moduleId in topologicalIdList.reversed() {
-      for dependencyId in try moduleInfo(of: moduleId).directDependencies! {
+      let moduleInfo = try moduleInfo(of: moduleId)
+      for dependencyId in moduleInfo.directDependencies! {
         transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+      }
+      // For Swift dependencies, their corresponding Swift Overlay dependencies
+      // and bridging header dependencies are equivalent to direct dependencies.
+      if case .swift(let swiftModuleDetails) = moduleInfo.details {
+        let swiftOverlayDependencies = swiftModuleDetails.swiftOverlayDependencies ?? []
+        for dependencyId in swiftOverlayDependencies {
+          transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+        }
+        let bridgingHeaderDependencies = swiftModuleDetails.bridgingHeaderDependencies ?? []
+        for dependencyId in bridgingHeaderDependencies {
+          transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
+        }
       }
     }
     // For ease of use down-the-line, remove the node's self from its set of reachable nodes
@@ -220,5 +233,50 @@ extension InterModuleDependencyGraph {
                       sourceFiles: combinedSourceFiles,
                       directDependencies: combinedDependencies,
                       details: .clang(combinedModuleDetails))
+  }
+}
+
+internal extension InterModuleDependencyGraph {
+  func explainDependency(dependencyModuleName: String) throws -> [[ModuleDependencyId]]? {
+    guard modules.contains(where: { $0.key.moduleName == dependencyModuleName }) else { return nil }
+    var results = [[ModuleDependencyId]]()
+    try findAllPaths(source: .swift(mainModuleName),
+                     to: dependencyModuleName,
+                     pathSoFar: [.swift(mainModuleName)],
+                     results: &results)
+    return Array(results)
+  }
+
+
+  private func findAllPaths(source: ModuleDependencyId,
+                            to moduleName: String,
+                            pathSoFar: [ModuleDependencyId],
+                            results: inout [[ModuleDependencyId]]) throws {
+    let sourceInfo = try moduleInfo(of: source)
+    // If the source is our target, we are done
+    guard source.moduleName != moduleName else {
+      // If the source is a target Swift module, also check if it
+      // depends on a corresponding Clang module with the same name.
+      // If it does, add it to the path as well.
+      var completePath = pathSoFar
+      if let dependencies = sourceInfo.directDependencies,
+         dependencies.contains(.clang(moduleName)) {
+        completePath.append(.clang(moduleName))
+      }
+      results.append(completePath)
+      return
+    }
+
+    // If no more dependencies, this is a leaf node, we are done
+    guard let dependencies = sourceInfo.directDependencies else {
+      return
+    }
+
+    for dependency in dependencies {
+      try findAllPaths(source: dependency,
+                       to: moduleName,
+                       pathSoFar: pathSoFar + [dependency],
+                       results: &results)
+    }
   }
 }
