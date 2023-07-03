@@ -94,7 +94,7 @@ extension Driver {
       inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
     // FIXME: Add MSVC runtime library flags
 
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)

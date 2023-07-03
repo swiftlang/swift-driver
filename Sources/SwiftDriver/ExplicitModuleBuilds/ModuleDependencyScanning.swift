@@ -106,7 +106,7 @@ public extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
@@ -119,6 +119,8 @@ public extension Driver {
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
+
+    try commandLine.appendLast(.clangIncludeTree, from: &parsedOptions)
 
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
@@ -144,7 +146,7 @@ public extension Driver {
   }
 
   /// Returns false if the lib is available and ready to use
-  private func initSwiftScanLib() throws -> Bool {
+  private mutating func initSwiftScanLib() throws -> Bool {
     // If `-nonlib-dependency-scanner` was specified or the libSwiftScan library cannot be found,
     // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
     // scanning.
@@ -160,6 +162,9 @@ public extension Driver {
       if !integratedDriver {
         diagnosticEngine.emit(.warn_scanner_frontend_fallback())
       }
+    }
+    if !fallbackToFrontend && enableCaching {
+      try interModuleDependencyOracle.createCAS(path: casPath)
     }
     return fallbackToFrontend
   }
@@ -336,7 +341,7 @@ public extension Driver {
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     commandLine.appendFlag("-import-prescan")
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
@@ -366,7 +371,7 @@ public extension Driver {
     // is present.
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .ignored,
                                  moduleDependencyGraphUse: .dependencyScan)
 

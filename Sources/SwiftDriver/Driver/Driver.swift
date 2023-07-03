@@ -204,6 +204,9 @@ public struct Driver {
   /// The working directory for the driver, if there is one.
   let workingDirectory: AbsolutePath?
 
+  /// CacheKey for bridging header
+  var bridgingHeaderCacheKey: String? = nil
+
   /// The set of input files
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 
@@ -262,6 +265,11 @@ public struct Driver {
 
   /// Whether to consider incremental compilation.
   let shouldAttemptIncrementalCompilation: Bool
+
+  /// CAS/Caching related options.
+  let enableCaching: Bool
+  let useClangIncludeTree: Bool
+  let casPath: String
 
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
@@ -570,6 +578,17 @@ public struct Driver {
     self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(&parsedOptions,
                                                                                         diagnosticEngine: diagnosticsEngine,
                                                                                         compilerMode: compilerMode)
+
+    let cachingEnableOverride = parsedOptions.hasArgument(.driverExplicitModuleBuild) && env.keys.contains("SWIFT_ENABLE_CACHING")
+    self.enableCaching = parsedOptions.hasArgument(.cacheCompileJob) || cachingEnableOverride
+    self.useClangIncludeTree = enableCaching && env.keys.contains("SWIFT_CACHING_USE_INCLUDE_TREE")
+    if let casPathOpt = parsedOptions.getLastArgument(.casPath)?.asSingle {
+      self.casPath = casPathOpt.description
+    } else if let cacheEnv = env["CCHROOT"] {
+      self.casPath = cacheEnv
+    } else {
+      self.casPath = ""
+    }
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in

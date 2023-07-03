@@ -15,7 +15,7 @@ extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .repl)
     // FIXME: MSVC runtime flags
 
     try commandLine.appendLast(.importObjcHeader, from: &parsedOptions)

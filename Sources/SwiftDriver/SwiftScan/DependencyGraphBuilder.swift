@@ -184,6 +184,9 @@ private extension SwiftScan {
     let commandLine =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_command_line)
+    let bridgingPchCommandLine =
+      try getOptionalStringArrayDetail(from: moduleDetailsRef,
+                                       using: api.swiftscan_swift_textual_detail_get_bridging_pch_command_line)
     let extraPcmArgs =
       try getStringArrayDetail(from: moduleDetailsRef,
                                using: api.swiftscan_swift_textual_detail_get_extra_pcm_args,
@@ -192,6 +195,8 @@ private extension SwiftScan {
       try getOptionalStringDetail(from: moduleDetailsRef,
                           using: api.swiftscan_swift_textual_detail_get_context_hash)
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
+    let moduleCacheKey = try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_textual_detail_get_module_cache_key)
 
     // Decode all dependencies of this module
     let swiftOverlayDependencies: [ModuleDependencyId]?
@@ -208,10 +213,12 @@ private extension SwiftScan {
                               compiledModuleCandidates: compiledModuleCandidates,
                               bridgingHeader: bridgingHeader,
                               commandLine: commandLine,
+                              bridgingPchCommandLine : bridgingPchCommandLine,
                               contextHash: contextHash,
                               extraPcmArgs: extraPcmArgs,
                               isFramework: isFramework,
-                              swiftOverlayDependencies: swiftOverlayDependencies)
+                              swiftOverlayDependencies: swiftOverlayDependencies,
+                              moduleCacheKey: moduleCacheKey)
   }
 
   /// Construct a `SwiftPrebuiltExternalModuleDetails` from a `swiftscan_module_details_t` reference
@@ -242,12 +249,15 @@ private extension SwiftScan {
     } else {
       isFramework = false
     }
+    let moduleCacheKey = try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_binary_detail_get_module_cache_key)
 
     return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
                                                   moduleDocPath: moduleDocPath,
                                                   moduleSourceInfoPath: moduleSourceInfoPath,
                                                   headerDependencies: headerDependencies,
-                                                  isFramework: isFramework)
+                                                  isFramework: isFramework,
+                                                  moduleCacheKey: moduleCacheKey)
   }
 
   /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
@@ -288,11 +298,14 @@ private extension SwiftScan {
     } else {
       capturedPCMArgs = nil
     }
+    let moduleCacheKey = try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_clang_detail_get_module_cache_key)
 
     return ClangModuleDetails(moduleMapPath: moduleMapPath,
                               contextHash: contextHash,
                               commandLine: commandLine,
-                              capturedPCMArgs: capturedPCMArgs)
+                              capturedPCMArgs: capturedPCMArgs,
+                              moduleCacheKey: moduleCacheKey)
   }
 }
 

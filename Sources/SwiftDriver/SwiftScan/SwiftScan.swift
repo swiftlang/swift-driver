@@ -25,6 +25,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
   case missingRequiredSymbol(String)
   case dependencyScanFailed
   case failedToInstantiateScanner
+  case failedToInstantiateCAS
   case missingField(String)
   case moduleNameDecodeFailure(String)
   case unsupportedDependencyDetailsKind(Int)
@@ -41,6 +42,8 @@ public enum DependencyScanningError: Error, DiagnosticData {
         return "libSwiftScan dependency scan query failed"
       case .failedToInstantiateScanner:
         return "libSwiftScan failed to create scanner instance"
+      case .failedToInstantiateCAS:
+        return "libSwiftScan failed to create CAS"
       case .missingField(let fieldName):
         return "libSwiftScan scan result missing required field: `\(fieldName)`"
       case .moduleNameDecodeFailure(let encodedName):
@@ -95,6 +98,9 @@ internal extension swiftscan_diagnostic_severity_t {
   /// Instance of a scanner, which maintains shared state across scan queries.
   let scanner: swiftscan_scanner_t;
 
+  /// Optional CAS instance.
+  var cas: swiftscan_cas_t? = nil
+
   @_spi(Testing) public init(dylib path: AbsolutePath) throws {
     self.path = path
     #if os(Windows)
@@ -111,6 +117,9 @@ internal extension swiftscan_diagnostic_severity_t {
 
   deinit {
     api.swiftscan_scanner_dispose(self.scanner)
+    if let scan_cas = cas {
+      api.swiftscan_cas_dispose(scan_cas)
+    }
     // FIXME: is it safe to dlclose() swiftscan? If so, do that here.
     // For now, let the handle leak.
     dylib.leak()
@@ -271,6 +280,16 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_diagnostics_set_dispose != nil
   }
 
+  @_spi(Testing) public var supportsCaching : Bool {
+    return api.swiftscan_cas_create != nil &&
+           api.swiftscan_cas_dispose != nil &&
+           api.swiftscan_compute_cache_key != nil &&
+           api.swiftscan_cas_store != nil &&
+           api.swiftscan_swift_textual_detail_get_module_cache_key != nil &&
+           api.swiftscan_swift_binary_detail_get_module_cache_key != nil &&
+           api.swiftscan_clang_detail_get_module_cache_key != nil
+  }
+
   func serializeScannerCache(to path: AbsolutePath) {
     api.swiftscan_scanner_cache_serialize(scanner,
                                           path.description.cString(using: String.Encoding.utf8))
@@ -358,6 +377,57 @@ internal extension swiftscan_diagnostic_severity_t {
                                               count: info.length))
     }
   }
+
+  func createCAS(casPath: String) throws {
+    self.cas = api.swiftscan_cas_create(casPath.cString(using: String.Encoding.utf8))
+    guard self.cas != nil else {
+      throw DependencyScanningError.failedToInstantiateCAS
+    }
+  }
+
+  func store(data: Data) throws -> String {
+    guard let scan_cas = self.cas else {
+      throw DependencyScanningError.failedToInstantiateCAS
+    }
+    let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: data.count)
+    data.copyBytes(to: bytes, count: data.count)
+    let casid = api.swiftscan_cas_store(scan_cas, bytes, UInt32(data.count))
+    return try toSwiftString(casid)
+  }
+
+  private func getSwiftScanOutputKind(kind: FileType) -> swiftscan_output_kind_t {
+    switch (kind) {
+      case .object:
+        return SWIFTSCAN_OUTPUT_TYPE_OBJECT
+      case .swiftModule:
+        return SWIFTSCAN_OUTPUT_TYPE_SWIFTMODULE
+      case .swiftInterface:
+        return SWIFTSCAN_OUTPUT_TYPE_SWIFTINTERFACE
+      case .privateSwiftInterface:
+        return SWIFTSCAN_OUTPUT_TYPE_SWIFTPRIVATEINTERFACE
+      case .pcm:
+        return SWIFTSCAN_OUTPUT_TYPE_CLANG_MODULE
+      case .pch:
+        return SWIFTSCAN_OUTPUT_TYPE_CLANG_PCH
+      default:
+        fatalError("Unsupported")
+    }
+  }
+
+  func computeCacheKeyForOutput(kind: FileType, commandLine: [String], input: String) throws -> String {
+    guard let scan_cas = self.cas else {
+      throw DependencyScanningError.failedToInstantiateCAS
+    }
+    var casid : swiftscan_string_ref_t = swiftscan_string_ref_t()
+    withArrayOfCStrings(commandLine) { commandArray in
+      casid = api.swiftscan_compute_cache_key(scan_cas,
+                                              Int32(commandLine.count),
+                                              commandArray,
+                                              input.cString(using: String.Encoding.utf8),
+                                              getSwiftScanOutputKind(kind: kind))
+    }
+    return try toSwiftString(casid)
+  }
 }
 
 // Used for testing purposes only
@@ -427,6 +497,24 @@ private extension swiftscan_functions_t {
     // isFramework on binary module dependencies
     self.swiftscan_swift_binary_detail_get_is_framework =
       try loadOptional("swiftscan_swift_binary_detail_get_is_framework")
+
+    self.swiftscan_swift_textual_detail_get_bridging_pch_command_line =
+      try loadOptional("swiftscan_swift_textual_detail_get_bridging_pch_command_line")
+
+    // Caching related APIs.
+    self.swiftscan_swift_textual_detail_get_module_cache_key =
+      try loadOptional("swiftscan_swift_textual_detail_get_module_cache_key")
+    self.swiftscan_swift_binary_detail_get_module_cache_key =
+      try loadOptional("swiftscan_swift_binary_detail_get_module_cache_key")
+    self.swiftscan_clang_detail_get_module_cache_key =
+      try loadOptional("swiftscan_clang_detail_get_module_cache_key")
+
+    self.swiftscan_cas_create = try loadOptional("swiftscan_cas_create")
+    self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
+    self.swiftscan_compute_cache_key =
+      try loadOptional("swiftscan_compute_cache_key")
+    self.swiftscan_cas_store = try loadOptional("swiftscan_cas_store")
+
 
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =

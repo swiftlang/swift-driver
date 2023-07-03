@@ -283,7 +283,8 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile)
+
     // FIXME: MSVC runtime flags
 
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&

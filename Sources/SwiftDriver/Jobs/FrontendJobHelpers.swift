@@ -55,9 +55,9 @@ extension Driver {
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
+    kind: Job.Kind,
     bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
-    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed,
-    isGeneratePCH: Bool = false
+    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
@@ -80,10 +80,13 @@ extension Driver {
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
     if (parsedOptions.contains(.driverExplicitModuleBuild) &&
           moduleDependencyGraphUse == .computed) {
-      if isGeneratePCH {
+      switch kind {
+      case .generatePCH:
         try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
-      } else {
+      case .compile, .emitModule, .interpret:
         try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      default:
+        break
       }
     }
 
@@ -295,7 +298,7 @@ extension Driver {
       try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
     }
 
-    if let workingDirectory = workingDirectory {
+    if !useClangIncludeTree, let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
       // different working directory is probably incorrect.
@@ -333,9 +336,27 @@ extension Driver {
       try commandLine.appendAll(.fileCompilationDir, from: &parsedOptions)
     }
 
+    // CAS related options.
+    if enableCaching {
+      commandLine.appendFlag(.cacheCompileJob)
+      if !casPath.isEmpty {
+        commandLine.appendFlag(.casPath)
+        commandLine.appendFlag(casPath)
+      }
+      try commandLine.appendLast(.cacheRemarks, from: &parsedOptions)
+      try commandLine.appendLast(.casPluginPath, from: &parsedOptions)
+      try commandLine.appendAll(.casPluginOption, from: &parsedOptions)
+    }
+    if useClangIncludeTree {
+      commandLine.appendFlag(.clangIncludeTree)
+    }
+
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
-    try commandLine.appendAll(.Xcc, from: &parsedOptions)
+
+    if !useClangIncludeTree {
+      try commandLine.appendAll(.Xcc, from: &parsedOptions)
+    }
 
     if let importedObjCHeader = importedObjCHeader,
         bridgingHeaderHandling != .ignored {
@@ -358,6 +379,10 @@ extension Driver {
         }
       } else {
         commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
+      }
+      if kind == .compile || kind == .emitModule, let bridgingHeaderKey = bridgingHeaderCacheKey {
+        commandLine.appendFlag("-bridging-header-pch-key")
+        commandLine.appendFlag(bridgingHeaderKey)
       }
     }
 
