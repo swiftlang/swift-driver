@@ -1480,7 +1480,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                 diagnosticsEngine: diagnosticEngine)
         let _ = try driver.planBuild()
       }
-      XCTAssertTrue(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
+      XCTAssertTrue(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\""))
 
       let output2 = try withHijackedOutputStream {
         let diagnosticEngine = DiagnosticsEngine()
@@ -1499,7 +1499,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                 diagnosticsEngine: diagnosticEngine)
         let _ = try driver.planBuild()
       }
-      XCTAssertTrue(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\","))
+      XCTAssertTrue(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\""))
     }
   }
 
