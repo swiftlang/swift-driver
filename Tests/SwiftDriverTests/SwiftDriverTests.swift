@@ -2901,7 +2901,7 @@ final class SwiftDriverTests: XCTestCase {
     var driver = try Driver(args: [
       "swiftc", "-wmo", "foo.o", "bar.o"
     ])
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 1)
     XCTAssertEqual(plannedJobs.first?.kind, .link)
   }
