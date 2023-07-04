@@ -2609,11 +2609,15 @@ extension Driver {
 
     if let arg = parsedOptions.getLastArgument(.sdk) {
       sdkPath = arg.asSingle
-    } else if let SDKROOT = env["SDKROOT"] {
-      sdkPath = SDKROOT
     } else if compilerMode == .immediate || compilerMode == .repl {
       // In immediate modes, query the toolchain for a default SDK.
+      // We avoid using `SDKROOT` because that may be set to a compilation platform (like iOS)
+      // that is different than the host.
       sdkPath = try? toolchain.defaultSDKPath(targetTriple)?.pathString
+    }
+
+    if sdkPath == nil, let SDKROOT = env["SDKROOT"] {
+      sdkPath = SDKROOT
     }
 
     // An empty string explicitly clears the SDK.
