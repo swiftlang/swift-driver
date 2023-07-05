@@ -415,7 +415,9 @@ public final class DarwinToolchain: Toolchain {
       if let explicitClangTripleArg = driver.parsedOptions.getLastArgument(.clangTarget)?.asSingle {
         clangTargetTriple = explicitClangTripleArg
       } else {
-        clangTargetTriple = frontendTargetInfo.target.unversionedTriple.triple + sdkInfo.versionString
+        let currentTriple = frontendTargetInfo.target.triple
+        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentTriple).sdkVersionString
+        clangTargetTriple = currentTriple.triple.replacingOccurrences(of: currentTriple.osName, with: sdkVersionedOSString)
       }
 
       commandLine.appendFlag(.clangTarget)
