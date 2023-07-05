@@ -1,4 +1,4 @@
-//===-------- WebAssemblyToolchain.swift - Swift WASM Toolchain -----------===//
+//===-------- WebAssemblyToolchain.swift - Swift Wasm Toolchain -----------===//
 //
 // This source file is part of the Swift.org open source project
 //

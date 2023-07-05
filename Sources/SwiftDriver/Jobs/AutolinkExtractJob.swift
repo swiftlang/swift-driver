@@ -12,7 +12,7 @@
 
 import struct TSCBasic.RelativePath
 
-// On ELF/WASM platforms there's no built in autolinking mechanism, so we
+// On ELF/Wasm platforms there's no built in autolinking mechanism, so we
 // pull the info we need from the .o files directly and pass them as an
 // argument input file to the linker.
 // FIXME: Also handle Cygwin and MinGW
