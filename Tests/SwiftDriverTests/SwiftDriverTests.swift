@@ -3527,7 +3527,17 @@ final class SwiftDriverTests: XCTestCase {
 
   func testImmediateMode() throws {
     do {
-      var driver = try Driver(args: ["swift", "foo.swift"])
+      var env: [String: String] = ProcessEnv.vars
+#if os(macOS)
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.vars)
+      let iosSDKPath = try executor.checkNonZeroExit(
+        args: "xcrun", "-sdk", "iphoneos", "--show-sdk-path").spm_chomp()
+      env["SDKROOT"] = iosSDKPath
+#endif
+      var driver = try Driver(args: ["swift", "foo.swift"], env: env)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
@@ -3541,7 +3551,13 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(job.commandLine.contains(.flag("foo")))
 
       if driver.targetTriple.isMacOSX {
-        XCTAssertTrue(job.commandLine.contains(.flag("-sdk")))
+        let sdkIdx = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-sdk")))
+        let sdkPathOpt: VirtualPath? = switch job.commandLine[sdkIdx + 1] {
+        case .path(let path): path
+        default: nil
+        }
+        let sdkPath = try XCTUnwrap(sdkPathOpt)
+        XCTAssertTrue(sdkPath.name.contains("MacOSX.platform"))
       }
 
       XCTAssertFalse(job.commandLine.contains(.flag("--")))
