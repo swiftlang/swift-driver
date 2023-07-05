@@ -1705,3 +1705,14 @@ fileprivate extension Array {
     }
   }
 }
+
+// MARK: - Linker support
+
+extension Triple {
+    /// Returns `true` if a given triple supports producing fully statically linked executables by providing `-static`
+    /// flag to the linker. This implies statically linking platform's libc, and of those that Swift supports currently
+    /// only Musl allows that reliably.
+    var supportsStaticExecutables: Bool {
+        self.environment == .musl
+    }
+}
