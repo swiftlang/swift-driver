@@ -21,6 +21,7 @@ import TestUtilities
 final class IncrementalCompilationTests: XCTestCase {
 
   var tempDir: AbsolutePath = AbsolutePath("/tmp")
+  var explicitModuleCacheDir: AbsolutePath = AbsolutePath("/tmp/ModuleCache")
 
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
@@ -64,8 +65,8 @@ final class IncrementalCompilationTests: XCTestCase {
     [
       "swiftc",
       "-module-name", module,
-      "-o", derivedDataPath.appending(component: module + ".o").pathString,
-      "-output-file-map", OFM.pathString,
+      "-o", derivedDataPath.appending(component: module + ".o").nativePathString(escaped: true),
+      "-output-file-map", OFM.nativePathString(escaped: true),
       "-driver-show-incremental",
       "-driver-show-job-lifecycle",
       "-enable-batch-mode",
@@ -74,10 +75,11 @@ final class IncrementalCompilationTests: XCTestCase {
       "-incremental",
       "-no-color-diagnostics",
     ]
-    + inputPathsAndContents.map {$0.0.pathString} .sorted()
+    + inputPathsAndContents.map {$0.0.nativePathString(escaped: true)} .sorted()
   }
   var explicitBuildArgs: [String] {
     ["-explicit-module-build",
+     "-module-cache-path", explicitModuleCacheDir.nativePathString(escaped: true),
      // Disable implicit imports to keep tests simpler
      "-Xfrontend", "-disable-implicit-concurrency-module-import",
      "-Xfrontend", "-disable-implicit-string-processing-module-import",
@@ -87,6 +89,7 @@ final class IncrementalCompilationTests: XCTestCase {
 
   override func setUp() {
     self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
+    self.explicitModuleCacheDir = tempDir.appending(component: "ModuleCache")
     try! localFileSystem.createDirectory(derivedDataPath)
     OutputFileMapCreator.write(module: module,
                                inputPaths: inputPathsAndContents.map {$0.0},
