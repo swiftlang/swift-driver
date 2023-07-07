@@ -344,8 +344,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       graphIfPresent = try ModuleDependencyGraph.read(from: dependencyGraphPath, info: self)
     }
     catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
-      diagnosticEngine.emit(.warning("Will not do cross-module incremental builds, wrong version of priors; expected \(expected) but read \(read) at '\(dependencyGraphPath)'"),
-                            location: nil)
+      reporter?.report("Will not do cross-module incremental builds, wrong version of priors; expected \(expected) but read \(read) at '\(dependencyGraphPath)'")
       graphIfPresent = nil
     }
     catch {
