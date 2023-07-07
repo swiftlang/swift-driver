@@ -1606,7 +1606,7 @@ extension DiagVerifiable {
     "Incremental compilation: Read dependency graph"
   }
   @DiagsBuilder var couldNotReadPriors: [Diagnostic.Message] {
-      .warning("Will not do cross-module incremental builds, wrong version of priors; expected")
+      .remark("Will not do cross-module incremental builds, wrong version of priors; expected")
   }
   // MARK: - dependencies
   @DiagsBuilder func reading(deps inputs: [String]) -> [Diagnostic.Message] {
