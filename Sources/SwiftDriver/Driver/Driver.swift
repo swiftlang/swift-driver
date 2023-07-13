@@ -207,6 +207,11 @@ public struct Driver {
   /// CacheKey for bridging header
   var bridgingHeaderCacheKey: String? = nil
 
+  /// CacheKey for swift interface
+  var swiftInterfaceCacheKey: String? = nil
+  /// CacheKey for private swift interface
+  var privateSwiftInterfaceCacheKey: String? = nil
+
   /// The set of input files
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 

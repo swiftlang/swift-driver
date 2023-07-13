@@ -118,6 +118,8 @@ extension Driver {
       commandLine.appendPath(abiPath.file)
       outputs.append(abiPath)
     }
+    // Assume swiftinterface file is always the supplementary output for first input file.
+    try computeCacheKeyForInterface(mainInput: inputs[0], outputs: outputs, commandLine: commandLine)
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .emitModule,

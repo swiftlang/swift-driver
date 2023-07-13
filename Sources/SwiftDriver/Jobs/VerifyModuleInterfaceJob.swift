@@ -26,6 +26,21 @@ extension Driver {
       outputs.append(TypedVirtualPath(file: outputPath, type: .diagnostics))
     }
 
+    if parsedOptions.contains(.driverExplicitModuleBuild) {
+      commandLine.appendFlag("-explicit-interface-module-build")
+      if let key = swiftInterfaceCacheKey, interfaceInput.type == .swiftInterface {
+        commandLine.appendFlag("-input-file-key")
+        commandLine.appendFlag(key)
+      }
+      if let key = privateSwiftInterfaceCacheKey, interfaceInput.type == .privateSwiftInterface {
+        commandLine.appendFlag("-input-file-key")
+        commandLine.appendFlag(key)
+      }
+      // Need to create an output file for swiftmodule output. Currently put it next to the swift interface.
+      let moduleOutPath = try interfaceInput.file.appendingToBaseName(".verified.swiftmodule")
+      commandLine.appendFlags("-o", moduleOutPath.name)
+    }
+
     // TODO: remove this because we'd like module interface errors to fail the build.
     if !optIn && isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
       commandLine.appendFlag(.downgradeTypecheckInterfaceError)

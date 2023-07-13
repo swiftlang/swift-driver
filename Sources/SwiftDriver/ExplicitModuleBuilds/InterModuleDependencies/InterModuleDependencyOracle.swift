@@ -178,11 +178,12 @@ public class InterModuleDependencyOracle {
     return try swiftScan.store(data:data)
   }
 
-  public func computeCacheKeyForOutput(kind: FileType, commandLine: [Job.ArgTemplate], input: VirtualPath.Handle) throws -> String {
+  public func computeCacheKeyForOutput(kind: FileType, commandLine: [Job.ArgTemplate], input: VirtualPath.Handle?) throws -> String {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    return try swiftScan.computeCacheKeyForOutput(kind: kind, commandLine: commandLine.stringArray, input: input.description)
+    let inputPath = input?.description ?? ""
+    return try swiftScan.computeCacheKeyForOutput(kind: kind, commandLine: commandLine.stringArray, input: inputPath)
   }
 
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }

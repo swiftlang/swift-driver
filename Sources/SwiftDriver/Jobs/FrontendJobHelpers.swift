@@ -83,7 +83,7 @@ extension Driver {
       switch kind {
       case .generatePCH:
         try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
-      case .compile, .emitModule, .interpret:
+      case .compile, .emitModule, .interpret, .verifyModuleInterface:
         try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
       default:
         break
@@ -669,6 +669,23 @@ extension Driver {
       fatalError("No dependency planner in Explicit Module Build mode.")
     }
     try dependencyPlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
+  }
+
+  /// Compute the cache key for swift interface outputs.
+  mutating func computeCacheKeyForInterface(mainInput: TypedVirtualPath,
+                                            outputs: [TypedVirtualPath],
+                                            commandLine: [Job.ArgTemplate]) throws {
+    if enableCaching {
+      func computeKeyForInterface(forPrivate: Bool) throws -> String? {
+        let outputType: FileType =
+          forPrivate ? .privateSwiftInterface : .swiftInterface
+        let isNeeded = outputs.contains { $0.type == outputType  }
+        guard isNeeded else { return nil }
+        return try interModuleDependencyOracle.computeCacheKeyForOutput(kind: outputType, commandLine: commandLine, input: mainInput.fileHandle)
+      }
+      swiftInterfaceCacheKey = try computeKeyForInterface(forPrivate: false)
+      privateSwiftInterfaceCacheKey = try computeKeyForInterface(forPrivate: true)
+    }
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
