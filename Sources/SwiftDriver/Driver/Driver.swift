@@ -204,9 +204,6 @@ public struct Driver {
   /// The working directory for the driver, if there is one.
   let workingDirectory: AbsolutePath?
 
-  /// CacheKey for bridging header
-  var bridgingHeaderCacheKey: String? = nil
-
   /// The set of input files
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 

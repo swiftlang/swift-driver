@@ -225,6 +225,7 @@ extension Driver {
   mutating func compileJob(primaryInputs: [TypedVirtualPath],
                            outputType: FileType?,
                            addJobOutputs: ([TypedVirtualPath]) -> Void,
+                           pchCompileJob: Job?,
                            emitModuleTrace: Bool)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -386,6 +387,7 @@ extension Driver {
       let pchInput = TypedVirtualPath(file: pchPath, type: .pch)
       inputs.append(pchInput)
     }
+    try addBridgingHeaderPCHCacheKeyArguments(commandLine: &commandLine, pchCompileJob: pchCompileJob)
 
     let displayInputs : [TypedVirtualPath]
     if case .singleCompile = compilerMode {

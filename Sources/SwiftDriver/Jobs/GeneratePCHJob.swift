@@ -70,11 +70,6 @@ extension Driver {
     inputs.append(input)
     commandLine.appendPath(input.file)
 
-    // Compute the cache key after we have the full command-line
-    if enableCaching {
-      bridgingHeaderCacheKey = try interModuleDependencyOracle.computeCacheKeyForOutput(kind: .pch, commandLine: commandLine, input: input.fileHandle)
-    }
-
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .generatePCH,

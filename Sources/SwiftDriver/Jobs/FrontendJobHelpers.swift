@@ -380,10 +380,6 @@ extension Driver {
       } else {
         commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
       }
-      if kind == .compile || kind == .emitModule, let bridgingHeaderKey = bridgingHeaderCacheKey {
-        commandLine.appendFlag("-bridging-header-pch-key")
-        commandLine.appendFlag(bridgingHeaderKey)
-      }
     }
 
     // Repl Jobs shouldn't include -module-name.
@@ -420,6 +416,20 @@ extension Driver {
       commandLine.appendFlag(.pluginPath)
       commandLine.appendPath(pluginPathRoot.localPluginPath)
     }
+  }
+
+  func addBridgingHeaderPCHCacheKeyArguments(commandLine: inout [Job.ArgTemplate],
+                                             pchCompileJob: Job?) throws {
+    guard let pchJob = pchCompileJob, enableCaching else { return }
+
+    // The pch input file (the bridging header) is added as last inputs to the job.
+    guard let inputFile = pchJob.inputs.last else { assertionFailure("no input files from pch job"); return }
+    assert(inputFile.type == .objcHeader, "Expect objc header input type")
+    let bridgingHeaderCacheKey = try interModuleDependencyOracle.computeCacheKeyForOutput(kind: .pch,
+                                                                                          commandLine: pchJob.commandLine,
+                                                                                          input: inputFile.fileHandle)
+    commandLine.appendFlag("-bridging-header-pch-key")
+    commandLine.appendFlag(bridgingHeaderCacheKey)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
