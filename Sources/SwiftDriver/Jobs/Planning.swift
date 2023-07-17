@@ -564,7 +564,9 @@ extension Driver {
       let mergeInterfaceOutputs = emitModuleJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
-      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0], optIn: optIn)
+      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0],
+                                             emitModuleJob: emitModuleJob,
+                                             optIn: optIn)
       addJob(job)
     }
     try addVerifyJob(forPrivate: false)

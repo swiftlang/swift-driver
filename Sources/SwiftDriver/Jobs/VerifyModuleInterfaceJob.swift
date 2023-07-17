@@ -11,7 +11,21 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, optIn: Bool) throws -> Job {
+  func computeCacheKeyForInterface(emitModuleJob: Job,
+                                   interfaceKind: FileType) throws -> String? {
+    assert(interfaceKind == .swiftInterface || interfaceKind == .privateSwiftInterface,
+           "only expect interface output kind")
+    let isNeeded = emitModuleJob.outputs.contains { $0.type == interfaceKind }
+    guard enableCaching && isNeeded else { return nil }
+
+    // Assume swiftinterface file is always the supplementary output for first input file.
+    let mainInput = emitModuleJob.inputs[0]
+    return try interModuleDependencyOracle.computeCacheKeyForOutput(kind: interfaceKind,
+                                                                    commandLine: emitModuleJob.commandLine,
+                                                                    input: mainInput.fileHandle)
+  }
+
+  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, emitModuleJob: Job, optIn: Bool) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")
@@ -28,11 +42,7 @@ extension Driver {
 
     if parsedOptions.contains(.driverExplicitModuleBuild) {
       commandLine.appendFlag("-explicit-interface-module-build")
-      if let key = swiftInterfaceCacheKey, interfaceInput.type == .swiftInterface {
-        commandLine.appendFlag("-input-file-key")
-        commandLine.appendFlag(key)
-      }
-      if let key = privateSwiftInterfaceCacheKey, interfaceInput.type == .privateSwiftInterface {
+      if let key = try computeCacheKeyForInterface(emitModuleJob: emitModuleJob, interfaceKind: interfaceInput.type) {
         commandLine.appendFlag("-input-file-key")
         commandLine.appendFlag(key)
       }

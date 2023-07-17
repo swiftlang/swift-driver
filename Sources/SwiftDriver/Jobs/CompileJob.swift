@@ -394,9 +394,6 @@ extension Driver {
       displayInputs = primaryInputs
     }
 
-    // Assume swiftinterface file is always the supplementary output for first input file.
-    try computeCacheKeyForInterface(mainInput: displayInputs[0], outputs: outputs, commandLine: commandLine)
-
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,

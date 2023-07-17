@@ -671,23 +671,6 @@ extension Driver {
     try dependencyPlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
-  /// Compute the cache key for swift interface outputs.
-  mutating func computeCacheKeyForInterface(mainInput: TypedVirtualPath,
-                                            outputs: [TypedVirtualPath],
-                                            commandLine: [Job.ArgTemplate]) throws {
-    if enableCaching {
-      func computeKeyForInterface(forPrivate: Bool) throws -> String? {
-        let outputType: FileType =
-          forPrivate ? .privateSwiftInterface : .swiftInterface
-        let isNeeded = outputs.contains { $0.type == outputType  }
-        guard isNeeded else { return nil }
-        return try interModuleDependencyOracle.computeCacheKeyForOutput(kind: outputType, commandLine: commandLine, input: mainInput.fileHandle)
-      }
-      swiftInterfaceCacheKey = try computeKeyForInterface(forPrivate: false)
-      privateSwiftInterfaceCacheKey = try computeKeyForInterface(forPrivate: true)
-    }
-  }
-
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
   /// such as Swift modules built from .swiftmodule files and Clang PCMs.
   public func isExplicitMainModuleJob(job: Job) -> Bool {
