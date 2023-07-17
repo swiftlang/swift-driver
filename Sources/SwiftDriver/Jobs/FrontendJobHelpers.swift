@@ -85,8 +85,14 @@ extension Driver {
         try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
       case .compile, .emitModule, .interpret, .verifyModuleInterface:
         try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
-      default:
-        break
+      case .backend, .mergeModule, .compileModuleFromInterface,
+           .generatePCM, .dumpPCM, .repl, .printTargetInfo,
+           .versionRequest, .autolinkExtract, .generateDSYM,
+           .help, .link, .verifyDebugInfo, .scanDependencies,
+           .emitSupportedFeatures, .moduleWrap,
+           .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
+           .compareABIBaseline:
+        break // Do not support creating from dependency scanner output.
       }
     }
 
