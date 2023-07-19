@@ -290,6 +290,10 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_clang_detail_get_module_cache_key != nil
   }
 
+  @_spi(Testing) public var supportsBridgingHeaderPCHCommand : Bool {
+    return api.swiftscan_swift_textual_detail_get_bridging_pch_command_line != nil
+  }
+
   func serializeScannerCache(to path: AbsolutePath) {
     api.swiftscan_scanner_cache_serialize(scanner,
                                           path.description.cString(using: String.Encoding.utf8))

@@ -30,8 +30,7 @@ extension Driver {
 
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
 
-    // If using CAS, scanner should return the full build command.
-    if enableCaching {
+    if try supportsBridgingHeaderPCHCommand() {
       try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
     } else {
       try addGeneratePCHFlags(commandLine: &commandLine, inputs: &inputs)

@@ -71,6 +71,11 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     self.enableCAS = enableCAS
   }
 
+  /// Supports resolving bridging header pch command from swiftScan.
+  public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    return try swiftScanOracle.supportsBridgingHeaderPCHCommand()
+  }
+
   /// Generate build jobs for all dependencies of the main module.
   /// The main module itself is handled elsewhere in the driver.
   ///
@@ -241,7 +246,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
                                      type: .swiftModule))
 
-      for headerDep in dependencyModule.prebuiltHeaderDependencyPaths ?? [] {
+      let prebuiltHeaderDependencyPaths = dependencyModule.prebuiltHeaderDependencyPaths ?? []
+      if enableCAS && !prebuiltHeaderDependencyPaths.isEmpty {
+        throw Driver.Error.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has prebuilt header dependency")
+      }
+
+      for headerDep in prebuiltHeaderDependencyPaths {
         commandLine.appendFlags(["-Xcc", "-include-pch", "-Xcc"])
         commandLine.appendPath(VirtualPath.lookup(headerDep.path))
         inputs.append(TypedVirtualPath(file: headerDep.path, type: .pch))

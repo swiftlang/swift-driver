@@ -25,6 +25,12 @@ extension Driver {
                                                                     input: mainInput.fileHandle)
   }
 
+  @_spi(Testing)
+  public func supportExplicitModuleVerifyInterface() -> Bool {
+    // swift-frontend that has -input-file-key option can support explicit module build for verify interface.
+    return isFrontendArgSupported(.inputFileKey)
+  }
+
   mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, emitModuleJob: Job, optIn: Bool) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
@@ -40,15 +46,12 @@ extension Driver {
       outputs.append(TypedVirtualPath(file: outputPath, type: .diagnostics))
     }
 
-    if parsedOptions.contains(.driverExplicitModuleBuild) {
+    if parsedOptions.contains(.driverExplicitModuleBuild) && supportExplicitModuleVerifyInterface() {
       commandLine.appendFlag("-explicit-interface-module-build")
       if let key = try computeCacheKeyForInterface(emitModuleJob: emitModuleJob, interfaceKind: interfaceInput.type) {
         commandLine.appendFlag("-input-file-key")
         commandLine.appendFlag(key)
       }
-      // Need to create an output file for swiftmodule output. Currently put it next to the swift interface.
-      let moduleOutPath = try interfaceInput.file.appendingToBaseName(".verified.swiftmodule")
-      commandLine.appendFlags("-o", moduleOutPath.name)
     }
 
     // TODO: remove this because we'd like module interface errors to fail the build.

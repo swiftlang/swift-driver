@@ -687,6 +687,14 @@ extension Driver {
     try dependencyPlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
+  /// If explicit dependency planner supports creating bridging header pch command.
+  public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+      return false
+    }
+    return try dependencyPlanner.supportsBridgingHeaderPCHCommand()
+  }
+
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
   /// such as Swift modules built from .swiftmodule files and Clang PCMs.
   public func isExplicitMainModuleJob(job: Job) -> Bool {

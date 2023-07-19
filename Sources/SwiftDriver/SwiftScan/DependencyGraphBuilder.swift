@@ -184,9 +184,9 @@ private extension SwiftScan {
     let commandLine =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_command_line)
-    let bridgingPchCommandLine =
+    let bridgingPchCommandLine = supportsBridgingHeaderPCHCommand ?
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
-                                       using: api.swiftscan_swift_textual_detail_get_bridging_pch_command_line)
+                                       using: api.swiftscan_swift_textual_detail_get_bridging_pch_command_line) : nil
     let extraPcmArgs =
       try getStringArrayDetail(from: moduleDetailsRef,
                                using: api.swiftscan_swift_textual_detail_get_extra_pcm_args,
@@ -195,8 +195,8 @@ private extension SwiftScan {
       try getOptionalStringDetail(from: moduleDetailsRef,
                           using: api.swiftscan_swift_textual_detail_get_context_hash)
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
-    let moduleCacheKey = try getOptionalStringDetail(from: moduleDetailsRef,
-                                                     using: api.swiftscan_swift_textual_detail_get_module_cache_key)
+    let moduleCacheKey = supportsCaching ?  try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_textual_detail_get_module_cache_key) : nil
 
     // Decode all dependencies of this module
     let swiftOverlayDependencies: [ModuleDependencyId]?
@@ -249,8 +249,8 @@ private extension SwiftScan {
     } else {
       isFramework = false
     }
-    let moduleCacheKey = try getOptionalStringDetail(from: moduleDetailsRef,
-                                                     using: api.swiftscan_swift_binary_detail_get_module_cache_key)
+    let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_binary_detail_get_module_cache_key) : nil
 
     return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
                                                   moduleDocPath: moduleDocPath,
@@ -298,8 +298,8 @@ private extension SwiftScan {
     } else {
       capturedPCMArgs = nil
     }
-    let moduleCacheKey = try getOptionalStringDetail(from: moduleDetailsRef,
-                                                     using: api.swiftscan_clang_detail_get_module_cache_key)
+    let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_clang_detail_get_module_cache_key) : nil
 
     return ClangModuleDetails(moduleMapPath: moduleMapPath,
                               contextHash: contextHash,

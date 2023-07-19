@@ -152,6 +152,13 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsCaching
   }
 
+  @_spi(Testing) public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsBridgingHeaderPCHCommand
+  }
+
   @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")

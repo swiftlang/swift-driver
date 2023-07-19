@@ -62,7 +62,6 @@ extension Option {
   public static let bypassBatchModeChecks: Option = Option("-bypass-batch-mode-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Bypass checks for batch-mode errors.")
   public static let cacheCompileJob: Option = Option("-cache-compile-job", .flag, attributes: [.frontend], helpText: "Enable compiler caching")
   public static let cacheDisableReplay: Option = Option("-cache-disable-replay", .flag, attributes: [.frontend], helpText: "Skip loading the compilation result from cache")
-  public static let cacheRemarks: Option = Option("-cache-remarks", .flag, attributes: [.frontend], helpText: "Show remarks for compiler caching")
   public static let candidateModuleFile: Option = Option("-candidate-module-file", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Specify Swift module may be ready to use for an interface")
   public static let casFs: Option = Option("-cas-fs", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Root CASID for CAS FileSystem")
   public static let casPath: Option = Option("-cas-path", .separate, attributes: [.frontend], metaVar: "<path>", helpText: "Path to CAS")
@@ -518,6 +517,7 @@ extension Option {
   public static let indexSystemModules: Option = Option("-index-system-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit index data for imported serialized swift system modules")
   public static let indexUnitOutputPathFilelist: Option = Option("-index-unit-output-path-filelist", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Specify index unit output paths in a file rather than on the command line")
   public static let indexUnitOutputPath: Option = Option("-index-unit-output-path", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Use <path> as the output path in the produced index data.")
+  public static let inputFileKey: Option = Option("-input-file-key", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Cache Key for input file")
   public static let inputPaths: Option = Option("-input-paths", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "The SDK contents under comparison")
   public static let inputPaths_: Option = Option("--input-paths", .separate, alias: Option.inputPaths, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "The SDK contents under comparison")
   public static let internalizeAtLink: Option = Option("-internalize-at-link", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow internalizing public symbols and vtables at link time (assume all client code of public types is part of the same link unit, or that external symbols are explicitly requested via -exported_symbols_list)")
@@ -638,6 +638,7 @@ extension Option {
   public static let publicAutolinkLibrary: Option = Option("-public-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add public dependent library")
   public static let RaccessNoteEQ: Option = Option("-Raccess-note=", .joined, alias: Option.RaccessNote, attributes: [.frontend, .noDriver])
   public static let RaccessNote: Option = Option("-Raccess-note", .separate, attributes: [.frontend, .noDriver], metaVar: "none|failures|all|all-validate", helpText: "Control access note remarks (default: all)")
+  public static let cacheRemarks: Option = Option("-Rcache-compile-job", .flag, attributes: [.frontend], helpText: "Show remarks for compiler caching")
   public static let emitCrossImportRemarks: Option = Option("-Rcross-import", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark if a cross-import of a module is triggered.")
   public static let dependencyScanCacheRemarks: Option = Option("-Rdependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "Emit remarks indicating use of the serialized module dependency scanning cache.")
   public static let readLegacyTypeInfoPathEQ: Option = Option("-read-legacy-type-info-path=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Read legacy type layout from the given path instead of default path")
@@ -854,7 +855,6 @@ extension Option {
       Option.bypassBatchModeChecks,
       Option.cacheCompileJob,
       Option.cacheDisableReplay,
-      Option.cacheRemarks,
       Option.candidateModuleFile,
       Option.casFs,
       Option.casPath,
@@ -1310,6 +1310,7 @@ extension Option {
       Option.indexSystemModules,
       Option.indexUnitOutputPathFilelist,
       Option.indexUnitOutputPath,
+      Option.inputFileKey,
       Option.inputPaths,
       Option.inputPaths_,
       Option.internalizeAtLink,
@@ -1430,6 +1431,7 @@ extension Option {
       Option.publicAutolinkLibrary,
       Option.RaccessNoteEQ,
       Option.RaccessNote,
+      Option.cacheRemarks,
       Option.emitCrossImportRemarks,
       Option.dependencyScanCacheRemarks,
       Option.readLegacyTypeInfoPathEQ,

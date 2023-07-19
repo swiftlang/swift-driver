@@ -405,6 +405,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-enable-library-evolution",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
+      guard driver.supportExplicitModuleVerifyInterface() else {
+        throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
+      }
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
       let dependencyGraph = try driver.gatherModuleDependencies()

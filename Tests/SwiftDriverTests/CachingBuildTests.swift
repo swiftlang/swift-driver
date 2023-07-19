@@ -302,6 +302,21 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
+      guard driver.supportExplicitModuleVerifyInterface() else {
+        throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
+      }
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      guard try dependencyOracle.supportsCaching() else {
+        throw XCTSkip("libSwiftScan does not support caching.")
+      }
+
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
       let dependencyGraph = try driver.gatherModuleDependencies()
@@ -425,7 +440,7 @@ final class CachingBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build", "-v", "-cache-remarks",
+                                     "-explicit-module-build", "-v", "-Rcache-compile-job",
                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
@@ -445,6 +460,82 @@ final class CachingBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
+  }
+
+  func testCacheBuildEndToEndWithBinaryHeaderDeps() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let PCHPath = path.appending(component: "PCH")
+      try localFileSystem.createDirectory(PCHPath)
+      let FooInstallPath = path.appending(component: "Foo")
+      try localFileSystem.createDirectory(FooInstallPath)
+      let foo = path.appending(component: "foo.swift")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.writeFileContents(foo) {
+        $0 <<< "extension Profiler {"
+        $0 <<< "    public static let count: Int = 42"
+        $0 <<< "}"
+      }
+      let fooHeader = path.appending(component: "foo.h")
+      try localFileSystem.writeFileContents(fooHeader) {
+        $0 <<< "struct Profiler { void* ptr; };"
+      }
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import Foo"
+      }
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var fooBuildDriver = try Driver(args: ["swiftc",
+                                             "-explicit-module-build",
+                                             "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                             "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                             "-working-directory", path.nativePathString(escaped: true),
+                                             foo.nativePathString(escaped: true),
+                                             "-emit-module", "-wmo", "-module-name", "Foo",
+                                             "-emit-module-path", FooInstallPath.nativePathString(escaped: true),
+                                             "-import-objc-header", fooHeader.nativePathString(escaped: true),
+                                             "-pch-output-dir", PCHPath.nativePathString(escaped: true),
+                                             FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: true)]
+                                      + sdkArgumentsForTesting,
+                                      env: ProcessEnv.vars)
+
+      // Ensure this tooling supports this functionality
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(fooBuildDriver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      guard try dependencyOracle.supportsBinaryModuleHeaderDependencies() else {
+        throw XCTSkip("libSwiftScan does not support binary module header dependencies.")
+      }
+      guard try dependencyOracle.supportsCaching() else {
+        throw XCTSkip("libSwiftScan does not support caching.")
+      }
+
+      let fooJobs = try fooBuildDriver.planBuild()
+      try fooBuildDriver.run(jobs: fooJobs)
+      XCTAssertFalse(fooBuildDriver.diagnosticEngine.hasErrors)
+
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", FooInstallPath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-emit-module", "-emit-module-path",
+                                     path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: true),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      // This is currently not supported.
+      XCTAssertThrowsError(try driver.planBuild()) {
+        XCTAssertEqual($0 as? Driver.Error, .unsupportedConfigurationForCaching("module Foo has prebuilt header dependency"))
+      }
     }
   }
 
