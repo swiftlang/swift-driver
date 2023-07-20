@@ -6780,7 +6780,13 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPluginPaths() throws {
-    let sdkRoot = testInputsPath.appending(component: "SDKChecks").appending(component: "iPhoneOS.sdk")
+    try pluginPathTest(platform: "iPhoneOS", searchPlatform: "iPhoneOS")
+    try pluginPathTest(platform: "iPhoneSimulator", searchPlatform: "iPhoneOS")
+  }
+
+  func pluginPathTest(platform: String, searchPlatform: String) throws {
+    let sdkRoot = testInputsPath.appending(
+      components: ["PlatformChecks", "\(platform).platform", "Developer", "SDKs", "\(platform).sdk"])
     var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "PluginB#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC"])
     guard driver.isFrontendArgSupported(.pluginPath) && driver.isFrontendArgSupported(.externalPluginPath) else {
       return
@@ -6820,7 +6826,11 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertNotNil(sdkLocalPluginPathIndex)
     XCTAssertLessThan(sdkPluginPathIndex!, sdkLocalPluginPathIndex!)
 
-    let platformPath = sdkRoot.parentDirectory.parentDirectory.parentDirectory.appending(components: "Developer", "usr")
+    let origPlatformPath =
+      sdkRoot.parentDirectory.parentDirectory.parentDirectory.parentDirectory
+        .appending(component: "\(searchPlatform).platform")
+
+    let platformPath = origPlatformPath.appending(components: "Developer", "usr")
     let platformServerPath = platformPath.appending(components: "bin", "swift-plugin-server").pathString
 
     let platformPluginPath = platformPath.appending(components: "lib", "swift", "host", "plugins")
