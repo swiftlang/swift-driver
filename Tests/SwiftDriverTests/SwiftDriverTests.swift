@@ -6876,7 +6876,7 @@ final class SwiftDriverTests: XCTestCase {
   func pluginPathTest(platform: String, searchPlatform: String) throws {
     let sdkRoot = testInputsPath.appending(
       components: ["PlatformChecks", "\(platform).platform", "Developer", "SDKs", "\(platform).sdk"])
-    var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "PluginB#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC"])
+    var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "Plugin~B#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC"])
     guard driver.isFrontendArgSupported(.pluginPath) && driver.isFrontendArgSupported(.externalPluginPath) else {
       return
     }
@@ -6889,7 +6889,7 @@ final class SwiftDriverTests: XCTestCase {
     let pluginAIndex = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("PluginA"))))
     XCTAssertNotNil(pluginAIndex)
 
-    let pluginBIndex = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("PluginB#Bexe"))))
+    let pluginBIndex = job.commandLine.firstIndex(of: .path(VirtualPath.relative(.init("Plugin~B#Bexe"))))
     XCTAssertNotNil(pluginBIndex)
     XCTAssertLessThan(pluginAIndex!, pluginBIndex!)
 
