@@ -429,10 +429,10 @@ public final class DarwinToolchain: Toolchain {
       // that SDK's plugin server).
       let sdkPathRoot = VirtualPath.lookup(sdkPath).appending(components: "usr")
       commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(sdkPathRoot.pluginPath.name)#\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())")
+      commandLine.appendFlag("\(sdkPathRoot.pluginPath.name)#\(sdkPathRoot.pluginServerPath.name)")
 
       commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(sdkPathRoot.localPluginPath.name)#\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())")
+      commandLine.appendFlag("\(sdkPathRoot.localPluginPath.name)#\(sdkPathRoot.pluginServerPath.name)")
 
       // Determine the platform path. For simulator platforms, look into the
       // corresponding device platform instance.
@@ -452,10 +452,10 @@ public final class DarwinToolchain: Toolchain {
       // platform's plugin server).
       let platformPathRoot = platformPath.appending(components: "Developer", "usr")
       commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())")
+      commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
 
       commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(platformPathRoot.localPluginPath.name)#\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())")
+      commandLine.appendFlag("\(platformPathRoot.localPluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
     }
   }
 }
