@@ -434,13 +434,23 @@ public final class DarwinToolchain: Toolchain {
       commandLine.appendFlag(.externalPluginPath)
       commandLine.appendFlag("\(sdkPathRoot.localPluginPath.name)#\(sdkPathRoot.pluginServerPath.name.spm_shellEscaped())")
 
+      // Determine the platform path. For simulator platforms, look into the
+      // corresponding device platform instance.
+      let origPlatformPath = VirtualPath.lookup(sdkPath)
+        .parentDirectory
+        .parentDirectory
+        .parentDirectory
+      let platformPath: VirtualPath
+      if let simulatorRange = origPlatformPath.basename.range(of: "Simulator.platform") {
+        let devicePlatform = origPlatformPath.basename.replacingCharacters(in: simulatorRange, with: "OS.platform")
+        platformPath = origPlatformPath.parentDirectory.appending(component: devicePlatform)
+      } else {
+        platformPath = origPlatformPath
+      }
+
       // Default paths for compiler plugins within the platform (accessed via that
       // platform's plugin server).
-      let platformPathRoot = VirtualPath.lookup(sdkPath)
-        .parentDirectory
-        .parentDirectory
-        .parentDirectory
-        .appending(components: "Developer", "usr")
+      let platformPathRoot = platformPath.appending(components: "Developer", "usr")
       commandLine.appendFlag(.externalPluginPath)
       commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name.spm_shellEscaped())")
 
