@@ -6869,13 +6869,13 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPluginPaths() throws {
-    try pluginPathTest(platform: "iPhoneOS", searchPlatform: "iPhoneOS")
-    try pluginPathTest(platform: "iPhoneSimulator", searchPlatform: "iPhoneOS")
+    try pluginPathTest(platform: "iPhoneOS", sdk: "iPhoneOS13.0", searchPlatform: "iPhoneOS")
+    try pluginPathTest(platform: "iPhoneSimulator", sdk: "iPhoneSimulator15.0", searchPlatform: "iPhoneOS")
   }
 
-  func pluginPathTest(platform: String, searchPlatform: String) throws {
+  func pluginPathTest(platform: String, sdk: String, searchPlatform: String) throws {
     let sdkRoot = testInputsPath.appending(
-      components: ["PlatformChecks", "\(platform).platform", "Developer", "SDKs", "\(platform).sdk"])
+      components: ["Platform Checks", "\(platform).platform", "Developer", "SDKs", "\(sdk).sdk"])
     var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "Plugin~B#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC"])
     guard driver.isFrontendArgSupported(.pluginPath) && driver.isFrontendArgSupported(.externalPluginPath) else {
       return
