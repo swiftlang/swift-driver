@@ -112,7 +112,7 @@ extension Diagnostic.Message {
                                      formatted: Bool = true,
                                      isDuplicate: Bool = false) -> Diagnostic.Message {
     if !formatted {
-      return .error("invalid format \"\(arg)\"; use the format '-module-alias alias_name=underlying_name'")
+      return .error("invalid format \"\(arg)\"; use the format '-module-alias original_name=new_name'")
     }
     if arg == moduleName {
       return .error("module alias \"\(arg)\" should be different from the module name \"\(moduleName)\"")
