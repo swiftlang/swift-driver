@@ -41,6 +41,9 @@ extension Driver {
 
     /// Use the precompiled bridging header.
     case precompiled
+
+    /// Use module for bridging header.
+    case module
   }
   /// Whether the driver has already constructed a module dependency graph or is in the process
   /// of doing so
@@ -364,15 +367,17 @@ extension Driver {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 
-    if let importedObjCHeader = importedObjCHeader,
-        bridgingHeaderHandling != .ignored {
-      commandLine.appendFlag(.importObjcHeader)
-      if bridgingHeaderHandling == .precompiled,
-          let pch = bridgingPrecompiledHeader {
+    if let importedObjCHeader = importedObjCHeader {
+      switch bridgingHeaderHandling {
+      case .ignored:
+        break
+      case .precompiled:
+        guard let pch = bridgingPrecompiledHeader else { break }
         // For explicit module build, we directly pass the compiled pch as
         // `-import-objc-header`, rather than rely on swift-frontend to locate
         // the pch in the pchOutputDir and can start an implicit build in case
         // of a lookup failure.
+        commandLine.appendFlag(.importObjcHeader)
         if parsedOptions.contains(.pchOutputDir) &&
            !parsedOptions.contains(.driverExplicitModuleBuild) {
           commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
@@ -383,8 +388,17 @@ extension Driver {
         } else {
           commandLine.appendPath(VirtualPath.lookup(pch))
         }
-      } else {
+      case .parsed:
+        commandLine.appendFlag(.importObjcHeader)
         commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
+      case .module:
+        commandLine.appendFlag(.experimentalBridgingHeaderAsModule)
+        // Tell clang importer where to look for the module map during dependency scanning.
+        guard let moduleMapFile = bridgingModuleMap, kind == .scanDependencies else { break }
+        commandLine.appendFlag(.clangModuleMap)
+        commandLine.appendPath(VirtualPath.lookup(moduleMapFile))
+        inputs.append(TypedVirtualPath(file: moduleMapFile,
+                                       type: .clangModuleMap))
       }
     }
 

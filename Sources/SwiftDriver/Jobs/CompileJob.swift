@@ -284,7 +284,8 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile)
+    let bridgingHandling: BridgingHeaderHandling  = parsedOptions.hasArgument(.experimentalBridgingHeaderAsModule) ? .module : .precompiled
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile, bridgingHeaderHandling: bridgingHandling)
 
     // FIXME: MSVC runtime flags
 
