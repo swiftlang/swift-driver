@@ -156,7 +156,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       driver.explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
-                                           toolchain: driver.toolchain)
+                                           toolchain: driver.toolchain,
+                                           dependencyOracle: driver.interModuleDependencyOracle)
       let modulePrebuildJobs =
         try driver.explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)
@@ -366,6 +367,137 @@ final class ExplicitModuleBuildTests: XCTestCase {
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink") ||
                             matchTemporary(outputFilePath, basename: "Bridging-", fileExtension: "pch"))
+            default:
+              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        }
+      }
+    }
+  }
+
+  /// Test generation of explicit module build jobs for dependency modules when the driver
+  /// is invoked with -explicit-module-build, -verify-emitted-module-interface and -enable-library-evolution.
+  func testExplicitModuleVerifyInterfaceJobs() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+      }
+
+      let swiftModuleInterfacesPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+      let cHeadersPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+      let swiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swiftinterface")
+      let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-apple-macosx11.0",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
+                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-verify-emitted-module-interface",
+                                     "-enable-library-evolution",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+
+      guard driver.supportExplicitModuleVerifyInterface() else {
+        throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
+      }
+      let jobs = try driver.planBuild()
+      // Figure out which Triples to use.
+      let dependencyGraph = try driver.gatherModuleDependencies()
+      let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleVerifyInterfaceJobs"))
+      guard case .swift(_) = mainModuleInfo.details else {
+        XCTFail("Main module does not have Swift details field")
+        return
+      }
+
+      for job in jobs {
+        if (job.outputs.count == 0) {
+          // This is the verify module job as it should be the only job scheduled to have no output.
+          XCTAssertTrue(job.kind == .verifyModuleInterface)
+          // Check the explicit module flags exists.
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-interface-module-build"))))
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-swift-module-map-file"))))
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+          continue
+        }
+        let outputFilePath = job.outputs[0].file
+
+        // Swift dependencies
+        if outputFilePath.extension != nil,
+           outputFilePath.extension! == FileType.swiftModule.rawValue {
+          if pathMatchesSwiftModule(path: outputFilePath, "A") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("A"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("E"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("G"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_Concurrency"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_StringProcessing"),
+                                            dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
+                                            dependencyGraph: dependencyGraph)
+          }
+        // Clang Dependencies
+        } else if let outputExtension = outputFilePath.extension,
+                  outputExtension == FileType.pcm.rawValue {
+          let relativeOutputPathFileName = outputFilePath.basename
+          if relativeOutputPathFileName.starts(with: "A-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "B-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "C-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "G-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "F-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else {
+            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        } else {
+          switch (outputFilePath) {
+            case .relative(RelativePath("testExplicitModuleVerifyInterfaceJobs")):
+              XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .temporary(_):
+              let baseName = "testExplicitModuleVerifyInterfaceJobs"
+              XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+                            matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }

@@ -55,9 +55,9 @@ extension Driver {
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
+    kind: Job.Kind,
     bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
-    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed,
-    isGeneratePCH: Bool = false
+    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
@@ -80,10 +80,19 @@ extension Driver {
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
     if (parsedOptions.contains(.driverExplicitModuleBuild) &&
           moduleDependencyGraphUse == .computed) {
-      if isGeneratePCH {
+      switch kind {
+      case .generatePCH:
         try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
-      } else {
+      case .compile, .emitModule, .interpret, .verifyModuleInterface:
         try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      case .backend, .mergeModule, .compileModuleFromInterface,
+           .generatePCM, .dumpPCM, .repl, .printTargetInfo,
+           .versionRequest, .autolinkExtract, .generateDSYM,
+           .help, .link, .verifyDebugInfo, .scanDependencies,
+           .emitSupportedFeatures, .moduleWrap,
+           .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
+           .compareABIBaseline:
+        break // Do not support creating from dependency scanner output.
       }
     }
 
@@ -295,7 +304,7 @@ extension Driver {
       try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
     }
 
-    if let workingDirectory = workingDirectory {
+    if !useClangIncludeTree, let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
       // different working directory is probably incorrect.
@@ -333,9 +342,27 @@ extension Driver {
       try commandLine.appendAll(.fileCompilationDir, from: &parsedOptions)
     }
 
+    // CAS related options.
+    if enableCaching {
+      commandLine.appendFlag(.cacheCompileJob)
+      if !casPath.isEmpty {
+        commandLine.appendFlag(.casPath)
+        commandLine.appendFlag(casPath)
+      }
+      try commandLine.appendLast(.cacheRemarks, from: &parsedOptions)
+      try commandLine.appendLast(.casPluginPath, from: &parsedOptions)
+      try commandLine.appendAll(.casPluginOption, from: &parsedOptions)
+    }
+    if useClangIncludeTree {
+      commandLine.appendFlag(.clangIncludeTree)
+    }
+
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
-    try commandLine.appendAll(.Xcc, from: &parsedOptions)
+
+    if !useClangIncludeTree {
+      try commandLine.appendAll(.Xcc, from: &parsedOptions)
+    }
 
     if let importedObjCHeader = importedObjCHeader,
         bridgingHeaderHandling != .ignored {
@@ -395,6 +422,20 @@ extension Driver {
       commandLine.appendFlag(.pluginPath)
       commandLine.appendPath(pluginPathRoot.localPluginPath)
     }
+  }
+
+  func addBridgingHeaderPCHCacheKeyArguments(commandLine: inout [Job.ArgTemplate],
+                                             pchCompileJob: Job?) throws {
+    guard let pchJob = pchCompileJob, enableCaching else { return }
+
+    // The pch input file (the bridging header) is added as last inputs to the job.
+    guard let inputFile = pchJob.inputs.last else { assertionFailure("no input files from pch job"); return }
+    assert(inputFile.type == .objcHeader, "Expect objc header input type")
+    let bridgingHeaderCacheKey = try interModuleDependencyOracle.computeCacheKeyForOutput(kind: .pch,
+                                                                                          commandLine: pchJob.commandLine,
+                                                                                          input: inputFile.fileHandle)
+    commandLine.appendFlag("-bridging-header-pch-key")
+    commandLine.appendFlag(bridgingHeaderCacheKey)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
@@ -644,6 +685,14 @@ extension Driver {
       fatalError("No dependency planner in Explicit Module Build mode.")
     }
     try dependencyPlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
+  }
+
+  /// If explicit dependency planner supports creating bridging header pch command.
+  public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+      return false
+    }
+    return try dependencyPlanner.supportsBridgingHeaderPCHCommand()
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,

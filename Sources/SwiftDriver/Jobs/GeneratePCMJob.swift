@@ -48,7 +48,7 @@ extension Driver {
     commandLine.appendPath(output.file)
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .ignored)
+      commandLine: &commandLine, inputs: &inputs, kind: .generatePCM, bridgingHeaderHandling: .ignored)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
@@ -79,7 +79,7 @@ extension Driver {
     commandLine.appendPath(input.file)
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .ignored)
+      commandLine: &commandLine, inputs: &inputs, kind: .generatePCM, bridgingHeaderHandling: .ignored)
 
     return Job(
       moduleName: moduleOutputInfo.name,

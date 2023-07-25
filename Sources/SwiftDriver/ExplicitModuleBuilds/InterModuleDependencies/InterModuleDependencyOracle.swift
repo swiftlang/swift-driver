@@ -12,6 +12,7 @@
 
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import struct Foundation.Data
 
 import Dispatch
 
@@ -144,6 +145,20 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsBinaryModuleHeaderDependencies
   }
 
+  @_spi(Testing) public func supportsCaching() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsCaching
+  }
+
+  @_spi(Testing) public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsBridgingHeaderPCHCommand
+  }
+
   @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
@@ -154,6 +169,28 @@ public class InterModuleDependencyOracle {
     let diags = try swiftScan.queryScannerDiagnostics()
     try swiftScan.resetScannerDiagnostics()
     return diags.isEmpty ? nil : diags
+  }
+
+  public func createCAS(path: String) throws {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    try swiftScan.createCAS(casPath: path)
+  }
+
+  public func store(data: Data) throws -> String {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    return try swiftScan.store(data:data)
+  }
+
+  public func computeCacheKeyForOutput(kind: FileType, commandLine: [Job.ArgTemplate], input: VirtualPath.Handle?) throws -> String {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    let inputPath = input?.description ?? ""
+    return try swiftScan.computeCacheKeyForOutput(kind: kind, commandLine: commandLine.stringArray, input: inputPath)
   }
 
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }

@@ -74,7 +74,7 @@ extension Driver {
   }
 
   /// Form a job that emits a single module
-  @_spi(Testing) public mutating func emitModuleJob() throws -> Job {
+  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?) throws -> Job {
     let moduleOutputPath = moduleOutputInfo.output!.outputPath
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
@@ -93,8 +93,9 @@ extension Driver {
     if let pchPath = bridgingPrecompiledHeader {
       inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
     }
+    try addBridgingHeaderPCHCacheKeyArguments(commandLine: &commandLine, pchCompileJob: pchCompileJob)
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
     // FIXME: Add MSVC runtime library flags
 
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)

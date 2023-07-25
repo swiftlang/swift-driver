@@ -180,6 +180,7 @@ extension Driver {
     try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
+      jobsBeforeCompiles: jobsBeforeCompiles,
       addCompileJobGroup: addCompileJobGroup,
       addJobAfterCompiles: addJobAfterCompiles)
     try addAPIDigesterJobs(addJob: addJobAfterCompiles)
@@ -223,9 +224,9 @@ extension Driver {
     )
   }
 
-  private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void) throws -> Job? {
+  private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void, pchCompileJob: Job?) throws -> Job? {
     if emitModuleSeparately {
-      let emitJob = try emitModuleJob()
+      let emitJob = try emitModuleJob(pchCompileJob: pchCompileJob)
       addJobBeforeCompiles(emitJob)
       return emitJob
     }
@@ -234,6 +235,7 @@ extension Driver {
 
   private mutating func addJobsFeedingLinker(
     addJobBeforeCompiles: (Job) -> Void,
+    jobsBeforeCompiles: [Job],
     addCompileJobGroup: (CompileJobGroup) -> Void,
     addJobAfterCompiles: (Job) -> Void
   ) throws -> [TypedVirtualPath] {
@@ -280,15 +282,20 @@ extension Driver {
       try addVerifyJobs(emitModuleJob: emitModuleJob, addJob: addJobAfterCompiles)
     }
 
+    // Try to see if we scheduled a pch compile job. If so, pass it to the comile jobs.
+    let jobCreatingPch: Job? = jobsBeforeCompiles.first(where: {$0.kind == .generatePCH})
+
     // Whole-module
     if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
+                             pchCompileJob: jobCreatingPch,
                              emitModuleTrace: loadedModuleTracePath != nil) {
       try addPostModuleFilesJobs(compileJob)
     }
 
     // Emit-module-separately
-    if let emitModuleJob = try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles) {
+    if let emitModuleJob = try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles,
+                                                pchCompileJob: jobCreatingPch) {
       try addPostModuleFilesJobs(emitModuleJob)
 
       try addWrapJobOrMergeOutputs(
@@ -302,7 +309,8 @@ extension Driver {
       addCompileJobGroup: addCompileJobGroup,
       addModuleInput: addModuleInput,
       addLinkerInput: addLinkerInput,
-      addJobOutputs: addJobOutputs)
+      addJobOutputs: addJobOutputs,
+      pchCompileJob: jobCreatingPch)
 
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
                               addLinkerInput: addLinkerInput,
@@ -329,6 +337,7 @@ extension Driver {
   private mutating func addSingleCompileJobs(
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
+    pchCompileJob: Job?,
     emitModuleTrace: Bool
   ) throws -> Job? {
     guard case .singleCompile = compilerMode,
@@ -340,6 +349,7 @@ extension Driver {
       let compile = try compileJob(primaryInputs: [],
                                    outputType: .llvmBitcode,
                                    addJobOutputs: addJobOutputs,
+                                   pchCompileJob: pchCompileJob,
                                    emitModuleTrace: emitModuleTrace)
       addJob(compile)
       let backendJobs = try compile.outputs.compactMap { output in
@@ -355,6 +365,7 @@ extension Driver {
       let compile = try compileJob(primaryInputs: [],
                                    outputType: compilerOutputType,
                                    addJobOutputs: addJobOutputs,
+                                   pchCompileJob: pchCompileJob,
                                    emitModuleTrace: emitModuleTrace)
       addJob(compile)
       return compile
@@ -365,7 +376,8 @@ extension Driver {
     addCompileJobGroup: (CompileJobGroup) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
-    addJobOutputs: ([TypedVirtualPath]) -> Void)
+    addJobOutputs: ([TypedVirtualPath]) -> Void,
+    pchCompileJob: Job?)
   throws {
     let loadedModuleTraceInputIndex = inputFiles.firstIndex(where: {
       $0.type.isPartOfSwiftCompilation && loadedModuleTracePath != nil
@@ -378,6 +390,7 @@ extension Driver {
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
+        pchCompileJob: pchCompileJob,
         emitModuleTrace: index == loadedModuleTraceInputIndex)
     }
   }
@@ -388,6 +401,7 @@ extension Driver {
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
+    pchCompileJob: Job?,
     emitModuleTrace: Bool
   ) throws
   {
@@ -403,6 +417,7 @@ extension Driver {
       try createAndAddCompileJobGroup(primaryInput: input,
                                       emitModuleTrace: emitModuleTrace,
                                       canSkipIfOnlyModule: canSkipIfOnlyModule,
+                                      pchCompileJob: pchCompileJob,
                                       addCompileJobGroup: addCompileJobGroup,
                                       addJobOutputs: addJobOutputs)
 
@@ -436,6 +451,7 @@ extension Driver {
     primaryInput: TypedVirtualPath,
     emitModuleTrace: Bool,
     canSkipIfOnlyModule: Bool,
+    pchCompileJob: Job?,
     addCompileJobGroup: (CompileJobGroup) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void
   )  throws {
@@ -444,6 +460,7 @@ extension Driver {
       let compile = try compileJob(primaryInputs: [primaryInput],
                                    outputType: .llvmBitcode,
                                    addJobOutputs: addJobOutputs,
+                                   pchCompileJob: pchCompileJob,
                                    emitModuleTrace: emitModuleTrace)
       let backendJobs = try compile.outputs.compactMap { output in
         output.type == .llvmBitcode
@@ -462,6 +479,7 @@ extension Driver {
       let compile = try compileJob(primaryInputs: [primaryInput],
                                    outputType: compilerOutputType,
                                    addJobOutputs: addJobOutputs,
+                                   pchCompileJob: pchCompileJob,
                                    emitModuleTrace: emitModuleTrace)
       addCompileJobGroup(CompileJobGroup(compileJob: compile, backendJob: nil))
     }
@@ -564,7 +582,9 @@ extension Driver {
       let mergeInterfaceOutputs = emitModuleJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
-      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0], optIn: optIn)
+      let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0],
+                                             emitModuleJob: emitModuleJob,
+                                             optIn: optIn)
       addJob(job)
     }
     try addVerifyJob(forPrivate: false)
@@ -658,9 +678,11 @@ extension Driver {
     explicitDependencyBuildPlanner =
       try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
                                          toolchain: toolchain,
+                                         dependencyOracle: interModuleDependencyOracle,
                                          integratedDriver: integratedDriver,
                                          supportsExplicitInterfaceBuild:
-                                          isFrontendArgSupported(.explicitInterfaceModuleBuild))
+                                          isFrontendArgSupported(.explicitInterfaceModuleBuild),
+                                         enableCAS: enableCaching)
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
@@ -817,6 +839,7 @@ extension Driver {
       compileJobs.filter { $0.outputs.contains {$0.type == .moduleTrace} }
         .flatMap {$0.primaryInputs}
     )
+    let jobCreatingPch: Job? = jobs.first(where: {$0.kind == .generatePCH})
 
     let batchedCompileJobs = try inputsInOrder.compactMap { anInput -> Job? in
       let idx = partitions.assignment[anInput]!
@@ -847,6 +870,7 @@ extension Driver {
       return try compileJob(primaryInputs: primaryInputs,
                             outputType: outputType,
                             addJobOutputs: {_ in },
+                            pchCompileJob: jobCreatingPch,
                             emitModuleTrace: constituentsEmittedModuleTrace)
     }
     return batchedCompileJobs + noncompileJobs

@@ -45,6 +45,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// Whether we are using the integrated driver via libSwiftDriver shared lib
   private let integratedDriver: Bool
   private let mainModuleName: String?
+  private let enableCAS: Bool
+  private let swiftScanOracle: InterModuleDependencyOracle
 
   /// Clang PCM names contain a hash of the command-line arguments that were used to build them.
   /// We avoid re-running the hash computation with the use of this cache
@@ -55,14 +57,23 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
+              dependencyOracle: InterModuleDependencyOracle,
               integratedDriver: Bool = true,
-              supportsExplicitInterfaceBuild: Bool = false) throws {
+              supportsExplicitInterfaceBuild: Bool = false,
+              enableCAS: Bool = false) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
+    self.swiftScanOracle = dependencyOracle
     self.integratedDriver = integratedDriver
     self.mainModuleName = dependencyGraph.mainModuleName
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
+    self.enableCAS = enableCAS
+  }
+
+  /// Supports resolving bridging header pch command from swiftScan.
+  public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    return try swiftScanOracle.supportsBridgingHeaderPCHCommand()
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -235,7 +246,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
                                      type: .swiftModule))
 
-      for headerDep in dependencyModule.prebuiltHeaderDependencyPaths ?? [] {
+      let prebuiltHeaderDependencyPaths = dependencyModule.prebuiltHeaderDependencyPaths ?? []
+      if enableCAS && !prebuiltHeaderDependencyPaths.isEmpty {
+        throw Driver.Error.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has prebuilt header dependency")
+      }
+
+      for headerDep in prebuiltHeaderDependencyPaths {
         commandLine.appendFlags(["-Xcc", "-include-pch", "-Xcc"])
         commandLine.appendPath(VirtualPath.lookup(headerDep.path))
         inputs.append(TypedVirtualPath(file: headerDep.path, type: .pch))
@@ -256,11 +272,21 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
     // Swift Main Module dependencies are passed encoded in a JSON file as described by
     // SwiftModuleArtifactInfo
-    if moduleId.moduleName == mainModuleName {
+    guard moduleId == .swift(dependencyGraph.mainModuleName) else { return }
+    let dependencyFileContent =
+      try serializeModuleDependencies(for: moduleId,
+                                      swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                      clangDependencyArtifacts: clangDependencyArtifacts)
+    if enableCAS {
+      // When using a CAS, write JSON into CAS and pass the ID on command-line.
+      let casID = try swiftScanOracle.store(data: dependencyFileContent)
+      commandLine.appendFlag("-explicit-swift-module-map-file")
+      commandLine.appendFlag(casID)
+    } else {
+      // Write JSON to a file and add the JSON artifacts to command-line and inputs.
       let dependencyFile =
-        try serializeModuleDependencies(for: moduleId,
-                                        swiftDependencyArtifacts: swiftDependencyArtifacts,
-                                        clangDependencyArtifacts: clangDependencyArtifacts)
+        VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"),
+                                                               dependencyFileContent)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendPath(dependencyFile)
       inputs.append(TypedVirtualPath(file: dependencyFile.intern(),
@@ -280,13 +306,15 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         let isFramework: Bool
         swiftModulePath = .init(file: dependencyInfo.modulePath.path,
                                 type: .swiftModule)
-        isFramework = try dependencyGraph.swiftModuleDetails(of: dependencyId).isFramework ?? false
+        let swiftModuleDetails = try dependencyGraph.swiftModuleDetails(of: dependencyId)
+        isFramework = swiftModuleDetails.isFramework ?? false
         // Accumulate the required information about this dependency
         // TODO: add .swiftdoc and .swiftsourceinfo for this module.
         swiftDependencyArtifacts.append(
           SwiftModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
-                                  isFramework: isFramework))
+                                  isFramework: isFramework,
+                                  moduleCacheKey: swiftModuleDetails.moduleCacheKey))
       case .clang:
         let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
         let dependencyClangModuleDetails =
@@ -295,7 +323,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         clangDependencyArtifacts.append(
           ClangModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: dependencyInfo.modulePath.path),
-                                  moduleMapPath: dependencyClangModuleDetails.moduleMapPath))
+                                  moduleMapPath: dependencyClangModuleDetails.moduleMapPath,
+                                  moduleCacheKey: dependencyClangModuleDetails.moduleCacheKey))
       case .swiftPrebuiltExternal:
         let prebuiltModuleDetails = try dependencyGraph.swiftPrebuiltDetails(of: dependencyId)
         let compiledModulePath = prebuiltModuleDetails.compiledModulePath
@@ -308,7 +337,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           SwiftModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
                                   headerDependencies: prebuiltModuleDetails.headerDependencyPaths,
-                                  isFramework: isFramework))
+                                  isFramework: isFramework,
+                                  moduleCacheKey: prebuiltModuleDetails.moduleCacheKey))
       case .swiftPlaceholder:
         fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
     }
@@ -354,6 +384,11 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   public mutating func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
                                                      commandLine: inout [Job.ArgTemplate]) throws {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+
+    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
+    if let additionalArgs = mainModuleDetails.commandLine {
+      additionalArgs.forEach { commandLine.appendFlag($0) }
+    }
     commandLine.appendFlags("-disable-implicit-swift-modules",
                             "-Xcc", "-fno-implicit-modules",
                             "-Xcc", "-fno-implicit-module-maps")
@@ -367,11 +402,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   public mutating func resolveBridgingHeaderDependencies(inputs: inout [TypedVirtualPath],
                                                          commandLine: inout [Job.ArgTemplate]) throws {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
-    // Prohibit the frontend from implicitly building textual modules into binary modules.
-    commandLine.appendFlags("-disable-implicit-swift-modules",
-                            "-Xcc", "-fno-implicit-modules",
-                            "-Xcc", "-fno-implicit-module-maps")
-
     var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
     var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
     let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
@@ -409,28 +439,46 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       inputs.append(clangModuleMapPath)
     }
 
+    // Return if depscanner provided build commands.
+    if let scannerPCHArgs = mainModuleDetails.bridgingPchCommandLine {
+      scannerPCHArgs.forEach { commandLine.appendFlag($0) }
+      return
+    }
+
+    assert(!enableCAS, "Caching build should always return command-line from scanner")
+    // Prohibit the frontend from implicitly building textual modules into binary modules.
+    commandLine.appendFlags("-disable-implicit-swift-modules",
+                            "-Xcc", "-fno-implicit-modules",
+                            "-Xcc", "-fno-implicit-module-maps")
+
+    let dependencyFileContent =
+      try serializeModuleDependencies(for: mainModuleId,
+                                      swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                      clangDependencyArtifacts: clangDependencyArtifacts)
+
     let dependencyFile =
-    try serializeModuleDependencies(for: mainModuleId,
-                                    swiftDependencyArtifacts: swiftDependencyArtifacts,
-                                    clangDependencyArtifacts: clangDependencyArtifacts)
+      VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(mainModuleId.moduleName)-dependencies.json"),
+                                                             dependencyFileContent)
     commandLine.appendFlag("-explicit-swift-module-map-file")
     commandLine.appendPath(dependencyFile)
     inputs.append(TypedVirtualPath(file: dependencyFile.intern(),
                                    type: .jsonSwiftArtifacts))
   }
 
-  /// Store the output file artifacts for a given module in a JSON file, return the file's path.
+  /// Serialize the output file artifacts for a given module in JSON format.
   private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
                                            swiftDependencyArtifacts: [SwiftModuleArtifactInfo],
                                            clangDependencyArtifacts: [ClangModuleArtifactInfo]
-  ) throws -> VirtualPath {
+  ) throws -> Data {
+    // The module dependency map in CAS needs to be stable.
+    // Sort the dependencies by name.
     let allDependencyArtifacts: [ModuleDependencyArtifactInfo] =
-      swiftDependencyArtifacts.map {ModuleDependencyArtifactInfo.swift($0)} +
-      clangDependencyArtifacts.map {ModuleDependencyArtifactInfo.clang($0)}
+      swiftDependencyArtifacts.sorted().map {ModuleDependencyArtifactInfo.swift($0)} +
+      clangDependencyArtifacts.sorted().map {ModuleDependencyArtifactInfo.clang($0)}
     let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted]
-    let contents = try encoder.encode(allDependencyArtifacts)
-    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"), contents)
+    // Use sorted key to ensure the order of the keys is stable.
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    return try encoder.encode(allDependencyArtifacts)
   }
 
   private func getPCMHashParts(pcmArgs: [String], contextHash: String) -> [String] {
