@@ -140,7 +140,11 @@ struct SwiftHelp: ParsableCommand {
     case .subcommand(let subcommand):
       // Try to find the subcommand adjacent to the help tool.
       // If we didn't find the tool there, let the OS search for it.
+#if os(Windows)
+      let execName = "swift-\(subcommand.rawValue).exe"
+#else
       let execName = "swift-\(subcommand.rawValue)"
+#endif
       let subcommandPath = Process.findExecutable(
         CommandLine.arguments[0])?
         .parentDirectory
