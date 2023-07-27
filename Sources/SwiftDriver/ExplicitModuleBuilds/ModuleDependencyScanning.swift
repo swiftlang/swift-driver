@@ -106,8 +106,10 @@ public extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
+
+    let bridgingHandling: BridgingHeaderHandling  = parsedOptions.hasArgument(.experimentalBridgingHeaderAsModule) ? .module : .parsed
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
-                                 bridgingHeaderHandling: .parsed,
+                                 bridgingHeaderHandling: bridgingHandling,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 

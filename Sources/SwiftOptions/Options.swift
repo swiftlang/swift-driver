@@ -60,6 +60,7 @@ extension Option {
   public static let bsdk: Option = Option("-bsdk", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "path to the baseline SDK to import frameworks")
   public static let buildModuleFromParseableInterface: Option = Option("-build-module-from-parseable-interface", .flag, alias: Option.compileModuleFromInterface, attributes: [.helpHidden, .frontend, .noDriver], group: .modes)
   public static let bypassBatchModeChecks: Option = Option("-bypass-batch-mode-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Bypass checks for batch-mode errors.")
+  public static let bypassResilience: Option = Option("-bypass-resilience-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore all checks for module resilience.")
   public static let cacheCompileJob: Option = Option("-cache-compile-job", .flag, attributes: [.frontend], helpText: "Enable compiler caching")
   public static let cacheDisableReplay: Option = Option("-cache-disable-replay", .flag, attributes: [.frontend], helpText: "Skip loading the compilation result from cache")
   public static let candidateModuleFile: Option = Option("-candidate-module-file", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Specify Swift module may be ready to use for an interface")
@@ -74,6 +75,7 @@ extension Option {
   public static let clangHeaderExposeModule: Option = Option("-clang-header-expose-module", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<imported-module-name>=<generated-header-name>", helpText: "Allow the compiler to assume that APIs from the specified module are exposed to C/C++/Objective-C in another generated header, so that APIs in the current module that depend on declarations from the specified module can be exposed in the generated header.")
   public static let clangIncludeTreeRoot: Option = Option("-clang-include-tree-root", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Clang Include Tree CASID")
   public static let clangIncludeTree: Option = Option("-clang-include-tree", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use clang include tree")
+  public static let clangModuleMap: Option = Option("-clang-module-map", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "clang module map path")
   public static let clangTarget: Option = Option("-clang-target", .separate, attributes: [.frontend], helpText: "Separately set the target we should use for internal Clang instance")
   public static let codeCompleteCallPatternHeuristics: Option = Option("-code-complete-call-pattern-heuristics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use heuristics to guess whether we want call pattern completions")
   public static let codeCompleteInitsInPostfixExpr: Option = Option("-code-complete-inits-in-postfix-expr", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Include initializers when completing a postfix expression")
@@ -431,6 +433,7 @@ extension Option {
   public static let enforceExclusivityEQ: Option = Option("-enforce-exclusivity=", .joined, attributes: [.frontend, .moduleInterface], metaVar: "<enforcement>", helpText: "Enforce law of exclusivity")
   public static let entryPointFunctionName: Option = Option("-entry-point-function-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<string>", helpText: "Name of the entry point function")
   public static let experimentalAllowModuleWithCompilerErrors: Option = Option("-experimental-allow-module-with-compiler-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to output .swiftmodule, regardless of compilation errors")
+  public static let experimentalBridgingHeaderAsModule: Option = Option("-experimental-bridging-header-as-module", .flag, attributes: [.frontend], helpText: "Import bridging header as module")
   public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types (with reference coutning).")
   public static let experimentalCxxStdlib: Option = Option("-experimental-cxx-stdlib", .separate, attributes: [.helpHidden], helpText: "C++ standard library to use; forwarded to Clang's -stdlib flag")
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
@@ -853,6 +856,7 @@ extension Option {
       Option.bsdk,
       Option.buildModuleFromParseableInterface,
       Option.bypassBatchModeChecks,
+      Option.bypassResilience,
       Option.cacheCompileJob,
       Option.cacheDisableReplay,
       Option.candidateModuleFile,
@@ -867,6 +871,7 @@ extension Option {
       Option.clangHeaderExposeModule,
       Option.clangIncludeTreeRoot,
       Option.clangIncludeTree,
+      Option.clangModuleMap,
       Option.clangTarget,
       Option.codeCompleteCallPatternHeuristics,
       Option.codeCompleteInitsInPostfixExpr,
@@ -1224,6 +1229,7 @@ extension Option {
       Option.enforceExclusivityEQ,
       Option.entryPointFunctionName,
       Option.experimentalAllowModuleWithCompilerErrors,
+      Option.experimentalBridgingHeaderAsModule,
       Option.experimentalCForeignReferenceTypes,
       Option.experimentalCxxStdlib,
       Option.emitModuleSeparately,

@@ -667,4 +667,180 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertEqual(diags[0].message, "CAS error encountered: conflicting CAS options used in scanning service")
     }
   }
+
+  /// Test generation of explicit module build jobs for dependency modules when the driver
+  /// is invoked with -explicit-module-build and -experimental-bridging-header-as-module.
+  func testCachingBuildBridgingHeaderAsModuleJobs() throws {
+    try withTemporaryDirectory { path in
+      let foo = path.appending(component: "testCachingBuildBridgingHeaderAsModuleJobs.swift")
+      try localFileSystem.writeFileContents(foo) {
+        $0 <<< "import C;"
+        $0 <<< "import E;"
+        $0 <<< "import G;"
+        $0 <<< "public class Foo { var name: A? = nil }"
+      }
+
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let cHeadersPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+          cHeadersPath.appending(component: "BridgingModule.h")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let pchOutputDir: AbsolutePath = path
+      let casPath = path.appending(component: "cas")
+      let FooInstallPath = path.appending(component: "Foo")
+      try localFileSystem.createDirectory(FooInstallPath)
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-apple-macosx11.0",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-emit-module", "-wmo", "-module-name", "Foo",
+                                     "-emit-module-path", FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: true),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     "-experimental-bridging-header-as-module",
+                                     "-pch-output-dir", pchOutputDir.nativePathString(escaped: true),
+                                     foo.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      guard driver.isFrontendArgSupported(.experimentalBridgingHeaderAsModule) else {
+        throw XCTSkip("swift-frontend doesn't support building bridging header as module.")
+      }
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      guard try dependencyOracle.supportsCaching() else {
+        throw XCTSkip("libSwiftScan does not support caching.")
+      }
+
+      let jobs = try driver.planBuild()
+      // Figure out which Triples to use.
+      let dependencyGraph = try driver.gatherModuleDependencies()
+      let fooModuleInfo = try dependencyGraph.moduleInfo(of: .swift("Foo"))
+      guard case .swift(_) = fooModuleInfo.details else {
+        XCTFail("Foo module does not have Swift details field")
+        return
+      }
+
+      for job in jobs {
+        if job.kind == .compile {
+          // Check we don't use `-pch-output-dir` anymore during main module job.
+          XCTAssertFalse(job.commandLine.contains("-pch-output-dir"))
+          XCTAssertFalse(job.commandLine.contains("-import-objc-header"))
+          XCTAssertTrue(job.commandLine.contains("-experimental-bridging-header-as-module"))
+          continue
+        }
+        XCTAssertEqual(job.outputs.count, 1)
+        let outputFilePath = job.outputs[0].file
+
+        // Swift dependencies
+        if outputFilePath.extension != nil,
+           outputFilePath.extension! == FileType.swiftModule.rawValue {
+          if pathMatchesSwiftModule(path: outputFilePath, "A") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("A"),
+                                     dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("E"),
+                                     dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("G"),
+                                     dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("Swift"),
+                                     dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("_Concurrency"),
+                                     dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("_StringProcessing"),
+                                     dependencyGraph: dependencyGraph)
+          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
+            try checkCachingBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
+                                     dependencyGraph: dependencyGraph)
+          }
+        // Clang Dependencies
+        } else if let outputExtension = outputFilePath.extension,
+                  outputExtension == FileType.pcm.rawValue {
+          let relativeOutputPathFileName = outputFilePath.basename
+          if relativeOutputPathFileName.starts(with: "A-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("A"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "B-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("B"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "C-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("C"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "G-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("G"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "F-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("F"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("SwiftShims"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "__ObjC") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("__ObjC"),
+                                     dependencyGraph: dependencyGraph)
+          }
+          else {
+            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+          }
+        } else if let outputExtension = outputFilePath.extension,
+                  outputExtension == FileType.pch.rawValue {
+          // No Bridging header.
+          XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+        }
+      }
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+
+      // Try consume the binary module.
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0 <<< "import Foo;"
+        $0 <<< "func test(foo: Foo) {}"
+      }
+      var userDriver = try Driver(args: ["swiftc",
+                                         "-target", "x86_64-apple-macosx11.0",
+                                         "-I", cHeadersPath.nativePathString(escaped: true),
+                                         "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                         "-I", FooInstallPath.nativePathString(escaped: true),
+                                         "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                         "-explicit-module-build", "-emit-module", "-wmo", "-emit-module-path",
+                                         path.appending(component: "main.swiftmodule").nativePathString(escaped: true),
+                                         "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                         main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                  env: ProcessEnv.vars)
+      let userJobs = try userDriver.planBuild()
+      // __ObjC module is implementationOnly imported so the user of the binary module doesn't need it.
+      XCTAssertFalse(userJobs.contains(where: { $0.moduleName == "__ObjC" }))
+      // We don't import pch.
+      let compileJob = try XCTUnwrap(userJobs.first(where: { $0.description == "Compiling main main.swift" }))
+      XCTAssertFalse(compileJob.commandLine.contains(.flag("-include-pch")))
+      try userDriver.run(jobs: userJobs)
+      XCTAssertFalse(userDriver.diagnosticEngine.hasErrors)
+    }
+  }
 }

@@ -299,6 +299,9 @@ public struct Driver {
   /// The path to the pch for the imported Objective-C header.
   let bridgingPrecompiledHeader: VirtualPath.Handle?
 
+  /// The path to the module map for imported Objective-C header.
+  let bridgingModuleMap: VirtualPath.Handle?
+
   /// Path to the dependencies file.
   let dependenciesFilePath: VirtualPath.Handle?
 
@@ -758,6 +761,9 @@ public struct Driver {
                                                                                compilerMode: compilerMode,
                                                                                importedObjCHeader: importedObjCHeader,
                                                                                outputFileMap: outputFileMap)
+    self.bridgingModuleMap = try Self.generateModuleMapForObjCHeader(&parsedOptions,
+                                                                     fileSystem: fileSystem,
+                                                                     importedObjCHeader: importedObjCHeader)
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerArgs(of: self.toolchain,
@@ -2739,7 +2745,8 @@ extension Driver {
                                                outputFileMap: OutputFileMap?) throws -> VirtualPath.Handle? {
     guard compilerMode.supportsBridgingPCH,
       let input = importedObjCHeader,
-      parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
+      parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true),
+      !parsedOptions.hasArgument(.experimentalBridgingHeaderAsModule) else {
         return nil
     }
 
@@ -2754,6 +2761,31 @@ extension Driver {
     } else {
       return VirtualPath.createUniqueTemporaryFile(RelativePath(pchFileName)).intern()
     }
+  }
+
+  /// Write the module map for bridging header.
+  static func generateModuleMapForObjCHeader(_ parsedOptions: inout ParsedOptions,
+                                             fileSystem: FileSystem,
+                                             importedObjCHeader: VirtualPath.Handle?) throws -> VirtualPath.Handle? {
+    guard let header = importedObjCHeader,
+          parsedOptions.hasArgument(.experimentalBridgingHeaderAsModule) else {
+      return nil
+    }
+    guard let moduleMapContent = """
+    module __ObjC {
+      requires swift
+      header \"\(VirtualPath.lookup(header))\"
+      export *
+    }
+    """.data(using: .utf8) else { return nil }
+    // Write the modulemap inside -pch-output-dir if specified, otherwise in temporary directory.
+    if let outputDir = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      let moduleMap = try VirtualPath(path: outputDir).appending(components: "module.modulemap")
+      try fileSystem.writeFileContents(moduleMap, bytes: ByteString(moduleMapContent), atomically: true)
+      return moduleMap.intern()
+    }
+    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("module.modulemap"),
+                                                                  moduleMapContent).intern()
   }
 }
 
