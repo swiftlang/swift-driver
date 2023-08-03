@@ -1365,6 +1365,28 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  /// Test that the scanner invocation does not rely in response files
+  func testDependencyScanningSeparateClangScanCache() throws {
+    try withTemporaryDirectory { path in
+      let scannerCachePath: AbsolutePath = path.appending(component: "ClangScannerCache")
+      let moduleCachePath: AbsolutePath = path.appending(component: "ModuleCache")
+      let main = path.appending(component: "testDependencyScanningSeparateClangScanCache.swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-explicit-module-build",
+                                     "-clang-scanner-module-cache-path",
+                                     scannerCachePath.nativePathString(escaped: true),
+                                     "-module-cache-path",
+                                     moduleCachePath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let scannerJob = try driver.dependencyScanningJob()
+      XCTAssertTrue(scannerJob.commandLine.contains(subsequence: [.flag("-clang-scanner-module-cache-path"),
+                                                                  .path(.absolute(scannerCachePath))]))
+    }
+  }
+
   func testDependencyScanningFailure() throws {
     let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
 
