@@ -121,7 +121,9 @@ public extension Driver {
     }
 
     try commandLine.appendLast(.clangIncludeTree, from: &parsedOptions)
-    try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
+    if isFrontendArgSupported(.clangScannerModuleCachePath) {
+      try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
+    }
 
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
