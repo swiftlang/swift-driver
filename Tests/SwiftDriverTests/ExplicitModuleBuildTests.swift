@@ -1365,7 +1365,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
-  /// Test that the scanner invocation does not rely in response files
+  /// Test that the scanner invocation does not rely on response files
   func testDependencyScanningSeparateClangScanCache() throws {
     try withTemporaryDirectory { path in
       let scannerCachePath: AbsolutePath = path.appending(component: "ClangScannerCache")
@@ -1381,6 +1381,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
+      guard driver.isFrontendArgSupported(.clangScannerModuleCachePath) else {
+        throw XCTSkip("Skipping: compiler does not support '-clang-scanner-module-cache-path'")
+      }
+
       let scannerJob = try driver.dependencyScanningJob()
       XCTAssertTrue(scannerJob.commandLine.contains(subsequence: [.flag("-clang-scanner-module-cache-path"),
                                                                   .path(.absolute(scannerCachePath))]))
