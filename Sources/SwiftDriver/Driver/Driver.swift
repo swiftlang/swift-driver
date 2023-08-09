@@ -459,6 +459,18 @@ public struct Driver {
     return results
   }
 
+  @_spi(Testing)
+  public static func findCompilerClientsConfigVersion(RelativeTo execDir: AbsolutePath) throws -> String? {
+    // Expect to find all blocklists in such dir:
+    // .../XcodeDefault.xctoolchain/usr/local/lib/swift/compilerClientsConfig_version.txt
+    let versionFilePath = execDir.parentDirectory
+      .appending(components: "local", "lib", "swift", "compilerClientsConfig_version.txt")
+    if (localFileSystem.exists(versionFilePath)) {
+      return try localFileSystem.readFileContents(versionFilePath).cString
+    }
+    return nil
+  }
+
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     stdErrQueue.sync {
@@ -1504,6 +1516,9 @@ extension Driver {
       // versions.
       if inPlaceJob.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
         stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< " "
+        if let blocklistVersion = try Driver.findCompilerClientsConfigVersion(RelativeTo: try toolchain.executableDir) {
+          stderrStream <<< blocklistVersion <<< " "
+        }
         stderrStream.flush()
       }
       // In verbose mode, print out the job

@@ -7069,6 +7069,12 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(list.allSatisfy { $0.extension! == "yml" || $0.extension! == "yaml"})
   }
 
+  func testFindingBlockListVersion() throws {
+    let execDir = testInputsPath.appending(components: "Dummy.xctoolchain", "usr", "bin")
+    let version = try Driver.findCompilerClientsConfigVersion(RelativeTo: execDir)
+    XCTAssertEqual(version, "compilerClientsConfig-9999.99.9")
+  }
+
   func testToolSearching() throws {
 #if os(Windows)
     let PATH = "Path"
