@@ -312,9 +312,9 @@ extension IncrementalCompilationTests {
       reading(deps: "other")
       fingerprintsChanged("other")
       fingerprintsMissingOfTopLevelName(name: "bar", "other")
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
+      moduleOutputNotFound("E")
+      moduleWillBeRebuiltOutOfDate("E")
+      explicitModulesWillBeRebuilt(["E"])
       compilingExplicitSwiftDependency("E")
       skipped("main")
       schedLinking
@@ -356,12 +356,74 @@ extension IncrementalCompilationTests {
       queuingInitial("main", "other")
       notSchedulingDependentsUnknownChanges("other")
       findingBatchingCompiling("main", "other")
+      explicitDependencyModuleOlderThanInput("E")
+      moduleWillBeRebuiltOutOfDate("E")
+      explicitModulesWillBeRebuilt(["E"])
       compilingExplicitSwiftDependency("E")
-      // TODO: We can do better with being more-selective on which dependencies get re-built
-      // But for now ensure all modules are built.
-      compilingExplicitClangDependency("SwiftShims")
-      compilingExplicitSwiftDependency("Swift")
-      compilingExplicitSwiftDependency("SwiftOnoneSupport")
+    }
+  }
+
+  // A dependency has changed one of its inputs, ensure
+  // other modules that depend on it are invalidated also.
+  //
+  //             test
+  //             /   \
+  //             Y   T
+  //            / \ / \
+  //           H   R   J
+  //            \       \
+  //             \-------G
+  //
+  // On this graph, inputs of 'G' are updated, causing it to be re-built
+  // as well as all modules on paths from root to it: 'Y', 'H', 'T','J'
+  func testExplicitIncrementalBuildChangedDependencyInvalidatesUpstreamDependencies() throws {
+    // Add an import of 'B', 'C' to make sure followup changes has consistent inputs
+    replace(contentsOf: "other", with: "import Y;import T")
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    // Just update the time-stamp of one of the module dependencies
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString))
+
+    // Changing a dependency will mean that we both re-run the dependency scan,
+    // and also ensure that all source-files are re-built with a non-cascading build
+    // since the source files themselves have not changed.
+    try doABuild(
+      "update dependency (G) interface timestamp",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      readInterModuleGraph
+      // Ensure the above 'touch' is detected and causes a re-scan
+      explicitDependencyModuleOlderThanInput("G")
+      explicitMustReScanDueToChangedDependencyInput
+      noFingerprintInSwiftModule("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
+      reading(deps: "main")
+      reading(deps: "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      maySkip("main")
+      maySkip("other")
+      invalidatedExternally("main", "other")
+      queuingInitial("main", "other")
+      findingBatchingCompiling("main", "other")
+      explicitDependencyModuleOlderThanInput("G")
+      explicitDependencyInvalidatedDownstream("J")
+      explicitDependencyInvalidatedDownstream("T")
+      explicitDependencyInvalidatedDownstream("Y")
+      explicitDependencyInvalidatedDownstream("H")
+      explicitModulesWillBeRebuilt(["G", "H", "J", "T", "Y"])
+      moduleWillBeRebuiltOutOfDate("G")
+      compilingExplicitSwiftDependency("G")
+      compilingExplicitSwiftDependency("J")
+      compilingExplicitSwiftDependency("T")
+      compilingExplicitSwiftDependency("Y")
+      compilingExplicitSwiftDependency("H")
+      schedulingPostCompileJobs
+      linking
     }
   }
 }
@@ -1567,6 +1629,18 @@ extension DiagVerifiable {
   @DiagsBuilder func compilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
     startCompilingExplicitSwiftDependency(dependencyModuleName)
     finishCompilingExplicitSwiftDependency(dependencyModuleName)
+  }
+  @DiagsBuilder func moduleOutputNotFound(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Module output not found: '\(moduleName)'"
+  }
+  @DiagsBuilder func moduleWillBeRebuiltOutOfDate(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Out-of-date"
+  }
+  @DiagsBuilder func explicitModulesWillBeRebuilt(_ moduleNames: [String]) -> [Diagnostic.Message] {
+    "Incremental compilation: Following explicit module dependencies will be re-built: [\(moduleNames.joined(separator: ", "))]"
+  }
+  @DiagsBuilder func explicitDependencyInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Invalidated by downstream dependency"
   }
 
   // MARK: - misc

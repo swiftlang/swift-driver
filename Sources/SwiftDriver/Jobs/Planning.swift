@@ -142,8 +142,10 @@ extension Driver {
     let interModuleDependencyGraph: InterModuleDependencyGraph?
     if parsedOptions.contains(.driverExplicitModuleBuild) ||
        parsedOptions.contains(.explainModuleDependency) {
+      // If the incremental build record's module dependency graph is up-to-date, we
+      // can skip dependency scanning entirely.
       interModuleDependencyGraph =
-        try initialIncrementalState?.maybeUpToDatePriorInterModuleDependencyGraph ??
+        try initialIncrementalState?.upToDatePriorInterModuleDependencyGraph ??
             gatherModuleDependencies()
     } else {
       interModuleDependencyGraph = nil

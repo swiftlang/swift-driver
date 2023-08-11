@@ -1,0 +1,5 @@
+// swift-interface-format-version: 1.0
+// swift-module-flags: -module-name Y
+import H
+import R
+public func funcB() { }

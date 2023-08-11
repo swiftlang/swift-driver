@@ -131,81 +131,94 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     return priorInterModuleDependencyGraph
   }
 
-  /// For each direct and transitive module dependency, check if any of the inputs are newer than the output
-  static func verifyInterModuleDependenciesUpToDate(in graph: InterModuleDependencyGraph,
-                                                    buildRecordInfo: BuildRecordInfo,
-                                                    reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
+  static func verifyModuleDependencyUpToDate(moduleID: ModuleDependencyId, moduleInfo: ModuleInfo,
+                                             fileSystem: FileSystem,
+                                             reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
     // Verify that the specified input exists and is older than the specified output
     let verifyInputOlderThanOutputModTime: (String, VirtualPath, VirtualPath, TimePoint) -> Bool =
     { moduleName, inputPath, outputPath, outputModTime in
       guard let inputModTime =
-              try? buildRecordInfo.fileSystem.lastModificationTime(for: inputPath) else {
+              try? fileSystem.lastModificationTime(for: inputPath) else {
         reporter?.report("Unable to 'stat' \(inputPath.description)")
         return false
       }
       if inputModTime > outputModTime {
         reporter?.reportExplicitDependencyOutOfDate(moduleName,
-                                                    outputPath: outputPath.description,
-                                                    updatedInputPath: inputPath.description)
+                                                    inputPath: inputPath.description)
         return false
       }
       return true
     }
 
+    switch moduleInfo.details {
+    case .swift(let swiftDetails):
+      guard let outputModTime = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(moduleInfo.modulePath.path)) else {
+        reporter?.report("Module output not found: '\(moduleID.moduleNameForDiagnostic)'")
+        return false
+      }
+      if let moduleInterfacePath = swiftDetails.moduleInterfacePath {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              VirtualPath.lookup(moduleInterfacePath.path),
+                                              VirtualPath.lookup(moduleInfo.modulePath.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+      if let bridgingHeaderPath = swiftDetails.bridgingHeaderPath {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              VirtualPath.lookup(bridgingHeaderPath.path),
+                                              VirtualPath.lookup(moduleInfo.modulePath.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+      for bridgingSourceFile in swiftDetails.bridgingSourceFiles ?? [] {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              VirtualPath.lookup(bridgingSourceFile.path),
+                                              VirtualPath.lookup(moduleInfo.modulePath.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+    case .clang(_):
+      guard let outputModTime = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(moduleInfo.modulePath.path)) else {
+        reporter?.report("Module output not found: '\(moduleID.moduleNameForDiagnostic)'")
+        return false
+      }
+      for inputSourceFile in moduleInfo.sourceFiles ?? [] {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              try VirtualPath(path: inputSourceFile),
+                                              VirtualPath.lookup(moduleInfo.modulePath.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+    case .swiftPrebuiltExternal(_):
+      // TODO: We have to give-up here until we have a way to verify the timestamp of the binary module.
+      // We can do better here by knowing if this module hasn't change - which would allows us to not
+      // invalidate any of the dependencies that depend on it.
+      reporter?.report("Unable to verify binary module dependency up-to-date: \(moduleID.moduleNameForDiagnostic)")
+      return false;
+    case .swiftPlaceholder(_):
+      // TODO: This should never ever happen. Hard error?
+      return false;
+    }
+    return true
+  }
+
+  /// For each direct and transitive module dependency, check if any of the inputs are newer than the output
+  static func verifyInterModuleDependenciesUpToDate(in graph: InterModuleDependencyGraph,
+                                                    buildRecordInfo: BuildRecordInfo,
+                                                    reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
     for module in graph.modules {
-      switch module.value.details {
-      case .swift(let swiftDetails):
-        if module.key.moduleName == graph.mainModuleName {
-          continue
-        }
-        guard let outputModTime = try? buildRecordInfo.fileSystem.lastModificationTime(for: VirtualPath.lookup(module.value.modulePath.path)) else {
-          reporter?.report("Unable to 'stat' \(module.value.modulePath.description)")
-          return false
-        }
-        if let moduleInterfacePath = swiftDetails.moduleInterfacePath {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                VirtualPath.lookup(moduleInterfacePath.path),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-        if let bridgingHeaderPath = swiftDetails.bridgingHeaderPath {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                VirtualPath.lookup(bridgingHeaderPath.path),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-        for bridgingSourceFile in swiftDetails.bridgingSourceFiles ?? [] {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                VirtualPath.lookup(bridgingSourceFile.path),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-      case .clang(_):
-        guard let outputModTime = try? buildRecordInfo.fileSystem.lastModificationTime(for: VirtualPath.lookup(module.value.modulePath.path)) else {
-          reporter?.report("Unable to 'stat' \(module.value.modulePath.description)")
-          return false
-        }
-        for inputSourceFile in module.value.sourceFiles ?? [] {
-          if !verifyInputOlderThanOutputModTime(module.key.moduleName,
-                                                try VirtualPath(path: inputSourceFile),
-                                                VirtualPath.lookup(module.value.modulePath.path),
-                                                outputModTime) {
-            return false
-          }
-        }
-      case .swiftPrebuiltExternal(_):
-        // TODO: We have to give-up here until we have a way to verify the timestamp of the binary module.
-        reporter?.report("Unable to verify binary module dependency: \(module.value.modulePath.description)")
-        return false;
-      case .swiftPlaceholder(_):
-        // TODO: This should never ever happen. Hard error?
-        return false;
+      if module.key.moduleName == graph.mainModuleName {
+        continue
+      }
+      if try !verifyModuleDependencyUpToDate(moduleID: module.key, 
+                                             moduleInfo: module.value,
+                                             fileSystem: buildRecordInfo.fileSystem,
+                                             reporter: reporter) {
+        return false
       }
     }
     return true
@@ -298,7 +311,7 @@ extension IncrementalCompilationState {
 
       return InitialStateForPlanning(
         graph: priors.graph, buildRecordInfo: buildRecordInfo,
-        maybeUpToDatePriorInterModuleDependencyGraph: priorInterModuleDependencyGraph,
+        upToDatePriorInterModuleDependencyGraph: priorInterModuleDependencyGraph,
         inputsInvalidatedByExternals: priors.fileSet,
         incrementalOptions: options)
     }

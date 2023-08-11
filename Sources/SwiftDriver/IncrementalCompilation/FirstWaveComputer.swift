@@ -25,7 +25,8 @@ extension IncrementalCompilationState {
     let fileSystem: FileSystem
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
-    let rebuildExplicitModuleDependencies: Bool
+    let interModuleDependencyGraph: InterModuleDependencyGraph?
+    let explicitModuleDependenciesGuaranteedUpToDate: Bool
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -33,6 +34,7 @@ extension IncrementalCompilationState {
       initialState: IncrementalCompilationState.InitialStateForPlanning,
       jobsInPhases: JobsInPhases,
       driver: Driver,
+      interModuleDependencyGraph: InterModuleDependencyGraph?,
       reporter: Reporter?
     ) {
       self.moduleDependencyGraph = initialState.graph
@@ -44,8 +46,9 @@ extension IncrementalCompilationState {
       self.showJobLifecycle = driver.showJobLifecycle
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
-      self.rebuildExplicitModuleDependencies =
-        initialState.maybeUpToDatePriorInterModuleDependencyGraph != nil ? false : true
+      self.interModuleDependencyGraph = interModuleDependencyGraph
+      self.explicitModuleDependenciesGuaranteedUpToDate =
+        initialState.upToDatePriorInterModuleDependencyGraph != nil ? true : false
       self.reporter = reporter
     }
 
@@ -118,11 +121,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
         : compileGroups[input]
     }
 
-    // If module dependencies are known to be up-to-date, do not rebuild them
-    let mandatoryBeforeCompilesJobs = self.rebuildExplicitModuleDependencies ?
-      jobsInPhases.beforeCompiles :
-      jobsInPhases.beforeCompiles.filter { $0.kind != .generatePCM && $0.kind != .compileModuleFromInterface }
-
+    let mandatoryBeforeCompilesJobs = try computeMandatoryBeforeCompilesJobs()
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
       showJobLifecycle: showJobLifecycle)
@@ -134,6 +133,121 @@ extension IncrementalCompilationState.FirstWaveComputer {
     let mandatoryJobsInOrder = skipAllJobs ? [] : mandatoryBeforeCompilesJobs + batchedCompilationJobs
     return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
+  }
+
+  /// We must determine if any of the module dependencies require re-compilation
+  /// Since we know that a prior dependency graph was not completely up-to-date,
+  /// there must be at least *some* dependencies that require being re-built.
+  ///
+  /// If a dependency is deemed as requiring a re-build, then every module
+  /// between it and the root (source module being built by this driver
+  /// instance) must also be re-built.
+  private func computeInvalidatedModuleDependencies(on moduleDependencyGraph: InterModuleDependencyGraph)
+  throws -> Set<ModuleDependencyId> {
+    let mainModuleInfo = moduleDependencyGraph.mainModule
+    var modulesRequiringRebuild: Set<ModuleDependencyId> = []
+    var validatedModules: Set<ModuleDependencyId> = []
+    // Scan from the main module's dependencies to avoid reporting
+    // the main module itself in the results.
+    for dependencyId in mainModuleInfo.directDependencies ?? [] {
+      try outOfDateModuleScan(on: moduleDependencyGraph, from: dependencyId,
+                              pathSoFar: [], visitedValidated: &validatedModules,
+                              modulesRequiringRebuild: &modulesRequiringRebuild)
+    }
+
+    reporter?.reportExplicitDependencyReBuildSet(Array(modulesRequiringRebuild))
+    return modulesRequiringRebuild
+  }
+
+  /// Perform a postorder DFS to locate modules which are out-of-date with respect
+  /// to their inputs. Upon encountering such a module, add it to the set of invalidated
+  /// modules, along with the path from the root to this module.
+  private func outOfDateModuleScan(on moduleDependencyGraph: InterModuleDependencyGraph,
+                                   from moduleId: ModuleDependencyId,
+                                   pathSoFar: [ModuleDependencyId],
+                                   visitedValidated: inout Set<ModuleDependencyId>,
+                                   modulesRequiringRebuild: inout Set<ModuleDependencyId>) throws {
+    let moduleInfo = try moduleDependencyGraph.moduleInfo(of: moduleId)
+    let isMainModule = moduleId == .swift(moduleDependencyGraph.mainModuleName)
+
+    // Routine to invalidate the path from root to this node
+    let invalidatePath = { (modulesRequiringRebuild: inout Set<ModuleDependencyId>) in
+      if let reporter {
+        for pathModuleId in pathSoFar {
+          if !modulesRequiringRebuild.contains(pathModuleId) &&
+             !isMainModule {
+            let pathModuleInfo = try moduleDependencyGraph.moduleInfo(of: pathModuleId)
+            reporter.reportExplicitDependencyWillBeReBuilt(pathModuleId.moduleNameForDiagnostic,
+                                                           reason: "Invalidated by downstream dependency")
+          }
+        }
+      }
+      modulesRequiringRebuild.formUnion(pathSoFar)
+    }
+
+    // Routine to invalidate this node and the path that led to it
+    let invalidateOutOfDate = { (modulesRequiringRebuild: inout Set<ModuleDependencyId>) in
+      reporter?.reportExplicitDependencyWillBeReBuilt(moduleId.moduleNameForDiagnostic, reason: "Out-of-date")
+      modulesRequiringRebuild.insert(moduleId)
+      try invalidatePath(&modulesRequiringRebuild)
+    }
+
+    // Visit the module's dependencies
+    for dependencyId in moduleInfo.directDependencies ?? [] {
+      if !visitedValidated.contains(dependencyId) {
+        let newPath = pathSoFar + [moduleId]
+        try outOfDateModuleScan(on: moduleDependencyGraph, from: dependencyId, pathSoFar: newPath,
+                                visitedValidated: &visitedValidated,
+                                modulesRequiringRebuild: &modulesRequiringRebuild)
+      }
+    }
+
+    if modulesRequiringRebuild.contains(moduleId) {
+      try invalidatePath(&modulesRequiringRebuild)
+    } else if try !IncrementalCompilationState.IncrementalDependencyAndInputSetup.verifyModuleDependencyUpToDate(moduleID: moduleId, moduleInfo: moduleInfo,
+                                                                                                                 fileSystem: fileSystem, reporter: reporter) {
+      try invalidateOutOfDate(&modulesRequiringRebuild)
+    } else {
+      // Only if this module is known to be up-to-date with respect to its inputs
+      // and dependencies do we mark it as visited. We may need to re-visit
+      // out-of-date modules in order to collect all possible paths to them.
+      visitedValidated.insert(moduleId)
+    }
+  }
+
+  /// In an explicit module build, filter out dependency module pre-compilation tasks
+  /// for modules up-to-date from a prior compile.
+  private func computeMandatoryBeforeCompilesJobs() throws -> [Job] {
+    // In an implicit module build, we have nothing to filter/compute here
+    guard let moduleDependencyGraph = interModuleDependencyGraph else {
+      return jobsInPhases.beforeCompiles
+    }
+
+    // If a prior compile's dependency graph was fully up-to-date, we can skip
+    // re-building all dependency modules.
+    guard !self.explicitModuleDependenciesGuaranteedUpToDate else {
+      return jobsInPhases.beforeCompiles.filter { $0.kind != .generatePCM && 
+                                                  $0.kind != .compileModuleFromInterface }
+    }
+
+    // Determine which module pre-build jobs must be re-run
+    let modulesRequiringReBuild =
+        try computeInvalidatedModuleDependencies(on: moduleDependencyGraph)
+
+    // Filter the `.generatePCM` and `.compileModuleFromInterface` jobs for 
+    // modules which do *not* need re-building.
+    let mandatoryBeforeCompilesJobs = jobsInPhases.beforeCompiles.filter { job in
+      switch job.kind {
+      case .generatePCM:
+        return modulesRequiringReBuild.contains(.clang(job.moduleName))
+      case .compileModuleFromInterface:
+        return modulesRequiringReBuild.contains(.swift(job.moduleName))
+      default:
+        return true
+      }
+    }
+
+    return mandatoryBeforeCompilesJobs
   }
 
   /// Determine if any of the jobs in the `afterCompiles` group depend on outputs produced by jobs in

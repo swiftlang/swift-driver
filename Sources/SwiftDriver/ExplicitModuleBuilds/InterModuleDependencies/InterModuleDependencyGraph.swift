@@ -30,6 +30,15 @@ public enum ModuleDependencyId: Hashable {
     case .clang(let name): return name
     }
   }
+
+  internal var moduleNameForDiagnostic: String {
+    switch self {
+    case .swift(let name): return name
+    case .swiftPlaceholder(let name): return name + "(placeholder)"
+    case .swiftPrebuiltExternal(let name): return name + "(swiftmodule)"
+    case .clang(let name): return name + "(pcm)"
+    }
+  }
 }
 
 extension ModuleDependencyId: Codable {
