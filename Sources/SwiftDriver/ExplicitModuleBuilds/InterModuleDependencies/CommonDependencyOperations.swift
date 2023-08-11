@@ -54,6 +54,13 @@ import func TSCBasic.topologicalSort
 }
 
 extension InterModuleDependencyGraph {
+  var topologicalSorting: [ModuleDependencyId] {
+    get throws {
+      try topologicalSort(Array(modules.keys),
+                          successors: { try moduleInfo(of: $0).directDependencies! })
+    }
+  }
+
   /// Compute a set of modules that are "reachable" (form direct or transitive dependency)
   /// from each module in the graph.
   /// This routine relies on the fact that the dependency graph is acyclic. A lack of cycles means
@@ -65,9 +72,7 @@ extension InterModuleDependencyGraph {
   ///   }
   /// }
   func computeTransitiveClosure() throws -> [ModuleDependencyId : Set<ModuleDependencyId>] {
-    let topologicalIdList =
-      try topologicalSort(Array(modules.keys),
-                          successors: { try moduleInfo(of: $0).directDependencies! })
+    let topologicalIdList = try self.topologicalSorting
     // This structure will contain the final result
     var transitiveClosureMap =
       topologicalIdList.reduce(into: [ModuleDependencyId : Set<ModuleDependencyId>]()) {

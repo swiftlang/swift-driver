@@ -68,6 +68,7 @@ public final class IncrementalCompilationState {
       initialState: initialState,
       jobsInPhases: jobsInPhases,
       driver: driver,
+      interModuleDependencyGraph: interModuleDependencyGraph,
       reporter: reporter)
       .compute(batchJobFormer: &driver)
 

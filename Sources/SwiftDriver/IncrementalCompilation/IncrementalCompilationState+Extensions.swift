@@ -50,8 +50,8 @@ extension IncrementalCompilationState {
     let graph: ModuleDependencyGraph
     /// Information about the last known compilation, incl. the location of build artifacts such as the dependency graph.
     let buildRecordInfo: BuildRecordInfo
-    /// Record about the compiled module's module dependencies from the last compile.
-    let maybeUpToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
+    /// Record about the compiled module's explicit module dependencies from a prior compile.
+    let upToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
     /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
@@ -299,9 +299,17 @@ extension IncrementalCompilationState {
     }
 
     func reportExplicitDependencyOutOfDate(_ moduleName: String,
-                                           outputPath: String,
-                                           updatedInputPath: String) {
-      report("Dependency module \(moduleName) is older than input file \(updatedInputPath) at \(outputPath)")
+                                           inputPath: String) {
+      report("Dependency module \(moduleName) is older than input file \(inputPath)")
+    }
+
+    func reportExplicitDependencyWillBeReBuilt(_ moduleOutputPath: String,
+                                               reason: String) {
+      report("Dependency module '\(moduleOutputPath)' will be re-built: \(reason)")
+    }
+
+    func reportExplicitDependencyReBuildSet(_ modules: [ModuleDependencyId]) {
+      report("Following explicit module dependencies will be re-built: [\(modules.map { $0.moduleNameForDiagnostic }.sorted().joined(separator: ", "))]")
     }
 
     // Emits a remark indicating incremental compilation has been disabled.
