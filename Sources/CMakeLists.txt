@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_subdirectory(CSwiftScan)
+add_subdirectory(CToolchainCASPlugin)
 add_subdirectory(SwiftOptions)
 add_subdirectory(SwiftDriver)
 add_subdirectory(SwiftDriverExecution)

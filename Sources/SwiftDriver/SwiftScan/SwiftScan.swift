@@ -282,6 +282,7 @@ internal extension swiftscan_diagnostic_severity_t {
 
   @_spi(Testing) public var supportsCaching : Bool {
     return api.swiftscan_cas_create != nil &&
+           api.swiftscan_cas_create_from_plugin != nil &&
            api.swiftscan_cas_dispose != nil &&
            api.swiftscan_compute_cache_key != nil &&
            api.swiftscan_cas_store != nil &&
@@ -382,8 +383,19 @@ internal extension swiftscan_diagnostic_severity_t {
     }
   }
 
-  func createCAS(casPath: String) throws {
-    self.cas = api.swiftscan_cas_create(casPath.cString(using: String.Encoding.utf8))
+  func createCAS(pluginPath: String?, casPath: String?, pluginOptions: [String: String]) throws {
+    if let plugin = pluginPath?.cString(using: String.Encoding.utf8) {
+      let onDiskPath = casPath?.cString(using: String.Encoding.utf8)
+      let keys = Array(pluginOptions.keys)
+      let values = Array(pluginOptions.values)
+      withArrayOfCStrings(keys) { c_key_array in
+        withArrayOfCStrings(values) { c_value_array in
+          self.cas = api.swiftscan_cas_create_from_plugin(plugin, onDiskPath, Int32(pluginOptions.count), c_key_array, c_value_array)
+        }
+      }
+    } else if let onDiskPath = casPath {
+      self.cas = api.swiftscan_cas_create(onDiskPath.cString(using: String.Encoding.utf8))
+    }
     guard self.cas != nil else {
       throw DependencyScanningError.failedToInstantiateCAS
     }
@@ -514,6 +526,7 @@ private extension swiftscan_functions_t {
       try loadOptional("swiftscan_clang_detail_get_module_cache_key")
 
     self.swiftscan_cas_create = try loadOptional("swiftscan_cas_create")
+    self.swiftscan_cas_create_from_plugin = try loadOptional("swiftscan_cas_create_from_plugin")
     self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
     self.swiftscan_compute_cache_key =
       try loadOptional("swiftscan_compute_cache_key")

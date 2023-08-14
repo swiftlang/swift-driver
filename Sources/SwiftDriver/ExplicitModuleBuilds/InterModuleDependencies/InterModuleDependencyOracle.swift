@@ -96,6 +96,25 @@ public class InterModuleDependencyOracle {
     }
   }
 
+  @_spi(Testing) public func verifyOrCreateCASInstance(fileSystem: FileSystem,
+                                                       toolchainCASLibPath: AbsolutePath,
+                                                       onDiskPath: AbsolutePath?,
+                                                       pluginOptions: [String: String]) throws {
+    return try queue.sync {
+      if toolchainCASPlugin == nil {
+        guard fileSystem.exists(toolchainCASLibPath) else {
+          throw CASError.failedToCreate("/(toolchainCASLibPath) does not exist")
+        }
+        toolchainCASPlugin = try CASPlugin(dylib: toolchainCASLibPath, path: onDiskPath, options: pluginOptions)
+      } else {
+        guard toolchainCASPlugin!.path == toolchainCASLibPath else {
+          throw DependencyScanningError
+          .scanningLibraryInvocationMismatch(toolchainCASPlugin!.path, toolchainCASLibPath)
+        }
+      }
+    }
+  }
+
   @_spi(Testing) public func serializeScannerCache(to path: AbsolutePath) {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to serialize scanner cache with no scanner instance.")
@@ -171,14 +190,21 @@ public class InterModuleDependencyOracle {
     return diags.isEmpty ? nil : diags
   }
 
-  public func createCAS(path: String) throws {
+  public func createCAS(toolchainCASLibPath: AbsolutePath?,
+                        onDiskPath: AbsolutePath?,
+                        pluginOptions: [String: String]) throws {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    try swiftScan.createCAS(casPath: path)
+    let pluginPath = toolchainCASLibPath?.pathString
+    let casPath = onDiskPath?.pathString
+    try swiftScan.createCAS(pluginPath: pluginPath, casPath: casPath, pluginOptions: pluginOptions)
   }
 
   public func store(data: Data) throws -> String {
+    if let cas = toolchainCASPlugin {
+      return try cas.store(data: data)
+    }
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
@@ -194,12 +220,16 @@ public class InterModuleDependencyOracle {
   }
 
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
+  private var hasCASInstance: Bool { self.toolchainCASPlugin != nil }
 
   /// Queue to sunchronize accesses to the scanner
   internal let queue = DispatchQueue(label: "org.swift.swift-driver.swift-scan")
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
   private var swiftScanLibInstance: SwiftScan? = nil
+
+  /// A reference to an instance of the compiler's libToolchainCASPlugin shared library
+  private var toolchainCASPlugin: CASPlugin? = nil
 
   internal let scannerRequiresPlaceholderModules: Bool
 }

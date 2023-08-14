@@ -16,7 +16,6 @@ add_library(SwiftDriver
   "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyOracle.swift"
 
   SwiftScan/DependencyGraphBuilder.swift
-  SwiftScan/Loader.swift
   SwiftScan/SwiftScan.swift
 
   Driver/CompilerMode.swift
@@ -100,6 +99,8 @@ add_library(SwiftDriver
   Jobs/WindowsToolchain+LinkerSupport.swift
   Jobs/PrebuiltModulesJob.swift
 
+  ToolchainCASPlugin/ToolchainCASPlugin.swift
+
   Toolchains/DarwinToolchain.swift
   Toolchains/GenericUnixToolchain.swift
   Toolchains/Toolchain.swift
@@ -115,6 +116,7 @@ add_library(SwiftDriver
   Utilities/Diagnostics.swift
   Utilities/FileList.swift
   Utilities/FileType.swift
+  Utilities/Loader.swift
   Utilities/PredictableRandomNumberGenerator.swift
   Utilities/RelativePathAdditions.swift
   Utilities/Sanitizer.swift
