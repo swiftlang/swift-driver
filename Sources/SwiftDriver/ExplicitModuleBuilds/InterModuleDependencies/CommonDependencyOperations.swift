@@ -267,12 +267,13 @@ internal extension InterModuleDependencyGraph {
       return
     }
 
-    // If no more dependencies, this is a leaf node, we are done
-    guard let dependencies = sourceInfo.directDependencies else {
-      return
+    var allDependencies = sourceInfo.directDependencies ?? []
+    if case .swift(let swiftModuleDetails) = sourceInfo.details,
+          let overlayDependencies = swiftModuleDetails.swiftOverlayDependencies {
+      allDependencies.append(contentsOf: overlayDependencies)
     }
 
-    for dependency in dependencies {
+    for dependency in allDependencies {
       try findAllPaths(source: dependency,
                        to: moduleName,
                        pathSoFar: pathSoFar + [dependency],
