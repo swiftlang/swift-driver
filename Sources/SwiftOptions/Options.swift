@@ -530,7 +530,7 @@ extension Option {
   public static let json_: Option = Option("--json", .flag, alias: Option.json, attributes: [.noDriver], helpText: "Print output in JSON format.")
   public static let j: Option = Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel")
   public static let LEQ: Option = Option("-L=", .joined, alias: Option.L, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], group: .linkerOption)
-  public static let ldPath: Option = Option("--ld-path=", .joined, attributes: [.doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the path to the linker to be used")
+  public static let ldPath: Option = Option("--ld-path=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the path to the linker to be used")
   public static let libc: Option = Option("-libc", .separate, attributes: [], helpText: "libc runtime library to use")
   public static let libraryLevelEQ: Option = Option("-library-level=", .joined, alias: Option.libraryLevel, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<level>")
   public static let libraryLevel: Option = Option("-library-level", .separate, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<level>", helpText: "Library distribution level 'api', 'spi' or 'other' (the default)")
