@@ -3552,12 +3552,11 @@ final class SwiftDriverTests: XCTestCase {
 
       if driver.targetTriple.isMacOSX {
         let sdkIdx = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-sdk")))
-        let sdkPathOpt: VirtualPath? = switch job.commandLine[sdkIdx + 1] {
-        case .path(let path): path
-        default: nil
+        if case .path(let path) = job.commandLine[sdkIdx + 1] {
+          XCTAssertTrue(path.name.contains("MacOSX.platform"))
+        } else {
+          XCTFail("Missing SDK path")
         }
-        let sdkPath = try XCTUnwrap(sdkPathOpt)
-        XCTAssertTrue(sdkPath.name.contains("MacOSX.platform"))
       }
 
       XCTAssertFalse(job.commandLine.contains(.flag("--")))

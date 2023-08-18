@@ -107,15 +107,6 @@ extension Driver {
       commandLine.appendFlag("-aarch64-use-tbi")
     }
 
-    // Potentially unavailable enum cases are downgraded to a warning when building a
-    // swiftmodule, to allow building a module (or module interface) for an older
-    // deployment target than the framework itself.
-    if isFrontendArgSupported(.warnOnPotentiallyUnavailableEnumCase) {
-      if compilerOutputType == .swiftModule {
-        commandLine.appendFlag(.warnOnPotentiallyUnavailableEnumCase)
-      }
-    }
-
     // Enable or disable ObjC interop appropriately for the platform
     if targetTriple.isDarwin {
       commandLine.appendFlag(.enableObjcInterop)
