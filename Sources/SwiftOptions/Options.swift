@@ -1239,6 +1239,7 @@ extension Option {
       Option.ExperimentalPerformanceAnnotations,
       Option.platformCCallingConventionEQ,
       Option.platformCCallingConvention,
+      Option.experimentalLazyTypecheck,
       Option.experimentalPrintFullConvention,
       Option.experimentalSkipAllFunctionBodies,
       Option.experimentalSkipNonInlinableFunctionBodiesWithoutTypes,

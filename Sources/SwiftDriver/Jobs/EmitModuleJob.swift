@@ -106,6 +106,9 @@ extension Driver {
     try commandLine.appendLast(.emitExtensionBlockSymbols, .omitExtensionBlockSymbols, from: &parsedOptions)
     try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
+    if isFrontendArgSupported(.experimentalLazyTypecheck) {
+      try commandLine.appendLast(.experimentalLazyTypecheck, from: &parsedOptions)
+    }
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)

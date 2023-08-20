@@ -59,7 +59,7 @@ public struct Option {
   /// The spelling of the option, including any leading dashes.
   public let spelling: String
 
-  ///. The kind of option, which determines how it is parsed.
+  /// The kind of option, which determines how it is parsed.
   public let kind: Kind
 
   /// The option that this aliases, if any, as a closure that produces the
