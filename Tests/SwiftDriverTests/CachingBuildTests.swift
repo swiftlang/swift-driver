@@ -17,7 +17,7 @@ import XCTest
 import TestUtilities
 
 private var testInputsPath: AbsolutePath = {
-  var root: AbsolutePath = AbsolutePath(#file)
+  var root: AbsolutePath = try! AbsolutePath(validating: #file)
   while root.basename != "Tests" {
     root = root.parentDirectory
   }

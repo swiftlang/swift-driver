@@ -17,7 +17,7 @@ import XCTest
 import TestUtilities
 
 private var testInputsPath: AbsolutePath = {
-  var root: AbsolutePath = AbsolutePath(#file)
+  var root: AbsolutePath = try! AbsolutePath(validating: #file)
   while root.basename != "Tests" {
     root = root.parentDirectory
   }
@@ -199,13 +199,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
     do {
-      let externalDetails: ExternalTargetModuleDetailsMap =
-            [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/A.swiftmodule"),
-                                                                      isFramework: true),
-             .swiftPrebuiltExternal("K"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/K.swiftmodule"),
-                                                                       isFramework: true),
-             .swiftPrebuiltExternal("simpleTestModule"): ExternalTargetModuleDetails(path: AbsolutePath("/tmp/simpleTestModule.swiftmodule"),
-                                                                                     isFramework: true)]
+      let externalDetails: ExternalTargetModuleDetailsMap = [
+        .swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/A.swiftmodule"),
+                                                                 isFramework: true),
+        .swiftPrebuiltExternal("K"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/K.swiftmodule"),
+                                                                 isFramework: true),
+        .swiftPrebuiltExternal("simpleTestModule"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/simpleTestModule.swiftmodule"),
+                                                                                isFramework: true)
+      ]
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-module-name", "simpleTestModule",
                                      "test.swift"])
@@ -1240,7 +1241,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                              env: ProcessEnv.vars)
       let sdkPath = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
-      let stdLibPath = AbsolutePath(sdkPath).appending(component: "usr")
+      let stdLibPath = try AbsolutePath(validating: sdkPath)
+        .appending(component: "usr")
         .appending(component: "lib")
         .appending(component: "swift")
       return (stdLibPath, stdLibPath.appending(component: "shims"))
