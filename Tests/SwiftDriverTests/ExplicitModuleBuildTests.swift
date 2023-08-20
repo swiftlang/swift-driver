@@ -73,29 +73,6 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
                                                      moduleInfo : ModuleInfo,
                                                      dependencyGraph: InterModuleDependencyGraph
 ) throws {
-  var validateModuleMapCommandLineDependency: (ModuleDependencyId, ModuleInfo) throws -> Void = { dependencyId, dependencyInfo in
-    // Load the dependency JSON and verify this dependency was encoded correctly
-    let explicitDepsFlag =
-      SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
-    XCTAssert(job.commandLine.contains(explicitDepsFlag))
-    let jsonDepsPathIndex = job.commandLine.firstIndex(of: explicitDepsFlag)
-    let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
-    guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
-      XCTFail("No JSON dependency file path found.")
-      return
-    }
-    guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
-      XCTFail("Unexpected path type")
-      return
-    }
-    let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
-                                                      from: contents)
-    let dependencyArtifacts =
-      dependencyInfoList.first(where:{ $0.moduleName == dependencyId.moduleName })
-    XCTAssertEqual(dependencyArtifacts!.modulePath, dependencyInfo.modulePath)
-  }
-
-
   let validateSwiftCommandLineDependency: (ModuleDependencyId, ModuleInfo) -> Void = { dependencyId, dependencyInfo in
     let inputModulePath = dependencyInfo.modulePath.path
     XCTAssertTrue(job.inputs.contains(TypedVirtualPath(file: inputModulePath, type: .swiftModule)))
