@@ -284,6 +284,35 @@ extension Toolchain {
 #endif
   }
 
+  /// Looks for the executable in the `SWIFT_DRIVER_TOOLCHAIN_CASPLUGIN_LIB` environment variable, if found nothing,
+  /// looks in the `lib` relative to the compiler executable.
+  @_spi(Testing) public func lookupToolchainCASPluginLib() throws -> AbsolutePath? {
+    if let overrideString = env["SWIFT_DRIVER_TOOLCHAIN_CASPLUGIN_LIB"],
+       let path = try? AbsolutePath(validating: overrideString) {
+      return path
+    }
+#if os(Windows)
+    return nil
+#else
+    // Try to look for libToolchainCASPlugin in the developer dir, if found,
+    // prefer using that. Otherwise, just return nil, and auto fallback to
+    // builtin CAS.
+    let libraryName = sharedLibraryName("libToolchainCASPlugin")
+    let compilerPath = try getToolPath(.swiftCompiler)
+    let developerPath = compilerPath.parentDirectory // bin
+                                    .parentDirectory // toolchain root
+                                    .parentDirectory // toolchains
+                                    .parentDirectory // developer
+    let libraryPath = developerPath.appending(component: "usr")
+                                   .appending(component: "lib")
+                                   .appending(component: libraryName)
+    if fileSystem.isFile(libraryPath) {
+      return libraryPath
+    }
+    return nil
+#endif
+  }
+
   private func xcrunFind(executable: String) throws -> AbsolutePath {
     let xcrun = "xcrun"
     guard lookupExecutablePath(filename: xcrun, searchPaths: searchPaths) != nil else {

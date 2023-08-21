@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 #define SWIFTSCAN_VERSION_MAJOR 0
-#define SWIFTSCAN_VERSION_MINOR 4
+#define SWIFTSCAN_VERSION_MINOR 5
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -79,6 +79,7 @@ typedef void *swiftscan_scanner_t;
 
 //=== CAS/Caching Specification -------------------------------------------===//
 typedef struct swiftscan_cas_s *swiftscan_cas_t;
+typedef struct swiftscan_cas_options_s *swiftscan_cas_options_t;
 
 typedef enum {
   SWIFTSCAN_OUTPUT_TYPE_OBJECT = 0,
@@ -274,15 +275,24 @@ typedef struct {
   void (*swiftscan_scanner_cache_reset)(swiftscan_scanner_t scanner);
 
   //=== Scanner CAS Operations ----------------------------------------------===//
-  swiftscan_cas_t (*swiftscan_cas_create)(const char *path);
+  swiftscan_cas_options_t (*swiftscan_cas_options_create)(void);
+  void (*swiftscan_cas_options_dispose)(swiftscan_cas_options_t options);
+  void (*swiftscan_cas_options_set_ondisk_path)(swiftscan_cas_options_t options,
+                                                const char *path);
+  void (*swiftscan_cas_options_set_plugin_path)(swiftscan_cas_options_t options,
+                                                const char *path);
+  bool (*swiftscan_cas_options_set_option)(swiftscan_cas_options_t options,
+                                           const char *name, const char *value,
+                                           swiftscan_string_ref_t *error);
+  swiftscan_cas_t (*swiftscan_cas_create_from_options)(
+      swiftscan_cas_options_t options, swiftscan_string_ref_t *error);
   void (*swiftscan_cas_dispose)(swiftscan_cas_t cas);
   swiftscan_string_ref_t (*swiftscan_cas_store)(swiftscan_cas_t cas,
-                                                uint8_t *data, unsigned size);
-  swiftscan_string_ref_t (*swiftscan_compute_cache_key)(swiftscan_cas_t cas,
-                                                        int argc,
-                                                        const char *argv,
-                                                        const char *input,
-                                                        swiftscan_output_kind_t);
+                                                uint8_t *data, unsigned size,
+                                                swiftscan_string_ref_t *error);
+  swiftscan_string_ref_t (*swiftscan_compute_cache_key)(
+      swiftscan_cas_t cas, int argc, const char *argv, const char *input,
+      swiftscan_output_kind_t, swiftscan_string_ref_t *error);
 
 } swiftscan_functions_t;
 

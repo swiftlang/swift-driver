@@ -25,7 +25,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
   case missingRequiredSymbol(String)
   case dependencyScanFailed
   case failedToInstantiateScanner
-  case failedToInstantiateCAS
+  case casError(String)
   case missingField(String)
   case moduleNameDecodeFailure(String)
   case unsupportedDependencyDetailsKind(Int)
@@ -42,8 +42,8 @@ public enum DependencyScanningError: Error, DiagnosticData {
         return "libSwiftScan dependency scan query failed"
       case .failedToInstantiateScanner:
         return "libSwiftScan failed to create scanner instance"
-      case .failedToInstantiateCAS:
-        return "libSwiftScan failed to create CAS"
+      case .casError(let reason):
+        return "libSwiftScan CAS error: \(reason)"
       case .missingField(let fieldName):
         return "libSwiftScan scan result missing required field: `\(fieldName)`"
       case .moduleNameDecodeFailure(let encodedName):
@@ -285,7 +285,12 @@ internal extension swiftscan_diagnostic_severity_t {
     // Caching is currently not supported on Windows hosts.
     return false
 #else
-    return api.swiftscan_cas_create != nil &&
+    return api.swiftscan_cas_options_create != nil &&
+           api.swiftscan_cas_options_dispose != nil &&
+           api.swiftscan_cas_options_set_ondisk_path != nil &&
+           api.swiftscan_cas_options_set_plugin_path != nil &&
+           api.swiftscan_cas_options_set_option != nil &&
+           api.swiftscan_cas_create_from_options != nil &&
            api.swiftscan_cas_dispose != nil &&
            api.swiftscan_compute_cache_key != nil &&
            api.swiftscan_cas_store != nil &&
@@ -387,20 +392,48 @@ internal extension swiftscan_diagnostic_severity_t {
     }
   }
 
-  func createCAS(casPath: String) throws {
-    self.cas = api.swiftscan_cas_create(casPath.cString(using: String.Encoding.utf8))
-    guard self.cas != nil else {
-      throw DependencyScanningError.failedToInstantiateCAS
+  private func handleCASError(_ closure: (inout swiftscan_string_ref_t) -> Bool) throws {
+    var err_msg : swiftscan_string_ref_t = swiftscan_string_ref_t()
+    guard !closure(&err_msg) else {
+      let err_str = try toSwiftString(err_msg)
+      api.swiftscan_string_dispose(err_msg)
+      throw DependencyScanningError.casError(err_str)
+    }
+  }
+
+  func createCAS(pluginPath: String?, onDiskPath: String?, pluginOptions: [(String, String)]) throws {
+    let casOpts = api.swiftscan_cas_options_create()
+    defer {
+      api.swiftscan_cas_options_dispose(casOpts)
+    }
+    if let path = pluginPath {
+      api.swiftscan_cas_options_set_plugin_path(casOpts, path)
+    }
+    if let path = onDiskPath {
+      api.swiftscan_cas_options_set_ondisk_path(casOpts, path)
+    }
+    for (name, value) in pluginOptions {
+      try handleCASError { err_msg in
+        return api.swiftscan_cas_options_set_option(casOpts, name, value, &err_msg)
+      }
+    }
+    try handleCASError { err_msg in
+      self.cas = api.swiftscan_cas_create_from_options(casOpts, &err_msg)
+      return self.cas == nil
     }
   }
 
   func store(data: Data) throws -> String {
     guard let scan_cas = self.cas else {
-      throw DependencyScanningError.failedToInstantiateCAS
+      throw DependencyScanningError.casError("cannot store into CAS because CAS is not yet created")
     }
     let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: data.count)
     data.copyBytes(to: bytes, count: data.count)
-    let casid = api.swiftscan_cas_store(scan_cas, bytes, UInt32(data.count))
+    var casid: swiftscan_string_ref_t = swiftscan_string_ref_t()
+    try handleCASError { err_msg in
+      casid = api.swiftscan_cas_store(scan_cas, bytes, UInt32(data.count), &err_msg)
+      return casid.data == nil
+    }
     return try toSwiftString(casid)
   }
 
@@ -425,15 +458,19 @@ internal extension swiftscan_diagnostic_severity_t {
 
   func computeCacheKeyForOutput(kind: FileType, commandLine: [String], input: String) throws -> String {
     guard let scan_cas = self.cas else {
-      throw DependencyScanningError.failedToInstantiateCAS
+      throw DependencyScanningError.casError("cannot compute CacheKey for compilation because CAS is not yet created")
     }
-    var casid : swiftscan_string_ref_t = swiftscan_string_ref_t()
-    withArrayOfCStrings(commandLine) { commandArray in
-      casid = api.swiftscan_compute_cache_key(scan_cas,
-                                              Int32(commandLine.count),
-                                              commandArray,
-                                              input.cString(using: String.Encoding.utf8),
-                                              getSwiftScanOutputKind(kind: kind))
+    var casid: swiftscan_string_ref_t = swiftscan_string_ref_t()
+    try handleCASError { err_msg in
+      withArrayOfCStrings(commandLine) { commandArray in
+        casid = api.swiftscan_compute_cache_key(scan_cas,
+                                                Int32(commandLine.count),
+                                                commandArray,
+                                                input.cString(using: String.Encoding.utf8),
+                                                getSwiftScanOutputKind(kind: kind),
+                                                &err_msg)
+      }
+      return casid.data == nil
     }
     return try toSwiftString(casid)
   }
@@ -518,7 +555,12 @@ private extension swiftscan_functions_t {
     self.swiftscan_clang_detail_get_module_cache_key =
       try loadOptional("swiftscan_clang_detail_get_module_cache_key")
 
-    self.swiftscan_cas_create = try loadOptional("swiftscan_cas_create")
+    self.swiftscan_cas_options_create = try loadOptional("swiftscan_cas_options_create")
+    self.swiftscan_cas_options_set_plugin_path = try loadOptional("swiftscan_cas_options_set_plugin_path")
+    self.swiftscan_cas_options_set_ondisk_path = try loadOptional("swiftscan_cas_options_set_ondisk_path")
+    self.swiftscan_cas_options_set_option = try loadOptional("swiftscan_cas_options_set_option")
+    self.swiftscan_cas_options_dispose = try loadOptional("swiftscan_cas_options_dispose")
+    self.swiftscan_cas_create_from_options = try loadOptional("swiftscan_cas_create_from_options")
     self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
     self.swiftscan_compute_cache_key =
       try loadOptional("swiftscan_compute_cache_key")

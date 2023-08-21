@@ -171,11 +171,11 @@ public class InterModuleDependencyOracle {
     return diags.isEmpty ? nil : diags
   }
 
-  public func createCAS(path: String) throws {
+  public func createCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    try swiftScan.createCAS(casPath: path)
+    try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
   }
 
   public func store(data: Data) throws -> String {
