@@ -6863,8 +6863,8 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 2)
       let (compileJob, linkJob) = (jobs[0], jobs[1])
-      compileJob.commandLine.contains(.flag("--gcc-toolchain=foo/as/blarpy"))
-      linkJob.commandLine.contains(.flag("--gcc-toolchain=foo/as/blarpy"))
+      XCTAssert(compileJob.commandLine.contains(.flag("--gcc-toolchain=foo/as/blarpy")))
+      XCTAssert(linkJob.commandLine.contains(.flag("--gcc-toolchain=foo/as/blarpy")))
   }
 
   func testPluginPaths() throws {
