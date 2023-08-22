@@ -648,6 +648,17 @@ extension Driver {
     return flaggedInputOutputPairs.map { $0.output }
   }
 
+  mutating func addCommonSymbolGraphOptions(commandLine: inout [Job.ArgTemplate],
+                                            includeGraph: Bool = true) throws {
+    if includeGraph {
+      try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
+      try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
+    }
+    try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
+    try commandLine.appendLast(.emitExtensionBlockSymbols, .omitExtensionBlockSymbols, from: &parsedOptions)
+    try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
+  }
+
   func addEntry(_ entries: inout [VirtualPath.Handle: [FileType: VirtualPath.Handle]], input: TypedVirtualPath?, output: TypedVirtualPath) {
     let entryInput: VirtualPath.Handle
     if let input = input?.fileHandle, input != OutputFileMap.singleInputKey {
