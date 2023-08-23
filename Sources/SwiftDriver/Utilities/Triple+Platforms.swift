@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -233,7 +233,7 @@ extension Triple {
     precondition(self.isDarwin)
     switch darwinPlatform! {
     case .macOS:
-      // The integrated driver falls back to `osVersion` for ivalid macOS
+      // The integrated driver falls back to `osVersion` for invalid macOS
       // versions, this decision might be worth revisiting.
       let macVersion = _macOSVersion ?? osVersion
       // The first deployment of arm64 for macOS is version 11
