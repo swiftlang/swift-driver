@@ -99,12 +99,8 @@ extension Driver {
     // FIXME: Add MSVC runtime library flags
 
     try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
+    try addCommonSymbolGraphOptions(commandLine: &commandLine)
 
-    try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
-    try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
-    try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
-    try commandLine.appendLast(.emitExtensionBlockSymbols, .omitExtensionBlockSymbols, from: &parsedOptions)
-    try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
     if isFrontendArgSupported(.experimentalLazyTypecheck) {
       try commandLine.appendLast(.experimentalLazyTypecheck, from: &parsedOptions)
