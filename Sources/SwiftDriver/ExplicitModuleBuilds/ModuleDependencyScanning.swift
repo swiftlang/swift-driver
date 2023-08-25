@@ -124,6 +124,14 @@ public extension Driver {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.scannerPrefixMap) {
+      // construct `-scanner-prefix-mapper` for scanner.
+      for (key, value) in prefixMapping {
+        commandLine.appendFlag(.scannerPrefixMap)
+        commandLine.appendFlag(key.pathString + "=" + value.pathString)
+      }
+    }
+
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
     return (inputs, commandLine)

@@ -32,6 +32,7 @@ extension Driver {
 
     if try supportsBridgingHeaderPCHCommand() {
       try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      addCacheReplayMapping(to: &commandLine)
     } else {
       try addGeneratePCHFlags(commandLine: &commandLine, inputs: &inputs)
     }
@@ -67,7 +68,7 @@ extension Driver {
     outputs.append(output)
 
     inputs.append(input)
-    commandLine.appendPath(input.file)
+    try addPathArgument(input.file, to: &commandLine)
 
     return Job(
       moduleName: moduleOutputInfo.name,

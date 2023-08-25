@@ -661,4 +661,71 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertEqual(diags[0].message, "CAS error encountered: conflicting CAS options used in scanning service")
     }
   }
+
+  func testDependencyScanningPathRemap() throws {
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import C;")
+        $0.send("import E;")
+        $0.send("import G;")
+      }
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let casPath = path.appending(component: "cas")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "/tmp/Foo.o", "-v",
+                                     "-explicit-module-build",
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-disable-clang-target", "-scanner-prefix-map-sdk", "/^sdk",
+                                     "-scanner-prefix-map-toolchain", "/^toolchain",
+                                     "-scanner-prefix-map", testInputsPath.description + "=/^src",
+                                     "-scanner-prefix-map", path.description + "=/^tmp",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
+        throw XCTSkip("frontend doesn't support prefix map")
+      }
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      guard try dependencyOracle.supportsCaching() else {
+        throw XCTSkip("libSwiftScan does not support caching.")
+      }
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+
+      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map"))
+      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description + "=/^src"))
+
+      let jobs = try driver.planBuild()
+      for job in jobs {
+        if !job.kind.supportCaching {
+          continue
+        }
+        let command = try job.commandLine.map { try resolver.resolve($0) }
+        // Check all the arguments that are in the temporary directory are remapped.
+        // The only one that is not remapped should be the `-cas-path` that points to
+        // `casPath`.
+        XCTAssertFalse(command.contains {
+          return $0.starts(with: path.description) && $0 != casPath.description
+        })
+      }
+    }
+  }
 }
