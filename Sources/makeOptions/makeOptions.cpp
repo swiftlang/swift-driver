@@ -66,7 +66,9 @@ enum SwiftFlags {
   SwiftAPIDigesterOption = (1 << 17),
   NewDriverOnlyOption = (1 << 18),
   ModuleInterfaceOptionIgnorable = (1 << 19),
-  ModuleInterfaceOptionIgnorablePrivate = (1 << 20)
+  ModuleInterfaceOptionIgnorablePrivate = (1 << 20),
+  ArgumentIsFileList = (1 << 21),
+  CacheInvariant = (1 << 22),
 };
 
 static std::set<std::string> swiftKeywords = { "internal", "static" };
@@ -336,6 +338,8 @@ int makeOptions_main() {
           emitFlagIf(ArgumentIsPath, ".argumentIsPath");
         emitFlagIf(ModuleInterfaceOption, ".moduleInterface");
         emitFlagIf(SupplementaryOutput, ".supplementaryOutput");
+        emitFlagIf(ArgumentIsFileList, ".argumentIsFileList");
+        emitFlagIf(CacheInvariant, ".cacheInvariant");
         out << "]";
       }
 
