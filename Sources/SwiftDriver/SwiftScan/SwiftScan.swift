@@ -281,6 +281,10 @@ internal extension swiftscan_diagnostic_severity_t {
   }
 
   @_spi(Testing) public var supportsCaching : Bool {
+#if os(Windows)
+    // Caching is currently not supported on Windows hosts.
+    return false
+#else
     return api.swiftscan_cas_create != nil &&
            api.swiftscan_cas_dispose != nil &&
            api.swiftscan_compute_cache_key != nil &&
@@ -288,6 +292,7 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_swift_textual_detail_get_module_cache_key != nil &&
            api.swiftscan_swift_binary_detail_get_module_cache_key != nil &&
            api.swiftscan_clang_detail_get_module_cache_key != nil
+#endif
   }
 
   @_spi(Testing) public var supportsBridgingHeaderPCHCommand : Bool {
