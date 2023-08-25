@@ -112,13 +112,18 @@ extension Driver {
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
   throws -> ([TypedVirtualPath], [TypedVirtualPath]) {
-    let useInputFileList: Bool
-    if let allSourcesFileList = allSourcesFileList {
-      useInputFileList = true
+    let useInputFileList = shouldUseInputFileList
+    if let sourcesFileList = allSourcesFileList {
       commandLine.appendFlag(.filelist)
-      commandLine.appendPath(allSourcesFileList)
-    } else {
-      useInputFileList = false
+      commandLine.appendPath(sourcesFileList)
+    } else if shouldUseInputFileList {
+      let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
+      let remappedSourcesFileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "sources"),
+                                                                         .list(swiftInputs.map{ return remapPath($0.file) }))
+      // Remember the filelist created.
+      self.allSourcesFileList = remappedSourcesFileList
+      commandLine.appendFlag(.filelist)
+      commandLine.appendPath(remappedSourcesFileList)
     }
 
     let usePrimaryInputFileList = primaryInputs.count > fileListThreshold
@@ -126,7 +131,7 @@ extension Driver {
       // primary file list
       commandLine.appendFlag(.primaryFilelist)
       let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "primaryInputs"),
-                                                          .list(primaryInputs.map(\.file)))
+                                                          .list(primaryInputs.map{ return remapPath($0.file) }))
       commandLine.appendPath(fileList)
     }
 
@@ -166,12 +171,11 @@ extension Driver {
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
         if !usePrimaryInputFileList {
-          commandLine.appendFlag(.primaryFile)
-          commandLine.appendPath(input.file)
+          try addPathOption(option: .primaryFile, path: input.file, to:&commandLine)
         }
       } else {
         if !useInputFileList {
-          commandLine.appendPath(input.file)
+          try addPathArgument(input.file, to: &commandLine)
         }
       }
 

@@ -35,7 +35,7 @@ extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")
-    commandLine.appendPath(interfaceInput.file)
+    try addPathArgument(interfaceInput.file, to: &commandLine)
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .verifyModuleInterface)
     // FIXME: MSVC runtime flags
 
