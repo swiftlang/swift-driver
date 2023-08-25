@@ -128,8 +128,10 @@ extension WindowsToolchain {
 
     // Since Windows has separate libraries per architecture, link against the
     // architecture specific version of the static library.
-    commandLine.appendFlag(.L)
-    commandLine.appendPath(VirtualPath.lookup(targetInfo.runtimeLibraryImportPaths.last!.path))
+    for libpath in targetInfo.runtimeLibraryImportPaths {
+      commandLine.appendFlag(.L)
+      commandLine.appendPath(VirtualPath.lookup(libpath.path))
+    }
 
     if !parsedOptions.hasArgument(.nostartfiles) {
       // Locate the Swift registration helper by honouring any explicit
