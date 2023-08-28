@@ -228,6 +228,16 @@ public struct ModuleInfo: Codable {
   /// Specific details of a particular kind of module.
   public var details: Details
 
+  /// The set of all dependencies of this module, include direct and overlay dependencies.
+  public var allDependencies: [ModuleDependencyId] {
+    var directDeps = Set(directDependencies ?? [])
+    if case .swift(let swiftModuleDetails) = self.details  {
+      let swiftOverlayDependencies = swiftModuleDetails.swiftOverlayDependencies ?? []
+      directDeps.formUnion(swiftOverlayDependencies)
+    }
+    return Array(directDeps)
+  }
+
   /// Specific details of a particular kind of module.
   public enum Details {
     /// Swift modules may be built from a module interface, and may have

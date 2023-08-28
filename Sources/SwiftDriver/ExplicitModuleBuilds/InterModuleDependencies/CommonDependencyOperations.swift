@@ -57,7 +57,7 @@ extension InterModuleDependencyGraph {
   var topologicalSorting: [ModuleDependencyId] {
     get throws {
       try topologicalSort(Array(modules.keys),
-                          successors: { try moduleInfo(of: $0).directDependencies! })
+                          successors: { try moduleInfo(of: $0).allDependencies })
     }
   }
 
