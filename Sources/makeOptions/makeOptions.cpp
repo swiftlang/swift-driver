@@ -29,13 +29,15 @@ enum class OptionKind {
   JoinedOrSeparate,
 };
 
+#define LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(ID_PREFIX, PREFIX, NAME, ID, KIND,     \
+                                        GROUP, ALIAS, ALIASARGS, FLAGS, PARAM, \
+                                        HELPTEXT, METAVAR, VALUES)             \
+  ID_PREFIX##ID
+
 //. The IDs of each option
 enum class OptionID {
   Opt_INVALID = 0,
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,  \
-               PARAM, HELPTEXT, METAVAR, VALUES)                       \
-  Opt_##ID,
-
+#define OPTION(...) LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(Opt_, __VA_ARGS__),
 #if __has_include("swift/Option/Options.inc")
 #include "swift/Option/Options.inc"
 #else
@@ -185,10 +187,13 @@ void forEachSpelling(const char * const *prefixes, const std::string &spelling,
     return;
   }
 
-  bool isAlternateSpelling = false;
+  fn(spelling, /*isAlternateSpelling=*/false);
+
+  std::string defaultPrefix = std::string(*prefixes++);
   while (*prefixes) {
-    fn(*prefixes++ + spelling, isAlternateSpelling);
-    isAlternateSpelling = true;
+    std::string altSpelling =
+        std::string(*prefixes++) + spelling.substr(defaultPrefix.size());
+    fn(altSpelling, /*isAlternateSpelling=*/true);
   }
 }
 
