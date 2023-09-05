@@ -61,7 +61,7 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
-  deinit {
+  override func tearDown() {
     try? localFileSystem.removeFileTree(AbsolutePath(validating: self.ld.dirname))
   }
 
