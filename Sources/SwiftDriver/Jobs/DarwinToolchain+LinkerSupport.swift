@@ -181,6 +181,8 @@ extension DarwinToolchain {
       commandLine.appendFlag("-fuse-ld=\(arg.asSingle)")
     }
 
+    try commandLine.appendLast(.ldPath, from: &parsedOptions)
+
     let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
     for opt in fSystemArgs {
       commandLine.appendFlag(.F)

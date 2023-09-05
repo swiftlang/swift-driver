@@ -101,6 +101,8 @@ extension GenericUnixToolchain {
         }
       }
 
+      try commandLine.appendLast(.ldPath, from: &parsedOptions)
+
       // Configure the toolchain.
       //
       // By default use the system `clang` to perform the link.  We use `clang` for

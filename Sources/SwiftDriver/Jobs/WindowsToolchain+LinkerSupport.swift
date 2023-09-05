@@ -105,6 +105,8 @@ extension WindowsToolchain {
       commandLine.appendFlag("-fuse-ld=lld")
     }
 
+    try commandLine.appendLast(.ldPath, from: &parsedOptions)
+
     switch lto {
     case .some(.llvmThin):
       commandLine.appendFlag("-flto=thin")
