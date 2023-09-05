@@ -1422,7 +1422,7 @@ final class SwiftDriverTests: XCTestCase {
       guard let preserveCwd = localFileSystem.currentWorkingDirectory else {
         fatalError()
       }
-      try! localFileSystem.changeCurrentWorkingDirectory(to: path)
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
       defer { try! localFileSystem.changeCurrentWorkingDirectory(to: preserveCwd) }
 
       let diags = DiagnosticsEngine()
@@ -1451,7 +1451,7 @@ final class SwiftDriverTests: XCTestCase {
       guard let preserveCwd = localFileSystem.currentWorkingDirectory else {
         fatalError()
       }
-      try! localFileSystem.changeCurrentWorkingDirectory(to: path)
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
       defer { try! localFileSystem.changeCurrentWorkingDirectory(to: preserveCwd) }
 
       try localFileSystem.createDirectory(path.appending(component: "subdir"))
@@ -5151,7 +5151,7 @@ final class SwiftDriverTests: XCTestCase {
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "build")
 
       let errorOutputFile = path.appending(component: "dummy_error_stream")
-      TSCBasic.stderrStream = try! ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
+      TSCBasic.stderrStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
 
       let libObj: AbsolutePath = root.appending(component: "lib.o")
       let mainObj: AbsolutePath = root.appending(component: "main.o")

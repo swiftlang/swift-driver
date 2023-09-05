@@ -932,9 +932,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             main.nativePathString(escaped: true)] + sdkArgumentsForTesting
 
       let deps =
-        try! dependencyOracle.getImports(workingDirectory: path,
-                                         moduleAliases: ["Car": "Bar"],
-                                         commandLine: scannerCommand)
+        try dependencyOracle.getImports(workingDirectory: path,
+                                        moduleAliases: ["Car": "Bar"],
+                                        commandLine: scannerCommand)
 
       XCTAssertTrue(deps.imports.contains("Bar"))
       XCTAssertFalse(deps.imports.contains("Car"))
@@ -1192,8 +1192,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
         scannerCommand.removeFirst()
       }
       let dependencyGraph =
-          try! dependencyOracle.getDependencies(workingDirectory: path,
-                                                commandLine: scannerCommand)
+          try dependencyOracle.getDependencies(workingDirectory: path,
+                                               commandLine: scannerCommand)
 
       let fooDependencyInfo = try XCTUnwrap(dependencyGraph.modules[.swiftPrebuiltExternal("Foo")])
       guard case .swiftPrebuiltExternal(let fooDetails) = fooDependencyInfo.details else {
@@ -1299,8 +1299,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             main.nativePathString(escaped: true)] + sdkArgumentsForTesting
 
       let imports =
-        try! dependencyOracle.getImports(workingDirectory: path,
-                                         commandLine: scannerCommand)
+        try dependencyOracle.getImports(workingDirectory: path,
+                                        commandLine: scannerCommand)
       let expectedImports = ["C", "E", "G", "Swift", "SwiftOnoneSupport"]
       // Dependnig on how recent the platform we are running on, the _Concurrency module may or may not be present.
       let expectedImports2 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency"]
@@ -1414,9 +1414,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
         scannerCommand.removeFirst()
       }
       let _ =
-          try! dependencyOracle.getDependencies(workingDirectory: path,
-                                                commandLine: scannerCommand)
-      let potentialDiags = try! dependencyOracle.getScannerDiagnostics()
+          try dependencyOracle.getDependencies(workingDirectory: path,
+                                               commandLine: scannerCommand)
+      let potentialDiags = try dependencyOracle.getScannerDiagnostics()
       XCTAssertEqual(potentialDiags?.count, 5)
       let diags = try XCTUnwrap(potentialDiags)
       let error = diags[0]
@@ -1748,7 +1748,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
 
       let firstScanGraph =
-        try! firstDependencyOracle.getDependencies(workingDirectory: path,
+        try firstDependencyOracle.getDependencies(workingDirectory: path,
                                               commandLine: scannerCommand)
       firstDependencyOracle.serializeScannerCache(to: cacheSavePath)
 
@@ -1762,8 +1762,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
       XCTAssertFalse(secondDependencyOracle.loadScannerCache(from: cacheSavePath))
       let secondScanGraph =
-        try! secondDependencyOracle.getDependencies(workingDirectory: path,
-                                                    commandLine: scannerCommand)
+        try secondDependencyOracle.getDependencies(workingDirectory: path,
+                                                   commandLine: scannerCommand)
 
       XCTAssertTrue(firstScanGraph.modules.count == secondScanGraph.modules.count)
     }
