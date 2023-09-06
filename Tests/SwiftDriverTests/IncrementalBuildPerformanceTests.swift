@@ -101,7 +101,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
   ) throws -> (OutputFileMap, [SwiftSourceFile]) {
     let workingDirectory = localFileSystem.currentWorkingDirectory!
     let swiftDepsDirPath = try VirtualPath.init(path: swiftDepsDirectory).resolvedRelativePath(base: workingDirectory).absolutePath!
-    let withoutExtensions: ArraySlice<Substring> = try! localFileSystem.getDirectoryContents(swiftDepsDirPath)
+    let withoutExtensions: ArraySlice<Substring> = try localFileSystem.getDirectoryContents(swiftDepsDirPath)
       .compactMap {
         fileName -> Substring? in
         guard let suffixRange = fileName.range(of: ".swiftdeps"),
