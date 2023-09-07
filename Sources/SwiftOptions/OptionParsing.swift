@@ -153,7 +153,7 @@ extension OptionTable {
           throw OptionParseError.unknownOption(
             index: index - 1, argument: argument)
         }
-        parsedOptions.addOption(.DASHDASH, argument: .single("--"))
+        parsedOptions.addOption(.DASHDASH, argument: .multiple(Array()))
         arguments[index...].map { String($0) }.forEach { parsedOptions.addInput($0) }
         index = arguments.endIndex
 
