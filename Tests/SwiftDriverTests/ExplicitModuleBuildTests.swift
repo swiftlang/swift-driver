@@ -1791,6 +1791,18 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertTrue(scanJobCommand.contains(swiftInputWithoutSpace))
   }
 
+  func testDependencyGraphTransitiveClosure() throws {
+    let moduleDependencyGraph =
+          try JSONDecoder().decode(
+            InterModuleDependencyGraph.self,
+            from: ModuleDependenciesInputs.simpleDependencyGraphInputWithSwiftOverlayDep.data(using: .utf8)!)
+    let reachabilityMap = try moduleDependencyGraph.computeTransitiveClosure()
+    let mainModuleDependencies = try XCTUnwrap(reachabilityMap[.swift("simpleTestModule")])
+    let aModuleDependencies = try XCTUnwrap(reachabilityMap[.swift("A")])
+    XCTAssertTrue(mainModuleDependencies.contains(.swift("B")))
+    XCTAssertTrue(aModuleDependencies.contains(.swift("B")))
+  }
+
   func testExplicitSwiftModuleMap() throws {
     let jsonExample : String = """
     [

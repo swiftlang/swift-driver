@@ -515,6 +515,112 @@ enum ModuleDependenciesInputs {
     """
   }
 
+  static var simpleDependencyGraphInputWithSwiftOverlayDep: String {
+    """
+    {
+      "mainModuleName": "simpleTestModule",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies": [
+            {
+              "clang": "B"
+            }
+          ],
+          "details": {
+            "swift": {
+              "moduleInterfacePath": "A.swiftmodule/A.swiftinterface",
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ],
+              "swiftOverlayDependencies": [
+                {
+                  "swift": "B"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "swift": "simpleTestModule"
+        },
+        {
+          "modulePath": "simpleTestModule.swiftmodule",
+          "sourceFiles": [
+            "/main/simpleTestModule.swift"
+          ],
+          "directDependencies": [
+            {
+              "swift": "A"
+            },
+          ],
+          "details": {
+            "swift": {
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "swift" : "B"
+        },
+        {
+          "modulePath" : "B.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies" : [
+    
+          ],
+          "details" : {
+            "swift" : {
+              "moduleInterfacePath": "B.swiftmodule/B.swiftinterface",
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ],
+            }
+          }
+        },
+        {
+          "clang": "B"
+        },
+        {
+          "modulePath": "B.pcm",
+          "sourceFiles": [
+            "/B/module.map",
+            "/B/include/b.h"
+          ],
+          "directDependencies": [
+          ],
+          "details": {
+            "clang": {
+              "moduleMapPath": "/B/module.map",
+              "contextHash": "2QEMRLNY63H2N",
+              "commandLine": [
+                "-remove-preceeding-explicit-module-build-incompatible-options",
+                "-fno-implicit-modules",
+                "-emit-module",
+                "-fmodule-name=c_simd"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
   static var mergeGraphInput2: String {
     """
     {

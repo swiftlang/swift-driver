@@ -57,7 +57,15 @@ extension InterModuleDependencyGraph {
   var topologicalSorting: [ModuleDependencyId] {
     get throws {
       try topologicalSort(Array(modules.keys),
-                          successors: { try moduleInfo(of: $0).directDependencies! })
+                          successors: {
+        var dependencies: [ModuleDependencyId] = []
+        let moduleInfo = try moduleInfo(of: $0)
+        dependencies.append(contentsOf: moduleInfo.directDependencies ?? [])
+        if case .swift(let swiftModuleDetails) = moduleInfo.details {
+          dependencies.append(contentsOf: swiftModuleDetails.swiftOverlayDependencies ?? [])
+        }
+        return dependencies
+      })
     }
   }
 
@@ -71,7 +79,7 @@ extension InterModuleDependencyGraph {
   ///     T(v) = T(v) ∪ T(w)
   ///   }
   /// }
-  func computeTransitiveClosure() throws -> [ModuleDependencyId : Set<ModuleDependencyId>] {
+  @_spi(Testing) public func computeTransitiveClosure() throws -> [ModuleDependencyId : Set<ModuleDependencyId>] {
     let topologicalIdList = try self.topologicalSorting
     // This structure will contain the final result
     var transitiveClosureMap =
