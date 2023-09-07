@@ -336,13 +336,16 @@ extension Driver {
     // CAS related options.
     if enableCaching {
       commandLine.appendFlag(.cacheCompileJob)
-      if !casPath.isEmpty {
+      if let casPath = try getOnDiskCASPath() {
         commandLine.appendFlag(.casPath)
-        commandLine.appendFlag(casPath)
+        commandLine.appendFlag(casPath.pathString)
       }
-      try commandLine.appendLast(.cacheRemarks, from: &parsedOptions)
-      try commandLine.appendLast(.casPluginPath, from: &parsedOptions)
+      if let pluginPath = try getCASPluginPath() {
+        commandLine.appendFlag(.casPluginPath)
+        commandLine.appendFlag(pluginPath.pathString)
+      }
       try commandLine.appendAll(.casPluginOption, from: &parsedOptions)
+      try commandLine.appendLast(.cacheRemarks, from: &parsedOptions)
     }
     if useClangIncludeTree {
       commandLine.appendFlag(.clangIncludeTree)

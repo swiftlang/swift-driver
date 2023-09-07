@@ -270,7 +270,6 @@ public struct Driver {
   /// CAS/Caching related options.
   let enableCaching: Bool
   let useClangIncludeTree: Bool
-  let casPath: String
 
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
@@ -595,13 +594,6 @@ public struct Driver {
     let cachingEnableOverride = parsedOptions.hasArgument(.driverExplicitModuleBuild) && env.keys.contains("SWIFT_ENABLE_CACHING")
     self.enableCaching = parsedOptions.hasArgument(.cacheCompileJob) || cachingEnableOverride
     self.useClangIncludeTree = enableCaching && env.keys.contains("SWIFT_CACHING_USE_INCLUDE_TREE")
-    if let casPathOpt = parsedOptions.getLastArgument(.casPath)?.asSingle {
-      self.casPath = casPathOpt.description
-    } else if let cacheEnv = env["CCHROOT"] {
-      self.casPath = cacheEnv
-    } else {
-      self.casPath = ""
-    }
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
@@ -3468,5 +3460,34 @@ extension Driver {
     }
 
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
+  }
+}
+
+// CAS and Caching.
+extension Driver {
+  mutating func getCASPluginPath() throws -> AbsolutePath? {
+    if let pluginOpt = parsedOptions.getLastArgument(.casPluginOption)?.asSingle {
+      return try AbsolutePath(validating: pluginOpt.description)
+    }
+    return try toolchain.lookupToolchainCASPluginLib()
+  }
+
+  mutating func getOnDiskCASPath() throws -> AbsolutePath? {
+    if let casPathOpt = parsedOptions.getLastArgument(.casPath)?.asSingle {
+      return try AbsolutePath(validating: casPathOpt.description)
+    }
+    return nil;
+  }
+
+  mutating func getCASPluginOptions() throws -> [(String, String)] {
+    var options : [(String, String)] = []
+    for opt in parsedOptions.arguments(for: .casPluginOption) {
+      let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
+      if pluginArg.count != 2 {
+        throw Error.invalidArgumentValue(Option.casPluginOption.spelling, opt.argument.asSingle)
+      }
+      options.append((String(pluginArg[0]), String(pluginArg[1])))
+    }
+    return options
   }
 }
