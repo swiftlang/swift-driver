@@ -2907,6 +2907,18 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDashDashImmediateInput() throws {
+    do {
+      var driver = try Driver(args: ["swift", "--", "main.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .interpret)
+      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
+      XCTAssertEqual(plannedJobs[0].inputs[0].file, VirtualPath.relative(RelativePath("main.swift")))
+    }
+  }
+
   func testWholeModuleOptimizationOutputFileMap() throws {
     let contents = """
     {

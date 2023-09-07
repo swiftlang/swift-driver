@@ -75,7 +75,11 @@ extension ParsedOption: CustomStringConvertible {
       return option.spelling + " " + argument.asSingle.spm_shellEscaped()
 
     case .remaining:
-      return argument.asSingle
+      let args = argument.asMultiple
+      if args.isEmpty {
+        return option.spelling
+      }
+      return option.spelling + " " + argument.asMultiple.map { $0.spm_shellEscaped() }.joined(separator: " ")
     }
   }
 }
