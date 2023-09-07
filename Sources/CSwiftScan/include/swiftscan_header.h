@@ -275,6 +275,11 @@ typedef struct {
 
   //=== Scanner CAS Operations ----------------------------------------------===//
   swiftscan_cas_t (*swiftscan_cas_create)(const char *path);
+  swiftscan_cas_t (*swiftscan_cas_create_from_plugin)(const char *plugin_path,
+                                                      const char *ondisk_path,
+                                                      int argc,
+                                                      const char **keys,
+                                                      const char **values);
   void (*swiftscan_cas_dispose)(swiftscan_cas_t cas);
   swiftscan_string_ref_t (*swiftscan_cas_store)(swiftscan_cas_t cas,
                                                 uint8_t *data, unsigned size);

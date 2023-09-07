@@ -1,0 +1,4 @@
+module CToolchainCASPlugin {
+  header "ToolchainCASPlugin_CAPI.h"
+  export *
+}
