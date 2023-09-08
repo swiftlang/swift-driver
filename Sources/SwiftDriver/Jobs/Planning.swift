@@ -599,7 +599,13 @@ extension Driver {
     addJob: (Job) -> Void)
   throws
   {
-    let autolinkInputs = linkerInputs.filter { $0.type == .object }
+    let autolinkInputs = linkerInputs.filter { input in
+      // Shared objects on ELF platforms don't have a swift1_autolink_entries
+      // section in them because the section in the .o files is marked as
+      // SHF_EXCLUDE. They can also be linker scripts which swift-autolink-extract
+      // does not handle.
+      return input.type == .object && !(targetTriple.objectFormat == .elf && input.file.`extension` == "so")
+    }
     if let autolinkExtractJob = try autolinkExtractJob(inputs: autolinkInputs) {
       addJob(autolinkExtractJob)
       autolinkExtractJob.outputs.forEach(addLinkerInput)

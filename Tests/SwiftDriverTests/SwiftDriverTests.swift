@@ -2039,6 +2039,34 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // Linux shared objects (.so) are not offered to autolink-extract
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(
+          path.appending(components: "libEmpty.so")) { $0 <<< "/* empty */" }
+
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "libEmpty.so"], env: env)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 4)
+
+        let autolinkExtractJob = plannedJobs[2]
+        XCTAssertEqual(autolinkExtractJob.kind,.autolinkExtract)
+
+        let autolinkCmd = autolinkExtractJob.commandLine
+        XCTAssertTrue(commandContainsTemporaryPath(autolinkCmd, "foo.o"))
+        XCTAssertTrue(commandContainsTemporaryPath(autolinkCmd, "bar.o"))
+        XCTAssertTrue(commandContainsTemporaryPath(autolinkCmd, "Test.autolink"))
+        XCTAssertFalse(
+          autolinkCmd.contains {
+            guard case .path(let path) = $0 else { return false }
+            if case .relative(let p) = path, p.basename == "libEmpty.so" { return true }
+            return false
+          }
+        )
+      }
+    }
+
+    do {
       // static linux linking
       var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-target", "x86_64-unknown-linux"], env: env)
       let plannedJobs = try driver.planBuild()
