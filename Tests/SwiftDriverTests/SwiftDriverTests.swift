@@ -1683,7 +1683,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1719,7 +1719,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1739,7 +1739,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1759,7 +1759,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1856,7 +1856,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1876,7 +1876,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1906,7 +1906,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1939,7 +1939,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1961,7 +1961,7 @@ final class SwiftDriverTests: XCTestCase {
       #if os(macOS)
       var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], env: env)
       let plannedJobs1 = try driver1.planBuild()
-      XCTAssertFalse(plannedJobs1.contains(where: { $0.kind == .autolinkExtract }))
+      XCTAssertFalse(plannedJobs1.containsJob(.autolinkExtract))
       let linkJob1 = try plannedJobs1.findJob(.link)
       XCTAssertTrue(linkJob1.tool.name.contains("clang"))
       XCTAssertTrue(linkJob1.commandLine.contains(.flag("-flto=thin")))
@@ -1969,7 +1969,7 @@ final class SwiftDriverTests: XCTestCase {
 
       var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-O", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
       let plannedJobs2 = try driver2.planBuild()
-      XCTAssertFalse(plannedJobs2.contains(where: { $0.kind == .autolinkExtract }))
+      XCTAssertFalse(plannedJobs2.containsJob(.autolinkExtract))
       let linkJob2 = try plannedJobs2.findJob(.link)
       XCTAssertTrue(linkJob2.tool.name.contains("clang"))
       XCTAssertTrue(linkJob2.commandLine.contains(.flag("-flto=thin")))
@@ -1977,7 +1977,7 @@ final class SwiftDriverTests: XCTestCase {
 
       var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
       let plannedJobs3 = try driver3.planBuild()
-      XCTAssertFalse(plannedJobs3.contains(where: { $0.kind == .autolinkExtract }))
+      XCTAssertFalse(plannedJobs3.containsJob(.autolinkExtract))
 
       let compileJob3 = try plannedJobs3.findJob(.compile)
       XCTAssertTrue(compileJob3.outputs.contains { $0.file.basename.hasSuffix(".bc") })
@@ -4567,7 +4567,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .generateDSYM })
+      XCTAssertFalse(plannedJobs.containsJob(.generateDSYM))
     }
 
     do {
@@ -4576,7 +4576,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .generateDSYM })
+      XCTAssertFalse(plannedJobs.containsJob(.generateDSYM))
     }
 
     do {
@@ -4594,7 +4594,7 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild()
 
       XCTAssertEqual(jobs.count, 3)
-      XCTAssertFalse(jobs.contains { $0.kind == .generateDSYM })
+      XCTAssertFalse(jobs.containsJob(.generateDSYM))
     }
 
     do {
@@ -4694,7 +4694,7 @@ final class SwiftDriverTests: XCTestCase {
       verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+      XCTAssertFalse(plannedJobs.containsJob(.verifyDebugInfo))
     }
 
     // No dSYM generation (-gnone), therefore no verification
@@ -4702,7 +4702,7 @@ final class SwiftDriverTests: XCTestCase {
       verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+      XCTAssertFalse(plannedJobs.containsJob(.verifyDebugInfo))
     }
 
     do {
@@ -5554,7 +5554,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-library-level", "api"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertTrue(plannedJobs.contains() {$0.kind == .verifyModuleInterface})
+      XCTAssertTrue(plannedJobs.containsJob(.verifyModuleInterface))
     }
 
     // Not enabled by default when the library-level is spi.
@@ -7325,6 +7325,11 @@ extension Array where Element == Job {
     var filtered = self
     filtered.removeAll(where: { $0.kind == .autolinkExtract })
     return filtered
+  }
+
+  /// Returns true if a job with the given Kind is contained in the array.
+  func containsJob(_ kind: Job.Kind) -> Bool {
+    return contains(where: { $0.kind == kind })
   }
 
   /// Finds the first job with the given kind, or throws if one cannot be found.
